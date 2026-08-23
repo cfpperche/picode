@@ -1,0 +1,175 @@
+// Package term bridges WebSocket connections to tmux sessions for the
+// embedded terminal UI (ADR-0002 terminal channel).
+//
+// Protocol (per connection):
+//   - Binary frames: raw terminal bytes, both directions.
+//   - Text frames:   JSON control messages from the client, currently
+//     {"type":"resize","cols":N,"rows":M}.
+//
+// The tmux session lives on the tmux server; each WebSocket attach spawns
+// a short-lived `tmux attach` in a PTY. Closing the WebSocket (or the
+// browser tab) ends only the attach — the agent keeps running.
+package term
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"sync"
+	"time"
+
+	"github.com/creack/pty"
+	"github.com/gorilla/websocket"
+
+	"github.com/cfpperche/picode/internal/tmux"
+)
+
+const (
+	writeWait  = 10 * time.Second
+	pongWait   = 60 * time.Second
+	pingPeriod = 50 * time.Second
+)
+
+var upgrader = websocket.Upgrader{
+	// Localhost-first tool (see architecture.md security model); the UI
+	// is served from the same origin, and terminal-averse users won't be
+	// blocked by origin quirks during local development.
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+// Bridge returns the /ws/term handler. Query: ?session=<tmux session name>.
+func Bridge(tm *tmux.Manager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := r.URL.Query().Get("session")
+		if !tmux.OwnedSessionName(name) {
+			http.Error(w, "unknown or invalid session", http.StatusBadRequest)
+			return
+		}
+		exists, err := tm.HasSession(r.Context(), name)
+		if err != nil {
+			http.Error(w, "tmux unavailable", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			http.Error(w, "session not running", http.StatusNotFound)
+			return
+		}
+
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return // Upgrade already wrote the HTTP error.
+		}
+		defer ws.Close()
+
+		// Initial size; the client sends a resize right after attach.
+		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)
+		ptyFile, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
+		if err != nil {
+			writeError(ws, "cannot attach to session: "+err.Error())
+			return
+		}
+		defer func() { _ = ptyFile.Close() }() // closing the pty ends the attach process
+
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+
+		var once sync.Once
+		stop := func() { once.Do(func() { cancel(); _ = ptyFile.Close() }) }
+
+		// pty -> websocket
+		go func() {
+			defer stop()
+			buf := make([]byte, 32*1024)
+			for {
+				n, rerr := ptyFile.Read(buf)
+				if n > 0 {
+					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+					if werr := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); werr != nil {
+						return
+					}
+				}
+				if rerr != nil {
+					return
+				}
+			}
+		}()
+
+		// websocket -> pty (plus control messages)
+		go func() {
+			defer stop()
+			_ = ws.SetReadDeadline(time.Now().Add(pongWait))
+			ws.SetPongHandler(func(string) error {
+				return ws.SetReadDeadline(time.Now().Add(pongWait))
+			})
+			for {
+				msgType, data, rerr := ws.ReadMessage()
+				if rerr != nil {
+					return
+				}
+				switch msgType {
+				case websocket.TextMessage:
+					handleControl(ptyFile, data)
+				case websocket.BinaryMessage:
+					if _, werr := ptyFile.Write(data); werr != nil {
+						return
+					}
+				}
+			}
+		}()
+
+		// keepalive pings
+		go func() {
+			ticker := time.NewTicker(pingPeriod)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+					if perr := ws.WriteMessage(websocket.PingMessage, nil); perr != nil {
+						return
+					}
+				}
+			}
+		}()
+
+		<-ctx.Done()
+	})
+}
+
+type controlMessage struct {
+	Type string `json:"type"`
+	Cols uint16 `json:"cols"`
+	Rows uint16 `json:"rows"`
+}
+
+func handleControl(ptyFile *os.File, data []byte) {
+	var msg controlMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return
+	}
+	if msg.Type != "resize" || msg.Cols == 0 || msg.Rows == 0 {
+		return
+	}
+	if err := pty.Setsize(ptyFile, &pty.Winsize{Rows: msg.Rows, Cols: msg.Cols}); err != nil {
+		log.Printf("term: resize %dx%d: %v", msg.Cols, msg.Rows, err)
+	}
+}
+
+func writeError(ws *websocket.Conn, msg string) {
+	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+	_ = ws.WriteMessage(websocket.TextMessage,
+		mustJSON(map[string]string{"type": "error", "message": msg}))
+}
+
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte(`{"type":"error","message":"internal"}`)
+	}
+	return b
+}

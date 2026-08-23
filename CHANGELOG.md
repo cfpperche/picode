@@ -13,6 +13,27 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **M1 — Terminal grid** (complete vertical slice):
+  - `picode screenshot --url --out [--full --width --height --wait-ms]`
+    subcommand (chromedp) powering the visual-review loop end-to-end.
+  - tmux session manager (`internal/tmux`): create/kill/list with a
+    `picode-` namespace, exact-name matching (`=` prefix), sanitized ids,
+    availability/version/extended-keys detection.
+  - Terminal bridge (`internal/term`): WebSocket ↔ PTY (`tmux attach`);
+    binary frames carry terminal bytes, text frames carry `resize`
+    control messages; detaching never kills the agent.
+  - Workspace registry (`internal/workspace`): file-backed JSON at
+    `~/.picode/workspaces.json`, idempotent add, validation.
+  - HTTP API: workspace CRUD + open/close lifecycle + `running` status,
+    `GET /api/system` (pi/tmux detection with actionable warnings).
+  - UI: dark-first terminal grid (vanilla ES, vendored xterm.js 5.5.0 +
+    fit addon — ADR-0004) — sidebar workspaces with status dots, tabs,
+    teaching empty state, auto-attach to running agents on load.
+- **ADR-0004**: frontend framework decision deferred with explicit
+  adoption thresholds.
+- **First visual evidence**: `docs/screenshots/m1-termgrid-first-look.png`
+  (capture pipeline proven; visual verdict UNVERIFIED — see handoff).
+
 - **Visual validation loop**: new `visual-review` skill (capture → read
   pixels → judge against Cursor bar/benchmarks → verdict + evidence),
   `docs/screenshots/` for committed evidence, gitignored `var/` working
@@ -33,6 +54,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Dependencies: chromedp, gorilla/websocket, creack/pty added (each with
+  justification; go.mod toolchain follows current Go).
 - **Official language set to English**: changelog, docs references and skills
   translated; language policy added to `AGENTS.md` and `CONTRIBUTING.md`.
 

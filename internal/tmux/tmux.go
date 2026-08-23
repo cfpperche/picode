@@ -1,0 +1,177 @@
+// Package tmux manages tmux sessions for interactive Pi agents
+// (ADR-0002: dual-channel control). Sessions created by PiCode carry a
+// `picode-` name prefix — we only ever list and kill our own sessions.
+package tmux
+
+import (
+	"context"
+	"fmt"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Prefix marks tmux sessions owned by PiCode.
+const Prefix = "picode-"
+
+// Session describes a tmux session owned by PiCode.
+type Session struct {
+	Name     string    `json:"name"`
+	Created  time.Time `json:"created"`
+	Attached bool      `json:"attached"`
+	Windows  int       `json:"windows"`
+}
+
+// Manager wraps tmux CLI operations. All methods are safe for concurrent
+// use (each spawns its own tmux invocation).
+type Manager struct{}
+
+// New returns a Manager.
+func New() *Manager { return &Manager{} }
+
+// Available reports whether a tmux binary is on PATH.
+func (m *Manager) Available() bool {
+	_, err := exec.LookPath("tmux")
+	return err == nil
+}
+
+// Version returns the tmux version string (e.g. "3.6").
+func (m *Manager) Version() (string, error) {
+	out, err := exec.Command("tmux", "-V").Output()
+	if err != nil {
+		return "", fmt.Errorf("tmux -V: %w", err)
+	}
+	v := strings.TrimSpace(string(out))
+	return strings.TrimPrefix(v, "tmux "), nil
+}
+
+// OwnedSessionName reports whether name is a syntactically valid,
+// PiCode-owned session name (prefix + non-empty sanitized id).
+func OwnedSessionName(name string) bool {
+	return strings.HasPrefix(name, Prefix) && len(name) > len(Prefix) && !strings.ContainsAny(name, ".:")
+}
+
+// SessionName derives the tmux session name for a workspace/agent id.
+// Ids are sanitized to [a-z0-9-]: dots and colons are tmux target
+// separators and would corrupt lookups (verified against tmux 3.6 —
+// even the "=" exact-match prefix does not protect dotted names).
+func SessionName(id string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(id) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '_', r == '-', r == '.', r == ' ', r == '/', r == ':':
+			b.WriteRune('-')
+		}
+	}
+	name := Prefix + b.String()
+	name = strings.TrimRight(name, "-")
+	if len(name) > 60 { // tmux session name length cap (with margin)
+		name = name[:60]
+	}
+	return name
+}
+
+func (m *Manager) run(ctx context.Context, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), fmt.Errorf("tmux %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return string(out), nil
+}
+
+// HasSession reports whether a tmux session with the given name exists.
+// The "=" prefix forces exact-name matching so dots in names can't be
+// parsed as session.window targets.
+func (m *Manager) HasSession(ctx context.Context, name string) (bool, error) {
+	out, err := m.run(ctx, "has-session", "-t", "="+name)
+	if err == nil {
+		return true, nil
+	}
+	// tmux exits 1 for both "no such session" and real failures; the
+	// message distinguishes them. A stopped server also means "no".
+	notThere := []string{
+		"can't find session", "no such session",
+		"can't find window", "can't find pane", // dotted-name lookups miss here
+		"no server running", "error connecting to",
+	}
+	for _, msg := range notThere {
+		if strings.Contains(out, msg) {
+			return false, nil
+		}
+	}
+	return false, fmt.Errorf("tmux has-session %q: %s", name, out)
+}
+
+// NewSession creates a detached session named name, rooted at cwd, running
+// the given command. It errors if the session already exists.
+func (m *Manager) NewSession(ctx context.Context, name, cwd string, command string, args ...string) error {
+	if exists, err := m.HasSession(ctx, name); err != nil {
+		return err
+	} else if exists {
+		return fmt.Errorf("tmux session %q already exists", name)
+	}
+	full := append([]string{"new-session", "-d", "-s", name, "-c", cwd, "--", command}, args...)
+	_, err := m.run(ctx, full...)
+	return err
+}
+
+// KillSession terminates the session. Killing a missing session is a no-op.
+func (m *Manager) KillSession(ctx context.Context, name string) error {
+	exists, err := m.HasSession(ctx, name)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err = m.run(ctx, "kill-session", "-t", "="+name)
+	return err
+}
+
+// ListSessions returns PiCode-owned tmux sessions (prefix filter).
+func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
+	out, err := m.run(ctx, "list-sessions", "-F",
+		"#{session_name}\t#{session_created}\t#{session_attached}\t#{session_windows}")
+	if err != nil {
+		// No server running means no sessions at all.
+		if strings.Contains(out, "no server running") || strings.Contains(out, "error connecting") {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("tmux list-sessions: %s", out)
+	}
+	var sessions []Session
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 4 || !strings.HasPrefix(parts[0], Prefix) {
+			continue
+		}
+		createdUnix, _ := strconv.ParseInt(parts[1], 10, 64)
+		windows, _ := strconv.Atoi(parts[3])
+		sessions = append(sessions, Session{
+			Name:     parts[0],
+			Created:  time.Unix(createdUnix, 0).UTC(),
+			Attached: parts[2] == "1",
+			Windows:  windows,
+		})
+	}
+	return sessions, nil
+}
+
+// ExtendedKeysFormat returns the server's `extended-keys-format` option
+// value ("csi-u", "xterm", ...). Pi recommends `csi-u` so modifier keys
+// (Shift+Enter, Ctrl+Enter) survive the hop (see Pi's tmux docs).
+// An error means no tmux server is running yet.
+func (m *Manager) ExtendedKeysFormat(ctx context.Context) (string, error) {
+	out, err := m.run(ctx, "show-options", "-gv", "extended-keys-format")
+	if err != nil {
+		return "", fmt.Errorf("tmux show-options: %s", strings.TrimSpace(out))
+	}
+	return strings.TrimSpace(out), nil
+}

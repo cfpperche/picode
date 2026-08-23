@@ -10,74 +10,70 @@
 
 ## Current state (read this first)
 
-**Phase: M0 — Bootstrap (complete). M1 — Terminal grid (next).**
+**Phase: M1 — Terminal grid (complete). M2 — Agent panel (next).**
 
 What exists right now:
-- Repo public at `cfpperche/picode`, MIT, CI (gofmt/vet/test/build) green.
-- Documentation system live: philosophy, architecture, benchmarks,
-  **Cursor benchmark** (`docs/benchmark-cursor.md`), ADRs 0001–0003, this handoff.
-- Pi harness: `AGENTS.md` contract, skills `quality-gate`, `uiux-review`,
-  `handoff-update` in `.pi/skills/`.
-- Go skeleton compiling: `picode` binary serves embedded UI at `/`,
-  `/api/health`, `/api/version`. Placeholder page with live health check.
-- No frontend framework chosen yet (candidate decision: React vs Svelte —
-  needs ADR-0004 when M1 starts).
+- Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
+- **M1 shipped**: `picode screenshot` subcommand (chromedp); tmux manager
+  (`internal/tmux`, `picode-` namespace, `=` exact matching, sanitized ids);
+  WS↔PTY terminal bridge (`internal/term`, binary=data / text=resize JSON);
+  workspace registry (`~/.picode/workspaces.json`); HTTP API (workspace
+  CRUD, open/close lifecycle, `/api/system` detection); dark-first UI
+  (vanilla ES + vendored xterm.js 5.5.0, ADR-0004) with sidebar cards,
+  tabs, teaching empty state, auto-attach on load.
+- Docs system: philosophy, architecture (updated for M1), benchmarks,
+  Cursor benchmark, ADRs 0001–0004, this handoff.
+- Pi harness: `AGENTS.md` contract + 4 skills (quality-gate, uiux-review,
+  visual-review, handoff-update).
+- 16 tests across 4 packages (tmux/term integration tests skip gracefully
+  where tmux is absent; ubuntu CI installs tmux).
+
+## Visual review status — IMPORTANT SYSTEMIC FINDING
+
+`visual-review: UNVERIFIED` for the M1 UI. The capture pipeline works
+(`docs/screenshots/m1-termgrid-first-look.png`, 1440×900, committed), but
+**the session model used for M1 development does not accept image input**
+— `read` on a PNG returns "model does not support images". Programmatic
+pixel checks passed (dark tokens present, sidebar card rendered, green
+pi-brand pixels in the terminal area), but that is NOT a visual verdict.
+→ **Action for next session: run visual review with a vision-capable model
+(or human) against the committed screenshot before polishing UI further.**
+The `visual-review` skill already covers this escape hatch.
 
 ## In flight
 
-- Nothing. Tree is clean, CI green, no half-done work.
+- Nothing. Tree clean, all gates pass. (Server/tmux test sessions cleaned up.)
 
-## Next up (M1 — Terminal grid, in order)
+## Next up (M2 — Agent panel, in order)
 
-0. **Screenshot tooling**: `picode screenshot --url --out` subcommand via
-   chromedp (justified dependency: mature CDP client, does what stdlib
-   can't) — enables the `/skill:visual-review` loop end-to-end. Requires
-   Chrome/Chromium locally; document it.
-
-1. **tmux session manager** (`internal/tmux/`): create/kill/list sessions;
-   require tmux ≥ 3.5 + `extended-keys-format csi-u`; write recommended
-   config into the user's tmux setup flow (or document clearly).
-2. **PTY WebSocket bridge** (`internal/term/`): attach xterm.js ↔ tmux
-   session via WebSocket; survive disconnect; resize handling.
-3. **Workspace registry** (`internal/workspace/`): data dir, list/add/remove
-   workspaces (folders), spawn `pi` inside each as tmux session.
-4. **Minimal UI**: terminal grid — one tab per agent/workspace, xterm.js,
-   "New workspace" flow (empty state that teaches, per benchmarks); apply
-   design tokens/density from `docs/benchmark-cursor.md`.
-5. ADR-0004: frontend framework decision (bring criteria to the table).
+1. **RPC agent manager** (`internal/rpc/`): spawn `pi --mode rpc` per
+   workspace (alongside the tmux agent), JSONL client with strict `\n`
+   framing (never split on U+2028/U+2029), event fan-out to WebSocket.
+2. **Agent panel UI**: live status, streaming output, tool-call rows
+   (Cursor bar: ≤32px collapsed, expandable), task input with
+   `steer`/`follow_up` semantics.
+3. **Diff view**: surface agent edits from tool-call events.
+4. **Command palette** (`Ctrl+K`): switch agent/workspace, send task.
+5. ADR-0005: workspace registry persistence — already JSON file; decide
+   if/when SQLite or similar is ever needed (probably never — lean simple).
 
 ## Known debts / open questions
 
-- Persistence format for the workspace registry (JSON file vs SQLite) —
-  decide with ADR-0005 when workspace registry lands.
-- Security token auth: current skeleton binds localhost only; when we add
-  `--listen`, token auth is mandatory (contract in architecture.md).
-- Frontend has zero build tooling — `internal/web/public/` is hand-written.
-  Introduce tooling (vite) only when M1 UI work starts, keep `go:embed`
-  pipeline intact.
-- Branch protection + CODEOWNERS on GitHub — needs manual setup or rulesets
-  API (owner action, listed here so it's not forgotten).
+- **Visual verdicts require a vision-capable model** (see finding above).
+- tmux-gated tests skip on windows/macos runners (tmux absent); ubuntu CI
+  covers them. Accepted; alternative (CI tmux on all OSes) not worth it now.
+- Token auth: still localhost-only bind; `--listen` beyond localhost must
+  ship with token auth (contract in architecture.md security model).
+- Vendored xterm.js 5.5.0 + fit addon need a manual upgrade story
+  (note in ADR-0004); track upstream releases occasionally.
+- Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
 ## Recent activity
 
-- **2026-08-23** — Visual validation loop designed + harnessed: `visual-review`
-  skill (never judge without pixels; UNVERIFIED escape hatch), `docs/screenshots/`
-  evidence dir, `var/` gitignored. M1 gains step 0: chromedp screenshot subcommand.
-
-- **2026-08-23** — MCP strategy documented: Pi has no native MCP (by design);
-  PiCode adopts `pi-mcp-adapter` (proxy-tool extension, lazy servers, imports
-  Cursor/Claude/Codex configs). Visual MCP Server Manager planned M3–M4.
-
-- **2026-08-23** — Benchmarks: Cursor added as product + aesthetic north star
-  (`docs/benchmark-cursor.md`): 10 product patterns mapped to milestones,
-  design tokens + density rules, explicit rejects (no editor, no hidden
-  harness, no proprietary formats). `uiux-review` skill gains a Cursor bar.
-
+- **2026-08-23** — M1 complete: screenshot tooling, tmux manager, WS↔PTY
+  bridge, workspace registry + API, terminal-grid UI, ADR-0004 (defer
+  framework). First screenshot evidence committed; visual verdict honestly
+  UNVERIFIED (session model lacks image input — recorded above).
 - **2026-08-23** — Language policy: English is now the repository's official
   language. Changelog, README, CONTRIBUTING, benchmarks and skills
   translated; policy recorded in AGENTS.md + CONTRIBUTING.md.
-- **2026-08-23** — CI: switched to stable Go toolchain; golang/go#67629 broke
-  `-race` on macOS arm64 runners with Go 1.22. Green on linux/macos/windows.
-- **2026-08-23** — Bootstrap (M0): repo created, docs system, ADRs 0001–0003,
-  Pi harness (AGENTS.md + 3 skills), Go skeleton with embedded UI,
-  health/version endpoints + tests, CI, Makefile. Released as 0.1.0.

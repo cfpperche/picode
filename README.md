@@ -72,6 +72,12 @@ cd picode
 make dev          # → http://127.0.0.1:7331
 ```
 
+First run: add a workspace (your project folder), click **Open agent** —
+a real Pi agent starts in the workspace and its full TUI runs in your
+browser tab. Close the tab; the agent keeps running.
+
+![M1 terminal grid](docs/screenshots/m1-termgrid-first-look.png)
+
 ## Documentation
 
 Docs are a **living system** — they evolve with the code, by contract (see
@@ -86,8 +92,8 @@ Docs are a **living system** — they evolve with the code, by contract (see
 
 ## Roadmap
 
-- [ ] **M0 — Bootstrap** (this): repo, docs system, Pi harness, Go skeleton
-- [ ] **M1 — Terminal grid**: multi-tab tmux sessions running real `pi`, per workspace
+- [x] **M0 — Bootstrap**: repo, docs system, Pi harness, Go skeleton (v0.1.0)
+- [x] **M1 — Terminal grid**: multi-tab tmux sessions running real `pi`, per workspace
 - [ ] **M2 — Agent panel**: RPC bridge, live status, tasks (steer/follow-up), diffs
 - [ ] **M3 — Lifecycle**: agent creation wizard, provider auth (`/login` flows), profiles
 - [ ] **M4 — Fleet**: inter-agent broker, plugin/skill manager, session tree browser

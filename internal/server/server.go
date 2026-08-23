@@ -1,7 +1,15 @@
 // Package server exposes the picode HTTP API and the embedded UI.
 //
-// Routes grow with the milestones: M1 adds /ws/term (tmux bridge),
-// M2 adds /ws/agent (RPC bridge). See docs/architecture.md.
+// Routes (M1):
+//
+//	GET  /api/health, /api/version          — liveness/identity
+//	GET  /api/system                        — pi/tmux detection + warnings
+//	GET/POST /api/workspaces                — registry CRUD
+//	DELETE /api/workspaces/{id}             — remove (+ stop agent)
+//	POST /api/workspaces/{id}/open|close    — start/stop the pi agent (tmux)
+//	GET  /ws/term?session=<name>            — terminal bridge (xterm.js)
+//
+// See docs/architecture.md.
 package server
 
 import (
@@ -10,17 +18,32 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cfpperche/picode/internal/term"
+	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/version"
 	"github.com/cfpperche/picode/internal/web"
+	"github.com/cfpperche/picode/internal/workspace"
 )
+
+// Deps carries the server's collaborators (injected for testability).
+type Deps struct {
+	Registry *workspace.Registry
+	Tmux     *tmux.Manager
+	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
+}
 
 // New builds the picode *http.Server. Addr handling stays with the caller
 // (cmd/picode) so tests can bind :0.
-func New(addr string) *http.Server {
+func New(addr string, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/version", handleVersion)
+	mux.HandleFunc("/api/system", handleSystem(deps))
+
+	registerWorkspaceRoutes(mux, deps)
+
+	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
 
 	public, err := fs.Sub(web.Public, "public")
 	if err != nil {
@@ -57,4 +80,8 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 		// Client gone mid-write; nothing useful to do.
 		_ = err
 	}
+}
+
+func writeErr(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }

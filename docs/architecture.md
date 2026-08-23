@@ -48,16 +48,31 @@ agent lives inside tmux; the RPC agent is detached from the browser entirely.
 
 ## Key subsystems
 
-### AgentManager
-Owns agent lifecycle. An agent is defined by: workspace (cwd), model,
-thinking level, config set (extensions/skills/templates). Persists a registry
-in a local data dir (see ADR-0005 when persistence is designed).
+### AgentManager (M1 core shipped)
+Owns agent lifecycle via the workspace registry (`internal/workspace`:
+file-backed JSON at `~/.picode/workspaces.json`). An agent is defined by:
+workspace (cwd), and currently runs as `pi` (ADR-0003, user-installed) in a
+named tmux session. Per-agent model/thinking config, extensions and
+profiles land in M3 with `/ws/agent` structured control.
 
-### TerminalBridge
-One tmux session per interactive agent. WebSocket attach/detach; tmux holds
-scrollback and survives disconnects. Requires tmux ≥ 3.5 with
-`extended-keys on` / `extended-keys-format csi-u` (Pi's own recommendation)
-so modifiers like `Shift+Enter` survive the hop.
+HTTP API (Go 1.22 method patterns):
+- `GET/POST /api/workspaces` — list (with live `running` flag) / add
+- `DELETE /api/workspaces/{id}` — remove (stops the agent first)
+- `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
+- `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
+- `GET /ws/term?session=<name>` — xterm.js bridge
+
+### TerminalBridge ✅ (M1)
+One tmux session per interactive agent (`internal/tmux`: create/kill/list,
+exact-name matching via `=` prefix, PiCode-owned `picode-` name namespace,
+ids sanitized — dots/colons are tmux target separators and corrupt
+lookups). `internal/term` bridges WebSocket ↔ PTY (`tmux attach`):
+binary frames = terminal bytes, text frames = `resize` control JSON;
+closing the tab ends only the attach — the agent keeps running in tmux.
+Resize propagates via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5
+with `extended-keys on` / `extended-keys-format csi-u` (Pi's own
+recommendation) so modifiers like `Shift+Enter` survive the hop;
+`/api/system` detects and warns.
 
 ### RPCBridge
 Speaks Pi's RPC JSONL protocol. Protocol notes that bit us already:

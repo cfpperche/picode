@@ -4,116 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PiCode</title>
-<style>
-  /* Placeholder page — hand-written until M1 introduces a build step (ADR-0004).
-     Dark-first, minimal chrome, per docs/benchmarks.md. */
-  :root {
-    --bg: #0d0f12;
-    --panel: #15181d;
-    --text: #e7eaf0;
-    --muted: #8b93a1;
-    --accent: #7aa2f7;
-    --ok: #9ece6a;
-    --border: #23272f;
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
-  }
-  * { box-sizing: border-box; margin: 0; }
-  body {
-    background: var(--bg); color: var(--text); font-family: var(--sans);
-    min-height: 100vh; display: flex; flex-direction: column;
-  }
-  header {
-    display: flex; align-items: baseline; gap: 14px;
-    padding: 18px 28px; border-bottom: 1px solid var(--border);
-  }
-  header h1 { font-size: 16px; font-weight: 650; letter-spacing: .2px; }
-  header .ver { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-  #health {
-    margin-left: auto; font-family: var(--mono); font-size: 12px;
-    color: var(--muted);
-  }
-  #health.ok { color: var(--ok); }
-  main { flex: 1; display: grid; place-items: center; padding: 32px; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 36px 40px; max-width: 620px;
-  }
-  .card h2 { font-size: 22px; margin-bottom: 10px; }
-  .card p { color: var(--muted); font-size: 14px; line-height: 1.65; }
-  .card code {
-    font-family: var(--mono); font-size: 12.5px; color: var(--accent);
-    background: #1b1f26; padding: 2px 6px; border-radius: 4px;
-  }
-  .next { margin-top: 22px; }
-  .next .label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--muted); margin-bottom: 8px;
-  }
-  .next ol { padding-left: 20px; }
-  .next li { color: var(--muted); font-size: 13.5px; padding: 3px 0; }
-  footer {
-    padding: 14px 28px; border-top: 1px solid var(--border);
-    font-size: 12px; color: var(--muted);
-    display: flex; justify-content: space-between;
-  }
-  footer a { color: var(--muted); text-decoration: none; }
-  footer a:hover { color: var(--text); }
-</style>
+<link rel="stylesheet" href="/vendor/xterm.css">
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <h1>PiCode</h1>
-    <span class="ver" id="ver">v—</span>
-    <span id="health">checking…</span>
-  </header>
+  <div id="app">
+    <aside id="sidebar">
+      <header class="brand">
+        <span class="brand-name">PiCode</span>
+        <span class="brand-ver" id="ver">v—</span>
+      </header>
 
-  <main>
-    <div class="card">
-      <h2>Your agents. From creation.</h2>
-      <p>
-        PiCode is a browser-based Agent Development Environment for
-        <a href="https://pi.dev" style="color:var(--accent)">Pi</a> coding
-        agents: create, configure and orchestrate agents across workspaces —
-        with the real Pi TUI always one tab away.
-      </p>
-      <p style="margin-top:10px">
-        This is the <strong style="color:var(--text)">M0 bootstrap</strong>.
-        Start the dev server with <code>make dev</code> and follow
-        <code>docs/handoff.md</code> in the repository.
-      </p>
-      <div class="next">
-        <div class="label">Next milestone — M1 · Terminal grid</div>
-        <ol>
-          <li>tmux session manager</li>
-          <li>PTY WebSocket bridge (xterm.js)</li>
-          <li>Workspace registry &amp; agent spawn</li>
-          <li>Terminal grid UI</li>
-        </ol>
+      <div id="warnings" class="warnings" hidden></div>
+
+      <div class="side-section">
+        <div class="side-head">
+          <span class="side-title">Workspaces</span>
+          <button id="btn-new" class="btn btn-ghost btn-sm" title="Add a workspace">+ New</button>
+        </div>
+
+        <form id="form-new" class="form-new" hidden>
+          <input id="inp-name" type="text" placeholder="Name (e.g. My App)" autocomplete="off">
+          <input id="inp-path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autocomplete="off">
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            <button type="button" id="btn-cancel" class="btn btn-ghost btn-sm">Cancel</button>
+          </div>
+          <p id="form-error" class="form-error" hidden></p>
+        </form>
+
+        <ul id="ws-list" class="ws-list"></ul>
       </div>
-    </div>
-  </main>
 
-  <footer>
-    <span>MIT · <a href="https://github.com/cfpperche/picode">cfpperche/picode</a></span>
-    <span>door, not cage</span>
-  </footer>
+      <footer class="side-foot">
+        <span id="sys-status" class="sys-status">checking system…</span>
+      </footer>
+    </aside>
 
-<script>
-  // Live wiring of the two real endpoints — proves server + embed work.
-  fetch("/api/health")
-    .then(r => r.json())
-    .then(b => {
-      const el = document.getElementById("health");
-      el.textContent = "healthy · " + b.time;
-      el.classList.add("ok");
-    })
-    .catch(() => { document.getElementById("health").textContent = "offline"; });
+    <main id="main">
+      <div id="empty" class="empty">
+        <div class="empty-card">
+          <h2>Your agents. From creation.</h2>
+          <p>Add your project folder as a workspace, then start a Pi agent in it.</p>
+          <p class="empty-steps">1. <strong>+ New</strong> — pick a name and the project folder<br>
+             2. <strong>Open agent</strong> — Pi starts inside the workspace<br>
+             3. The full Pi terminal runs right here; close the tab and it keeps going</p>
+          <button id="btn-new-empty" class="btn btn-primary">Add your first workspace</button>
+        </div>
+      </div>
 
-  fetch("/api/version")
-    .then(r => r.json())
-    .then(b => { document.getElementById("ver").textContent = "v" + b.version; })
-    .catch(() => {});
-</script>
+      <div id="term-area" hidden>
+        <div id="tabs" class="tabs"></div>
+        <div id="terms" class="terms"></div>
+        <div id="statusbar" class="statusbar">
+          <span id="sb-session" class="sb-item"></span>
+          <span id="sb-note" class="sb-note">the real Pi TUI — closing this tab keeps your agent running</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/vendor/xterm.js"></script>
+  <script src="/vendor/xterm-addon-fit.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
