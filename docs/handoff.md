@@ -54,6 +54,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-23** — CI: switched to stable Go toolchain; golang/go#67629 broke
+  `-race` on macOS arm64 runners with Go 1.22. Green on linux/macos/windows.
 - **2026-08-23** — Bootstrap (M0): repo created, docs system, ADRs 0001–0003,
   Pi harness (AGENTS.md + 3 skills), Go skeleton with embedded UI,
   health/version endpoints + tests, CI, Makefile. Released as 0.1.0.
