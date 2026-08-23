@@ -9,6 +9,11 @@
 // The tmux session lives on the tmux server; each WebSocket attach spawns
 // a short-lived `tmux attach` in a PTY. Closing the WebSocket (or the
 // browser tab) ends only the attach — the agent keeps running.
+//
+// Shutdown contract (race-detector clean): exactly one goroutine owns pty
+// writes + resize; each pump, on exit, unblocks its peer (pty close /
+// ws close). The handler returns only after both pumps are done, so no
+// fd or socket method runs after the handler scope ends.
 package term
 
 import (
@@ -18,7 +23,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/creack/pty"
@@ -71,35 +75,20 @@ func Bridge(tm *tmux.Manager) http.Handler {
 			writeError(ws, "cannot attach to session: "+err.Error())
 			return
 		}
-		defer func() { _ = ptyFile.Close() }() // closing the pty ends the attach process
+		defer func() { _ = ptyFile.Close() }() // second close is a harmless no-op
 
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 
-		var once sync.Once
-		stop := func() { once.Do(func() { cancel(); _ = ptyFile.Close() }) }
+		ptyDone := make(chan struct{}) // pty->ws pump finished
+		wsDone := make(chan struct{})  // ws->pty pump finished
 
-		// pty -> websocket
+		// OWNER of pty writes and resize: the ws->pty pump. It is the only
+		// goroutine that calls ptyFile.Write / pty.Setsize, and those calls
+		// all happen before its deferred ptyFile.Close unblocks the reader.
 		go func() {
-			defer stop()
-			buf := make([]byte, 32*1024)
-			for {
-				n, rerr := ptyFile.Read(buf)
-				if n > 0 {
-					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-					if werr := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); werr != nil {
-						return
-					}
-				}
-				if rerr != nil {
-					return
-				}
-			}
-		}()
-
-		// websocket -> pty (plus control messages)
-		go func() {
-			defer stop()
+			defer close(wsDone)
+			defer func() { _ = ptyFile.Close() }() // unblock the pty reader below
 			_ = ws.SetReadDeadline(time.Now().Add(pongWait))
 			ws.SetPongHandler(func(string) error {
 				return ws.SetReadDeadline(time.Now().Add(pongWait))
@@ -120,6 +109,26 @@ func Bridge(tm *tmux.Manager) http.Handler {
 			}
 		}()
 
+		// pty -> websocket. On exit (pty closed by peer pump, or process
+		// died) it closes the socket to unblock the ws->pty reader.
+		go func() {
+			defer close(ptyDone)
+			defer ws.Close() // abrupt close unblocks ReadMessage; no close handshake needed
+			buf := make([]byte, 32*1024)
+			for {
+				n, rerr := ptyFile.Read(buf)
+				if n > 0 {
+					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+					if werr := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); werr != nil {
+						return
+					}
+				}
+				if rerr != nil {
+					return
+				}
+			}
+		}()
+
 		// keepalive pings
 		go func() {
 			ticker := time.NewTicker(pingPeriod)
@@ -127,6 +136,8 @@ func Bridge(tm *tmux.Manager) http.Handler {
 			for {
 				select {
 				case <-ctx.Done():
+					return
+				case <-ptyDone:
 					return
 				case <-ticker.C:
 					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
@@ -137,7 +148,8 @@ func Bridge(tm *tmux.Manager) http.Handler {
 			}
 		}()
 
-		<-ctx.Done()
+		<-ptyDone
+		<-wsDone
 	})
 }
 

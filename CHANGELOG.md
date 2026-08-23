@@ -52,6 +52,12 @@ to the `[Unreleased]` section. The repository's official language is English
   aesthetic/density bar with design tokens — enforced via the `uiux-review`
   skill (`docs/benchmark-cursor.md`).
 
+### Fixed
+
+- **Race in terminal bridge shutdown** (caught by CI's `-race` on ubuntu):
+  redesign from `sync.Once`-based teardown to single-owner pty access with
+  cooperative unblocking; handler returns only after both pumps finish.
+
 ### Changed
 
 - Dependencies: chromedp, gorilla/websocket, creack/pty added (each with

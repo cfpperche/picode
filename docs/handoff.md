@@ -70,6 +70,9 @@ The `visual-review` skill already covers this escape hatch.
 
 ## Recent activity
 
+- **2026-08-23** — CI `-race` caught a shutdown race in the term bridge
+  (Close vs Setsize/Read); redesigned to single-owner pty access + cooperative
+  unblocking. Verified with `go test -race -count=3` locally.
 - **2026-08-23** — M1 complete: screenshot tooling, tmux manager, WS↔PTY
   bridge, workspace registry + API, terminal-grid UI, ADR-0004 (defer
   framework). First screenshot evidence committed; visual verdict honestly
