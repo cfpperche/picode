@@ -19,7 +19,7 @@ moment of creation**. Read [README.md](README.md) and
    changes travel together, in the same commit. Specifically:
    - Behavior/architecture changed → update `docs/architecture.md` **and**
      add/revise an ADR in `docs/decisions/` if the decision is architectural.
-   - Anything user-visible changed → add an entry to `[Não lançado]` in
+   - Anything user-visible changed → add an entry to `[Unreleased]` in
      `CHANGELOG.md` (Keep a Changelog style).
    - **Every session that changes state MUST end by updating
      `docs/handoff.md`** (current state, what's in flight, next steps, debts).
@@ -80,6 +80,9 @@ supersede it with a new one instead.
 
 ## Style
 
+- **Language policy: English.** The repository's official language is
+  English — code, comments, docs, commits, changelog entries, issues and
+  PR descriptions. No exceptions for canonical content.
 - Go: idiomatic, stdlib-first, table-driven tests, no `init()` magic.
 - Commits: imperative, scoped (`server: add /api/version endpoint`).
 - Docs: short paragraphs, tables for comparisons, diagrams over prose.

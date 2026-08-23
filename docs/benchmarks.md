@@ -23,7 +23,7 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 4. **Stdlib first.** Each non-stdlib dependency needs justification. "It's
    popular" is not justification; "mature, small, does what we can't" is.
 5. **Docs change with code** (see AGENTS.md — non-negotiable #1).
-6. **Changelog discipline.** User-visible change ⇒ `[Não lançado]` entry,
+6. **Changelog discipline.** User-visible change ⇒ `[Unreleased]` entry,
    Keep a Changelog format, honest verbs (no "various improvements").
 7. **Decisions are recorded.** Architectural choice ⇒ ADR. Superseded ADRs
    stay; history is evidence, not clutter.

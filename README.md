@@ -91,6 +91,8 @@ Docs are a **living system** — they evolve with the code, by contract (see
 - [ ] **M2 — Agent panel**: RPC bridge, live status, tasks (steer/follow-up), diffs
 - [ ] **M3 — Lifecycle**: agent creation wizard, provider auth (`/login` flows), profiles
 - [ ] **M4 — Fleet**: inter-agent broker, plugin/skill manager, session tree browser
+- [ ] **Localization**: UI localization (PT-BR first) — the project was born
+      from Portuguese-speaking users, and that audience matters
 
 ## Contributing
 
@@ -101,7 +103,9 @@ Every session that changes state must end with an updated
 
 ---
 
-*Fala português? A visão do projeto nasceu em português — localização da UI e de partes da documentação está no roadmap. 🇧🇷*
+*The project's vision was born from Portuguese-speaking users with terminal
+aversion — UI localization is on the roadmap, but the repository itself
+speaks English (see [AGENTS.md](AGENTS.md)). 🇧🇷→🌐*
 
 ## License
 

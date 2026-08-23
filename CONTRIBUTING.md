@@ -31,9 +31,15 @@ Code and docs change together, in the same commit:
 | You changed... | Then also update... |
 |---|---|
 | Behavior or architecture | `docs/architecture.md` (+ ADR if architectural) |
-| Anything user-visible | `CHANGELOG.md` → `[Não lançado]` |
+| Anything user-visible | `CHANGELOG.md` → `[Unreleased]` |
 | Project state at all | `docs/handoff.md` (session end) |
 | A benchmark we hold | `docs/benchmarks.md` with rationale |
+
+## Language
+
+English is the repository's official language — code, docs, commits,
+changelog, issues and PRs (policy in [AGENTS.md](AGENTS.md)). Reviewers
+should request translation rather than merge non-English content.
 
 ## Releases
 

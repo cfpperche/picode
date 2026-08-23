@@ -1,35 +1,40 @@
 # Changelog
 
-Todas as mudanças visíveis do projeto são documentadas neste arquivo.
+All notable changes to this project are documented in this file.
 
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
-e o projeto adere a [SemVer](https://semver.org/lang/pt-BR/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Contrato dos agentes:** todo commit com mudança visível ao usuário DEVE
-adicionar uma entrada na seção `[Não lançado]`. Entradas são escritas em
-inglês (o changelog acompanha o release, que é global).
+**Agent contract:** every commit with a user-visible change MUST add an entry
+to the `[Unreleased]` section. The repository's official language is English
+(see `AGENTS.md`); changelog entries included.
 
-## [Não lançado]
+## [Unreleased]
+
+### Changed
+
+- **Official language set to English**: changelog, docs references and skills
+  translated; language policy added to `AGENTS.md` and `CONTRIBUTING.md`.
 
 ## [0.1.0] - 2026-08-23
 
-### Adicionado
+### Added
 
-- **Bootstrap do projeto**: repositório público, licença MIT, CI (GitHub Actions
-  com gofmt/vet/test/build), Makefile.
-- **Sistema de documentação vivo**: `docs/` com arquitetura, filosofia,
-  benchmarks de engenharia e UI/UX, handoff (`docs/handoff.md`) e ADRs
-  (`docs/decisions/`) — com contrato explícito de que a documentação evolui
-  junto com o código (ver `AGENTS.md`).
-- **Harness para agentes Pi**: `AGENTS.md` na raiz (contrato operacional),
-  skills de qualidade em `.pi/skills/` (`quality-gate`, `uiux-review`,
-  `handoff-update`) e settings do projeto em `.pi/`.
-- **Esqueleto do servidor Go**: binário `picode` com UI embutida via
-  `go:embed`, endpoints `/api/health` e `/api/version`, página inicial
-  dark-first de placeholder com health check ao vivo.
-- **Documentação de decisões iniciais (ADRs)**: app no browser servido por
-  binário único em Go (0001), controle dual-channel tmux+RPC (0002),
-  dependência do `pi` instalado pelo usuário (0003).
+- **Project bootstrap**: public repository, MIT license, CI (GitHub Actions
+  with gofmt/vet/test/build across linux/macos/windows), Makefile.
+- **Living documentation system**: `docs/` with architecture, philosophy,
+  engineering + UI/UX benchmarks, handoff (`docs/handoff.md`) and ADRs
+  (`docs/decisions/`) — with an explicit contract that documentation evolves
+  with the code (see `AGENTS.md`).
+- **Pi agent harness**: root `AGENTS.md` (operating contract), quality skills
+  in `.pi/skills/` (`quality-gate`, `uiux-review`, `handoff-update`) and
+  project settings in `.pi/`.
+- **Go server skeleton**: `picode` binary with UI embedded via `go:embed`,
+  `/api/health` and `/api/version` endpoints, dark-first placeholder page
+  with a live health check.
+- **Initial decision records (ADRs)**: browser app served by a single Go
+  binary (0001), dual-channel tmux+RPC agent control (0002), dependence on
+  user-installed `pi` (0003).
 
-[Não lançado]: https://github.com/cfpperche/picode/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/cfpperche/picode/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/cfpperche/picode/releases/tag/v0.1.0

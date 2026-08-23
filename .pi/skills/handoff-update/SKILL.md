@@ -34,7 +34,7 @@ say so — don't perform empty ritual updates.
    "Recent activity" blocks to `docs/handoff-archive.md` (create if missing).
 
 8. **Changelog**: if user-visible changes were made and not yet logged,
-   add them under `[Não lançado]` in `CHANGELOG.md` now.
+   add them under `[Unreleased]` in `CHANGELOG.md` now.
 
 9. **Commit** docs together with the code they describe (same commit or
    an immediately following `docs: handoff` commit).

@@ -24,8 +24,8 @@ passed gate reported falsely.
    - New non-stdlib dependency? It needs explicit justification in the
      commit/PR description (AGENTS.md rule #3). No justification = remove it.
 6. **Changelog check**: is anything in this diff user-visible?
-   - Yes → there must be a new entry under `[Não lançado]` in
-     `CHANGELOG.md` (Keep a Changelog verbs: Adicionado/Alterado/Corrigido/Removido).
+   - Yes → there must be a new entry under `[Unreleased]` in
+     `CHANGELOG.md` (Keep a Changelog verbs: Added/Changed/Fixed/Removed).
 7. **Docs check**: did behavior or architecture change?
    - Yes → `docs/architecture.md` (and an ADR if architectural) must
      change in the same commit.
