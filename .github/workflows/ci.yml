@@ -21,7 +21,11 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          # Not 'go-version-file': macOS arm64 runners hit golang/go#67629
+          # (missing LC_UUID) with -race on old toolchains; go.mod stays at
+          # the minimum (1.22), CI builds with a current stable toolchain.
+          go-version: "stable"
+          cache: false # no deps yet (no go.sum); enable when deps land
 
       - name: Format check
         if: matrix.os == 'ubuntu-latest'
