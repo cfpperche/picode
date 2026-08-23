@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Visual validation loop**: new `visual-review` skill (capture → read
+  pixels → judge against Cursor bar/benchmarks → verdict + evidence),
+  `docs/screenshots/` for committed evidence, gitignored `var/` working
+  dir, and an honesty rule in `AGENTS.md`: no visual verdict without an
+  actual screenshot.
+
 - **MCP strategy**: documented adoption of `pi-mcp-adapter` (community Pi
   extension — proxy tool, lazy servers, standard configs, Cursor/Claude/Codex
   config import) with PiCode's value-add being a visual MCP Server Manager

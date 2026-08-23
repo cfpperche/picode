@@ -29,6 +29,11 @@ What exists right now:
 
 ## Next up (M1 — Terminal grid, in order)
 
+0. **Screenshot tooling**: `picode screenshot --url --out` subcommand via
+   chromedp (justified dependency: mature CDP client, does what stdlib
+   can't) — enables the `/skill:visual-review` loop end-to-end. Requires
+   Chrome/Chromium locally; document it.
+
 1. **tmux session manager** (`internal/tmux/`): create/kill/list sessions;
    require tmux ≥ 3.5 + `extended-keys-format csi-u`; write recommended
    config into the user's tmux setup flow (or document clearly).
@@ -54,6 +59,10 @@ What exists right now:
   API (owner action, listed here so it's not forgotten).
 
 ## Recent activity
+
+- **2026-08-23** — Visual validation loop designed + harnessed: `visual-review`
+  skill (never judge without pixels; UNVERIFIED escape hatch), `docs/screenshots/`
+  evidence dir, `var/` gitignored. M1 gains step 0: chromedp screenshot subcommand.
 
 - **2026-08-23** — MCP strategy documented: Pi has no native MCP (by design);
   PiCode adopts `pi-mcp-adapter` (proxy-tool extension, lazy servers, imports

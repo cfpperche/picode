@@ -45,7 +45,11 @@ make build        # binary builds
 ```
 
 Use the skill: `/skill:quality-gate` (interactive checklist).
-For any UI work, also run `/skill:uiux-review` against `docs/benchmarks.md`.
+For any UI work, also run `/skill:uiux-review` against `docs/benchmarks.md`
+and — when a running UI can be captured — `/skill:visual-review` (screenshot
++ judgment against the Cursor bar; evidence filed in `docs/screenshots/`).
+A visual verdict without reading an actual screenshot is a violation of
+rule #4 (honesty over polish).
 At session end, run `/skill:handoff-update`.
 
 ## Commands
@@ -63,6 +67,7 @@ At session end, run `/skill:handoff-update`.
 AGENTS.md          this contract
 docs/              living documentation (handoff.md = project state)
 docs/decisions/    ADRs — one decision per file, immutable once accepted
+docs/screenshots/  committed visual evidence (see its README)
 .pi/               Pi harness: skills, project settings
 cmd/picode/        entrypoint
 internal/server/   HTTP server + API
