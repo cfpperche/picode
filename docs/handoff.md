@@ -15,7 +15,7 @@
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI (gofmt/vet/test/build) green.
 - Documentation system live: philosophy, architecture, benchmarks,
-  ADRs 0001–0003, this handoff.
+  **Cursor benchmark** (`docs/benchmark-cursor.md`), ADRs 0001–0003, this handoff.
 - Pi harness: `AGENTS.md` contract, skills `quality-gate`, `uiux-review`,
   `handoff-update` in `.pi/skills/`.
 - Go skeleton compiling: `picode` binary serves embedded UI at `/`,
@@ -37,7 +37,8 @@ What exists right now:
 3. **Workspace registry** (`internal/workspace/`): data dir, list/add/remove
    workspaces (folders), spawn `pi` inside each as tmux session.
 4. **Minimal UI**: terminal grid — one tab per agent/workspace, xterm.js,
-   "New workspace" flow (empty state that teaches, per benchmarks).
+   "New workspace" flow (empty state that teaches, per benchmarks); apply
+   design tokens/density from `docs/benchmark-cursor.md`.
 5. ADR-0004: frontend framework decision (bring criteria to the table).
 
 ## Known debts / open questions
@@ -53,6 +54,11 @@ What exists right now:
   API (owner action, listed here so it's not forgotten).
 
 ## Recent activity
+
+- **2026-08-23** — Benchmarks: Cursor added as product + aesthetic north star
+  (`docs/benchmark-cursor.md`): 10 product patterns mapped to milestones,
+  design tokens + density rules, explicit rejects (no editor, no hidden
+  harness, no proprietary formats). `uiux-review` skill gains a Cursor bar.
 
 - **2026-08-23** — Language policy: English is now the repository's official
   language. Changelog, README, CONTRIBUTING, benchmarks and skills

@@ -36,6 +36,25 @@ styling, error messages.
 - [ ] Embedded terminal: selection, copy/paste, scrollback, resize all work.
 - [ ] Nothing pretends to *be* the terminal — we embed the real one.
 
+### Cursor bar (docs/benchmark-cursor.md)
+Apply the product checks to surfaces that already exist (patterns land per
+milestone); apply tokens and density from day one.
+
+- [ ] Density: 13px base UI font, 4px spacing grid, tool-call rows ≤32px
+      collapsed — power-tool density, no marketing-airy spacing.
+- [ ] Activity feed: agent actions render as compact collapsible rows with
+      status + duration, never walls of text.
+- [ ] Streaming: markdown + syntax-highlighted code while streaming;
+      input never blocks.
+- [ ] Diffs: edits surface inline/expandable diffs with per-hunk
+      accept/reject where applicable.
+- [ ] Checkpoints: every turn leaves a visible restore point (session tree).
+- [ ] Reachability: model picker ≤2 clicks from any agent view;
+      Ctrl+K command palette for navigation (when present).
+- [ ] Motion: 100–200ms transitions; skeletons over spinner-only waits.
+- [ ] Design tokens: surfaces, type, accent and status colors follow the
+      token set in docs/benchmark-cursor.md.
+
 ### Anti-benchmarks (instant FAIL)
 - Generic dashboard slop: card grids of nothing, gradient depth,
   spinner-only loading, unexplained jargon.

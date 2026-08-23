@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Cursor benchmark**: product patterns (agent activity feed, checkpoints,
+  diff review, per-agent model picker, background-agent cards, @-mentions,
+  rules management, command palette) mapped to milestones, plus an
+  aesthetic/density bar with design tokens — enforced via the `uiux-review`
+  skill (`docs/benchmark-cursor.md`).
+
 ### Changed
 
 - **Official language set to English**: changelog, docs references and skills
