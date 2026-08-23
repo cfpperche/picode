@@ -28,17 +28,17 @@ What exists right now:
 - 16 tests across 4 packages (tmux/term integration tests skip gracefully
   where tmux is absent; ubuntu CI installs tmux).
 
-## Visual review status — IMPORTANT SYSTEMIC FINDING
+## Visual review status
 
-`visual-review: UNVERIFIED` for the M1 UI. The capture pipeline works
-(`docs/screenshots/m1-termgrid-first-look.png`, 1440×900, committed), but
-**the session model used for M1 development does not accept image input**
-— `read` on a PNG returns "model does not support images". Programmatic
-pixel checks passed (dark tokens present, sidebar card rendered, green
-pi-brand pixels in the terminal area), but that is NOT a visual verdict.
-→ **Action for next session: run visual review with a vision-capable model
-(or human) against the committed screenshot before polishing UI further.**
-The `visual-review` skill already covers this escape hatch.
+- **M1 terminal grid: human visual validation PASS (owner, 2026-08-23)** —
+  "acceptable for a first version".
+- Post-feedback pass (user menu, settings, de-documentarized copy):
+  `visual-review: UNVERIFIED` by agent (session model lacks image input);
+  programmatic pixel checks PASS — dark tokens `#0d0f12/#15181d` and light
+  `#ffffff/#f8f9fb` render correctly in evidence below.
+- Evidence: `docs/screenshots/m1-ui-dark.png` (main view, dark),
+  `docs/screenshots/m1-settings-light.png` (settings, light).
+→ Next visual verdicts should come from a vision-capable model or human.
 
 ## In flight
 
@@ -69,6 +69,11 @@ The `visual-review` skill already covers this escape hatch.
 - Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
 ## Recent activity
+
+- **2026-08-23** — Owner feedback applied: UI copy de-documentarized (rule
+  recorded in benchmarks.md), Vercel-style user menu (identity + theme +
+  links), settings route `#/settings` with theme cards, live statusbar,
+  hostname in `/api/system`. M1 visually validated by owner (PASS).
 
 - **2026-08-23** — CI `-race` caught a shutdown race in the term bridge
   (Close vs Setsize/Read); redesigned to single-owner pty access + cooperative

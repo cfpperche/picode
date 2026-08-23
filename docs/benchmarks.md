@@ -33,9 +33,15 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 Inspired by: **Cursor** (the product + aesthetic north star — see
 [benchmark-cursor.md](benchmark-cursor.md): agent activity feed, checkpoints,
 diff review, density), **Linear** (speed, keyboard-first, dark-first,
-density), **Vercel/Geist** (typography & minimal chrome), **Stripe Dashboard**
+density), **Vercel/Geist** (typography, minimal chrome, user menu, settings
+and theme-switcher patterns), **Stripe Dashboard**
 (progressive disclosure, empty states that teach), **Apple HIG**
 (clarity, deference to content), **xterm.js/ttyd** (terminal honesty).
+
+**UI copy rule (owner directive, 2026-08-23):** documentation does not live
+in chrome. Explanatory prose, setup steps and product storytelling belong
+in README/docs — UI surfaces carry state and actions only (minimal empty
+state = one line + one action; statusbar = live state, not hints).
 
 ### The bar — every UI change must satisfy
 

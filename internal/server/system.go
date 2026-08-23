@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -18,6 +19,7 @@ type systemReport struct {
 		Installed bool   `json:"installed"`
 		Version   string `json:"version,omitempty"`
 	} `json:"pi"`
+	Host     string   `json:"host"`
 	Warnings []string `json:"warnings"`
 }
 
@@ -51,6 +53,10 @@ func handleSystem(deps Deps) http.HandlerFunc {
 		} else {
 			rep.Warnings = append(rep.Warnings,
 				"pi is not installed — install it with: npm install -g @earendil-works/pi-coding-agent")
+		}
+
+		if host, err := os.Hostname(); err == nil {
+			rep.Host = host
 		}
 
 		if len(rep.Warnings) == 0 {

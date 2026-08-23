@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PiCode</title>
+<script>
+/* Theme bootstrap — runs before CSS to avoid flash of wrong theme. */
+(function () {
+  var mode = localStorage.getItem("picode-theme") || "system";
+  var q = new URLSearchParams(location.search).get("theme");
+  if (q === "light" || q === "dark" || q === "system") { mode = q; localStorage.setItem("picode-theme", q); }
+  var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+})();
+</script>
 <link rel="stylesheet" href="/vendor/xterm.css">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -37,30 +48,133 @@
       </div>
 
       <footer class="side-foot">
-        <span id="sys-status" class="sys-status">checking system…</span>
+        <div class="usermenu" id="usermenu">
+          <button class="um-trigger" id="um-trigger" aria-haspopup="menu" aria-expanded="false">
+            <span class="um-avatar" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="um-meta">
+              <span class="um-name" id="um-name">local</span>
+              <span class="um-sub" id="um-sub">this machine</span>
+            </span>
+            <svg class="um-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>
+          </button>
+
+          <div class="um-popover" id="um-popover" hidden role="menu" aria-label="User menu">
+            <div class="um-account">
+              <span class="um-avatar" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <div class="um-account-meta">
+                <span class="um-account-name" id="um-name2">local</span>
+                <span class="um-account-sub">PiCode on this machine</span>
+              </div>
+            </div>
+
+            <div class="um-divider"></div>
+            <div class="um-label">Theme</div>
+            <div class="um-theme" role="group" aria-label="Theme">
+              <button type="button" data-theme-option="light">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                Light
+              </button>
+              <button type="button" data-theme-option="system">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                System
+              </button>
+              <button type="button" data-theme-option="dark">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                Dark
+              </button>
+            </div>
+
+            <div class="um-divider"></div>
+            <button type="button" class="um-item" id="um-settings" role="menuitem">
+              <span>Settings</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <a class="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener" role="menuitem">
+              <span>Documentation</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            </a>
+
+            <div class="um-divider"></div>
+            <div class="um-version">PiCode <span id="um-ver"></span></div>
+          </div>
+        </div>
       </footer>
     </aside>
 
     <main id="main">
-      <div id="empty" class="empty">
-        <div class="empty-card">
-          <h2>Your agents. From creation.</h2>
-          <p>Add your project folder as a workspace, then start a Pi agent in it.</p>
-          <p class="empty-steps">1. <strong>+ New</strong> — pick a name and the project folder<br>
-             2. <strong>Open agent</strong> — Pi starts inside the workspace<br>
-             3. The full Pi terminal runs right here; close the tab and it keeps going</p>
-          <button id="btn-new-empty" class="btn btn-primary">Add your first workspace</button>
+      <div id="workspace-view">
+        <div id="empty" class="empty">
+          <div class="empty-card">
+            <h2>No workspaces yet</h2>
+            <p>Add a project folder to start an agent in it.</p>
+            <button id="btn-new-empty" class="btn btn-primary">Add workspace</button>
+          </div>
+        </div>
+
+        <div id="term-area" hidden>
+          <div id="tabs" class="tabs"></div>
+          <div id="terms" class="terms"></div>
+          <div id="statusbar" class="statusbar">
+            <span class="sb-state" id="sb-state"><span class="sb-dot" id="sb-dot"></span><span id="sb-state-text">detached</span></span>
+            <span id="sb-session" class="sb-item"></span>
+            <span id="sb-dims" class="sb-item"></span>
+          </div>
         </div>
       </div>
 
-      <div id="term-area" hidden>
-        <div id="tabs" class="tabs"></div>
-        <div id="terms" class="terms"></div>
-        <div id="statusbar" class="statusbar">
-          <span id="sb-session" class="sb-item"></span>
-          <span id="sb-note" class="sb-note">the real Pi TUI — closing this tab keeps your agent running</span>
+      <section id="settings-view" hidden>
+        <div class="settings-wrap">
+          <header class="settings-head">
+            <a href="#/" class="btn btn-ghost btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              Back
+            </a>
+            <h2>Settings</h2>
+          </header>
+
+          <div class="settings-card">
+            <section class="settings-section">
+              <h3>Appearance</h3>
+              <p class="settings-desc">Theme applies to the PiCode interface. Agent terminals keep their own colors.</p>
+              <div class="theme-cards" role="radiogroup" aria-label="Theme">
+                <button type="button" class="theme-card" data-theme-option="light" role="radio" aria-checked="false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  <span class="theme-card-name">Light</span>
+                  <span class="theme-card-desc">Bright surfaces</span>
+                </button>
+                <button type="button" class="theme-card" data-theme-option="system" role="radio" aria-checked="false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                  <span class="theme-card-name">System</span>
+                  <span class="theme-card-desc">Match your OS</span>
+                </button>
+                <button type="button" class="theme-card" data-theme-option="dark" role="radio" aria-checked="false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                  <span class="theme-card-name">Dark</span>
+                  <span class="theme-card-desc">Low light</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h3>System</h3>
+              <dl class="sys-rows" id="settings-sys"></dl>
+            </section>
+
+            <section class="settings-section">
+              <h3>About</h3>
+              <dl class="sys-rows">
+                <div class="sys-row"><dt>Version</dt><dd id="about-ver">—</dd></div>
+                <div class="sys-row"><dt>Repository</dt><dd><a class="settings-link" href="https://github.com/cfpperche/picode" target="_blank" rel="noopener">cfpperche/picode ↗</a></dd></div>
+                <div class="sys-row"><dt>License</dt><dd>MIT</dd></div>
+              </dl>
+            </section>
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   </div>
 

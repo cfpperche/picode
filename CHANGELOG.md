@@ -13,6 +13,30 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **User menu** (Vercel-inspired) in the sidebar footer: local identity
+  (hostname from `/api/system`), inline theme switcher
+  (Light/System/Dark), Settings and Documentation links, version.
+- **Settings view** (`#/settings`, hash routing): Appearance (theme cards,
+  applied instantly and persisted), System status (tmux/pi/extended-keys),
+  About (version, repo, license).
+- **Theme system**: light/dark/system with `localStorage` persistence,
+  no-flash bootstrap in `<head>`, OS color-scheme tracking, `?theme=`
+  override for testing/links. Applies to app chrome only — agent terminals
+  keep their own colors.
+- **Live statusbar**: connection state (connected/detached) and terminal
+  dimensions (cols×rows) replacing the former static hint.
+
+### Changed
+
+- **UI copy de-documentarized** (owner directive): teaching-steps empty
+  state replaced with a minimal one (one line + one action); sidebar
+  footer system info moved into Settings; statusbar hint removed —
+  documentation lives in README/docs, UI carries state and actions only
+  (`docs/benchmarks.md` records the rule).
+- `/api/system` now reports the machine hostname.
+
+### Added
+
 - **M1 — Terminal grid** (complete vertical slice):
   - `picode screenshot --url --out [--full --width --height --wait-ms]`
     subcommand (chromedp) powering the visual-review loop end-to-end.
