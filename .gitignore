@@ -1,0 +1,22 @@
+# Go
+bin/
+*.exe
+*.test
+coverage.out
+
+# Frontend
+node_modules/
+dist/
+web/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Local
+.env
+.env.*
+*.log
