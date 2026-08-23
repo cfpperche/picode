@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **MCP strategy**: documented adoption of `pi-mcp-adapter` (community Pi
+  extension — proxy tool, lazy servers, standard configs, Cursor/Claude/Codex
+  config import) with PiCode's value-add being a visual MCP Server Manager
+  per workspace/agent (M3–M4). No native MCP in Pi by design; PiCode does
+  not fork the ecosystem, it orchestrates it (`docs/architecture.md`).
+
 - **Cursor benchmark**: product patterns (agent activity feed, checkpoints,
   diff review, per-agent model picker, background-agent cards, @-mentions,
   rules management, command palette) mapped to milestones, plus an

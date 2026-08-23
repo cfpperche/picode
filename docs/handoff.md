@@ -55,6 +55,10 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-23** — MCP strategy documented: Pi has no native MCP (by design);
+  PiCode adopts `pi-mcp-adapter` (proxy-tool extension, lazy servers, imports
+  Cursor/Claude/Codex configs). Visual MCP Server Manager planned M3–M4.
+
 - **2026-08-23** — Benchmarks: Cursor added as product + aesthetic north star
   (`docs/benchmark-cursor.md`): 10 product patterns mapped to milestones,
   design tokens + density rules, explicit rejects (no editor, no hidden

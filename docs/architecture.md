@@ -77,6 +77,21 @@ Agents communicate through their native protocol — no internals hacked.
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
 
+### MCP (Model Context Protocol) support
+
+Pi has **no native MCP** — a deliberate design choice (tool definitions burn
+context; Pi prefers CLI tools/Skills). PiCode adopts MCP through the
+community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
+
+- One proxy tool (~200 tokens) instead of hundreds of definitions;
+  lazy server startup; on-demand discovery.
+- Reads standard configs (`.mcp.json`, `~/.config/mcp/mcp.json`,
+  `~/.agents/mcp.json`) and **imports host configs** (Cursor, Claude Code,
+  Codex) — a migration path for users arriving from Cursor.
+- PiCode's value-add (M3–M4): a visual MCP Server Manager per workspace and
+  per agent (enable/disable, precedence layers) writing the same config
+  files the adapter reads. We orchestrate the ecosystem; we don't fork it.
+
 ### Security model (binding contract until an ADR supersedes it)
 - Binds `127.0.0.1` by default; listening on other interfaces requires an
   explicit flag **and** an auth token.
