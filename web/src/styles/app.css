@@ -520,6 +520,21 @@ body {
   background: var(--accent); color: #fff;
   opacity: 0.38; cursor: default; filter: none;
 }
+.dlg-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: color-mix(in srgb, #000 35%, transparent);
+}
+.dlg {
+  position: fixed; z-index: 71; left: 50%; top: 42%;
+  transform: translate(-50%, -50%);
+  width: min(400px, calc(100vw - 32px));
+  padding: 18px 18px 14px;
+  background: var(--bg-panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+}
+.dlg-title { font-size: 15px; font-weight: 650; margin-bottom: 8px; }
+.dlg-body { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .toasts {
   position: fixed; z-index: 80;
   top: 52px; left: 50%; transform: translateX(-50%);

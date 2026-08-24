@@ -19,6 +19,7 @@ import Mcps from "../components/Mcps.jsx";
 import "./mobile.css";
 import { toastError } from "../lib/toast.js";
 import Toasts from "../components/Toasts.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 export default function MobileApp() {
   const [tab, setTab] = useState("agents");
@@ -293,6 +294,7 @@ export default function MobileApp() {
       </nav>
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
+      <ConfirmDialog />
     </div>
   );
 }

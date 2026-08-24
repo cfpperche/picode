@@ -20,6 +20,8 @@ import { parseRoute, go } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
+import { askConfirm } from "../lib/confirm.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
@@ -374,7 +376,13 @@ export default function App() {
   }
 
   async function removeWorkspace(ws) {
-    if (!confirm(`Remove workspace "${ws.name}"?\n(The project folder is not deleted.)`)) return;
+    const ok = await askConfirm({
+      title: "Remove workspace",
+      message: `Remove "${ws.name}"? The project folder is not deleted.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api(`/api/workspaces/${ws.id}`, { method: "DELETE" });
       if (ws.agent) closeTerm(ws.agent.id);
@@ -413,7 +421,12 @@ export default function App() {
 
   async function compactSession() {
     if (!agent) return;
-    if (!confirm("Compact this session? Older turns become a summary.")) return;
+    const ok = await askConfirm({
+      title: "Compact session",
+      message: "Older turns become a summary. This cannot be undone in the chat.",
+      confirmLabel: "Compact",
+    });
+    if (!ok) return;
     try {
       await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
       toast.ok("Session compacted.");
@@ -692,6 +705,7 @@ export default function App() {
         }}
       />
       <Toasts />
+      <ConfirmDialog />
     </div>
   );
 }
