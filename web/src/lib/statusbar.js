@@ -28,7 +28,7 @@ export function statusSegments(bar) {
   if (bar.output) io.push("↓" + formatTokens(bar.output));
   if (io.length) out.push({ key: "io", text: io.join(" ") });
   if (bar.cacheHit != null && bar.cacheRead) {
-    out.push({ key: "ch", text: "CH" + bar.cacheHit.toFixed(0) + "%" });
+    out.push({ key: "ch", text: bar.cacheHit.toFixed(0) + "% cached" });
   }
   if (bar.cost > 0) {
     out.push({ key: "cost", text: "$" + bar.cost.toFixed(2) });

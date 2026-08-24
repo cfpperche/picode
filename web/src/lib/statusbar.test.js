@@ -28,7 +28,7 @@ test("git worktree dirty and extras", () => {
   assert.equal(ctx.tone, "warn");
   assert.ok(ctx.text.includes("(auto)"));
   assert.equal(parts.find((p) => p.key === "io").text, "↑12k ↓3k");
-  assert.equal(parts.find((p) => p.key === "ch").text, "CH40%");
+  assert.equal(parts.find((p) => p.key === "ch").text, "40% cached");
   assert.equal(parts.find((p) => p.key === "cost").text, "$0.12");
   assert.equal(parts.find((p) => p.key === "name").text, "refactor-auth");
 });
