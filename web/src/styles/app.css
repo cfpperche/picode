@@ -373,11 +373,11 @@ body {
 }
 .composer:focus-within { border-color: var(--accent); }
 #task-input {
-  width: 100%; background: transparent; border: none; outline: none; resize: none;
-  color: var(--text-primary); font-family: inherit; font-size: 13px; line-height: 1.5;
-  max-height: 160px;
+  display: block; width: 100%; min-height: 52px; max-height: 160px;
+  padding: 2px 4px 6px; background: transparent; border: none; outline: none; resize: none;
+  color: var(--text-primary); font-family: inherit; font-size: 14px; line-height: 1.45;
 }
-#task-input::placeholder { color: var(--text-secondary); }
+#task-input::placeholder { color: var(--text-secondary); opacity: 1; }
 .composer-controls {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; margin-top: 6px;
@@ -419,8 +419,9 @@ body {
   background: transparent; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
 }
 .think-pill.on { border-color: var(--accent); color: var(--text-primary); }
+.cockpit-chip-danger:hover { border-color: var(--danger); color: var(--danger); }
 .icon-btn {
-  width: 28px; height: 28px; display: grid; place-items: center; flex: none;
+  width: 32px; height: 32px; display: grid; place-items: center; flex: none;
   border: 0; background: transparent; border-radius: 8px;
   color: var(--text-secondary); cursor: pointer;
 }

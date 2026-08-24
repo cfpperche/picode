@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ModelChip from "./ModelChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconTerminal } from "./Icons.jsx";
+import { IconSend } from "./Icons.jsx";
 import { filterSlash } from "../lib/slash.js";
 
 export default function Composer({
@@ -16,7 +16,7 @@ export default function Composer({
     const el = ta.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+    el.style.height = Math.max(52, Math.min(el.scrollHeight, 160)) + "px";
   }, [value]);
 
   useEffect(() => { setSlashIdx(0); }, [value]);
@@ -29,7 +29,7 @@ export default function Composer({
 
   return (
     <div className="composer-wrap">
-      <div className="composer">
+      <div className="composer" onClick={(e) => { if (e.target === e.currentTarget) ta.current?.focus(); }}>
         {hits.length > 0 && (
           <ul className="slash-menu" role="listbox">
             {hits.map((c, i) => (
@@ -50,8 +50,8 @@ export default function Composer({
         <textarea
           id="task-input"
           ref={ta}
-          rows={1}
-          placeholder="Message, or / for pi commands"
+          rows={2}
+          placeholder="Message the agent, or / for commands"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -70,16 +70,11 @@ export default function Composer({
             <KindChip value={kind} onChange={onKind} />
           </div>
           <div className="composer-right">
-            <span className={"dot" + (streaming ? " streaming" : "")} id="chat-dot" hidden={stopped} title={status} />
-            <span id="chat-status-text" className="sr-only">{status}</span>
-            <button id="btn-dock" className="icon-btn" title="Terminal" hidden={stopped} onClick={onToggleDock}>
-              <IconTerminal />
-            </button>
-            <button id="btn-stop-agent" className="icon-btn icon-btn-danger" title="Stop" hidden={stopped} onClick={onStop}>
-              <IconStop />
-            </button>
+            <span id="chat-status-text" className="sr-only">{status}{streaming ? " streaming" : ""}</span>
+            <button id="btn-dock" className="cockpit-chip" hidden={stopped} onClick={onToggleDock}>Terminal</button>
+            <button id="btn-stop-agent" className="cockpit-chip cockpit-chip-danger" hidden={stopped} onClick={onStop}>Stop</button>
             <button id="task-send" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={onSend}>
-              <IconSend />
+              <IconSend size={16} />
             </button>
           </div>
         </div>
