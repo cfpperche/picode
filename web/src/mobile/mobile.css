@@ -43,3 +43,18 @@
 .m-term .dock { flex: 1; height: auto !important; min-height: 0; border-top: none; }
 .m-term .dock.maximized { flex: 1; }
 .m-more { overflow: auto; }
+.a2hs-coach {
+  position: fixed; inset: 0; z-index: 80;
+  background: color-mix(in srgb, #000 55%, transparent);
+}
+.a2hs-card {
+  position: absolute; left: 16px; right: 16px; bottom: 88px;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 16px; color: var(--text-primary);
+}
+.a2hs-card p { margin-bottom: 12px; font-size: 14px; }
+.a2hs-arrow {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  color: #fff; font-size: 12px; font-weight: 600;
+}
