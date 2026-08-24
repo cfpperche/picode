@@ -432,6 +432,32 @@ body {
 }
 .icon-btn-send:hover { filter: brightness(1.05); color: #fff; }
 .icon-btn-send:disabled { opacity: 0.35; cursor: default; filter: none; }
+.toasts {
+  position: fixed; z-index: 80;
+  top: 52px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(420px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
+  color: var(--text-primary);
+  font-size: 13px; line-height: 1.4;
+}
+.toast-err { border-color: color-mix(in srgb, var(--danger) 50%, var(--border-strong)); }
+.toast-ok { border-color: color-mix(in srgb, var(--ok) 50%, var(--border-strong)); }
+.toast-msg { flex: 1; min-width: 0; }
+.toast-x {
+  flex: none; border: 0; background: none; cursor: pointer;
+  color: var(--text-secondary); font-size: 16px; line-height: 1; padding: 0 2px;
+}
+.toast-x:hover { color: var(--text-primary); }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;

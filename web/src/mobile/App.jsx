@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, humanizeError, wsURL } from "../lib/api.js";
+import { api, wsURL } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -16,6 +16,8 @@ import Settings from "../components/Settings.jsx";
 import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
 import "./mobile.css";
+import { toastError } from "../lib/toast.js";
+import Toasts from "../components/Toasts.jsx";
 
 export default function MobileApp() {
   const [tab, setTab] = useState("agents");
@@ -144,7 +146,7 @@ export default function MobileApp() {
       await load();
       setSelectedId(id);
       setTab("chat");
-    } catch (e) { alert(e.message); }
+    } catch (e) { toastError(e); }
   }
 
   async function openInteractive(id) {
@@ -155,7 +157,7 @@ export default function MobileApp() {
       await load();
       setSelectedId(id);
       setTab("term");
-    } catch (e) { alert(humanizeError(e.message)); }
+    } catch (e) { toastError(e); }
   }
 
   async function stopAgent(id) {
@@ -169,7 +171,7 @@ export default function MobileApp() {
       }
       if (panelRef.current?.agentId === ws.agent.id) panelRef.current.stopped = true;
       await load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { toastError(e); }
   }
 
   function sendTask() {
@@ -280,6 +282,7 @@ export default function MobileApp() {
         <button type="button" className={tab === "more" ? "on" : ""} onClick={() => { setTab("more"); setMore("menu"); }}>More</button>
       </nav>
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
+      <Toasts />
     </div>
   );
 }

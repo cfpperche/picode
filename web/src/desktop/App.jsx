@@ -16,6 +16,8 @@ import Palette from "../components/Palette.jsx";
 import { parseRoute, go } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
+import { toast, toastError } from "../lib/toast.js";
+import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -273,7 +275,7 @@ export default function App() {
         setItems((cur) => [...cur, { kind: "sys", text: `✗ failed: ${ev.error}`, err: true }]);
         break;
       case "enqueue_rejected":
-        alert(ev.error);
+        toastError(ev.error);
         break;
       default:
         break;
@@ -298,7 +300,7 @@ export default function App() {
       await api(`/api/agents/${ws.agent.id}/managed/start`, { method: "POST" });
       const list = await loadWorkspaces();
       openTab(id, list);
-    } catch (err) { alert(err.message); }
+    } catch (err) { toastError(err); }
   }
 
   async function openInteractive(id) {
@@ -309,7 +311,7 @@ export default function App() {
       const list = await loadWorkspaces();
       openTab(id, list);
       setDockWanted((s) => new Set(s).add(id));
-    } catch (err) { alert(humanizeError(err.message)); }
+    } catch (err) { toastError(err); }
   }
 
   async function stopAgent(id) {
@@ -324,7 +326,7 @@ export default function App() {
       }
       if (panelRef.current && panelRef.current.agentId === ws.agent.id) panelRef.current.stopped = true;
       await loadWorkspaces();
-    } catch (err) { alert(err.message); }
+    } catch (err) { toastError(err); }
   }
 
   async function removeWorkspace(ws) {
@@ -336,7 +338,7 @@ export default function App() {
       setTabs((t) => t.filter((x) => x !== ws.id));
       if (selectedId === ws.id) setSelectedId(null);
       await loadWorkspaces();
-    } catch (err) { alert(err.message); }
+    } catch (err) { toastError(err); }
   }
 
   async function submitNew(e) {
@@ -492,7 +494,7 @@ export default function App() {
                   body: JSON.stringify(cfg),
                 });
                 await loadWorkspaces();
-              } catch (e) { alert(e.message); }
+              } catch (e) { toastError(e); }
             }}
             onSlash={async (cmd) => {
               if (!agent) return;
@@ -511,7 +513,7 @@ export default function App() {
                 }
                 await loadWorkspaces();
                 if (selectedId) setDockWanted((s) => new Set(s).add(selectedId));
-              } catch (e) { alert(humanizeError(e.message)); }
+              } catch (e) { toastError(e); }
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
@@ -543,7 +545,7 @@ export default function App() {
           catalog={catalog}
           onSignIn={async (provider) => {
             const ws = selected || workspaces[0];
-            if (!ws || !ws.agent) { alert("Add a workspace first."); return; }
+            if (!ws || !ws.agent) { toast.info("Add a workspace first."); return; }
             try {
               await api("/api/agents/" + ws.agent.id + "/login", {
                 method: "POST",
@@ -554,7 +556,7 @@ export default function App() {
               openTab(ws.id, list);
               setDockWanted((s) => new Set(s).add(ws.id));
               go("workspace");
-            } catch (e) { alert(humanizeError(e.message)); }
+            } catch (e) { toastError(e); }
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
@@ -573,6 +575,7 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
+      <Toasts />
     </div>
   );
 }
