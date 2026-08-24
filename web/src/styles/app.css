@@ -35,7 +35,10 @@
   --danger: #cf3b54;
 }
 * { box-sizing: border-box; margin: 0; }
-html, body { height: 100%; }
+html, body {
+  height: 100vh; max-height: 100vh;
+  overflow: hidden;
+}
 /* Author `display:` beats the UA [hidden] rule. One global override so
    hideDock / empty / form / tabs actually disappear. */
 [hidden] { display: none !important; }
@@ -47,7 +50,7 @@ body {
   line-height: 1.5;
 }
 
-#app { display: flex; height: 100vh; }
+#app { display: flex; height: 100vh; max-height: 100vh; min-height: 0; overflow: hidden; }
 
 /* ============ sidebar ============ */
 #sidebar {
@@ -55,6 +58,7 @@ body {
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
+  min-height: 0; overflow: hidden;
 }
 .brand {
   display: flex; align-items: baseline; gap: 10px;
@@ -214,8 +218,8 @@ body {
 }
 
 /* ============ main ============ */
-#main { flex: 1; display: flex; min-width: 0; background: var(--bg-base); }
-.workspace-view { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#main { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg-base); }
+.workspace-view { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 .empty { flex: 1; display: grid; place-items: center; }
 .empty-card {
@@ -422,7 +426,7 @@ body {
 .sb-dot.connected { background: var(--ok); }
 
 /* ============ settings ============ */
-.settings-view-scroll { flex: 1; overflow-y: auto; }
+#settings-view { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; }
 .settings-wrap { max-width: 680px; margin: 0 auto; padding: 40px 24px; width: 100%; }
 .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .settings-head h2 { font-size: 16px; font-weight: 650; }

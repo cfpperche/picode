@@ -80,6 +80,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Agent provider/model/thinking moved onto the agent tab
+  bar (auto-save). Settings no longer lists per-agent config.
 - **2026-08-24** — **ADR-0009 + M3 v1**: catalog from pi, auth via `/login`
   in the TUI, MCP status-only (not in wizard), agent config flags passed
   on start, exclusive process lock.

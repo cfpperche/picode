@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Chrome no longer scrolls with Settings: sidebar stays pinned; only the
+  main pane scrolls (`100vh` lock + `#settings-view` overflow).
 - Agent provider/model/thinking lives on the **agent tab bar**, not in
   system Settings. Change saves immediately (applies on next start).
 - **M3 lifecycle (ADR-0009)**: catalog from `pi --list-models` (no curated
