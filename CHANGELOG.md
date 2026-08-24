@@ -13,9 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
-- Agent cockpit lives in the **composer**: searchable provider combobox
-  (signed-in only) + model combobox for that provider + delivery chip.
-  Comboboxes are Radix Popover + cmdk. `/` opens native pi commands.
+- Agent cockpit lives in the **composer**: searchable provider, model, and
+  per-model thinking comboboxes (same subsets as pi `/thinking`). Radix +
+  cmdk. `/` opens native pi commands.
 - UI split into **desktop** and **mobile** shells (one Vite app). Phone
   gets a bottom-nav ADE; desktop is unchanged. `?desktop=1` / `?mobile=1`.
 - Product benchmarks now include **t3code** and **paseo** alongside

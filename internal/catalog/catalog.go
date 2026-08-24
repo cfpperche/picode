@@ -10,13 +10,14 @@ import (
 	"strings"
 )
 
-// Model is one row from `pi --list-models`.
+// Model is one row from `pi --list-models`, plus thinking levels from models-store.json.
 type Model struct {
-	ID       string `json:"id"`
-	Context  string `json:"context,omitempty"`
-	MaxOut   string `json:"maxOut,omitempty"`
-	Thinking bool   `json:"thinking"`
-	Images   bool   `json:"images"`
+	ID             string   `json:"id"`
+	Context        string   `json:"context,omitempty"`
+	MaxOut         string   `json:"maxOut,omitempty"`
+	Thinking       bool     `json:"thinking"`
+	Images         bool     `json:"images"`
+	ThinkingLevels []string `json:"thinkingLevels,omitempty"`
 }
 
 // Provider is a catalog group plus whether auth.json has a key for it.
@@ -32,7 +33,7 @@ type Report struct {
 	Thinking  []string   `json:"thinking"`
 }
 
-// ThinkingLevels matches `pi --thinking`.
+// ThinkingLevels is the full pi scale. Per-model subsets come from thinkingLevelMap.
 var ThinkingLevels = []string{"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 // Load runs pi --list-models --offline and merges auth.json key names.
@@ -46,6 +47,7 @@ func Load(piCmd string) (Report, error) {
 		return rep, fmt.Errorf("catalog: list-models: %w", err)
 	}
 	signed := authKeys()
+	store := loadThinkingMaps()
 	byID := map[string]*Provider{}
 	var order []string
 	for _, m := range ParseListModels(string(out)) {
@@ -55,9 +57,10 @@ func Load(piCmd string) (Report, error) {
 			p = &Provider{ID: m.provider, SignedIn: signed[m.provider], Models: []Model{}}
 			byID[m.provider] = p
 		}
+		levels := SupportedThinking(m.thinking, store[m.provider+"/"+m.model])
 		p.Models = append(p.Models, Model{
 			ID: m.model, Context: m.context, MaxOut: m.maxOut,
-			Thinking: m.thinking, Images: m.images,
+			Thinking: m.thinking, Images: m.images, ThinkingLevels: levels,
 		})
 	}
 	for _, id := range order {
@@ -102,6 +105,57 @@ func ParseListModels(text string) []parsedRow {
 		})
 	}
 	return rows
+}
+
+// SupportedThinking mirrors pi-ai getSupportedThinkingLevels:
+// null in thinkingLevelMap hides a level; xhigh/max need an explicit map entry.
+func SupportedThinking(reasoning bool, levelMap map[string]any) []string {
+	if !reasoning {
+		return []string{"off"}
+	}
+	var out []string
+	for _, level := range ThinkingLevels {
+		mapped, has := levelMap[level]
+		if has && mapped == nil {
+			continue
+		}
+		if (level == "xhigh" || level == "max") && !has {
+			continue
+		}
+		out = append(out, level)
+	}
+	if len(out) == 0 {
+		return []string{"off"}
+	}
+	return out
+}
+
+func loadThinkingMaps() map[string]map[string]any {
+	out := map[string]map[string]any{}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return out
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".pi", "agent", "models-store.json"))
+	if err != nil {
+		return out
+	}
+	var store map[string]struct {
+		Models []struct {
+			ID               string         `json:"id"`
+			Reasoning        bool           `json:"reasoning"`
+			ThinkingLevelMap map[string]any `json:"thinkingLevelMap"`
+		} `json:"models"`
+	}
+	if json.Unmarshal(b, &store) != nil {
+		return out
+	}
+	for provider, entry := range store {
+		for _, m := range entry.Models {
+			out[provider+"/"+m.ID] = m.ThinkingLevelMap
+		}
+	}
+	return out
 }
 
 func authKeys() map[string]bool {

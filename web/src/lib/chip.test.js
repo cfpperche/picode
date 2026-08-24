@@ -1,11 +1,11 @@
-import { modelChipLabel, providerChipLabel, providerChoices, modelChoices, filterChoices, shortModel } from "./chip.js";
+import { modelChipLabel, thinkingChipLabel, thinkingChoices, providerChipLabel, providerChoices, modelChoices, filterChoices, shortModel } from "./chip.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
 const catalog = {
   providers: [
-    { id: "xai", signedIn: true, models: [{ id: "grok-4.5", thinking: true }] },
-    { id: "anthropic", signedIn: false, models: [{ id: "claude-sonnet-4-5", thinking: true }] },
+    { id: "xai", signedIn: true, models: [{ id: "grok-4.5", thinking: true, thinkingLevels: ["low", "medium", "high", "xhigh"] }] },
+    { id: "anthropic", signedIn: false, models: [{ id: "claude-sonnet-4-5", thinking: true, thinkingLevels: ["minimal", "low", "medium", "high", "xhigh", "max"] }] },
   ],
 };
 
@@ -14,8 +14,15 @@ test("empty chips name the field", () => {
   assert.equal(modelChipLabel({}), "Model");
 });
 
-test("model plus thinking", () => {
-  assert.equal(modelChipLabel({ model: "claude-sonnet-4-5", thinking: "medium" }), "claude-sonnet-4-5 · medium");
+test("chips name their field", () => {
+  assert.equal(modelChipLabel({ model: "claude-sonnet-4-5", thinking: "medium" }), "claude-sonnet-4-5");
+  assert.equal(thinkingChipLabel({ thinking: "high" }), "high");
+  assert.equal(thinkingChipLabel({}), "Thinking");
+});
+
+test("thinking choices follow the model", () => {
+  const xai = thinkingChoices(catalog, "xai", "grok-4.5").map((o) => o.id);
+  assert.deepEqual(xai, ["", "low", "medium", "high", "xhigh"]);
 });
 
 test("provider choices prefer signed-in", () => {

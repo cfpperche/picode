@@ -21,6 +21,41 @@ func TestParseListModels(t *testing.T) {
 	}
 }
 
+func TestSupportedThinkingMatchesTUI(t *testing.T) {
+	zai := SupportedThinking(true, map[string]any{
+		"off": nil, "minimal": nil, "low": "low", "medium": nil, "high": "high", "xhigh": nil, "max": "max",
+	})
+	if got := stringsJoin(zai); got != "low,high,max" {
+		t.Fatalf("zai = %s", got)
+	}
+	xai := SupportedThinking(true, map[string]any{
+		"off": nil, "minimal": nil, "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": nil,
+	})
+	if got := stringsJoin(xai); got != "low,medium,high,xhigh" {
+		t.Fatalf("xai = %s", got)
+	}
+	anthropic := SupportedThinking(true, map[string]any{
+		"off": nil, "xhigh": "xhigh", "max": "max",
+	})
+	if got := stringsJoin(anthropic); got != "minimal,low,medium,high,xhigh,max" {
+		t.Fatalf("anthropic = %s", got)
+	}
+	if got := stringsJoin(SupportedThinking(false, nil)); got != "off" {
+		t.Fatalf("no reasoning = %s", got)
+	}
+}
+
+func stringsJoin(s []string) string {
+	out := ""
+	for i, v := range s {
+		if i > 0 {
+			out += ","
+		}
+		out += v
+	}
+	return out
+}
+
 func TestParseListModelsSkipsJunk(t *testing.T) {
 	if n := len(ParseListModels("not a table\n\n")); n != 0 {
 		t.Fatalf("got %d", n)

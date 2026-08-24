@@ -10,10 +10,23 @@ export function providerChipLabel(cfg) {
 
 export function modelChipLabel(cfg) {
   const model = (cfg && cfg.model) || "";
-  const thinking = (cfg && cfg.thinking) || "";
   if (!model) return "Model";
-  return thinking ? shortModel(model) + " · " + thinking : shortModel(model);
+  return shortModel(model);
 }
+
+export function thinkingChipLabel(cfg) {
+  return (cfg && cfg.thinking) || "Thinking";
+}
+
+const THINK_HINT = {
+  off: "No reasoning",
+  minimal: "Very brief (~1k)",
+  low: "Light (~2k)",
+  medium: "Moderate (~8k)",
+  high: "Deep (~16k)",
+  xhigh: "Extra-high (~32k)",
+  max: "Maximum",
+};
 
 export function providerChoices(catalog, currentId) {
   const all = (catalog && catalog.providers) || [];
@@ -31,7 +44,16 @@ export function providerChoices(catalog, currentId) {
 export function modelChoices(catalog, providerId) {
   if (!providerId) return [];
   const p = ((catalog && catalog.providers) || []).find((x) => x.id === providerId);
-  return ((p && p.models) || []).map((m) => ({ id: m.id, label: m.id, thinking: !!m.thinking }));
+  return ((p && p.models) || []).map((m) => ({ id: m.id, label: m.id, thinking: !!m.thinking, thinkingLevels: m.thinkingLevels || [] }));
+}
+
+export function thinkingChoices(catalog, providerId, modelId) {
+  const models = modelChoices(catalog, providerId);
+  const m = models.find((x) => x.id === modelId);
+  const levels = (m && m.thinkingLevels) || [];
+  const opts = [{ id: "", label: "Default" }];
+  for (const l of levels) opts.push({ id: l, label: l, hint: THINK_HINT[l] || "" });
+  return opts;
 }
 
 export function filterChoices(options, query) {
