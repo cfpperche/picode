@@ -192,7 +192,7 @@ func TestLegacyJSONImport(t *testing.T) {
 		Path      string `json:"path"`
 		CreatedAt string `json:"createdAt"`
 	}
-	legacyBytes, err := marshalJSON([]legacyEntry{{
+	legacyStr, err := marshalJSON([]legacyEntry{{
 		ID:        "picode-old1",
 		Name:      "Legacy",
 		Path:      t.TempDir(), // json.Marshal handles Windows backslashes
@@ -201,7 +201,7 @@ func TestLegacyJSONImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal legacy: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "workspaces.json"), legacyBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "workspaces.json"), []byte(legacyStr), 0o644); err != nil {
 		t.Fatalf("write legacy: %v", err)
 	}
 
