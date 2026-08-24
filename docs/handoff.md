@@ -80,6 +80,13 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Phone QR: prefer current LAN IP (Wi-Fi vs cable
+  changes the address and the cert SAN). Drawer lists lan/tailnet
+  targets; QR only for addresses on the cert. `make cert` reissued for
+  192.168.15.110.
+- **2026-08-24** — Phone QR: sidebar button → drawer. `GET /api/share`
+  gates the QR on HTTPS + bind + reachable IP + SAN + mkcert; otherwise
+  lists the missing actions. Verified ready on this machine (tailnet URL).
 - **2026-08-24** — Adopted AgentDeck's product-benchmark set: Cursor +
   t3code + paseo. Studies in `docs/benchmarks/`; ritual in AGENTS.md.
 - **2026-08-24** — Route split: Settings = PiCode system; `#/providers`

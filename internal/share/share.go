@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -22,12 +22,22 @@ type Check struct {
 	Action string `json:"action,omitempty"`
 }
 
+// Target is one candidate URL a phone might use.
+type Target struct {
+	URL    string `json:"url"`
+	Kind   string `json:"kind"` // lan | tailnet
+	Addr   string `json:"addr"`
+	OnCert bool   `json:"onCert"`
+	Reason string `json:"reason,omitempty"`
+}
+
 // Report is the payload for GET /api/share.
 type Report struct {
-	Ready  bool     `json:"ready"`
-	URL    string   `json:"url,omitempty"`
-	URLs   []string `json:"urls"`
-	Checks []Check  `json:"checks"`
+	Ready   bool     `json:"ready"`
+	URL     string   `json:"url,omitempty"`
+	URLs    []string `json:"urls"`
+	Targets []Target `json:"targets"`
+	Checks  []Check  `json:"checks"`
 }
 
 // Input is live server state needed to diagnose.
@@ -40,7 +50,7 @@ type Input struct {
 
 // Diagnose returns readiness for a phone-scannable URL.
 func Diagnose(in Input) Report {
-	rep := Report{URLs: []string{}}
+	rep := Report{URLs: []string{}, Targets: []Target{}}
 	scheme := "https"
 	if in.Insecure {
 		scheme = "http"
@@ -69,20 +79,34 @@ func Diagnose(in Input) Report {
 	})
 
 	sans, issuer := certInfo(in.DataDir)
-	coverOK := false
-	if httpsOK {
-		for _, a := range addrs {
-			if hasSAN(sans, a) {
-				coverOK = true
-				break
-			}
+	tsOfficial := officialTailscale()
+
+	var anyCovered bool
+	for _, a := range addrs {
+		kind := "lan"
+		if isTailnet(net.ParseIP(a)) {
+			kind = "tailnet"
 		}
-	} else {
-		coverOK = reachOK // HTTP: no cert to check
+		onCert := !httpsOK || hasSAN(sans, a)
+		if onCert {
+			anyCovered = true
+		}
+		t := Target{
+			URL:    fmt.Sprintf("%s://%s:%d/", scheme, a, in.Port),
+			Kind:   kind,
+			Addr:   a,
+			OnCert: onCert,
+		}
+		if !onCert {
+			t.Reason = "Certificate does not cover " + a + " — run make cert"
+		}
+		rep.Targets = append(rep.Targets, t)
+		rep.URLs = append(rep.URLs, t.URL)
 	}
+
 	rep.Checks = append(rep.Checks, Check{
-		ID: "san", OK: coverOK, Title: "Certificate covers that address",
-		Action: unless(coverOK, "Run make cert and restart"),
+		ID: "san", OK: anyCovered || !httpsOK, Title: "Certificate covers a current address",
+		Action: unless(anyCovered || !httpsOK, "Run make cert (Wi-Fi/LAN IP changed) and restart"),
 	})
 
 	mkcertOK := httpsOK && issuerMKCert(issuer)
@@ -91,21 +115,25 @@ func Diagnose(in Input) Report {
 		Action: unless(mkcertOK, "Run make cert, then install the CA on the phone"),
 	})
 
-	for _, a := range addrs {
-		rep.URLs = append(rep.URLs, fmt.Sprintf("%s://%s:%d/", scheme, a, in.Port))
-	}
-	// Prefer tailnet, then first LAN.
-	for _, a := range addrs {
-		if isTailnet(net.ParseIP(a)) {
-			rep.URL = fmt.Sprintf("%s://%s:%d/", scheme, a, in.Port)
-			break
+	// Prefer a LAN address that is on the cert (same-Wi-Fi phone, no Tailscale),
+	// then the official tailscale IP, then any covered target.
+	pick := func(pred func(Target) bool) {
+		if rep.URL != "" {
+			return
+		}
+		for _, t := range rep.Targets {
+			if t.OnCert && pred(t) {
+				rep.URL = t.URL
+				return
+			}
 		}
 	}
-	if rep.URL == "" && len(rep.URLs) > 0 {
-		rep.URL = rep.URLs[0]
-	}
+	pick(func(t Target) bool { return t.Kind == "lan" })
+	pick(func(t Target) bool { return t.Kind == "tailnet" && t.Addr == tsOfficial })
+	pick(func(t Target) bool { return t.Kind == "tailnet" })
+	pick(func(Target) bool { return true })
 
-	rep.Ready = httpsOK && bindOK && reachOK && coverOK && mkcertOK
+	rep.Ready = httpsOK && bindOK && reachOK && mkcertOK && rep.URL != ""
 	return rep
 }
 
@@ -116,12 +144,24 @@ func unless(ok bool, action string) string {
 	return action
 }
 
-// ReachableIPv4 lists non-loopback, non-link-local, non-docker IPv4s.
+func officialTailscale() string {
+	out, err := exec.Command("tailscale", "ip", "-4").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// ReachableIPv4 lists phone-usable IPv4s on real interfaces (not lo/docker).
 func ReachableIPv4() []string {
 	var out []string
 	seen := map[string]bool{}
 	ifaces, _ := net.Interfaces()
 	for _, ifc := range ifaces {
+		name := strings.ToLower(ifc.Name)
+		if name == "lo" || name == "docker0" || strings.HasPrefix(name, "br-") || strings.HasPrefix(name, "veth") {
+			continue
+		}
 		addrs, _ := ifc.Addrs()
 		for _, a := range addrs {
 			var ip net.IP
@@ -142,16 +182,16 @@ func ReachableIPv4() []string {
 			out = append(out, s)
 		}
 	}
-	// Tailnet first.
-	var ts, rest []string
+	var lan, ts []string
 	for _, s := range out {
 		if isTailnet(net.ParseIP(s)) {
 			ts = append(ts, s)
 		} else {
-			rest = append(rest, s)
+			lan = append(lan, s)
 		}
 	}
-	return append(ts, rest...)
+	// LAN first: a phone on the same Wi-Fi has no Tailscale by default.
+	return append(lan, ts...)
 }
 
 // UsablePhoneIP reports whether a phone on LAN/tailnet could route here.
@@ -163,9 +203,12 @@ func UsablePhoneIP(ip net.IP) bool {
 	if v4 == nil {
 		return false
 	}
-	// Docker / typical bridge: 172.16/12 (also RFC1918 — but 172.16-31 is
-	// the range setup-cert.sh skips). Keep 10/8 and 192.168/16.
+	// Docker / typical bridge: 172.16/12.
 	if v4[0] == 172 && v4[1] >= 16 && v4[1] <= 31 {
+		return false
+	}
+	// WSL dummy on lo/mirrored networking.
+	if s := ip.String(); s == "10.255.255.254" {
 		return false
 	}
 	return true
@@ -176,7 +219,6 @@ func isTailnet(ip net.IP) bool {
 	if v4 == nil {
 		return false
 	}
-	// 100.64.0.0/10
 	return v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
 }
 
@@ -212,10 +254,4 @@ func hasSAN(sans []string, addr string) bool {
 		}
 	}
 	return false
-}
-
-// DataDirExists is a tiny helper for tests.
-func DataDirExists(dir string) bool {
-	st, err := os.Stat(dir)
-	return err == nil && st.IsDir()
 }

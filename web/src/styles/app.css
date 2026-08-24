@@ -546,3 +546,15 @@ body {
 .share-checks .ok { color: var(--ok); }
 .share-checks .bad { color: var(--danger); }
 .share-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.share-targets { list-style: none; padding: 10px 0 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.share-target {
+  width: 100%; text-align: left; cursor: pointer;
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 8px 10px; color: inherit; font: inherit;
+  display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
+}
+.share-target.active { border-color: var(--accent); }
+.share-target.off { opacity: .55; cursor: not-allowed; }
+.share-kind { font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; }
+.share-addr { font-family: var(--mono); font-size: 12px; }
+.share-why { flex: 1 1 100%; font-size: 11.5px; color: var(--danger); }

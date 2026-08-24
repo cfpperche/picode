@@ -13,6 +13,7 @@ func TestUsablePhoneIP(t *testing.T) {
 		{"127.0.0.1", false},
 		{"169.254.1.1", false},
 		{"172.17.0.2", false},
+		{"10.255.255.254", false},
 		{"192.168.15.28", true},
 		{"10.0.0.5", true},
 		{"100.87.149.83", true},
