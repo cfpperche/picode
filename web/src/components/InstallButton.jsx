@@ -12,11 +12,8 @@ export default function InstallButton({ className = "btn btn-primary" }) {
   async function onClick() {
     const r = await promptInstall();
     if (r.ok) return;
-    if (r.reason === "unavailable") {
-      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      setHint(ios
-        ? "iPhone: Share → Add to Home Screen (Safari only)."
-        : "Chrome will offer Install when this site qualifies. Use HTTPS and visit twice if needed.");
+    if (r.reason === "unavailable" || r.reason === "share-failed") {
+      setHint("Share is blocked here. In Safari: Share button → Add to Home Screen.");
     }
   }
 
