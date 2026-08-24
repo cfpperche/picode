@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net"
 	"os/exec"
 	"path/filepath"
@@ -48,8 +49,65 @@ type Input struct {
 	DataDir  string
 }
 
+// SyncCert reissues the mkcert leaf when current phone-usable IPs are
+// missing from the SAN list. No-op if mkcert is absent or already in sync.
+// The running server reloads the files on the next handshake (tlsutil.LiveConfig).
+func SyncCert(dataDir string) {
+	if dataDir == "" {
+		return
+	}
+	if _, err := exec.LookPath("mkcert"); err != nil {
+		return
+	}
+	want := DesiredNames()
+	sans, issuer := certInfo(dataDir)
+	if !issuerMKCert(issuer) {
+		return
+	}
+	if !missingAny(sans, want) {
+		return
+	}
+	certPath := filepath.Join(dataDir, tlsutil.CertFile)
+	keyPath := filepath.Join(dataDir, tlsutil.KeyFile)
+	args := append([]string{"-cert-file", certPath, "-key-file", keyPath}, want...)
+	out, err := exec.Command("mkcert", args...).CombinedOutput()
+	if err != nil {
+		log.Printf("share: mkcert renew: %v (%s)", err, strings.TrimSpace(string(out)))
+		return
+	}
+	log.Printf("share: renewed certificate SANs: %s", strings.Join(want, " "))
+}
+
+// DesiredNames is localhost + picode.local + current phone-usable IPs.
+func DesiredNames() []string {
+	names := []string{"localhost", "picode.local"}
+	seen := map[string]bool{"localhost": true, "picode.local": true}
+	for _, a := range ReachableIPv4() {
+		if seen[a] {
+			continue
+		}
+		seen[a] = true
+		names = append(names, a)
+	}
+	return names
+}
+
+func missingAny(have, want []string) bool {
+	set := map[string]bool{}
+	for _, h := range have {
+		set[h] = true
+	}
+	for _, w := range want {
+		if !set[w] {
+			return true
+		}
+	}
+	return false
+}
+
 // Diagnose returns readiness for a phone-scannable URL.
 func Diagnose(in Input) Report {
+	SyncCert(in.DataDir)
 	rep := Report{URLs: []string{}, Targets: []Target{}}
 	scheme := "https"
 	if in.Insecure {
@@ -182,13 +240,18 @@ func ReachableIPv4() []string {
 			out = append(out, s)
 		}
 	}
+	official := officialTailscale()
 	var lan, ts []string
 	for _, s := range out {
 		if isTailnet(net.ParseIP(s)) {
-			ts = append(ts, s)
-		} else {
-			lan = append(lan, s)
+			// Only THIS machine's tailscale IP. Mirrored Windows Tailscale
+			// (another node) shows up on eth* and is not where picode listens.
+			if official != "" && s == official {
+				ts = append(ts, s)
+			}
+			continue
 		}
+		lan = append(lan, s)
 	}
 	// LAN first: a phone on the same Wi-Fi has no Tailscale by default.
 	return append(lan, ts...)

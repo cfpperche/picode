@@ -114,6 +114,22 @@ func WarnIfExpiring(dataDir string, within time.Duration) {
 	}
 }
 
+// LiveConfig reloads cert.pem/key.pem on every handshake so a renewed
+// mkcert file is picked up without rebuilding or restarting.
+func LiveConfig(dataDir string) *tls.Config {
+	certPath := filepath.Join(dataDir, CertFile)
+	keyPath := filepath.Join(dataDir, KeyFile)
+	return &tls.Config{
+		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+			c, err := tls.LoadX509KeyPair(certPath, keyPath)
+			if err != nil {
+				return nil, err
+			}
+			return &c, nil
+		},
+	}
+}
+
 func writePEM(path, blockType string, der []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {

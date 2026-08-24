@@ -22,6 +22,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Cert SANs refresh automatically when the LAN/tailnet IP changes
+  (`mkcert` rewrite + TLS reload on the next handshake — no rebuild).
+  Only this machine's Tailscale IP is offered (not the Windows host node).
 - **Open on phone**: QR button in the sidebar. Drawer diagnoses HTTPS,
   bind, reachable IP, cert SAN and mkcert CA (`GET /api/share`). QR only
   when ready; otherwise a how-to of the missing actions.

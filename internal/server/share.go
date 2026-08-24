@@ -8,6 +8,7 @@ import (
 
 func handleShare(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
+		share.SyncCert(deps.DataDir)
 		port := 0
 		if deps.PortSnapshot != nil {
 			port = deps.PortSnapshot().Current

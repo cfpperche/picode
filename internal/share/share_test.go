@@ -41,6 +41,16 @@ func TestDiagnoseInsecureFailsHTTPS(t *testing.T) {
 	}
 }
 
+func TestMissingAny(t *testing.T) {
+	have := []string{"localhost", "192.168.15.28"}
+	if !missingAny(have, []string{"localhost", "192.168.15.110"}) {
+		t.Fatal("should detect new LAN IP")
+	}
+	if missingAny(have, []string{"localhost"}) {
+		t.Fatal("existing name flagged")
+	}
+}
+
 func TestDiagnoseLoopbackBindFails(t *testing.T) {
 	r := Diagnose(Input{Insecure: false, BindHost: "127.0.0.1", Port: 8445})
 	for _, c := range r.Checks {

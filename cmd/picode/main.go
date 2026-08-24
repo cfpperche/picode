@@ -14,7 +14,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -240,12 +239,11 @@ func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error
 		if cfg.Insecure {
 			err = srv.Serve(ln)
 		} else {
-			cert, cerr := tlsutil.Ensure(cfg.DataDir)
-			if cerr != nil {
+			if _, cerr := tlsutil.Ensure(cfg.DataDir); cerr != nil {
 				log.Fatalf("tls: %v", cerr)
 			}
 			tlsutil.WarnIfExpiring(cfg.DataDir, 30*24*time.Hour)
-			srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			srv.TLSConfig = tlsutil.LiveConfig(cfg.DataDir)
 			err = srv.ServeTLS(ln, "", "")
 		}
 		if err != nil && err != http.ErrServerClosed {
