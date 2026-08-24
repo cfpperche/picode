@@ -105,7 +105,7 @@ export default function App() {
         const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
         setSystem(sys);
         setVersion(ver.version);
-        setHost(sys.host || "local");
+        setHost((sys.host && sys.host.name) || "local");
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try { setMcp(await api("/api/mcp")); } catch { /* ignore */ }

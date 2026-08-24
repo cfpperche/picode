@@ -75,6 +75,24 @@ export default function Settings({ hidden, version, themeMode, onTheme, system }
       </section>
 
       <section className="settings-section">
+        <h3>Host</h3>
+        <dl className="sys-rows" id="settings-host">
+          {hostRows(system).map(([k, v]) => (
+            <div className="sys-row" key={"h" + k}><dt>{k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="settings-section">
+        <h3>Network</h3>
+        <dl className="sys-rows" id="settings-net">
+          {netRows(system).map(([k, v]) => (
+            <div className="sys-row" key={"n" + k}><dt>{k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="settings-section">
         <h3>System</h3>
         <dl className="sys-rows" id="settings-sys">
           {rows.map(([k, v]) => (
@@ -96,6 +114,30 @@ export default function Settings({ hidden, version, themeMode, onTheme, system }
       </section>
     </PageFrame>
   );
+}
+
+function hostRows(system) {
+  if (!system || !system.host) return [["Status", "unavailable"]];
+  const h = system.host;
+  let os = h.os || "—";
+  if (h.arch) os += " · " + h.arch;
+  if (h.wsl) os += " (WSL)";
+  return [
+    ["Name", h.name || "—"],
+    ["OS", os],
+  ];
+}
+
+function netRows(system) {
+  if (!system || !system.network) return [["Status", "unavailable"]];
+  const n = system.network;
+  const bind = n.port ? n.bind + ":" + n.port : (n.bind || "—");
+  return [
+    ["Bind", bind],
+    ["HTTPS", n.https ? "on" : "off"],
+    ["LAN", (n.lan && n.lan.length) ? n.lan.join(", ") : "—"],
+    ["Tailscale", n.tailscale || "—"],
+  ];
 }
 
 function optDep(ok) {

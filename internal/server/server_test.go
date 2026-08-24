@@ -118,6 +118,12 @@ func TestSystemEndpoint(t *testing.T) {
 	if _, err := exec.LookPath("mkcert"); err == nil && !body.Mkcert.Installed {
 		t.Error("mkcert installed but report says otherwise")
 	}
+	if body.Host.OS == "" || body.Host.Arch == "" {
+		t.Fatalf("host os/arch empty: %+v", body.Host)
+	}
+	if body.Network.LAN == nil {
+		t.Fatal("network.lan should be an array")
+	}
 }
 
 func TestWorkspaceAPI(t *testing.T) {

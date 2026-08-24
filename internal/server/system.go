@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/share"
 )
 
 // systemReport drives the UI's setup guidance (ADR-0003: helpful
@@ -29,7 +31,19 @@ type systemReport struct {
 		Installed bool   `json:"installed"`
 		IP        string `json:"ip,omitempty"`
 	} `json:"tailscale"`
-	Host     string   `json:"host"`
+	Host struct {
+		Name string `json:"name"`
+		OS   string `json:"os"`
+		Arch string `json:"arch"`
+		WSL  bool   `json:"wsl"`
+	} `json:"host"`
+	Network struct {
+		Bind      string   `json:"bind"`
+		Port      int      `json:"port,omitempty"`
+		HTTPS     bool     `json:"https"`
+		LAN       []string `json:"lan"`
+		Tailscale string   `json:"tailscale,omitempty"`
+	} `json:"network"`
 	Warnings []string `json:"warnings"`
 }
 
@@ -75,8 +89,27 @@ func handleSystem(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		if host, err := os.Hostname(); err == nil {
-			rep.Host = host
+		rep.Host.OS = runtime.GOOS
+		rep.Host.Arch = runtime.GOARCH
+		rep.Host.WSL = runningOnWSL()
+		if name, err := os.Hostname(); err == nil {
+			rep.Host.Name = name
+		}
+
+		rep.Network.Bind = deps.BindHost
+		if rep.Network.Bind == "" {
+			rep.Network.Bind = "0.0.0.0"
+		}
+		rep.Network.HTTPS = !deps.Insecure
+		if deps.PortSnapshot != nil {
+			rep.Network.Port = deps.PortSnapshot().Current
+		}
+		rep.Network.Tailscale = rep.Tailscale.IP
+		rep.Network.LAN = []string{}
+		for _, ip := range share.ReachableIPv4() {
+			if ip != "" && ip != rep.Network.Tailscale {
+				rep.Network.LAN = append(rep.Network.LAN, ip)
+			}
 		}
 
 		if len(rep.Warnings) == 0 {
@@ -84,6 +117,14 @@ func handleSystem(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+func runningOnWSL() bool {
+	b, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
 func handleCatalog(deps Deps) http.HandlerFunc {

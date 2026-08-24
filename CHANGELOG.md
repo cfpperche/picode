@@ -27,7 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Settings lists opt-in deps **mkcert** and **tailscale** (IP when present).
+- Settings shows **host** (name, OS) and **network** (bind, HTTPS, LAN,
+  Tailscale). Opt-in deps include mkcert and tailscale.
 - In-app **toasts** replace browser `alert()` for errors (slash commands,
   start/stop, login).
 - **Install app** button (Chrome `beforeinstallprompt`). iPhone still
