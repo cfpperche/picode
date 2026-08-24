@@ -17,6 +17,8 @@ looks right" and "the UI looks right", using Pi's native image reading
 2. **Capture** — `bin/picode screenshot --url <url> --out var/screenshots/<name>.png`
    (lands as M1 step 0; until then capture with any local tool — or ask the
    user — and state exactly how the image was obtained).
+   For **interactive** verification (click-through flows, state changes),
+   use the `agent-browser` skill — it drives a real Chromium via bash.
 
 3. **Look** — `read` the PNG. Study the actual rendering: layout, spacing,
    density, contrast, hierarchy, empty states. Zoom mentally into details

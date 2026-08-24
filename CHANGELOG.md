@@ -11,6 +11,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **`agent-browser` skill** (ported from the agentdeck-proven skill, adapted):
+  stateful Chromium automation via bash — agents can now open PiCode,
+  snapshot the accessibility tree, click through flows, eval JS and take
+  live screenshots against the running server. Includes PiCode specifics:
+  port discovery via `server.json`, HTTPS ignore-flag, the go:embed
+  rebuild rule, the observed `close`+`open` session-reset gotcha, and the
+  UI map. `visual-review` skill now points to it for interactive checks.
+
 ### Fixed
 
 - **Theme buttons inside the user-menu popover were dead**: the popover's

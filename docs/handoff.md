@@ -75,6 +75,11 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — `agent-browser` skill added (agentdeck port, adapted):
+  verified live against PiCode (open → snapshot → click user menu → apply
+  Light theme → close). Harness now supports interactive UI automation via
+  bash; visual-review references it. Next up unchanged: diff view (M2).
+
 - **2026-08-24** — Fixed user-menu popover not opening (SyntaxError from a
   `func`→`function` typo that shipped because the JS syntax gate was
   skipped after the last edit). Systemic guards added: Cache-Control
