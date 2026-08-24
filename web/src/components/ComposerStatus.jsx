@@ -7,7 +7,7 @@ export default function ComposerStatus({ bar }) {
     <div className="composer-statusbar" aria-label="Session status">
       {parts.map((p, i) => (
         <span key={p.key} className={"sb-seg" + (p.tone ? " sb-" + p.tone : "")}>
-          {i > 0 ? <span className="sb-dot" aria-hidden="true">/</span> : null}
+          {i > 0 ? <span className="sb-sep" aria-hidden="true">/</span> : null}
           {p.kind === "bar" ? <CtxBar p={p} /> : p.text}
         </span>
       ))}
