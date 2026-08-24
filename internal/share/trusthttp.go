@@ -171,7 +171,14 @@ ol li{margin:8px 0}
 .switch{margin-top:18px;text-align:center}
 .switch a{color:var(--muted);font-size:13px}
 </style>
-<main data-os="` + os + `">
+<section id="gate" class="hidden">
+  <div class="brand">PiCode</div>
+  <h1 id="gate-title">Open in Safari</h1>
+  <p class="lead" id="gate-lead">This step only works in Safari on iPhone.</p>
+  <a class="btn btn-pri" id="gate-go" href="#">Open in Safari</a>
+  <p class="lead" id="gate-hint">Or tap Share → Open in Safari.</p>
+</section>
+<main data-os="` + os + `" id="wiz">
   <div class="brand">PiCode</div>
   <div class="steps" id="bar"><i class="on"></i><i></i><i></i></div>
 
@@ -219,6 +226,35 @@ ol li{margin:8px 0}
 </main>
 <script>
 (function(){
+  var ua=navigator.userAgent;
+  var ios=/iPhone|iPad|iPod/.test(ua);
+  var and=/Android/.test(ua);
+  var safari=ios&&/Safari/.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo/.test(ua);
+  var chrome=and&&/Chrome/.test(ua)&&!/EdgA|OPR|SamsungBrowser|Firefox/.test(ua);
+  var boot=document.getElementById("boot"); if(boot) boot.remove();
+  if((ios&&!safari)||(and&&!chrome)){
+    var gate=document.getElementById("gate");
+    var wiz=document.getElementById("wiz");
+    gate.classList.remove("hidden");
+    if(wiz) wiz.classList.add("hidden");
+    if(and){
+      document.getElementById("gate-title").textContent="Open in Chrome";
+      document.getElementById("gate-lead").textContent="This step works in Chrome on Android.";
+      document.getElementById("gate-go").textContent="Open in Chrome";
+      document.getElementById("gate-hint").textContent="Or copy the link into Chrome.";
+    }
+    document.getElementById("gate-go").addEventListener("click", function(e){
+      e.preventDefault();
+      var here=location.href;
+      if(ios){
+        location.href=here.replace(/^http:/,"x-safari-http:").replace(/^https:/,"x-safari-https:");
+        return;
+      }
+      var u=new URL(here);
+      location.href="intent://"+u.host+u.pathname+u.search+"#Intent;scheme="+u.protocol.replace(":","")+";package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(here)+";end";
+    });
+    return;
+  }
   var os=document.querySelector("main").dataset.os||"other";
   document.querySelectorAll(".ios,.android,.other").forEach(function(el){
     if(!el.classList.contains(os)) el.classList.add("hidden");
@@ -235,7 +271,6 @@ ol li{margin:8px 0}
     b.addEventListener("click", function(){ show(+b.getAttribute("data-go")); });
   });
   var h=+(location.hash||"#1").slice(1); if(h>=1&&h<=3) show(h);
-  var boot=document.getElementById("boot"); if(boot) boot.remove();
 })();
 </script>
 </body></html>`

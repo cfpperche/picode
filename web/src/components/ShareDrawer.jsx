@@ -47,7 +47,7 @@ export default function ShareDrawer({ open, onClose }) {
               <div className="share-qr">
                 <canvas ref={canvasRef} />
                 <p className="share-url">{qrURL}</p>
-                {report.trustPort ? <p className="share-muted">First open on Tailscale can take 10–20s — the phone should show “Opening…”. Same path as the selected row.</p> : null}
+                {report.trustPort ? <p className="share-muted">iPhone: use the Camera app (opens Safari). Chrome cannot install the profile. First Tailscale open can take 10–20s.</p> : null}
               </div>
             ) : null}
             {misses.length ? (
