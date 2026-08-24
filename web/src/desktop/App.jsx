@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, humanizeError, wsURL } from "./lib/api.js";
-import { applyTheme, persistTheme, readThemeMode } from "./lib/theme.js";
-import { closeTerm } from "./components/TerminalDock.jsx";
-import { summarizeArgs } from "./components/Conversation.jsx";
-import { fileChangeFromTool } from "./lib/diff.js";
-import Sidebar from "./components/Sidebar.jsx";
-import AgentTabs from "./components/AgentTabs.jsx";
-import ChatSurface from "./components/ChatSurface.jsx";
-import TerminalDock from "./components/TerminalDock.jsx";
-import Settings from "./components/Settings.jsx";
-import Providers from "./components/Providers.jsx";
-import Mcps from "./components/Mcps.jsx";
-import Devices from "./components/Devices.jsx";
-import Palette from "./components/Palette.jsx";
-import { parseRoute, go } from "./lib/routes.js";
+import { api, humanizeError, wsURL } from "../lib/api.js";
+import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
+import { closeTerm } from "../components/TerminalDock.jsx";
+import { summarizeArgs } from "../components/Conversation.jsx";
+import { fileChangeFromTool } from "../lib/diff.js";
+import Sidebar from "../components/Sidebar.jsx";
+import AgentTabs from "../components/AgentTabs.jsx";
+import ChatSurface from "../components/ChatSurface.jsx";
+import TerminalDock from "../components/TerminalDock.jsx";
+import Settings from "../components/Settings.jsx";
+import Providers from "../components/Providers.jsx";
+import Mcps from "../components/Mcps.jsx";
+import Devices from "../components/Devices.jsx";
+import Palette from "../components/Palette.jsx";
+import { parseRoute, go } from "../lib/routes.js";
+import { startPresence } from "../lib/device.js";
+import { setShell } from "../lib/shell.js";
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -115,24 +117,7 @@ export default function App() {
     })();
   }, [loadWorkspaces]);
 
-  useEffect(() => {
-    const ping = () => {
-      let id = localStorage.getItem("picode-device-id");
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem("picode-device-id", id);
-      }
-      const host = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-      api("/api/devices/ping", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, host }),
-      }).catch(() => {});
-    };
-    ping();
-    const t = setInterval(ping, 15000);
-    return () => clearInterval(t);
-  }, []);
+  useEffect(() => startPresence(), []);
 
   function openTab(id, list) {
     setSelectedId(id);

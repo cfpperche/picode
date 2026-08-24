@@ -1,4 +1,5 @@
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconChevronRight, IconExternal } from "./Icons.jsx";
+import { setShell } from "../lib/shell.js";
 
 export default function UserMenu({
   open, onToggle, onClose, host, version, themeMode, onTheme, onNavigate,
@@ -58,6 +59,10 @@ export default function UserMenu({
         </button>
         <button type="button" className="um-item" id="um-devices" role="menuitem" onClick={() => onNavigate("devices")}>
           <span>Devices</span>
+          <IconChevronRight />
+        </button>
+        <button type="button" className="um-item" role="menuitem" onClick={() => setShell("mobile")}>
+          <span>Mobile layout</span>
           <IconChevronRight />
         </button>
         <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer" role="menuitem">

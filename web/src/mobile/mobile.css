@@ -1,0 +1,45 @@
+#m-app {
+  display: flex; flex-direction: column;
+  height: 100dvh; max-height: 100dvh; overflow: hidden;
+  background: var(--bg-base); color: var(--text-primary);
+}
+.m-top {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  height: 48px; padding: 0 14px;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+}
+.m-brand { font-weight: 650; }
+.m-icon {
+  margin-left: auto; border: 0; background: none; color: var(--text-secondary);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.m-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.m-nav {
+  flex: none; display: grid; grid-template-columns: repeat(4, 1fr);
+  height: 52px; padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-panel); border-top: 1px solid var(--border);
+}
+.m-nav button {
+  border: 0; background: none; color: var(--text-secondary);
+  font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.m-nav button.on { color: var(--accent); font-weight: 600; }
+.m-list { list-style: none; padding: 8px; }
+.m-list li { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+.m-list li.on { background: var(--bg-elevated); border-radius: 8px; }
+.m-ws {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.m-ws-name { font-weight: 550; flex: 1; }
+.m-ws-mode { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
+.m-ws-actions { display: flex; gap: 6px; margin-top: 8px; }
+.m-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+.m-dot.run { background: var(--ok); }
+.m-empty { padding: 24px 16px; color: var(--text-secondary); text-align: center; }
+.m-chat, .m-term, .m-more { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.m-chat .conversation { flex: 1; }
+.m-cta { display: flex; flex-direction: column; gap: 10px; padding: 28px 20px; align-items: stretch; }
+.m-term .dock { flex: 1; height: auto !important; min-height: 0; border-top: none; }
+.m-term .dock.maximized { flex: 1; }
+.m-more { overflow: auto; }

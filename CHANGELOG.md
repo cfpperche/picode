@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- UI split into **desktop** and **mobile** shells (one Vite app). Phone
+  gets a bottom-nav ADE; desktop is unchanged. `?desktop=1` / `?mobile=1`.
 - Product benchmarks now include **t3code** and **paseo** alongside
   Cursor (`docs/benchmarks/`). Studies required before substantial UI.
 - Sidebar is resizable (drag the right edge; 180–480px; remembered).
