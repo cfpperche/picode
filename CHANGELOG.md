@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Theme buttons inside the user-menu popover were dead**: the popover's
+  `stopPropagation` blocked clicks from reaching the document-level theme
+  handler. Reworked outside-click close logic; picking a theme now applies,
+  persists and closes the popover (Vercel-style). `cmd/uicheck` extended to
+  three functional assertions: popover opens, theme click applies+persists
+  (dataset + localStorage + closed), Settings link navigates to `#/settings`.
+
+### Fixed
+
 - **User-menu popover not opening**: a `func`-instead-of-`function` typo
   in app.js (SyntaxError at boot) shipped inside the last binary; JS
   syntax-check was not run after the final edit (process slip, noted in

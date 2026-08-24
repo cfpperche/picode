@@ -52,7 +52,10 @@ const Theme = {
 Theme.media.addEventListener("change", () => { if (Theme.mode === "system") Theme.apply(); });
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-theme-option]");
-  if (btn) Theme.set(btn.dataset.themeOption);
+  if (btn) {
+    Theme.set(btn.dataset.themeOption);
+    if (btn.closest("#um-popover")) closeUserMenu(); // Vercel-style: pick & close
+  }
 });
 
 // ---------- router ----------
@@ -149,8 +152,13 @@ function wireUserMenu() {
     pop.hidden = !open;
     trigger.setAttribute("aria-expanded", String(open));
   });
-  pop.addEventListener("click", (e) => e.stopPropagation());
-  document.addEventListener("click", closeUserMenu);
+  // Close on outside clicks — but clicks INSIDE the usermenu must pass
+  // through to document so the delegated theme handler fires (popover
+  // theme buttons rely on document-level delegation).
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#usermenu")) return;
+    closeUserMenu();
+  });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeUserMenu(); });
   $("#um-settings").addEventListener("click", () => { location.hash = "#/settings"; closeUserMenu(); });
 }
