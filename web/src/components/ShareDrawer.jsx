@@ -18,8 +18,9 @@ export default function ShareDrawer({ open, onClose }) {
   const targets = (report && report.targets) || [];
   const url = picked || (report && report.url) || "";
   const chosen = targets.find((t) => t.url === url) || (url ? { url, onCert: true, kind: "" } : null);
-  const qrURL = withHash(url);
-  const canQR = !!(report && report.ready && chosen && chosen.onCert && qrURL);
+  const appURL = withHash(url);
+  const qrURL = trustPage(report && report.trustUrl, appURL);
+  const canQR = !!qrURL;
 
   useEffect(() => {
     if (!open || !canQR || !canvasRef.current) return;
@@ -45,6 +46,7 @@ export default function ShareDrawer({ open, onClose }) {
               <div className="share-qr">
                 <canvas ref={canvasRef} />
                 <p className="share-url">{qrURL}</p>
+                {report.trustUrl ? <p className="share-muted">Scan installs trust, then open PiCode. iPhone: enable the profile under Certificate Trust Settings.</p> : null}
               </div>
             ) : null}
             {misses.length ? (
@@ -94,4 +96,15 @@ function withHash(url) {
   if (!url) return "";
   if (!location.hash || location.hash === "#/") return url;
   return url.replace(/\/$/, "") + "/" + location.hash;
+}
+
+function trustPage(trust, app) {
+  if (!trust) return app;
+  try {
+    const u = new URL(trust);
+    if (app) u.searchParams.set("next", app);
+    return u.toString();
+  } catch {
+    return trust;
+  }
 }
