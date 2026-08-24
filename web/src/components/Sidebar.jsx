@@ -1,13 +1,44 @@
+import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
+
+const SIDE_MIN = 180;
+const SIDE_MAX = 480;
+const SIDE_KEY = "picode-sidebar-w";
 
 export default function Sidebar({
   version, workspaces, selectedId, showForm, formError,
   onNew, onCancel, onSubmit, onSelect, onRun, onStop, onRemove,
   userMenu, catalog, newCfg, onNewCfg,
 }) {
+  const [width, setWidth] = useState(() => {
+    const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
+    return Number.isFinite(n) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, n)) : 244;
+  });
+  const [resizing, setResizing] = useState(false);
+
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    let latest = startW;
+    setResizing(true);
+    const move = (ev) => {
+      latest = Math.min(SIDE_MAX, Math.max(SIDE_MIN, Math.round(startW + (ev.clientX - startX))));
+      setWidth(latest);
+    };
+    const up = () => {
+      setResizing(false);
+      localStorage.setItem(SIDE_KEY, String(latest));
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   return (
-    <aside id="sidebar">
+    <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
         <span className="brand-name">PiCode</span>
         <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
@@ -62,6 +93,7 @@ export default function Sidebar({
       <footer className="side-foot">
         <UserMenu {...userMenu} />
       </footer>
+      <div id="sidebar-sizer" className="sidebar-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
     </aside>
   );
 }

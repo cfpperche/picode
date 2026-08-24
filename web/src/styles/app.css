@@ -54,11 +54,19 @@ body {
 
 /* ============ sidebar ============ */
 #sidebar {
-  width: 244px; min-width: 244px;
+  width: 244px; flex: none;
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
+  position: relative;
+}
+.sidebar-sizer {
+  position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 6;
+}
+.sidebar-sizer:hover, #sidebar.resizing .sidebar-sizer {
+  background: var(--accent); opacity: .45;
 }
 .brand {
   display: flex; align-items: baseline; gap: 10px;
@@ -426,7 +434,7 @@ body {
 .sb-dot.connected { background: var(--ok); }
 
 /* ============ settings ============ */
-#settings-view { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; }
+#settings-view, .pane-view { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; }
 .settings-wrap { max-width: 680px; margin: 0 auto; padding: 40px 24px; width: 100%; }
 .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .settings-head h2 { font-size: 16px; font-weight: 650; }

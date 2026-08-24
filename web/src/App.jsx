@@ -9,7 +9,10 @@ import AgentTabs from "./components/AgentTabs.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TerminalDock from "./components/TerminalDock.jsx";
 import Settings from "./components/Settings.jsx";
+import Providers from "./components/Providers.jsx";
+import Mcps from "./components/Mcps.jsx";
 import Palette from "./components/Palette.jsx";
+import { parseRoute, go } from "./lib/routes.js";
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -19,7 +22,7 @@ export default function App() {
   const [version, setVersion] = useState("");
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
-  const [route, setRoute] = useState(() => location.hash === "#/settings" ? "settings" : "workspace");
+  const [route, setRoute] = useState(() => parseRoute());
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
@@ -60,7 +63,7 @@ export default function App() {
 
   useEffect(() => {
     const onHash = () => {
-      setRoute(location.hash === "#/settings" ? "settings" : "workspace");
+      setRoute(parseRoute());
       setMenuOpen(false);
     };
     window.addEventListener("hashchange", onHash);
@@ -404,7 +407,7 @@ export default function App() {
     }
   }
 
-  const onSettings = route === "settings";
+  const onPane = route !== "workspace";
   const noTabs = tabs.length === 0;
 
   return (
@@ -433,12 +436,12 @@ export default function App() {
           version,
           themeMode,
           onTheme: setTheme,
-          onSettings: () => { location.hash = "#/settings"; setMenuOpen(false); },
+          onNavigate: (name) => { go(name); setMenuOpen(false); },
         }}
       />
 
       <main id="main">
-        <div id="workspace-view" className="workspace-view" hidden={onSettings}>
+        <div id="workspace-view" className="workspace-view" hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
@@ -500,13 +503,15 @@ export default function App() {
         </div>
 
         <Settings
-          hidden={!onSettings}
+          hidden={route !== "settings"}
           version={version}
           themeMode={themeMode}
           onTheme={setTheme}
           system={system}
+        />
+        <Providers
+          hidden={route !== "providers"}
           catalog={catalog}
-          mcp={mcp}
           onSignIn={async (provider) => {
             const ws = selected || workspaces[0];
             if (!ws || !ws.agent) { alert("Add a workspace first."); return; }
@@ -519,10 +524,11 @@ export default function App() {
               const list = await loadWorkspaces();
               openTab(ws.id, list);
               setDockWanted((s) => new Set(s).add(ws.id));
-              location.hash = "#/";
+              go("workspace");
             } catch (e) { alert(humanizeError(e.message)); }
           }}
         />
+        <Mcps hidden={route !== "mcps"} mcp={mcp} />
       </main>
 
       <Palette
@@ -530,7 +536,7 @@ export default function App() {
         workspaces={workspaces}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
-          if (a.kind === "settings") { location.hash = "#/settings"; return; }
+          if (a.kind === "settings" || a.kind === "providers" || a.kind === "mcps") { go(a.kind); return; }
           if (a.kind === "open") openTab(a.wsId);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);

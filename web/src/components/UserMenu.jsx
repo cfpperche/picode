@@ -1,7 +1,7 @@
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconChevronRight, IconExternal } from "./Icons.jsx";
 
 export default function UserMenu({
-  open, onToggle, onClose, host, version, themeMode, onTheme, onSettings,
+  open, onToggle, onClose, host, version, themeMode, onTheme, onNavigate,
 }) {
   return (
     <div className="usermenu" id="usermenu">
@@ -44,8 +44,16 @@ export default function UserMenu({
         </div>
 
         <div className="um-divider" />
-        <button type="button" className="um-item" id="um-settings" role="menuitem" onClick={onSettings}>
+        <button type="button" className="um-item" id="um-settings" role="menuitem" onClick={() => onNavigate("settings")}>
           <span>Settings</span>
+          <IconChevronRight />
+        </button>
+        <button type="button" className="um-item" id="um-providers" role="menuitem" onClick={() => onNavigate("providers")}>
+          <span>Providers</span>
+          <IconChevronRight />
+        </button>
+        <button type="button" className="um-item" id="um-mcps" role="menuitem" onClick={() => onNavigate("mcps")}>
+          <span>MCPs</span>
           <IconChevronRight />
         </button>
         <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer" role="menuitem">

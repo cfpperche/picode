@@ -69,6 +69,8 @@ export default function Palette({ open, workspaces, onClose, onRun }) {
 function buildActions(workspaces) {
   const out = [
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
+    { id: "providers", label: "Providers", group: "app", kind: "providers" },
+    { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
   ];
   for (const ws of workspaces) {
     const mode = ws.agent ? ws.agent.mode : "stopped";

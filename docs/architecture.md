@@ -12,6 +12,21 @@ and an RPC bridge (`pi --mode rpc`, JSONL over stdio) that feeds the rich UI
 with structured events. A broker routes messages between agents through a Pi
 extension, so agents talk to each other using Pi's own tool-calling protocol.
 
+## Application routes
+
+Hash routes. **Settings is PiCode-the-product only.** Anything that
+configures *pi* (credentials, MCP, later skills/profiles) gets its own
+route — never a section inside Settings.
+
+| Hash | Surface | Owns |
+|---|---|---|
+| `#/` | Agent workspace | tabs, chat, terminal, per-agent provider/model/thinking |
+| `#/settings` | PiCode system | theme, server port, host/tmux/pi status, about |
+| `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
+| `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
+
+Entry: user menu (Settings, Providers, MCPs, Documentation) and `Ctrl+K`.
+
 ## Component diagram
 
 ```

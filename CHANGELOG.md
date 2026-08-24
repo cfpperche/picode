@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings is PiCode-only.** Providers and MCPs are their own routes
+  (`#/providers`, `#/mcps`), listed in the user menu next to Settings and
+  Documentation. Documented in `docs/architecture.md`.
+
 ### Added
 
 - Chrome no longer scrolls with Settings: sidebar stays pinned; only the
