@@ -1,5 +1,6 @@
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconChevronRight, IconExternal } from "./Icons.jsx";
 import { setShell } from "../lib/shell.js";
+import InstallButton from "./InstallButton.jsx";
 
 export default function UserMenu({
   open, onToggle, onClose, host, version, themeMode, onTheme, onNavigate,
@@ -65,6 +66,7 @@ export default function UserMenu({
           <span>Mobile layout</span>
           <IconChevronRight />
         </button>
+        <div style={{ padding: "8px 10px 10px" }}><InstallButton className="btn btn-primary btn-sm" /></div>
         <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer" role="menuitem">
           <span>Documentation</span>
           <IconExternal />

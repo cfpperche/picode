@@ -24,6 +24,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Install app** button (Chrome `beforeinstallprompt`). iPhone still
+  uses Share → Add to Home Screen — Apple has no install API.
 - Mobile **PWA**: installable home-screen app (`standalone`, Apple meta,
   service worker). start_url forces the mobile shell.
 - **Devices** (`#/devices`): connected browsers. Host vs other machines
