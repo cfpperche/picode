@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Click the context bar (or `/compact`) to **compact** the session via pi RPC.
 - **Copy** on assistant replies.
 - Composer **floats** over the conversation (Claude/ChatGPT); the
   scrollbar runs the full pane height.

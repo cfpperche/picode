@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"os/exec"
+	"time"
 
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -19,6 +21,7 @@ func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("PATCH /api/agents/{id}", handlePatchAgent(deps))
 	mux.HandleFunc("POST /api/agents/{id}/login", handleAgentLogin(deps))
 	mux.HandleFunc("POST /api/agents/{id}/command", handleAgentCommand(deps))
+	mux.HandleFunc("POST /api/agents/{id}/compact", handleAgentCompact(deps))
 }
 
 // agentRunMode reports how an agent is currently running.
@@ -335,5 +338,56 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "session": name, "command": req.Text})
+	}
+}
+
+func handleAgentCompact(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if deps.runMode(r, id) == modeInteractive {
+			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
+		}
+		if deps.Runtime.Get(id) == nil {
+			if err := deps.Runtime.Start(id, wk.Path); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+		}
+		ma := deps.Runtime.Get(id)
+		if ma == nil {
+			writeErr(w, http.StatusServiceUnavailable, "agent is not running in chat")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+		defer cancel()
+		res, err := ma.Compact(ctx)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !res.Success {
+			msg := res.Error
+			if msg == "" {
+				msg = "compact failed"
+			}
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "data": json.RawMessage(res.Data)})
 	}
 }

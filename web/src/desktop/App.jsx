@@ -411,6 +411,18 @@ export default function App() {
     }
   }
 
+  async function compactSession() {
+    if (!agent) return;
+    if (!confirm("Compact this session? Older turns become a summary.")) return;
+    try {
+      await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
+      toast.ok("Session compacted.");
+      await loadWorkspaces();
+      await loadSessions(selectedId);
+      await loadStatus(selectedId);
+    } catch (e) { toastError(e); }
+  }
+
   async function sendTask() {
     const payload = draft.trim();
     if (!payload || !selected || !agent) return;
@@ -563,6 +575,7 @@ export default function App() {
               if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
             }}
             statusBar={statusBar}
+            onCompact={compactSession}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}
@@ -604,6 +617,7 @@ export default function App() {
                 document.getElementById("session-picker")?.click();
                 return;
               }
+              if (cmd.run === "compact") { compactSession(); return; }
               try {
                 if (cmd.run === "login") {
                   await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });

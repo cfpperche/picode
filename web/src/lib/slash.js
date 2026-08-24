@@ -6,7 +6,7 @@ export const SLASH = [
   { id: "model", label: "/model", hint: "Switch model", run: "focus-model" },
   { id: "thinking", label: "/thinking", hint: "Thinking level", run: "focus-thinking" },
   { id: "provider", label: "/provider", hint: "Switch provider", run: "focus-provider" },
-  { id: "compact", label: "/compact", hint: "Compact context", run: "term" },
+  { id: "compact", label: "/compact", hint: "Compact context", run: "compact" },
   { id: "new", label: "/new", hint: "New session", run: "session-new" },
   { id: "resume", label: "/resume", hint: "Resume a session", run: "session-resume" },
   { id: "session", label: "/session", hint: "Session info", run: "term" },

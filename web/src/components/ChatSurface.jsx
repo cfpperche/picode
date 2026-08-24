@@ -8,7 +8,7 @@ import ComposerStatus from "./ComposerStatus.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
-  composer, onRun, catalog, agent, onConfig, onSlash, statusBar,
+  composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact,
 }) {
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool");
   const cfg = {
@@ -37,11 +37,11 @@ export default function ChatSurface({
                   <button id="btn-run-agent" type="button" className="btn btn-primary btn-sm" onClick={onRun}>Run agent</button>
                 </div>
               </div>
-              <ComposerStatus bar={statusBar} />
+              <ComposerStatus bar={statusBar} onCompact={onCompact} />
             </div>
           </div>
         ) : (
-          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} />
+          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} />
         )}
       </div>
     </section>

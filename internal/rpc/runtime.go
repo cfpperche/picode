@@ -280,6 +280,11 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	return err
 }
 
+// Compact asks pi to summarize older turns (RPC compact).
+func (ma *ManagedAgent) Compact(ctx context.Context) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "compact"})
+}
+
 // SendPrompt delivers a one-off prompt outside the queue (UI "send now").
 func (ma *ManagedAgent) SendPrompt(message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

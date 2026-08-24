@@ -10,7 +10,7 @@ import { filterSlash } from "../lib/slash.js";
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
-  stopped, onToggleDock, onStop, catalog, cfg, onConfig, onSlash, statusBar,
+  stopped, onToggleDock, onStop, catalog, cfg, onConfig, onSlash, statusBar, onCompact,
 }) {
   const ta = useRef(null);
   const [slashIdx, setSlashIdx] = useState(0);
@@ -85,7 +85,7 @@ export default function Composer({
             </button>
           </div>
         </div>
-        <ComposerStatus bar={statusBar} />
+        <ComposerStatus bar={statusBar} onCompact={onCompact} />
       </div>
     </div>
   );

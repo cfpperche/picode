@@ -303,6 +303,10 @@ body {
 }
 .sb-sep { margin: 0 6px; opacity: 0.4; }
 .sb-ctx { display: inline-flex; align-items: center; gap: 6px; }
+.sb-ctx-btn {
+  border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+}
+.sb-ctx-btn:hover .sb-ctx-lab { color: var(--text-primary); }
 .sb-track {
   display: inline-block; width: 80px; height: 5px; border-radius: 99px;
   background: var(--border); overflow: hidden; vertical-align: middle;
