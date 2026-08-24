@@ -303,14 +303,16 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
-  async function openInteractive(id) {
+  async function openInteractive(id, opts) {
     const ws = workspaces.find((w) => w.id === id);
     if (!ws || !ws.agent) return;
     try {
       await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
       const list = await loadWorkspaces();
       openTab(id, list);
-      setDockWanted((s) => new Set(s).add(id));
+      if (!opts || opts.dock !== false) {
+        setDockWanted((s) => new Set(s).add(id));
+      }
     } catch (err) { toastError(err); }
   }
 
@@ -490,6 +492,7 @@ export default function App() {
               const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
                 && (cfg.opMode || "full") !== (agent.opMode || "full");
               const was = agent.mode;
+              const dockWasOpen = !!(selectedId && dockWanted.has(selectedId));
               try {
                 await api("/api/agents/" + agent.id, {
                   method: "PATCH",
@@ -500,7 +503,7 @@ export default function App() {
                 if (modeChanged && selectedId && was && was !== "stopped") {
                   await stopAgent(selectedId);
                   if (was === "managed") await startManaged(selectedId);
-                  else if (was === "interactive") await openInteractive(selectedId);
+                  else if (was === "interactive") await openInteractive(selectedId, { dock: dockWasOpen });
                 }
               } catch (e) { toastError(e); }
             }}

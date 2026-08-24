@@ -34,7 +34,7 @@ export default function SearchCombo({
                   key={o.id === "" ? "__default" : o.id}
                   value={(o.label || "") + " " + (o.hint || "") + " " + o.id}
                   disabled={!!o.disabled}
-                  onSelect={() => { onChange(o.id); setOpen(false); }}
+                  onSelect={() => { if (o.id !== value) onChange(o.id); setOpen(false); }}
                   className={"cockpit-opt" + (o.id === value ? " selected" : "")}
                 >
                   <span>{o.label}</span>
