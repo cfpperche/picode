@@ -1,5 +1,6 @@
-export default function AgentTabs({ tabs, workspaces, selectedId, onSelect, onClose }) {
+export default function AgentTabs({ tabs, workspaces, selectedId, onSelect, onClose, sessionSlot }) {
   return (
+    <>
     <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0}>
       <div id="tab-strip" className="tab-strip">
         {tabs.map((id) => {
@@ -20,5 +21,7 @@ export default function AgentTabs({ tabs, workspaces, selectedId, onSelect, onCl
         })}
       </div>
     </div>
+    {tabs.length > 0 ? sessionSlot : null}
+    </>
   );
 }

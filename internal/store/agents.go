@@ -19,18 +19,19 @@ type Agent struct {
 	Model         *string `json:"model"`
 	Thinking      *string `json:"thinking"`
 	OpMode        *string `json:"opMode"`
+	SessionPath   *string `json:"sessionPath"`
 	ExtraPrompt   *string `json:"extraPrompt"`
 	LastStartedAt *string `json:"lastStartedAt"`
 	LastStatus    string  `json:"lastStatus"`
 	LastStatusAt  *string `json:"lastStatusAt"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, last_started_at, last_status, last_status_at`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at`
 
 func scanAgent(row interface{ Scan(...any) error }) (Agent, error) {
 	var a Agent
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
 	return a, err
 }
 
@@ -46,7 +47,7 @@ func ensureDefaultAgentTx(tx txRunner, workspaceID, wsName, createdAt string) (A
 		var a Agent
 		err := tx.QueryRow(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at LIMIT 1`, workspaceID).
 			Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-				&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+				&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
 		if err != nil {
 			return Agent{}, fmt.Errorf("store: default agent: %w", err)
 		}
@@ -124,7 +125,7 @@ func (s *Store) SetAgentRuntime(id, status string) error {
 
 func scanAgentInto(row *sql.Row, a *Agent) error {
 	return row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
 }
 
 // AgentPatch is a partial update. Empty string clears a nullable column
@@ -135,6 +136,7 @@ type AgentPatch struct {
 	Model       *string
 	Thinking    *string
 	OpMode      *string
+	SessionPath *string
 	ExtraPrompt *string
 }
 
@@ -167,11 +169,14 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 		}
 		a.OpMode = mode
 	}
+	if p.SessionPath != nil {
+		a.SessionPath = emptyToNil(*p.SessionPath)
+	}
 	if p.ExtraPrompt != nil {
 		a.ExtraPrompt = emptyToNil(*p.ExtraPrompt)
 	}
-	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=? WHERE id=?`,
-		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, id)
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, id)
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
@@ -192,6 +197,9 @@ func (a Agent) CLIFlags() []string {
 	}
 	if a.OpMode != nil && *a.OpMode == OpModeReadonly {
 		args = append(args, "--tools", ReadonlyTools)
+	}
+	if a.SessionPath != nil && *a.SessionPath != "" {
+		args = append(args, "--session", *a.SessionPath)
 	}
 	if a.ExtraPrompt != nil && *a.ExtraPrompt != "" {
 		args = append(args, "--append-system-prompt", *a.ExtraPrompt)

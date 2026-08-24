@@ -297,3 +297,20 @@ func TestOpModeCLIFlags(t *testing.T) {
 		t.Fatal("want error for unknown mode")
 	}
 }
+
+func TestSessionPathFlag(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := s.AddWorkspace("Sess", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := "/tmp/x.jsonl"
+	got, err := s.UpdateAgent(agent.ID, AgentPatch{SessionPath: &p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := got.CLIFlags()
+	if len(flags) < 2 || flags[0] != "--session" || flags[1] != p {
+		t.Fatalf("flags = %v", flags)
+	}
+}

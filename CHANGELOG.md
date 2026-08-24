@@ -27,6 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Sessions** in the tab strip: list / resume / new from pi JSONL files.
+  `/new` and `/resume` hit that UI, not the TUI.
 - Host, network, deps and About live on **`#/system`**. Settings is only
   theme and port.
 - In-app **toasts** replace browser `alert()` for errors (slash commands,

@@ -202,6 +202,7 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 			Model       *string `json:"model"`
 			Thinking    *string `json:"thinking"`
 			OpMode      *string `json:"opMode"`
+			SessionPath *string `json:"sessionPath"`
 			ExtraPrompt *string `json:"extraPrompt"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -210,7 +211,7 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 		}
 		agent, err := deps.Store.UpdateAgent(id, store.AgentPatch{
 			Name: req.Name, Provider: req.Provider, Model: req.Model,
-			Thinking: req.Thinking, OpMode: req.OpMode, ExtraPrompt: req.ExtraPrompt,
+			Thinking: req.Thinking, OpMode: req.OpMode, SessionPath: req.SessionPath, ExtraPrompt: req.ExtraPrompt,
 		})
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")

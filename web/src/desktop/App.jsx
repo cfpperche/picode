@@ -6,6 +6,7 @@ import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
 import Sidebar from "../components/Sidebar.jsx";
 import AgentTabs from "../components/AgentTabs.jsx";
+import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
 import Settings from "../components/Settings.jsx";
@@ -44,6 +45,8 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [streaming, setStreaming] = useState(false);
   const [items, setItems] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [sessionCurrent, setSessionCurrent] = useState("");
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -99,6 +102,18 @@ export default function App() {
     setWorkspaces(list);
     return list;
   }, []);
+
+  const loadSessions = useCallback(async (wsId) => {
+    const id = wsId || selectedId;
+    if (!id) { setSessions([]); setSessionCurrent(""); return; }
+    try {
+      const data = await api("/api/workspaces/" + id + "/sessions");
+      setSessions(data.sessions || []);
+      setSessionCurrent(data.current || "");
+    } catch { setSessions([]); setSessionCurrent(""); }
+  }, [selectedId]);
+
+  useEffect(() => { loadSessions(selectedId); }, [selectedId, loadSessions]);
 
   useEffect(() => {
     (async () => {
@@ -463,6 +478,30 @@ export default function App() {
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
+            sessionSlot={selectedId ? (
+              <SessionBar
+                sessions={sessions}
+                current={sessionCurrent}
+                onNew={async () => {
+                  try {
+                    await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+                    await loadWorkspaces();
+                    await loadSessions();
+                  } catch (e) { toastError(e); }
+                }}
+                onResume={async (path) => {
+                  try {
+                    await api("/api/workspaces/" + selectedId + "/sessions/resume", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ path }),
+                    });
+                    await loadWorkspaces();
+                    await loadSessions();
+                  } catch (e) { toastError(e); }
+                }}
+              />
+            ) : null}
           />
 
           <div id="empty" className="empty" hidden={!noTabs}>
@@ -513,6 +552,18 @@ export default function App() {
               if (cmd.run === "focus-model") { document.getElementById("agent-model")?.focus(); return; }
               if (cmd.run === "focus-thinking") { document.getElementById("agent-thinking")?.focus(); return; }
               if (cmd.run === "focus-provider") { document.getElementById("agent-provider")?.focus(); return; }
+              if (cmd.run === "session-new") {
+                try {
+                  await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+                  await loadWorkspaces();
+                  await loadSessions();
+                } catch (e) { toastError(e); }
+                return;
+              }
+              if (cmd.run === "session-resume") {
+                document.getElementById("session-picker")?.click();
+                return;
+              }
               try {
                 if (cmd.run === "login") {
                   await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
