@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed (the dock closer was a lie)
+
+- **`.dock { display:flex }` beat the `hidden` attribute** — `hideDock()`
+  set `hidden=true` but the panel stayed painted. Same class of bug as
+  the Run-CTA ghost overlay; previous QA checked the attribute, not
+  `getComputedStyle`. Fixed with a global `[hidden]{display:none !important}`.
+- **Terminal dock no longer has its own tabs.** The panel belongs to the
+  active agent tab (title = `Terminal · <agent>`). Closing `×` hides it
+  (`display:none` verified) and it stays hidden across sidebar clicks.
+  Preference is per agent tab.
+
 ### Changed (owner feedback: agents must be IDE tabs; dock must not auto-open)
 
 - **Agents now open as tabs in the editor area** (IDE convention): clicking

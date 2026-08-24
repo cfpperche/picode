@@ -72,14 +72,18 @@ Functional click-throughs are NOT enough. Before declaring UI work done, also:
 1. **Clickability sweep**: attempt a REAL click on every primary control
    (`click` fails loudly when an element is covered — CSS `display` beating
    the `hidden` attribute creates invisible full-surface overlays).
-2. **Open/close cycles**: dock/panel/tab/modal — open, close, verify it STAYS
+2. **Hidden means pixels gone**: after every close, assert
+   `getComputedStyle(el).display === "none"` — NEVER trust `.hidden` or
+   the `hidden` attribute alone. Author `display:flex/grid` beats the UA
+   `[hidden]` rule. This is how the dock closer shipped as a lie.
+3. **Open/close cycles**: dock/panel/tab/modal — open, close, verify it STAYS
    closed after unrelated interactions (sidebar clicks, reloads). Auto-reopen
    after close is a bug users hit immediately.
-3. **Persistence across reload**: state should survive; selection/layout
+4. **Persistence across reload**: state should survive; selection/layout
    should be sane with zero running agents (no dead zones).
-4. **IDE conventions**: agents open as TABS in the editor area; docks/panels
+5. **IDE conventions**: agents open as TABS in the editor area; docks/panels
    open only by explicit user action; closers always visible on hover.
-5. **Console + network sweep** at the end: zero errors expected.
+6. **Console + network sweep** at the end: zero errors expected.
 
 PiCode serves HTTPS (self-signed or mkcert) with a **runtime-configurable
 port** — don't assume 8445:

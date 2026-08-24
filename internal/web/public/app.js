@@ -10,9 +10,9 @@ const state = {
   tabs: [],       // open agent tabs (workspace ids), IDE-style
   system: null,
   version: "",
-  terms: new Map(),   // agentId -> { term, fit, sock, paneEl, tabEl, onWinResize, closedByUser }
+  terms: new Map(),   // agentId -> { term, fit, sock, paneEl, onWinResize, closedByUser }
   panel: null,        // { agentId, ws, sock, tools: Map, nearBottom, assistantEl }
-  dockOpen: false,
+  dockWanted: new Set(), // workspace ids whose terminal panel is open
 };
 
 // ---------- api ----------
@@ -258,7 +258,7 @@ function openTab(id) {
   renderTabs();
   renderWorkspaceList();
   const ws = state.workspaces.find((w) => w.id === id);
-  if (ws) openChatSurface(ws); // never auto-opens the dock
+  if (ws) openChatSurface(ws);
 }
 
 function selectTab(id) {
@@ -271,7 +271,8 @@ function selectTab(id) {
 function closeTab(id) {
   const ws = state.workspaces.find((w) => w.id === id);
   state.tabs = state.tabs.filter((t) => t !== id);
-  if (ws && ws.agent) closeTerm(ws.agent.id, true); // detach only — agent lives
+  state.dockWanted.delete(id);
+  if (ws && ws.agent) closeTerm(ws.agent.id); // detach only — agent lives
   if (state.panel && ws && ws.agent && state.panel.agentId === ws.agent.id) closePanel();
   if (state.selectedId === id) {
     const next = state.tabs[state.tabs.length - 1];
@@ -314,8 +315,8 @@ async function openInteractive(id) {
     await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
     state.selectedId = id;
     await loadWorkspaces();
-    openTab(id); // interactive branch prepares the attach…
-    showDock();  // …and "Open terminal" is an explicit action: show the dock
+    openTab(id);
+    showDock(); // explicit "Open terminal" action
   } catch (err) { alert(humanizeError(err.message)); }
 }
 
@@ -358,6 +359,7 @@ function openChatSurface(ws) {
 
   if (stopped) {
     setChatStatus("stopped", false);
+    syncDock();
     return;
   }
 
@@ -367,14 +369,12 @@ function openChatSurface(ws) {
     closePanel();
     if (agent.mode === "interactive") {
       setChatStatus("interactive — open the terminal", false);
-      if (!state.terms.has(agent.id)) {
-        attachTerm(agent.id, ws); // prepare the attach; dock stays closed until toggled
-      }
       if (fresh) { $("#conversation").innerHTML = ""; addSysLine("Agent is running in the terminal. Use the Terminal button to pair with it."); }
     } else {
       setChatStatus("stopped", false);
     }
   }
+  syncDock();
 }
 
 function convCol() {
@@ -584,20 +584,40 @@ function wireComposer() {
   $("#dock-close").addEventListener("click", () => hideDock());
 }
 
-// ---------- terminal dock ----------
+// ---------- terminal dock (one pane per agent tab; no tab strip of its own) ----------
+function currentWs() {
+  return state.workspaces.find((w) => w.id === state.selectedId) || null;
+}
+
 function showDock() {
-  state.dockOpen = true;
-  $("#dock").hidden = false;
-  const first = state.terms.entries().next();
-  if (!first.done) activateTerm(first.value[0]);
+  if (state.selectedId) state.dockWanted.add(state.selectedId);
+  syncDock();
 }
 function hideDock() {
-  state.dockOpen = false;
+  if (state.selectedId) state.dockWanted.delete(state.selectedId);
   $("#dock").hidden = true;
 }
 function toggleDock() {
-  if (state.dockOpen) hideDock();
+  const open = state.selectedId && state.dockWanted.has(state.selectedId) && !$("#dock").hidden;
+  if (open) hideDock();
   else showDock();
+}
+
+// syncDock shows the dock only when THIS agent tab asked for it and the
+// agent is actually in interactive mode. Switching tabs never re-opens a
+// dock the user just closed on another tab.
+function syncDock() {
+  const ws = currentWs();
+  const want = !!(ws && state.dockWanted.has(ws.id));
+  const interactive = !!(ws && ws.agent && ws.agent.mode === "interactive");
+  if (!want || !interactive) {
+    $("#dock").hidden = true;
+    return;
+  }
+  $("#dock").hidden = false;
+  $("#dock-title").textContent = "Terminal · " + ws.name;
+  if (!state.terms.has(ws.agent.id)) attachTerm(ws.agent.id, ws);
+  activateTerm(ws.agent.id);
 }
 
 function setTermState(connected) {
@@ -605,24 +625,12 @@ function setTermState(connected) {
   $("#sb-state-text").textContent = connected ? "connected" : "detached";
 }
 
-// attachTerm (re)attaches the tmux terminal WITHOUT opening the dock;
-// the dock opens only through explicit user action (btn-dock).
-
 function attachTerm(id, ws) {
   if (state.terms.has(id)) { activateTerm(id); return; }
 
-  const tabs = $("#tabs"), terms = $("#terms");
-
-  const tabEl = document.createElement("div");
-  tabEl.className = "tab active";
-  tabEl.innerHTML = `<span class="tab-dot"></span><span>${escapeHTML(ws.name)}</span><button class="tab-close" title="Detach (agent keeps running)">×</button>`;
-  tabEl.addEventListener("click", () => activateTerm(id));
-  tabEl.querySelector(".tab-close").addEventListener("click", () => closeTerm(id));
-  tabs.appendChild(tabEl);
-
   const paneEl = document.createElement("div");
   paneEl.className = "term-pane active";
-  terms.appendChild(paneEl);
+  $("#terms").appendChild(paneEl);
 
   const term = new Terminal({
     cursorBlink: true,
@@ -640,7 +648,7 @@ function attachTerm(id, ws) {
   term.loadAddon(fit);
   term.open(paneEl);
 
-  const entry = { term, fit, paneEl, tabEl, sock: null, onWinResize: null, closedByUser: false };
+  const entry = { term, fit, paneEl, sock: null, onWinResize: null, closedByUser: false };
 
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const sock = new WebSocket(`${proto}//${location.host}/ws/term?session=picode-${id}`);
@@ -656,7 +664,9 @@ function attachTerm(id, ws) {
     };
     fit.fit();
     sendResize();
-    entry.onWinResize = () => { if (paneEl.classList.contains("active") && state.dockOpen) { fit.fit(); sendResize(); } };
+    entry.onWinResize = () => {
+      if (paneEl.classList.contains("active") && !$("#dock").hidden) { fit.fit(); sendResize(); }
+    };
     window.addEventListener("resize", entry.onWinResize);
     term.onData((data) => {
       if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
@@ -695,26 +705,19 @@ function attachTerm(id, ws) {
 function activateTerm(id) {
   for (const [wid, t] of state.terms) {
     t.paneEl.classList.toggle("active", wid === id);
-    t.tabEl.classList.toggle("active", wid === id);
   }
   const t = state.terms.get(id);
   if (t) { t.term.focus(); t.fit && requestAnimationFrame(() => t.fit.fit()); }
 }
 
-function closeTerm(id, silent) {
+function closeTerm(id) {
   const t = state.terms.get(id);
   if (!t) return;
   t.closedByUser = true;
   try { t.sock.close(); } catch {}
   t.term.dispose();
-  t.tabEl.remove();
   t.paneEl.remove();
   state.terms.delete(id);
-  if (!silent) {
-    const first = state.terms.keys().next();
-    if (!first.done) activateTerm(first.value);
-    else hideDock();
-  }
 }
 
 // ---------- new workspace form ----------

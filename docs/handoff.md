@@ -86,6 +86,13 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Owner feedback round 4 ("X does not close the terminal;
+  dock must not have tabs"): root cause was CSS `display:flex` beating
+  `[hidden]` — previous QA declared victory on the attribute, not pixels.
+  Global `[hidden]{display:none !important}`; dock is now a single pane
+  owned by the active agent tab (no inner tab strip). Verified:
+  `getComputedStyle(dock).display === "none"` after × and after sidebar
+  re-click; 0 `.tab` nodes inside `#dock`.
 - **2026-08-24** — Owner feedback round 3 ("system unusable: no agent tabs,
   dock can't be closed, auto-opens"): implemented IDE-style **agent tabs**
   (open/select/close via sidebar + tab strip; closers; status dots), dock
