@@ -186,8 +186,22 @@ func TestEventsAndSettings(t *testing.T) {
 
 func TestLegacyJSONImport(t *testing.T) {
 	dir := t.TempDir()
-	legacy := `[{"id":"picode-old1","name":"Legacy","path":"` + t.TempDir() + `","createdAt":"2026-08-23T10:00:00Z"}]`
-	if err := os.WriteFile(filepath.Join(dir, "workspaces.json"), []byte(legacy), 0o644); err != nil {
+	type legacyEntry struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Path      string `json:"path"`
+		CreatedAt string `json:"createdAt"`
+	}
+	legacyBytes, err := marshalJSON([]legacyEntry{{
+		ID:        "picode-old1",
+		Name:      "Legacy",
+		Path:      t.TempDir(), // json.Marshal handles Windows backslashes
+		CreatedAt: "2026-08-23T10:00:00Z",
+	}})
+	if err != nil {
+		t.Fatalf("marshal legacy: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "workspaces.json"), legacyBytes, 0o644); err != nil {
 		t.Fatalf("write legacy: %v", err)
 	}
 
