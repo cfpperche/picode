@@ -30,7 +30,7 @@
 
       <div class="side-section">
         <div class="side-head">
-          <span class="side-title">Workspaces</span>
+          <span class="side-title">Agents</span>
           <button id="btn-new" class="btn btn-ghost btn-sm" title="Add a workspace">+ New</button>
         </div>
 
@@ -106,43 +106,61 @@
     </aside>
 
     <main id="main">
-      <div id="workspace-view">
+      <!-- ============ workspace view: chat hero + terminal dock ============ -->
+      <div id="workspace-view" class="workspace-view">
         <div id="empty" class="empty">
           <div class="empty-card">
-            <h2>No workspaces yet</h2>
-            <p>Add a project folder to start an agent in it.</p>
+            <h2>No agents yet</h2>
+            <p>Add a project folder to create your first agent.</p>
             <button id="btn-new-empty" class="btn btn-primary">Add workspace</button>
           </div>
         </div>
 
-        <div id="term-area" hidden>
-          <div id="tabs" class="tabs"></div>
+        <section id="chat-surface" class="chat-surface" hidden>
+          <header class="chat-head">
+            <span class="chat-agent-name" id="chat-agent-name">agent</span>
+            <span class="chip" id="chat-mode-chip">managed</span>
+            <span class="chat-status" id="chat-status">
+              <span class="dot" id="chat-dot"></span><span id="chat-status-text">idle</span>
+            </span>
+            <span class="chat-head-spacer"></span>
+            <button id="btn-stop-agent" class="btn btn-ghost btn-sm" title="Stop this agent" hidden>Stop</button>
+            <button id="btn-dock" class="btn btn-ghost btn-sm" title="Toggle terminal dock" hidden>Terminal</button>
+          </header>
+
+          <div id="conversation" class="conversation"></div>
+
+          <div class="composer-wrap">
+            <div class="composer">
+              <textarea id="task-input" rows="1" placeholder="Send a task to this agent…"></textarea>
+              <div class="composer-controls">
+                <select id="task-kind" class="kind-chip" title="How the message is delivered">
+                  <option value="prompt">Prompt</option>
+                  <option value="steer">Steer</option>
+                  <option value="follow_up">Follow-up</option>
+                </select>
+                <span class="composer-hint">Enter ↵</span>
+                <button id="task-send" class="btn btn-primary btn-sm" title="Send">Send</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="dock" class="dock" hidden>
+          <div class="dock-head">
+            <div id="tabs" class="tabs"></div>
+            <button id="dock-close" class="dock-close" title="Hide terminal (agent keeps running)">×</button>
+          </div>
           <div id="terms" class="terms"></div>
           <div id="statusbar" class="statusbar">
             <span class="sb-state" id="sb-state"><span class="sb-dot" id="sb-dot"></span><span id="sb-state-text">detached</span></span>
             <span id="sb-session" class="sb-item"></span>
             <span id="sb-dims" class="sb-item"></span>
           </div>
-        </div>
-
-        <div id="agent-area" hidden>
-          <div id="agent-head" class="agent-head">
-            <span class="agent-title" id="agent-title">agent</span>
-            <span class="agent-state" id="agent-state"><span class="sb-dot" id="agent-dot"></span><span id="agent-state-text">idle</span></span>
-          </div>
-          <div id="agent-stream" class="agent-stream"></div>
-          <div id="agent-composer" class="agent-composer">
-            <select id="task-kind" class="task-kind" title="How the message is delivered">
-              <option value="prompt">Prompt</option>
-              <option value="steer">Steer</option>
-              <option value="follow_up">Follow-up</option>
-            </select>
-            <input id="task-input" type="text" placeholder="Send a task to this agent…" autocomplete="off">
-            <button id="task-send" class="btn btn-primary">Send</button>
-          </div>
-        </div>
+        </section>
       </div>
 
+      <!-- ============ settings view ============ -->
       <section id="settings-view" hidden>
         <div class="settings-wrap">
           <header class="settings-head">

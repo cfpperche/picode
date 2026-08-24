@@ -11,6 +11,21 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **UI redesigned to agent-IDE anatomy** (owner feedback: "looks nothing
+  like Cursor/t3code/paseo"): conversation is now the centered hero surface
+  (~760px column, flat blocks with actor labels — Cursor composer style),
+  tool calls render as pills inside the conversation (28px, expandable),
+  composer is a rounded elevated box (textarea + Prompt/Steer/Follow-up
+  chip + send), terminal became a bottom **dock** with compact tabs —
+  fixing the stacked-surfaces bug (panel residue above tabs).
+- New visual spec documented (`docs/design/benchmark-visual-anatomy.md`)
+  with provenance note (trained knowledge, not live capture);
+  `docs/design/references/` created for owner screenshots — vision sessions
+  must verify/refine against them. Tokens updated: `#0e0e11` base,
+  `#131317` panel, `#7c8cf8` accent.
+
 ### Added
 
 - **M2 core — managed agents (ADR-0006)**: agents run in exactly one mode

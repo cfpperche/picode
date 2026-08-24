@@ -39,9 +39,13 @@ If the latter, reject it. We are not building a code editor.
 
 ## Aesthetics & density bar
 
-### Design tokens (v0 — formalize in an ADR when the frontend build lands)
+### Design tokens (v2 — full spec in [design/benchmark-visual-anatomy.md](design/benchmark-visual-anatomy.md))
 
-The M0 placeholder page already implements these; they are the baseline:
+The M2 redesign implements the anatomy: conversation as centered hero
+(~760px column), tool pills inside the conversation, rounded composer with
+kind chip, terminal as a bottom dock. Tokens: bg `#0e0e11`, panel `#131317`,
+elevated `#1b1b21`, border `#232329`, accent `#7c8cf8`, UI 13px, pill 28px,
+radius 8/12.
 
 ```
 Surface

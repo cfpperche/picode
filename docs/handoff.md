@@ -68,6 +68,14 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — UI redesign after owner feedback ("doesn't look like
+  Cursor/t3code/paseo"): conversation-hero anatomy, tool pills, rounded
+  composer, terminal dock; stacked-surfaces bug fixed by construction.
+  Visual spec written with provenance note; `docs/design/references/`
+  awaiting owner screenshots for vision-session verification. Evidence:
+  `docs/screenshots/m2-chat-redesign.png` (pixel checks pass; agent visual
+  verdict still UNVERIFIED — vision model needed).
+
 - **2026-08-24** — M2 core shipped (ADR-0006): rpc client + managed runtime
   + delivery engine, mode-switch API, /ws/agent, agent panel UI. Verified
   against real pi (prompt delivered + streamed; stale queued follow-up
