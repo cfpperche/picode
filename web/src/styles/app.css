@@ -297,6 +297,14 @@ body {
   position: relative;
 }
 .cfg-row select { max-width: 220px; }
+.composer-statusbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px;
+  margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-secondary); line-height: 1.4;
+}
+.sb-dot { margin: 0 5px; opacity: 0.55; }
+.sb-warn { color: var(--warn); }
+.sb-bad { color: var(--danger); }
 .stopped-line {
   min-height: 52px; padding: 2px 4px 6px;
   color: var(--text-secondary); font-size: 14px; line-height: 1.45;

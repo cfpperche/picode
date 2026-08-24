@@ -65,6 +65,31 @@ func TestTranscript(t *testing.T) {
 	}
 }
 
+func TestParseContextWindow(t *testing.T) {
+	if ParseContextWindow("200K") != 200_000 {
+		t.Fatal("200K")
+	}
+	if ParseContextWindow("1M") != 1_000_000 {
+		t.Fatal("1M")
+	}
+	if ParseContextWindow("1.0M") != 1_000_000 {
+		t.Fatal("1.0M")
+	}
+}
+
+func TestFormatCwd(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	if got := formatCwd(home); got != "~" {
+		t.Fatalf("home = %q", got)
+	}
+	if got := formatCwd(filepath.Join(home, "picode")); got != "~/picode" {
+		t.Fatalf("sub = %q", got)
+	}
+}
+
 func TestListMissingDir(t *testing.T) {
 	got, err := List(filepath.Join(t.TempDir(), "nope"))
 	if err != nil || len(got) != 0 {

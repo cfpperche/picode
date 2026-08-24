@@ -48,6 +48,7 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
+  const [statusBar, setStatusBar] = useState(null);
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -123,6 +124,20 @@ export default function App() {
   }, [selectedId]);
 
   useEffect(() => { loadSessions(selectedId); }, [selectedId, loadSessions]);
+
+  const loadStatus = useCallback(async (wsId) => {
+    const id = wsId || selectedId;
+    if (!id) { setStatusBar(null); return; }
+    try { setStatusBar(await api("/api/workspaces/" + id + "/status")); }
+    catch { setStatusBar(null); }
+  }, [selectedId]);
+
+  useEffect(() => { loadStatus(selectedId); }, [selectedId, sessionCurrent, loadStatus]);
+  useEffect(() => {
+    if (!agent || agent.mode !== "managed") return;
+    const t = setInterval(() => loadStatus(selectedId), 15000);
+    return () => clearInterval(t);
+  }, [agent && agent.mode, selectedId, loadStatus]);
 
   useEffect(() => {
     (async () => {
@@ -240,6 +255,7 @@ export default function App() {
         if (paths.length) {
           setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
         }
+        if (selectedId) loadStatus(selectedId);
         break;
       }
       case "message_update": {
@@ -530,6 +546,7 @@ export default function App() {
               const el = convRef.current;
               if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
             }}
+            statusBar={statusBar}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

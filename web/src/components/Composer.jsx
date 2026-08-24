@@ -5,11 +5,12 @@ import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend } from "./Icons.jsx";
+import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
-  stopped, onToggleDock, onStop, catalog, cfg, onConfig, onSlash,
+  stopped, onToggleDock, onStop, catalog, cfg, onConfig, onSlash, statusBar,
 }) {
   const ta = useRef(null);
   const [slashIdx, setSlashIdx] = useState(0);
@@ -84,6 +85,7 @@ export default function Composer({
             </button>
           </div>
         </div>
+        <ComposerStatus bar={statusBar} />
       </div>
     </div>
   );

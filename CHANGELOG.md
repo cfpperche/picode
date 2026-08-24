@@ -27,6 +27,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Composer **status line**: cwd, git branch/worktree, context %, session cost
+  (same facts as the pi TUI footer; no invented provider quotas).
+- Stopped state uses the **composer chrome** (Run / Open terminal), not a
+  floating card over the chat.
 - Session **replay** paints the JSONL conversation in the chat (view-only).
 - Visual QA is a **gate**: overlay geometry audit + 5-question card.
   Clipped menus fail the build ritual (see `/skill:visual-review`).
