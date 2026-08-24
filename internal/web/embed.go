@@ -4,8 +4,8 @@ package web
 
 import "embed"
 
-// Public holds the UI assets served at "/". Add hashed asset names when a
-// build step lands (see docs/handoff.md "Known debts" re: vite).
+// Public holds the production UI (Vite build output from web/).
+// Rebuild with `make web` (ADR-0008). go:embed is compile-time (ADR-0001).
 //
 //go:embed public
 var Public embed.FS

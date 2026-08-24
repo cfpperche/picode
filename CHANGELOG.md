@@ -11,7 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
-## [Unreleased]
+### Changed
+
+- **UI is React + Vite + Tailwind** (ADR-0008, supersedes ADR-0004).
+  Same design tokens and component classes; vanilla `app.js` is gone.
+  `make build` / CI run `npm ci && npm run build` into `internal/web/public`.
+  Terminal dock is resizable (drag the top edge) and can maximize to fill
+  the agent tab.
 
 ### Removed
 

@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "./styles/app.css";
+
+/*
+  Tailwind theme maps onto the existing CSS variables (app.css :root).
+  New utilities must use these — never a second palette.
+*/
+@theme {
+  --color-base: var(--bg-base);
+  --color-panel: var(--bg-panel);
+  --color-elevated: var(--bg-elevated);
+  --color-hover: var(--bg-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --radius-ctl: 8px;
+  --radius-panel: 12px;
+}

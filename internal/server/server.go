@@ -99,12 +99,12 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 }
 
 // cacheControl keeps the UI from being stale after binary upgrades: the
-// app shell (index/app/style) must revalidate every load; vendored libs
-// are content-stable per version and cache for an hour.
+// app shell (index.html) must revalidate every load; hashed Vite assets
+// under /assets/ are content-addressed and can be cached forever.
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/vendor/") {
-			w.Header().Set("Cache-Control", "public, max-age=3600")
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
 			w.Header().Set("Cache-Control", "no-cache")
 		}

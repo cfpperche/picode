@@ -1,6 +1,6 @@
 # ADR-0004: Defer the frontend framework decision — vanilla ES modules for now
 
-- **Status**: accepted
+- **Status**: superseded by [ADR-0008](0008-react-vite-tailwind.md)
 - **Date**: 2026-08-23
 
 ## Context

@@ -17,19 +17,20 @@ passed gate reported falsely.
 2. **Vet**: run `go vet ./...`. Must be clean.
 3. **Tests**: run `go test ./...`. All pass, no skips without a linked
    issue/TODO in `docs/handoff.md`.
-4. **Build**: run `go build ./...`. Must compile.
-5. **Diff review**: `git diff --stat` —
+4. **UI build** (if `web/` changed): `cd web && npm run build`. Must succeed.
+5. **Build**: run `make build` (UI + Go) or `go build ./cmd/picode` after `make web`. Must compile.
+6. **Diff review**: `git diff --stat` —
    - One logical change? If not, propose splitting the commit.
    - New code without tests? Add tests (table-driven) before finishing.
    - New non-stdlib dependency? It needs explicit justification in the
      commit/PR description (AGENTS.md rule #3). No justification = remove it.
-6. **Changelog check**: is anything in this diff user-visible?
+7. **Changelog check**: is anything in this diff user-visible?
    - Yes → there must be a new entry under `[Unreleased]` in
      `CHANGELOG.md` (Keep a Changelog verbs: Added/Changed/Fixed/Removed).
-7. **Docs check**: did behavior or architecture change?
+8. **Docs check**: did behavior or architecture change?
    - Yes → `docs/architecture.md` (and an ADR if architectural) must
      change in the same commit.
-8. **Handoff**: run `/skill:handoff-update` to close the session state.
+9. **Handoff**: run `/skill:handoff-update` to close the session state.
 
 ## Report format
 

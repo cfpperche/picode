@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-23.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-24.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -17,7 +17,7 @@ extension, so agents talk to each other using Pi's own tool-calling protocol.
 ```
 ┌────────────────────────────────────────────────────────────┐
 │ Browser                                                     │
-│  ├─ Rich UI (React or Svelte — see ADR-0004 when decided)  │
+│  ├─ Rich UI (React + Vite + Tailwind — ADR-0008)           │
 │  │   agents panel · tasks · diffs · sessions tree · auth   │
 │  └─ xterm.js terminals (the real Pi TUI, 1:1)              │
 └───────────────┬────────────────────────────────────────────┘

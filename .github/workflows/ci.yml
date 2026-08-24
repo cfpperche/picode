@@ -30,6 +30,15 @@ jobs:
           go-version: "stable"
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build UI
+        run: cd web && npm ci && npm run build
+
       - name: Format check
         if: matrix.os == 'ubuntu-latest'
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)

@@ -1,0 +1,61 @@
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconChevronRight, IconExternal } from "./Icons.jsx";
+
+export default function UserMenu({
+  open, onToggle, onClose, host, version, themeMode, onTheme, onSettings,
+}) {
+  return (
+    <div className="usermenu" id="usermenu">
+      <button
+        className="um-trigger"
+        id="um-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      >
+        <span className="um-avatar" aria-hidden="true"><IconUser /></span>
+        <span className="um-meta">
+          <span className="um-name" id="um-name">{host}</span>
+          <span className="um-sub" id="um-sub">this machine</span>
+        </span>
+        <IconChevronUp />
+      </button>
+
+      <div className="um-popover" id="um-popover" hidden={!open} role="menu" aria-label="User menu">
+        <div className="um-account">
+          <span className="um-avatar" aria-hidden="true"><IconUser /></span>
+          <div className="um-account-meta">
+            <span className="um-account-name" id="um-name2">{host}</span>
+            <span className="um-account-sub">PiCode on this machine</span>
+          </div>
+        </div>
+
+        <div className="um-divider" />
+        <div className="um-label">Theme</div>
+        <div className="um-theme" role="group" aria-label="Theme">
+          <button type="button" data-theme-option="light" data-active={themeMode === "light" ? "1" : ""} onClick={() => { onTheme("light"); onClose(); }}>
+            <IconSun /> Light
+          </button>
+          <button type="button" data-theme-option="system" data-active={themeMode === "system" ? "1" : ""} onClick={() => { onTheme("system"); onClose(); }}>
+            <IconMonitor /> System
+          </button>
+          <button type="button" data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => { onTheme("dark"); onClose(); }}>
+            <IconMoon /> Dark
+          </button>
+        </div>
+
+        <div className="um-divider" />
+        <button type="button" className="um-item" id="um-settings" role="menuitem" onClick={onSettings}>
+          <span>Settings</span>
+          <IconChevronRight />
+        </button>
+        <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer" role="menuitem">
+          <span>Documentation</span>
+          <IconExternal />
+        </a>
+
+        <div className="um-divider" />
+        <div className="um-version">PiCode <span id="um-ver">{version ? "v" + version : ""}</span></div>
+      </div>
+    </div>
+  );
+}

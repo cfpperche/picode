@@ -331,13 +331,25 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .dock-title { font-size: 11.5px; color: var(--text-secondary); flex: 1; }
-.dock-close {
+.dock { position: relative; }
+.dock.maximized { flex: 1; height: auto !important; min-height: 0; }
+.dock-sizer {
+  position: absolute; top: -4px; left: 0; right: 0; height: 8px;
+  cursor: row-resize; z-index: 6;
+}
+.dock-sizer:hover, .dock.resizing .dock-sizer { background: var(--accent); opacity: .45; }
+.dock-icon {
   flex: none; width: 34px; height: 28px;
   border: none; border-left: 1px solid var(--border);
   background: transparent; color: var(--text-secondary);
   font-size: 16px; cursor: pointer;
+  display: grid; place-items: center;
 }
-.dock-close:hover { color: var(--danger); background: var(--bg-hover); }
+.dock-icon:hover { color: var(--text-primary); background: var(--bg-hover); }
+.dock-icon.dock-close:hover { color: var(--danger); }
+.icon-restore { display: none; }
+.dock.maximized .icon-max { display: none; }
+.dock.maximized .icon-restore { display: block; }
 
 .terms { flex: 1; min-height: 0; position: relative; }
 .term-pane { position: absolute; inset: 0; padding: 2px 4px; display: none; }

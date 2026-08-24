@@ -46,7 +46,8 @@ What exists right now:
 
 ## In flight
 
-- Nothing. Tree clean, all gates pass. (Server/tmux test sessions cleaned up.)
+- Nothing. ADR-0008 landed (React + Vite + Tailwind). Tree should be clean
+  after this commit.
 
 ## Next up (finish M2, then M3 — Lifecycle)
 
@@ -86,6 +87,9 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — **ADR-0008**: migrate UI to React + Vite + Tailwind.
+  Source in `web/`; embed path unchanged (`internal/web/public`). Dock
+  resize + maximize included. Node 22 is a build-time dependency.
 - **2026-08-24** — Owner feedback round 4 ("X does not close the terminal;
   dock must not have tabs"): root cause was CSS `display:flex` beating
   `[hidden]` — previous QA declared victory on the attribute, not pixels.

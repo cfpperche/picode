@@ -41,7 +41,7 @@ moment of creation**. Read [README.md](README.md) and
 make fmt-check    # gofmt clean
 make vet          # go vet clean
 make test         # tests pass
-make build        # binary builds
+make build        # UI (npm) + binary builds
 ```
 
 Use the skill: `/skill:quality-gate` (interactive checklist).
@@ -56,8 +56,10 @@ At session end, run `/skill:handoff-update`.
 
 | Command | What it does |
 |---|---|
-| `make dev` | Run the dev server on :7331 |
-| `make build` | Build `bin/picode` |
+| `make dev` | Run the Go server (serves last UI build) |
+| `make ui` | Vite HMR on :5173 (proxies API to the Go server) |
+| `make web` | Build React UI → `internal/web/public` |
+| `make build` | UI + `bin/picode` |
 | `make test` / `make vet` / `make fmt` | Quality gates |
 | `make ci` | Everything CI runs |
 
@@ -71,8 +73,8 @@ docs/screenshots/  committed visual evidence (see its README)
 .pi/               Pi harness: skills, project settings
 cmd/picode/        entrypoint
 internal/server/   HTTP server + API
-internal/web/      embedded UI assets (go:embed)
-web/               (future) frontend sources
+internal/web/      embedded UI assets (Vite output, go:embed)
+web/               React + Vite + Tailwind sources (ADR-0008)
 .github/           CI
 ```
 
@@ -89,6 +91,9 @@ supersede it with a new one instead.
   English — code, comments, docs, commits, changelog entries, issues and
   PR descriptions. No exceptions for canonical content.
 - Go: idiomatic, stdlib-first, table-driven tests, no `init()` magic.
+- UI: React in `web/`; design tokens live in `web/src/styles/app.css`
+  (do not invent a second palette). After any UI change run `make web`
+  and a JS/JSX syntax check (`npm run build` must succeed).
 - Commits: imperative, scoped (`server: add /api/version endpoint`).
 - Docs: short paragraphs, tables for comparisons, diagrams over prose.
 - The audience includes terminal-averse users: UI copy avoids jargon;
