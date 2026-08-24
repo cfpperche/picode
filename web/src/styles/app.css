@@ -412,7 +412,23 @@ body {
   padding: 6px 8px; border: 0; background: none; border-radius: 6px;
   font: inherit; font-size: 12.5px; color: var(--text-primary); cursor: pointer;
 }
-.cockpit-opt:hover, .cockpit-opt.active { background: var(--bg-hover); }
+.cockpit-opt:hover, .cockpit-opt.active, .cockpit-opt.selected { background: var(--bg-hover); }
+.cockpit-opt.disabled { opacity: 0.45; cursor: default; }
+.cockpit-combo-pop { min-width: 260px; padding: 6px; z-index: 40; }
+[cmdk-root] { display: flex; flex-direction: column; }
+[cmdk-item][data-selected="true"] { background: var(--bg-hover); }
+.combo-search { padding: 2px 2px 6px; }
+.combo-input {
+  width: 100%; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-base); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; outline: none;
+}
+.combo-input:focus { border-color: var(--accent); }
+.combo-list { max-height: 220px; overflow-y: auto; }
+.combo-empty { padding: 8px; font-size: 12px; color: var(--text-secondary); }
+.combo-hint { margin-left: auto; font-size: 11px; color: var(--text-secondary); }
+.cockpit-opt { display: flex; align-items: center; gap: 8px; }
 .cockpit-think { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px; }
 .think-pill {
   padding: 2px 7px; border-radius: 999px; font-size: 11px; font-family: inherit;

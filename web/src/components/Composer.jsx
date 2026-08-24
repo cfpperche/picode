@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend } from "./Icons.jsx";
@@ -66,6 +67,7 @@ export default function Composer({
         />
         <div className="composer-controls">
           <div className="composer-left">
+            <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <KindChip value={kind} onChange={onKind} />
           </div>
