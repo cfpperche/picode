@@ -367,6 +367,11 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 				return
 			}
 			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+			select {
+			case <-time.After(600 * time.Millisecond):
+			case <-r.Context().Done():
+				return
+			}
 		}
 		ma := deps.Runtime.Get(id)
 		if ma == nil {

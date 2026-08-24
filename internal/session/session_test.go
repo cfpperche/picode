@@ -35,6 +35,21 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
+func TestTranscriptCompaction(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.jsonl")
+	body := `{"type":"session","id":"x"}
+{"type":"compaction","summary":"Old turns summarized."}
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ev, err := Transcript(p)
+	if err != nil || len(ev) != 1 || ev[0].Text != "Old turns summarized." {
+		t.Fatalf("%v %+v", err, ev)
+	}
+}
+
 func TestTranscript(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "t.jsonl")

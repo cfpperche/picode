@@ -41,7 +41,16 @@ func Transcript(path string) ([]Event, error) {
 		if json.Unmarshal(line, &raw) != nil {
 			continue
 		}
-		if raw["type"] != "message" {
+		switch raw["type"] {
+		case "compaction", "compaction_summary":
+			sum, _ := raw["summary"].(string)
+			if sum == "" {
+				sum = "Session compacted."
+			}
+			out = append(out, Event{Kind: "assistant", Text: sum})
+			continue
+		case "message":
+		default:
 			continue
 		}
 		msg, _ := raw["message"].(map[string]any)

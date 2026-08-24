@@ -428,6 +428,7 @@ export default function App() {
     });
     if (!ok) return;
     try {
+      if (selectedId) setDockWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
       await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
       toast.ok("Session compacted.");
       await loadWorkspaces();

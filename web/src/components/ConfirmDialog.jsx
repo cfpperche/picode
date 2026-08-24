@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 
 export default function ConfirmDialog() {
   const [req, setReq] = useState(null);
+  const reqRef = useRef(null);
 
   useEffect(() => {
     function onAsk(e) {
+      reqRef.current = e.detail;
       setReq(e.detail);
     }
     window.addEventListener("picode-confirm", onAsk);
@@ -13,8 +15,11 @@ export default function ConfirmDialog() {
   }, []);
 
   function finish(ok) {
-    if (req && req.resolve) req.resolve(ok);
+    const r = reqRef.current;
+    if (!r) return;
+    reqRef.current = null;
     setReq(null);
+    r.resolve(ok);
   }
 
   return (
@@ -25,18 +30,14 @@ export default function ConfirmDialog() {
           <AlertDialog.Title className="dlg-title">{req ? req.title : ""}</AlertDialog.Title>
           <AlertDialog.Description className="dlg-body">{req ? req.message : ""}</AlertDialog.Description>
           <div className="dlg-actions">
-            <AlertDialog.Cancel asChild>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => finish(false)}>Cancel</button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action asChild>
-              <button
-                type="button"
-                className={"btn btn-sm " + (req && req.danger ? "btn-danger" : "btn-primary")}
-                onClick={() => finish(true)}
-              >
-                {req ? req.confirmLabel : "Continue"}
-              </button>
-            </AlertDialog.Action>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => finish(false)}>Cancel</button>
+            <button
+              type="button"
+              className={"btn btn-sm " + (req && req.danger ? "btn-danger" : "btn-primary")}
+              onClick={() => finish(true)}
+            >
+              {req ? req.confirmLabel : "Continue"}
+            </button>
           </div>
         </AlertDialog.Content>
       </AlertDialog.Portal>
