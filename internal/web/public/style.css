@@ -383,3 +383,14 @@ body {
 .sys-row dd { font-family: var(--mono); font-size: 12px; }
 .settings-link { color: var(--accent); text-decoration: none; }
 .settings-link:hover { text-decoration: underline; }
+
+/* server section */
+.port-row { display: flex; gap: 8px; }
+#port-input {
+  width: 140px; background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 6px 10px; font-size: 12.5px; font-family: var(--mono);
+}
+#port-input:focus { outline: none; border-color: var(--accent); }
+.port-note { margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
+.port-note.moving { color: var(--accent); }

@@ -125,12 +125,18 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
   per agent (enable/disable, precedence layers) writing the same config
   files the adapter reads. We orchestrate the ecosystem; we don't fork it.
 
-### Security model (binding contract until an ADR supersedes it)
-- Binds `127.0.0.1` by default; listening on other interfaces requires an
-  explicit flag **and** an auth token.
-- Token auth for every API/WS route when bound beyond localhost.
-- PiCode executes with the user's permissions — same trust boundary as Pi
-  itself. Never adds remote execution surface silently.
+### Security model (ADR-0007 — supersedes the original localhost-only clause)
+- **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via
+  `scripts/setup-cert.sh` (SANs: localhost + LAN + tailscale; CA exported to
+  the Windows trust store on WSL) or a generated self-signed cert as the
+  zero-config bootstrap. `PICODE_INSECURE=1` disables TLS (dev only).
+- **Port**: default range `8445-8455`, first free port wins; **editable in
+  the Settings UI at runtime** (graceful rebind: bind-new-first, revert on
+  failure — see ADR-0007). Precedence: UI/DB > `PICODE_PORT` env > default.
+  Discovery: `~/.picode/server.json`.
+- **Trust boundary**: personal machine / tailnet (same stance as agentdeck);
+  no app-level auth — token auth is a recorded debt if ever exposed beyond
+  the tailnet. PiCode executes with the user's permissions, like Pi itself.
 
 ## Explicit non-goals
 

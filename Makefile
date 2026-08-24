@@ -6,8 +6,14 @@
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-dev: ## Run the dev server on 127.0.0.1:7331
+dev: ## Run the dev server (HTTPS, port 8445+; PICODE_INSECURE=1 for http)
 	go run ./cmd/picode
+
+cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
+	./scripts/setup-cert.sh
+
+install: ## Install as systemd user service + cert renewal timer
+	./scripts/install-systemd.sh
 
 build: ## Build bin/picode
 	go build -o bin/picode ./cmd/picode

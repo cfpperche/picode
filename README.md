@@ -67,16 +67,19 @@ See [docs/architecture.md](docs/architecture.md) for details and
 Requires: [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), tmux 3.5+.
 
 ```bash
-git clone git@github.com:cfpperche/picode.git
+git clone https://github.com/cfpperche/picode.git
 cd picode
-make dev          # → http://127.0.0.1:7331
+make dev          # → https://localhost:8445 (first free port in 8445-8455)
 ```
 
-First run: add a workspace (your project folder), click **Open agent** —
-a real Pi agent starts in the workspace and its full TUI runs in your
-browser tab. Close the tab; the agent keeps running.
+First run: add a workspace (your project folder), click **Run** — a real Pi
+agent starts in the workspace and streams into the conversation panel. Close
+the tab; the agent keeps running.
 
-![M1 terminal grid](docs/screenshots/m1-termgrid-first-look.png)
+**Green padlock (recommended, once):** `make cert` issues a certificate from
+a local mkcert CA trusted on Linux and Windows (WSL) — the browser stops
+warning. Without it, a self-signed cert is generated automatically. Phone
+access works over your tailnet with the same certificate.
 
 ## Documentation
 

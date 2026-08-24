@@ -1,0 +1,10 @@
+[Unit]
+Description=PiCode — weekly TLS certificate check
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=2h
+
+[Install]
+WantedBy=timers.target

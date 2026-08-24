@@ -86,7 +86,7 @@ async function loadSystem() {
   }
 }
 
-function renderSettingsSystem() {
+func renderSettingsSystem() {
   const sys = state.system;
   const dl = $("#settings-sys");
   if (!sys) { dl.innerHTML = `<div class="sys-row"><dt>Status</dt><dd>unavailable</dd></div>`; return; }
@@ -96,6 +96,41 @@ function renderSettingsSystem() {
   ];
   dl.innerHTML = rows.map(([k, v]) =>
     `<div class="sys-row"><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("");
+}
+
+// ---------- server settings (port) ----------
+function wireServerSettings() {
+  const input = $("#port-input"), note = $("#port-note"), errEl = $("#port-error");
+  errEl.hidden = true;
+
+  api("/api/server").then((info) => {
+    input.value = info.current;
+    note.textContent = `Serving on port ${info.current} (configured: ${info.configured}).`;
+    note.classList.remove("moving");
+  }).catch(() => { note.textContent = "Server state unavailable."; });
+
+  $("#port-save").addEventListener("click", async () => {
+    errEl.hidden = true;
+    const port = input.value.trim();
+    if (!port) return;
+    try {
+      const res = await api("/api/server/port", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ port }),
+      });
+      if (res.moving) {
+        note.textContent = `Moving to port ${res.port} — reconnecting…`;
+        note.classList.add("moving");
+        const host = location.hostname;
+        const scheme = location.protocol === "http:" ? "http" : "https";
+        setTimeout(() => { location.replace(`${scheme}://${host}:${res.port}/#/settings`); }, 1500);
+      }
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.hidden = false;
+    }
+  });
 }
 
 // ---------- user menu ----------
@@ -641,6 +676,7 @@ Theme.apply();
 wireForm();
 wireUserMenu();
 wireComposer();
+wireServerSettings();
 $("#btn-run-agent").addEventListener("click", () => state.selectedId && startManaged(state.selectedId));
 window.addEventListener("hashchange", route);
 route();

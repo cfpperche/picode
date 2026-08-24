@@ -32,6 +32,13 @@ type Deps struct {
 	Tmux     *tmux.Manager
 	Runtime  *rpc.Runtime
 	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
+
+	// Port management (ADR-0007). BindHost is the configured host;
+	// Rebind signals the main loop to re-read the port setting;
+	// PortSnapshot reports live port state. Optional (nil-safe).
+	BindHost     string
+	Rebind       func()
+	PortSnapshot func() PortSnapshot
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -39,11 +46,12 @@ type Deps struct {
 func New(addr string, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/health", handleHealth)
-	mux.HandleFunc("/api/version", handleVersion)
-	mux.HandleFunc("/api/system", handleSystem(deps))
+	mux.HandleFunc("GET /api/health", handleHealth)
+	mux.HandleFunc("GET /api/version", handleVersion)
+	mux.HandleFunc("GET /api/system", handleSystem(deps))
 
 	registerWorkspaceRoutes(mux, deps)
+	registerServerRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
 	mux.Handle("/ws/agent", agentWS(deps))

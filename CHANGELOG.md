@@ -11,6 +11,21 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **HTTPS by default with mkcert trust (ADR-0007)**: serves TLS on
+  `0.0.0.0` with a zero-config self-signed bootstrap; `make cert`
+  (`scripts/setup-cert.sh`) upgrades to a mkcert-issued cert (installs
+  mkcert if missing, SANs = localhost + LAN + tailscale, CA exported to
+  the Windows trust store on WSL, optional iOS import `--ios`); weekly
+  renewal via systemd timer (`scripts/install-systemd.sh`).
+- **Runtime port configuration**: Settings UI (`#/settings` → Server) now
+  changes the port — validated, probe-bound (busy port → clear error), and
+  applied via graceful rebind (new listener up before the old one drops;
+  automatic revert on failure). Precedence: UI/DB > `PICODE_PORT` env >
+  default range `8445-8455` (first free port wins). Discovery file
+  `~/.picode/server.json` (url/port/pid) for scripts and tooling.
+
 ### Changed
 
 - **UI redesigned to agent-IDE anatomy** (owner feedback: "looks nothing

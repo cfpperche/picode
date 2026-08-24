@@ -44,6 +44,9 @@ func Capture(ctx context.Context, opts Options) error {
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx,
 		append(chromedp.DefaultExecAllocatorOptions[:],
 			chromedp.Flag("disable-gpu", true),
+			// PiCode serves HTTPS with a local/self-signed cert (ADR-0007);
+			// screenshots are a local capture tool, not a trust decision.
+			chromedp.Flag("ignore-certificate-errors", true),
 		)...)
 	defer cancelAlloc()
 

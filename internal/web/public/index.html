@@ -196,6 +196,17 @@
             </section>
 
             <section class="settings-section">
+              <h3>Server</h3>
+              <p class="settings-desc">Port PiCode serves on. The server moves immediately and this page reconnects.</p>
+              <div class="port-row">
+                <input id="port-input" type="text" inputmode="numeric" placeholder="e.g. 8446" autocomplete="off">
+                <button id="port-save" class="btn btn-primary btn-sm">Apply</button>
+              </div>
+              <p id="port-error" class="form-error" hidden></p>
+              <p id="port-note" class="port-note"></p>
+            </section>
+
+            <section class="settings-section">
               <h3>System</h3>
               <dl class="sys-rows" id="settings-sys"></dl>
             </section>

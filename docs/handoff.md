@@ -23,6 +23,12 @@ What exists right now:
   (stream, tool rows ≤32px, composer with prompt/steer/follow_up).
   **Verified against real pi 0.84.2**: prompt task delivered, response
   streamed, queued follow-up from a previous session drained on start.
+- **HTTPS + runtime port shipped** (ADR-0007): TLS default (mkcert via
+  `make cert` / self-signed bootstrap), port editable in Settings UI with
+  graceful rebind, `~/.picode/server.json` discovery, systemd units.
+  Verified live: mkcert cert issued (SANs incl. 2 tailscale IPs), CA
+  already trusted on Windows (shared mkcert CAROOT with agentdeck),
+  port rebind 8445→8447→8445 same-pid, busy-port 409.
 - Docs: philosophy, architecture, benchmarks (+Cursor bar), ADRs 0001–0006.
 - Harness: AGENTS.md + 4 skills. 30 tests across 6 packages.
 
@@ -60,13 +66,20 @@ What exists right now:
   replay via session JSONL reader is an M3 candidate.
 - tmux-gated tests skip on windows/macos runners (tmux absent); ubuntu CI
   covers them (accepted).
-- Token auth: still localhost-only bind; `--listen` beyond localhost must
-  ship with token auth (contract in architecture.md security model).
+- Token auth: ADR-0007 accepts the personal-network trust boundary (same
+  as agentdeck); token auth becomes mandatory only if exposed beyond the
+  tailnet (recorded debt).
 - Vendored xterm.js 5.5.0 + fit addon need a manual upgrade story
   (note in ADR-0004); track upstream releases occasionally.
 - Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
 ## Recent activity
+
+- **2026-08-24** — ADR-0007 shipped: HTTPS default (mkcert/self-signed),
+  port editable in Settings with graceful rebind + server.json discovery,
+  scripts (setup-cert/install-systemd) ported from the agentdeck-proven
+  pattern. Live-verified: CA trusted on Windows, rebind same-pid, 409 on
+  busy port, screenshots over HTTPS.
 
 - **2026-08-24** — UI redesign after owner feedback ("doesn't look like
   Cursor/t3code/paseo"): conversation-hero anatomy, tool pills, rounded

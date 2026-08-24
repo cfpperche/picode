@@ -1,0 +1,7 @@
+[Unit]
+Description=PiCode — TLS certificate renewal (mkcert)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/picode
+ExecStart=%h/picode/scripts/setup-cert.sh --check 30
