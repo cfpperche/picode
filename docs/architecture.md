@@ -27,7 +27,7 @@ route — never a section inside Settings.
 | Hash | Surface | Owns |
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal, per-agent provider/model/thinking |
-| `#/settings` | PiCode system | theme, server port, host/tmux/pi status, about |
+| `#/settings` | PiCode system | theme, server port, tmux/pi/mkcert/tailscale, about |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |

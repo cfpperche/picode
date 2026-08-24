@@ -45,6 +45,9 @@ export default function Settings({ hidden, version, themeMode, onTheme, system }
   } else {
     rows.push(["tmux", system.tmux.installed ? (system.tmux.version || "installed") : "not installed"]);
     rows.push(["pi", system.pi.installed ? (system.pi.version || "installed") : "not installed"]);
+    rows.push(["mkcert", optDep(system.mkcert && system.mkcert.installed)]);
+    rows.push(["tailscale", tailscaleValue(system.tailscale)]);
+
     if (system.warnings) {
       for (const w of system.warnings) rows.push(["note", w]);
     }
@@ -93,6 +96,15 @@ export default function Settings({ hidden, version, themeMode, onTheme, system }
       </section>
     </PageFrame>
   );
+}
+
+function optDep(ok) {
+  return ok ? "installed" : "not installed · optional";
+}
+
+function tailscaleValue(ts) {
+  if (!ts || !ts.installed) return "not installed · optional";
+  return ts.ip || "installed";
 }
 
 function ThemeCard({ option, label, desc, active, onPick, icon }) {

@@ -22,6 +22,13 @@ type systemReport struct {
 		Installed bool   `json:"installed"`
 		Version   string `json:"version,omitempty"`
 	} `json:"pi"`
+	Mkcert struct {
+		Installed bool `json:"installed"`
+	} `json:"mkcert"`
+	Tailscale struct {
+		Installed bool   `json:"installed"`
+		IP        string `json:"ip,omitempty"`
+	} `json:"tailscale"`
 	Host     string   `json:"host"`
 	Warnings []string `json:"warnings"`
 }
@@ -56,6 +63,16 @@ func handleSystem(deps Deps) http.HandlerFunc {
 		} else {
 			rep.Warnings = append(rep.Warnings,
 				"pi is not installed — install it with: npm install -g @earendil-works/pi-coding-agent")
+		}
+
+		if _, err := exec.LookPath("mkcert"); err == nil {
+			rep.Mkcert.Installed = true
+		}
+		if _, err := exec.LookPath("tailscale"); err == nil {
+			rep.Tailscale.Installed = true
+			if out, err := exec.Command("tailscale", "ip", "-4").Output(); err == nil {
+				rep.Tailscale.IP = strings.TrimSpace(string(out))
+			}
 		}
 
 		if host, err := os.Hostname(); err == nil {

@@ -112,6 +112,12 @@ func TestSystemEndpoint(t *testing.T) {
 	if _, err := exec.LookPath("cat"); err == nil && !body.Pi.Installed {
 		t.Error("agent cmd (cat) installed but report says pi missing")
 	}
+	if _, err := exec.LookPath("tailscale"); err == nil && !body.Tailscale.Installed {
+		t.Error("tailscale installed but report says otherwise")
+	}
+	if _, err := exec.LookPath("mkcert"); err == nil && !body.Mkcert.Installed {
+		t.Error("mkcert installed but report says otherwise")
+	}
 }
 
 func TestWorkspaceAPI(t *testing.T) {
