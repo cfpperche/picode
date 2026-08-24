@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Removed
+
+- Yellow tmux-config tip from the sidebar. UI chrome carries state and
+  actions only (owner rule); the check still lives in Settings → System.
+
 ### Fixed (the dock closer was a lie)
 
 - **`.dock { display:flex }` beat the `hidden` attribute** — `hideDock()`

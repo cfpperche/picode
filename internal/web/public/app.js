@@ -79,21 +79,6 @@ async function loadSystem() {
     const host = sys.host || "local";
     $("#um-name").textContent = host;
     $("#um-name2").textContent = host;
-    const el = $("#warnings");
-    if (sys.warnings && sys.warnings.length) {
-      el.hidden = false;
-      // Humanized per the jargon audit (docs/benchmarks.md) — the raw
-      // tmux terminology stays in Settings → System for power users.
-      const friendly = sys.warnings.map((w) => {
-        if (w.includes("extended-keys-format")) {
-          return "Tip: add “set -g extended-keys-format csi-u” to ~/.tmux.conf so keys like Shift+Enter reach your agents.";
-        }
-        if (w.includes("tmux is not installed")) return w; // already actionable
-        if (w.includes("pi is not installed")) return w;   // already actionable
-        return w;
-      });
-      el.innerHTML = friendly.map((w) => `<div>${escapeHTML(w)}</div>`).join("");
-    } else el.hidden = true;
     renderSettingsSystem();
   } catch {
     $("#um-sub").textContent = "offline";
@@ -108,6 +93,9 @@ function renderSettingsSystem() {
     ["tmux", sys.tmux.installed ? (sys.tmux.version || "installed") : "not installed"],
     ["pi", sys.pi.installed ? (sys.pi.version || "installed") : "not installed"],
   ];
+  if (sys.warnings && sys.warnings.length) {
+    for (const w of sys.warnings) rows.push(["note", w]);
+  }
   dl.innerHTML = rows.map(([k, v]) =>
     `<div class="sys-row"><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("");
 }
