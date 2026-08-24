@@ -71,8 +71,11 @@ func handleList(deps Deps) http.HandlerFunc {
 
 func handleAdd(deps Deps) http.HandlerFunc {
 	var req struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
+		Name     string `json:"name"`
+		Path     string `json:"path"`
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		Thinking string `json:"thinking"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -83,6 +86,15 @@ func handleAdd(deps Deps) http.HandlerFunc {
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if req.Provider != "" || req.Model != "" || req.Thinking != "" {
+			agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{
+				Provider: &req.Provider, Model: &req.Model, Thinking: &req.Thinking,
+			})
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 		}
 		writeJSON(w, http.StatusCreated, workspaceView{Workspace: wk, Agent: agentView{Agent: agent, Running: false, Mode: string(modeStopped)}})
 	}
@@ -154,7 +166,7 @@ func handleOpen(deps Deps) http.HandlerFunc {
 				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 			return
 		}
-		if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd); err != nil {
+		if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd, agent.CLIFlags()...); err != nil {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return

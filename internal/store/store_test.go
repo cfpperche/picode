@@ -237,3 +237,30 @@ func TestLegacyJSONImport(t *testing.T) {
 		t.Fatalf("reopen duplicated rows: %d", len(ws2))
 	}
 }
+
+func TestUpdateAgent(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := s.AddWorkspace("Cfg", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prov, model, think := "anthropic", "claude-sonnet-4-5", "low"
+	got, err := s.UpdateAgent(agent.ID, AgentPatch{Provider: &prov, Model: &model, Thinking: &think})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Provider == nil || *got.Provider != prov || got.Model == nil || *got.Model != model {
+		t.Fatalf("updated = %+v", got)
+	}
+	empty := ""
+	got, err = s.UpdateAgent(agent.ID, AgentPatch{Provider: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Provider != nil {
+		t.Fatalf("clear provider: %+v", got.Provider)
+	}
+	if got.Model == nil || *got.Model != model {
+		t.Fatalf("model should stay: %+v", got.Model)
+	}
+}

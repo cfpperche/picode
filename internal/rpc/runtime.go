@@ -95,7 +95,13 @@ func (r *Runtime) Start(agentID, path string) error {
 	}
 	r.mu.Unlock()
 
-	client, err := Start(r.AgentCmd, []string{"--mode", "rpc"}, path)
+	args := []string{"--mode", "rpc"}
+	if r.store != nil {
+		if a, err := r.store.GetAgent(agentID); err == nil {
+			args = append(args, a.CLIFlags()...)
+		}
+	}
+	client, err := Start(r.AgentCmd, args, path)
 	if err != nil {
 		return err
 	}

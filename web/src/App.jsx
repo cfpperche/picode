@@ -22,6 +22,9 @@ export default function App() {
   const [route, setRoute] = useState(() => location.hash === "#/settings" ? "settings" : "workspace");
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
+  const [mcp, setMcp] = useState({ configured: false, path: "" });
+  const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [dockWanted, setDockWanted] = useState(() => new Set());
@@ -96,6 +99,8 @@ export default function App() {
         setVersion(ver.version);
         setHost(sys.host || "local");
       } catch { /* offline */ }
+      try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
+      try { setMcp(await api("/api/mcp")); } catch { /* ignore */ }
       try {
         const list = await loadWorkspaces();
         const active = list.find((w) => w.agent && w.agent.mode !== "stopped") || list[0];
@@ -340,9 +345,10 @@ export default function App() {
       const ws = await api("/api/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, path }),
+        body: JSON.stringify({ name, path, ...newCfg }),
       });
       e.target.reset();
+      setNewCfg({ provider: "", model: "", thinking: "" });
       setShowForm(false);
       const list = await loadWorkspaces();
       openTab(ws.id, list);
@@ -416,6 +422,9 @@ export default function App() {
         onRun={startManaged}
         onStop={stopAgent}
         onRemove={removeWorkspace}
+        catalog={catalog}
+        newCfg={newCfg}
+        onNewCfg={setNewCfg}
         userMenu={{
           open: menuOpen,
           onToggle: () => setMenuOpen((v) => !v),
@@ -483,6 +492,34 @@ export default function App() {
           themeMode={themeMode}
           onTheme={setTheme}
           system={system}
+          catalog={catalog}
+          workspaces={workspaces}
+          mcp={mcp}
+          onSaveAgent={async (id, cfg) => {
+            try {
+              await api("/api/agents/" + id, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(cfg),
+              });
+              await loadWorkspaces();
+            } catch (e) { alert(e.message); }
+          }}
+          onSignIn={async (provider) => {
+            const ws = selected || workspaces[0];
+            if (!ws || !ws.agent) { alert("Add a workspace first."); return; }
+            try {
+              await api("/api/agents/" + ws.agent.id + "/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider }),
+              });
+              const list = await loadWorkspaces();
+              openTab(ws.id, list);
+              setDockWanted((s) => new Set(s).add(ws.id));
+              location.hash = "#/";
+            } catch (e) { alert(humanizeError(e.message)); }
+          }}
         />
       </main>
 

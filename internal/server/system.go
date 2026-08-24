@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/catalog"
 )
 
 // systemReport drives the UI's setup guidance (ADR-0003: helpful
@@ -64,4 +67,36 @@ func handleSystem(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+func handleCatalog(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rep, err := catalog.Load(deps.AgentCmd)
+		if err != nil {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handleMCP reports adapter/config presence only (ADR-0009: no manager).
+func handleMCP(w http.ResponseWriter, _ *http.Request) {
+	home, _ := os.UserHomeDir()
+	candidates := []string{
+		filepath.Join(home, ".pi", "mcp.json"),
+		filepath.Join(home, ".pi", "agent", "mcp.json"),
+		filepath.Join(home, ".config", "pi-mcp-adapter", "config.json"),
+	}
+	found := ""
+	for _, p := range candidates {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			found = p
+			break
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"configured": found != "",
+		"path":       found,
+	})
 }

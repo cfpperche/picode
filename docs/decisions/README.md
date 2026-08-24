@@ -10,6 +10,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0003](0003-user-installed-pi.md) | Depend on user-installed Pi, no vendoring | accepted |
 | [0004](0004-defer-frontend-framework.md) | Defer frontend framework — vanilla ES + vendored xterm.js | superseded by 0008 |
 | [0008](0008-react-vite-tailwind.md) | React + Vite + Tailwind; tokens stay the design system | accepted |
+| [0009](0009-lifecycle-surfaces.md) | Catalog from pi; auth via `/login`; MCP not in wizard | accepted |
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
 | [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted |
 | [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted |

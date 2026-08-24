@@ -1,9 +1,10 @@
 import UserMenu from "./UserMenu.jsx";
+import ConfigFields from "./ConfigFields.jsx";
 
 export default function Sidebar({
   version, workspaces, selectedId, showForm, formError,
   onNew, onCancel, onSubmit, onSelect, onRun, onStop, onRemove,
-  userMenu,
+  userMenu, catalog, newCfg, onNewCfg,
 }) {
   return (
     <aside id="sidebar">
@@ -21,6 +22,7 @@ export default function Sidebar({
         <form id="form-new" className="form-new" hidden={!showForm} onSubmit={onSubmit}>
           <input id="inp-name" name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" />
           <input id="inp-path" name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
+          <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="new" />
           <div className="form-actions">
             <button type="submit" className="btn btn-primary btn-sm">Add</button>
             <button type="button" id="btn-cancel" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>

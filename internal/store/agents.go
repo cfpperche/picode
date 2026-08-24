@@ -125,3 +125,72 @@ func scanAgentInto(row *sql.Row, a *Agent) error {
 	return row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
 		&a.Thinking, &a.ExtraPrompt, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
 }
+
+// AgentPatch is a partial update. Empty string clears a nullable column
+// (inherit pi defaults). Nil pointer means leave unchanged.
+type AgentPatch struct {
+	Name        *string
+	Provider    *string
+	Model       *string
+	Thinking    *string
+	ExtraPrompt *string
+}
+
+// UpdateAgent applies a patch. Returns the row after the write.
+func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
+	a, err := s.GetAgent(id)
+	if err != nil {
+		return Agent{}, err
+	}
+	if p.Name != nil {
+		n := stringsTrimSpace(*p.Name)
+		if n == "" {
+			return Agent{}, fmt.Errorf("store: name is required")
+		}
+		a.Name = n
+	}
+	if p.Provider != nil {
+		a.Provider = emptyToNil(*p.Provider)
+	}
+	if p.Model != nil {
+		a.Model = emptyToNil(*p.Model)
+	}
+	if p.Thinking != nil {
+		a.Thinking = emptyToNil(*p.Thinking)
+	}
+	if p.ExtraPrompt != nil {
+		a.ExtraPrompt = emptyToNil(*p.ExtraPrompt)
+	}
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, id)
+	if err != nil {
+		return Agent{}, fmt.Errorf("store: update agent: %w", err)
+	}
+	return s.GetAgent(id)
+}
+
+// CLIFlags are the pi argv extras for this agent's stored config (ADR-0009).
+func (a Agent) CLIFlags() []string {
+	var args []string
+	if a.Provider != nil && *a.Provider != "" {
+		args = append(args, "--provider", *a.Provider)
+	}
+	if a.Model != nil && *a.Model != "" {
+		args = append(args, "--model", *a.Model)
+	}
+	if a.Thinking != nil && *a.Thinking != "" {
+		args = append(args, "--thinking", *a.Thinking)
+	}
+	if a.ExtraPrompt != nil && *a.ExtraPrompt != "" {
+		args = append(args, "--append-system-prompt", *a.ExtraPrompt)
+	}
+	return args
+}
+
+func emptyToNil(s string) *string {
+	s = stringsTrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return &s
+}

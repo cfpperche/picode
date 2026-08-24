@@ -74,6 +74,25 @@ body {
 }
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.cfg-fields { display: flex; flex-direction: column; gap: 6px; }
+.cfg-fields select, .form-new select {
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 6px 8px; font-size: 12px; font-family: inherit;
+}
+.agent-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.agent-row:last-child { border-bottom: none; }
+.agent-row-name { font-weight: 550; margin-bottom: 8px; }
+.agent-row .btn { margin-top: 8px; }
+.prov-list { list-style: none; padding: 0; }
+.prov-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px;
+}
+.prov-row:last-child { border-bottom: none; }
+.prov-id { font-family: var(--mono); flex: 1; }
+.prov-auth { color: var(--text-secondary); font-size: 11.5px; }
+.prov-auth.in { color: var(--ok); }
 .form-new input {
   background: var(--bg-base); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: var(--radius-ctl);

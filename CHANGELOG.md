@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **M3 lifecycle (ADR-0009)**: catalog from `pi --list-models` (no curated
+  subset); workspace form + Settings → Agents set provider/model/thinking
+  (empty = inherit). Settings → Providers shows signed-in state from
+  `auth.json` keys; Sign in opens the TUI and types `/login`. Settings →
+  MCP is status-only (not in the wizard). Startup exclusive lock on
+  `picode.lock` (overlapping-restart incident).
 - **Inline diffs** for `edit`/`write` tool pills (`+N −M`, expandable hunks).
   Uses `result.details.patch`/`diff` when pi sends them; otherwise the
   replacement args. View-only — no accept/reject (not an editor).

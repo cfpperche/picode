@@ -50,6 +50,8 @@ func New(addr string, deps Deps) *http.Server {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
+	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
+	mux.HandleFunc("GET /api/mcp", handleMCP)
 
 	registerWorkspaceRoutes(mux, deps)
 	registerServerRoutes(mux, deps)

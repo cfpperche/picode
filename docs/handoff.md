@@ -10,7 +10,7 @@
 
 ## Current state (read this first)
 
-**Phase: M2 shipped (managed agents + panel + diffs + palette). Next: M3 Lifecycle — needs owner decisions.**
+**Phase: M3 lifecycle v1 shipped (ADR-0009). Catalog/auth/MCP surfaces live.**
 
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
@@ -49,25 +49,18 @@ What exists right now:
 - Nothing. ADR-0008 landed (React + Vite + Tailwind). Tree should be clean
   after this commit.
 
-## Next up (M3 — Lifecycle — **blocked on owner decisions**)
+## Next up
 
-1. Agent creation wizard (provider / model / thinking — columns exist).
-2. Provider auth flows (drive `/login` in the terminal).
-3. Config profiles + visual MCP manager.
-
-Decisions needed before building: which providers in v1, where auth lives
-(terminal vs Settings), whether MCP is in-wizard or a later screen.
+1. Sibling agents per workspace (API/store ready; UI still one default).
+2. Visual MCP manager — only if/when an adapter config format is chosen.
+3. Session replay (JSONL reader) — M3 candidate, still open.
 
 ## Known debts / open questions
 
-- **DATA INCIDENT (open)**: the real `~/.picode/picode.db` lost all rows
-  created before 2026-08-24 02:25 (workspace + tasks + events) during the
-  night's ~5 overlapping rebuild/restart cycles (two servers raced the
-  same port at one point). Verified since: add → restart preserves data;
-  store tests green. Root cause NOT established — candidates: two picode
-  processes on one SQLite file across builds. **Follow-up: add an
-  exclusive-lock/ownership guard on startup (e.g. server.json pid check +
-  stale detection) and re-test multi-process behavior before M3.**
+- **DATA INCIDENT (mitigated)**: overlapping restarts could share one
+  SQLite file. `internal/proclock` now exclusive-locks `picode.lock` at
+  startup (unix flock; windows exclusive create). Watch for a leftover
+  lock file on Windows crash.
 - **Visual verdicts require a vision-capable model** (see M1 note); QA
   evidence pixel-checked programmatically only.
 
@@ -87,6 +80,9 @@ Decisions needed before building: which providers in v1, where auth lives
 
 ## Recent activity
 
+- **2026-08-24** — **ADR-0009 + M3 v1**: catalog from pi, auth via `/login`
+  in the TUI, MCP status-only (not in wizard), agent config flags passed
+  on start, exclusive process lock.
 - **2026-08-24** — M2 closed: inline diffs (edit/write pills + N files
   changed) and Ctrl+K command palette. Accept/reject hunks deferred
   (would make us an editor). M3 blocked on provider/auth/MCP decisions.

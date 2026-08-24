@@ -164,6 +164,16 @@ func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
 	return sessions, nil
 }
 
+// SendKeys types into the session (used to drive `/login` — ADR-0009).
+func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	args := append([]string{"send-keys", "-t", "=" + name}, keys...)
+	_, err := m.run(ctx, args...)
+	return err
+}
+
 // ExtendedKeysFormat returns the server's `extended-keys-format` option
 // value ("csi-u", "xterm", ...). Pi recommends `csi-u` so modifier keys
 // (Shift+Enter, Ctrl+Enter) survive the hop (see Pi's tmux docs).

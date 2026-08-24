@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/config"
+	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
@@ -100,6 +101,14 @@ func serve() {
 	if dataDir == "" {
 		dataDir = defaultDataDir()
 	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Fatalf("data dir: %v", err)
+	}
+	unlock, err := proclock.Acquire(filepath.Join(dataDir, "picode.lock"))
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	defer unlock()
 
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {

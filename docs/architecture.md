@@ -67,9 +67,9 @@ once and retired (`workspaces.json.migrated`).
 Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
 each with a default agent; tmux session names derive from the agent id.
 An agent runs as `pi` (ADR-0003, user-installed) in a named tmux session.
-Per-agent model/thinking config, extensions and profiles land in M3 with
-`/ws/agent` structured control; task delivery lands in M2 (queue API
-already live).
+Per-agent provider/model/thinking is stored on `agents` and passed as
+`pi --provider/--model/--thinking` on start (ADR-0009). Auth stays in
+`~/.pi/agent/auth.json`; PiCode never collects keys.
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add
