@@ -105,6 +105,12 @@ func serveTrustIndex(w http.ResponseWriter, r *http.Request) {
 		os = detectPhoneOS(r.UserAgent())
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(trustBootHTML))
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 	_, _ = w.Write([]byte(trustPageHTML(os, next)))
 }
 
@@ -120,19 +126,30 @@ func detectPhoneOS(ua string) string {
 	}
 }
 
+// First bytes flushed immediately so Safari is not a white void while the
+// rest of the wizard (or Tailscale handshake after connect) finishes.
+const trustBootHTML = `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PiCode</title>
+<style>
+#boot{position:fixed;inset:0;display:grid;place-items:center;gap:12px;
+ background:#f4f5f7;color:#5b6472;font:15px/1.4 -apple-system,sans-serif;z-index:20}
+#boot b{width:28px;height:28px;border:3px solid #dfe3ea;border-top-color:#2f6fed;
+ border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>
+<div id="boot"><b></b><span>Opening…</span></div>
+`
+
 func trustPageHTML(os, next string) string {
 	n := htmlEscape(next)
 	q := ""
 	if next != "" {
 		q = "&next=" + url.QueryEscape(next)
 	}
-	return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PiCode</title>
-<style>
+	return `<style>
 :root{--bg:#f4f5f7;--card:#fff;--fg:#16181d;--muted:#5b6472;--accent:#2f6fed;--line:#e6e9ef}
 *{box-sizing:border-box;margin:0}
 body{font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);min-height:100dvh;padding:28px 20px 40px}
@@ -154,8 +171,6 @@ ol li{margin:8px 0}
 .switch{margin-top:18px;text-align:center}
 .switch a{color:var(--muted);font-size:13px}
 </style>
-</head>
-<body>
 <main data-os="` + os + `">
   <div class="brand">PiCode</div>
   <div class="steps" id="bar"><i class="on"></i><i></i><i></i></div>
@@ -220,6 +235,7 @@ ol li{margin:8px 0}
     b.addEventListener("click", function(){ show(+b.getAttribute("data-go")); });
   });
   var h=+(location.hash||"#1").slice(1); if(h>=1&&h<=3) show(h);
+  var boot=document.getElementById("boot"); if(boot) boot.remove();
 })();
 </script>
 </body></html>`
