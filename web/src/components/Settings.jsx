@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { IconBack, IconSun, IconMonitor, IconMoon } from "./Icons.jsx";
-import ConfigFields from "./ConfigFields.jsx";
 
 export default function Settings({
   hidden, version, themeMode, onTheme, system,
-  catalog, workspaces, onSaveAgent, onSignIn, mcp,
+  catalog, onSignIn, mcp,
 }) {
   const [port, setPort] = useState("");
   const [note, setNote] = useState("");
@@ -76,14 +75,6 @@ export default function Settings({
           </section>
 
           <section className="settings-section">
-            <h3>Agents</h3>
-            <p className="settings-desc">Empty = inherit pi defaults. Applies the next time the agent starts.</p>
-            {(!workspaces || workspaces.length === 0) ? <p className="settings-desc">No workspaces yet.</p> : workspaces.map((ws) => (
-              <AgentRow key={ws.id} ws={ws} catalog={catalog} onSave={onSaveAgent} />
-            ))}
-          </section>
-
-          <section className="settings-section">
             <h3>Providers</h3>
             <p className="settings-desc">Credentials live in pi. Sign in opens the terminal and runs /login.</p>
             <ul className="prov-list">
@@ -142,25 +133,6 @@ export default function Settings({
         </div>
       </div>
     </section>
-  );
-}
-
-function AgentRow({ ws, catalog, onSave }) {
-  const a = ws.agent || {};
-  const [cfg, setCfg] = useState({
-    provider: a.provider || "",
-    model: a.model || "",
-    thinking: a.thinking || "",
-  });
-  useEffect(() => {
-    setCfg({ provider: a.provider || "", model: a.model || "", thinking: a.thinking || "" });
-  }, [a.provider, a.model, a.thinking]);
-  return (
-    <div className="agent-row">
-      <div className="agent-row-name">{ws.name}</div>
-      <ConfigFields catalog={catalog} {...cfg} onChange={setCfg} idPrefix={"ag-" + ws.id} />
-      <button type="button" className="btn btn-sm" onClick={() => onSave(a.id, cfg)}>Save</button>
-    </div>
   );
 }
 

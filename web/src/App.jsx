@@ -468,6 +468,19 @@ export default function App() {
             }}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
+            catalog={catalog}
+            agent={agent}
+            onConfig={async (cfg) => {
+              if (!agent) return;
+              try {
+                await api("/api/agents/" + agent.id, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(cfg),
+                });
+                await loadWorkspaces();
+              } catch (e) { alert(e.message); }
+            }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               status, streaming, onToggleDock: toggleDock, onStop: () => selectedId && stopAgent(selectedId),
@@ -493,18 +506,7 @@ export default function App() {
           onTheme={setTheme}
           system={system}
           catalog={catalog}
-          workspaces={workspaces}
           mcp={mcp}
-          onSaveAgent={async (id, cfg) => {
-            try {
-              await api("/api/agents/" + id, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(cfg),
-              });
-              await loadWorkspaces();
-            } catch (e) { alert(e.message); }
-          }}
           onSignIn={async (provider) => {
             const ws = selected || workspaces[0];
             if (!ws || !ws.agent) { alert("Add a workspace first."); return; }

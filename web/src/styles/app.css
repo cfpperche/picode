@@ -74,7 +74,13 @@ body {
 }
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.agent-bar {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
 .cfg-fields { display: flex; flex-direction: column; gap: 6px; }
+.cfg-fields.cfg-row { flex-direction: row; flex-wrap: wrap; align-items: center; }
 .cfg-fields select, .form-new select {
   background: var(--bg-base); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
@@ -246,8 +252,12 @@ body {
 /* ============ chat surface (the hero) ============ */
 .chat-surface {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+.chat-body {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
   position: relative;
 }
+.cfg-row select { max-width: 220px; }
 .run-cta { position: absolute; inset: 0; display: grid; place-items: center; z-index: 5; }
 .run-cta-card {
   text-align: center; padding: 28px 36px;

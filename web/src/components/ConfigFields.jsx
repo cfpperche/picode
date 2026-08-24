@@ -1,4 +1,4 @@
-export default function ConfigFields({ catalog, provider, model, thinking, onChange, idPrefix }) {
+export default function ConfigFields({ catalog, provider, model, thinking, onChange, idPrefix, row }) {
   const providers = catalog && catalog.providers ? catalog.providers : [];
   const current = providers.find((p) => p.id === provider);
   const models = current ? current.models : [];
@@ -6,7 +6,7 @@ export default function ConfigFields({ catalog, provider, model, thinking, onCha
   const pfx = idPrefix || "cfg";
 
   return (
-    <div className="cfg-fields">
+    <div className={row ? "cfg-fields cfg-row" : "cfg-fields"}>
       <select id={pfx + "-provider"} value={provider} onChange={(e) => onChange({ provider: e.target.value, model: "", thinking })}>
         <option value="">Inherit</option>
         {providers.map((p) => (

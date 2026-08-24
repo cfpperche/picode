@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Agent provider/model/thinking lives on the **agent tab bar**, not in
+  system Settings. Change saves immediately (applies on next start).
 - **M3 lifecycle (ADR-0009)**: catalog from `pi --list-models` (no curated
   subset); workspace form + Settings → Agents set provider/model/thinking
   (empty = inherit). Settings → Providers shows signed-in state from
