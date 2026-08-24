@@ -35,6 +35,36 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
+func TestTranscript(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "t.jsonl")
+	body := `{"type":"session","id":"x","timestamp":"2026-08-24T01:00:00.000Z"}
+{"type":"message","message":{"role":"user","content":[{"type":"text","text":"List files"}]}}
+{"type":"message","message":{"role":"assistant","content":[{"type":"toolCall","id":"t1","name":"bash","arguments":{"command":"ls"}}]}}
+{"type":"message","message":{"role":"toolResult","toolCallId":"t1","toolName":"bash","isError":false,"content":[{"type":"text","text":"AGENTS.md"}]}}
+{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"AGENTS.md"}]}}
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ev, err := Transcript(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ev) != 3 {
+		t.Fatalf("len=%d %+v", len(ev), ev)
+	}
+	if ev[0].Kind != "user" || ev[0].Text != "List files" {
+		t.Fatalf("user = %+v", ev[0])
+	}
+	if ev[1].Kind != "tool" || ev[1].Name != "bash" || ev[1].Status != "ok" || ev[1].Detail != "AGENTS.md" {
+		t.Fatalf("tool = %+v", ev[1])
+	}
+	if ev[2].Kind != "assistant" || ev[2].Text != "AGENTS.md" {
+		t.Fatalf("asst = %+v", ev[2])
+	}
+}
+
 func TestListMissingDir(t *testing.T) {
 	got, err := List(filepath.Join(t.TempDir(), "nope"))
 	if err != nil || len(got) != 0 {

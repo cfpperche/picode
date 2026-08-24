@@ -33,8 +33,9 @@ route — never a section inside Settings.
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
-Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists and
-switches them (`--session`); it does not copy history into SQLite (ADR-0005).
+Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
+switches (`--session`), and **replays** them into the chat surface. History
+is not copied into SQLite (ADR-0005).
 
 Entry: user menu (Settings, Providers, MCPs, Documentation) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):

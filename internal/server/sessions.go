@@ -33,6 +33,37 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 	}
 }
 
+func handleSessionTranscript(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		path := r.URL.Query().Get("path")
+		if path == "" && agent.SessionPath != nil {
+			path = *agent.SessionPath
+		}
+		if path == "" {
+			writeJSON(w, http.StatusOK, map[string]any{"events": []any{}, "path": ""})
+			return
+		}
+		if !safeSessionPath(wk.Path, path) {
+			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
+			return
+		}
+		ev, err := session.Transcript(path)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if ev == nil {
+			ev = []session.Event{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"events": ev, "path": path})
+	}
+}
+
 func handleNewSession(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		wk, agent, err := loadWS(deps, r.PathValue("id"))

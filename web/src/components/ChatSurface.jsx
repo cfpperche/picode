@@ -5,6 +5,7 @@ export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, onOpenTerm, catalog, agent, onConfig, onSlash,
 }) {
+  const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool");
   const cfg = {
     provider: (agent && agent.provider) || "",
     model: (agent && agent.model) || "",
@@ -23,7 +24,7 @@ export default function ChatSurface({
             </div>
           </div>
         </div>
-        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped} />
+        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} />
         <Composer {...composer} stopped={stopped} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} />
       </div>
     </section>

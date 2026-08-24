@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Session **replay** paints the JSONL conversation in the chat (view-only).
 - Visual QA is a **gate**: overlay geometry audit + 5-question card.
   Clipped menus fail the build ritual (see `/skill:visual-review`).
 - **Sessions** in the tab strip: list / resume / new from pi JSONL files.

@@ -4,6 +4,7 @@ import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
+import { eventsToItems } from "../lib/replay.js";
 import Sidebar from "../components/Sidebar.jsx";
 import AgentTabs from "../components/AgentTabs.jsx";
 import SessionBar from "../components/SessionBar.jsx";
@@ -109,7 +110,15 @@ export default function App() {
     try {
       const data = await api("/api/workspaces/" + id + "/sessions");
       setSessions(data.sessions || []);
-      setSessionCurrent(data.current || "");
+      const cur = data.current || "";
+      setSessionCurrent(cur);
+      if (!cur) {
+        setItems([{ kind: "sys", text: "Send a message to start." }]);
+        return;
+      }
+      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur));
+      const ev = t.events || [];
+      setItems(ev.length ? eventsToItems(ev) : [{ kind: "sys", text: "Send a message to start." }]);
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId]);
 
@@ -154,7 +163,6 @@ export default function App() {
     if (a.mode === "interactive") {
       setStatus("interactive");
       setStreaming(false);
-      setItems((cur) => cur.length ? cur : [{ kind: "sys", text: "Agent is running in the terminal. Use the Terminal button to pair with it." }]);
     }
   }
 
@@ -195,7 +203,6 @@ export default function App() {
 
   function connectPanel(ws) {
     closePanel();
-    setItems([{ kind: "sys", text: "Connected. Send a task to start." }]);
     setStatus("idle");
     setStreaming(false);
     const sock = new WebSocket(wsURL(`/ws/agent?agent=${ws.agent.id}`));
