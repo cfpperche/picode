@@ -69,6 +69,7 @@ export default function Palette({ open, workspaces, onClose, onRun }) {
 function buildActions(workspaces) {
   const out = [
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
+    { id: "system", label: "System", group: "app", kind: "system" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
     { id: "devices", label: "Devices", group: "app", kind: "devices" },

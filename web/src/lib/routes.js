@@ -3,6 +3,7 @@
 export const ROUTES = {
   workspace: "/",
   settings: "/settings",
+  system: "/system",
   providers: "/providers",
   mcps: "/mcps",
   devices: "/devices",
@@ -11,6 +12,7 @@ export const ROUTES = {
 export function parseRoute(hash) {
   const h = (hash || location.hash || "").replace(/^#/, "") || "/";
   if (h === "/settings") return "settings";
+  if (h === "/system") return "system";
   if (h === "/providers") return "providers";
   if (h === "/mcps") return "mcps";
   if (h === "/devices") return "devices";

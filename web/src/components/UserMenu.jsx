@@ -63,6 +63,10 @@ export default function UserMenu({
           <span>Settings</span>
           <IconChevronRight />
         </button>
+        <button type="button" className="um-item" id="um-system" role="menuitem" onClick={() => onNavigate("system")}>
+          <span>System</span>
+          <IconChevronRight />
+        </button>
         <button type="button" className="um-item" id="um-providers" role="menuitem" onClick={() => onNavigate("providers")}>
           <span>Providers</span>
           <IconChevronRight />

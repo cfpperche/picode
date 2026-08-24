@@ -13,6 +13,7 @@ import ShareDrawer from "../components/ShareDrawer.jsx";
 import InstallButton from "../components/InstallButton.jsx";
 import Devices from "../components/Devices.jsx";
 import Settings from "../components/Settings.jsx";
+import System from "../components/System.jsx";
 import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
 import "./mobile.css";
@@ -261,6 +262,7 @@ export default function MobileApp() {
               <ul className="m-list">
                 <li><button type="button" className="m-ws" onClick={() => setMore("devices")}>Devices</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("settings")}>Settings</button></li>
+                <li><button type="button" className="m-ws" onClick={() => setMore("system")}>System</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("providers")}>Providers</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("mcps")}>MCPs</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setShell("desktop")}>Desktop layout</button></li>
@@ -268,7 +270,8 @@ export default function MobileApp() {
               </ul>
             )}
             {more === "devices" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Devices hidden={false} /></>}
-            {more === "settings" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Settings hidden={false} version="" themeMode={themeMode} onTheme={(m) => { persistTheme(m); setThemeMode(m); }} system={null} /></>}
+            {more === "settings" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Settings hidden={false} themeMode={themeMode} onTheme={(m) => { persistTheme(m); setThemeMode(m); }} /></>}
+            {more === "system" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><System hidden={false} version="" system={null} /></>}
             {more === "providers" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Providers hidden={false} catalog={{ providers: [] }} onSignIn={() => {}} /></>}
             {more === "mcps" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Mcps hidden={false} mcp={{}} /></>}
           </section>
