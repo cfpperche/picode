@@ -7,7 +7,7 @@ import ModeChip from "./ModeChip.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
-  composer, onRun, onOpenTerm, catalog, agent, onConfig, onSlash,
+  composer, onRun, catalog, agent, onConfig, onSlash,
 }) {
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool");
   const cfg = {
@@ -33,7 +33,6 @@ export default function ChatSurface({
                   <ModeChip cfg={cfg} onChange={onCfg} />
                 </div>
                 <div className="composer-right">
-                  <button id="btn-term-agent" type="button" className="cockpit-chip" onClick={onOpenTerm}>Open terminal</button>
                   <button id="btn-run-agent" type="button" className="btn btn-primary btn-sm" onClick={onRun}>Run agent</button>
                 </div>
               </div>
