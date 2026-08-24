@@ -81,7 +81,17 @@ async function loadSystem() {
     const el = $("#warnings");
     if (sys.warnings && sys.warnings.length) {
       el.hidden = false;
-      el.innerHTML = sys.warnings.map((w) => `<div>${escapeHTML(w)}</div>`).join("");
+      // Humanized per the jargon audit (docs/benchmarks.md) — the raw
+      // tmux terminology stays in Settings → System for power users.
+      const friendly = sys.warnings.map((w) => {
+        if (w.includes("extended-keys-format")) {
+          return "Tip: add “set -g extended-keys-format csi-u” to ~/.tmux.conf so keys like Shift+Enter reach your agents.";
+        }
+        if (w.includes("tmux is not installed")) return w; // already actionable
+        if (w.includes("pi is not installed")) return w;   // already actionable
+        return w;
+      });
+      el.innerHTML = friendly.map((w) => `<div>${escapeHTML(w)}</div>`).join("");
     } else el.hidden = true;
     renderSettingsSystem();
   } catch {
@@ -246,6 +256,19 @@ async function startManaged(id) {
   } catch (err) { alert(err.message); }
 }
 
+// openInteractive starts the agent in the terminal (tmux TUI) — the
+// escape hatch to the real pi experience (philosophy: door, not cage).
+async function openInteractive(id) {
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (!ws || !ws.agent) return;
+  try {
+    await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
+    state.selectedId = id;
+    await loadWorkspaces();
+    selectWorkspace(id); // interactive branch attaches the terminal dock
+  } catch (err) { alert(humanizeError(err.message)); }
+}
+
 async function stopAgent(id) {
   const ws = state.workspaces.find((w) => w.id === id);
   if (!ws || !ws.agent) return;
@@ -349,6 +372,7 @@ function connectPanel(ws) {
     panel.nearBottom = conv.scrollHeight - conv.scrollTop - conv.clientHeight < 48;
   }, { passive: true });
 
+  sock.onopen = () => { /* first event is the snapshot below */ };
   sock.onmessage = (ev) => {
     try { renderAgentEvent(JSON.parse(ev.data), panel); } catch {}
   };
@@ -358,6 +382,7 @@ function connectPanel(ws) {
       addSysLine("— panel disconnected —", true);
     }
   };
+  addSysLine("Connected. Send a task to start.");
   setChatStatus("idle", false);
 }
 
@@ -666,10 +691,25 @@ function wireForm() {
       state.selectedId = ws.id;
       await loadWorkspaces();
     } catch (err) {
-      errEl.textContent = err.message;
+      errEl.textContent = humanizeError(err.message);
       errEl.hidden = false;
     }
   });
+}
+
+// humanizeError maps backend/store messages to plain language for
+// terminal-averse users (jargon audit, docs/benchmarks.md).
+function humanizeError(msg) {
+  if (/no such file or directory|not a directory/i.test(msg)) {
+    return "That folder doesn't exist — check the path and try again.";
+  }
+  if (/already exists/i.test(msg)) {
+    return "This project folder is already added.";
+  }
+  if (/name is required/i.test(msg)) {
+    return "Give the workspace a name.";
+  }
+  return msg; // unknown errors pass through verbatim (never hide information)
 }
 
 // ---------- utils ----------
@@ -686,12 +726,16 @@ wireUserMenu();
 wireComposer();
 wireServerSettings();
 $("#btn-run-agent").addEventListener("click", () => state.selectedId && startManaged(state.selectedId));
+$("#btn-term-agent").addEventListener("click", () => state.selectedId && openInteractive(state.selectedId));
 window.addEventListener("hashchange", route);
 route();
 loadSystem();
 loadWorkspaces()
   .then(() => {
-    const active = state.workspaces.find((w) => w.agent && w.agent.mode !== "stopped");
+    // Prefer a running agent; otherwise select the first workspace so the
+    // main area never renders empty (dead-zone fix).
+    const active = state.workspaces.find((w) => w.agent && w.agent.mode !== "stopped")
+      || state.workspaces[0];
     if (active) selectWorkspace(active.id);
   })
   .catch((e) => console.error("boot:", e));

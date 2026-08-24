@@ -11,6 +11,28 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed (exploratory QA round — agent-browser skill dogfooding)
+
+- **Ghost overlay blocked the chat after Run**: `.run-cta`'s explicit
+  `display:grid` defeated the `hidden` attribute, leaving an invisible
+  full-surface overlay eating every click (Send/Terminal/Stop dead).
+  Fixed with `.run-cta[hidden]{display:none}`.
+- **Dead zone after reload**: with all agents stopped, no workspace was
+  selected and the main area rendered empty. Boot now selects the first
+  workspace when none is running.
+- **Interactive mode orphaned**: the anatomy redesign dropped the only UI
+  path to the terminal (tmux TUI) mode — `/open` had no caller. Restored:
+  the stopped-agent CTA now offers **Run agent** and **Open terminal**
+  (door, not cage).
+- **Raw backend errors in the form**: `store: path…: stat…` leaked Go
+  internals to users; `humanizeError` maps common cases to plain language.
+- **tmux warning jargon** in the sidebar humanized (raw detail stays in
+  Settings → System); managed panel now greets with a connected line.
+
+### Added
+
+- QA evidence: `docs/screenshots/qa-m2-final-dark.png`, `qa-interactive-tui.png`.
+
 ### Added
 
 - **`agent-browser` skill** (ported from the agentdeck-proven skill, adapted):

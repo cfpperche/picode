@@ -59,6 +59,17 @@ What exists right now:
 
 ## Known debts / open questions
 
+- **DATA INCIDENT (open)**: the real `~/.picode/picode.db` lost all rows
+  created before 2026-08-24 02:25 (workspace + tasks + events) during the
+  night's ~5 overlapping rebuild/restart cycles (two servers raced the
+  same port at one point). Verified since: add → restart preserves data;
+  store tests green. Root cause NOT established — candidates: two picode
+  processes on one SQLite file across builds. **Follow-up: add an
+  exclusive-lock/ownership guard on startup (e.g. server.json pid check +
+  stale detection) and re-test multi-process behavior before M3.**
+- **Visual verdicts require a vision-capable model** (see M1 note); QA
+  evidence pixel-checked programmatically only.
+
 - **Visual verdicts require a vision-capable model** (see M1 note); M2
   panel evidence: `docs/screenshots/m2-agentpanel-first-look.png` (pixel
   checks pass; agent verdict UNVERIFIED).
@@ -74,6 +85,15 @@ What exists right now:
 - Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
 ## Recent activity
+
+- **2026-08-24** — **Exploratory QA (agent-browser dogfooding)**: full
+  click-through of the app — form validation, Run + real-pi prompt →
+  stream + tool pills (verified real file listing), follow-up chips,
+  stop/run cycles, interactive TUI restored (green pi pixels in dock),
+  settings navigation, **real port rebind via UI (8445→8446→8445, page
+  followed automatically)**, theme sweep, zero console errors. Fixed 5
+  findings (ghost overlay, dead zone, orphaned interactive mode, raw
+  errors, jargon warning). Data incident recorded above (open).
 
 - **2026-08-24** — `agent-browser` skill added (agentdeck port, adapted):
   verified live against PiCode (open → snapshot → click user menu → apply

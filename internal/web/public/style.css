@@ -213,11 +213,13 @@ body {
   position: relative;
 }
 .run-cta { position: absolute; inset: 0; display: grid; place-items: center; z-index: 5; }
+.run-cta[hidden] { display: none; } /* explicit display beats the hidden attribute otherwise */
 .run-cta-card {
   text-align: center; padding: 28px 36px;
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
 }
 .run-cta-card p { color: var(--text-secondary); margin-bottom: 14px; }
+.run-cta-actions { display: flex; gap: 8px; justify-content: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
 .dot.streaming { background: var(--accent); animation: pulse 1.4s ease infinite; }
 .composer-status {
