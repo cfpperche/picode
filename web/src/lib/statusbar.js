@@ -5,6 +5,7 @@ export function statusSegments(bar) {
   if (bar.branch) {
     let g = bar.branch;
     if (bar.worktree) g += "@" + bar.worktree;
+    if (bar.dirty) g += "*";
     out.push({ key: "git", text: g });
   }
   if (bar.contextWindow) {
@@ -12,16 +13,28 @@ export function statusSegments(bar) {
     const pct = bar.contextPercent;
     const unknown = pct == null;
     const tone = unknown ? "" : (pct > 90 ? "bad" : pct > 70 ? "warn" : "ok");
+    let text = unknown ? "? / " + win : pct.toFixed(1) + "% · " + win;
+    if (bar.autoCompact) text += " (auto)";
     out.push({
       key: "ctx",
       kind: "bar",
       pct: unknown ? 0 : Math.max(0, Math.min(100, pct)),
-      text: unknown ? "? / " + win : pct.toFixed(1) + "% · " + win,
+      text,
       tone,
     });
   }
+  const io = [];
+  if (bar.input) io.push("↑" + formatTokens(bar.input));
+  if (bar.output) io.push("↓" + formatTokens(bar.output));
+  if (io.length) out.push({ key: "io", text: io.join(" ") });
+  if (bar.cacheHit != null && bar.cacheRead) {
+    out.push({ key: "ch", text: "CH" + bar.cacheHit.toFixed(0) + "%" });
+  }
   if (bar.cost > 0) {
     out.push({ key: "cost", text: "$" + bar.cost.toFixed(2) });
+  }
+  if (bar.sessionName) {
+    out.push({ key: "name", text: bar.sessionName });
   }
   return out;
 }

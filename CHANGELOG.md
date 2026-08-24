@@ -27,7 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Composer **status line**: cwd, git branch/worktree, context %, session cost
+- Composer **status line**: cwd, git (dirty *), context bar +(auto), ↑↓
+  tokens, cache hit, cost, session name.
   (same facts as the pi TUI footer; no invented provider quotas).
 - Stopped state uses the **composer chrome** (Run / Open terminal), not a
   floating card over the chat.
