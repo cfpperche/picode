@@ -22,6 +22,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Devices** (`#/devices`): connected browsers. Host vs other machines
+  (iPhone/Android + IP). Online if pinged in the last 45s.
 - Phone trust page is a 3-step wizard, iOS vs Android from User-Agent
   (profile download / CA install / enable trust / open) — not a text dump.
 - Phone QR follows the selected path: Tailscale row → `http://<tailnet>:8470`,

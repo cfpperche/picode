@@ -5,6 +5,7 @@ export const ROUTES = {
   settings: "/settings",
   providers: "/providers",
   mcps: "/mcps",
+  devices: "/devices",
 };
 
 export function parseRoute(hash) {
@@ -12,6 +13,7 @@ export function parseRoute(hash) {
   if (h === "/settings") return "settings";
   if (h === "/providers") return "providers";
   if (h === "/mcps") return "mcps";
+  if (h === "/devices") return "devices";
   return "workspace";
 }
 

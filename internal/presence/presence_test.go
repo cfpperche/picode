@@ -1,0 +1,37 @@
+package presence
+
+import "testing"
+
+func TestLabel(t *testing.T) {
+	if Label("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)") != "iPhone" {
+		t.Fatal("iphone")
+	}
+	if Label("Mozilla/5.0 (Linux; Android 14; Mobile)") != "Android" {
+		t.Fatal("android")
+	}
+	if Label("Mozilla/5.0 (Windows NT 10.0)") != "Windows" {
+		t.Fatal("windows")
+	}
+}
+
+func TestPingHostAndRemote(t *testing.T) {
+	r := New([]string{"192.168.15.110"})
+	host := r.Ping("aaa", "Mozilla/5.0 (Windows NT 10.0)", "127.0.0.1:1234", false)
+	if !host.Host || !host.Online || host.Name != "Windows" {
+		t.Fatalf("host = %+v", host)
+	}
+	phone := r.Ping("bbb", "Mozilla/5.0 (iPhone)", "100.87.149.83:9999", false)
+	if phone.Host || phone.Name != "iPhone" || phone.IP != "100.87.149.83" {
+		t.Fatalf("phone = %+v", phone)
+	}
+	list := r.List()
+	if len(list) != 2 || !list[0].Host {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
+func TestStripPort(t *testing.T) {
+	if stripPort("192.168.15.110:8445") != "192.168.15.110" {
+		t.Fatal(stripPort("192.168.15.110:8445"))
+	}
+}

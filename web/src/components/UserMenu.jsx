@@ -56,6 +56,10 @@ export default function UserMenu({
           <span>MCPs</span>
           <IconChevronRight />
         </button>
+        <button type="button" className="um-item" id="um-devices" role="menuitem" onClick={() => onNavigate("devices")}>
+          <span>Devices</span>
+          <IconChevronRight />
+        </button>
         <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer" role="menuitem">
           <span>Documentation</span>
           <IconExternal />

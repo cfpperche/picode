@@ -24,6 +24,7 @@ route — never a section inside Settings.
 | `#/settings` | PiCode system | theme, server port, host/tmux/pi status, about |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
+| `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Entry: user menu (Settings, Providers, MCPs, Documentation) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):

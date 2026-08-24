@@ -71,6 +71,7 @@ function buildActions(workspaces) {
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
+    { id: "devices", label: "Devices", group: "app", kind: "devices" },
   ];
   for (const ws of workspaces) {
     const mode = ws.agent ? ws.agent.mode : "stopped";

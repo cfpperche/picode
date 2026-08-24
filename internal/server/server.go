@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/term"
@@ -42,6 +43,7 @@ type Deps struct {
 	PortSnapshot func() PortSnapshot
 	DataDir      string
 	Insecure     bool
+	Presence     *presence.Registry
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -55,6 +57,7 @@ func New(addr string, deps Deps) *http.Server {
 	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
 	mux.HandleFunc("GET /api/mcp", handleMCP)
 	mux.HandleFunc("GET /api/share", handleShare(deps))
+	registerDeviceRoutes(mux, &deps)
 
 	registerWorkspaceRoutes(mux, deps)
 	registerServerRoutes(mux, deps)

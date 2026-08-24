@@ -11,6 +11,7 @@ import TerminalDock from "./components/TerminalDock.jsx";
 import Settings from "./components/Settings.jsx";
 import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
+import Devices from "./components/Devices.jsx";
 import Palette from "./components/Palette.jsx";
 import { parseRoute, go } from "./lib/routes.js";
 
@@ -113,6 +114,25 @@ export default function App() {
       }
     })();
   }, [loadWorkspaces]);
+
+  useEffect(() => {
+    const ping = () => {
+      let id = localStorage.getItem("picode-device-id");
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem("picode-device-id", id);
+      }
+      const host = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+      api("/api/devices/ping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, host }),
+      }).catch(() => {});
+    };
+    ping();
+    const t = setInterval(ping, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   function openTab(id, list) {
     setSelectedId(id);
@@ -529,6 +549,7 @@ export default function App() {
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
+        <Devices hidden={route !== "devices"} />
       </main>
 
       <Palette
@@ -536,7 +557,7 @@ export default function App() {
         workspaces={workspaces}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
-          if (a.kind === "settings" || a.kind === "providers" || a.kind === "mcps") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "providers" || a.kind === "mcps" || a.kind === "devices") { go(a.kind); return; }
           if (a.kind === "open") openTab(a.wsId);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);
