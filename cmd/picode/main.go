@@ -127,6 +127,7 @@ func serve() {
 		Tmux:     tmux.New(),
 		Runtime:  runtime,
 		AgentCmd: "pi", // ADR-0003: user-installed pi
+		DataDir:  dataDir,
 		Rebind: func() {
 			select {
 			case rebindCh <- struct{}{}:
@@ -145,6 +146,7 @@ func serve() {
 		log.Fatalf("config: %v", err)
 	}
 	deps.BindHost = cfg.Host
+	deps.Insecure = cfg.Insecure
 	state.cfg.Store(cfg)
 
 	srv, port, err := bindAndServe(cfg, deps)
@@ -176,6 +178,7 @@ func serve() {
 			gracefulShutdown(srv)
 			srv, port, cfg = newSrv, newPort, newCfg
 			deps.BindHost = cfg.Host
+			deps.Insecure = cfg.Insecure
 			state.cfg.Store(cfg)
 			state.port.Store(int64(newPort))
 			writeServerJSON(dataDir, cfg, newPort)

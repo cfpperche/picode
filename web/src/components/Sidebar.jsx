@@ -1,6 +1,8 @@
 import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
+import ShareDrawer from "./ShareDrawer.jsx";
+import { IconQR } from "./Icons.jsx";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -16,6 +18,7 @@ export default function Sidebar({
     return Number.isFinite(n) ? Math.min(SIDE_MAX, Math.max(SIDE_MIN, n)) : 244;
   });
   const [resizing, setResizing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   function onSizerDown(e) {
     e.preventDefault();
@@ -42,6 +45,9 @@ export default function Sidebar({
       <header className="brand">
         <span className="brand-name">PiCode</span>
         <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
+        <button type="button" id="btn-share" className="brand-qr" title="Open on phone" onClick={() => setShareOpen(true)}>
+          <IconQR />
+        </button>
       </header>
 
       <div className="side-section">
@@ -94,6 +100,7 @@ export default function Sidebar({
         <UserMenu {...userMenu} />
       </footer>
       <div id="sidebar-sizer" className="sidebar-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
+      <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
     </aside>
   );
 }

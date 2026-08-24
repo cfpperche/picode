@@ -40,6 +40,8 @@ type Deps struct {
 	BindHost     string
 	Rebind       func()
 	PortSnapshot func() PortSnapshot
+	DataDir      string
+	Insecure     bool
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -52,6 +54,7 @@ func New(addr string, deps Deps) *http.Server {
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
 	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
 	mux.HandleFunc("GET /api/mcp", handleMCP)
+	mux.HandleFunc("GET /api/share", handleShare(deps))
 
 	registerWorkspaceRoutes(mux, deps)
 	registerServerRoutes(mux, deps)

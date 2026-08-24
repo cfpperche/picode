@@ -22,6 +22,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Open on phone**: QR button in the sidebar. Drawer diagnoses HTTPS,
+  bind, reachable IP, cert SAN and mkcert CA (`GET /api/share`). QR only
+  when ready; otherwise a how-to of the missing actions.
 - Chrome no longer scrolls with Settings: sidebar stays pinned; only the
   main pane scrolls (`100vh` lock + `#settings-view` overflow).
 - Agent provider/model/thinking lives on the **agent tab bar**, not in

@@ -26,6 +26,9 @@ route — never a section inside Settings.
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
 
 Entry: user menu (Settings, Providers, MCPs, Documentation) and `Ctrl+K`.
+QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):
+HTTPS + bind + reachable IP + cert SAN + mkcert CA. Missing checks
+list the action; a QR is only drawn when every check passes.
 
 ## Component diagram
 
