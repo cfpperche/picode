@@ -30,11 +30,11 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 
 ## UI/UX benchmarks
 
-Inspired by: **Cursor** (the product + aesthetic north star — see
-[benchmark-cursor.md](benchmark-cursor.md): agent activity feed, checkpoints,
-diff review, density), **Linear** (speed, keyboard-first, dark-first,
-density), **Vercel/Geist** (typography, minimal chrome, user menu, settings
-and theme-switcher patterns), **Stripe Dashboard**
+Inspired by: **Cursor** (product + aesthetic north star — see
+[benchmark-cursor.md](benchmark-cursor.md)), **t3code** and **paseo**
+(architecture + composer-depth — see [benchmarks/](benchmarks/)),
+**Linear** (speed, keyboard-first, dark-first, density), **Vercel/Geist**
+(typography, minimal chrome, user menu, theme), **Stripe Dashboard**
 (progressive disclosure, empty states that teach), **Apple HIG**
 (clarity, deference to content), **xterm.js/ttyd** (terminal honesty).
 

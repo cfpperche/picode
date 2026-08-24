@@ -5,7 +5,8 @@ description: Review UI/UX work against PiCode's design benchmarks (Linear-speed,
 
 # UI/UX review
 
-Checklist against `docs/benchmarks.md` (UI/UX section). Use whenever this
+Checklist against `docs/benchmarks.md` (UI/UX section) and, for new
+surfaces, `docs/benchmarks/` (Cursor / t3code / paseo). Use whenever this
 session touched anything the user sees: pages, components, copy, terminal
 styling, error messages.
 
@@ -35,6 +36,11 @@ styling, error messages.
 ### Terminal honesty (ttyd bar)
 - [ ] Embedded terminal: selection, copy/paste, scrollback, resize all work.
 - [ ] Nothing pretends to *be* the terminal — we embed the real one.
+
+### Product benchmarks (docs/benchmarks/)
+New or redesigned surfaces cite at least one of Cursor, t3code, or paseo
+and the PiCode adaptation (or why we refused the pattern). Do not copy
+multi-runtime SDKs (ADR-0003) or editor chrome (philosophy).
 
 ### Cursor bar (docs/benchmark-cursor.md)
 Apply the product checks to surfaces that already exist (patterns land per

@@ -80,6 +80,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Adopted AgentDeck's product-benchmark set: Cursor +
+  t3code + paseo. Studies in `docs/benchmarks/`; ritual in AGENTS.md.
 - **2026-08-24** — Route split: Settings = PiCode system; `#/providers`
   and `#/mcps` are first pi-facing routes (user menu + palette).
 - **2026-08-24** — Agent provider/model/thinking moved onto the agent tab

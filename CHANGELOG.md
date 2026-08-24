@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Product benchmarks now include **t3code** and **paseo** alongside
+  Cursor (`docs/benchmarks/`). Studies required before substantial UI.
+- Sidebar is resizable (drag the right edge; 180–480px; remembered).
 - **Settings is PiCode-only.** Providers and MCPs are their own routes
   (`#/providers`, `#/mcps`), listed in the user menu next to Settings and
   Documentation. Documented in `docs/architecture.md`.

@@ -29,8 +29,9 @@ moment of creation**. Read [README.md](README.md) and
    tree compiling and tests green, and record the gap in `docs/handoff.md`.
 3. **Simplicity and modularity are product features.** Prefer the Go standard
    library. Every new dependency is a decision that deserves a line of
-   justification in the PR description. UI follows the benchmarks in
-   `docs/benchmarks.md`.
+   justification in the PR description. UI follows the bars in
+   `docs/benchmarks.md`. Substantial features first check
+   `docs/benchmarks/` (Cursor, t3code, paseo) and cite an adaptation.
 4. **Honesty over polish.** Report what is actually done vs. described. A
    smaller true changelog beats an impressive false one. Unknowns go into
    `docs/handoff.md` as open questions, not into prose as facts.
