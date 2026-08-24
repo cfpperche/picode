@@ -1,5 +1,9 @@
 import Conversation from "./Conversation.jsx";
 import Composer from "./Composer.jsx";
+import ProviderChip from "./ProviderChip.jsx";
+import ModelChip from "./ModelChip.jsx";
+import ThinkingChip from "./ThinkingChip.jsx";
+import ModeChip from "./ModeChip.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
@@ -12,20 +16,32 @@ export default function ChatSurface({
     thinking: (agent && agent.thinking) || "",
     opMode: (agent && agent.opMode) || "full",
   };
+  const onCfg = onConfig || (() => {});
   return (
     <section id="chat-surface" className="chat-surface" hidden={hidden}>
       <div className="chat-body">
-        <div id="run-cta" className="run-cta" hidden={!stopped}>
-          <div className="run-cta-card">
-            <p>Agent is stopped.</p>
-            <div className="run-cta-actions">
-              <button id="btn-run-agent" className="btn btn-primary" onClick={onRun}>Run agent</button>
-              <button id="btn-term-agent" className="btn" onClick={onOpenTerm}>Open terminal</button>
+        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} />
+        {stopped ? (
+          <div className="composer-wrap">
+            <div className="composer" id="run-cta">
+              <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
+              <div className="composer-controls">
+                <div className="composer-left">
+                  <ProviderChip catalog={catalog} cfg={cfg} onChange={onCfg} />
+                  <ModelChip catalog={catalog} cfg={cfg} onChange={onCfg} />
+                  <ThinkingChip catalog={catalog} cfg={cfg} onChange={onCfg} />
+                  <ModeChip cfg={cfg} onChange={onCfg} />
+                </div>
+                <div className="composer-right">
+                  <button id="btn-term-agent" type="button" className="cockpit-chip" onClick={onOpenTerm}>Open terminal</button>
+                  <button id="btn-run-agent" type="button" className="btn btn-primary btn-sm" onClick={onRun}>Run agent</button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} />
-        <Composer {...composer} stopped={stopped} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} />
+        ) : (
+          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} />
+        )}
       </div>
     </section>
   );
