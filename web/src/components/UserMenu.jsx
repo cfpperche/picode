@@ -1,5 +1,5 @@
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconChevronRight, IconExternal } from "./Icons.jsx";
-import { setShell } from "../lib/shell.js";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal } from "./Icons.jsx";
+import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
 export default function UserMenu({
@@ -45,6 +45,19 @@ export default function UserMenu({
           </button>
         </div>
 
+        <div className="um-label">Layout</div>
+        <div className="um-theme" role="group" aria-label="Layout">
+          <button type="button" data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
+            <IconMonitor /> Desktop
+          </button>
+          <button type="button" data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
+            <IconMonitor /> Auto
+          </button>
+          <button type="button" data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
+            <IconPhone /> Mobile
+          </button>
+        </div>
+
         <div className="um-divider" />
         <button type="button" className="um-item" id="um-settings" role="menuitem" onClick={() => onNavigate("settings")}>
           <span>Settings</span>
@@ -60,10 +73,6 @@ export default function UserMenu({
         </button>
         <button type="button" className="um-item" id="um-devices" role="menuitem" onClick={() => onNavigate("devices")}>
           <span>Devices</span>
-          <IconChevronRight />
-        </button>
-        <button type="button" className="um-item" role="menuitem" onClick={() => setShell("mobile")}>
-          <span>Mobile layout</span>
           <IconChevronRight />
         </button>
         <div style={{ padding: "8px 10px 10px" }}><InstallButton className="btn btn-primary btn-sm" /></div>
