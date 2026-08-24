@@ -1,4 +1,5 @@
 import SearchCombo from "./SearchCombo.jsx";
+import { IconProvider } from "./Icons.jsx";
 import { providerChipLabel, providerChoices } from "../lib/chip.js";
 
 export default function ProviderChip({ catalog, cfg, onChange }) {
@@ -26,6 +27,7 @@ export default function ProviderChip({ catalog, cfg, onChange }) {
       options={options}
       label={providerChipLabel(cfg)}
       searchPlaceholder="Search providers"
+      icon={<IconProvider />}
     />
   );
 }

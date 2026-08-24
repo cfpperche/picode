@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IconKind } from "./Icons.jsx";
 
 const KINDS = [
   { id: "prompt", label: "Prompt" },
@@ -30,6 +31,7 @@ export default function KindChip({ value, onChange }) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
+        <span className="cockpit-chip-icon"><IconKind /></span>
         <span className="cockpit-chip-label">{cur.label}</span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
           <path d="m6 9 6 6 6-6" />

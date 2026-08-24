@@ -3,7 +3,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 
 export default function SearchCombo({
-  id, value, onChange, options, label, searchPlaceholder, disabled, footer,
+  id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -11,6 +11,7 @@ export default function SearchCombo({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button type="button" id={id} className="cockpit-chip" disabled={disabled} aria-expanded={open}>
+          {icon ? <span className="cockpit-chip-icon">{icon}</span> : null}
           <span className="cockpit-chip-label">{label}</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />

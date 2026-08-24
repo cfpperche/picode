@@ -397,6 +397,8 @@ body {
 .icon-btn:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
+.cockpit-chip-icon { display: grid; flex: none; opacity: 0.72; }
+.cockpit-chip-icon svg { display: block; }
 .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cockpit-pop {
   position: absolute; left: 0; bottom: calc(100% + 6px);

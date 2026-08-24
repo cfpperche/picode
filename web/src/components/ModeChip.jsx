@@ -1,4 +1,5 @@
 import SearchCombo from "./SearchCombo.jsx";
+import { IconMode } from "./Icons.jsx";
 import { modeChipLabel, modeChoices } from "../lib/chip.js";
 
 export default function ModeChip({ cfg, onChange }) {
@@ -11,6 +12,7 @@ export default function ModeChip({ cfg, onChange }) {
       options={modeChoices()}
       label={modeChipLabel(cfg)}
       searchPlaceholder="Search modes"
+      icon={<IconMode />}
     />
   );
 }

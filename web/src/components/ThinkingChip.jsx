@@ -1,4 +1,5 @@
 import SearchCombo from "./SearchCombo.jsx";
+import { IconThink } from "./Icons.jsx";
 import { thinkingChipLabel, thinkingChoices } from "../lib/chip.js";
 
 export default function ThinkingChip({ catalog, cfg, onChange }) {
@@ -16,6 +17,7 @@ export default function ThinkingChip({ catalog, cfg, onChange }) {
       options={options}
       label={thinkingChipLabel(cfg)}
       searchPlaceholder="Search thinking"
+      icon={<IconThink />}
       disabled={!canThink}
     />
   );

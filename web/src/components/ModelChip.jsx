@@ -1,4 +1,5 @@
 import SearchCombo from "./SearchCombo.jsx";
+import { IconModel } from "./Icons.jsx";
 import { modelChipLabel, modelChoices } from "../lib/chip.js";
 
 export default function ModelChip({ catalog, cfg, onChange }) {
@@ -24,6 +25,7 @@ export default function ModelChip({ catalog, cfg, onChange }) {
         options={options}
         label={modelChipLabel(cfg)}
         searchPlaceholder="Search models"
+        icon={<IconModel />}
         disabled={!provider}
       />
     </>
