@@ -366,7 +366,7 @@ body {
 /* ============ composer ============ */
 .composer-wrap { flex: none; padding: 10px 20px 14px; }
 .composer {
-  max-width: 760px; margin: 0 auto; position: relative;
+  max-width: 820px; margin: 0 auto; position: relative;
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
   padding: 10px 12px 8px;
@@ -392,7 +392,11 @@ body {
   background: transparent; border: 1px solid var(--border); border-radius: 8px;
   color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer;
 }
-.cockpit-chip:hover { background: var(--bg-hover); }
+.cockpit-chip:hover { background: var(--bg-base); }
+.cockpit-chip:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
 .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cockpit-pop {
   position: absolute; left: 0; bottom: calc(100% + 6px);
@@ -442,16 +446,24 @@ body {
 .cockpit-chip-danger:hover { border-color: var(--danger); color: var(--danger); }
 .icon-btn {
   width: 32px; height: 32px; display: grid; place-items: center; flex: none;
-  border: 0; background: transparent; border-radius: 8px;
+  border: 0; background: transparent; border-radius: 10px;
   color: var(--text-secondary); cursor: pointer;
 }
-.icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-.icon-btn-danger:hover { color: var(--danger); }
+.icon-btn:hover { background: var(--bg-base); color: var(--text-primary); }
+.icon-btn-danger:hover { color: var(--danger); background: var(--bg-base); }
 .icon-btn-send {
   background: var(--accent); color: #fff;
 }
-.icon-btn-send:hover { filter: brightness(1.05); color: #fff; }
-.icon-btn-send:disabled { opacity: 0.35; cursor: default; filter: none; }
+.icon-btn-send:hover,
+.icon-btn-send:focus-visible {
+  background: color-mix(in srgb, var(--accent) 78%, #000);
+  color: #fff; filter: none; outline-color: var(--accent);
+}
+.icon-btn-send:disabled,
+.icon-btn-send:disabled:hover {
+  background: var(--accent); color: #fff;
+  opacity: 0.38; cursor: default; filter: none;
+}
 .toasts {
   position: fixed; z-index: 80;
   top: 52px; left: 50%; transform: translateX(-50%);
