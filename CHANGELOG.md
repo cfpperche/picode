@@ -27,6 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Visual QA is a **gate**: overlay geometry audit + 5-question card.
+  Clipped menus fail the build ritual (see `/skill:visual-review`).
 - **Sessions** in the tab strip: list / resume / new from pi JSONL files.
   `/new` and `/resume` hit that UI, not the TUI.
 - Host, network, deps and About live on **`#/system`**. Settings is only

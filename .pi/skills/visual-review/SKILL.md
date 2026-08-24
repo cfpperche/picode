@@ -1,60 +1,74 @@
 ---
 name: visual-review
-description: Capture and visually judge UI screenshots against PiCode's design benchmarks (Cursor bar, tokens, density). Use for any UI work needing visual validation; NEVER claim a visual verdict from code alone.
+description: Capture and visually judge UI screenshots. NEVER claim a visual verdict from code or eval alone. A clipped overlay is an instant FAIL.
 ---
 
 # Visual review
 
-Code review cannot see pixels. This skill closes the loop between "the CSS
-looks right" and "the UI looks right", using Pi's native image reading
-(the `read` tool renders PNG/JPG/GIF/WebP to the model).
+Code review cannot see pixels. `eval` JSON cannot see pixels. This skill
+is the only valid visual verdict.
+
+## Instant FAIL (do not commit)
+
+Any one of these on a captured screenshot or geometry audit:
+
+1. **Clipped overlay** — menu, popover, toast, slash list cut by the viewport
+2. **Unreadable items** — labels truncated to meaninglessness, date wrapping into sludge
+3. **Occlusion** — a control covered so it cannot be used
+4. **Double scrollbar** on one surface
+5. **Dead hover** — primary action paints the same color as its parent
+6. **Geometry clip** — `overlayAudit` reports `ok: false`
+
+If you **noticed** a defect in reasoning and still said done, that is a
+contract violation (AGENTS.md honesty). Fix it or emit FAIL. Never ship it.
 
 ## The loop
 
-1. **Serve** — ensure the UI is running (`make dev` → 127.0.0.1:7331) or
-   use an already-running instance.
+1. **Serve** the rebuilt binary (go:embed — `make web && go build`).
+2. **Act** with `agent-browser` (open the surface, click the control).
+3. **Measure** after every overlay opens:
 
-2. **Capture** — `bin/picode screenshot --url <url> --out var/screenshots/<name>.png`
-   (lands as M1 step 0; until then capture with any local tool — or ask the
-   user — and state exactly how the image was obtained).
-   For **interactive** verification (click-through flows, state changes),
-   use the `agent-browser` skill — it drives a real Chromium via bash.
-
-3. **Look** — `read` the PNG. Study the actual rendering: layout, spacing,
-   density, contrast, hierarchy, empty states. Zoom mentally into details
-   (alignment, truncation, overflow).
-
-4. **Judge** — against the bars:
-   - `docs/benchmark-cursor.md` — design tokens, density rules (13px base,
-     tool-call rows ≤32px, 4px grid), motion, truthful status.
-   - `docs/benchmarks.md` — clarity bars (progressive disclosure, empty
-     states teach, jargon audit) and anti-benchmarks (instant FAIL list).
-
-5. **Verdict + evidence** — file the screenshot under
-   `docs/screenshots/<milestone>-<view>-<state>.png` (e.g.
-   `m1-termgrid-home-empty.png`), reference it in the PR/handoff, and emit
-   the verdict.
-
-## Rules (honesty clauses)
-
-- **NEVER issue a visual verdict without reading an actual image** of the
-  running UI. Static analysis of HTML/CSS is not visual review.
-- Capture the relevant **states**, not just the happy one: empty, loading,
-  streaming, error — when applicable.
-- If capture is impossible in the current environment, say so explicitly —
-  `visual: UNVERIFIED (no capture available)` — and add it to
-  `docs/handoff.md` known debts.
-- Compare against the benchmark, not against taste. Cite the rule each
-  finding violates (e.g. "violates density: rows >32px collapsed").
-
-## Verdict format
-
-```
-visual-review: PASS (m1-home.png: tokens ✓ density ✓ empty-state teaches ✓)
-visual-review: FIX (m1-termgrid.png: row height 40px > 32px bar [density];
-                     spinner-only loading [anti-benchmark]; 'PTY' label
-                     unexplained [jargon audit])
+```bash
+agent-browser eval 'JSON.stringify(window.__picodeOverlayAudit())'
 ```
 
-FIX items either get fixed in-session or land in `docs/handoff.md` debts
-with the reason.
+`ok: false` → FAIL. Do not proceed to a verbal PASS.
+
+4. **Capture** a full-viewport PNG (`agent-browser screenshot`).
+5. **Read** the PNG with the `read` tool. Zoom mentally: edges, overflow,
+   contrast, hierarchy.
+6. **Answer the card** (required in the reply, before "done"):
+
+```
+visual-card:
+1. Overlay fully inside the screenshot? yes/no
+2. Every item readable? yes/no
+3. Trigger still usable? yes/no
+4. Clip / double-scroll / dead hover? yes/no
+5. Terminal-averse next click obvious? yes/no
+```
+
+Any **no** on 1–3 or **yes** on 4 → `visual-review: FAIL`. Fix in-session
+or record the debt in `docs/handoff.md` and do **not** claim quality-gate PASS.
+
+7. **Verdict**
+
+```
+visual-review: PASS (sessions-open.png + overlayAudit ok; card 5/5)
+visual-review: FAIL (sessions4.png: popover clipped at viewport top)
+```
+
+## Placement rule (product)
+
+- Chrome at the **top** of the pane (tabs, session bar) opens overlays
+  **down** into the canvas.
+- Composer at the **bottom** opens overlays **up**.
+- If space is short: scroll **inside** the overlay. Never clip outside
+  the window.
+
+## Honesty clauses
+
+- NEVER issue a visual verdict without reading an actual image.
+- NEVER treat `eval` / snapshot text as a visual PASS.
+- Capture the relevant **states** (empty, open, hover) when they matter.
+- If capture is impossible: `visual: UNVERIFIED` + handoff debt.

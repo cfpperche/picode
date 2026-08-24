@@ -30,13 +30,18 @@ passed gate reported falsely.
 8. **Docs check**: did behavior or architecture change?
    - Yes → `docs/architecture.md` (and an ADR if architectural) must
      change in the same commit.
-9. **Handoff**: run `/skill:handoff-update` to close the session state.
+9. **Visual gate** (if `web/` or any user-facing surface changed):
+   `/skill:visual-review` must be PASS (screenshot **read**, overlayAudit
+   ok, visual-card answered). Skipped or FAIL → this quality-gate is FAIL.
+   `eval` JSON is not a visual pass.
+10. **Handoff**: run `/skill:handoff-update` to close the session state.
 
 ## Report format
 
 End with a one-line verdict, e.g.:
 
 ```
-quality-gate: PASS (fmt ✓ vet ✓ 12 tests ✓ build ✓ changelog +1 docs +1)
+quality-gate: PASS (fmt ✓ vet ✓ 12 tests ✓ build ✓ visual ✓ changelog +1)
+quality-gate: FAIL (visual: overlay clipped — see visual-review)
 quality-gate: FAIL (vet: 1 finding in internal/server/server.go:42)
 ```

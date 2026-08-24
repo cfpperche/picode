@@ -133,3 +133,15 @@ agent-browser eval "localStorage.getItem('picode-theme')"
 
 Interactive checks complement `.pi/skills/visual-review`: use this skill to
 ACT on the UI, and visual-review's capture→read loop to JUDGE pixels.
+
+### Overlay geometry gate (mandatory)
+
+After opening any menu, popover, slash list, or toast:
+
+```bash
+agent-browser eval 'JSON.stringify(window.__picodeOverlayAudit())'
+```
+
+`ok: false` (clipTop/clipBottom/clipLeft/clipRight) is a visual FAIL.
+Do not commit. Then screenshot + `read` the PNG and fill the visual-card
+in `/skill:visual-review`. Eval alone is not a visual verdict.

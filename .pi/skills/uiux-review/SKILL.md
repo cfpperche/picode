@@ -64,6 +64,8 @@ milestone); apply tokens and density from day one.
 ### Anti-benchmarks (instant FAIL)
 - Generic dashboard slop: card grids of nothing, gradient depth,
   spinner-only loading, unexplained jargon.
+- **Clipped overlays** (menus cut by the viewport). Geometry +
+  screenshot required — see `/skill:visual-review`.
 
 ## Verdict
 

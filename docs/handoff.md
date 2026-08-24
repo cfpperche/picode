@@ -10,6 +10,11 @@
 
 ## Current state (read this first)
 
+**Visual gate (2026-08-24):** UI work must `read` a screenshot, run
+`window.__picodeOverlayAudit()`, and answer the visual-card. Shipping a
+seen clip (sessions4) is a contract violation. Session picker now opens
+**down** (no Radix portal) so it cannot leave the viewport.
+
 **Phase: M3 lifecycle v1 shipped (ADR-0009). Catalog/auth/MCP surfaces live.**
 
 What exists right now:

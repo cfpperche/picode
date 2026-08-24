@@ -35,6 +35,8 @@ moment of creation**. Read [README.md](README.md) and
 4. **Honesty over polish.** Report what is actually done vs. described. A
    smaller true changelog beats an impressive false one. Unknowns go into
    `docs/handoff.md` as open questions, not into prose as facts.
+   **Seeing a visual defect and shipping it as done is a violation.**
+   Fix it or say FAIL. `eval` / DOM JSON is not a visual verdict.
 
 ## Quality gates (before you say "done")
 
@@ -46,11 +48,11 @@ make build        # UI (npm) + binary builds
 ```
 
 Use the skill: `/skill:quality-gate` (interactive checklist).
-For any UI work, also run `/skill:uiux-review` against `docs/benchmarks.md`
-and — when a running UI can be captured — `/skill:visual-review` (screenshot
-+ judgment against the Cursor bar; evidence filed in `docs/screenshots/`).
-A visual verdict without reading an actual screenshot is a violation of
-rule #4 (honesty over polish).
+For any UI work, also run `/skill:uiux-review` and `/skill:visual-review`.
+Visual-review is a **gate**, not a courtesy: screenshot must be `read`,
+`window.__picodeOverlayAudit()` must be `ok` after overlays, and the
+5-question visual-card must be answered in the reply. Any clip/occlusion
+is FAIL — do not commit. See `.pi/skills/visual-review/SKILL.md`.
 At session end, run `/skill:handoff-update`.
 
 ## Commands
