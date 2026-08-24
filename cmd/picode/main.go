@@ -16,6 +16,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
 	"github.com/cfpperche/picode/internal/store"
@@ -79,11 +80,15 @@ func serve() {
 	}
 	defer st.Close()
 
-	srv := server.New(*addr, server.Deps{
+	deps := server.Deps{
 		Store:    st,
 		Tmux:     tmux.New(),
+		Runtime:  rpc.NewRuntime("pi", st, nil),
 		AgentCmd: "pi", // ADR-0003: user-installed pi
-	})
+	}
+	defer deps.Runtime.StopAll()
+
+	srv := server.New(*addr, deps)
 	log.Printf("PiCode listening on http://%s", *addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server error: %v", err)

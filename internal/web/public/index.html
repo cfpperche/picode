@@ -124,6 +124,23 @@
             <span id="sb-dims" class="sb-item"></span>
           </div>
         </div>
+
+        <div id="agent-area" hidden>
+          <div id="agent-head" class="agent-head">
+            <span class="agent-title" id="agent-title">agent</span>
+            <span class="agent-state" id="agent-state"><span class="sb-dot" id="agent-dot"></span><span id="agent-state-text">idle</span></span>
+          </div>
+          <div id="agent-stream" class="agent-stream"></div>
+          <div id="agent-composer" class="agent-composer">
+            <select id="task-kind" class="task-kind" title="How the message is delivered">
+              <option value="prompt">Prompt</option>
+              <option value="steer">Steer</option>
+              <option value="follow_up">Follow-up</option>
+            </select>
+            <input id="task-input" type="text" placeholder="Send a task to this agent…" autocomplete="off">
+            <button id="task-send" class="btn btn-primary">Send</button>
+          </div>
+        </div>
       </div>
 
       <section id="settings-view" hidden>

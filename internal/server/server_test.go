@@ -6,10 +6,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
+
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -29,6 +35,7 @@ func newTestServer(t *testing.T, agentCmd string) *httptest.Server {
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
 		Store:    st,
 		Tmux:     tmux.New(),
+		Runtime:  rpc.NewRuntime(agentCmd, st, nil),
 		AgentCmd: agentCmd,
 	}).Handler)
 	t.Cleanup(ts.Close)
@@ -310,6 +317,59 @@ func TestTaskEndpoints(t *testing.T) {
 	res404 := do(t, client, mustPost(t, ts.URL+"/api/agents/missing/tasks"))
 	if res404.StatusCode != http.StatusNotFound {
 		t.Errorf("missing agent status = %d, want 404", res404.StatusCode)
+	}
+}
+
+func TestManagedModeFlow(t *testing.T) {
+	t.Setenv("PICODE_FAKE_RPC", "1") // AgentCmd = test binary acting as fake pi rpc
+	ts := newTestServer(t, os.Args[0])
+	client := ts.Client()
+	proj := t.TempDir()
+
+	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Managed", proj)))
+	addReq.Header.Set("Content-Type", "application/json")
+	res := do(t, client, addReq)
+	var wsv workspaceView
+	_ = json.NewDecoder(res.Body).Decode(&wsv)
+	agentID := wsv.Agent.ID
+
+	// Start managed.
+	resStart := do(t, client, mustPost(t, ts.URL+"/api/agents/"+agentID+"/managed/start"))
+	if resStart.StatusCode != http.StatusCreated {
+		t.Fatalf("managed start = %d, want 201", resStart.StatusCode)
+	}
+	// Idempotent.
+	resStart2 := do(t, client, mustPost(t, ts.URL+"/api/agents/"+agentID+"/managed/start"))
+	if resStart2.StatusCode != http.StatusOK {
+		t.Errorf("managed re-start = %d, want 200", resStart2.StatusCode)
+	}
+
+	// WS snapshot.
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/agent?agent=" + agentID
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("ws dial: %v", err)
+	}
+	defer ws.Close()
+	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, first, err := ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("ws read: %v", err)
+	}
+	var snap struct {
+		Event struct {
+			Type string `json:"type"`
+			Mode string `json:"mode"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(first, &snap); err != nil || snap.Event.Type != "snapshot" || snap.Event.Mode != "managed" {
+		t.Fatalf("snapshot = %s (err %v)", first, err)
+	}
+
+	// Stop.
+	resStop := do(t, client, mustPost(t, ts.URL+"/api/agents/"+agentID+"/managed/stop"))
+	if resStop.StatusCode != http.StatusOK {
+		t.Fatalf("managed stop = %d", resStop.StatusCode)
 	}
 }
 

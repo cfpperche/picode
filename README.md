@@ -94,7 +94,7 @@ Docs are a **living system** — they evolve with the code, by contract (see
 
 - [x] **M0 — Bootstrap**: repo, docs system, Pi harness, Go skeleton (v0.1.0)
 - [x] **M1 — Terminal grid**: multi-tab tmux sessions running real `pi`, per workspace
-- [ ] **M2 — Agent panel**: RPC bridge, live status, tasks (steer/follow-up), diffs
+- [x] **M2 — Agent panel**: RPC bridge, live status, tasks (steer/follow-up), diffs *(core shipped: managed mode, delivery engine, panel; diff view + palette in progress)*
 - [ ] **M3 — Lifecycle**: agent creation wizard, provider auth (`/login` flows), profiles
 - [ ] **M4 — Fleet**: inter-agent broker, plugin/skill manager, session tree browser
 - [ ] **Localization**: UI localization (PT-BR first) — the project was born

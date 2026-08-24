@@ -36,6 +36,10 @@ extension, so agents talk to each other using Pi's own tool-calling protocol.
 
 ## Why dual channel per agent
 
+Revised by ADR-0006: **one live pi process per agent, two exclusive run
+modes** — interactive (tmux TUI) or managed (rpc + panel). The original
+simultaneous design risked concurrent writers on pi's session files.
+
 | Channel | Carries | Fails to | Cost |
 |---|---|---|---|
 | tmux + PTY (`/ws/term/:agent`) | Full Pi TUI: interactive login, any command, escape hatch | provide structured data | ~zero — tmux does the work |
@@ -86,13 +90,15 @@ with `extended-keys on` / `extended-keys-format csi-u` (Pi's own
 recommendation) so modifiers like `Shift+Enter` survive the hop;
 `/api/system` detects and warns.
 
-### RPCBridge
-Speaks Pi's RPC JSONL protocol. Protocol notes that bit us already:
-- **Strict framing: `\n` only.** Never split records on U+2028/U+2029.
-  (Node's `readline` is non-compliant; Go's `bufio.Scanner` is fine.)
-- Extension dialogs (`select`, `confirm`, `input`) surface as requests the
-  client must answer — the UI maps them to modals, or auto-approves
-  per user policy.
+### RPCBridge ✅ (M2 core)
+`internal/rpc`: JSONL client for `pi --mode rpc` (strict `\n` framing via
+bufio.Scanner, command/response correlation by id, event fan-out, exit
+propagation) plus the **managed runtime** (ADR-0006): task delivery engine
+claiming from the store (`prompt`/`steer`/`follow_up` → rpc commands,
+gated on `agent_settled`, finished delivered/failed with audit), per-agent
+event hub feeding `GET /ws/agent?agent=<id>` (events + `enqueue` input).
+Extension dialogs (`select`/`confirm`/`input`) surface as RPC requests —
+UI mapping is still an open M3 item (auto-approve policy undecided).
 
 ### Broker (M4)
 A Pi extension (`picode-extension`, TypeScript, installed per workspace)

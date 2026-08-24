@@ -13,6 +13,21 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **M2 core — managed agents (ADR-0006)**: agents run in exactly one mode
+  (interactive tmux TUI **or** managed rpc). `internal/rpc`: JSONL client for
+  `pi --mode rpc` (strict `\n` framing, response correlation, event fan-out)
+  plus the managed runtime — **task delivery engine** claims queued tasks,
+  maps kind→command (`prompt`/`steer`/`follow_up`), gates on `agent_settled`,
+  finishes delivered/failed with audit events. Verified against real pi.
+- **Agent panel UI**: live streaming view (text/thinking deltas), compact
+  tool-call rows (≤32px collapsed, click to expand args/result — Cursor bar),
+  task composer with kind selector; state indicators (streaming/idle).
+- **Mode-switch API**: `POST /api/agents/{id}/managed/start|stop` (stops the
+  other mode first); `GET /ws/agent?agent=` streams events + accepts
+  `enqueue` commands; workspace views now expose `agent.mode`.
+
+### Added
+
 - **Database layer (ADR-0005)**: SQLite store via pure-Go `modernc.org/sqlite`
   at `~/.picode/picode.db` — orchestration overlay only (sessions, creds,
   MCP and skills stay in pi's own files; never duplicated). Schema v1:

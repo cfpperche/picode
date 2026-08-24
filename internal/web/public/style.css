@@ -249,6 +249,68 @@ body {
 }
 .sb-dot.connected { background: var(--ok); }
 
+/* ---------- agent panel (M2) ---------- */
+#agent-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.agent-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg-panel);
+}
+.agent-title { font-weight: 650; font-size: 12.5px; }
+.agent-state {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
+}
+#agent-dot.streaming { background: var(--accent); }
+
+.agent-stream {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 10px 14px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+.agent-stream .as-thinking { color: var(--text-secondary); font-style: italic; }
+
+.tool-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; margin: 3px 0; border-radius: var(--radius-ctl);
+  background: var(--bg-panel); border: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-secondary);
+  cursor: pointer; min-height: 24px; max-height: 32px; overflow: hidden;
+}
+.tool-row:hover { border-color: var(--accent); }
+.tool-row .tr-name { font-family: var(--mono); color: var(--accent); flex: none; }
+.tool-row .tr-args {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  font-family: var(--mono); font-size: 11px;
+}
+.tool-row .tr-status { flex: none; font-family: var(--mono); font-size: 10.5px; }
+.tool-row.tr-err .tr-status { color: var(--danger); }
+.tool-row.tr-ok .tr-status { color: var(--ok); }
+.tool-row .tr-detail {
+  display: none; white-space: pre-wrap; font-family: var(--mono);
+  font-size: 11px; padding: 6px; margin-top: 4px;
+  background: var(--bg-base); border-radius: var(--radius-ctl);
+  max-height: 220px; overflow: auto;
+}
+.tool-row.expanded { max-height: none; flex-wrap: wrap; }
+.tool-row.expanded .tr-detail { display: block; flex-basis: 100%; }
+
+.agent-composer {
+  display: flex; gap: 8px; padding: 10px 14px;
+  border-top: 1px solid var(--border); background: var(--bg-panel);
+}
+.task-kind {
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  font-size: 12px; font-family: inherit; padding: 0 6px; cursor: pointer;
+}
+#task-input {
+  flex: 1; background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 7px 10px; font-size: 12.5px; font-family: inherit;
+}
+#task-input:focus { outline: none; border-color: var(--accent); }
+
 /* ---------- settings page ---------- */
 .settings-wrap { max-width: 680px; margin: 0 auto; padding: 40px 24px; width: 100%; }
 .settings-head {

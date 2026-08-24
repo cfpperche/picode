@@ -10,3 +10,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0003](0003-user-installed-pi.md) | Depend on user-installed Pi, no vendoring | accepted |
 | [0004](0004-defer-frontend-framework.md) | Defer frontend framework — vanilla ES + vendored xterm.js | accepted |
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
+| [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted |

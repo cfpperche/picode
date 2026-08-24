@@ -18,7 +18,8 @@ type workspaceView struct {
 
 type agentView struct {
 	store.Agent
-	Running bool `json:"running"`
+	Running bool   `json:"running"`
+	Mode    string `json:"mode"` // stopped | interactive | managed (ADR-0006)
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
@@ -33,6 +34,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces/{id}/close", handleClose(deps))
 	mux.HandleFunc("POST /api/agents/{id}/tasks", handleEnqueueTask(deps))
 	mux.HandleFunc("GET /api/agents/{id}/tasks", handleListTasks(deps))
+	registerAgentRoutes(mux, deps)
 }
 
 func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error) {
@@ -40,13 +42,11 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	if err != nil {
 		return workspaceView{}, err
 	}
-	running := false
-	if deps.Tmux.Available() {
-		if has, err := deps.Tmux.HasSession(r.Context(), tmux.SessionName(agent.ID)); err == nil {
-			running = has
-		}
-	}
-	return workspaceView{Workspace: w, Agent: asAgentView(agent, running)}, nil
+	mode := deps.runMode(r, agent.ID)
+	return workspaceView{
+		Workspace: w,
+		Agent:     agentView{Agent: agent, Running: mode != modeStopped, Mode: string(mode)},
+	}, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {
@@ -84,7 +84,7 @@ func handleAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusCreated, workspaceView{Workspace: wk, Agent: asAgentView(agent, false)})
+		writeJSON(w, http.StatusCreated, workspaceView{Workspace: wk, Agent: agentView{Agent: agent, Running: false, Mode: string(modeStopped)}})
 	}
 }
 
@@ -140,6 +140,8 @@ func handleOpen(deps Deps) http.HandlerFunc {
 		}
 
 		name := tmux.SessionName(agent.ID)
+		// ADR-0006: exclusive run mode — stop managed first.
+		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
 			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})

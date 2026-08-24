@@ -10,6 +10,7 @@ const state = {
   system: null,
   version: "",
   terms: new Map(), // workspaceId -> { term, fit, sock, paneEl, tabEl, onWinResize, closedByUser }
+  panel: null,     // { agentId, ws, sock, tools: Map }
 };
 
 // ---------- api ----------
@@ -151,18 +152,25 @@ function renderWorkspaceList() {
   const ul = $("#ws-list");
   ul.innerHTML = "";
   for (const ws of state.workspaces) {
-    const running = ws.agent && ws.agent.running;
+    const mode = ws.agent ? ws.agent.mode : "stopped";
+    const running = mode !== "stopped";
     const li = document.createElement("li");
     li.className = "ws-item" + (ws.id === state.selectedId ? " active" : "");
+    let actions;
+    if (mode === "stopped") {
+      actions = `<button class="btn btn-ghost btn-sm btn-managed" title="Run with the task panel">Run</button>` +
+                `<button class="btn btn-ghost btn-sm btn-open" title="Open in the terminal">Terminal</button>`;
+    } else {
+      actions = `<button class="btn btn-ghost btn-sm btn-stop" title="Stop the agent">Stop</button>`;
+      if (mode === "interactive") {
+        actions = `<button class="btn btn-ghost btn-sm btn-open" title="Open in the terminal">Terminal</button>` + actions;
+      }
+    }
     li.innerHTML = `
       <div class="ws-row1">
         <span class="ws-dot ${running ? "running" : ""}"></span>
         <span class="ws-name" title="${escapeHTML(ws.name)}">${escapeHTML(ws.name)}</span>
-        <span class="ws-actions">
-          ${running
-            ? `<button class="btn btn-ghost btn-sm btn-stop" title="Stop the agent">Stop</button>`
-            : `<button class="btn btn-ghost btn-sm btn-open" title="Start a Pi agent in this workspace">Open agent</button>`}
-        </span>
+        <span class="ws-actions">${actions}</span>
       </div>
       <div class="ws-row2">
         <span class="ws-path" title="${escapeHTML(ws.path)}">${escapeHTML(ws.path)}</span>
@@ -173,15 +181,18 @@ function renderWorkspaceList() {
       if (e.target.closest("button")) return;
       selectWorkspace(ws.id);
     });
+    const managedBtn = li.querySelector(".btn-managed");
+    if (managedBtn) managedBtn.addEventListener("click", () => startManaged(ws.id));
     const openBtn = li.querySelector(".btn-open");
     if (openBtn) openBtn.addEventListener("click", () => openAgent(ws.id));
     const stopBtn = li.querySelector(".btn-stop");
-    if (stopBtn) stopBtn.addEventListener("click", () => closeAgent(ws.id));
+    if (stopBtn) stopBtn.addEventListener("click", () => stopAgent(ws.id));
     li.querySelector(".btn-remove").addEventListener("click", async () => {
       if (!confirm(`Remove workspace "${ws.name}"?\n(The project folder is not deleted.)`)) return;
       try {
         await api(`/api/workspaces/${ws.id}`, { method: "DELETE" });
-        closeTerm(ws.id, true);
+        closeTerm(ws.agent ? ws.agent.id : ws.id, true);
+        if (state.panel && ws.agent && state.panel.agentId === ws.agent.id) closePanel();
         await loadWorkspaces();
       } catch (err) { alert(err.message); }
     });
@@ -193,29 +204,53 @@ function renderWorkspaceList() {
 function renderEmpty() {
   const has = state.workspaces.length > 0;
   $("#empty").hidden = has;
-  $("#term-area").hidden = !has;
+  if (!has) {
+    $("#term-area").hidden = true;
+    closePanel();
+  }
 }
 
 function selectWorkspace(id) {
   state.selectedId = id;
   renderWorkspaceList();
   const ws = state.workspaces.find((w) => w.id === id);
-  if (ws && ws.agent && ws.agent.running) attachTerm(ws.agent.id, ws);
+  if (!ws || !ws.agent) return;
+  if (ws.agent.mode === "managed") {
+    attachTermClose();
+    showAgentPanel(ws);
+  } else if (ws.agent.mode === "interactive") {
+    closePanel();
+    attachTerm(ws.agent.id, ws);
+  }
 }
 
-async function openAgent(id) {
+function attachTermClose() {
+  for (const id of [...state.terms.keys()]) closeTerm(id, true);
+  $("#term-area").hidden = true;
+}
+
+async function startManaged(id) {
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (!ws || !ws.agent) return;
   try {
-    await api(`/api/workspaces/${id}/open`, { method: "POST" });
+    await api(`/api/agents/${ws.agent.id}/managed/start`, { method: "POST" });
+    state.selectedId = id;
     await loadWorkspaces();
-    const ws = state.workspaces.find((w) => w.id === id);
-    if (ws && ws.agent) attachTerm(ws.agent.id, ws);
+    showAgentPanel(state.workspaces.find((w) => w.id === id));
   } catch (err) { alert(err.message); }
 }
 
-async function closeAgent(id) {
+async function stopAgent(id) {
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (!ws || !ws.agent) return;
   try {
-    await api(`/api/workspaces/${id}/close`, { method: "POST" });
-    closeTerm(id, true);
+    if (ws.agent.mode === "managed") {
+      await api(`/api/agents/${ws.agent.id}/managed/stop`, { method: "POST" });
+      if (state.panel && state.panel.agentId === ws.agent.id) closePanel();
+    } else {
+      await api(`/api/workspaces/${ws.id}/close`, { method: "POST" });
+      closeTerm(ws.agent.id, true);
+    }
     await loadWorkspaces();
   } catch (err) { alert(err.message); }
 }
@@ -256,7 +291,187 @@ function wireForm() {
   });
 }
 
-// ---------- terminals ----------
+async function openAgent(id) {
+  try {
+    await api(`/api/workspaces/${id}/open`, { method: "POST" });
+    state.selectedId = id;
+    await loadWorkspaces();
+    const ws = state.workspaces.find((w) => w.id === id);
+    if (ws && ws.agent && ws.agent.mode === "interactive") {
+      closePanel();
+      attachTerm(ws.agent.id, ws);
+    }
+  } catch (err) { alert(err.message); }
+}
+
+// ---------- agent panel (managed mode, M2) ----------
+function setAgentStreaming(on) {
+  $("#agent-dot").classList.toggle("streaming", on);
+  $("#agent-state-text").textContent = on ? "streaming" : "idle";
+}
+
+function showAgentPanel(ws) {
+  closePanel();
+  const agent = ws.agent;
+  $("#agent-area").hidden = false;
+  $("#term-area").hidden = true;
+  $("#empty").hidden = true;
+  $("#agent-title").textContent = `${ws.name} · ${agent.name}`;
+  const stream = $("#agent-stream");
+  stream.innerHTML = "";
+
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const sock = new WebSocket(`${proto}//${location.host}/ws/agent?agent=${agent.id}`);
+  const panel = { agentId: agent.id, ws, sock, tools: new Map(), nearBottom: true };
+  state.panel = panel;
+
+  stream.addEventListener("scroll", () => {
+    panel.nearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 40;
+  });
+
+  sock.onmessage = (ev) => {
+    try { renderAgentEvent(JSON.parse(ev.data), panel); } catch {}
+  };
+  sock.onclose = () => {
+    if (state.panel === panel) {
+      setAgentStreaming(false);
+      appendStreamLine("— panel disconnected —", "as-thinking");
+    }
+  };
+  setAgentStreaming(false);
+}
+
+function closePanel() {
+  if (!state.panel) return;
+  try { state.panel.sock.close(); } catch {}
+  state.panel = null;
+  $("#agent-area").hidden = true;
+  if (state.workspaces.length > 0) $("#term-area").hidden = state.terms.size === 0;
+}
+
+function streamEl() { return $("#agent-stream"); }
+
+function appendStreamNode(node) {
+  const s = streamEl();
+  const stick = state.panel && state.panel.nearBottom;
+  s.appendChild(node);
+  if (stick) s.scrollTop = s.scrollHeight;
+}
+
+function appendStreamLine(text, cls) {
+  const div = document.createElement("div");
+  if (cls) div.className = cls;
+  div.textContent = text;
+  appendStreamNode(div);
+}
+
+function renderAgentEvent(env, panel) {
+  const ev = env.event || {};
+  switch (ev.type) {
+    case "snapshot":
+      setAgentStreaming(!!ev.streaming);
+      break;
+    case "agent_start":
+      setAgentStreaming(true);
+      break;
+    case "agent_settled":
+      setAgentStreaming(false);
+      break;
+    case "message_update": {
+      const d = ev.assistantMessageEvent;
+      if (!d) break;
+      if (d.type === "text_delta") {
+        const t = document.createTextNode(d.delta || "");
+        const last = streamEl().lastChild;
+        if (last && last.nodeType === 3) last.appendData(d.delta || "");
+        else appendStreamNode(t);
+      } else if (d.type === "thinking_delta") {
+        const last = streamEl().lastChild;
+        const txt = d.delta || "";
+        if (last && last.nodeType === 1 && last.classList.contains("as-thinking")) {
+          last.textContent += txt;
+        } else {
+          const div = document.createElement("div");
+          div.className = "as-thinking";
+          div.textContent = txt;
+          appendStreamNode(div);
+        }
+      }
+      break;
+    }
+    case "tool_execution_start":
+      addToolRow(panel, ev);
+      break;
+    case "tool_execution_end":
+      finishToolRow(panel, ev);
+      break;
+    case "enqueue_accepted": {
+      $("#task-input").value = "";
+      appendStreamLine(`» queued (${ev.kind})`, "as-thinking");
+      break;
+    }
+    case "task_delivered":
+      appendStreamLine(`✓ delivered (${ev.kind})`, "as-thinking");
+      break;
+    case "task_failed":
+      appendStreamLine(`✗ failed: ${ev.error}`, "tr-err as-thinking");
+      break;
+    case "enqueue_rejected":
+      alert(ev.error);
+      break;
+  }
+}
+
+function addToolRow(panel, ev) {
+  const row = document.createElement("div");
+  row.className = "tool-row";
+  const args = JSON.stringify(ev.args || {});
+  const head = document.createElement("div");
+  head.className = "tr-head";
+  head.style.cssText = "display:flex;align-items:center;gap:8px;flex:1;min-width:0;";
+  const name = document.createElement("span");
+  name.className = "tr-name"; name.textContent = ev.toolName || "tool";
+  const argsEl = document.createElement("span");
+  argsEl.className = "tr-args"; argsEl.textContent = args.length > 2 ? args : "";
+  const st = document.createElement("span");
+  st.className = "tr-status"; st.textContent = "…";
+  head.append(name, argsEl, st);
+  const detail = document.createElement("div");
+  detail.className = "tr-detail"; detail.textContent = args;
+  row.append(head, detail);
+  row.addEventListener("click", () => row.classList.toggle("expanded"));
+  appendStreamNode(row);
+  panel.tools.set(ev.toolCallId, { row, st, detail });
+}
+
+function finishToolRow(panel, ev) {
+  const t = panel.tools.get(ev.toolCallId);
+  if (!t) return;
+  t.st.textContent = ev.isError ? "error" : "ok";
+  t.row.classList.add(ev.isError ? "tr-err" : "tr-ok");
+  const result = JSON.stringify(ev.result || {}, null, 2);
+  t.detail.textContent = result;
+  panel.tools.delete(ev.toolCallId);
+}
+
+function wireComposer() {
+  const send = () => {
+    const p = state.panel;
+    const input = $("#task-input");
+    const payload = input.value.trim();
+    if (!p || !payload || p.sock.readyState !== WebSocket.OPEN) return;
+    p.sock.send(JSON.stringify({
+      type: "enqueue",
+      kind: $("#task-kind").value,
+      payload,
+    }));
+    input.value = "";
+  };
+  $("#task-send").addEventListener("click", send);
+  $("#task-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+}
 function setTermState(connected) {
   $("#sb-dot").classList.toggle("connected", connected);
   $("#sb-state-text").textContent = connected ? "connected" : "detached";
@@ -384,13 +599,14 @@ function escapeHTML(s) {
 Theme.apply();
 wireForm();
 wireUserMenu();
+wireComposer();
 window.addEventListener("hashchange", route);
 route();
 loadSystem();
 loadWorkspaces()
   .then(() => {
-    // Come back to running agents: auto-attach the first one.
-    const running = state.workspaces.find((w) => w.agent && w.agent.running);
-    if (running) selectWorkspace(running.id);
+    // Come back to running agents: attach panel (managed) or terminal.
+    const active = state.workspaces.find((w) => w.agent && w.agent.mode !== "stopped");
+    if (active) selectWorkspace(active.id);
   })
   .catch((e) => console.error("boot:", e));

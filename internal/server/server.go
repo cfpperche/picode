@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/term"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -29,6 +30,7 @@ import (
 type Deps struct {
 	Store    *store.Store
 	Tmux     *tmux.Manager
+	Runtime  *rpc.Runtime
 	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
 }
 
@@ -44,6 +46,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerWorkspaceRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
+	mux.Handle("/ws/agent", agentWS(deps))
 
 	public, err := fs.Sub(web.Public, "public")
 	if err != nil {

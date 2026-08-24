@@ -10,23 +10,21 @@
 
 ## Current state (read this first)
 
-**Phase: store shipped (ADR-0005). M2 — Agent panel (next, queue API ready).**
+**Phase: M2 core shipped (managed agents + panel + delivery engine). Remaining M2: diff view, command palette.**
 
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
-- **M1 shipped**: `picode screenshot` (chromedp); tmux manager (`internal/tmux`);
-  WS↔PTY terminal bridge (`internal/term`); dark-first UI (vanilla ES +
-  xterm.js, ADR-0004) — sidebar cards, tabs, live statusbar, Vercel-style
-  user menu, settings route, theme light/dark/system.
-- **Store shipped**: SQLite `~/.picode/picode.db` (pure-Go driver), embedded
-  migrations, legacy JSON imported+retired. Tables: workspaces, agents
-  (default per workspace), tasks (claim/finish state machine), messages
-  (M4), events (audit), settings. API: workspace CRUD + open/close +
-  `POST/GET /api/agents/{id}/tasks` (tasks persist `queued`).
-- Docs: philosophy, architecture (data section), benchmarks (+Cursor bar),
-  ADRs 0001–0005, this handoff. Harness: AGENTS.md + 4 skills.
-- 23 tests across 5 packages (store CRUD/lifecycle/legacy; tmux/term
-  integration skip gracefully where tmux is absent).
+- **M1 shipped**: screenshot tooling, tmux manager, WS↔PTY bridge,
+  dark-first UI (terminal grid, user menu, settings, themes).
+- **Store shipped** (ADR-0005): SQLite orchestration overlay.
+- **M2 core shipped** (ADR-0006): `internal/rpc` (JSONL client + managed
+  runtime + task delivery engine: claim → send → settle-gate → finish),
+  mode-switch API, `/ws/agent` event stream + enqueue, agent panel UI
+  (stream, tool rows ≤32px, composer with prompt/steer/follow_up).
+  **Verified against real pi 0.84.2**: prompt task delivered, response
+  streamed, queued follow-up from a previous session drained on start.
+- Docs: philosophy, architecture, benchmarks (+Cursor bar), ADRs 0001–0006.
+- Harness: AGENTS.md + 4 skills. 30 tests across 6 packages.
 
 ## Visual review status
 
@@ -44,33 +42,36 @@ What exists right now:
 
 - Nothing. Tree clean, all gates pass. (Server/tmux test sessions cleaned up.)
 
-## Next up (M2 — Agent panel, in order)
+## Next up (finish M2, then M3 — Lifecycle)
 
-1. **RPC agent manager** (`internal/rpc/`): spawn `pi --mode rpc` per
-   workspace, JSONL client with strict `\n` framing, event fan-out to
-   WebSocket. Wire the **task delivery engine**: `ClaimNextTask` → send →
-   `FinishTask` (queue API + state machine already live).
-2. **Agent panel UI**: live status, streaming output, tool-call rows
-   (Cursor bar: ≤32px collapsed, expandable), task input with
-   steer/follow_up semantics (buttons already backed by the API).
-3. **Diff view**: surface agent edits from tool-call events.
-4. **Command palette** (`Ctrl+K`).
+1. **Diff view**: surface agent edits from `tool_execution_end` (edit/write
+   tool calls carry oldText/newText + path) — inline diff rows in the panel.
+2. **Command palette** (`Ctrl+K`): switch workspace/agent, start/stop, send task.
+3. **M3 — Lifecycle**: agent creation wizard (model/provider/thinking per
+   agent — columns already exist), provider auth flows (drive `/login` in
+   the terminal), config profiles.
 
 ## Known debts / open questions
 
-- **Visual verdicts require a vision-capable model** (see finding above).
+- **Visual verdicts require a vision-capable model** (see M1 note); M2
+  panel evidence: `docs/screenshots/m2-agentpanel-first-look.png` (pixel
+  checks pass; agent verdict UNVERIFIED).
+- Panel shows only events observed while connected — no session replay yet;
+  replay via session JSONL reader is an M3 candidate.
 - tmux-gated tests skip on windows/macos runners (tmux absent); ubuntu CI
-  covers them. Accepted; alternative (CI tmux on all OSes) not worth it now.
+  covers them (accepted).
 - Token auth: still localhost-only bind; `--listen` beyond localhost must
   ship with token auth (contract in architecture.md security model).
 - Vendored xterm.js 5.5.0 + fit addon need a manual upgrade story
   (note in ADR-0004); track upstream releases occasionally.
 - Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
-- **Task delivery engine pending**: `/api/agents/{id}/tasks` persists
-  `queued` tasks; the RPC consumer ships with M2 step 1.
-
 ## Recent activity
+
+- **2026-08-24** — M2 core shipped (ADR-0006): rpc client + managed runtime
+  + delivery engine, mode-switch API, /ws/agent, agent panel UI. Verified
+  against real pi (prompt delivered + streamed; stale queued follow-up
+  drained on start). Remaining M2: diff view, palette.
 
 - **2026-08-24** — ADR-0005 shipped: SQLite store (pure-Go driver), schema
   v1 (workspaces/agents/tasks/messages/events/settings), embedded
