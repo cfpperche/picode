@@ -379,14 +379,22 @@ body {
 }
 #task-input::placeholder { color: var(--text-secondary); }
 .composer-controls {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px;
+  display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; margin-top: 8px;
 }
-.composer-controls .cfg-fields.cfg-row { flex: 1; min-width: 0; }
+.composer-controls .cfg-fields.cfg-row {
+  display: flex; flex-wrap: nowrap; gap: 4px; flex: none;
+}
 .composer-controls .cfg-row select {
-  max-width: 160px; padding: 2px 6px; font-size: 11.5px; font-family: var(--mono);
+  max-width: 108px; padding: 2px 6px; font-size: 11.5px; font-family: var(--mono);
   background: var(--bg-base); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text-secondary); cursor: pointer;
 }
+#chat-status-text {
+  max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.composer-hint { display: none; }
+.composer-controls .btn, .composer-controls .kind-chip { flex: none; }
+.composer-status { margin-left: auto; }
 .slash-menu {
   position: absolute; left: 8px; right: 8px; bottom: 100%;
   margin: 0 0 6px; padding: 4px; list-style: none;

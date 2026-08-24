@@ -134,7 +134,7 @@ export default function App() {
       return;
     }
     if (a.mode === "interactive") {
-      setStatus("interactive — open the terminal");
+      setStatus("interactive");
       setStreaming(false);
       setItems((cur) => cur.length ? cur : [{ kind: "sys", text: "Agent is running in the terminal. Use the Terminal button to pair with it." }]);
     }
