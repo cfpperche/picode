@@ -30,6 +30,7 @@ import (
 	"github.com/cfpperche/picode/internal/config"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/rpc"
+	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
 	"github.com/cfpperche/picode/internal/store"
@@ -155,6 +156,7 @@ func serve() {
 	state.port.Store(int64(port))
 	writeServerJSON(dataDir, cfg, port)
 	logStartup(cfg, dataDir, port)
+	share.EnsureTrustHTTP()
 
 	// Serving loop: rebind on demand — bind-new-then-drop-old, revert the
 	// setting on failure so the current server never disappears.

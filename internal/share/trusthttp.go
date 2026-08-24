@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,25 +100,136 @@ func pemToDER(p []byte) []byte {
 
 func serveTrustIndex(w http.ResponseWriter, r *http.Request) {
 	next := r.URL.Query().Get("next")
+	os := r.URL.Query().Get("os")
+	if os == "" {
+		os = detectPhoneOS(r.UserAgent())
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+	_, _ = w.Write([]byte(trustPageHTML(os, next)))
+}
+
+func detectPhoneOS(ua string) string {
+	ua = strings.ToLower(ua)
+	switch {
+	case strings.Contains(ua, "iphone"), strings.Contains(ua, "ipad"), strings.Contains(ua, "ipod"):
+		return "ios"
+	case strings.Contains(ua, "android"):
+		return "android"
+	default:
+		return "other"
+	}
+}
+
+func trustPageHTML(os, next string) string {
+	n := htmlEscape(next)
+	q := ""
+	if next != "" {
+		q = "&next=" + url.QueryEscape(next)
+	}
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>PiCode</title>
 <style>
- body{font:15px/1.45 -apple-system,sans-serif;margin:24px;max-width:28rem}
- a{display:block;margin:10px 0;padding:12px 14px;border-radius:10px;
-   background:#2f6fed;color:#fff;text-decoration:none;text-align:center}
- .sec{background:#eee;color:#111}
- p{color:#444}
+:root{--bg:#f4f5f7;--card:#fff;--fg:#16181d;--muted:#5b6472;--accent:#2f6fed;--line:#e6e9ef}
+*{box-sizing:border-box;margin:0}
+body{font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);min-height:100dvh;padding:28px 20px 40px}
+main{max-width:22rem;margin:0 auto}
+.brand{font-weight:700;letter-spacing:.02em;margin-bottom:22px}
+.steps{display:flex;gap:8px;margin-bottom:22px}
+.steps i{flex:1;height:4px;border-radius:99px;background:var(--line)}
+.steps i.on{background:var(--accent)}
+h1{font-size:1.35rem;margin-bottom:8px}
+.lead{color:var(--muted);margin-bottom:22px}
+ol{padding-left:1.2rem;color:var(--muted);margin:0 0 22px}
+ol li{margin:8px 0}
+.btn{display:block;width:100%;text-align:center;padding:14px 16px;border-radius:12px;border:0;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-pri{background:var(--accent);color:#fff}
+.btn-sec{background:var(--card);color:var(--fg);border:1px solid var(--line);margin-top:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:18px}
+.card b{display:block;margin-bottom:4px}
+.hidden{display:none}
+.switch{margin-top:18px;text-align:center}
+.switch a{color:var(--muted);font-size:13px}
 </style>
-<p>Install this trust profile, enable it, then open PiCode.</p>
-<a href="/picode-ca.mobileconfig">iPhone — install profile</a>
-<a href="/rootCA.cer">Android — download certificate</a>
-<p>iPhone: Settings → Profile Downloaded → Install, then Settings → General → About → Certificate Trust Settings → enable PiCode.</p>
-`)
-	if next != "" {
-		fmt.Fprintf(w, `<a class="sec" href="%s">Open PiCode</a>`, htmlEscape(next))
+</head>
+<body>
+<main data-os="` + os + `">
+  <div class="brand">PiCode</div>
+  <div class="steps" id="bar"><i class="on"></i><i></i><i></i></div>
+
+  <section id="s1">
+    <h1>Install trust</h1>
+    <p class="lead ios">Safari will ask to allow a profile. That’s the local certificate — one time.</p>
+    <p class="lead android">Download the certificate, then install it as a CA.</p>
+    <p class="lead other">Choose your phone.</p>
+    <a class="btn btn-pri ios" href="/picode-ca.mobileconfig" id="dl-ios">Allow profile</a>
+    <p class="lead ios">If nothing happens, tap Share → Open in Safari.</p>
+    <a class="btn btn-pri android" href="/rootCA.cer" id="dl-and">Download certificate</a>
+    <div class="other">
+      <a class="btn btn-pri" href="?os=ios` + q + `">iPhone</a>
+      <a class="btn btn-sec" href="?os=android` + q + `">Android</a>
+    </div>
+    <button class="btn btn-sec" type="button" data-go="2">I installed it</button>
+  </section>
+
+  <section id="s2" class="hidden">
+    <h1>Turn it on</h1>
+    <div class="card ios">
+      <b>Settings → General → VPN & Device Management</b>
+      tap the PiCode profile → Install
+    </div>
+    <div class="card ios">
+      <b>Settings → General → About → Certificate Trust Settings</b>
+      enable <b>PiCode mkcert</b>
+    </div>
+    <div class="card android">
+      <b>Settings → Security → Encryption & credentials</b>
+      Install a certificate → CA certificate → the file you downloaded
+    </div>
+    <button class="btn btn-pri" type="button" data-go="3">It’s enabled</button>
+    <button class="btn btn-sec" type="button" data-go="1">Back</button>
+  </section>
+
+  <section id="s3" class="hidden">
+    <h1>Open PiCode</h1>
+    <p class="lead">The padlock should be gone.</p>
+    ` + openBtn(n) + `
+    <button class="btn btn-sec" type="button" data-go="2">Back</button>
+  </section>
+
+  <p class="switch"><a href="?os=ios` + q + `">iPhone</a> · <a href="?os=android` + q + `">Android</a></p>
+</main>
+<script>
+(function(){
+  var os=document.querySelector("main").dataset.os||"other";
+  document.querySelectorAll(".ios,.android,.other").forEach(function(el){
+    if(!el.classList.contains(os)) el.classList.add("hidden");
+  });
+  var bar=document.querySelectorAll("#bar i");
+  function show(n){
+    [1,2,3].forEach(function(i){
+      document.getElementById("s"+i).classList.toggle("hidden", i!==n);
+      bar[i-1].classList.toggle("on", i<=n);
+    });
+    history.replaceState(null,"","#"+n);
+  }
+  document.querySelectorAll("[data-go]").forEach(function(b){
+    b.addEventListener("click", function(){ show(+b.getAttribute("data-go")); });
+  });
+  var h=+(location.hash||"#1").slice(1); if(h>=1&&h<=3) show(h);
+})();
+</script>
+</body></html>`
+}
+
+func openBtn(next string) string {
+	if next == "" {
+		return `<p class="lead">Return to the QR on your computer when this is done.</p>`
 	}
+	return `<a class="btn btn-pri" href="` + next + `">Open PiCode</a>`
 }
 
 func htmlEscape(s string) string {

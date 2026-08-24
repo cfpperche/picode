@@ -41,6 +41,18 @@ func TestDiagnoseInsecureFailsHTTPS(t *testing.T) {
 	}
 }
 
+func TestDetectPhoneOS(t *testing.T) {
+	if detectPhoneOS("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)") != "ios" {
+		t.Fatal("iphone")
+	}
+	if detectPhoneOS("Mozilla/5.0 (Linux; Android 14)") != "android" {
+		t.Fatal("android")
+	}
+	if detectPhoneOS("Mozilla/5.0 (Windows NT 10.0)") != "other" {
+		t.Fatal("desktop")
+	}
+}
+
 func TestMissingAny(t *testing.T) {
 	have := []string{"localhost", "192.168.15.28"}
 	if !missingAny(have, []string{"localhost", "192.168.15.110"}) {
