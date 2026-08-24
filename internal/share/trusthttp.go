@@ -3,6 +3,7 @@ package share
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"log"
@@ -140,11 +141,12 @@ const trustBootHTML = `<!doctype html>
  border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style></head><body>
-<div id="boot"><b></b><span>Opening…</span></div>
+<div id="boot"><b></b><span>Checking this phone…</span></div>
 `
 
 func trustPageHTML(os, next string) string {
 	n := htmlEscape(next)
+	nextJS, _ := json.Marshal(next)
 	q := ""
 	if next != "" {
 		q = "&next=" + url.QueryEscape(next)
@@ -226,6 +228,8 @@ ol li{margin:8px 0}
 </main>
 <script>
 (function(){
+  var next=` + string(nextJS) + `;
+  function start(){
   var ua=navigator.userAgent;
   var ios=/iPhone|iPad|iPod/.test(ua);
   var and=/Android/.test(ua);
@@ -271,6 +275,13 @@ ol li{margin:8px 0}
     b.addEventListener("click", function(){ show(+b.getAttribute("data-go")); });
   });
   var h=+(location.hash||"#1").slice(1); if(h>=1&&h<=3) show(h);
+  }
+  if(!next){ start(); return; }
+  var ac=new AbortController();
+  setTimeout(function(){ ac.abort(); }, 4000);
+  fetch(new URL("/api/health", next).href,{mode:"cors",cache:"no-store",signal:ac.signal})
+    .then(function(r){ if(r.ok){ location.replace(next); return; } start(); })
+    .catch(function(){ start(); });
 })();
 </script>
 </body></html>`

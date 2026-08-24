@@ -80,6 +80,7 @@ func New(addr string, deps Deps) *http.Server {
 }
 
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "ok",
 		"time":   time.Now().UTC().Format(time.RFC3339),
