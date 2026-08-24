@@ -77,6 +77,32 @@ export function IconExternal() {
   );
 }
 
+export function IconTerminal({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 17l6-5-6-5" />
+      <path d="M12 19h8" />
+    </svg>
+  );
+}
+
+export function IconStop({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="6" width="12" height="12" rx="1.5" />
+    </svg>
+  );
+}
+
+export function IconSend({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </svg>
+  );
+}
+
 export function IconBack() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

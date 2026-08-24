@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import ConfigFields from "./ConfigFields.jsx";
+import ModelChip from "./ModelChip.jsx";
+import KindChip from "./KindChip.jsx";
+import { IconSend, IconStop, IconTerminal } from "./Icons.jsx";
 import { filterSlash } from "../lib/slash.js";
 
 export default function Composer({
@@ -63,28 +65,23 @@ export default function Composer({
           }}
         />
         <div className="composer-controls">
-          <ConfigFields
-            catalog={catalog}
-            provider={(cfg && cfg.provider) || ""}
-            model={(cfg && cfg.model) || ""}
-            thinking={(cfg && cfg.thinking) || ""}
-            onChange={onConfig || (() => {})}
-            idPrefix="agent"
-            row
-          />
-          <select id="task-kind" className="kind-chip" title="How the message is delivered" value={kind} onChange={(e) => onKind(e.target.value)}>
-            <option value="prompt">Prompt</option>
-            <option value="steer">Steer</option>
-            <option value="follow_up">Follow-up</option>
-          </select>
-          <span className="composer-status" id="composer-status" hidden={stopped}>
-            <span className={"dot" + (streaming ? " streaming" : "")} id="chat-dot" />
-            <span id="chat-status-text">{status}</span>
-          </span>
-          <span className="composer-hint">Enter ↵</span>
-          <button id="btn-dock" className="btn btn-ghost btn-sm" title="Show the terminal" hidden={stopped} onClick={onToggleDock}>Terminal</button>
-          <button id="btn-stop-agent" className="btn btn-ghost btn-sm btn-danger" title="Stop this agent" hidden={stopped} onClick={onStop}>Stop</button>
-          <button id="task-send" className="btn btn-primary btn-sm" title="Send" onClick={onSend}>Send</button>
+          <div className="composer-left">
+            <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
+            <KindChip value={kind} onChange={onKind} />
+          </div>
+          <div className="composer-right">
+            <span className={"dot" + (streaming ? " streaming" : "")} id="chat-dot" hidden={stopped} title={status} />
+            <span id="chat-status-text" className="sr-only">{status}</span>
+            <button id="btn-dock" className="icon-btn" title="Terminal" hidden={stopped} onClick={onToggleDock}>
+              <IconTerminal />
+            </button>
+            <button id="btn-stop-agent" className="icon-btn icon-btn-danger" title="Stop" hidden={stopped} onClick={onStop}>
+              <IconStop />
+            </button>
+            <button id="task-send" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={onSend}>
+              <IconSend />
+            </button>
+          </div>
         </div>
       </div>
     </div>

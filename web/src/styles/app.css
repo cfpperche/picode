@@ -379,22 +379,62 @@ body {
 }
 #task-input::placeholder { color: var(--text-secondary); }
 .composer-controls {
-  display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; margin-top: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 6px;
 }
-.composer-controls .cfg-fields.cfg-row {
-  display: flex; flex-wrap: nowrap; gap: 4px; flex: none;
+.composer-left, .composer-right {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
 }
-.composer-controls .cfg-row select {
-  max-width: 108px; padding: 2px 6px; font-size: 11.5px; font-family: var(--mono);
-  background: var(--bg-base); border: 1px solid var(--border); border-radius: 6px;
+.cockpit-chip-wrap { position: relative; flex: none; }
+.cockpit-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  max-width: 220px; height: 28px; padding: 0 8px;
+  background: transparent; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer;
+}
+.cockpit-chip:hover { background: var(--bg-hover); }
+.cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cockpit-pop {
+  position: absolute; left: 0; bottom: calc(100% + 6px);
+  min-width: 240px; max-width: 320px; max-height: 280px; overflow-y: auto;
+  padding: 6px; z-index: 12;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 10px;
+}
+.cockpit-pop-sm { min-width: 140px; }
+.cockpit-group { margin-top: 4px; }
+.cockpit-group-label {
+  padding: 4px 8px 2px; font-size: 10.5px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-secondary);
+}
+.cockpit-opt {
+  display: block; width: 100%; text-align: left;
+  padding: 6px 8px; border: 0; background: none; border-radius: 6px;
+  font: inherit; font-size: 12.5px; color: var(--text-primary); cursor: pointer;
+}
+.cockpit-opt:hover, .cockpit-opt.active { background: var(--bg-hover); }
+.cockpit-think { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px; }
+.think-pill {
+  padding: 2px 7px; border-radius: 999px; font-size: 11px; font-family: inherit;
+  background: transparent; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
+}
+.think-pill.on { border-color: var(--accent); color: var(--text-primary); }
+.icon-btn {
+  width: 28px; height: 28px; display: grid; place-items: center; flex: none;
+  border: 0; background: transparent; border-radius: 8px;
   color: var(--text-secondary); cursor: pointer;
 }
-#chat-status-text {
-  max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.icon-btn-danger:hover { color: var(--danger); }
+.icon-btn-send {
+  background: var(--accent); color: #fff;
 }
-.composer-hint { display: none; }
-.composer-controls .btn, .composer-controls .kind-chip { flex: none; }
-.composer-status { margin-left: auto; }
+.icon-btn-send:hover { filter: brightness(1.05); color: #fff; }
+.icon-btn-send:disabled { opacity: 0.35; cursor: default; filter: none; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .slash-menu {
   position: absolute; left: 8px; right: 8px; bottom: 100%;
   margin: 0 0 6px; padding: 4px; list-style: none;

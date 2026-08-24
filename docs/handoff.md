@@ -51,7 +51,7 @@ What exists right now:
 
 ## Next up
 
-1. More pi slash-command parity in the composer (`/compact` live on managed, etc.).
+1. More pi slash-command parity (`/compact` on managed). Composer cockpit shipped (model chip + thinking nested).
 2. Sibling agents per workspace (API/store ready; UI still one default).
 2. Visual MCP manager — only if/when an adapter config format is chosen.
 3. Session replay (JSONL reader) — M3 candidate, still open.
