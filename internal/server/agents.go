@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/store"
@@ -382,7 +383,12 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 		defer cancel()
 		res, err := ma.Compact(ctx)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			low := strings.ToLower(err.Error())
+			if strings.Contains(low, "already compacted") {
+				writeJSON(w, http.StatusOK, map[string]any{"ok": true, "already": true})
+				return
+			}
+			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if !res.Success {

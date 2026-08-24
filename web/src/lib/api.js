@@ -22,6 +22,11 @@ export function humanizeError(msg) {
   if (/can't find pane|can't find session|tmux send-keys/i.test(msg)) {
     return "Couldn't reach the terminal. Open Terminal and try again.";
   }
+  if (/already compacted/i.test(msg)) {
+    return "Nothing left to compact.";
+  }
+  const compact = msg.match(/^rpc: compact failed:\s*(.*)/i);
+  if (compact) return compact[1];
   return msg;
 }
 

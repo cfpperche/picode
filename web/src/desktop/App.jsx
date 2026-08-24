@@ -122,6 +122,7 @@ export default function App() {
       const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur));
       const ev = t.events || [];
       setItems(ev.length ? eventsToItems(ev) : [{ kind: "sys", text: "Send a message to start." }]);
+      scrollToEnd();
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId]);
 
@@ -216,6 +217,16 @@ export default function App() {
   function scrollConv() {
     const el = convRef.current;
     if (el && nearBottom.current) el.scrollTop = el.scrollHeight;
+  }
+
+  function scrollToEnd() {
+    nearBottom.current = true;
+    const go = () => {
+      const el = convRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    queueMicrotask(go);
+    requestAnimationFrame(() => requestAnimationFrame(go));
   }
 
   function connectPanel(ws) {
@@ -429,8 +440,8 @@ export default function App() {
     if (!ok) return;
     try {
       if (selectedId) setDockWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-      await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
-      toast.ok("Session compacted.");
+      const res = await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
+      toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
       await loadWorkspaces();
       await loadSessions(selectedId);
       await loadStatus(selectedId);
