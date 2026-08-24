@@ -409,7 +409,7 @@ body {
 .composer-wrap .composer { pointer-events: auto; }
 .composer {
   max-width: 820px; margin: 0 auto; position: relative;
-  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  background: var(--bg-panel); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
   padding: 10px 12px 8px;
 }
