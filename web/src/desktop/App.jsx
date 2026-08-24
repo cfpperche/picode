@@ -511,7 +511,7 @@ export default function App() {
                 }
                 await loadWorkspaces();
                 if (selectedId) setDockWanted((s) => new Set(s).add(selectedId));
-              } catch (e) { alert(e.message); }
+              } catch (e) { alert(humanizeError(e.message)); }
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,

@@ -91,6 +91,19 @@ func TestHasSessionMissing(t *testing.T) {
 	}
 }
 
+func TestSendKeysReachesSession(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("sendkeys-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(ctx, name, t.TempDir(), "sleep", "10"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	if err := m.SendKeys(ctx, name, "true", "Enter"); err != nil {
+		t.Fatalf("SendKeys: %v", err)
+	}
+}
+
 func TestSessionNamePrefix(t *testing.T) {
 	if got := SessionName("abc"); got != "picode-abc" {
 		t.Errorf("SessionName(abc) = %q, want picode-abc", got)

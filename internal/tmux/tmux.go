@@ -164,12 +164,14 @@ func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
 	return sessions, nil
 }
 
-// SendKeys types into the session (used to drive `/login` — ADR-0009).
+// SendKeys types into the session's current pane (used to drive `/login` — ADR-0009).
+// Target is "name:" (session), not "=name" — send-keys treats "=" as an exact
+// pane name, which is why `/login` was alerting "can't find pane".
 func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	args := append([]string{"send-keys", "-t", "=" + name}, keys...)
+	args := append([]string{"send-keys", "-t", name + ":"}, keys...)
 	_, err := m.run(ctx, args...)
 	return err
 }
