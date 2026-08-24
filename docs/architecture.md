@@ -48,12 +48,24 @@ agent lives inside tmux; the RPC agent is detached from the browser entirely.
 
 ## Key subsystems
 
+### Data & persistence (ADR-0005)
+
+SQLite (pure-Go driver) at `~/.picode/picode.db` — **orchestration overlay
+only**. Pi's own files remain the source of truth for sessions, credentials,
+MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
+`agents` (one default per workspace; M3 wizard adds configured siblings),
+`tasks` (prompt/steer/follow_up queue with a delivery state machine),
+`messages` (reserved M4 broker inbox), `events` (orchestration audit),
+`settings`. Embedded sequential migrations; the M1 JSON registry is imported
+once and retired (`workspaces.json.migrated`).
+
 ### AgentManager (M1 core shipped)
-Owns agent lifecycle via the workspace registry (`internal/workspace`:
-file-backed JSON at `~/.picode/workspaces.json`). An agent is defined by:
-workspace (cwd), and currently runs as `pi` (ADR-0003, user-installed) in a
-named tmux session. Per-agent model/thinking config, extensions and
-profiles land in M3 with `/ws/agent` structured control.
+Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
+each with a default agent; tmux session names derive from the agent id.
+An agent runs as `pi` (ADR-0003, user-installed) in a named tmux session.
+Per-agent model/thinking config, extensions and profiles land in M3 with
+`/ws/agent` structured control; task delivery lands in M2 (queue API
+already live).
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add

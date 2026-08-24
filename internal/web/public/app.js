@@ -151,14 +151,15 @@ function renderWorkspaceList() {
   const ul = $("#ws-list");
   ul.innerHTML = "";
   for (const ws of state.workspaces) {
+    const running = ws.agent && ws.agent.running;
     const li = document.createElement("li");
     li.className = "ws-item" + (ws.id === state.selectedId ? " active" : "");
     li.innerHTML = `
       <div class="ws-row1">
-        <span class="ws-dot ${ws.running ? "running" : ""}"></span>
+        <span class="ws-dot ${running ? "running" : ""}"></span>
         <span class="ws-name" title="${escapeHTML(ws.name)}">${escapeHTML(ws.name)}</span>
         <span class="ws-actions">
-          ${ws.running
+          ${running
             ? `<button class="btn btn-ghost btn-sm btn-stop" title="Stop the agent">Stop</button>`
             : `<button class="btn btn-ghost btn-sm btn-open" title="Start a Pi agent in this workspace">Open agent</button>`}
         </span>
@@ -199,14 +200,15 @@ function selectWorkspace(id) {
   state.selectedId = id;
   renderWorkspaceList();
   const ws = state.workspaces.find((w) => w.id === id);
-  if (ws && ws.running) attachTerm(id, ws);
+  if (ws && ws.agent && ws.agent.running) attachTerm(ws.agent.id, ws);
 }
 
 async function openAgent(id) {
   try {
     await api(`/api/workspaces/${id}/open`, { method: "POST" });
     await loadWorkspaces();
-    attachTerm(id, state.workspaces.find((w) => w.id === id));
+    const ws = state.workspaces.find((w) => w.id === id);
+    if (ws && ws.agent) attachTerm(ws.agent.id, ws);
   } catch (err) { alert(err.message); }
 }
 
@@ -388,7 +390,7 @@ loadSystem();
 loadWorkspaces()
   .then(() => {
     // Come back to running agents: auto-attach the first one.
-    const running = state.workspaces.find((w) => w.running);
+    const running = state.workspaces.find((w) => w.agent && w.agent.running);
     if (running) selectWorkspace(running.id);
   })
   .catch((e) => console.error("boot:", e));

@@ -9,3 +9,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0002](0002-dual-channel-tmux-rpc.md) | Dual-channel agent control: tmux PTY + pi RPC | accepted |
 | [0003](0003-user-installed-pi.md) | Depend on user-installed Pi, no vendoring | accepted |
 | [0004](0004-defer-frontend-framework.md) | Defer frontend framework — vanilla ES + vendored xterm.js | accepted |
+| [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |

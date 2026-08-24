@@ -13,11 +13,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/user"
+	"path/filepath"
 
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
+	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
-	"github.com/cfpperche/picode/internal/workspace"
 )
 
 func main() {
@@ -50,7 +52,16 @@ Usage:
 Requires Chrome/Chromium installed (headless).`)
 }
 
+// defaultDBPath returns ~/.picode/picode.db.
+func defaultDBPath() string {
+	if u, err := user.Current(); err == nil && u.HomeDir != "" {
+		return filepath.Join(u.HomeDir, ".picode", "picode.db")
+	}
+	return "picode.db"
+}
+
 func serve() {
+	dbPath := flag.String("db", defaultDBPath(), "SQLite database path (orchestration overlay; ADR-0005)")
 	addr := flag.String("addr", "127.0.0.1:7331", "listen address (localhost-only by default; see docs/architecture.md security model)")
 	flag.Parse()
 
@@ -62,17 +73,14 @@ func serve() {
 		log.Printf("WARNING: agent processes run with your user permissions; do this only on trusted networks.")
 	}
 
-	regPath, err := workspace.DefaultPath()
+	st, err := store.Open(*dbPath)
 	if err != nil {
-		log.Fatalf("workspace registry: %v", err)
+		log.Fatalf("store: %v", err)
 	}
-	reg, err := workspace.Open(regPath)
-	if err != nil {
-		log.Fatalf("workspace registry: %v", err)
-	}
+	defer st.Close()
 
 	srv := server.New(*addr, server.Deps{
-		Registry: reg,
+		Store:    st,
 		Tmux:     tmux.New(),
 		AgentCmd: "pi", // ADR-0003: user-installed pi
 	})

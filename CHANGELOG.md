@@ -13,6 +13,27 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Database layer (ADR-0005)**: SQLite store via pure-Go `modernc.org/sqlite`
+  at `~/.picode/picode.db` — orchestration overlay only (sessions, creds,
+  MCP and skills stay in pi's own files; never duplicated). Schema v1:
+  `workspaces`, `agents` (default agent per workspace), `tasks` (prompt/
+  steer/follow_up queue, delivery state machine, claim/finish for the M2
+  engine), `messages` (reserved M4), `events` (audit), `settings`.
+  Embedded sequential migrations; one-time import of the M1 JSON registry
+  (retired to `workspaces.json.migrated`).
+- **Task queue API** (M2 prep): `POST/GET /api/agents/{id}/tasks`; tasks
+  persist as `queued` until the RPC delivery engine lands.
+- `/api/workspaces` responses now embed the workspace's default agent
+  (`agent.id`, `agent.running`, `lastStatus` cache).
+
+### Changed
+
+- Workspace persistence moved from flat JSON (`internal/workspace`, removed)
+  to the SQLite store; API surface unchanged except the embedded `agent`
+  object; tmux session names now derive from the agent id.
+
+### Added
+
 - **User menu** (Vercel-inspired) in the sidebar footer: local identity
   (hostname from `/api/system`), inline theme switcher
   (Light/System/Dark), Settings and Documentation links, version.

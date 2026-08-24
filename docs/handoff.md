@@ -10,23 +10,23 @@
 
 ## Current state (read this first)
 
-**Phase: M1 — Terminal grid (complete). M2 — Agent panel (next).**
+**Phase: store shipped (ADR-0005). M2 — Agent panel (next, queue API ready).**
 
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
-- **M1 shipped**: `picode screenshot` subcommand (chromedp); tmux manager
-  (`internal/tmux`, `picode-` namespace, `=` exact matching, sanitized ids);
-  WS↔PTY terminal bridge (`internal/term`, binary=data / text=resize JSON);
-  workspace registry (`~/.picode/workspaces.json`); HTTP API (workspace
-  CRUD, open/close lifecycle, `/api/system` detection); dark-first UI
-  (vanilla ES + vendored xterm.js 5.5.0, ADR-0004) with sidebar cards,
-  tabs, teaching empty state, auto-attach on load.
-- Docs system: philosophy, architecture (updated for M1), benchmarks,
-  Cursor benchmark, ADRs 0001–0004, this handoff.
-- Pi harness: `AGENTS.md` contract + 4 skills (quality-gate, uiux-review,
-  visual-review, handoff-update).
-- 16 tests across 4 packages (tmux/term integration tests skip gracefully
-  where tmux is absent; ubuntu CI installs tmux).
+- **M1 shipped**: `picode screenshot` (chromedp); tmux manager (`internal/tmux`);
+  WS↔PTY terminal bridge (`internal/term`); dark-first UI (vanilla ES +
+  xterm.js, ADR-0004) — sidebar cards, tabs, live statusbar, Vercel-style
+  user menu, settings route, theme light/dark/system.
+- **Store shipped**: SQLite `~/.picode/picode.db` (pure-Go driver), embedded
+  migrations, legacy JSON imported+retired. Tables: workspaces, agents
+  (default per workspace), tasks (claim/finish state machine), messages
+  (M4), events (audit), settings. API: workspace CRUD + open/close +
+  `POST/GET /api/agents/{id}/tasks` (tasks persist `queued`).
+- Docs: philosophy, architecture (data section), benchmarks (+Cursor bar),
+  ADRs 0001–0005, this handoff. Harness: AGENTS.md + 4 skills.
+- 23 tests across 5 packages (store CRUD/lifecycle/legacy; tmux/term
+  integration skip gracefully where tmux is absent).
 
 ## Visual review status
 
@@ -47,15 +47,14 @@ What exists right now:
 ## Next up (M2 — Agent panel, in order)
 
 1. **RPC agent manager** (`internal/rpc/`): spawn `pi --mode rpc` per
-   workspace (alongside the tmux agent), JSONL client with strict `\n`
-   framing (never split on U+2028/U+2029), event fan-out to WebSocket.
+   workspace, JSONL client with strict `\n` framing, event fan-out to
+   WebSocket. Wire the **task delivery engine**: `ClaimNextTask` → send →
+   `FinishTask` (queue API + state machine already live).
 2. **Agent panel UI**: live status, streaming output, tool-call rows
    (Cursor bar: ≤32px collapsed, expandable), task input with
-   `steer`/`follow_up` semantics.
+   steer/follow_up semantics (buttons already backed by the API).
 3. **Diff view**: surface agent edits from tool-call events.
-4. **Command palette** (`Ctrl+K`): switch agent/workspace, send task.
-5. ADR-0005: workspace registry persistence — already JSON file; decide
-   if/when SQLite or similar is ever needed (probably never — lean simple).
+4. **Command palette** (`Ctrl+K`).
 
 ## Known debts / open questions
 
@@ -68,7 +67,16 @@ What exists right now:
   (note in ADR-0004); track upstream releases occasionally.
 - Branch protection + CODEOWNERS on GitHub — needs owner action (manual).
 
+- **Task delivery engine pending**: `/api/agents/{id}/tasks` persists
+  `queued` tasks; the RPC consumer ships with M2 step 1.
+
 ## Recent activity
+
+- **2026-08-24** — ADR-0005 shipped: SQLite store (pure-Go driver), schema
+  v1 (workspaces/agents/tasks/messages/events/settings), embedded
+  migrations, legacy JSON registry imported+retired on live machine; task
+  queue API live (queued until M2 engine); workspace views embed default
+  agent; UI follows agent ids for tmux sessions.
 
 - **2026-08-23** — Owner feedback applied: UI copy de-documentarized (rule
   recorded in benchmarks.md), Vercel-style user menu (identity + theme +

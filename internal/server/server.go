@@ -18,16 +18,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/term"
 	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/version"
 	"github.com/cfpperche/picode/internal/web"
-	"github.com/cfpperche/picode/internal/workspace"
 )
 
 // Deps carries the server's collaborators (injected for testability).
 type Deps struct {
-	Registry *workspace.Registry
+	Store    *store.Store
 	Tmux     *tmux.Manager
 	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
 }

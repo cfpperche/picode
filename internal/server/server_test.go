@@ -10,23 +10,24 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
-	"github.com/cfpperche/picode/internal/workspace"
 )
 
 // newTestServer builds a server with a temp registry. agentCmd defaults to
 // a harmless long-running process for spawn tests ("cat").
 func newTestServer(t *testing.T, agentCmd string) *httptest.Server {
 	t.Helper()
-	reg, err := workspace.Open(filepath.Join(t.TempDir(), "workspaces.json"))
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {
-		t.Fatalf("registry: %v", err)
+		t.Fatalf("store: %v", err)
 	}
+	t.Cleanup(func() { _ = st.Close() })
 	if agentCmd == "" {
 		agentCmd = "cat"
 	}
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
-		Registry: reg,
+		Store:    st,
 		Tmux:     tmux.New(),
 		AgentCmd: agentCmd,
 	}).Handler)
@@ -122,7 +123,7 @@ func TestWorkspaceAPI(t *testing.T) {
 		body, _ := io.ReadAll(res.Body)
 		t.Fatalf("add status = %d, want 201: %s", res.StatusCode, body)
 	}
-	var wk workspace.Workspace
+	var wk store.Workspace
 	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
 		t.Fatalf("decode add: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestWorkspaceAPI(t *testing.T) {
 	req2, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(addBody))
 	req2.Header.Set("Content-Type", "application/json")
 	res2 := do(t, client, req2)
-	var wk2 workspace.Workspace
+	var wk2 store.Workspace
 	_ = json.NewDecoder(res2.Body).Decode(&wk2)
 	if wk2.ID != wk.ID {
 		t.Errorf("duplicate add id = %q, want %q", wk2.ID, wk.ID)
@@ -187,7 +188,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Lifecycle", proj)))
 	addReq.Header.Set("Content-Type", "application/json")
 	res := do(t, client, addReq)
-	var wk workspace.Workspace
+	var wk store.Workspace
 	_ = json.NewDecoder(res.Body).Decode(&wk)
 
 	// Open.
@@ -206,7 +207,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	resList := do(t, client, mustGet(t, ts.URL+"/api/workspaces"))
 	var list []workspaceView
 	_ = json.NewDecoder(resList.Body).Decode(&list)
-	if len(list) != 1 || !list[0].Running {
+	if len(list) != 1 || !list[0].Agent.Running {
 		t.Fatalf("running flag after open: %+v", list)
 	}
 
@@ -219,7 +220,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	resList2 := do(t, client, mustGet(t, ts.URL+"/api/workspaces"))
 	var list3 []workspaceView
 	_ = json.NewDecoder(resList2.Body).Decode(&list3)
-	if len(list3) != 1 || list3[0].Running {
+	if len(list3) != 1 || list3[0].Agent.Running {
 		t.Fatalf("running flag after close: %+v", list3)
 	}
 }
@@ -245,6 +246,71 @@ func mustPost(t *testing.T, url string) *http.Request {
 		t.Fatalf("build POST: %v", err)
 	}
 	return req
+}
+
+func TestTaskEndpoints(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	client := ts.Client()
+	proj := t.TempDir()
+
+	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Tasks", proj)))
+	addReq.Header.Set("Content-Type", "application/json")
+	res := do(t, client, addReq)
+	var wsv workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&wsv); err != nil {
+		t.Fatalf("decode add: %v", err)
+	}
+	agentID := wsv.Agent.ID
+	if agentID == "" {
+		t.Fatal("default agent missing from workspace view")
+	}
+
+	// Enqueue (kind defaults to prompt).
+	body, _ := json.Marshal(map[string]string{"payload": "refactor the tests"})
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/agents/"+agentID+"/tasks", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resT := do(t, client, req)
+	if resT.StatusCode != http.StatusCreated {
+		t.Fatalf("enqueue status = %d", resT.StatusCode)
+	}
+	var task store.Task
+	if err := json.NewDecoder(resT.Body).Decode(&task); err != nil {
+		t.Fatalf("decode task: %v", err)
+	}
+	if task.Kind != "prompt" || task.Status != "queued" || task.Source != "user" {
+		t.Errorf("task = %+v", task)
+	}
+
+	// Follow-up kind passes through.
+	body2, _ := json.Marshal(map[string]string{"kind": "follow_up", "payload": "then run tests"})
+	req2, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/agents/"+agentID+"/tasks", bytes.NewReader(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	_ = do(t, client, req2)
+
+	// List shows newest first.
+	resL := do(t, client, mustGet(t, ts.URL+"/api/agents/"+agentID+"/tasks"))
+	var tasks []store.Task
+	if err := json.NewDecoder(resL.Body).Decode(&tasks); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(tasks) != 2 || tasks[0].Kind != "follow_up" {
+		t.Fatalf("tasks = %+v", tasks)
+	}
+
+	// Invalid kind.
+	body3, _ := json.Marshal(map[string]string{"kind": "bogus", "payload": "x"})
+	req3, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/agents/"+agentID+"/tasks", bytes.NewReader(body3))
+	req3.Header.Set("Content-Type", "application/json")
+	resE := do(t, client, req3)
+	if resE.StatusCode != http.StatusBadRequest {
+		t.Errorf("invalid kind status = %d, want 400", resE.StatusCode)
+	}
+
+	// Missing agent.
+	res404 := do(t, client, mustPost(t, ts.URL+"/api/agents/missing/tasks"))
+	if res404.StatusCode != http.StatusNotFound {
+		t.Errorf("missing agent status = %d, want 404", res404.StatusCode)
+	}
 }
 
 func TestIndexServed(t *testing.T) {
