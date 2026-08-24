@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Copy** on assistant replies.
 - Composer **floats** over the conversation (Claude/ChatGPT); the
   scrollbar runs the full pane height.
 - **Send** from the composer works when the agent is stopped or in the

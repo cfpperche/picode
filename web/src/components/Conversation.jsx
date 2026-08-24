@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { basename, statLabel } from "../lib/diff.js";
+import { IconCopy } from "./Icons.jsx";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden }) {
   return (
@@ -45,6 +47,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               <div className="actor">
                 {it.actor}
                 {it.chip ? <span className="chip">{it.chip}</span> : null}
+                {it.cls !== "user" && it.cls !== "thinking" && it.text ? <CopyBtn text={it.text} /> : null}
               </div>
               <div className="block-content">{it.text}</div>
             </div>
@@ -52,6 +55,27 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
         })}
       </div>
     </div>
+  );
+}
+
+function CopyBtn({ text }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      title="Copy"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        } catch { /* ignore */ }
+      }}
+    >
+      <IconCopy />
+      {done ? "Copied" : "Copy"}
+    </button>
   );
 }
 
