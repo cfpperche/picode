@@ -1,0 +1,92 @@
+// View-only file-change extraction from pi edit/write tool events.
+// Accept/reject is out of scope (PiCode is not an editor).
+
+export function fileChangeFromTool(name, args, result) {
+  if (!args || (name !== "edit" && name !== "write")) return null;
+  const path = typeof args.path === "string" ? args.path : "";
+  if (!path) return null;
+
+  if (name === "write") {
+    const content = typeof args.content === "string" ? args.content : "";
+    const lines = content === "" ? [] : content.split("\n");
+    return {
+      path,
+      add: lines.length,
+      del: 0,
+      hunks: lines.map((text) => ({ kind: "add", text })),
+    };
+  }
+
+  const fromResult = parseOfficialDiff(result);
+  if (fromResult) return { path, ...fromResult };
+
+  const edits = normalizeEdits(args);
+  const hunks = [];
+  let add = 0, del = 0;
+  for (const e of edits) {
+    const oldLines = e.oldText === "" ? [] : e.oldText.split("\n");
+    const newLines = e.newText === "" ? [] : e.newText.split("\n");
+    for (const text of oldLines) { hunks.push({ kind: "del", text }); del++; }
+    for (const text of newLines) { hunks.push({ kind: "add", text }); add++; }
+    hunks.push({ kind: "gap", text: "" });
+  }
+  if (hunks.length && hunks[hunks.length - 1].kind === "gap") hunks.pop();
+  return { path, add, del, hunks };
+}
+
+export function normalizeEdits(args) {
+  if (Array.isArray(args.edits)) {
+    return args.edits.filter((e) => e && typeof e.oldText === "string" && typeof e.newText === "string");
+  }
+  if (typeof args.oldText === "string" && typeof args.newText === "string") {
+    return [{ oldText: args.oldText, newText: args.newText }];
+  }
+  return [];
+}
+
+export function parseOfficialDiff(result) {
+  if (!result || typeof result !== "object") return null;
+  const details = result.details || {};
+  const raw = typeof details.patch === "string" && details.patch
+    ? details.patch
+    : (typeof details.diff === "string" ? details.diff : "");
+  if (!raw) return null;
+  const hunks = [];
+  let add = 0, del = 0;
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ") || line.startsWith("index ")) {
+      hunks.push({ kind: "meta", text: line });
+      continue;
+    }
+    if (line.startsWith("@@")) {
+      hunks.push({ kind: "meta", text: line });
+      continue;
+    }
+    if (line.startsWith("+")) {
+      hunks.push({ kind: "add", text: line.slice(1) });
+      add++;
+      continue;
+    }
+    if (line.startsWith("-")) {
+      hunks.push({ kind: "del", text: line.slice(1) });
+      del++;
+      continue;
+    }
+    hunks.push({ kind: "ctx", text: line.startsWith(" ") ? line.slice(1) : line });
+  }
+  return { add, del, hunks };
+}
+
+export function basename(path) {
+  if (!path) return "";
+  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+export function statLabel(change) {
+  if (!change) return "";
+  const parts = [];
+  if (change.add) parts.push("+" + change.add);
+  if (change.del) parts.push("−" + change.del);
+  return parts.join(" ");
+}

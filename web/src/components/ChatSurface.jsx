@@ -2,7 +2,7 @@ import Conversation from "./Conversation.jsx";
 import Composer from "./Composer.jsx";
 
 export default function ChatSurface({
-  hidden, stopped, items, onToggleTool, convRef, onScroll,
+  hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, onOpenTerm,
 }) {
   return (
@@ -16,7 +16,7 @@ export default function ChatSurface({
           </div>
         </div>
       </div>
-      <Conversation items={items} onToggleTool={onToggleTool} convRef={convRef} onScroll={onScroll} hidden={stopped} />
+      <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped} />
       <Composer {...composer} stopped={stopped} />
     </section>
   );

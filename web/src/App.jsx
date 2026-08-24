@@ -3,11 +3,13 @@ import { api, humanizeError, wsURL } from "./lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "./lib/theme.js";
 import { closeTerm } from "./components/TerminalDock.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
+import { fileChangeFromTool } from "./lib/diff.js";
 import Sidebar from "./components/Sidebar.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TerminalDock from "./components/TerminalDock.jsx";
 import Settings from "./components/Settings.jsx";
+import Palette from "./components/Palette.jsx";
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
@@ -19,6 +21,7 @@ export default function App() {
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => location.hash === "#/settings" ? "settings" : "workspace");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [dockWanted, setDockWanted] = useState(() => new Set());
@@ -33,6 +36,7 @@ export default function App() {
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
   const pendingPayload = useRef("");
+  const turnFiles = useRef(new Set());
   const selectedRef = useRef(null);
   selectedRef.current = selectedId;
 
@@ -62,7 +66,14 @@ export default function App() {
 
   useEffect(() => {
     const onDoc = (e) => { if (!e.target.closest("#usermenu")) setMenuOpen(false); };
-    const onKey = (e) => { if (e.key === "Escape") setMenuOpen(false); };
+    const onKey = (e) => {
+      if (e.key === "Escape") setMenuOpen(false);
+      const pal = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "k";
+      if (pal) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
     document.addEventListener("click", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -181,11 +192,18 @@ export default function App() {
       case "agent_start":
         setStatus("streaming");
         setStreaming(true);
+        turnFiles.current = new Set();
         break;
-      case "agent_settled":
+      case "agent_settled": {
         setStatus("idle");
         setStreaming(false);
+        const paths = [...turnFiles.current];
+        turnFiles.current = new Set();
+        if (paths.length) {
+          setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
+        }
         break;
+      }
       case "message_update": {
         const d = ev.assistantMessageEvent;
         if (!d) break;
@@ -197,7 +215,9 @@ export default function App() {
         queueMicrotask(scrollConv);
         break;
       }
-      case "tool_execution_start":
+      case "tool_execution_start": {
+        const change = fileChangeFromTool(ev.toolName, ev.args, null);
+        if (change) turnFiles.current.add(change.path);
         setItems((cur) => [...cur, {
           kind: "tool",
           id: ev.toolCallId,
@@ -206,13 +226,23 @@ export default function App() {
           status: "···",
           detail: JSON.stringify(ev.args || {}, null, 2),
           expanded: false,
+          change,
         }]);
         queueMicrotask(scrollConv);
         break;
+      }
       case "tool_execution_end":
-        setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === ev.toolCallId
-          ? { ...it, status: ev.isError ? "error" : "ok", detail: JSON.stringify(ev.result || {}, null, 2) }
-          : it));
+        setItems((cur) => cur.map((it) => {
+          if (it.kind !== "tool" || it.id !== ev.toolCallId) return it;
+          const change = fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change;
+          if (change) turnFiles.current.add(change.path);
+          return {
+            ...it,
+            status: ev.isError ? "error" : "ok",
+            detail: JSON.stringify(ev.result || {}, null, 2),
+            change,
+          };
+        }));
         break;
       case "enqueue_accepted":
         setItems((cur) => [...cur, {
@@ -421,6 +451,7 @@ export default function App() {
             stopped={stopped}
             items={items}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
+            onToggleFiles={(idx) => setItems((cur) => cur.map((it, i) => i === idx && it.kind === "files" ? { ...it, expanded: !it.expanded } : it))}
             convRef={convRef}
             onScroll={() => {
               const el = convRef.current;
@@ -454,6 +485,19 @@ export default function App() {
           system={system}
         />
       </main>
+
+      <Palette
+        open={paletteOpen}
+        workspaces={workspaces}
+        onClose={() => setPaletteOpen(false)}
+        onRun={(a) => {
+          if (a.kind === "settings") { location.hash = "#/settings"; return; }
+          if (a.kind === "open") openTab(a.wsId);
+          if (a.kind === "run") startManaged(a.wsId);
+          if (a.kind === "term") openInteractive(a.wsId);
+          if (a.kind === "stop") stopAgent(a.wsId);
+        }}
+      />
     </div>
   );
 }

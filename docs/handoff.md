@@ -10,7 +10,7 @@
 
 ## Current state (read this first)
 
-**Phase: M2 core shipped (managed agents + panel + delivery engine). Remaining M2: diff view, command palette.**
+**Phase: M2 shipped (managed agents + panel + diffs + palette). Next: M3 Lifecycle — needs owner decisions.**
 
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
@@ -49,14 +49,14 @@ What exists right now:
 - Nothing. ADR-0008 landed (React + Vite + Tailwind). Tree should be clean
   after this commit.
 
-## Next up (finish M2, then M3 — Lifecycle)
+## Next up (M3 — Lifecycle — **blocked on owner decisions**)
 
-1. **Diff view**: surface agent edits from `tool_execution_end` (edit/write
-   tool calls carry oldText/newText + path) — inline diff rows in the panel.
-2. **Command palette** (`Ctrl+K`): switch workspace/agent, start/stop, send task.
-3. **M3 — Lifecycle**: agent creation wizard (model/provider/thinking per
-   agent — columns already exist), provider auth flows (drive `/login` in
-   the terminal), config profiles.
+1. Agent creation wizard (provider / model / thinking — columns exist).
+2. Provider auth flows (drive `/login` in the terminal).
+3. Config profiles + visual MCP manager.
+
+Decisions needed before building: which providers in v1, where auth lives
+(terminal vs Settings), whether MCP is in-wizard or a later screen.
 
 ## Known debts / open questions
 
@@ -87,6 +87,9 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — M2 closed: inline diffs (edit/write pills + N files
+  changed) and Ctrl+K command palette. Accept/reject hunks deferred
+  (would make us an editor). M3 blocked on provider/auth/MCP decisions.
 - **2026-08-24** — **ADR-0008**: migrate UI to React + Vite + Tailwind.
   Source in `web/`; embed path unchanged (`internal/web/public`). Dock
   resize + maximize included. Node 22 is a build-time dependency.

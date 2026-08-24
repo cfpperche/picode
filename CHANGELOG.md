@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Inline diffs** for `edit`/`write` tool pills (`+N −M`, expandable hunks).
+  Uses `result.details.patch`/`diff` when pi sends them; otherwise the
+  replacement args. View-only — no accept/reject (not an editor).
+- **N files changed** summary at the end of a turn.
+- **Command palette** (`Ctrl+K` / `⌘K`): open/run/stop/terminal per agent,
+  Settings. Esc / click-outside closes.
+
 ### Changed
 
 - **UI is React + Vite + Tailwind** (ADR-0008, supersedes ADR-0004).
