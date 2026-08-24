@@ -303,6 +303,15 @@ body {
   font-size: 11px; color: var(--text-secondary); line-height: 1.4;
 }
 .sb-dot { margin: 0 5px; opacity: 0.55; }
+.sb-ctx { display: inline-flex; align-items: center; gap: 6px; }
+.sb-track {
+  display: inline-block; width: 72px; height: 4px; border-radius: 99px;
+  background: var(--border); overflow: hidden; vertical-align: middle;
+}
+.sb-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.sb-ok .sb-fill { background: var(--ok); }
+.sb-warn .sb-fill { background: var(--warn); }
+.sb-bad .sb-fill { background: var(--danger); }
 .sb-warn { color: var(--warn); }
 .sb-bad { color: var(--danger); }
 .stopped-line {

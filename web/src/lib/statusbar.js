@@ -9,13 +9,16 @@ export function statusSegments(bar) {
   }
   if (bar.contextWindow) {
     const win = formatTokens(bar.contextWindow);
-    if (bar.contextPercent == null) {
-      out.push({ key: "ctx", text: "? / " + win });
-    } else {
-      const pct = bar.contextPercent;
-      const tone = pct > 90 ? "bad" : pct > 70 ? "warn" : "";
-      out.push({ key: "ctx", text: pct.toFixed(1) + "% / " + win, tone });
-    }
+    const pct = bar.contextPercent;
+    const unknown = pct == null;
+    const tone = unknown ? "" : (pct > 90 ? "bad" : pct > 70 ? "warn" : "ok");
+    out.push({
+      key: "ctx",
+      kind: "bar",
+      pct: unknown ? 0 : Math.max(0, Math.min(100, pct)),
+      text: unknown ? "? / " + win : pct.toFixed(1) + "% · " + win,
+      tone,
+    });
   }
   if (bar.cost > 0) {
     out.push({ key: "cost", text: "$" + bar.cost.toFixed(2) });

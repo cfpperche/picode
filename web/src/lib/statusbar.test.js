@@ -17,6 +17,9 @@ test("git worktree and context tones", () => {
     cost: 0.12,
   });
   assert.equal(parts.find((p) => p.key === "git").text, "main@hotfix");
-  assert.equal(parts.find((p) => p.key === "ctx").tone, "warn");
+  const ctx = parts.find((p) => p.key === "ctx");
+  assert.equal(ctx.kind, "bar");
+  assert.equal(ctx.tone, "warn");
+  assert.ok(ctx.pct > 80);
   assert.equal(parts.find((p) => p.key === "cost").text, "$0.12");
 });
