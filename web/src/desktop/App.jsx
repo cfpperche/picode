@@ -380,6 +380,11 @@ export default function App() {
 
   function toggleDock() {
     if (!selectedId) return;
+    // Dock is the tmux TUI. Managed has no PTY — switch modes first.
+    if (!interactive) {
+      openInteractive(selectedId);
+      return;
+    }
     setDockWanted((s) => {
       const n = new Set(s);
       if (n.has(selectedId)) n.delete(selectedId);
