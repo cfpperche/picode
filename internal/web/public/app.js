@@ -231,22 +231,26 @@ function openChatSurface(ws) {
   if (fresh) closePanel();
   $("#empty").hidden = true;
   $("#chat-surface").hidden = false;
-  $("#chat-agent-name").textContent = ws.name;
-  $("#chat-mode-chip").textContent = agent.mode;
-  $("#btn-stop-agent").hidden = agent.mode === "stopped";
-  $("#btn-dock").hidden = false;
+
+  // Stopped agent: CTA instead of a dead conversation.
+  const stopped = agent.mode === "stopped";
+  $("#run-cta").hidden = !stopped;
+  $("#conversation").style.visibility = stopped ? "hidden" : "visible";
+  $("#composer-status").hidden = stopped;
+  $("#btn-stop-agent").hidden = stopped;
+  $("#btn-dock").hidden = stopped;
+
+  if (stopped) {
+    setChatStatus("stopped", false);
+    return;
+  }
 
   if (agent.mode === "managed") {
     if (fresh) connectPanel(ws);
   } else {
     closePanel();
-    if (agent.mode === "interactive") {
-      setChatStatus("interactive — open the terminal dock", false);
-      if (fresh) addSysLine("Agent is running interactively. Use the Terminal dock to pair with it.");
-    } else {
-      setChatStatus("stopped", false);
-      if (fresh) addSysLine("Agent stopped. Press Run to start it in managed mode.");
-    }
+    setChatStatus("interactive — open the terminal", false);
+    if (fresh) { $("#conversation").innerHTML = ""; addSysLine("Agent is running in the terminal."); }
   }
 }
 
@@ -637,6 +641,7 @@ Theme.apply();
 wireForm();
 wireUserMenu();
 wireComposer();
+$("#btn-run-agent").addEventListener("click", () => state.selectedId && startManaged(state.selectedId));
 window.addEventListener("hashchange", route);
 route();
 loadSystem();

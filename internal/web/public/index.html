@@ -117,16 +117,12 @@
         </div>
 
         <section id="chat-surface" class="chat-surface" hidden>
-          <header class="chat-head">
-            <span class="chat-agent-name" id="chat-agent-name">agent</span>
-            <span class="chip" id="chat-mode-chip">managed</span>
-            <span class="chat-status" id="chat-status">
-              <span class="dot" id="chat-dot"></span><span id="chat-status-text">idle</span>
-            </span>
-            <span class="chat-head-spacer"></span>
-            <button id="btn-stop-agent" class="btn btn-ghost btn-sm" title="Stop this agent" hidden>Stop</button>
-            <button id="btn-dock" class="btn btn-ghost btn-sm" title="Toggle terminal dock" hidden>Terminal</button>
-          </header>
+          <div id="run-cta" class="run-cta" hidden>
+            <div class="run-cta-card">
+              <p>Agent is stopped.</p>
+              <button id="btn-run-agent" class="btn btn-primary">Run agent</button>
+            </div>
+          </div>
 
           <div id="conversation" class="conversation"></div>
 
@@ -139,7 +135,12 @@
                   <option value="steer">Steer</option>
                   <option value="follow_up">Follow-up</option>
                 </select>
+                <span class="composer-status" id="composer-status">
+                  <span class="dot" id="chat-dot"></span><span id="chat-status-text">idle</span>
+                </span>
                 <span class="composer-hint">Enter ↵</span>
+                <button id="btn-dock" class="btn btn-ghost btn-sm" title="Show the terminal" hidden>Terminal</button>
+                <button id="btn-stop-agent" class="btn btn-ghost btn-sm btn-danger" title="Stop this agent" hidden>Stop</button>
                 <button id="task-send" class="btn btn-primary btn-sm" title="Send">Send</button>
               </div>
             </div>
