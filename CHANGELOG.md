@@ -11,6 +11,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **User-menu popover not opening**: a `func`-instead-of-`function` typo
+  in app.js (SyntaxError at boot) shipped inside the last binary; JS
+  syntax-check was not run after the final edit (process slip, noted in
+  handoff). Fixed, plus two systemic guards: `Cache-Control: no-cache` on
+  the app shell (vendor caches 1h) so browsers never serve stale UI after
+  binary upgrades, and a new `go run ./cmd/uicheck <url>` debug tool that
+  loads the app headlessly, captures console exceptions, and clicks the
+  user-menu trigger to verify the popover opens.
+
 ### Added
 
 - **HTTPS by default with mkcert trust (ADR-0007)**: serves TLS on

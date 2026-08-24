@@ -86,7 +86,7 @@ async function loadSystem() {
   }
 }
 
-func renderSettingsSystem() {
+function renderSettingsSystem() {
   const sys = state.system;
   const dl = $("#settings-sys");
   if (!sys) { dl.innerHTML = `<div class="sys-row"><dt>Status</dt><dd>unavailable</dd></div>`; return; }

@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -61,7 +62,7 @@ func New(addr string, deps Deps) *http.Server {
 		// Cannot happen: public/ is embedded at build time.
 		panic("picode: embedded UI missing: " + err.Error())
 	}
-	mux.Handle("/", http.FileServer(http.FS(public)))
+	mux.Handle("/", cacheControl(http.FileServer(http.FS(public))))
 
 	return &http.Server{
 		Addr:              addr,
@@ -95,4 +96,18 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// cacheControl keeps the UI from being stale after binary upgrades: the
+// app shell (index/app/style) must revalidate every load; vendored libs
+// are content-stable per version and cache for an hour.
+func cacheControl(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/vendor/") {
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		next.ServeHTTP(w, r)
+	})
 }

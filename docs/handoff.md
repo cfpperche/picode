@@ -75,6 +75,13 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Fixed user-menu popover not opening (SyntaxError from a
+  `func`→`function` typo that shipped because the JS syntax gate was
+  skipped after the last edit). Systemic guards added: Cache-Control
+  no-cache on the app shell + `cmd/uicheck` headless UI smoke tool
+  (console capture + popover click). **Lesson recorded: the quality
+  gate's JS-syntax step is mandatory after ANY app.js edit.**
+
 - **2026-08-24** — ADR-0007 shipped: HTTPS default (mkcert/self-signed),
   port editable in Settings with graceful rebind + server.json discovery,
   scripts (setup-cert/install-systemd) ported from the agentdeck-proven
