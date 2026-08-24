@@ -27,6 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Composer **floats** over the conversation (Claude/ChatGPT); the
+  scrollbar runs the full pane height.
 - **Send** from the composer works when the agent is stopped or in the
   TUI: the prompt is queued and the agent runs in managed mode (chat).
 - Composer **status line**: cwd, git (dirty *), context bar +(auto), ↑↓
