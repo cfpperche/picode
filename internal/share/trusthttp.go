@@ -301,13 +301,13 @@ func mobileconfig(der []byte) []byte {
 <key>PayloadContent</key><data>%s</data>
 <key>PayloadDescription</key><string>Trust PiCode local HTTPS</string>
 <key>PayloadDisplayName</key><string>PiCode mkcert</string>
-<key>PayloadIdentifier</key><string>dev.mkcert.local</string>
+<key>PayloadIdentifier</key><string>dev.picode.mkcert</string>
 <key>PayloadType</key><string>com.apple.security.root</string>
 <key>PayloadUUID</key><string>%s</string>
 <key>PayloadVersion</key><integer>1</integer>
 </dict></array>
 <key>PayloadDisplayName</key><string>PiCode</string>
-<key>PayloadIdentifier</key><string>dev.mkcert.local.trust</string>
+<key>PayloadIdentifier</key><string>dev.picode.trust</string>
 <key>PayloadRemovalDisallowed</key><false/>
 <key>PayloadType</key><string>Configuration</string>
 <key>PayloadUUID</key><string>%s</string>
