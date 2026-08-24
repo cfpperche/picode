@@ -175,12 +175,19 @@ export default function MobileApp() {
     } catch (e) { toastError(e); }
   }
 
-  function sendTask() {
-    const p = panelRef.current;
+  async function sendTask() {
     const payload = draft.trim();
-    if (!p || !payload || p.sock.readyState !== WebSocket.OPEN) return;
-    pendingPayload.current = payload;
-    p.sock.send(JSON.stringify({ type: "enqueue", kind, payload }));
+    if (!payload || !selected?.agent) return;
+    try {
+      await api("/api/agents/" + selected.agent.id + "/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, payload, source: "user" }),
+      });
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload }]);
+      setDraft("");
+      if (selected.agent.mode !== "managed") await startManaged(selected.id);
+    } catch (e) { toastError(e); }
   }
 
   return (

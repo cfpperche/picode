@@ -27,6 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Send** from the composer works when the agent is stopped or in the
+  TUI: the prompt is queued and the agent runs in managed mode (chat).
 - Composer **status line**: cwd, git (dirty *), context bar +(auto), ↑↓
   tokens, cache hit, cost, session name.
   (same facts as the pi TUI footer; no invented provider quotas).

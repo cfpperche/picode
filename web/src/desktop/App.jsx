@@ -298,15 +298,18 @@ export default function App() {
           };
         }));
         break;
-      case "enqueue_accepted":
-        setItems((cur) => [...cur, {
-          kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt",
-          text: pendingPayload.current || "",
-        }]);
+      case "enqueue_accepted": {
+        const text = pendingPayload.current;
         pendingPayload.current = "";
         setDraft("");
+        if (text) {
+          setItems((cur) => [...cur, {
+            kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt", text,
+          }]);
+        }
         queueMicrotask(scrollConv);
         break;
+      }
       case "task_delivered":
         setItems((cur) => [...cur, { kind: "sys", text: `✓ delivered (${ev.kind})` }]);
         break;
@@ -408,12 +411,25 @@ export default function App() {
     }
   }
 
-  function sendTask() {
-    const p = panelRef.current;
+  async function sendTask() {
     const payload = draft.trim();
-    if (!p || !payload || p.sock.readyState !== WebSocket.OPEN) return;
-    pendingPayload.current = payload;
-    p.sock.send(JSON.stringify({ type: "enqueue", kind, payload }));
+    if (!payload || !selected || !agent) return;
+    try {
+      await api("/api/agents/" + agent.id + "/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, payload, source: "user" }),
+      });
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload }]);
+      setDraft("");
+      pendingPayload.current = "";
+      if (agent.mode === "interactive") {
+        setDockWanted((s) => { const n = new Set(s); n.delete(selected.id); return n; });
+      }
+      if (agent.mode !== "managed") {
+        await startManaged(selected.id);
+      }
+    } catch (e) { toastError(e); }
   }
 
   function setTheme(mode) {
