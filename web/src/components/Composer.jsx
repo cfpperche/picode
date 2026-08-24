@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
+import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend } from "./Icons.jsx";
 import { filterSlash } from "../lib/slash.js";
@@ -71,6 +72,7 @@ export default function Composer({
             <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ThinkingChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
+            <ModeChip cfg={cfg} onChange={onConfig || (() => {})} />
             <KindChip value={kind} onChange={onKind} />
           </div>
           <div className="composer-right">

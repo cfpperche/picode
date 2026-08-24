@@ -1,4 +1,4 @@
-import { modelChipLabel, thinkingChipLabel, thinkingChoices, providerChipLabel, providerChoices, modelChoices, filterChoices, shortModel } from "./chip.js";
+import { modelChipLabel, thinkingChipLabel, thinkingChoices, providerChipLabel, providerChoices, modelChoices, modeChipLabel, modeChoices, filterChoices, shortModel } from "./chip.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -43,6 +43,12 @@ test("models scoped to provider", () => {
 test("filterChoices is case-insensitive", () => {
   const hits = filterChoices([{ id: "a", label: "claude-opus-4" }], "OPUS");
   assert.equal(hits.length, 1);
+});
+
+test("mode chips", () => {
+  assert.equal(modeChipLabel({}), "Full");
+  assert.equal(modeChipLabel({ opMode: "readonly" }), "Read-only");
+  assert.deepEqual(modeChoices().map((o) => o.id), ["full", "readonly"]);
 });
 
 test("shortens long ids", () => {

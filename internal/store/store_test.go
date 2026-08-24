@@ -264,3 +264,36 @@ func TestUpdateAgent(t *testing.T) {
 		t.Fatalf("model should stay: %+v", got.Model)
 	}
 }
+
+func TestOpModeCLIFlags(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := s.AddWorkspace("Mode", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ro := "readonly"
+	got, err := s.UpdateAgent(agent.ID, AgentPatch{OpMode: &ro})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := got.CLIFlags()
+	want := []string{"--tools", ReadonlyTools}
+	if len(flags) != 2 || flags[0] != want[0] || flags[1] != want[1] {
+		t.Fatalf("CLIFlags = %v, want %v", flags, want)
+	}
+	full := "full"
+	got, err = s.UpdateAgent(agent.ID, AgentPatch{OpMode: &full})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.OpMode != nil {
+		t.Fatalf("full should clear op_mode, got %v", got.OpMode)
+	}
+	if len(got.CLIFlags()) != 0 {
+		t.Fatalf("full flags = %v", got.CLIFlags())
+	}
+	bad := "bypass"
+	if _, err := s.UpdateAgent(agent.ID, AgentPatch{OpMode: &bad}); err == nil {
+		t.Fatal("want error for unknown mode")
+	}
+}

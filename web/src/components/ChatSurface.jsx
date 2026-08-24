@@ -9,6 +9,7 @@ export default function ChatSurface({
     provider: (agent && agent.provider) || "",
     model: (agent && agent.model) || "",
     thinking: (agent && agent.thinking) || "",
+    opMode: (agent && agent.opMode) || "full",
   };
   return (
     <section id="chat-surface" className="chat-surface" hidden={hidden}>

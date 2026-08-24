@@ -487,6 +487,9 @@ export default function App() {
             agent={agent}
             onConfig={async (cfg) => {
               if (!agent) return;
+              const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
+                && (cfg.opMode || "full") !== (agent.opMode || "full");
+              const was = agent.mode;
               try {
                 await api("/api/agents/" + agent.id, {
                   method: "PATCH",
@@ -494,6 +497,11 @@ export default function App() {
                   body: JSON.stringify(cfg),
                 });
                 await loadWorkspaces();
+                if (modeChanged && selectedId && was && was !== "stopped") {
+                  await stopAgent(selectedId);
+                  if (was === "managed") await startManaged(selectedId);
+                  else if (was === "interactive") await openInteractive(selectedId);
+                }
               } catch (e) { toastError(e); }
             }}
             onSlash={async (cmd) => {

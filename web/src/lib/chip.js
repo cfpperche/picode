@@ -56,6 +56,17 @@ export function thinkingChoices(catalog, providerId, modelId) {
   return opts;
 }
 
+export function modeChipLabel(cfg) {
+  return (cfg && cfg.opMode) === "readonly" ? "Read-only" : "Full";
+}
+
+export function modeChoices() {
+  return [
+    { id: "full", label: "Full", hint: "All tools" },
+    { id: "readonly", label: "Read-only", hint: "read, grep, find, ls" },
+  ];
+}
+
 export function filterChoices(options, query) {
   const q = (query || "").trim().toLowerCase();
   if (!q) return options || [];
