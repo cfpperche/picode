@@ -17,6 +17,8 @@ extension, so agents talk to each other using Pi's own tool-calling protocol.
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
 picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`.
 Shared code lives in `web/src/lib`. Rotate does not remount (would drop WS).
+The mobile shell is a PWA (`manifest.webmanifest`, `sw.js`, Apple
+`apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
 
 Hash routes. **Settings is PiCode-the-product only.** Anything that
 configures *pi* (credentials, MCP, later skills/profiles) gets its own

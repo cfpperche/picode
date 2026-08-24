@@ -24,6 +24,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Mobile **PWA**: installable home-screen app (`standalone`, Apple meta,
+  service worker). start_url forces the mobile shell.
 - **Devices** (`#/devices`): connected browsers. Host vs other machines
   (iPhone/Android + IP). Online if pinged in the last 45s.
 - Phone trust page is a 3-step wizard, iOS vs Android from User-Agent

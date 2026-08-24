@@ -261,6 +261,11 @@ export default function MobileApp() {
                 <li><button type="button" className="m-ws" onClick={() => setMore("providers")}>Providers</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("mcps")}>MCPs</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setShell("desktop")}>Desktop layout</button></li>
+                {!window.matchMedia("(display-mode: standalone)").matches && (
+                  <li className="m-empty" style={{ textAlign: "left" }}>
+                    Add to Home Screen for full screen: iPhone Share → Add to Home Screen. Android Chrome → Install app.
+                  </li>
+                )}
               </ul>
             )}
             {more === "devices" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Devices hidden={false} /></>}

@@ -7,3 +7,7 @@ import "./index.css";
 // No StrictMode: xterm + agent websockets must not double-mount.
 const App = pickShell() === "mobile" ? MobileApp : DesktopApp;
 createRoot(document.getElementById("root")).render(<App />);
+
+if (location.protocol === "https:" && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
