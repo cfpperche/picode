@@ -34,12 +34,13 @@ type Target struct {
 
 // Report is the payload for GET /api/share.
 type Report struct {
-	Ready    bool     `json:"ready"`
-	URL      string   `json:"url,omitempty"`
-	URLs     []string `json:"urls"`
-	Targets  []Target `json:"targets"`
-	Checks   []Check  `json:"checks"`
-	TrustURL string   `json:"trustUrl,omitempty"`
+	Ready     bool     `json:"ready"`
+	URL       string   `json:"url,omitempty"`
+	URLs      []string `json:"urls"`
+	Targets   []Target `json:"targets"`
+	Checks    []Check  `json:"checks"`
+	TrustURL  string   `json:"trustUrl,omitempty"`
+	TrustPort string   `json:"trustPort,omitempty"`
 }
 
 // Input is live server state needed to diagnose.

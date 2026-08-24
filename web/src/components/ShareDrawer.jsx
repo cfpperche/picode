@@ -19,7 +19,8 @@ export default function ShareDrawer({ open, onClose }) {
   const url = picked || (report && report.url) || "";
   const chosen = targets.find((t) => t.url === url) || (url ? { url, onCert: true, kind: "" } : null);
   const appURL = withHash(url);
-  const qrURL = trustPage(report && report.trustUrl, appURL);
+  const host = chosen && chosen.addr;
+  const qrURL = trustPage(report && report.trustPort, host, appURL);
   const canQR = !!qrURL;
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function ShareDrawer({ open, onClose }) {
               <div className="share-qr">
                 <canvas ref={canvasRef} />
                 <p className="share-url">{qrURL}</p>
-                {report.trustUrl ? <p className="share-muted">Scan installs trust, then open PiCode. iPhone: enable the profile under Certificate Trust Settings.</p> : null}
+                {report.trustPort ? <p className="share-muted">Same path as the selected row (LAN or Tailscale). iPhone: install profile, then Certificate Trust Settings.</p> : null}
               </div>
             ) : null}
             {misses.length ? (
@@ -98,13 +99,10 @@ function withHash(url) {
   return url.replace(/\/$/, "") + "/" + location.hash;
 }
 
-function trustPage(trust, app) {
-  if (!trust) return app;
-  try {
-    const u = new URL(trust);
-    if (app) u.searchParams.set("next", app);
-    return u.toString();
-  } catch {
-    return trust;
-  }
+function trustPage(port, addr, app) {
+  if (!addr) return app || "";
+  if (!port) return app || "";
+  const u = new URL("http://" + addr + ":" + port + "/");
+  if (app) u.searchParams.set("next", app);
+  return u.toString();
 }

@@ -20,10 +20,13 @@ func handleShare(deps Deps) http.HandlerFunc {
 			Port:     port,
 			DataDir:  deps.DataDir,
 		})
-		if tp := share.EnsureTrustHTTP(); tp != "" && rep.URL != "" {
-			if u, err := url.Parse(rep.URL); err == nil {
-				base := share.TrustURL(u.Hostname(), tp)
-				rep.TrustURL = base + "?next=" + url.QueryEscape(rep.URL)
+		if tp := share.EnsureTrustHTTP(); tp != "" {
+			rep.TrustPort = tp
+			if rep.URL != "" {
+				if u, err := url.Parse(rep.URL); err == nil {
+					base := share.TrustURL(u.Hostname(), tp)
+					rep.TrustURL = base + "?next=" + url.QueryEscape(rep.URL)
+				}
 			}
 		}
 		writeJSON(w, http.StatusOK, rep)

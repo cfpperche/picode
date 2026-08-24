@@ -69,6 +69,7 @@ func EnsureTrustHTTP() string {
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 	trustAddr = port
 	log.Printf("share: trust HTTP on :%s", port)
+	tryOpenWindowsPorts(8445, trustPort)
 	return port
 }
 
