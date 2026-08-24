@@ -86,6 +86,12 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-24** — Owner feedback round 3 ("system unusable: no agent tabs,
+  dock can't be closed, auto-opens"): implemented IDE-style **agent tabs**
+  (open/select/close via sidebar + tab strip; closers; status dots), dock
+  opens ONLY by explicit action and stays closed. QA-method lesson recorded
+  in the agent-browser skill (exploratory recipe). Watch-item: one tmux
+  session ended during dock toggling — root cause unknown, monitor.
 - **2026-08-24** — **Exploratory QA (agent-browser dogfooding)**: full
   click-through of the app — form validation, Run + real-pi prompt →
   stream + tool pills (verified real file listing), follow-up chips,

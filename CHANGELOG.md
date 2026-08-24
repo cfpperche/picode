@@ -11,6 +11,23 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Changed (owner feedback: agents must be IDE tabs; dock must not auto-open)
+
+- **Agents now open as tabs in the editor area** (IDE convention): clicking
+  a workspace in the sidebar opens/selects a tab; tabs carry a status dot
+  and a closer; closing a tab detaches the terminal attach but the agent
+  keeps running. Multiple agents coexist as tabs.
+- **Terminal dock never auto-opens** (bug + UX): previously selecting an
+  interactive agent always re-opened the dock, defeating the closer — the
+  #1 "unusable" report. Dock now opens ONLY via the explicit Terminal
+  action and stays closed across sidebar clicks and reloads.
+- Sidebar active state syncs with tab selection.
+- `agent-browser` skill gains an **exploratory QA recipe** (clickability
+  sweep, open/close persistence cycles, reload-state checks, IDE
+  conventions) — the lesson from this round's QA gap.
+
 ### Fixed (exploratory QA round — agent-browser skill dogfooding)
 
 - **Ghost overlay blocked the chat after Run**: `.run-cta`'s explicit

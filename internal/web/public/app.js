@@ -7,6 +7,7 @@ const $ = (sel) => document.querySelector(sel);
 const state = {
   workspaces: [],
   selectedId: null,
+  tabs: [],       // open agent tabs (workspace ids), IDE-style
   system: null,
   version: "",
   terms: new Map(),   // agentId -> { term, fit, sock, paneEl, tabEl, onWinResize, closedByUser }
@@ -177,6 +178,7 @@ function wireUserMenu() {
 async function loadWorkspaces() {
   state.workspaces = await api("/api/workspaces");
   renderWorkspaceList();
+  renderTabs();
   renderEmpty();
 }
 
@@ -227,10 +229,61 @@ function renderWorkspaceList() {
   }
 }
 
+// ---------- agent tabs (IDE-style) ----------
+function renderTabs() {
+  const strip = $("#tab-strip");
+  strip.innerHTML = "";
+  $("#main-tabs").hidden = state.tabs.length === 0;
+  for (const id of state.tabs) {
+    const ws = state.workspaces.find((w) => w.id === id);
+    if (!ws) continue;
+    const mode = ws.agent ? ws.agent.mode : "stopped";
+    const t = document.createElement("div");
+    t.className = "mtab" + (id === state.selectedId ? " active" : "");
+    t.innerHTML = `<span class="mtab-dot ${mode !== "stopped" ? "running" : ""}"></span>
+      <span>${escapeHTML(ws.name)}</span>
+      <button class="mtab-close" title="Close tab (agent keeps running)">×</button>`;
+    t.addEventListener("click", (e) => {
+      if (e.target.closest(".mtab-close")) return;
+      selectTab(id);
+    });
+    t.querySelector(".mtab-close").addEventListener("click", () => closeTab(id));
+    strip.appendChild(t);
+  }
+}
+
+function openTab(id) {
+  if (!state.tabs.includes(id)) state.tabs.push(id);
+  state.selectedId = id;
+  renderTabs();
+  renderWorkspaceList();
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (ws) openChatSurface(ws); // never auto-opens the dock
+}
+
+function selectTab(id) {
+  state.selectedId = id;
+  renderTabs();
+  const ws = state.workspaces.find((w) => w.id === id);
+  if (ws) openChatSurface(ws);
+}
+
+function closeTab(id) {
+  const ws = state.workspaces.find((w) => w.id === id);
+  state.tabs = state.tabs.filter((t) => t !== id);
+  if (ws && ws.agent) closeTerm(ws.agent.id, true); // detach only — agent lives
+  if (state.panel && ws && ws.agent && state.panel.agentId === ws.agent.id) closePanel();
+  if (state.selectedId === id) {
+    const next = state.tabs[state.tabs.length - 1];
+    if (next) selectTab(next);
+    else { state.selectedId = null; renderTabs(); renderEmpty(); }
+  } else renderTabs();
+}
+
 function renderEmpty() {
-  const has = state.workspaces.length > 0;
-  $("#empty").hidden = has;
-  if (!has) {
+  const noTabs = state.tabs.length === 0;
+  $("#empty").hidden = !noTabs;
+  if (noTabs) {
     $("#chat-surface").hidden = true;
     hideDock();
   }
@@ -238,11 +291,7 @@ function renderEmpty() {
 
 function selectWorkspace(id) {
   state.selectedId = id;
-  renderWorkspaceList();
-  const ws = state.workspaces.find((w) => w.id === id);
-  if (!ws || !ws.agent) return;
-  openChatSurface(ws);
-  if (ws.agent.mode === "interactive") attachTermAndShowDock(ws.agent.id, ws);
+  openTab(id); // sidebar click opens (and selects) the agent tab
 }
 
 async function startManaged(id) {
@@ -265,7 +314,8 @@ async function openInteractive(id) {
     await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
     state.selectedId = id;
     await loadWorkspaces();
-    selectWorkspace(id); // interactive branch attaches the terminal dock
+    openTab(id); // interactive branch prepares the attach…
+    showDock();  // …and "Open terminal" is an explicit action: show the dock
   } catch (err) { alert(humanizeError(err.message)); }
 }
 
@@ -315,8 +365,15 @@ function openChatSurface(ws) {
     if (fresh) connectPanel(ws);
   } else {
     closePanel();
-    setChatStatus("interactive — open the terminal", false);
-    if (fresh) { $("#conversation").innerHTML = ""; addSysLine("Agent is running in the terminal."); }
+    if (agent.mode === "interactive") {
+      setChatStatus("interactive — open the terminal", false);
+      if (!state.terms.has(agent.id)) {
+        attachTerm(agent.id, ws); // prepare the attach; dock stays closed until toggled
+      }
+      if (fresh) { $("#conversation").innerHTML = ""; addSysLine("Agent is running in the terminal. Use the Terminal button to pair with it."); }
+    } else {
+      setChatStatus("stopped", false);
+    }
   }
 }
 
@@ -548,10 +605,8 @@ function setTermState(connected) {
   $("#sb-state-text").textContent = connected ? "connected" : "detached";
 }
 
-function attachTermAndShowDock(agentId, ws) {
-  attachTerm(agentId, ws);
-  showDock();
-}
+// attachTerm (re)attaches the tmux terminal WITHOUT opening the dock;
+// the dock opens only through explicit user action (btn-dock).
 
 function attachTerm(id, ws) {
   if (state.terms.has(id)) { activateTerm(id); return; }

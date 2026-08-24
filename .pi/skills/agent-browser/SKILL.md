@@ -65,6 +65,22 @@ npm install -g agent-browser
 
 ## Testing PiCode itself
 
+### Exploratory QA recipe (learned the hard way)
+
+Functional click-throughs are NOT enough. Before declaring UI work done, also:
+
+1. **Clickability sweep**: attempt a REAL click on every primary control
+   (`click` fails loudly when an element is covered — CSS `display` beating
+   the `hidden` attribute creates invisible full-surface overlays).
+2. **Open/close cycles**: dock/panel/tab/modal — open, close, verify it STAYS
+   closed after unrelated interactions (sidebar clicks, reloads). Auto-reopen
+   after close is a bug users hit immediately.
+3. **Persistence across reload**: state should survive; selection/layout
+   should be sane with zero running agents (no dead zones).
+4. **IDE conventions**: agents open as TABS in the editor area; docks/panels
+   open only by explicit user action; closers always visible on hover.
+5. **Console + network sweep** at the end: zero errors expected.
+
 PiCode serves HTTPS (self-signed or mkcert) with a **runtime-configurable
 port** — don't assume 8445:
 
