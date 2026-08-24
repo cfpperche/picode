@@ -366,7 +366,7 @@ body {
 /* ============ composer ============ */
 .composer-wrap { flex: none; padding: 10px 20px 14px; }
 .composer {
-  max-width: 760px; margin: 0 auto;
+  max-width: 760px; margin: 0 auto; position: relative;
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
   padding: 10px 12px 8px;
@@ -379,8 +379,28 @@ body {
 }
 #task-input::placeholder { color: var(--text-secondary); }
 .composer-controls {
-  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px;
 }
+.composer-controls .cfg-fields.cfg-row { flex: 1; min-width: 0; }
+.composer-controls .cfg-row select {
+  max-width: 160px; padding: 2px 6px; font-size: 11.5px; font-family: var(--mono);
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-secondary); cursor: pointer;
+}
+.slash-menu {
+  position: absolute; left: 8px; right: 8px; bottom: 100%;
+  margin: 0 0 6px; padding: 4px; list-style: none;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 10px; max-height: 240px; overflow-y: auto; z-index: 8;
+}
+.slash-item {
+  display: flex; justify-content: space-between; gap: 12px; width: 100%;
+  padding: 7px 10px; border: 0; background: none; border-radius: 6px;
+  font: inherit; cursor: pointer; color: var(--text-primary); text-align: left;
+}
+.slash-item.active { background: var(--bg-hover); }
+.slash-label { font-family: var(--mono); font-size: 12.5px; }
+.slash-hint { font-size: 11.5px; color: var(--text-secondary); }
 .kind-chip {
   background: var(--bg-base); color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: 6px;

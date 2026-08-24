@@ -1,10 +1,9 @@
 import Conversation from "./Conversation.jsx";
 import Composer from "./Composer.jsx";
-import ConfigFields from "./ConfigFields.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
-  composer, onRun, onOpenTerm, catalog, agent, onConfig,
+  composer, onRun, onOpenTerm, catalog, agent, onConfig, onSlash,
 }) {
   const cfg = {
     provider: (agent && agent.provider) || "",
@@ -13,9 +12,6 @@ export default function ChatSurface({
   };
   return (
     <section id="chat-surface" className="chat-surface" hidden={hidden}>
-      <div className="agent-bar" hidden={!agent}>
-        <ConfigFields catalog={catalog} {...cfg} onChange={onConfig} idPrefix="agent" row />
-      </div>
       <div className="chat-body">
         <div id="run-cta" className="run-cta" hidden={!stopped}>
           <div className="run-cta-card">
@@ -27,7 +23,7 @@ export default function ChatSurface({
           </div>
         </div>
         <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped} />
-        <Composer {...composer} stopped={stopped} />
+        <Composer {...composer} stopped={stopped} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} />
       </div>
     </section>
   );

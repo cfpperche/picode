@@ -489,6 +489,25 @@ export default function App() {
                 await loadWorkspaces();
               } catch (e) { alert(e.message); }
             }}
+            onSlash={async (cmd) => {
+              if (!agent) return;
+              if (cmd.run === "focus-model") { document.getElementById("agent-model")?.focus(); return; }
+              if (cmd.run === "focus-thinking") { document.getElementById("agent-thinking")?.focus(); return; }
+              if (cmd.run === "focus-provider") { document.getElementById("agent-provider")?.focus(); return; }
+              try {
+                if (cmd.run === "login") {
+                  await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+                } else if (cmd.run === "term") {
+                  await api("/api/agents/" + agent.id + "/command", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: cmd.label }),
+                  });
+                }
+                await loadWorkspaces();
+                if (selectedId) setDockWanted((s) => new Set(s).add(selectedId));
+              } catch (e) { alert(e.message); }
+            }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               status, streaming, onToggleDock: toggleDock, onStop: () => selectedId && stopAgent(selectedId),

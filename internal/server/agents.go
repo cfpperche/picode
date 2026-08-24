@@ -18,6 +18,7 @@ func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/managed/stop", handleManagedStop(deps))
 	mux.HandleFunc("PATCH /api/agents/{id}", handlePatchAgent(deps))
 	mux.HandleFunc("POST /api/agents/{id}/login", handleAgentLogin(deps))
+	mux.HandleFunc("POST /api/agents/{id}/command", handleAgentCommand(deps))
 }
 
 // agentRunMode reports how an agent is currently running.
@@ -277,5 +278,60 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "session": name, "command": cmd})
+	}
+}
+
+// handleAgentCommand types a native pi slash command into the interactive TUI.
+func handleAgentCommand(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		var req struct {
+			Text string `json:"text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Text == "" {
+			writeErr(w, http.StatusBadRequest, "text required")
+			return
+		}
+		if req.Text[0] != '/' {
+			writeErr(w, http.StatusBadRequest, "only slash commands")
+			return
+		}
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !deps.Tmux.Available() {
+			writeErr(w, http.StatusServiceUnavailable, "tmux is not installed")
+			return
+		}
+		deps.Runtime.Stop(id)
+		name := tmux.SessionName(id)
+		has, err := deps.Tmux.HasSession(r.Context(), name)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if !has {
+			if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd, agent.CLIFlags()...); err != nil {
+				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
+				return
+			}
+			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+		}
+		if err := deps.Tmux.SendKeys(r.Context(), name, req.Text, "Enter"); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "session": name, "command": req.Text})
 	}
 }
