@@ -74,22 +74,24 @@ export default function Sidebar({
         className={"ws-item" + (ag.id === selectedId ? " active" : "")}
         onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
       >
-        <div className="ws-row1">
+        <div className="ws-row1 tree-row">
+          <span className="tree-spc" aria-hidden="true" />
           <ProviderFace agent={ag} />
           <span className="ws-name" title={title}>{label}{model ? <span className="ws-model"> - {model}</span> : null}</span>
-          <span className="ws-actions">
-            {mode === "stopped"
-              ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
-              : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
-            <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
-            <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
-            <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
-          </span>
         </div>
-        <div className="ws-row2">
-          {repo.git ? <IconGit /> : <IconFolder size={12} />}
+        <div className="ws-row2 tree-row">
+          <span className="tree-spc" aria-hidden="true" />
+          <span className="tree-icon">{repo.git ? <IconGit size={14} /> : <IconFolder size={14} />}</span>
           <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{repo.text}</span>
         </div>
+        <span className="ws-actions">
+          {mode === "stopped"
+            ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
+            : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
+          <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
+          <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
+          <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
+        </span>
       </li>
     );
   }
@@ -105,22 +107,24 @@ export default function Sidebar({
       </header>
 
       <div className="side-section">
-        <div className="side-head" onClick={() => toggleWs("sec-agents")}>
+        <div className="side-head tree-row" onClick={() => toggleWs("sec-agents")}>
           <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
-          <span className="side-title"><IconAgent /> Agents</span>
-          {!isOpen("sec-agents") ? collapsedMark(freeAgents) : null}
+          <span className="tree-icon"><IconAgent size={16} /></span>
+          <span className="side-title">Agents</span>
+          <span className="tree-meta">{!isOpen("sec-agents") ? collapsedMark(freeAgents) : null}</span>
           <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); onNewFree(); }}><IconPlus /></button>
         </div>
         {isOpen("sec-agents") ? (
           (freeAgents || []).length
-            ? <ul className="ws-list">{(freeAgents || []).map((ag) => agentRow(ag, null))}</ul>
+            ? <ul className="ws-list tree-children">{(freeAgents || []).map((ag) => agentRow(ag, null))}</ul>
             : <p className="side-empty">No agents</p>
         ) : null}
 
-        <div className="side-head" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
+        <div className="side-head tree-row" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
           <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
-          <span className="side-title"><IconFolder /> Workspaces</span>
-          {!isOpen("sec-workspaces") ? collapsedMark(workspaceAgents(workspaces)) : null}
+          <span className="tree-icon"><IconFolder size={16} /></span>
+          <span className="side-title">Workspaces</span>
+          <span className="tree-meta">{!isOpen("sec-workspaces") ? collapsedMark(workspaceAgents(workspaces)) : null}</span>
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); onNew(); }}><IconPlus /></button>
         </div>
 
@@ -128,13 +132,14 @@ export default function Sidebar({
         workspaces.length === 0 ? (
           <p className="side-empty">No workspaces</p>
         ) : (
-        <ul id="ws-list" className="ws-list">
+        <ul id="ws-list" className="ws-list tree-children">
           {workspaces.map((ws) => (
             <li key={ws.id} className="ws-group">
-              <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
+              <div className="ws-group-head tree-row" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
+                <span className="tree-icon"><IconFolder size={16} /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                {!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}
+                <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
@@ -142,7 +147,7 @@ export default function Sidebar({
               </div>
               {isOpen(ws.id) ? (
                 agentsOf(ws).length
-                  ? <ul className="ws-list nested">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul>
+                  ? <ul className="ws-list tree-children">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul>
                   : <p className="side-empty">No agents</p>
               ) : null}
             </li>
