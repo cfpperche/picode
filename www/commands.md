@@ -170,7 +170,7 @@ Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/package
 | | pi TUI | PiCode |
 |---|---|---|
 | Login | URL + optional key | same |
-| Manage | `/llama` load/unload/download | load/unload; download later |
+| Manage | `/llama` load/unload/download | load/unload/download HF |
 
 ## Skills and templates
 

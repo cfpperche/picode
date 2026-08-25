@@ -284,7 +284,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           </ul>
         )}
       </section>
-      {signed.some((p) => p.id === "llama.cpp") ? <LlamaPanel /> : null}
+      {signed.some((p) => p.id === "llama.cpp") ? <LlamaPanel onRefresh={onRefresh} /> : null}
       {recentRows.length ? (
         <section className="settings-section">
           <div className="set-row">

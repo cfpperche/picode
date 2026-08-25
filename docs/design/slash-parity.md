@@ -57,7 +57,7 @@ Count against the TUI 24 (not extras): **24 ui · 0 partial · 0 proxy · 0 miss
 | 21 | `/resume` | pick a session | session picker | **ui** | |
 | 22 | `/reload` | reload skills/config | reload + toast | **ui** | Restarts the process; RPC has no reload |
 | 23 | `/quit` | quit pi | stop this agent | **ui** | Must not close the browser |
-| 24 | `/llama` | llama.cpp models | `#/providers` llama.cpp panel | **ui** | Load/unload. HF download later. |
+| 24 | `/llama` | llama.cpp models | `#/providers` llama.cpp panel | **ui** | Load/unload/download HF |
 
 ## `/tree` TUI vs GUI (parity break)
 

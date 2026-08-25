@@ -134,6 +134,7 @@ func handleCatalog(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
+		attachLlamaModels(&rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
 }

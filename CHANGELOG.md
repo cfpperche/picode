@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- `/llama` llama.cpp panel (router URL login, load/unload). Hugging Face download later.
+- `/llama` llama.cpp panel: login, load/unload (waits), Hugging Face download. Loaded models join the catalog chip.
 - `/share` creates a secret GitHub gist (`gh`). Not the phone QR.
 - Composer `/` lists skills and prompt templates (insert; pi expands on send).
 - `/export` JSONL download, `/import` file picker, `/hotkeys`, `/changelog` (installed pi).

@@ -127,3 +127,48 @@ func (c *Client) Unload(id string) error {
 	_, err := c.do(http.MethodPost, "/models/unload", map[string]string{"model": id})
 	return err
 }
+
+func (c *Client) Download(id string) error {
+	_, err := c.do(http.MethodPost, "/models", map[string]string{"model": id})
+	return err
+}
+
+func (c *Client) Wait(id, want string, max time.Duration) error {
+	deadline := time.Now().Add(max)
+	for time.Now().Before(deadline) {
+		list, err := c.List()
+		if err != nil {
+			return err
+		}
+		var st string
+		for _, m := range list {
+			if m.ID == id {
+				st = m.Status
+				break
+			}
+		}
+		switch want {
+		case "loaded":
+			if st == "loaded" || st == "sleeping" {
+				return nil
+			}
+			if st == "failed" {
+				return fmt.Errorf("load failed")
+			}
+		case "unloaded":
+			if st == "" || st == "unloaded" {
+				return nil
+			}
+		case "downloaded":
+			if st != "" && st != "downloading" {
+				return nil
+			}
+		}
+		time.Sleep(400 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out")
+}
+
+func (c *Client) ShortTimeout() {
+	c.http.Timeout = 2 * time.Second
+}
