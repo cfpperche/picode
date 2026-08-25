@@ -37,6 +37,21 @@ folder (not `ws_free`). **Agent** always.
 Unbound agent (`ws_free`): Global + Agent. Their `work_path` is **not**
 a workspace; we do not invent a project file there in v1.
 
+**Agent ≠ session.** One agent is one live `pi` (ADR-0011). It holds
+**N session files** (JSONL); only one is current. The Agent card is
+config for **every session that process opens** (provider, model,
+thinking, Full/Read-only, cwd). It is not “this chat”.
+
+| Layer | Shared by |
+|---|---|
+| Global | all pi on this machine |
+| Workspace | all agents whose cwd is that folder |
+| Agent | all sessions of that agent |
+| Session (not on this page) | this JSONL only: name, tree, compact *this* context |
+
+`/new` `/resume` `/name` `/compact` `/tree` stay session verbs.
+Settings does not grow a fourth card in v1.
+
 Effective value = merge (project overlays global, same as pi). GUI
 shows the effective value and **which layer last wrote it**.
 
