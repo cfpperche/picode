@@ -84,7 +84,7 @@ export default function Sidebar({
 
       <div className="side-section">
         <div className="side-head">
-          <span className="side-title" title="Agents"><IconAgent /></span>
+          <span className="side-title"><IconAgent /> Agents</span>
           <button type="button" className="ws-icon-btn" title="New agent" onClick={onNewFree}><IconPlus /></button>
         </div>
         {showForm && formKind === "free" ? (
@@ -104,7 +104,7 @@ export default function Sidebar({
         </ul>
 
         <div className="side-head" style={{ marginTop: 14 }}>
-          <span className="side-title" title="Workspaces"><IconFolder /></span>
+          <span className="side-title"><IconFolder /> Workspaces</span>
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={onNew}><IconPlus /></button>
         </div>
 
