@@ -23,7 +23,7 @@
 }
 :root[data-theme="light"] {
   --bg-base: #ffffff;
-  --bg-panel: #eef0f4;
+  --bg-panel: oklch(96.7% 0.003 264.542);
   --bg-elevated: var(--bg-panel);
   --bg-hover: #e6e9ef;
   --border: #dfe3ea;
