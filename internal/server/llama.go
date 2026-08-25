@@ -18,6 +18,7 @@ func registerLlama(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/llama/hf/info", handleLlamaHFInfo)
 	mux.HandleFunc("POST /api/llama/download", handleLlamaDownload)
 	mux.HandleFunc("POST /api/llama/start", handleLlamaStart)
+	mux.HandleFunc("POST /api/llama/install", handleLlamaInstall)
 }
 
 func llamaClient() (*llama.Client, error) {
@@ -48,6 +49,15 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 		"models": models,
 		"setup":  llama.Inspect(llamaURL(), models, ok),
 	})
+}
+
+func handleLlamaInstall(w http.ResponseWriter, r *http.Request) {
+	bin, err := llama.InstallBinary()
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "binary": bin})
 }
 
 func handleLlamaStart(w http.ResponseWriter, r *http.Request) {

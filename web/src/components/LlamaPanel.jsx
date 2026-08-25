@@ -24,6 +24,7 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [info, setInfo] = useState(null);
+  const [setup, setSetup] = useState(null);
 
   async function refresh() {
     try {
@@ -31,6 +32,7 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
       setUrl(res.url || "http://127.0.0.1:8080");
       setOk(!!res.ok);
       setModels(res.models || []);
+      setSetup(res.setup || null);
     } catch {
       setOk(false);
       setUrl((u) => u || "http://127.0.0.1:8080");
@@ -39,6 +41,28 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
   }
 
   useEffect(() => { refresh(); }, []);
+
+  async function install() {
+    setBusy("installing");
+    try {
+      await api("/api/llama/install", { method: "POST" });
+      toast.ok("Installed llama-server.");
+      await startRouter();
+    } catch (ex) { toastError(ex); }
+    finally { setBusy(""); }
+  }
+
+  async function startRouter() {
+    setBusy("starting");
+    try {
+      await api("/api/llama/start", { method: "POST" });
+      await saveUrl();
+      await new Promise((r) => setTimeout(r, 1500));
+      await refresh();
+      toast.ok("Router started.");
+    } catch (ex) { toastError(ex); }
+    finally { setBusy(""); }
+  }
 
   async function saveUrl(e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -166,7 +190,13 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
         {ok ? "" : " · unreachable"}{busy ? " · " + busy : ""}
       </p>
       {!ok ? (
-        <p className="side-empty">Router unreachable.</p>
+        <div className="dlg-actions" style={{ marginTop: 8 }}>
+          {setup && setup.binary ? (
+            <button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={startRouter}>{busy === "starting" ? "Starting…" : "Start router"}</button>
+          ) : (
+            <button type="button" className="btn btn-primary btn-sm" disabled={!!busy} onClick={install}>{busy === "installing" ? "Installing…" : "Install llama-server"}</button>
+          )}
+        </div>
       ) : models.length === 0 ? (
         <p className="side-empty">No models.</p>
       ) : (

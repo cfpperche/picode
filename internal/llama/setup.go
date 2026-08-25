@@ -35,6 +35,9 @@ func modelsDir() string {
 }
 
 func findBinary() string {
+	if p := bundledBinary(); p != "" {
+		return p
+	}
 	for _, n := range []string{"llama-server", "llama-server.exe"} {
 		if p, err := exec.LookPath(n); err == nil {
 			return p
