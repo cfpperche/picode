@@ -11,8 +11,18 @@ import (
 
 func registerPackageRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/packages", handleListPackages)
+	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
 	mux.HandleFunc("DELETE /api/packages", handleRemovePackage(deps))
+}
+
+func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
+	page, err := pipkg.SearchGallery(r.Context(), r.URL.Query().Get("q"))
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
 }
 
 func handleListPackages(w http.ResponseWriter, _ *http.Request) {

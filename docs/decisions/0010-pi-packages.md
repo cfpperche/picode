@@ -18,8 +18,9 @@ copy package state into SQLite (ADR-0005).
    already stores.
 2. **Mutations go through `pi install` / `pi remove`.** PiCode does not
    rewrite settings.json itself.
-3. **No curated catalog in-app.** The gallery link is https://pi.dev/packages.
-   The install field accepts the same sources pi does (`npm:`, `git:`, URL, path).
+3. **In-app gallery search is npm**, not a PiCode catalog and not a scrape
+   of pi.dev (no public API; iframe is blocked). Query the registry for
+   `keywords:pi-package`. The pi.dev link stays as the official page.
 4. **Opt-in only.** Installing is a user action with a full-access warning.
    Nothing is installed by default.
 5. **`capabilities.webSearch`** is a derived flag from configured source

@@ -27,8 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Packages** (`#/packages`): install/remove pi packages through
-  `pi install` / `pi remove`. Gallery is pi.dev/packages. ADR-0010.
+- **Packages** (`#/packages`): install/remove via `pi install`, and
+  search the npm `pi-package` gallery in-app. ADR-0010.
 - Assistant replies render **markdown**. Sessions can be **renamed**
   (picker or `/name`).
 - Confirms use a **Radix dialog** (compact, remove workspace), not `window.confirm`.
