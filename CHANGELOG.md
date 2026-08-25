@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Sidebar splits **Free** agents (unbound pi) and **Workspaces** with many
+  agents per folder (own model/config). ADR-0011.
 - Package install scope: **This machine** or **This workspace** (`pi install -l`).
   Source field accepts npm, git, and path.
 - Package install/remove freezes the page behind a blur overlay and lists

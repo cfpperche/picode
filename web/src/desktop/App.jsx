@@ -27,11 +27,15 @@ import { alertFromPi } from "../lib/piError.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
+import { locate, firstAgentId } from "../lib/tree.js";
 import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
+  const [freeAgents, setFreeAgents] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [formKind, setFormKind] = useState("workspace");
+  const [formWs, setFormWs] = useState("");
   const [tabs, setTabs] = useState([]);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
@@ -62,8 +66,9 @@ export default function App() {
   const selectedRef = useRef(null);
   selectedRef.current = selectedId;
 
-  const selected = workspaces.find((w) => w.id === selectedId) || null;
-  const agent = selected && selected.agent;
+  const located = locate(workspaces, freeAgents, selectedId);
+  const selected = located && located.workspace;
+  const agent = located && located.agent;
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selected && termWanted.has(selected.id));
@@ -106,11 +111,14 @@ export default function App() {
   const loadWorkspaces = useCallback(async () => {
     const list = await api("/api/workspaces");
     setWorkspaces(list);
+    try { setFreeAgents(await api("/api/agents?free=1")); }
+    catch { setFreeAgents([]); }
     return list;
   }, []);
 
   const loadSessions = useCallback(async (wsId) => {
-    const id = wsId || selectedId;
+    const loc = locate(workspaces, freeAgents, selectedId);
+    const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setSessions([]); setSessionCurrent(""); return; }
     try {
       const data = await api("/api/workspaces/" + id + "/sessions");
@@ -126,17 +134,18 @@ export default function App() {
       setItems(ev.length ? eventsToItems(ev) : []);
       scrollToEnd();
     } catch { setSessions([]); setSessionCurrent(""); }
-  }, [selectedId]);
+  }, [selectedId, workspaces, freeAgents]);
 
-  useEffect(() => { loadSessions(selectedId); }, [selectedId, loadSessions]);
+  useEffect(() => { loadSessions(); }, [selectedId, loadSessions]);
   useEffect(() => { scrollConv(); }, [items]);
 
   const loadStatus = useCallback(async (wsId) => {
-    const id = wsId || selectedId;
+    const loc = locate(workspaces, freeAgents, selectedId);
+    const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setStatusBar(null); return; }
     try { setStatusBar(await api("/api/workspaces/" + id + "/status")); }
     catch { setStatusBar(null); }
-  }, [selectedId]);
+  }, [selectedId, workspaces, freeAgents]);
 
   useEffect(() => { loadStatus(selectedId); }, [selectedId, sessionCurrent, loadStatus]);
   useEffect(() => {
@@ -168,14 +177,14 @@ export default function App() {
   useEffect(() => startPresence(), []);
 
   function openTab(id, list) {
-    setSelectedId(id);
-    setTabs((t) => t.includes(id) ? t : [...t, id]);
-    const ws = (list || workspaces).find((w) => w.id === id);
-    if (ws) prepareSurface(ws);
+    const loc = locate(list || workspaces, freeAgents, id);
+    const aid = loc && loc.agent ? loc.agent.id : id;
+    setSelectedId(aid);
+    setTabs((t) => t.includes(aid) ? t : [...t, aid]);
+    if (loc) prepareSurface(loc.agent);
   }
 
-  function prepareSurface(ws) {
-    const a = ws.agent;
+  function prepareSurface(a) {
     if (!a || a.mode === "stopped") {
       setStatus("stopped");
       setStreaming(false);
@@ -368,41 +377,54 @@ export default function App() {
   }, [selectedId, agent && agent.id, agent && agent.mode]);
 
   async function startManaged(id) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws || !ws.agent) return;
+    const loc = locate(workspaces, freeAgents, id);
+    if (!loc || !loc.agent) return;
     try {
-      await api(`/api/agents/${ws.agent.id}/managed/start`, { method: "POST" });
+      await api(`/api/agents/${loc.agent.id}/managed/start`, { method: "POST" });
       const list = await loadWorkspaces();
-      openTab(id, list);
+      openTab(loc.agent.id, list);
     } catch (err) { toastError(err); }
   }
 
   async function openInteractive(id, opts) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws || !ws.agent) return;
+    const loc = locate(workspaces, freeAgents, id);
+    if (!loc || !loc.agent) return;
     try {
-      await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
+      await api(`/api/agents/${loc.agent.id}/open`, { method: "POST" });
       const list = await loadWorkspaces();
-      openTab(id, list);
+      openTab(loc.agent.id, list);
       if (!opts || opts.dock !== false) {
-        setTermWanted((s) => new Set(s).add(id));
+        setTermWanted((s) => new Set(s).add(loc.agent.id));
       }
     } catch (err) { toastError(err); }
   }
 
   async function stopAgent(id) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws || !ws.agent) return;
+    const loc = locate(workspaces, freeAgents, id);
+    if (!loc || !loc.agent) return;
     try {
-      if (ws.agent.mode === "managed") {
-        await api(`/api/agents/${ws.agent.id}/managed/stop`, { method: "POST" });
-      } else {
-        await api(`/api/workspaces/${ws.id}/close`, { method: "POST" });
-        closeTerm(ws.agent.id);
-      }
-      if (panelRef.current && panelRef.current.agentId === ws.agent.id) panelRef.current.stopped = true;
+      await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
+      closeTerm(loc.agent.id);
+      if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
       setStreaming(false);
       setStatus("stopped");
+      await loadWorkspaces();
+    } catch (err) { toastError(err); }
+  }
+
+  async function removeAgent(ag) {
+    const ok = await askConfirm({
+      title: "Remove agent",
+      message: `Remove "${ag.name}"? The project folder is not deleted.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/api/agents/" + ag.id, { method: "DELETE" });
+      closeTerm(ag.id);
+      setTabs((t) => t.filter((x) => x !== ag.id));
+      if (selectedId === ag.id) setSelectedId(null);
       await loadWorkspaces();
     } catch (err) { toastError(err); }
   }
@@ -431,21 +453,42 @@ export default function App() {
     const fd = new FormData(e.target);
     const name = String(fd.get("name") || "").trim();
     const path = String(fd.get("path") || "").trim();
-    if (!name || !path) {
-      setFormError("Name and folder path are required.");
-      return;
-    }
     try {
-      const ws = await api("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, path, ...newCfg }),
-      });
+      if (formKind === "workspace") {
+        if (!name || !path) {
+          setFormError("Name and folder path are required.");
+          return;
+        }
+        const ws = await api("/api/workspaces", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, path, ...newCfg }),
+        });
+        const list = await loadWorkspaces();
+        const aid = (ws.agents && ws.agents[0] && ws.agents[0].id) || (ws.agent && ws.agent.id);
+        if (aid) openTab(aid, list);
+      } else if (formKind === "free") {
+        if (!name) { setFormError("Name is required."); return; }
+        const ag = await api("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, ...newCfg }),
+        });
+        await loadWorkspaces();
+        openTab(ag.id);
+      } else {
+        if (!name || !formWs) { setFormError("Name is required."); return; }
+        const ag = await api("/api/workspaces/" + formWs + "/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, ...newCfg }),
+        });
+        await loadWorkspaces();
+        openTab(ag.id);
+      }
       e.target.reset();
       setNewCfg({ provider: "", model: "", thinking: "" });
       setShowForm(false);
-      const list = await loadWorkspaces();
-      openTab(ws.id, list);
     } catch (err) {
       setFormError(humanizeError(err.message));
     }
@@ -478,7 +521,7 @@ export default function App() {
 
   async function sendTask(text) {
     const payload = (typeof text === "string" ? text : draft).trim();
-    if (!payload || !selected || !agent) return;
+    if (!payload || !agent) return;
     try {
       await api("/api/agents/" + agent.id + "/tasks", {
         method: "POST",
@@ -490,10 +533,10 @@ export default function App() {
       pendingPayload.current = "";
       scrollToEnd();
       if (agent.mode === "interactive") {
-        setTermWanted((s) => { const n = new Set(s); n.delete(selected.id); return n; });
+        setTermWanted((s) => { const n = new Set(s); n.delete(agent.id); return n; });
       }
       if (agent.mode !== "managed") {
-        await startManaged(selected.id);
+        await startManaged(agent.id);
       }
     } catch (e) { toastError(e); }
   }
@@ -525,13 +568,19 @@ export default function App() {
         selectedId={selectedId}
         showForm={showForm}
         formError={formError}
-        onNew={() => setShowForm(true)}
+        onNew={() => { setFormKind("workspace"); setShowForm(true); }}
+        onNewFree={() => { setFormKind("free"); setShowForm(true); }}
+        onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
         onCancel={() => { setShowForm(false); setFormError(""); }}
         onSubmit={submitNew}
         onSelect={(id) => openTab(id)}
         onRun={startManaged}
         onStop={stopAgent}
         onRemove={removeWorkspace}
+        onRemoveAgent={removeAgent}
+        freeAgents={freeAgents}
+        formKind={formKind}
+        formWs={formWs}
         termView={termView}
         onChat={(id) => {
           openTab(id);
@@ -540,8 +589,8 @@ export default function App() {
         onTerm={(id) => {
           openTab(id);
           setTermWanted((s) => new Set(s).add(id));
-          const ws = workspaces.find((w) => w.id === id);
-          if (ws && ws.agent && ws.agent.mode !== "interactive") openInteractive(id);
+          const loc = locate(workspaces, freeAgents, id);
+          if (loc && loc.agent && loc.agent.mode !== "interactive") openInteractive(id);
         }}
         catalog={catalog}
         newCfg={newCfg}
@@ -563,6 +612,7 @@ export default function App() {
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
+            freeAgents={freeAgents}
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
@@ -744,7 +794,7 @@ export default function App() {
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
-        <Packages hidden={route !== "packages"} workspaceId={selectedId || ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} />
+        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} />
         <Devices hidden={route !== "devices"} />
       </main>
 

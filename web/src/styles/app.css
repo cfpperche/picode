@@ -281,6 +281,14 @@ body {
 .form-error { color: var(--danger); font-size: 12px; }
 
 .ws-list { list-style: none; padding: 0; }
+.ws-list.nested { padding: 0 0 6px 6px; }
+.ws-group { margin-bottom: 6px; }
+.ws-group-head {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 6px 2px; color: var(--text-secondary); font-size: 11px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.ws-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-item {
   padding: 7px 9px; margin: 1px 0;
   border-radius: var(--radius-ctl);

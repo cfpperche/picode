@@ -58,6 +58,20 @@ func TestWorkspaceAndAgents(t *testing.T) {
 	if err != nil || len(list) != 1 {
 		t.Fatalf("ListWorkspaces = %d, %v", len(list), err)
 	}
+	sib, err := s.AddAgent(w.ID, "review")
+	if err != nil {
+		t.Fatalf("AddAgent: %v", err)
+	}
+	inWs, err := s.ListAgents(w.ID)
+	if err != nil || len(inWs) != 2 {
+		t.Fatalf("ListAgents = %d, %v", len(inWs), err)
+	}
+	if _, err := s.AddAgent(FreeWorkspaceID, "scratch"); err != nil {
+		t.Fatalf("free agent: %v", err)
+	}
+	if sib.Name != "review" {
+		t.Fatalf("sib = %+v", sib)
+	}
 
 	// Runtime status cache.
 	if err := s.SetAgentRuntime(agent.ID, StatusRunning); err != nil {

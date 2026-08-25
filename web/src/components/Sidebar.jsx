@@ -2,7 +2,8 @@ import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal, IconPlus } from "./Icons.jsx";
+import { agentsOf, displayAgentName } from "../lib/tree.js";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -12,6 +13,7 @@ export default function Sidebar({
   version, workspaces, selectedId, showForm, formError,
   onNew, onCancel, onSubmit, onSelect, onRun, onStop, onRemove,
   userMenu, catalog, newCfg, onNewCfg, termView, onChat, onTerm,
+  freeAgents, onNewFree, onNewAgent, onRemoveAgent, formKind, formWs,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -40,6 +42,36 @@ export default function Sidebar({
     window.addEventListener("pointerup", up);
   }
 
+  function agentRow(ag, ws) {
+    const mode = ag.mode || "stopped";
+    const label = displayAgentName(ag, ws);
+    return (
+      <li
+        key={ag.id}
+        className={"ws-item" + (ag.id === selectedId ? " active" : "")}
+        onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
+      >
+        <div className="ws-row1">
+          <span className={"ws-dot" + (mode !== "stopped" ? " running" : "")} />
+          <span className="ws-name" title={label}>{label}</span>
+          <span className="ws-actions">
+            {mode === "stopped"
+              ? <button className="btn btn-ghost btn-sm btn-managed" title="Run" onClick={() => onRun(ag.id)}>Run</button>
+              : <button className="btn btn-ghost btn-sm btn-stop" title="Stop" onClick={() => onStop(ag.id)}>Stop</button>}
+            <button className="btn btn-ghost btn-sm btn-danger btn-remove" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}>×</button>
+          </span>
+        </div>
+        <div className="ws-row2">
+          <span className="ws-path" title={ws ? ws.path : "unbound"}>{ws ? ws.path : "unbound"}</span>
+          <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
+            <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !termView} title="Chat" onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
+            <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !!termView} title="Terminal" onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
+          </span>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
@@ -52,11 +84,31 @@ export default function Sidebar({
 
       <div className="side-section">
         <div className="side-head">
-          <span className="side-title">Agents</span>
-          <button id="btn-new" className="btn btn-ghost btn-sm" title="Add a workspace" onClick={onNew}>+ New</button>
+          <span className="side-title">Free</span>
+          <button type="button" className="btn btn-ghost btn-sm" title="New unbound agent" onClick={onNewFree}>+ Agent</button>
+        </div>
+        {showForm && formKind === "free" ? (
+          <form className="form-new" onSubmit={onSubmit}>
+            <input name="name" type="text" placeholder="Name" autoComplete="off" />
+            <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="free" />
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary btn-sm">Add</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+            </div>
+            <p className="form-error" hidden={!formError}>{formError}</p>
+          </form>
+        ) : null}
+        <ul className="ws-list">
+          {(freeAgents || []).map((ag) => agentRow(ag, null))}
+        </ul>
+
+        <div className="side-head" style={{ marginTop: 14 }}>
+          <span className="side-title">Workspaces</span>
+          <button id="btn-new" className="btn btn-ghost btn-sm" title="Add a workspace" onClick={onNew}>+ Folder</button>
         </div>
 
-        <form id="form-new" className="form-new" hidden={!showForm} onSubmit={onSubmit}>
+        {showForm && formKind === "workspace" ? (
+        <form id="form-new" className="form-new" onSubmit={onSubmit}>
           <input id="inp-name" name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" />
           <input id="inp-path" name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
           <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="new" />
@@ -66,50 +118,32 @@ export default function Sidebar({
           </div>
           <p id="form-error" className="form-error" hidden={!formError}>{formError}</p>
         </form>
+        ) : null}
 
         <ul id="ws-list" className="ws-list">
-          {workspaces.map((ws) => {
-            const mode = ws.agent ? ws.agent.mode : "stopped";
-            return (
-              <li
-                key={ws.id}
-                className={"ws-item" + (ws.id === selectedId ? " active" : "")}
-                onClick={(e) => { if (e.target.closest("button")) return; onSelect(ws.id); }}
-              >
-                <div className="ws-row1">
-                  <span className={"ws-dot" + (mode !== "stopped" ? " running" : "")} />
-                  <span className="ws-name" title={ws.name}>{ws.name}</span>
-                  <span className="ws-actions">
-                    {mode === "stopped"
-                      ? <button className="btn btn-ghost btn-sm btn-managed" title="Run with the task panel" onClick={() => onRun(ws.id)}>Run</button>
-                      : <button className="btn btn-ghost btn-sm btn-stop" title="Stop the agent" onClick={() => onStop(ws.id)}>Stop</button>}
-                    <button className="btn btn-ghost btn-sm btn-danger btn-remove" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}>×</button>
-                  </span>
-                </div>
-                <div className="ws-row2">
-                  <span className="ws-path" title={ws.path}>{ws.path}</span>
-                  <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      role="radio"
-                      className="ws-mode-btn"
-                      aria-checked={ws.id === selectedId && !termView}
-                      title="Chat"
-                      onClick={() => onChat && onChat(ws.id)}
-                    ><IconChat size={14} /></button>
-                    <button
-                      type="button"
-                      role="radio"
-                      className="ws-mode-btn"
-                      aria-checked={ws.id === selectedId && !!termView}
-                      title="Terminal"
-                      onClick={() => onTerm && onTerm(ws.id)}
-                    ><IconTerminal size={14} /></button>
-                  </span>
-                </div>
-              </li>
-            );
-          })}
+          {workspaces.map((ws) => (
+            <li key={ws.id} className="ws-group">
+              <div className="ws-group-head">
+                <span className="ws-group-name" title={ws.path}>{ws.name}</span>
+                <button type="button" className="btn btn-ghost btn-sm" title="Add agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
+                <button type="button" className="btn btn-ghost btn-sm btn-danger btn-remove" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}>×</button>
+              </div>
+              {showForm && formKind === "agent" && formWs === ws.id ? (
+                <form className="form-new" onSubmit={onSubmit}>
+                  <input name="name" type="text" placeholder="Agent name" autoComplete="off" />
+                  <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix={"ag-" + ws.id} />
+                  <div className="form-actions">
+                    <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+                  </div>
+                  <p className="form-error" hidden={!formError}>{formError}</p>
+                </form>
+              ) : null}
+              <ul className="ws-list nested">
+                {agentsOf(ws).map((ag) => agentRow(ag, ws))}
+              </ul>
+            </li>
+          ))}
         </ul>
       </div>
 

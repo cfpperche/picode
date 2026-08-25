@@ -85,6 +85,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — ADR-0011: sidebar **Free** vs **Workspaces**, many agents
+  per folder (own model). Selected entity is the agent id.
 - **2026-08-25** — Packages: This machine vs This workspace (`-l`).
   Session/`pi -e` still deferred (This run). ADR-0010 amended.
 - **2026-08-25** — Optimistic UI is a bar (`docs/philosophy.md` §7).

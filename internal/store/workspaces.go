@@ -19,6 +19,29 @@ type Workspace struct {
 // ErrNotFound is returned when a row does not exist.
 var ErrNotFound = errors.New("not found")
 
+// Free workspace (ADR-0011): unbound agents. Hidden from ListWorkspaces.
+const (
+	FreeWorkspaceID   = "ws_free"
+	FreeWorkspacePath = "__picode_free__"
+)
+
+// IsFree reports a reserved unbound workspace.
+func IsFree(w Workspace) bool {
+	return w.ID == FreeWorkspaceID || w.Path == FreeWorkspacePath
+}
+
+// AgentCwd is the directory pi should start in.
+func AgentCwd(w Workspace) string {
+	if IsFree(w) {
+		h, err := os.UserHomeDir()
+		if err != nil {
+			return "."
+		}
+		return h
+	}
+	return w.Path
+}
+
 // AddWorkspace registers a folder (idempotent by absolute path) and ensures
 // its default agent exists. Returns the workspace and its default agent.
 func (s *Store) AddWorkspace(name, path string) (Workspace, Agent, error) {
@@ -82,7 +105,7 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, Agent, error) {
 
 // ListWorkspaces returns all workspaces ordered by name.
 func (s *Store) ListWorkspaces() ([]Workspace, error) {
-	rows, err := s.db.Query(`SELECT id, name, path, created_at FROM workspaces ORDER BY name`)
+	rows, err := s.db.Query(`SELECT id, name, path, created_at FROM workspaces WHERE id != ? ORDER BY name`, FreeWorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list workspaces: %w", err)
 	}

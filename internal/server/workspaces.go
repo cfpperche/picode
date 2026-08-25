@@ -10,10 +10,11 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// workspaceView is a workspace plus its default agent (v1 invariant).
+// workspaceView is a workspace plus its agents (ADR-0011).
 type workspaceView struct {
 	store.Workspace
-	Agent agentView `json:"agent"`
+	Agent  agentView   `json:"agent"` // first agent; kept for older clients
+	Agents []agentView `json:"agents"`
 }
 
 type agentView struct {
@@ -40,19 +41,30 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces/{id}/sessions/rename", handleRenameSession(deps))
 	mux.HandleFunc("POST /api/agents/{id}/tasks", handleEnqueueTask(deps))
 	mux.HandleFunc("GET /api/agents/{id}/tasks", handleListTasks(deps))
+	mux.HandleFunc("POST /api/workspaces/{id}/agents", handleAddWorkspaceAgent(deps))
+	mux.HandleFunc("GET /api/agents", handleListFreeAgents(deps))
+	mux.HandleFunc("POST /api/agents", handleAddFreeAgent(deps))
+	mux.HandleFunc("DELETE /api/agents/{id}", handleDeleteAgent(deps))
+	mux.HandleFunc("POST /api/agents/{id}/open", handleAgentOpen(deps))
+	mux.HandleFunc("POST /api/agents/{id}/close", handleAgentClose(deps))
 	registerAgentRoutes(mux, deps)
 }
 
 func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error) {
-	agent, err := deps.Store.DefaultAgent(w.ID)
+	agents, err := deps.Store.ListAgents(w.ID)
 	if err != nil {
 		return workspaceView{}, err
 	}
-	mode := deps.runMode(r, agent.ID)
-	return workspaceView{
-		Workspace: w,
-		Agent:     agentView{Agent: agent, Running: mode != modeStopped, Mode: string(mode)},
-	}, nil
+	views := make([]agentView, 0, len(agents))
+	for _, a := range agents {
+		mode := deps.runMode(r, a.ID)
+		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode)})
+	}
+	var first agentView
+	if len(views) > 0 {
+		first = views[0]
+	}
+	return workspaceView{Workspace: w, Agent: first, Agents: views}, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {

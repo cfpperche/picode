@@ -233,3 +233,67 @@ func emptyToNil(s string) *string {
 	}
 	return &s
 }
+
+// AddAgent creates an agent in a workspace (use FreeWorkspaceID for unbound).
+func (s *Store) AddAgent(workspaceID, name string) (Agent, error) {
+	name = stringsTrimSpace(name)
+	if name == "" {
+		return Agent{}, fmt.Errorf("store: name is required")
+	}
+	if workspaceID == "" {
+		workspaceID = FreeWorkspaceID
+	}
+	if _, err := s.GetWorkspace(workspaceID); err != nil {
+		return Agent{}, err
+	}
+	a := Agent{
+		ID:          newID(name, "agent"),
+		WorkspaceID: workspaceID,
+		Name:        name,
+		CreatedAt:   nowUTC(),
+		LastStatus:  StatusNeverStarted,
+	}
+	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status) VALUES (?, ?, ?, ?, ?)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus); err != nil {
+		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
+	}
+	return s.GetAgent(a.ID)
+}
+
+// ListAgents returns agents in a workspace, oldest first.
+func (s *Store) ListAgents(workspaceID string) ([]Agent, error) {
+	rows, err := s.db.Query(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at`, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("store: list agents: %w", err)
+	}
+	defer rows.Close()
+	var out []Agent
+	for rows.Next() {
+		var a Agent
+		if err := scanAgentIntoRows(&a, rows); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if out == nil {
+		out = []Agent{}
+	}
+	return out, rows.Err()
+}
+
+func scanAgentIntoRows(a *Agent, rows *sql.Rows) error {
+	return rows.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+}
+
+// DeleteAgent removes one agent. Workspace is kept.
+func (s *Store) DeleteAgent(id string) error {
+	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("store: delete agent: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

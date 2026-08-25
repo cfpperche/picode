@@ -88,7 +88,7 @@ agent lives inside tmux; the RPC agent is detached from the browser entirely.
 SQLite (pure-Go driver) at `~/.picode/picode.db` — **orchestration overlay
 only**. Pi's own files remain the source of truth for sessions, credentials,
 MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
-`agents` (one default per workspace; M3 wizard adds configured siblings),
+`agents` (many per workspace, own model/config; free agents in `ws_free` — ADR-0011),
 `tasks` (prompt/steer/follow_up queue with a delivery state machine),
 `messages` (reserved M4 broker inbox), `events` (orchestration audit),
 `settings`. Embedded sequential migrations; the M1 JSON registry is imported

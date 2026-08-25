@@ -35,6 +35,14 @@ const (
 	modeManaged     agentRunMode = "managed"
 )
 
+func (deps Deps) agentHome(agent store.Agent) (store.Workspace, string, error) {
+	wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+	if err != nil {
+		return store.Workspace{}, "", err
+	}
+	return wk, store.AgentCwd(wk), nil
+}
+
 func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
 	if ma := deps.Runtime.Get(agentID); ma != nil {
 		return modeManaged
@@ -77,12 +85,12 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 			return
 		}
-		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+		wk, cwd, err := deps.agentHome(agent)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if err := deps.Runtime.Start(agentID, wk.Path); err != nil {
+		if err := deps.Runtime.Start(agentID, cwd); err != nil {
 			writeErr(w, http.StatusInternalServerError, "start managed: "+err.Error())
 			return
 		}
@@ -288,7 +296,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusServiceUnavailable, "pi is not installed or not on PATH")
 				return
 			}
-			if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk), deps.AgentCmd, agent.CLIFlags()...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -347,7 +355,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !has {
-			if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk), deps.AgentCmd, agent.CLIFlags()...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -382,7 +390,7 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
 		}
 		if deps.Runtime.Get(id) == nil {
-			if err := deps.Runtime.Start(id, wk.Path); err != nil {
+			if err := deps.Runtime.Start(id, store.AgentCwd(wk)); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -419,5 +427,186 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "data": json.RawMessage(res.Data)})
+	}
+}
+
+func handleListFreeAgents(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("free") != "1" {
+			writeErr(w, http.StatusBadRequest, "pass ?free=1")
+			return
+		}
+		agents, err := deps.Store.ListAgents(store.FreeWorkspaceID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out := make([]agentView, 0, len(agents))
+		for _, a := range agents {
+			mode := deps.runMode(r, a.ID)
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode)})
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+func handleAddFreeAgent(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Name     string `json:"name"`
+			Provider string `json:"provider"`
+			Model    string `json:"model"`
+			Thinking string `json:"thinking"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		agent, err := deps.Store.AddAgent(store.FreeWorkspaceID, req.Name)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
+	}
+}
+
+func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		wsID := r.PathValue("id")
+		if wsID == store.FreeWorkspaceID {
+			writeErr(w, http.StatusBadRequest, "use POST /api/agents for free agents")
+			return
+		}
+		if _, err := deps.Store.GetWorkspace(wsID); errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "workspace not found")
+			return
+		} else if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		var req struct {
+			Name     string `json:"name"`
+			Provider string `json:"provider"`
+			Model    string `json:"model"`
+			Thinking string `json:"thinking"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		agent, err := deps.Store.AddAgent(wsID, req.Name)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
+	}
+}
+
+func patchNewAgent(deps Deps, agent store.Agent, provider, model, thinking string) (store.Agent, error) {
+	if provider == "" && model == "" && thinking == "" {
+		return agent, nil
+	}
+	return deps.Store.UpdateAgent(agent.ID, store.AgentPatch{
+		Provider: &provider, Model: &model, Thinking: &thinking,
+	})
+}
+
+func handleDeleteAgent(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if _, err := deps.Store.GetAgent(id); errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		} else if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		deps.Runtime.Stop(id)
+		if deps.Tmux.Available() {
+			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
+		}
+		if err := deps.Store.DeleteAgent(id); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleAgentOpen(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		wk, cwd, err := deps.agentHome(agent)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		name := tmux.SessionName(agent.ID)
+		deps.Runtime.Stop(agent.ID)
+		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
+			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})
+			return
+		}
+		if _, err := exec.LookPath(deps.AgentCmd); err != nil {
+			writeErr(w, http.StatusServiceUnavailable,
+				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
+			return
+		}
+		if err := deps.Tmux.NewSession(r.Context(), name, cwd, deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
+			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
+			return
+		}
+		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+		_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
+		writeJSON(w, http.StatusCreated, map[string]any{"running": true, "session": name})
+	}
+}
+
+func handleAgentClose(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		deps.Runtime.Stop(id)
+		if deps.Tmux.Available() {
+			if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(id)); err != nil {
+				writeErr(w, http.StatusInternalServerError, "stop agent: "+err.Error())
+				return
+			}
+		}
+		_ = deps.Store.SetAgentRuntime(id, store.StatusStopped)
+		wid := agent.WorkspaceID
+		_ = deps.Store.AppendEvent("agent_stopped", &agent.ID, &wid, nil)
+		writeJSON(w, http.StatusOK, map[string]any{"running": false})
 	}
 }
