@@ -385,6 +385,8 @@ export default function App() {
         closeTerm(ws.agent.id);
       }
       if (panelRef.current && panelRef.current.agentId === ws.agent.id) panelRef.current.stopped = true;
+      setStreaming(false);
+      setStatus("stopped");
       await loadWorkspaces();
     } catch (err) { toastError(err); }
   }

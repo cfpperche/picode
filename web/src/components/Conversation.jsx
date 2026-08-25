@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
@@ -56,17 +56,18 @@ function Loose({ it, items, onToggleFiles }) {
 }
 
 function Turn({ turn, i, live, queued, onToggleTool }) {
-  const [open, setOpen] = useState(live);
+  const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const liveFrom = useRef(0);
   useEffect(() => {
-    if (!live) return;
+    if (!live) { liveFrom.current = 0; return; }
+    if (!liveFrom.current) liveFrom.current = Date.now();
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [live]);
   const shown = live || open;
-  const started = firstTs(turn) || now;
   const label = live
-    ? "Working… " + fmtElapsed(now - started)
+    ? "Working… " + fmtElapsed(now - (liveFrom.current || now))
     : queued
       ? "Queued"
       : fmtWorked(turnDurationMs(turn));
