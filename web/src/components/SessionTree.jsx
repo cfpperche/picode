@@ -9,17 +9,21 @@ function flattenCards(cards, depth, out) {
   return out;
 }
 
-function Card({ card, leaf, onFork }) {
+function Card({ card, leaf, last, onFork }) {
   const replies = card.info.filter((i) => i.kind === "reply");
   const tools = card.info.filter((i) => i.kind === "tool").length;
   const meta = card.info.filter((i) => i.kind === "meta").map((i) => i.text);
   const reply = replies.length ? replies[replies.length - 1].text : "";
+  const current = card.id === leaf;
   return (
-    <li className="tree-item">
-      <span className={"tree-dot" + (card.id === leaf ? " leaf" : "")} aria-hidden="true" />
+    <li className="flex gap-2.5">
+      <div className="flex w-4 shrink-0 flex-col items-center" aria-hidden="true">
+        <span className={"mt-3 size-2 shrink-0 rounded-full " + (current ? "bg-accent" : "bg-[var(--border-strong)]")} />
+        {last ? null : <span className="w-px min-h-2 flex-1 bg-[var(--border)]" />}
+      </div>
       <button
         type="button"
-        className={"tree-card" + (card.id === leaf ? " leaf" : "")}
+        className={"tree-card mb-2.5 min-w-0 flex-1" + (current ? " leaf" : "")}
         onClick={() => onFork(card.id)}
       >
         <span className="tree-card-prompt">{card.text}</span>
@@ -55,9 +59,9 @@ export default function SessionTree({ open, onClose, mode, tree, onFork, onClone
             {cards.length === 0 ? (
               <p className="side-empty">No messages yet</p>
             ) : (
-              <ol className="tree-spine">
-                {cards.map((c) => (
-                  <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
+              <ol className="m-0 flex list-none flex-col p-0">
+                {cards.map((c, i) => (
+                  <Card key={c.id} card={c} leaf={leaf} last={i === cards.length - 1} onFork={onFork} />
                 ))}
               </ol>
             )}

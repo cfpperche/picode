@@ -983,22 +983,6 @@ body {
   display: flex; flex-direction: column;
 }
 .tree-list { overflow-y: auto; margin: 10px 0 0; min-height: 80px; }
-/* CSS grid: rail | card. Radix has no Timeline. */
-.tree-spine { list-style: none; margin: 0; padding: 0; }
-.tree-item {
-  display: grid; grid-template-columns: 16px 1fr; column-gap: 10px;
-  align-items: start; position: relative; padding-bottom: 10px;
-}
-.tree-item:last-child { padding-bottom: 0; }
-.tree-item:not(:last-child)::before {
-  content: ""; position: absolute; left: 7px; top: 22px; bottom: 0;
-  width: 2px; background: var(--border); border-radius: 99px;
-}
-.tree-dot {
-  width: 8px; height: 8px; margin: 14px auto 0; z-index: 1;
-  border-radius: 99px; background: var(--border-strong);
-}
-.tree-dot.leaf { background: var(--accent); }
 .tree-card {
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;
   width: 100%; text-align: left; cursor: pointer;

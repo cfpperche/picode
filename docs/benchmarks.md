@@ -35,7 +35,8 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 Inspired by: **Cursor** (product + aesthetic north star — see
 [benchmark-cursor.md](benchmark-cursor.md)), **t3code** and **paseo**
 (architecture + composer-depth — see [benchmarks/](benchmarks/)),
-**Linear** (speed, keyboard-first, dark-first, density), **Vercel/Geist**
+**Linear** (speed, keyboard-first, dark-first, density), **shadcn/ui**
+(Radix + Tailwind recipes), **Vercel/Geist**
 (typography, minimal chrome, user menu, theme), **Stripe Dashboard**
 (progressive disclosure, empty states that teach), **Apple HIG**
 (clarity, deference to content), **xterm.js/ttyd** (terminal honesty).
