@@ -45,9 +45,7 @@ export default function App() {
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
-  const [dockWanted, setDockWanted] = useState(() => new Set());
-  const [dockMax, setDockMax] = useState(() => new Set());
-  const [dockH, setDockH] = useState(() => parseInt(localStorage.getItem("picode-dock-h") || "", 10) || 0);
+  const [termWanted, setTermWanted] = useState(() => new Set());
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const [status, setStatus] = useState("idle");
@@ -68,8 +66,7 @@ export default function App() {
   const agent = selected && selected.agent;
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
-  const dockOpen = !!(selected && dockWanted.has(selected.id) && interactive);
-  const dockMaximized = !!(selected && dockMax.has(selected.id) && dockOpen);
+  const termView = !!(selected && termWanted.has(selected.id));
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => {
@@ -193,8 +190,7 @@ export default function App() {
   function closeTab(id) {
     const ws = workspaces.find((w) => w.id === id);
     setTabs((t) => t.filter((x) => x !== id));
-    setDockWanted((s) => { const n = new Set(s); n.delete(id); return n; });
-    setDockMax((s) => { const n = new Set(s); n.delete(id); return n; });
+    setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
     if (ws && ws.agent) closeTerm(ws.agent.id);
     if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
     if (selectedId === id) {
@@ -389,7 +385,7 @@ export default function App() {
       const list = await loadWorkspaces();
       openTab(id, list);
       if (!opts || opts.dock !== false) {
-        setDockWanted((s) => new Set(s).add(id));
+        setTermWanted((s) => new Set(s).add(id));
       }
     } catch (err) { toastError(err); }
   }
@@ -464,7 +460,7 @@ export default function App() {
     });
     if (!ok) return;
     try {
-      if (selectedId) setDockWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
+      if (selectedId) setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
       const res = await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
       toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
       await loadWorkspaces();
@@ -494,7 +490,7 @@ export default function App() {
       pendingPayload.current = "";
       scrollToEnd();
       if (agent.mode === "interactive") {
-        setDockWanted((s) => { const n = new Set(s); n.delete(selected.id); return n; });
+        setTermWanted((s) => { const n = new Set(s); n.delete(selected.id); return n; });
       }
       if (agent.mode !== "managed") {
         await startManaged(selected.id);
@@ -507,43 +503,15 @@ export default function App() {
     setThemeMode(mode);
   }
 
-  function toggleDock() {
+  function showTerm() {
     if (!selectedId) return;
-    // Dock is the tmux TUI. Managed has no PTY — switch modes first.
-    if (!interactive) {
-      openInteractive(selectedId);
-      return;
-    }
-    setDockWanted((s) => {
-      const n = new Set(s);
-      if (n.has(selectedId)) n.delete(selectedId);
-      else n.add(selectedId);
-      return n;
-    });
+    setTermWanted((s) => new Set(s).add(selectedId));
+    if (!interactive) openInteractive(selectedId);
   }
 
-  function hideDock() {
+  function showChat() {
     if (!selectedId) return;
-    setDockWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-    setDockMax((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-  }
-
-  function toggleDockMax() {
-    if (!selectedId) return;
-    setDockMax((s) => {
-      const n = new Set(s);
-      if (n.has(selectedId)) n.delete(selectedId);
-      else n.add(selectedId);
-      return n;
-    });
-  }
-
-  function setHeight(h) {
-    setDockH(h);
-    localStorage.setItem("picode-dock-h", String(h));
-    if (selectedId) {
-      setDockMax((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-    }
+    setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
   }
 
   const onPane = route !== "workspace";
@@ -639,7 +607,7 @@ export default function App() {
           </div>
 
           <ChatSurface
-            hidden={noTabs || dockMaximized}
+            hidden={noTabs || termView}
             stopped={stopped}
             items={items}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
@@ -660,7 +628,7 @@ export default function App() {
               const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
                 && (cfg.opMode || "full") !== (agent.opMode || "full");
               const was = agent.mode;
-              const dockWasOpen = !!(selectedId && dockWanted.has(selectedId));
+              const dockWasOpen = !!(selectedId && termWanted.has(selectedId));
               try {
                 await api("/api/agents/" + agent.id, {
                   method: "PATCH",
@@ -720,25 +688,21 @@ export default function App() {
                   });
                 }
                 await loadWorkspaces();
-                if (selectedId) setDockWanted((s) => new Set(s).add(selectedId));
+                if (selectedId) setTermWanted((s) => new Set(s).add(selectedId));
               } catch (e) { toastError(e); }
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
-              status, streaming, onToggleDock: toggleDock, onStop: () => selectedId && stopAgent(selectedId),
+              status, streaming, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
             }}
           />
 
           <TerminalDock
-            open={dockOpen}
-            maximized={dockMaximized}
-            height={dockH}
+            open={termView && !onPane}
             agent={agent}
             workspace={selected}
-            onClose={hideDock}
-            onToggleMax={toggleDockMax}
-            onHeight={setHeight}
+            onBack={showChat}
           />
         </div>
 
@@ -762,7 +726,7 @@ export default function App() {
               });
               const list = await loadWorkspaces();
               openTab(ws.id, list);
-              setDockWanted((s) => new Set(s).add(ws.id));
+              setTermWanted((s) => new Set(s).add(ws.id));
               go("workspace");
             } catch (e) { toastError(e); }
           }}

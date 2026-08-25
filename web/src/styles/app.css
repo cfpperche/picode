@@ -820,6 +820,9 @@ body {
   display: flex; flex-direction: column;
   border-top: 1px solid var(--border-strong); background: var(--bg-panel);
 }
+.dock.view {
+  flex: 1; height: auto !important; min-height: 0; border-top: 0;
+}
 .dock-head {
   display: flex; align-items: center; min-height: 28px; flex: none;
   padding: 0 0 0 12px;

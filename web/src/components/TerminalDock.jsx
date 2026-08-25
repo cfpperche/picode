@@ -3,11 +3,11 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wsURL } from "../lib/api.js";
-import { IconMaximize, IconRestore } from "./Icons.jsx";
+
 import "@xterm/xterm/css/xterm.css";
 
 export default function TerminalDock({
-  open, maximized, height, agent, workspace, onClose, onToggleMax, onHeight,
+  open, agent, workspace, onBack,
 }) {
   const hostRef = useRef(null);
   const status = useRef({ set: () => {} });
@@ -98,7 +98,7 @@ export default function TerminalDock({
     if (!open || !agent) return;
     const entry = terms.get(agent.id);
     if (entry && entry.fit) requestAnimationFrame(() => entry.fit.fit());
-  }, [open, maximized, height, agent]);
+  }, [open, agent]);
 
   function setDot(connected) {
     const dot = document.getElementById("sb-dot");
@@ -107,48 +107,17 @@ export default function TerminalDock({
     if (txt) txt.textContent = connected ? "connected" : "detached";
   }
 
-  function onSizerDown(e) {
-    e.preventDefault();
-    const dock = e.currentTarget.parentElement;
-    if (maximized) onToggleMax();
-    const startY = e.clientY;
-    const startH = dock.getBoundingClientRect().height;
-    dock.classList.add("resizing");
-    const move = (ev) => {
-      const view = document.getElementById("workspace-view");
-      const tabs = document.getElementById("main-tabs");
-      const maxH = (view ? view.getBoundingClientRect().height : 600) - (tabs ? tabs.offsetHeight : 0) - 80;
-      const next = Math.max(120, Math.min(maxH, startH + (startY - ev.clientY)));
-      onHeight(Math.round(next));
-    };
-    const up = () => {
-      dock.classList.remove("resizing");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
-  const style = maximized ? undefined : { height: height ? height + "px" : "42%" };
-
   return (
     <section
       id="dock"
-      className={"dock" + (maximized ? " maximized" : "")}
+      className="dock view"
       hidden={!open}
-      style={style}
     >
-      <div id="dock-sizer" className="dock-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
       <div className="dock-head">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>Chat</button>
         <span id="dock-title" className="dock-title">
           {workspace ? "Terminal · " + workspace.name : "Terminal"}
         </span>
-        <button id="dock-max" className="dock-icon" title={maximized ? "Restore" : "Maximize"} aria-label={maximized ? "Restore" : "Maximize"} onClick={onToggleMax}>
-          <IconMaximize />
-          <IconRestore />
-        </button>
-        <button id="dock-close" className="dock-icon dock-close" title="Hide terminal" aria-label="Hide terminal" onClick={onClose}>×</button>
       </div>
       <div id="terms" className="terms" ref={hostRef} />
       <div id="statusbar" className="statusbar">
