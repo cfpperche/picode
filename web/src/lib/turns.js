@@ -31,6 +31,20 @@ export function groupTurns(items) {
   return out;
 }
 
+// Index of the turn that is actually running. A user message sent while
+// another turn is still open is queued — it must not look like Working.
+export function workingIndex(turns, streaming) {
+  if (!streaming) return -1;
+  let lastPending = -1;
+  let lastBusy = -1;
+  turns.forEach((t, i) => {
+    if (t.kind !== "turn" || t.replies.length) return;
+    lastPending = i;
+    if (t.work.length) lastBusy = i;
+  });
+  return lastBusy >= 0 ? lastBusy : lastPending;
+}
+
 function emptyTurn() {
   return { kind: "turn", user: null, work: [], replies: [], loose: [] };
 }

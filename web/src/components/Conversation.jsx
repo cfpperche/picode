@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark } from "../lib/turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming }) {
   const turns = groupTurns(items);
-  let lastTurn = -1;
-  turns.forEach((t, i) => { if (t.kind === "turn") lastTurn = i; });
+  const busy = workingIndex(turns, !!streaming);
   return (
     <div id="conversation" className="conversation" ref={convRef} onScroll={onScroll} style={{ visibility: hidden ? "hidden" : "visible" }}>
       <div className="conv-col">
@@ -16,14 +15,15 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
             acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} />);
           } else {
             const n = acc.n++;
-            const live = i === lastTurn && t.replies.length === 0;
+            const live = i === busy;
+            const queued = !!streaming && !live && t.replies.length === 0 && t.work.length === 0 && !!t.user;
             const ts = firstTs(t);
             const day = dayKey(ts);
             if (day && day !== acc.day) {
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} onToggleTool={onToggleTool} />);
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} />);
           }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
@@ -55,7 +55,7 @@ function Loose({ it, items, onToggleFiles }) {
   return null;
 }
 
-function Turn({ turn, i, live, onToggleTool }) {
+function Turn({ turn, i, live, queued, onToggleTool }) {
   const [open, setOpen] = useState(live);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -67,8 +67,10 @@ function Turn({ turn, i, live, onToggleTool }) {
   const started = firstTs(turn) || now;
   const label = live
     ? "Working… " + fmtElapsed(now - started)
-    : fmtWorked(turnDurationMs(turn));
-  const showWork = turn.work.length > 0 || live;
+    : queued
+      ? "Queued"
+      : fmtWorked(turnDurationMs(turn));
+  const showWork = turn.work.length > 0 || live || queued;
   return (
     <div className="turn" id={"turn-" + i} data-rail={"turn-" + i}>
       {turn.user ? <Block it={turn.user} /> : null}

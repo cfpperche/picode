@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, dayKey, fmtDayMark } from "./turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, dayKey, fmtDayMark, workingIndex } from "./turns.js";
 
 test("groups user / work / reply", () => {
   const t = groupTurns([
@@ -15,6 +15,16 @@ test("groups user / work / reply", () => {
   assert.equal(turnDurationMs(t[0]), 4000);
   assert.equal(fmtWorked(4000), "Worked for 4s");
   assert.equal(fmtElapsed(4000), "4s");
+});
+
+test("workingIndex ignores queued follow-up", () => {
+  const turns = groupTurns([
+    { kind: "block", cls: "user", text: "a" },
+    { kind: "tool", name: "read", args: "x" },
+    { kind: "block", cls: "user", text: "b" },
+  ]);
+  assert.equal(workingIndex(turns, false), -1);
+  assert.equal(workingIndex(turns, true), 0);
 });
 
 test("day marks", () => {
