@@ -73,8 +73,8 @@ export default function Sidebar({
               ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
               : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
             <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
-            <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
-            <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
+            <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
+            <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
           </span>
         </div>
         <div className="ws-row2">
@@ -96,11 +96,13 @@ export default function Sidebar({
       </header>
 
       <div className="side-section">
-        <div className="side-head">
+        <div className="side-head" onClick={() => toggleWs("sec-agents")}>
+          <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconAgent /> Agents</span>
-          <button type="button" className="ws-icon-btn" title="New agent" onClick={onNewFree}><IconPlus /></button>
+          {!isOpen("sec-agents") ? <span className="ws-count">{(freeAgents || []).length}</span> : null}
+          <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-agents")) toggleWs("sec-agents"); onNewFree(); }}><IconPlus /></button>
         </div>
-        {showForm && formKind === "free" ? (
+        {isOpen("sec-agents") && showForm && formKind === "free" ? (
           <form className="form-new" onSubmit={onSubmit}>
             <input name="name" type="text" placeholder="Name" autoComplete="off" />
             <input name="path" type="text" placeholder="Folder (optional — ~/.picode/work/name)" autoComplete="off" />
@@ -112,16 +114,20 @@ export default function Sidebar({
             <p className="form-error" hidden={!formError}>{formError}</p>
           </form>
         ) : null}
+        {isOpen("sec-agents") ? (
         <ul className="ws-list">
           {(freeAgents || []).map((ag) => agentRow(ag, null))}
         </ul>
+        ) : null}
 
-        <div className="side-head" style={{ marginTop: 14 }}>
+        <div className="side-head" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
+          <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconFolder /> Workspaces</span>
-          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={onNew}><IconPlus /></button>
+          {!isOpen("sec-workspaces") ? <span className="ws-count">{workspaces.length}</span> : null}
+          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-workspaces")) toggleWs("sec-workspaces"); onNew(); }}><IconPlus /></button>
         </div>
 
-        {showForm && formKind === "workspace" ? (
+        {isOpen("sec-workspaces") && showForm && formKind === "workspace" ? (
         <form id="form-new" className="form-new" onSubmit={onSubmit}>
           <input id="inp-name" name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" />
           <input id="inp-path" name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
@@ -134,6 +140,7 @@ export default function Sidebar({
         </form>
         ) : null}
 
+        {isOpen("sec-workspaces") ? (
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => (
             <li key={ws.id} className="ws-group">
@@ -165,6 +172,7 @@ export default function Sidebar({
             </li>
           ))}
         </ul>
+        ) : null}
       </div>
 
       <footer className="side-foot">

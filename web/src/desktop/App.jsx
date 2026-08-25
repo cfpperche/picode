@@ -71,7 +71,7 @@ export default function App() {
   const agent = located && located.agent;
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
-  const termView = !!(selected && termWanted.has(selected.id));
+  const termView = !!(selectedId && termWanted.has(selectedId));
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => {
@@ -453,6 +453,10 @@ export default function App() {
     const fd = new FormData(e.target);
     const name = String(fd.get("name") || "").trim();
     const path = String(fd.get("path") || "").trim();
+    if (!newCfg.provider || !newCfg.model || !newCfg.thinking) {
+      setFormError("Provider, model, and thinking are required.");
+      return;
+    }
     try {
       if (formKind === "workspace") {
         if (!name || !path) {

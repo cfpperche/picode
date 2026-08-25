@@ -8,17 +8,17 @@ export default function ConfigFields({ catalog, provider, model, thinking, onCha
   return (
     <div className={row ? "cfg-fields cfg-row" : "cfg-fields"}>
       <select id={pfx + "-provider"} value={provider} onChange={(e) => onChange({ provider: e.target.value, model: "", thinking })}>
-        <option value="">Inherit</option>
+        <option value="" disabled>Provider</option>
         {providers.map((p) => (
-          <option key={p.id} value={p.id}>{p.id}{p.signedIn ? "" : ""}</option>
+          <option key={p.id} value={p.id}>{p.id}</option>
         ))}
       </select>
       <select id={pfx + "-model"} value={model} onChange={(e) => onChange({ provider, model: e.target.value, thinking })} disabled={!provider}>
-        <option value="">Inherit</option>
+        <option value="" disabled>Model</option>
         {models.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
       </select>
       <select id={pfx + "-thinking"} value={thinking} onChange={(e) => onChange({ provider, model, thinking: e.target.value })}>
-        <option value="">Inherit</option>
+        <option value="" disabled>Thinking</option>
         {levels.map((l) => <option key={l} value={l}>{l}</option>)}
       </select>
     </div>
