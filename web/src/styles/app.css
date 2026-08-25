@@ -221,6 +221,38 @@ body {
   background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px;
 }
 .pkg-by-source { display: flex; gap: 8px; align-items: stretch; margin: 0; }
+.pkg-job {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--bg-base) 42%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 24px;
+}
+.pkg-job-card {
+  width: min(440px, 100%);
+  padding: 20px 20px 16px;
+  background: var(--bg-base); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+}
+.pkg-job-card h3 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
+.pkg-job-src {
+  font-family: var(--mono); font-size: 12px; color: var(--text-secondary);
+  margin: 0 0 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pkg-job-steps { list-style: none; padding: 0; margin: 0 0 12px; }
+.pkg-job-step {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 0; font-size: 13px;
+}
+.pkg-job-step code {
+  font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word;
+}
+.pkg-job-step.todo { color: var(--text-secondary); }
+.pkg-job-step.run { color: var(--text-primary); }
+.pkg-job-step.done { color: var(--ok); }
+.pkg-job-step.err { color: var(--danger); }
+.pkg-job-mark { flex: none; width: 1.1em; text-align: center; }
+.pkg-job-err { font-size: 13px; color: var(--danger); line-height: 1.45; margin: 0 0 12px; }
 .pkg-by-source .dlg-input { margin-top: 0; flex: 1; height: 36px; }
 .pkg-by-source .btn { height: 36px; }
 .pkg-fine { margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); }

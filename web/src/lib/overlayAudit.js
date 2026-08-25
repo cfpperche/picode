@@ -6,6 +6,7 @@ const SELECTORS = [
   ".toast",
   ".dlg",
   ".rail-pop",
+  ".pkg-job",
 ];
 
 export function overlayAudit(win = globalThis) {

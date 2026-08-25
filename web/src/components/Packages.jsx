@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
-import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 
 export default function Packages({ hidden }) {
@@ -10,7 +9,7 @@ export default function Packages({ hidden }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState(null);
 
   async function load() {
     try { setData(await api("/api/packages")); }
@@ -40,20 +39,22 @@ export default function Packages({ hidden }) {
 
   async function installSource(src) {
     const nextSrc = (src || "").trim();
-    if (!nextSrc || busy) return;
-    setBusy(true);
+    if (!nextSrc || job) return;
+    setJob({ action: "install", source: nextSrc, step: 0, error: "" });
     try {
       const next = await api("/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: nextSrc }),
       });
+      setJob((j) => j && { ...j, step: 1 });
       setData(next);
       setSource("");
-      toast.ok("Installed " + nextSrc);
+      setJob((j) => j && { ...j, step: 2 });
+      setTimeout(() => setJob(null), 600);
     } catch (err) {
-      toast.error(humanizeError(err.message || String(err)));
-    } finally { setBusy(false); }
+      setJob((j) => j && { ...j, error: humanizeError(err.message || String(err)) });
+    }
   }
 
   async function remove(pkg) {
@@ -63,15 +64,17 @@ export default function Packages({ hidden }) {
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!ok || busy) return;
-    setBusy(true);
+    if (!ok || job) return;
+    setJob({ action: "remove", source: pkg.source, step: 0, error: "" });
     try {
       const next = await api("/api/packages?source=" + encodeURIComponent(pkg.source), { method: "DELETE" });
+      setJob((j) => j && { ...j, step: 1 });
       setData(next);
-      toast.ok("Removed " + pkg.source);
+      setJob((j) => j && { ...j, step: 2 });
+      setTimeout(() => setJob(null), 600);
     } catch (err) {
-      toast.error(humanizeError(err.message || String(err)));
-    } finally { setBusy(false); }
+      setJob((j) => j && { ...j, error: humanizeError(err.message || String(err)) });
+    }
   }
 
   const list = data && data.packages ? data.packages : [];
@@ -85,10 +88,10 @@ export default function Packages({ hidden }) {
           value={source}
           onChange={(e) => setSource(e.target.value)}
           placeholder="Install by source — npm:pi-web-search"
-          disabled={busy}
+          disabled={!!job}
           aria-label="Package source"
         />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !source.trim()}>Install</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim()}>Install</button>
       </form>
       <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
 
@@ -111,7 +114,7 @@ export default function Packages({ hidden }) {
             {list.map((p) => (
               <li key={p.scope + ":" + p.source} className="pkg-chip">
                 <span className="pkg-src">{p.source}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={busy}>Remove</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
               </li>
             ))}
           </ul>
@@ -159,10 +162,10 @@ export default function Packages({ hidden }) {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
-                  disabled={busy || on}
+                  disabled={!!job || on}
                   onClick={() => installSource(h.source)}
                 >
-                  {on ? "Installed" : busy ? "Working…" : "Install"}
+                  {on ? "Installed" : "Install"}
                 </button>
               </div>
               </div>
@@ -171,7 +174,51 @@ export default function Packages({ hidden }) {
         })}
       </ul>
 
+      {job ? <JobOverlay job={job} onClose={() => setJob(null)} /> : null}
     </PageFrame>
+  );
+}
+
+function jobSteps(job) {
+  const bin = job.action === "remove" ? "remove" : "install";
+  return [
+    { id: "run", label: "pi " + bin + " " + job.source + " --no-approve" },
+    { id: "list", label: "Reload installed packages" },
+  ];
+}
+
+function JobOverlay({ job, onClose }) {
+  const steps = jobSteps(job);
+  const title = job.action === "remove" ? "Removing package" : "Installing package";
+  return (
+    <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="pkg-job-title">
+      <div className="pkg-job-card">
+        <h3 id="pkg-job-title">{title}</h3>
+        <p className="pkg-job-src">{job.source}</p>
+        <ol className="pkg-job-steps">
+          {steps.map((s, i) => {
+            let st = "todo";
+            if (job.error && i === job.step) st = "err";
+            else if (i < job.step) st = "done";
+            else if (i === job.step) st = "run";
+            return (
+              <li key={s.id} className={"pkg-job-step " + st}>
+                <span className="pkg-job-mark" aria-hidden="true">{st === "done" ? "✓" : st === "run" ? "●" : st === "err" ? "!" : "○"}</span>
+                <code>{s.label}</code>
+              </li>
+            );
+          })}
+        </ol>
+        {job.error ? (
+          <>
+            <p className="pkg-job-err">{job.error}</p>
+            <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
+          </>
+        ) : (
+          <p className="pkg-fine">Stays here until pi finishes. npm can take a minute.</p>
+        )}
+      </div>
+    </div>
   );
 }
 

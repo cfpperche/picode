@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Package install/remove freezes the page behind a blur overlay and lists
+  the real `pi install` / `pi remove` steps (no more every-button Working…).
 - Packages gallery shows **skeleton cards** while npm search is in flight.
   Optimistic UI is now a project bar (`docs/philosophy.md` §7).
 - Composer **dictation** (mic, Ctrl+D) and **voice mode** (waveform,
