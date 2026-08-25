@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Create forms validate with Zod (`noValidate` — no native browser bubbles).
 - New agent / workspace forms are a dialog (desktop) or Vaul drawer (mobile),
   not inline in the sidebar.
 - Palette, session picker, kind chip, slash menu, and user menu use cmdk / Radix.

@@ -13,7 +13,7 @@ export default function CreateForm({
       ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
       : "New agent";
   const fields = (
-    <form className="form-new create-form" onSubmit={onSubmit}>
+    <form className="form-new create-form" noValidate onSubmit={onSubmit}>
       {kind === "workspace" ? (
         <>
           <input name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" autoFocus />

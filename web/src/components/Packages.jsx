@@ -97,7 +97,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
 
   return (
     <PageFrame id="packages-view" title="Packages" hidden={hidden} wide>
-      <form className="pkg-by-source" onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
+      <form className="pkg-by-source" noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
         <input
           className="dlg-input"
           value={source}

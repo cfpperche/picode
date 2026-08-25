@@ -32,6 +32,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
 import { locate, firstAgentId } from "../lib/tree.js";
+import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
 import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
@@ -451,41 +452,36 @@ export default function App() {
     e.preventDefault();
     setFormError("");
     const fd = new FormData(e.target);
-    const name = String(fd.get("name") || "").trim();
-    const path = String(fd.get("path") || "").trim();
-    if (!newCfg.provider || !newCfg.model || !newCfg.thinking) {
-      setFormError("Provider, model, and thinking are required.");
-      return;
-    }
+    const name = String(fd.get("name") || "");
+    const path = String(fd.get("path") || "");
+    const schema = formKind === "workspace" ? createWorkspaceSchema : formKind === "free" ? createFreeAgentSchema : createWsAgentSchema;
+    const parsed = parseForm(schema, { name, path, ...newCfg });
+    if (!parsed.ok) { setFormError(parsed.error); return; }
+    const body = parsed.value;
     try {
       if (formKind === "workspace") {
-        if (!name || !path) {
-          setFormError("Name and folder path are required.");
-          return;
-        }
         const ws = await api("/api/workspaces", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, path, ...newCfg }),
+          body: JSON.stringify(body),
         });
         const list = await loadWorkspaces();
         const aid = (ws.agents && ws.agents[0] && ws.agents[0].id) || (ws.agent && ws.agent.id);
         if (aid) openTab(aid, list);
       } else if (formKind === "free") {
-        if (!name) { setFormError("Name is required."); return; }
         const ag = await api("/api/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, path, ...newCfg }),
+          body: JSON.stringify(body),
         });
         await loadWorkspaces();
         openTab(ag.id);
       } else {
-        if (!name || !formWs) { setFormError("Name is required."); return; }
+        if (!formWs) { setFormError("Name is required."); return; }
         const ag = await api("/api/workspaces/" + formWs + "/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, ...newCfg }),
+          body: JSON.stringify({ name: body.name, provider: body.provider, model: body.model, thinking: body.thinking }),
         });
         await loadWorkspaces();
         openTab(ag.id);

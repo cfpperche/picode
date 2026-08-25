@@ -100,6 +100,9 @@ supersede it with a new one instead.
 - UI: React in `web/`; design tokens live in `web/src/styles/app.css`
   (do not invent a second palette). After any UI change run `make web`
   and a JS/JSX syntax check (`npm run build` must succeed).
+- **Forms: Zod, never native browser validation.** Schemas live in
+  `web/src/lib/schemas.js`. Forms set `noValidate`. Same messages in every
+  browser.
 - **Prefer popular primitives over homemade widgets.** Use Radix (already
   in the app), cmdk, **shadcn/ui patterns**, or native controls. Tailwind
   (ADR-0008) is the utility layer; tokens stay CSS variables. Roll a custom
