@@ -1029,6 +1029,9 @@ body {
 .folder-row-meta { color: var(--text-secondary); font-size: 11px; }
 .folder-mkdir { display: flex; gap: 6px; align-items: center; }
 .folder-mkdir .dlg-input { margin-top: 0; flex: 1; min-width: 0; }
+.folder-mkdir .btn, .folder-field .btn {
+  flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
+}
 .session-facts { margin: 12px 0 0; }
 .session-fact {
   display: grid; grid-template-columns: 72px 1fr; gap: 8px;
