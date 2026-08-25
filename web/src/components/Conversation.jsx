@@ -4,12 +4,23 @@ import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 
+function chatIsEmpty(items) {
+  return !(items || []).some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert");
+}
+
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming }) {
+  const empty = chatIsEmpty(items);
   const turns = groupTurns(items);
   const busy = workingIndex(turns, !!streaming);
   return (
     <div id="conversation" className="conversation" ref={convRef} onScroll={onScroll} style={{ visibility: hidden ? "hidden" : "visible" }}>
-      <div className="conv-col">
+      {empty ? (
+        <div className="chat-hello">
+          <h2>What should we work on?</h2>
+          <p>Ask anything in this project, or type / for commands.</p>
+        </div>
+      ) : null}
+      <div className="conv-col" hidden={empty}>
         {turns.reduce((acc, t, i) => {
           if (t.kind === "loose") {
             acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} />);

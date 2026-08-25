@@ -118,12 +118,12 @@ export default function App() {
       const cur = data.current || "";
       setSessionCurrent(cur);
       if (!cur) {
-        setItems([{ kind: "sys", text: "Send a message to start." }]);
+        setItems([]);
         return;
       }
       const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur));
       const ev = t.events || [];
-      setItems(ev.length ? eventsToItems(ev) : [{ kind: "sys", text: "Send a message to start." }]);
+      setItems(ev.length ? eventsToItems(ev) : []);
       scrollToEnd();
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId]);
