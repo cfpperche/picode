@@ -321,7 +321,7 @@ body {
 .ws-chev.open { transform: rotate(90deg); }
 .ws-faces { display: flex; align-items: center; flex: none; }
 .ws-face {
-  width: 16px; height: 16px; border-radius: 50%;
+  width: 18px; height: 18px; border-radius: 50%;
   border: 1.5px solid var(--bg-panel); background: #fff;
   margin-left: -6px; object-fit: contain; padding: 1px;
   display: grid; place-items: center;
