@@ -20,6 +20,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [userCode, setUserCode] = useState("");
+  const [replacing, setReplacing] = useState(false);
   const [recents, setRecents] = useState(readRecents);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     setKey("");
     setErr("");
     setUserCode("");
+    setReplacing(false);
     setAdd(true);
   }
 
@@ -59,7 +61,24 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     setKey("");
     setErr("");
     setUserCode("");
+    setReplacing(false);
     if (wantAdd) go("providers");
+  }
+
+  function replaceProvider(p) {
+    setReplacing(true);
+    setAdd(true);
+    chooseProvider(p);
+  }
+
+  function goBack() {
+    if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
+      setStep("method");
+      return;
+    }
+    if (replacing) { closeAdd(); return; }
+    setPick(null);
+    setStep("pick");
   }
 
   function chooseProvider(p) {
@@ -150,9 +169,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 <ProviderFace id={p.id} />
                 <span className="prov-id">{p.id}</span>
                 <span className="prov-auth in">{p.authType === "oauth" ? "account" : "api key"}</span>
-                {p.login !== "oauth" ? (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick(p); setStep("key"); setKey(""); setErr(""); setAdd(true); }}>Replace</button>
-                ) : null}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Replace</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => signOut(p.id)}>Sign out</button>
               </li>
             ))}
@@ -209,7 +226,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 <button type="button" className="btn btn-primary" onClick={() => setStep("key")}>Sign in with an API key</button>
                 <button type="button" className="btn btn-ghost" onClick={() => setStep("oauth")}>Sign in with an account</button>
                 <div className="dlg-actions">
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick(null); setStep("pick"); }}>Back</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                 </div>
               </div>
             ) : null}
@@ -224,7 +241,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 {userCode ? <p className="oauth-code">{userCode}</p> : null}
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (pick && pick.login === "both") setStep("method"); else { setPick(null); setStep("pick"); } }}>Back</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   {canAccount ? (
                     <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : "Continue in browser"}</button>
                   ) : (
@@ -239,7 +256,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 <input type="password" autoComplete="off" placeholder="sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (pick && pick.login === "both") setStep("method"); else { setPick(null); setStep("pick"); } }}>Back</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
                 </div>
               </form>
