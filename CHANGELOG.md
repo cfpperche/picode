@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- License: MIT → PolyForm Noncommercial 1.0.0 for personal/noncommercial
+  use; commercial/enterprise needs a signed license
+  ([LICENSING.md](LICENSING.md)). Prior MIT tags stay MIT.
+
 ### Added
 
 - Public docs on GitHub Pages (`www/`); `#/docs/{cmd}` iframes them. Slash

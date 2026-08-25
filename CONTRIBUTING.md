@@ -37,6 +37,13 @@ Code and docs change together, in the same commit:
 | Project state at all | `docs/handoff.md` (session end) |
 | A benchmark we hold | `docs/benchmarks.md` with rationale |
 
+## License of contributions
+
+PRs are [PolyForm Noncommercial 1.0.0](LICENSE) **and** grant the
+copyright holder the right to dual-license (including a commercial
+license). See [LICENSING.md](LICENSING.md). Do not send code you cannot
+offer on those terms.
+
 ## Language
 
 English is the repository's official language — code, docs, commits,

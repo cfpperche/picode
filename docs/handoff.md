@@ -87,6 +87,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Relicensed: PolyForm Noncommercial + commercial notice
+  (`LICENSING.md`). MIT no longer applies to this tree.
 - **2026-08-25** — Public docs (`www/` → GitHub Pages). `#/docs/{cmd}`
   iframes them. Guidelines: correlate with pi docs when applicable.
   `/tree` click remains fork ([pi#8645](https://github.com/earendil-works/pi/issues/8645)).

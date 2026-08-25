@@ -7,7 +7,7 @@
 </p>
 <p align="center">
   <img alt="CI" src="https://github.com/cfpperche/picode/actions/workflows/ci.yml/badge.svg">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="License" src="https://img.shields.io/badge/license-PolyForm--Noncommercial-blue">
   <img alt="Status" src="https://img.shields.io/badge/status-pre--alpha-orange">
 </p>
 
@@ -118,4 +118,6 @@ speaks English (see [AGENTS.md](AGENTS.md)). 🇧🇷→🌐*
 
 ## License
 
-[MIT](LICENSE) © 2026 cfpperche
+Source-available. **Personal / noncommercial:** [PolyForm Noncommercial 1.0.0](LICENSE).
+**Enterprise / commercial:** paid license — [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
+See [LICENSING.md](LICENSING.md). © 2026 cfpperche
