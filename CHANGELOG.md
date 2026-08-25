@@ -11,6 +11,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- Folder field: type a path or Browse (list + create directory on this machine).
+
 ### Changed
 
 - Create forms validate with Zod (`noValidate` — no native browser bubbles).

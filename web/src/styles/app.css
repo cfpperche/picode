@@ -1011,6 +1011,24 @@ body {
 .create-drawer .form-new { padding: 12px 0 0; }
 .create-drawer .form-new input,
 .create-drawer .cfg-fields select { width: 100%; }
+.folder-field { display: flex; gap: 6px; align-items: center; }
+.folder-field input { flex: 1; min-width: 0; }
+.folder-field .btn { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.dlg-overlay-folder { z-index: 82; }
+.dlg-folder { z-index: 83; width: min(440px, calc(100vw - 32px)); }
+.folder-list {
+  margin: 10px 0; max-height: 240px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.folder-row {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border: 0; background: none; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--text-primary); cursor: pointer;
+}
+.folder-row:hover { background: var(--bg-hover); }
+.folder-row-meta { color: var(--text-secondary); font-size: 11px; }
+.folder-mkdir { display: flex; gap: 6px; align-items: center; }
+.folder-mkdir .dlg-input { margin-top: 0; flex: 1; min-width: 0; }
 .session-facts { margin: 12px 0 0; }
 .session-fact {
   display: grid; grid-template-columns: 72px 1fr; gap: 8px;

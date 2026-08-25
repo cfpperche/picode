@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Drawer } from "vaul";
 import ConfigFields from "./ConfigFields.jsx";
+import FolderField from "./FolderField.jsx";
 import { useMedia } from "../lib/media.js";
 
 export default function CreateForm({
@@ -17,12 +18,12 @@ export default function CreateForm({
       {kind === "workspace" ? (
         <>
           <input name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" autoFocus />
-          <input name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
+          <FolderField name="path" placeholder="Folder path (e.g. ~/code/my-app)" resetKey={open} />
         </>
       ) : kind === "free" ? (
         <>
           <input name="name" type="text" placeholder="Name" autoComplete="off" autoFocus />
-          <input name="path" type="text" placeholder="Folder (optional — ~/.picode/work/name)" autoComplete="off" />
+          <FolderField name="path" placeholder="Folder (optional — ~/.picode/work/name)" resetKey={open} />
         </>
       ) : (
         <input name="name" type="text" placeholder="Agent name" autoComplete="off" autoFocus />
