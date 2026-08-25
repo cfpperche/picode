@@ -1,18 +1,43 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { cardsFrom } from "../lib/sessionCards.js";
 
-function flatten(nodes, depth, out) {
-  for (const n of nodes || []) {
-    out.push({ ...n, depth });
-    flatten(n.children, depth + 1, out);
-  }
-  return out;
+function Card({ card, leaf, onFork }) {
+  const replies = card.info.filter((i) => i.kind === "reply");
+  const tools = card.info.filter((i) => i.kind === "tool").length;
+  const meta = card.info.filter((i) => i.kind === "meta").map((i) => i.text);
+  const reply = replies.length ? replies[replies.length - 1].text : "";
+  return (
+    <li className="tree-chain-item">
+      <button
+        type="button"
+        className={"tree-card" + (card.id === leaf ? " leaf" : "")}
+        onClick={() => onFork(card.id)}
+      >
+        <span className="tree-card-prompt">{card.text}</span>
+        {reply ? <span className="tree-card-reply">{reply}</span> : null}
+        {tools || meta.length ? (
+          <span className="tree-card-meta">
+            {tools ? tools + (tools === 1 ? " tool" : " tools") : ""}
+            {tools && meta.length ? " · " : ""}
+            {meta.join(" · ")}
+          </span>
+        ) : null}
+      </button>
+      {card.children && card.children.length ? (
+        <ol className="tree-chain">
+          {card.children.map((c) => (
+            <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
+          ))}
+        </ol>
+      ) : null}
+    </li>
+  );
 }
 
 export default function SessionTree({ open, onClose, mode, tree, onFork, onClone }) {
-  const rows = flatten((tree && tree.tree) || [], 0, []);
+  const cards = cardsFrom((tree && tree.tree) || []);
   const leaf = tree && tree.leafId;
   const forkOnly = mode === "fork";
-  const shown = forkOnly ? rows.filter((r) => r.role === "user") : rows;
   const title = forkOnly ? "Fork from a prompt" : "Session tree";
 
   return (
@@ -22,36 +47,23 @@ export default function SessionTree({ open, onClose, mode, tree, onFork, onClone
         <Dialog.Content className="dlg dlg-tree" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {forkOnly ? "New session from that user message." : "Same file. Fork creates a new session from a prompt. Clone copies this branch."}
+            {forkOnly ? "New session from that prompt." : "Each card is a prompt. Fork from a card. Clone copies this branch."}
           </Dialog.Description>
           <div className="tree-list">
-            {shown.length === 0 ? (
+            {cards.length === 0 ? (
               <p className="side-empty">No messages yet</p>
             ) : (
-              shown.map((r) => {
-                const user = r.role === "user";
-                const label = r.text || r.kind || r.id;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className={"tree-row" + (r.id === leaf ? " leaf" : "") + (user ? " user" : "")}
-                    style={{ paddingLeft: 8 + r.depth * 14 }}
-                    disabled={!user}
-                    onClick={() => user && onFork(r.id)}
-                    title={user ? "Fork from here" : undefined}
-                  >
-                    <span className="tree-kind">{user ? "You" : (r.role || r.kind)}</span>
-                    <span className="tree-text">{label}</span>
-                  </button>
-                );
-              })
+              <ol className="tree-chain">
+                {cards.map((c) => (
+                  <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
+                ))}
+              </ol>
             )}
           </div>
           <div className="dlg-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
             {!forkOnly ? (
-              <button type="button" className="btn btn-primary btn-sm" onClick={onClone} disabled={shown.length === 0}>Clone</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={onClone} disabled={cards.length === 0}>Clone</button>
             ) : null}
           </div>
         </Dialog.Content>
