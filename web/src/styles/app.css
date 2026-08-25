@@ -1050,10 +1050,17 @@ body {
 .picode-toaster.close-inside-right [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
   background: var(--bg-hover); color: var(--text-primary);
 }
-.picode-toaster.close-edge-right {
-  --toast-close-button-start: unset;
-  --toast-close-button-end: 0;
-  --toast-close-button-transform: translate(35%, -35%);
+.picode-toaster.close-edge-right [data-sonner-toast][data-styled="true"] [data-close-button] {
+  left: auto;
+  right: 0;
+  top: 0;
+  transform: translate(35%, -35%);
+}
+.picode-toaster.close-edge-left [data-sonner-toast][data-styled="true"] [data-close-button] {
+  left: 0;
+  right: auto;
+  top: 0;
+  transform: translate(-35%, -35%);
 }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
