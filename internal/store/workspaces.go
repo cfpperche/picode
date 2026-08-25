@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Workspace is one registered project folder.
@@ -30,14 +31,17 @@ func IsFree(w Workspace) bool {
 	return w.ID == FreeWorkspaceID || w.Path == FreeWorkspacePath
 }
 
-// AgentCwd is the directory pi should start in.
-func AgentCwd(w Workspace) string {
+// AgentCwd is the directory pi should start in. Unbound agents never use $HOME.
+func AgentCwd(w Workspace, a Agent) string {
+	if a.WorkPath != nil && strings.TrimSpace(*a.WorkPath) != "" {
+		return *a.WorkPath
+	}
 	if IsFree(w) {
 		h, err := os.UserHomeDir()
 		if err != nil {
 			return "."
 		}
-		return h
+		return filepath.Join(h, ".picode", "work", a.ID)
 	}
 	return w.Path
 }

@@ -23,8 +23,9 @@ add siblings. This ADR is that step.
 1. **Workspace** = a directory (`path` unique). Owns zero or more agents.
 2. **Agent** = one live `pi` (tmux/managed), own provider/model/thinking/
    session JSONL. Config is per agent, never locked to the folder.
-3. **Free agents** live in a reserved workspace `ws_free` (hidden from the
-   workspace list). Cwd is the user home directory. They do not use
+3. **Agents** (unbound) live in a reserved workspace `ws_free` (hidden from
+   the workspace list). Cwd is **never** `$HOME`: default
+   `~/.picode/work/<name>/`, or a folder the user picks. They do not use
    `pi install -l`.
 4. Adding a workspace still creates a first agent (so a new folder is
    immediately usable). Extra agents are `POST /api/workspaces/{id}/agents`.

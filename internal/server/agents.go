@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,7 +42,9 @@ func (deps Deps) agentHome(agent store.Agent) (store.Workspace, string, error) {
 	if err != nil {
 		return store.Workspace{}, "", err
 	}
-	return wk, store.AgentCwd(wk), nil
+	cwd := store.AgentCwd(wk, agent)
+	_ = os.MkdirAll(cwd, 0o755)
+	return wk, cwd, nil
 }
 
 func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
@@ -296,7 +300,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusServiceUnavailable, "pi is not installed or not on PATH")
 				return
 			}
-			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk), deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk, agent), deps.AgentCmd, agent.CLIFlags()...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -355,7 +359,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !has {
-			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk), deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSession(r.Context(), name, store.AgentCwd(wk, agent), deps.AgentCmd, agent.CLIFlags()...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -390,7 +394,7 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
 		}
 		if deps.Runtime.Get(id) == nil {
-			if err := deps.Runtime.Start(id, store.AgentCwd(wk)); err != nil {
+			if err := deps.Runtime.Start(id, store.AgentCwd(wk, agent)); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -454,6 +458,7 @@ func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Name     string `json:"name"`
+			Path     string `json:"path"`
 			Provider string `json:"provider"`
 			Model    string `json:"model"`
 			Thinking string `json:"thinking"`
@@ -462,7 +467,12 @@ func handleAddFreeAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		agent, err := deps.Store.AddAgent(store.FreeWorkspaceID, req.Name)
+		dir, err := resolveAgentWorkDir(deps, req.Path, req.Name)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		agent, err := deps.Store.AddAgent(store.FreeWorkspaceID, req.Name, dir)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -500,7 +510,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		agent, err := deps.Store.AddAgent(wsID, req.Name)
+		agent, err := deps.Store.AddAgent(wsID, req.Name, "")
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -609,4 +619,57 @@ func handleAgentClose(deps Deps) http.HandlerFunc {
 		_ = deps.Store.AppendEvent("agent_stopped", &agent.ID, &wid, nil)
 		writeJSON(w, http.StatusOK, map[string]any{"running": false})
 	}
+}
+
+func resolveAgentWorkDir(deps Deps, path, name string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		root := deps.DataDir
+		if root == "" {
+			h, err := os.UserHomeDir()
+			if err != nil {
+				return "", err
+			}
+			root = filepath.Join(h, ".picode")
+		}
+		path = filepath.Join(root, "work", slugDir(name))
+	}
+	if strings.HasPrefix(path, "~/") {
+		h, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Join(h, path[2:])
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return "", err
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return "", err
+	}
+	if !st.IsDir() {
+		return "", errors.New("work path is not a directory")
+	}
+	return abs, nil
+}
+
+func slugDir(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(strings.TrimSpace(name)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else if r == ' ' || r == '_' {
+			b.WriteByte('-')
+		}
+	}
+	s := strings.Trim(b.String(), "-")
+	if s == "" {
+		s = "agent"
+	}
+	return s
 }

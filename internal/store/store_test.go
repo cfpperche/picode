@@ -58,7 +58,7 @@ func TestWorkspaceAndAgents(t *testing.T) {
 	if err != nil || len(list) != 1 {
 		t.Fatalf("ListWorkspaces = %d, %v", len(list), err)
 	}
-	sib, err := s.AddAgent(w.ID, "review")
+	sib, err := s.AddAgent(w.ID, "review", "")
 	if err != nil {
 		t.Fatalf("AddAgent: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestWorkspaceAndAgents(t *testing.T) {
 	if err != nil || len(inWs) != 2 {
 		t.Fatalf("ListAgents = %d, %v", len(inWs), err)
 	}
-	if _, err := s.AddAgent(FreeWorkspaceID, "scratch"); err != nil {
+	if _, err := s.AddAgent(FreeWorkspaceID, "scratch", t.TempDir()); err != nil {
 		t.Fatalf("free agent: %v", err)
 	}
 	if sib.Name != "review" {

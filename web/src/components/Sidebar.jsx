@@ -2,7 +2,7 @@ import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal, IconPlus } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 
 const SIDE_MIN = 180;
@@ -62,7 +62,7 @@ export default function Sidebar({
           </span>
         </div>
         <div className="ws-row2">
-          <span className="ws-path" title={ws ? ws.path : "~"}>{ws ? ws.path : "~"}</span>
+          <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{ws ? ws.path : (ag.workPath || "~/.picode/work")}</span>
           <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
             <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !termView} title="Chat" onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
             <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !!termView} title="Terminal" onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
@@ -84,12 +84,13 @@ export default function Sidebar({
 
       <div className="side-section">
         <div className="side-head">
-          <span className="side-title">Agents</span>
-          <button type="button" className="btn btn-ghost btn-sm" title="New agent (starts in your home folder)" onClick={onNewFree}>+ Agent</button>
+          <span className="side-title"><IconAgent /> Agents</span>
+          <button type="button" className="btn btn-ghost btn-sm" title="New agent" onClick={onNewFree}>+ Agent</button>
         </div>
         {showForm && formKind === "free" ? (
           <form className="form-new" onSubmit={onSubmit}>
             <input name="name" type="text" placeholder="Name" autoComplete="off" />
+            <input name="path" type="text" placeholder="Folder (optional — ~/.picode/work/name)" autoComplete="off" />
             <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="free" />
             <div className="form-actions">
               <button type="submit" className="btn btn-primary btn-sm">Add</button>
@@ -103,7 +104,7 @@ export default function Sidebar({
         </ul>
 
         <div className="side-head" style={{ marginTop: 14 }}>
-          <span className="side-title">Workspaces</span>
+          <span className="side-title"><IconFolder /> Workspaces</span>
           <button id="btn-new" className="btn btn-ghost btn-sm" title="Add a workspace" onClick={onNew}>+ Folder</button>
         </div>
 

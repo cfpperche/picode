@@ -472,7 +472,7 @@ export default function App() {
         const ag = await api("/api/agents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, ...newCfg }),
+          body: JSON.stringify({ name, path, ...newCfg }),
         });
         await loadWorkspaces();
         openTab(ag.id);

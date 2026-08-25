@@ -88,6 +88,7 @@ body {
   padding: 2px 8px 8px;
 }
 .side-title {
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
   color: var(--text-secondary);
 }

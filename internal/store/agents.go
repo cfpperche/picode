@@ -24,14 +24,15 @@ type Agent struct {
 	LastStartedAt *string `json:"lastStartedAt"`
 	LastStatus    string  `json:"lastStatus"`
 	LastStatusAt  *string `json:"lastStatusAt"`
+	WorkPath      *string `json:"workPath"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path`
 
 func scanAgent(row interface{ Scan(...any) error }) (Agent, error) {
 	var a Agent
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
 	return a, err
 }
 
@@ -47,7 +48,7 @@ func ensureDefaultAgentTx(tx txRunner, workspaceID, wsName, createdAt string) (A
 		var a Agent
 		err := tx.QueryRow(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at LIMIT 1`, workspaceID).
 			Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-				&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+				&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
 		if err != nil {
 			return Agent{}, fmt.Errorf("store: default agent: %w", err)
 		}
@@ -125,7 +126,7 @@ func (s *Store) SetAgentRuntime(id, status string) error {
 
 func scanAgentInto(row *sql.Row, a *Agent) error {
 	return row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
 }
 
 // AgentPatch is a partial update. Empty string clears a nullable column
@@ -235,7 +236,7 @@ func emptyToNil(s string) *string {
 }
 
 // AddAgent creates an agent in a workspace (use FreeWorkspaceID for unbound).
-func (s *Store) AddAgent(workspaceID, name string) (Agent, error) {
+func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
 	name = stringsTrimSpace(name)
 	if name == "" {
 		return Agent{}, fmt.Errorf("store: name is required")
@@ -252,9 +253,10 @@ func (s *Store) AddAgent(workspaceID, name string) (Agent, error) {
 		Name:        name,
 		CreatedAt:   nowUTC(),
 		LastStatus:  StatusNeverStarted,
+		WorkPath:    emptyToNil(workPath),
 	}
-	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status) VALUES (?, ?, ?, ?, ?)`,
-		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path) VALUES (?, ?, ?, ?, ?, ?)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
 	return s.GetAgent(a.ID)
@@ -283,7 +285,7 @@ func (s *Store) ListAgents(workspaceID string) ([]Agent, error) {
 
 func scanAgentIntoRows(a *Agent, rows *sql.Rows) error {
 	return rows.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
 }
 
 // DeleteAgent removes one agent. Workspace is kept.
