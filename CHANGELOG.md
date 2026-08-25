@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- `/llama` dialog: setup checklist (install / start router / download), then load. Start uses llama-server on PATH.
+- `/llama` dialog + Providers: link to setup docs. No install essay in chrome.
 - `/share` creates a secret GitHub gist (`gh`). Not the phone QR.
 - Composer `/` lists skills and prompt templates (insert; pi expands on send).
 - `/export` JSONL download, `/import` file picker, `/hotkeys`, `/changelog` (installed pi).

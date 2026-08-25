@@ -23,6 +23,7 @@ export default defineConfig({
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
           { text: "Providers", link: "/guide/providers" },
+          { text: "llama.cpp", link: "/guide/llama" },
         ],
       },
       {

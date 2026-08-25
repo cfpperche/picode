@@ -163,7 +163,7 @@ Canonical: pi repo CHANGELOG.
 
 ## /llama {#llama}
 
-Opens a dialog: router URL, load/unload, Hugging Face download. Does not leave the agent. Does not start `llama-server` or delete files.
+Opens a dialog: router URL, load/unload, Hugging Face download. Setup (install/start the server) is in [llama.cpp](/guide/llama).
 
 Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/llama-cpp.md).
 

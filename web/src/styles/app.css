@@ -194,15 +194,6 @@ body {
   padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px;
 }
 .dlg-changelog { max-width: 560px; }
-.llama-steps { list-style: none; padding: 0; margin: 12px 0 0; }
-.llama-steps li {
-  display: grid; grid-template-columns: 4.5rem 1fr; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
-}
-.llama-steps li:last-child { border-bottom: none; }
-.llama-steps li span { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
-.llama-steps li.done span { color: var(--ok); }
-.llama-steps li p { margin: 0 0 4px; }
 .dlg-llama { max-width: 560px; max-height: min(80vh, 720px); overflow: auto; }
 .dlg-llama .settings-section { padding: 0; margin: 12px 0 0; }
 .dlg-llama .form-new { padding: 0; }
