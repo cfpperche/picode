@@ -85,9 +85,13 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Voice **V1 shipped** (dictation bar + Grok composer +
+  browser TTS). Later phases recorded in
+  [`docs/design/voice-mode.md`](design/voice-mode.md) §4: V1.1 cloud STT
+  only after dogfood, V2 barge-in, V3 opt-in cloud TTS. Owner dogfooding.
 - **2026-08-25** — Voice V1: dictation + Grok-style voice composer
   (`docs/design/voice-mode.md`). Web Speech API, no Realtime fork.
-  Chat stays; composer swaps. Spoken replies are V2.
+  Chat stays; composer swaps. Spoken replies landed in V1 (speaker).
 - **2026-08-24** — Desktop/mobile shells in one Vite app (`web/src/desktop`,
   `web/src/mobile`). Boot picker by viewport or `?desktop=1`/`?mobile=1`.
 - **2026-08-24** — Phone QR: prefer current LAN IP (Wi-Fi vs cable

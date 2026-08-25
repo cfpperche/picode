@@ -1,7 +1,7 @@
 # Voice in PiCode
 
-- **Date:** 2026-08-25
-- **Status:** V1 in progress
+- **Date:** 2026-08-25 (updated same day after V1 ship)
+- **Status:** V1 shipped. Owner dogfooding. Later phases below.
 - **Brief:** ChatGPT idle (mic + waveform) + **Grok x.ai voice composer**.
   Owner screenshots `122712` / `122725` (ChatGPT) and `123411` / `123433`
   (Grok: voice replaces the composer, chat stays).
@@ -82,10 +82,10 @@ reuse their OS-mic capture; it needs `getUserMedia`.
 
 ## 3. Decisions
 
-### D1 — Two products, two phases
+### D1 — Two products, never one button
 
-**V1 Dictation + voice composer chrome. V2 spoken replies / barge-in.**
-Never one button that does both jobs.
+Dictation and voice mode stay separate. V1 shipped both chrome and a
+first TTS. Later phases polish engines, not the split.
 
 Why: ChatGPT idle split; coding needs an edit gate on dictation; Grok
 shows voice as a *composer state*, not a new route.
@@ -104,8 +104,9 @@ hatch. Speech-to-speech is a different product.
 
 ### D3 — Dictation fills the composer; it does not send
 
-Hold-to-talk or toggle. Interim text in the textarea. Stop → user hits
-Send (or Enter). Auto-send is an opt-in later, default off.
+Toggle (Ctrl+D). Recording replaces the send cluster with live
+waveform + X (revert) + check (keep text). User then hits Send.
+Hold-to-talk is later. Auto-send stays off for dictation.
 
 Why: speech-to-code is lossy (`rm -rf`, paths, package names). Cursor
 and ChatGPT dictation both land in an editable field.
@@ -142,10 +143,11 @@ No PiCode-billed STT. No default package install.
 Why: matches "nothing installed by default" (ADR-0010) and "one
 binary, working."
 
-### D6 — TTS v1 = `speechSynthesis`, voice-mode only
+### D6 — TTS = `speechSynthesis`, voice-mode only (shipped in V1)
 
-Dictation does not speak. Voice mode may speak assistant **text**
-after `message_end` (not tool dumps, not thinking). Neural TTS is V3.
+Dictation does not speak. Speaker toggles mute. Unmute speaks the last
+assistant **text** (not tool dumps, not thinking). Interrupt cancels TTS.
+Neural / cloud TTS is V3.
 
 Why: the TUI packages already cover local neural TTS for people who
 want it in the terminal. Browser synthesis is the door, not the cage.
@@ -180,39 +182,48 @@ device — empty-state copy must say so. Do not fake a waveform.
 - A PiCode STT/TTS marketplace.
 - Auto-send from **dictation** (voice composer may send on silence).
 
-## 4. Build plan
+## 4. Phases
 
-### V1 — Dictation + Grok voice composer
+### V1 — shipped 2026-08-25
 
-1. `lib/speech.js` — feature detect, merge transcripts, error copy.
-2. Idle composer-right: mic (dictate) + waveform (enter voice).
-3. Dictation: interim in the textarea, **does not send**. `Ctrl+D`.
-4. Waveform / `Ctrl+Shift+O`: swap to voice composer (caption,
-   mic/speaker cluster, Interrupt). Listen; on silence, `sendTask`.
-   While the agent streams, listening pauses; Interrupt aborts.
-5. Esc or waveform again: back to text composer (leftover caption → draft).
-6. First-use toast: vendor STT disclosure.
-7. No fake analyser bars. Listening = pulse on the mic.
+Idle mic (filled chip) + waveform. Dictation bar: live `AnalyserNode`
+levels, X cancels, check keeps text. Voice composer (Grok): caption,
+mic/speaker/Interrupt. Silence sends through `sendTask`. Speaker =
+browser `speechSynthesis` of last assistant text. Mic uses
+`getUserMedia` then Web Speech API. First-use vendor-STT toast.
 
-Done when: idle shows mic+wave; voice composer matches Grok anatomy;
-dictation edits before send; voice silence sends a normal JSONL turn.
+Code: `web/src/lib/speech.js`, `VoiceMeter.jsx`, `Composer.jsx`.
 
-### V2 — Spoken replies
+### V1.1 — after dogfood (only if needed)
 
-`speechSynthesis` of assistant text after `message_end`. Speaker button
-enables. Interrupt barges in (abort TTS + Abort RPC). Still the same
-composer, not a full-pane orb.
+If Chromium PT-BR is bad: opt-in cloud STT (`MediaRecorder` → OpenAI
+`gpt-transcribe` or Groq Whisper with keys already in Providers).
+Empty copy when WSL Linux has no capture device.
+Hold-to-talk as an alternate dictate gesture.
 
-### V3 — Cloud STT/TTS (opt-in)
+Do **not** start V1.1 until the owner reports a real quality gap.
 
-Settings: STT engine = Browser | OpenAI | Groq (keys already in
-Providers). TTS = Browser | OpenAI. Still no default. Packages page
-can *link* TUI voice packages for the escape hatch, not install them.
+### V2 — barge-in and turn-taking
+
+- Interrupt while TTS plays: `speechSynthesis.cancel` + Abort RPC
+  (partially there; make it reliable when the agent is mid-tool).
+- Pause listen for the full turn, not only `streaming` boolean.
+- Speak **after** `agent_settled`, skip thinking/tool dumps (already
+  last assistant block; tighten to final reply only).
+- Voice composer caption shows the in-flight transcript more clearly.
+
+Still the Grok composer, not a ChatGPT orb.
+
+### V3 — cloud STT/TTS (opt-in, no default)
+
+Settings: STT = Browser | OpenAI | Groq. TTS = Browser | OpenAI.
+Packages page may *link* TUI voice packages (`pi-voice-stt`, …) as
+the terminal escape hatch. Nothing installed by default (ADR-0010).
 
 ### Out of scope until pi itself speaks audio
 
-Speech-to-speech coding agent. MCP audio tools. Mobile-first voice
-chrome (mobile parity comes after V2 desktop).
+Speech-to-speech coding agent (OpenAI Realtime / Grok Voice as the
+brain). MCP audio tools. Mobile-first voice chrome (after V2 desktop).
 
 ## 5. Why this and not the alternatives
 
@@ -226,9 +237,9 @@ chrome (mobile parity comes after V2 desktop).
 | Voice overlay on Chat | Repeats the managed-vs-TUI confusion we just killed |
 | Wait for Grok audio | grok-4.6 has no audio I/O; we'd stall the brief |
 
-## 6. Open questions for the owner
+## 6. Open questions (dogfood)
 
-1. V1 dictation: toggle (ChatGPT) or hold-to-talk (many TUI packages)?
-   Recommendation: **toggle**, hold as later.
-2. Auto-send after silence in voice mode — **yes in V1** (Grok). Dictation stays manual send.
-3. Cloud STT in V1.1 if Chromium quality on PT-BR is bad?
+1. Hold-to-talk vs toggle — **toggle shipped**. Hold only if asked.
+2. Auto-send on silence in voice mode — **yes, shipped**. Dictation stays manual.
+3. Cloud STT — **V1.1, only if PT-BR on Chrome is not good enough**.
+4. Neural TTS — V3, not before cloud STT is decided.
