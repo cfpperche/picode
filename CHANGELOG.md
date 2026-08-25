@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pi Settings S2: workspace `.pi/settings.json` when the folder is in
+  `trust.json`. Untrusted → 409, run `/trust` in the terminal.
 - Pi Settings S1: read/write global `settings.json` (auto-compact, steering,
   follow-up, defaults). Radix switch + native selects.
 

@@ -21,19 +21,21 @@ export default function PiSettings({ hidden, agent, workspace, catalog }) {
     return () => { alive = false; };
   }, [hidden, agent && agent.id]);
 
-  async function save(patch) {
+  async function save(layer, patch, okMsg) {
     try {
       const next = await api("/api/pi-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: agent ? agent.id : "", layer: "global", patch }),
+        body: JSON.stringify({ agentId: agent ? agent.id : "", layer, patch }),
       });
       setRep(next);
-      toast.ok("Saved for every pi on this machine.");
+      toast.ok(okMsg);
     } catch (e) { toastError(e); }
   }
 
   const g = rep && rep.global;
+  const p = rep && rep.project;
+  const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
     <PageFrame id="pi-settings-view" title="Settings" hidden={hidden} wide>
@@ -44,64 +46,27 @@ export default function PiSettings({ hidden, agent, workspace, catalog }) {
           <section className="settings-section" data-layer="global">
             <h3>Global</h3>
             <p className="settings-desc">This machine · ~/.pi/agent/settings.json</p>
-            {!g ? (
-              <div className="set-rows" data-align-row aria-busy="true">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="set-row" aria-hidden="true">
-                    <span className="skel-line w-50" />
-                    <span className="skel-line w-40" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="set-rows" data-align-row>
-                <div className="set-row">
-                  <label htmlFor="g-compact">Auto-compact</label>
-                  <Switch.Root
-                    id="g-compact"
-                    className="rx-switch"
-                    checked={!!g.compactionEnabled}
-                    onCheckedChange={(v) => save({ compactionEnabled: v })}
-                  >
-                    <Switch.Thumb className="rx-switch-thumb" />
-                  </Switch.Root>
-                </div>
-                <div className="set-row">
-                  <label htmlFor="g-steer">Steering</label>
-                  <select id="g-steer" value={g.steeringMode || "one-at-a-time"} onChange={(e) => save({ steeringMode: e.target.value })}>
-                    {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="set-row">
-                  <label htmlFor="g-follow">Follow-up</label>
-                  <select id="g-follow" value={g.followUpMode || "one-at-a-time"} onChange={(e) => save({ followUpMode: e.target.value })}>
-                    {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="set-row set-row-stack">
-                  <span>Defaults</span>
-                  <ConfigFields
-                    allowEmpty
-                    catalog={catalog}
-                    provider={g.defaultProvider || ""}
-                    model={g.defaultModel || ""}
-                    thinking={g.defaultThinkingLevel || ""}
-                    onChange={(cfg) => save({
-                      defaultProvider: cfg.provider,
-                      defaultModel: cfg.model,
-                      defaultThinkingLevel: cfg.thinking,
-                    })}
-                    idPrefix="g-def"
-                    row
-                  />
-                </div>
-              </div>
-            )}
+            <LayerKnobs
+              prefix="g"
+              values={g}
+              catalog={catalog}
+              onSave={(patch) => save("global", patch, "Saved for every pi on this machine.")}
+            />
           </section>
           {workspace ? (
             <section className="settings-section" data-layer="workspace">
               <h3>Workspace</h3>
               <p className="settings-desc">{workspace.name} · {workspace.path}</p>
+              {!canProject ? (
+                <p className="settings-desc">This folder is not trusted. Run /trust in the terminal.</p>
+              ) : (
+                <LayerKnobs
+                  prefix="w"
+                  values={p}
+                  catalog={catalog}
+                  onSave={(patch) => save("project", patch, "Saved for this folder.")}
+                />
+              )}
             </section>
           ) : null}
           <section className="settings-section" data-layer="agent">
@@ -111,5 +76,64 @@ export default function PiSettings({ hidden, agent, workspace, catalog }) {
         </>
       )}
     </PageFrame>
+  );
+}
+
+function LayerKnobs({ prefix, values, catalog, onSave }) {
+  if (!values) {
+    return (
+      <div className="set-rows" data-align-row aria-busy="true">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="set-row" aria-hidden="true">
+            <span className="skel-line w-50" />
+            <span className="skel-line w-40" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="set-rows" data-align-row>
+      <div className="set-row">
+        <label htmlFor={prefix + "-compact"}>Auto-compact</label>
+        <Switch.Root
+          id={prefix + "-compact"}
+          className="rx-switch"
+          checked={!!values.compactionEnabled}
+          onCheckedChange={(v) => onSave({ compactionEnabled: v })}
+        >
+          <Switch.Thumb className="rx-switch-thumb" />
+        </Switch.Root>
+      </div>
+      <div className="set-row">
+        <label htmlFor={prefix + "-steer"}>Steering</label>
+        <select id={prefix + "-steer"} value={values.steeringMode || "one-at-a-time"} onChange={(e) => onSave({ steeringMode: e.target.value })}>
+          {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      <div className="set-row">
+        <label htmlFor={prefix + "-follow"}>Follow-up</label>
+        <select id={prefix + "-follow"} value={values.followUpMode || "one-at-a-time"} onChange={(e) => onSave({ followUpMode: e.target.value })}>
+          {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      <div className="set-row set-row-stack">
+        <span>Defaults</span>
+        <ConfigFields
+          allowEmpty
+          catalog={catalog}
+          provider={values.defaultProvider || ""}
+          model={values.defaultModel || ""}
+          thinking={values.defaultThinkingLevel || ""}
+          onChange={(cfg) => onSave({
+            defaultProvider: cfg.provider,
+            defaultModel: cfg.model,
+            defaultThinkingLevel: cfg.thinking,
+          })}
+          idPrefix={prefix + "-def"}
+          row
+        />
+      </div>
+    </div>
   );
 }

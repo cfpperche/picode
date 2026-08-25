@@ -4,9 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/rpc"
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func TestPiSettingsGlobalRoundTrip(t *testing.T) {
@@ -66,6 +71,84 @@ func TestPiSettingsGlobalRoundTrip(t *testing.T) {
 	}
 	if doc["steeringMode"] != "all" {
 		t.Fatalf("file = %s", raw)
+	}
+}
+
+func TestPiSettingsProjectUntrusted(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := t.TempDir()
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	_, agent, err := st.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat"}).Handler)
+	t.Cleanup(ts.Close)
+	body, _ := json.Marshal(map[string]any{
+		"agentId": agent.ID, "layer": "project",
+		"patch": map[string]any{"compactionEnabled": false},
+	})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-settings", bytes.NewReader(body))
+	res, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
+func TestPiSettingsProjectWrite(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".pi", "agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	trust, _ := json.Marshal(map[string]bool{proj: true})
+	if err := os.WriteFile(filepath.Join(home, ".pi", "agent", "trust.json"), trust, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	_, agent, err := st.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat"}).Handler)
+	t.Cleanup(ts.Close)
+	body, _ := json.Marshal(map[string]any{
+		"agentId": agent.ID, "layer": "project",
+		"patch": map[string]any{"steeringMode": "all"},
+	})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/pi-settings", bytes.NewReader(body))
+	res, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	raw, err := os.ReadFile(filepath.Join(proj, ".pi", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := map[string]any{}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["steeringMode"] != "all" {
+		t.Fatalf("%s", raw)
 	}
 }
 
