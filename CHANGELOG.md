@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pi Settings S3: agent card writes provider/model/thinking and Full/Read-only
+  (existing PATCH, all sessions of that pi).
 - Pi Settings S2: workspace `.pi/settings.json` when the folder is in
   `trust.json`. Untrusted → 409, run `/trust` in the terminal.
 - Pi Settings S1: read/write global `settings.json` (auto-compact, steering,

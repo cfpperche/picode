@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import PageFrame from "./PageFrame.jsx";
 import ConfigFields from "./ConfigFields.jsx";
+import ModeChip from "./ModeChip.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent, workspace, catalog }) {
+export default function PiSettings({ hidden, agent, workspace, catalog, onAgentConfig }) {
   const [rep, setRep] = useState(null);
 
   useEffect(() => {
@@ -72,6 +73,24 @@ export default function PiSettings({ hidden, agent, workspace, catalog }) {
           <section className="settings-section" data-layer="agent">
             <h3>Agent</h3>
             <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
+            <div className="set-rows" data-align-row>
+              <div className="set-row set-row-stack">
+                <span>Model</span>
+                <ConfigFields
+                  catalog={catalog}
+                  provider={agent.provider || ""}
+                  model={agent.model || ""}
+                  thinking={agent.thinking || ""}
+                  onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)}
+                  idPrefix="ag-set"
+                  row
+                />
+              </div>
+              <div className="set-row">
+                <span>Tools</span>
+                <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
+              </div>
+            </div>
           </section>
         </>
       )}

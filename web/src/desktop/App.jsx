@@ -562,6 +562,27 @@ export default function App() {
     setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
   }
 
+  async function patchAgent(cfg) {
+    if (!agent) return;
+    const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
+      && (cfg.opMode || "full") !== (agent.opMode || "full");
+    const was = agent.mode;
+    const dockWasOpen = !!(selectedId && termWanted.has(selectedId));
+    try {
+      await api("/api/agents/" + agent.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cfg),
+      });
+      await loadWorkspaces();
+      if (modeChanged && selectedId && was && was !== "stopped") {
+        await stopAgent(selectedId);
+        if (was === "managed") await startManaged(selectedId);
+        else if (was === "interactive") await openInteractive(selectedId, { dock: dockWasOpen });
+      }
+    } catch (e) { toastError(e); }
+  }
+
   const onPane = route !== "workspace";
   const noTabs = tabs.length === 0;
 
@@ -648,26 +669,7 @@ export default function App() {
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}
             agent={agent}
-            onConfig={async (cfg) => {
-              if (!agent) return;
-              const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
-                && (cfg.opMode || "full") !== (agent.opMode || "full");
-              const was = agent.mode;
-              const dockWasOpen = !!(selectedId && termWanted.has(selectedId));
-              try {
-                await api("/api/agents/" + agent.id, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(cfg),
-                });
-                await loadWorkspaces();
-                if (modeChanged && selectedId && was && was !== "stopped") {
-                  await stopAgent(selectedId);
-                  if (was === "managed") await startManaged(selectedId);
-                  else if (was === "interactive") await openInteractive(selectedId, { dock: dockWasOpen });
-                }
-              } catch (e) { toastError(e); }
-            }}
+            onConfig={patchAgent}
             onSlash={async (cmd) => {
               if (cmd.run === "go-settings") {
                 if (!agent) { toast.info("Select an agent first."); return; }
@@ -778,7 +780,7 @@ export default function App() {
           />
         </div>
 
-        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} />
+        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
