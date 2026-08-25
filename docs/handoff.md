@@ -18,7 +18,7 @@ seen clip (sessions4) is a contract violation. Session picker now opens
 **Phase: M3 lifecycle + packages surface (ADR-0009, ADR-0010).**
 
 What exists right now:
-- Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
+- Repo public at `cfpperche/picode`, PolyForm Noncommercial + commercial, CI green (linux/macos/windows).
 - **M1 shipped**: screenshot tooling, tmux manager, WS↔PTY bridge,
   dark-first UI (terminal grid, user menu, settings, themes).
 - **Store shipped** (ADR-0005): SQLite orchestration overlay.
