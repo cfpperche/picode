@@ -20,11 +20,14 @@ func registerLlama(mux *http.ServeMux) {
 }
 
 func llamaClient() (*llama.Client, error) {
-	u := catalog.LlamaURL()
-	if u == "" {
-		u = llama.DefaultURL
+	return llama.New(llamaURL(), catalog.LlamaKey())
+}
+
+func llamaURL() string {
+	if u := catalog.LlamaURL(); u != "" {
+		return u
 	}
-	return llama.New(u, catalog.LlamaKey())
+	return llama.DefaultURL
 }
 
 func handleLlamaList(w http.ResponseWriter, r *http.Request) {
@@ -36,15 +39,14 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 	models, err := c.List()
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"url":    catalog.LlamaURL(),
+			"url":    llamaURL(),
 			"ok":     false,
-			"error":  err.Error(),
 			"models": []any{},
 		})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"url":    catalog.LlamaURL(),
+		"url":    llamaURL(),
 		"ok":     true,
 		"models": models,
 	})
@@ -154,7 +156,7 @@ func handleLlamaDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func attachLlamaModels(rep *catalog.Report) {
-	if catalog.LlamaURL() == "" {
+	if catalog.LlamaURL() == "" && catalog.LlamaKey() == "" {
 		return
 	}
 	c, err := llamaClient()
