@@ -102,7 +102,7 @@ Copies the last assistant reply to the clipboard. Same text as the bubble copy b
 
 ## /quit {#quit}
 
-Stops **this** agent. Does not close the browser.
+Stops **this** agent and closes its tab. Does not close the browser.
 
 | | pi TUI | PiCode |
 |---|---|---|
@@ -116,7 +116,8 @@ Canonical: [pi Settings](https://github.com/earendil-works/pi/blob/main/packages
 
 ## /session {#session}
 
-Dialog: session file, name, folder, tokens, context, cost.
+Dialog: name, file, folder, git, model, tokens, context, cost.
+Actions: copy path, rename, new, compact, tree.
 
 Canonical: [pi Sessions](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sessions.md) (`/session`).
 

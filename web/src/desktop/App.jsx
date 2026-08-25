@@ -505,6 +505,31 @@ export default function App() {
     }
   }
 
+  async function newSession() {
+    if (!selectedId) return;
+    try {
+      await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+      await loadWorkspaces();
+      await loadSessions();
+    } catch (e) { toastError(e); }
+  }
+
+  async function renameSession() {
+    const cur = sessions.find((s) => s.path === sessionCurrent) || { path: sessionCurrent, name: "" };
+    if (!cur.path) return;
+    const name = await askPrompt({ title: "Rename session", defaultValue: cur.name || "", confirmLabel: "Save" });
+    if (!name) return;
+    try {
+      await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: cur.path, name }),
+      });
+      await loadSessions();
+      await loadStatus(selectedId);
+    } catch (e) { toastError(e); }
+  }
+
   async function compactSession() {
     if (!agent) return;
     const ok = await askConfirm({
@@ -726,8 +751,8 @@ export default function App() {
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
-                if (!agent || agent.mode === "stopped") { toast.info("Agent is already stopped."); return; }
-                await stopAgent(selectedId);
+                if (agent && agent.mode !== "stopped") await stopAgent(selectedId);
+                if (selectedId) closeTab(selectedId);
                 toast.ok("Agent stopped.");
                 return;
               }
@@ -773,35 +798,13 @@ export default function App() {
               if (cmd.run === "focus-model") { document.getElementById("agent-model")?.focus(); return; }
               if (cmd.run === "focus-thinking") { document.getElementById("agent-thinking")?.focus(); return; }
               if (cmd.run === "focus-provider") { document.getElementById("agent-provider")?.focus(); return; }
-              if (cmd.run === "session-new") {
-                try {
-                  await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
-                  await loadWorkspaces();
-                  await loadSessions();
-                } catch (e) { toastError(e); }
-                return;
-              }
+              if (cmd.run === "session-new") { await newSession(); return; }
               if (cmd.run === "session-resume") {
                 document.getElementById("session-picker")?.click();
                 return;
               }
               if (cmd.run === "compact") { compactSession(); return; }
-              if (cmd.run === "session-name") {
-                const cur = sessions.find((s) => s.path === sessionCurrent) || { path: sessionCurrent, name: "" };
-                if (!cur.path) return;
-                const name = await askPrompt({ title: "Rename session", defaultValue: cur.name || "", confirmLabel: "Save" });
-                if (!name) return;
-                try {
-                  await api("/api/workspaces/" + selectedId + "/sessions/rename", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path: cur.path, name }),
-                  });
-                  await loadSessions();
-                  await loadStatus(selectedId);
-                } catch (e) { toastError(e); }
-                return;
-              }
+              if (cmd.run === "session-name") { await renameSession(); return; }
               try {
                 if (cmd.run === "login") {
                   await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -931,7 +934,16 @@ export default function App() {
         }}
       />
       <Toasts />
-      <SessionInfo open={sessionOpen} onClose={() => setSessionOpen(false)} bar={statusBar} agent={agent} />
+      <SessionInfo
+        open={sessionOpen}
+        onClose={() => setSessionOpen(false)}
+        bar={statusBar}
+        agent={agent}
+        onRename={renameSession}
+        onNew={newSession}
+        onCompact={compactSession}
+        onTree={() => openTree("tree")}
+      />
       <SessionTree
         open={treeOpen}
         mode={treeMode}
