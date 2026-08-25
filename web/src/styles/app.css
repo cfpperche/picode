@@ -842,8 +842,13 @@ body {
 }
 #task-input {
   display: block; width: 100%; min-height: 52px; max-height: 160px;
-  padding: 2px 4px 6px; background: transparent; border: none; outline: none; resize: none;
-  color: var(--text-primary); font-family: inherit; font-size: 14px; line-height: 1.45;
+  padding: 2px 4px 6px; border: none; outline: none; resize: none;
+  appearance: none; background: var(--bg-panel); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; line-height: 1.45;
+}
+#task-input:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--bg-panel) inset;
 }
 #task-input::placeholder { color: var(--text-secondary); opacity: 1; }
 .composer-controls {
