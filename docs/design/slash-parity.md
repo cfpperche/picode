@@ -28,7 +28,7 @@ reimplement the skill engine.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **22 ui · 0 partial · 0 proxy · 2 missing**.
+Count against the TUI 24 (not extras): **23 ui · 0 partial · 0 proxy · 1 missing**.
 
 ## Matrix (TUI 24)
 
@@ -41,7 +41,7 @@ Count against the TUI 24 (not extras): **22 ui · 0 partial · 0 proxy · 2 miss
 | 5 | `/scoped-models` | Ctrl+P cycle set | `#/settings` Scoped models | **ui** | Patterns in `enabledModels`. |
 | 6 | `/export` | HTML / JSONL export | download JSONL | **ui** | HTML later |
 | 7 | `/import` | resume from JSONL | file picker + resume | **ui** | |
-| 8 | `/share` | private GitHub gist | share dialog | **missing** | Not the phone QR |
+| 8 | `/share` | private GitHub gist | secret gist via `gh` | **ui** | Not the phone QR |
 | 9 | `/copy` | last assistant → clipboard | clipboard of last reply | **ui** | Same text as bubble copy |
 | 10 | `/name` | session display name | rename dialog | **ui** | |
 | 11 | `/session` | file, id, tokens, cost | session facts pop | **ui** | Dialog from status bar + session file |

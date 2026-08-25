@@ -24,6 +24,7 @@ export const SLASH = [
   { id: "import", label: "/import", hint: "Resume from a JSONL file", run: "import" },
   { id: "hotkeys", label: "/hotkeys", hint: "PiCode shortcuts", run: "hotkeys" },
   { id: "changelog", label: "/changelog", hint: "pi version history", run: "changelog" },
+  { id: "share", label: "/share", hint: "Secret GitHub gist", run: "share" },
 ];
 
 export function extraSlash(skills, templates) {

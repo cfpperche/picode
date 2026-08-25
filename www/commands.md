@@ -141,6 +141,16 @@ Pick a `.jsonl` file and resume it as this agent's session.
 
 Canonical: [pi Usage](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/usage.md) (`/import`).
 
+## /share {#share}
+
+Secret GitHub gist of this session (JSONL + HTML). Needs `gh auth login`. Not the phone QR.
+
+Canonical: [pi Usage](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/usage.md) (`/share`).
+
+| | pi TUI | PiCode |
+|---|---|---|
+| Upload | `gh gist create` (HTML; Radius if signed in) | `gh gist create` (JSONL + HTML) |
+
 ## /hotkeys {#hotkeys}
 
 PiCode shortcuts (palette, composer, send). Not the TUI keymap.

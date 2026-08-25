@@ -86,7 +86,7 @@ What exists right now:
 
 ## Recent activity
 
-- **2026-08-25** — Slash: skills/templates picker (insert). `/export` `/import` `/hotkeys` `/changelog`. Missing: `/share` `/llama`.
+- **2026-08-25** — Slash: skills/templates, `/export` `/import` `/hotkeys` `/changelog` `/share` (gh gist). Missing: `/llama`.
 - **2026-08-25** — ADR-0013: extra logins in `~/.picode/accounts.json`; `auth.json` = active slot. Replace → Add account.
 - **2026-08-25** — Sidebar tree: 12px indent/level, shared chevron|icon|label grid (VS Code/Cursor). Path aligns with name.
 - **2026-08-25** — Public docs: VitePress Markdown, new-tab slash hints

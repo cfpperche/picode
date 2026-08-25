@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- `/share` creates a secret GitHub gist (`gh`). Not the phone QR.
 - Composer `/` lists skills and prompt templates (insert; pi expands on send).
 - `/export` JSONL download, `/import` file picker, `/hotkeys`, `/changelog` (installed pi).
 - Multiple logins per provider (**Add account** / **Use**). pi still has one active slot.

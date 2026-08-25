@@ -18,6 +18,7 @@ func registerSlashRes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/export", handleAgentExport(deps))
 	mux.HandleFunc("POST /api/agents/{id}/import", handleAgentImport(deps))
 	mux.HandleFunc("GET /api/changelog/pi", handlePiChangelog)
+	mux.HandleFunc("POST /api/agents/{id}/share", handleAgentShare(deps))
 }
 
 func handleAgentSlash(deps Deps) http.HandlerFunc {

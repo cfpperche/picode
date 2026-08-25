@@ -35,6 +35,7 @@ import { locate, firstAgentId } from "../lib/tree.js";
 import { extraSlash } from "../lib/slash.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
+import ShareGist from "../components/ShareGist.jsx";
 import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
 import Toasts from "../components/Toasts.jsx";
 
@@ -71,6 +72,8 @@ export default function App() {
   const [slashExtra, setSlashExtra] = useState([]);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
   const convRef = useRef(null);
   const nearBottom = useRef(true);
@@ -795,6 +798,21 @@ export default function App() {
               }
               if (cmd.run === "compact") { compactSession(); return; }
               if (cmd.run === "session-name") { await renameSession(); return; }
+              if (cmd.run === "share") {
+                if (!selectedId) return;
+                const ok = await askConfirm({
+                  title: "Share session",
+                  message: "Create a secret GitHub gist. Needs gh logged in. Anyone with the link can read it.",
+                  confirmLabel: "Share",
+                });
+                if (!ok) return;
+                try {
+                  const res = await api("/api/agents/" + selectedId + "/share", { method: "POST" });
+                  setShareLinks({ gist: res.gist || "", viewer: res.viewer || "" });
+                  setShareOpen(true);
+                } catch (e) { toastError(e); }
+                return;
+              }
               if (cmd.run === "hotkeys") { setHotkeysOpen(true); return; }
               if (cmd.run === "changelog") { setChangelogOpen(true); return; }
               if (cmd.run === "export") {
@@ -958,6 +976,7 @@ export default function App() {
         onFork={forkFrom}
         onClone={cloneSession}
       />
+      <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       <ConfirmDialog />
