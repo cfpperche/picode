@@ -983,23 +983,21 @@ body {
   display: flex; flex-direction: column;
 }
 .tree-list { overflow-y: auto; margin: 10px 0 0; min-height: 80px; }
-/* GitHub / Linear activity timeline: one spine, equal-width cards. */
-.tree-spine {
-  list-style: none; margin: 0; padding: 0 0 0 18px;
-  position: relative;
+/* CSS grid: rail | card. Radix has no Timeline. */
+.tree-spine { list-style: none; margin: 0; padding: 0; }
+.tree-item {
+  display: grid; grid-template-columns: 16px 1fr; column-gap: 10px;
+  align-items: start; position: relative; padding-bottom: 10px;
 }
-.tree-spine::before {
-  content: ""; position: absolute; left: 5px; top: 12px; bottom: 12px;
+.tree-item:last-child { padding-bottom: 0; }
+.tree-item:not(:last-child)::before {
+  content: ""; position: absolute; left: 7px; top: 22px; bottom: 0;
   width: 2px; background: var(--border); border-radius: 99px;
 }
-.tree-item { position: relative; margin: 0 0 10px; }
 .tree-dot {
-  position: absolute; left: -16px; top: 16px; z-index: 1;
-  width: 8px; height: 8px; border-radius: 99px;
-  background: var(--border-strong); border: 2px solid var(--bg-base);
-  box-sizing: content-box;
+  width: 8px; height: 8px; margin: 14px auto 0; z-index: 1;
+  border-radius: 99px; background: var(--border-strong);
 }
-.tree-dot.nested { width: 6px; height: 6px; top: 17px; left: -15px; }
 .tree-dot.leaf { background: var(--accent); }
 .tree-card {
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;

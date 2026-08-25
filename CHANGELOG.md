@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Session tree uses a single-spine timeline (GitHub/Linear); no nested indent.
+- Session tree dots sit in a CSS grid with the card (no absolute offset).
 - Session tree is a chain of prompt cards; replies/tools sit on the card.
 - Composer `/tree` `/fork` `/clone`: session tree dialog. Fork is a new
   session from a user prompt; clone duplicates this branch (RPC in chat).

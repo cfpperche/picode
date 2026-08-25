@@ -16,7 +16,7 @@ function Card({ card, leaf, onFork }) {
   const reply = replies.length ? replies[replies.length - 1].text : "";
   return (
     <li className="tree-item">
-      <span className={"tree-dot" + (card.id === leaf ? " leaf" : "") + (card.depth ? " nested" : "")} aria-hidden="true" />
+      <span className={"tree-dot" + (card.id === leaf ? " leaf" : "")} aria-hidden="true" />
       <button
         type="button"
         className={"tree-card" + (card.id === leaf ? " leaf" : "")}
