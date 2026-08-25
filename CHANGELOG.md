@@ -13,8 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- `#/providers` API-key sign-in (writes pi `auth.json`). `/login` opens that page.
-  OAuth/subscriptions stay TUI until pi RPC login.
+- `#/providers` Add-provider wizard (full loginable set, account vs API key).
+  `/login` opens Add. OAuth still TUI until pi RPC login.
 - Folder field: type a path or Browse (list + create directory on this machine).
 
 ### Changed

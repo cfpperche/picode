@@ -61,6 +61,18 @@ func stringsJoin(s []string) string {
 	return out
 }
 
+func TestLoginMethod(t *testing.T) {
+	if loginMethod("xai") != LoginBoth {
+		t.Fatal("xai")
+	}
+	if loginMethod("openai-codex") != LoginOAuth {
+		t.Fatal("codex")
+	}
+	if loginMethod("groq") != LoginAPIKey {
+		t.Fatal("groq")
+	}
+}
+
 func TestParseListModelsSkipsJunk(t *testing.T) {
 	if n := len(ParseListModels("not a table\n\n")); n != 0 {
 		t.Fatalf("got %d", n)

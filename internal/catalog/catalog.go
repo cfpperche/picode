@@ -20,10 +20,12 @@ type Model struct {
 	ThinkingLevels []string `json:"thinkingLevels,omitempty"`
 }
 
-// Provider is a catalog group plus whether auth.json has a key for it.
+// Provider is a catalog group plus auth.json presence (never key values).
 type Provider struct {
 	ID       string  `json:"id"`
 	SignedIn bool    `json:"signedIn"`
+	AuthType string  `json:"authType,omitempty"` // api_key | oauth
+	Login    string  `json:"login"`              // api_key | oauth | both
 	Models   []Model `json:"models"`
 }
 
@@ -46,7 +48,7 @@ func Load(piCmd string) (Report, error) {
 	if err != nil {
 		return rep, fmt.Errorf("catalog: list-models: %w", err)
 	}
-	signed := authKeys()
+	info := authInfo()
 	store := loadThinkingMaps()
 	byID := map[string]*Provider{}
 	var order []string
@@ -54,7 +56,7 @@ func Load(piCmd string) (Report, error) {
 		p := byID[m.provider]
 		if p == nil {
 			order = append(order, m.provider)
-			p = &Provider{ID: m.provider, SignedIn: signed[m.provider], Models: []Model{}}
+			p = &Provider{ID: m.provider, Models: []Model{}}
 			byID[m.provider] = p
 		}
 		levels := SupportedThinking(m.thinking, store[m.provider+"/"+m.model])
@@ -63,8 +65,20 @@ func Load(piCmd string) (Report, error) {
 			Thinking: m.thinking, Images: m.images, ThinkingLevels: levels,
 		})
 	}
+	for id := range LoginMethods {
+		if byID[id] == nil {
+			order = append(order, id)
+			byID[id] = &Provider{ID: id, Models: []Model{}}
+		}
+	}
 	for _, id := range order {
-		rep.Providers = append(rep.Providers, *byID[id])
+		p := byID[id]
+		p.Login = loginMethod(id)
+		if a, ok := info[id]; ok {
+			p.SignedIn = true
+			p.AuthType = a
+		}
+		rep.Providers = append(rep.Providers, *p)
 	}
 	return rep, nil
 }
@@ -158,8 +172,8 @@ func loadThinkingMaps() map[string]map[string]any {
 	return out
 }
 
-func authKeys() map[string]bool {
-	out := map[string]bool{}
+func authInfo() map[string]string {
+	out := map[string]string{}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return out
@@ -168,12 +182,18 @@ func authKeys() map[string]bool {
 	if err != nil {
 		return out
 	}
-	var obj map[string]json.RawMessage
+	var obj map[string]struct {
+		Type string `json:"type"`
+	}
 	if json.Unmarshal(b, &obj) != nil {
 		return out
 	}
-	for k := range obj {
-		out[k] = true
+	for k, v := range obj {
+		t := v.Type
+		if t == "" {
+			t = LoginAPIKey
+		}
+		out[k] = t
 	}
 	return out
 }

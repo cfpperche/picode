@@ -1,6 +1,6 @@
 # Providers GUI — complete login management
 
-> Status: draft 2026-08-25. Source: pi `docs/providers.md` (canonical),
+> Status: P0 in progress 2026-08-25. Source: pi `docs/providers.md` (canonical),
 > TUI `/login` (account vs API key), ADR-0009 (amended). Not invented.
 
 Today `#/providers` is a **roster of keys already in `auth.json`**. The TUI

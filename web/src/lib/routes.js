@@ -15,14 +15,23 @@ export function parseRoute(hash) {
   if (h === "/preferences") return "preferences";
   if (h === "/settings") return "settings";
   if (h === "/system") return "system";
-  if (h === "/providers") return "providers";
+  if (h === "/providers" || h.startsWith("/providers/")) return "providers";
   if (h === "/mcps") return "mcps";
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
   return "workspace";
 }
 
+export function providersNew(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  return h === "/providers/new";
+}
+
 export function go(name) {
+  if (name === "providers-new") {
+    location.hash = "#/providers/new";
+    return;
+  }
   const path = ROUTES[name] || "/";
   location.hash = path === "/" ? "#/" : "#" + path;
 }
