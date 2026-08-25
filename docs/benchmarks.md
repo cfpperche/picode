@@ -79,6 +79,7 @@ state = one line + one action; statusbar = live state, not hints).
 
 ### Anti-benchmarks (things we refuse)
 
+- Homemade widgets when Radix/cmdk/native already cover it (AGENTS.md Style).
 - AI-slop UI: generic dashboard shells, 12-card grids of nothing, gradients
   for depth, spinner-only loading states, **blank wells while fetching**.
 - Hiding the terminal to "protect" users (see philosophy: door, not cage).

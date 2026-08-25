@@ -18,6 +18,11 @@ styling, error messages.
 - [ ] Dark-first: design looks native in dark mode; light mode derived.
 - [ ] Density with breathing room (power tool, not toy).
 
+### Primitives
+- [ ] New chrome uses Radix, cmdk, or native controls. Homemade dialogs,
+      switches, selects, or menus are FAIL unless the commit says why no
+      library fitted.
+
 ### Clarity (Stripe/HIG bar)
 - [ ] Progressive disclosure: advanced options behind deliberate reveals;
       core flow is naked and obvious.

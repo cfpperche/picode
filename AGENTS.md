@@ -97,6 +97,11 @@ supersede it with a new one instead.
 - UI: React in `web/`; design tokens live in `web/src/styles/app.css`
   (do not invent a second palette). After any UI change run `make web`
   and a JS/JSX syntax check (`npm run build` must succeed).
+- **Prefer popular primitives over homemade widgets.** Use Radix (already
+  in the app), cmdk, or another widely used library for dialogs, popovers,
+  switches, selects, tabs. Roll a custom control only when no library
+  covers the case — and say why in the commit. Native `<select>` / `<input>`
+  still beat a one-off styled fake.
 - Commits: imperative, scoped (`server: add /api/version endpoint`).
 - Docs: short paragraphs, tables for comparisons, diagrams over prose.
 - The audience includes terminal-averse users: UI copy avoids jargon;

@@ -14,7 +14,8 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    - Doc updates that traveled with the change (they must — see below).
 4. UI changes: run the `/skill:uiux-review` checklist mentally or attach
    a screenshot; the benchmarks in [docs/benchmarks.md](docs/benchmarks.md)
-   are enforced in review.
+   are enforced in review. Prefer Radix / cmdk / native controls over a
+   new homemade widget (see AGENTS.md Style).
 
 ## For Pi agents
 
