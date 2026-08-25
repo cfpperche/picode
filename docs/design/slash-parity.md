@@ -33,7 +33,7 @@ Count against the TUI 24 (not extras): **7 ui · 1 partial · 4 proxy · 12 miss
 
 | # | TUI | TUI does | PiCode should | Status | Notes |
 |---|---|---|---|---|---|
-| 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | see § `/settings` scope | **missing** | Not session, not project. |
+| 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | `#/settings` pi GUI (ADR-0012) | **missing** | Plan: [pi-settings.md](pi-settings.md). Product chrome → `#/preferences`. |
 | 2 | `/model` | model picker | focus model chip | **ui** | Composer cockpit |
 | 3 | `/tree` | session tree / branch jump | session tree UI | **proxy** | UI not built |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |

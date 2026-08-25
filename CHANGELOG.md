@@ -20,6 +20,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Plan: `#/settings` becomes pi GUI; PiCode chrome → `#/preferences`
+  (ADR-0012 proposed, `docs/design/pi-settings.md`).
 - Slash parity matrix: TUI `/` vs PiCode composer
   (`docs/design/slash-parity.md`). 7 of 24 have UI.
 - Workspace groups collapse (agent count), hover-only action icons, and a
