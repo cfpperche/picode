@@ -28,8 +28,9 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Added
 
 - **Packages** gallery is a **2-column card grid** (adapted from
-  [pi.dev/packages](https://pi.dev/packages); install on the card, no
-  invented charts). Search is npm `keywords:pi-package`.
+  [pi.dev/packages](https://pi.dev/packages)). Preview frame matches the
+  official catalog: real `pi.image` when pi.dev has one, graph-paper
+  placeholder otherwise. No invented charts.
 - App icon is the official **pi favicon**.
 - Assistant replies render **markdown**. Sessions can be **renamed**
   (picker or `/name`).

@@ -12,6 +12,7 @@ import (
 )
 
 const npmSearch = "https://registry.npmjs.org/-/v1/search"
+const previewAPI = "https://pi.dev/api/packages/preview-media"
 
 // Hit is one npm package tagged pi-package (gallery discovery).
 type Hit struct {
@@ -23,6 +24,7 @@ type Hit struct {
 	Kind        string `json:"kind,omitempty"`
 	Downloads   int    `json:"downloads,omitempty"`
 	Updated     string `json:"updated,omitempty"`
+	Image       string `json:"image,omitempty"`
 }
 
 // GalleryPage is GET /api/packages/gallery.
@@ -37,10 +39,10 @@ var galleryHTTP = &http.Client{Timeout: 12 * time.Second}
 
 // SearchGallery queries the public npm registry for keyword pi-package.
 func SearchGallery(ctx context.Context, q string) (GalleryPage, error) {
-	return searchGallery(ctx, galleryHTTP, npmSearch, q)
+	return searchGallery(ctx, galleryHTTP, npmSearch, q, previewAPI)
 }
 
-func searchGallery(ctx context.Context, client *http.Client, endpoint, q string) (GalleryPage, error) {
+func searchGallery(ctx context.Context, client *http.Client, endpoint, q, previewURL string) (GalleryPage, error) {
 	page := GalleryPage{
 		Query:   strings.TrimSpace(q),
 		Hits:    []Hit{},
@@ -83,8 +85,63 @@ func searchGallery(ctx context.Context, client *http.Client, endpoint, q string)
 	if err != nil {
 		return page, err
 	}
+	pctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	attachPreviews(pctx, client, previewURL, hits)
+	cancel()
 	page.Hits = hits
 	return page, nil
+}
+
+func attachPreviews(ctx context.Context, client *http.Client, previewURL string, hits []Hit) {
+	if len(hits) == 0 || client == nil || previewURL == "" {
+		return
+	}
+	u, err := url.Parse(previewURL)
+	if err != nil {
+		return
+	}
+	qs := u.Query()
+	for _, h := range hits {
+		qs.Add("name", h.Name)
+	}
+	u.RawQuery = qs.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "picode (https://github.com/cfpperche/picode)")
+	res, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil || res.StatusCode != http.StatusOK {
+		return
+	}
+	var raw struct {
+		Previews []struct {
+			Name  string `json:"name"`
+			Media *struct {
+				URL string `json:"url"`
+			} `json:"media"`
+		} `json:"previews"`
+	}
+	if json.Unmarshal(body, &raw) != nil {
+		return
+	}
+	byName := map[string]string{}
+	for _, p := range raw.Previews {
+		if p.Media != nil && strings.TrimSpace(p.Media.URL) != "" {
+			byName[p.Name] = strings.TrimSpace(p.Media.URL)
+		}
+	}
+	for i := range hits {
+		if u := byName[hits[i].Name]; u != "" {
+			hits[i].Image = u
+		}
+	}
 }
 
 func parseNpmSearch(body []byte) ([]Hit, error) {

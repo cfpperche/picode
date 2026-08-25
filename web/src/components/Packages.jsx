@@ -110,6 +110,12 @@ export default function Packages({ hidden }) {
           const on = installed.has(h.source);
           return (
             <li key={h.source} className="pkg-card">
+              <div className={"pkg-preview" + (h.image ? " has-media" : "")} aria-hidden="true">
+                <div className="pkg-preview-frame">
+                  {h.image ? <img src={h.image} alt="" loading="lazy" /> : <><span /><span /><span /></>}
+                </div>
+              </div>
+              <div className="pkg-card-body">
               <div className="pkg-card-head">
                 <span className="pkg-card-name">{h.name}</span>
                 {h.kind ? <span className="pkg-type">{h.kind}</span> : null}
@@ -131,6 +137,7 @@ export default function Packages({ hidden }) {
                 >
                   {on ? "Installed" : busy ? "Working…" : "Install"}
                 </button>
+              </div>
               </div>
             </li>
           );
