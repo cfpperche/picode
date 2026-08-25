@@ -21,21 +21,23 @@ function Card({ card, leaf, onFork }) {
         <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--border)]" />
         <span className={"relative z-[1] size-2 shrink-0 rounded-full " + (current ? "bg-accent" : "bg-[var(--border-strong)]")} />
       </div>
-      <button
-        type="button"
-        className={"tree-card min-w-0 flex-1" + (current ? " leaf" : "")}
-        onClick={() => onFork(card.id)}
-      >
-        <span className="tree-card-prompt">{card.text}</span>
-        {reply ? <span className="tree-card-reply">{reply}</span> : null}
-        {tools || meta.length ? (
-          <span className="tree-card-meta">
-            {tools ? tools + (tools === 1 ? " tool" : " tools") : ""}
-            {tools && meta.length ? " · " : ""}
-            {meta.join(" · ")}
-          </span>
-        ) : null}
-      </button>
+      <div className="min-w-0 flex-1 bg-[var(--bg-base)] py-2">
+        <button
+          type="button"
+          className={"tree-card w-full" + (current ? " leaf" : "")}
+          onClick={() => onFork(card.id)}
+        >
+          <span className="tree-card-prompt">{card.text}</span>
+          {reply ? <span className="tree-card-reply">{reply}</span> : null}
+          {tools || meta.length ? (
+            <span className="tree-card-meta">
+              {tools ? tools + (tools === 1 ? " tool" : " tools") : ""}
+              {tools && meta.length ? " · " : ""}
+              {meta.join(" · ")}
+            </span>
+          ) : null}
+        </button>
+      </div>
     </li>
   );
 }
