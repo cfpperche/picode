@@ -1,10 +1,10 @@
 # Voice in PiCode
 
 - **Date:** 2026-08-25
-- **Status:** plan (not implemented)
-- **Brief:** ChatGPT composer — dictation (mic, Ctrl+D) vs voice mode
-  (waveform, Ctrl+Shift+O). Owner screenshots
-  `Screenshot 2026-08-25 122712.png` / `122725.png`.
+- **Status:** V1 in progress
+- **Brief:** ChatGPT idle (mic + waveform) + **Grok x.ai voice composer**.
+  Owner screenshots `122712` / `122725` (ChatGPT) and `123411` / `123433`
+  (Grok: voice replaces the composer, chat stays).
 - **Audience:** coding ADE, not a chatbot. The agent stays `pi`.
 
 ## 1. What the screenshots ask for
@@ -14,10 +14,11 @@ ChatGPT ships **two** controls, not one "voice button":
 | Control | Label (PT) | Shortcut | Job |
 |---|---|---|---|
 | Mic | Ditadura | Ctrl+D | Speech → text **in the composer**. User edits, then Send. |
-| Waveform | Entrar no modo de voz | Ctrl+Shift+O | Leave the composer. Live spoken conversation. |
+| Waveform | Entrar no modo de voz | Ctrl+Shift+O | Swap the composer into **voice composer**. Chat stays. |
 
-That split is the product. Collapsing them into one mic that auto-sends
-is how coding agents eat bad transcripts.
+Grok on x.ai (123411): same pill, textarea gone, caption + mic/speaker/
+expand cluster + **Interrupt**. That is the voice-mode chrome. ChatGPT
+full-bleed orb is **not** the pattern.
 
 ## 2. Benchmarks (what we steal, what we refuse)
 
@@ -83,10 +84,11 @@ reuse their OS-mic capture; it needs `getUserMedia`.
 
 ### D1 — Two products, two phases
 
-**V1 Dictation. V2 Voice mode.** Never one button that does both.
+**V1 Dictation + voice composer chrome. V2 spoken replies / barge-in.**
+Never one button that does both jobs.
 
-Why: ChatGPT brief; coding needs a chance to edit; voice mode is an
-exclusive view (same rule as Chat/Terminal).
+Why: ChatGPT idle split; coding needs an edit gate on dictation; Grok
+shows voice as a *composer state*, not a new route.
 
 ### D2 — The coding brain stays `pi` (chained pipeline)
 
@@ -108,16 +110,21 @@ Send (or Enter). Auto-send is an opt-in later, default off.
 Why: speech-to-code is lossy (`rm -rf`, paths, package names). Cursor
 and ChatGPT dictation both land in an editable field.
 
-### D4 — Voice mode is an exclusive view
+### D4 — Voice mode replaces the composer, not the chat
 
-Same contract as Terminal: never shown with Chat. Full pane under the
-tabs: waveform from real `AnalyserNode` data (no invented viz), live
-caption, last agent reply, Stop / Back to chat.
+Grok x.ai: activating voice **swaps the composer innards**. Conversation
+stays. Session toolbar stays. Model chips hide; Interrupt takes Send's
+place.
 
-Turns still appear in the session JSONL so Chat replay is truthful.
+```
+idle:     [textarea]  [chips…] [mic] [wave] [send]
+voice:    [caption ]  [wave mic speaker]     [Interrupt]
+```
 
-Why: ChatGPT voice is a place. Our Chat/Terminal exclusivity already
-killed phantom "Working"; a third overlay would revive it.
+Not an exclusive view (that was wrong — ChatGPT orb, not Grok).
+Chat/Terminal exclusivity is unchanged. Voice is a composer *mode*.
+
+Turns still go through `sendTask` → pi JSONL.
 
 ### D5 — STT v1 = Web Speech API; cloud is opt-in
 
@@ -171,36 +178,30 @@ device — empty-state copy must say so. Do not fake a waveform.
 - Invented visualizer without analyser data.
 - Replacing Stop/Send with a voice orb on the chat surface.
 - A PiCode STT/TTS marketplace.
-- Auto-send as default.
+- Auto-send from **dictation** (voice composer may send on silence).
 
 ## 4. Build plan
 
-### V1 — Dictation (composer)
+### V1 — Dictation + Grok voice composer
 
-1. `lib/speech.js` — feature detect, start/stop, interim + final
-   callbacks, no UI.
-2. Mic button on `composer-right` (hidden if `SpeechRecognition`
-   missing). Recording state = filled mic + pulse from real volume.
-3. Insert into textarea at caret. Do not send.
-4. `Ctrl+D`. Palette command "Dictate".
-5. Disclose vendor STT in a one-line hint the first time.
-6. Visual gate: idle / recording / denied. Overlay audit on the
-   composer-right row (`data-align-row`).
+1. `lib/speech.js` — feature detect, merge transcripts, error copy.
+2. Idle composer-right: mic (dictate) + waveform (enter voice).
+3. Dictation: interim in the textarea, **does not send**. `Ctrl+D`.
+4. Waveform / `Ctrl+Shift+O`: swap to voice composer (caption,
+   mic/speaker cluster, Interrupt). Listen; on silence, `sendTask`.
+   While the agent streams, listening pauses; Interrupt aborts.
+5. Esc or waveform again: back to text composer (leftover caption → draft).
+6. First-use toast: vendor STT disclosure.
+7. No fake analyser bars. Listening = pulse on the mic.
 
-Done when: owner can dictate Portuguese into the composer, edit, send
-to Grok 4.6, and the turn is normal JSONL.
+Done when: idle shows mic+wave; voice composer matches Grok anatomy;
+dictation edits before send; voice silence sends a normal JSONL turn.
 
-### V2 — Voice mode (exclusive view)
+### V2 — Spoken replies
 
-1. Waveform button → `termWanted`-style `voiceWanted` set.
-2. `VoiceView.jsx` fills the pane (Chat hidden, Terminal hidden).
-3. Loop: listen (VAD or push-to-talk) → STT → `sendTask` → wait
-   `agent_settled` → speak **assistant text only** → listen again.
-4. Barge-in V2.1: abort TTS + `Abort` RPC on voice.
-5. Back to Chat keeps the transcript.
-
-Done when: a spoken "what files did we change?" round-trips through
-pi tools and is audible, then visible in Chat.
+`speechSynthesis` of assistant text after `message_end`. Speaker button
+enables. Interrupt barges in (abort TTS + Abort RPC). Still the same
+composer, not a full-pane orb.
 
 ### V3 — Cloud STT/TTS (opt-in)
 
@@ -221,6 +222,7 @@ chrome (mobile parity comes after V2 desktop).
 | OpenAI Realtime as the agent | Forks pi, drops tools/JSONL, billed to us or forces OpenAI |
 | Wrap `pi-voice-stt` in the browser | TUI packages capture OS mic; browser needs getUserMedia |
 | Ship Whisper in the Go binary | Fat binary, not a pi primitive, contradicts "standard library first" |
+| Exclusive full-pane voice (ChatGPT orb) | Grok keeps the chat; we copy that |
 | Voice overlay on Chat | Repeats the managed-vs-TUI confusion we just killed |
 | Wait for Grok audio | grok-4.6 has no audio I/O; we'd stall the brief |
 
@@ -228,6 +230,5 @@ chrome (mobile parity comes after V2 desktop).
 
 1. V1 dictation: toggle (ChatGPT) or hold-to-talk (many TUI packages)?
    Recommendation: **toggle**, hold as later.
-2. Auto-send after silence in voice mode (V2) — yes, that's the point
-   of the place. Dictation stays manual send.
+2. Auto-send after silence in voice mode — **yes in V1** (Grok). Dictation stays manual send.
 3. Cloud STT in V1.1 if Chromium quality on PT-BR is bad?

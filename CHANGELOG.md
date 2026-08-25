@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- Composer **dictation** (mic, Ctrl+D) and **voice mode** (waveform,
+  Ctrl+Shift+O). Voice replaces the composer like Grok on x.ai; silence
+  sends through pi. Dictation stays in the textarea until Send.
+
 ### Changed
 
 - Agent cockpit lives in the **composer**: searchable provider, model,

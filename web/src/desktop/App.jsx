@@ -476,8 +476,8 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
-  async function sendTask() {
-    const payload = draft.trim();
+  async function sendTask(text) {
+    const payload = (typeof text === "string" ? text : draft).trim();
     if (!payload || !selected || !agent) return;
     try {
       await api("/api/agents/" + agent.id + "/tasks", {

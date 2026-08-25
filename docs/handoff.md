@@ -85,6 +85,9 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Voice V1: dictation + Grok-style voice composer
+  (`docs/design/voice-mode.md`). Web Speech API, no Realtime fork.
+  Chat stays; composer swaps. Spoken replies are V2.
 - **2026-08-24** — Desktop/mobile shells in one Vite app (`web/src/desktop`,
   `web/src/mobile`). Boot picker by viewport or `?desktop=1`/`?mobile=1`.
 - **2026-08-24** — Phone QR: prefer current LAN IP (Wi-Fi vs cable
