@@ -6,7 +6,12 @@ export default defineConfig({
   base: "/picode/",
   cleanUrls: true,
   lastUpdated: true,
+  head: [
+    ["link", { rel: "icon", href: "/picode/favicon.svg", type: "image/svg+xml" }],
+    ["link", { rel: "apple-touch-icon", href: "/picode/apple-touch-icon.png" }],
+  ],
   themeConfig: {
+    logo: "/favicon.svg",
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Commands", link: "/commands" },
