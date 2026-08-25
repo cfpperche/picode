@@ -1015,32 +1015,26 @@ body {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .tree-card-meta { font-size: 11px; color: var(--text-secondary); }
-.toasts {
-  position: fixed; z-index: 80;
-  top: 52px; left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column; gap: 8px;
-  width: min(420px, calc(100vw - 24px));
-  pointer-events: none;
+[data-sonner-toaster] {
+  font-family: var(--sans);
 }
-.toast {
-  pointer-events: auto;
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 12px;
+[data-sonner-toast].picode-toast {
+  --normal-bg: var(--bg-elevated);
+  --normal-border: var(--border-strong);
+  --normal-text: var(--text-primary);
+  --success-bg: var(--bg-elevated);
+  --success-border: color-mix(in srgb, var(--ok) 45%, var(--border-strong));
+  --success-text: var(--text-primary);
+  --error-bg: var(--bg-elevated);
+  --error-border: color-mix(in srgb, var(--danger) 45%, var(--border-strong));
+  --error-text: var(--text-primary);
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
+  color: var(--text-primary);
   border-radius: 10px;
   box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
-  color: var(--text-primary);
-  font-size: 13px; line-height: 1.4;
+  font-size: 13px;
 }
-.toast-err { border-color: color-mix(in srgb, var(--danger) 50%, var(--border-strong)); }
-.toast-ok { border-color: color-mix(in srgb, var(--ok) 50%, var(--border-strong)); }
-.toast-msg { flex: 1; min-width: 0; }
-.toast-x {
-  flex: none; border: 0; background: none; cursor: pointer;
-  color: var(--text-secondary); font-size: 16px; line-height: 1; padding: 0 2px;
-}
-.toast-x:hover { color: var(--text-primary); }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -1147,11 +1141,12 @@ body {
   min-height: 32px;
 }
 .set-row label { font-size: 13px; }
-.set-row select {
+.set-row select, .set-row input[type="number"] {
   background: var(--bg-base); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
   padding: 4px 8px; font: inherit; font-size: 12.5px;
 }
+.set-row input[type="number"] { width: 7rem; }
 .set-row-stack { align-items: flex-start; }
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }

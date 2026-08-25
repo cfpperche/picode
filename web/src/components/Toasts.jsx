@@ -1,45 +1,37 @@
 import { useEffect, useState } from "react";
-
-const TTL = { err: 7000, ok: 3500, info: 4000 };
+import { Toaster } from "sonner";
+import { readToastPrefs } from "../lib/toastPrefs.js";
+import { resolvedTheme, readThemeMode } from "../lib/theme.js";
 
 export default function Toasts() {
-  const [items, setItems] = useState([]);
+  const [prefs, setPrefs] = useState(readToastPrefs);
+  const [theme, setTheme] = useState(() => resolvedTheme(readThemeMode()));
 
   useEffect(() => {
-    const timers = new Map();
-    function dismiss(id) {
-      setItems((cur) => cur.filter((t) => t.id !== id));
-      const t = timers.get(id);
-      if (t) { clearTimeout(t); timers.delete(id); }
-    }
-    function onToast(e) {
-      const t = e.detail;
-      if (!t || !t.message) return;
-      setItems((cur) => [...cur.slice(-4), t]);
-      const ms = TTL[t.kind] || TTL.info;
-      timers.set(t.id, setTimeout(() => dismiss(t.id), ms));
-    }
-    window.addEventListener("picode-toast", onToast);
+    function onPrefs() { setPrefs(readToastPrefs()); }
+    function onTheme() { setTheme(resolvedTheme(readThemeMode())); }
+    window.addEventListener("picode-toast-prefs", onPrefs);
+    window.addEventListener("storage", onPrefs);
+    const mo = new MutationObserver(onTheme);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     return () => {
-      window.removeEventListener("picode-toast", onToast);
-      timers.forEach((id) => clearTimeout(id));
+      window.removeEventListener("picode-toast-prefs", onPrefs);
+      window.removeEventListener("storage", onPrefs);
+      mo.disconnect();
     };
   }, []);
 
-  if (!items.length) return null;
   return (
-    <div className="toasts" aria-live="polite">
-      {items.map((t) => (
-        <div key={t.id} className={"toast toast-" + t.kind} role={t.kind === "err" ? "alert" : "status"}>
-          <span className="toast-msg">{t.message}</span>
-          <button
-            type="button"
-            className="toast-x"
-            aria-label="Dismiss"
-            onClick={() => setItems((cur) => cur.filter((x) => x.id !== t.id))}
-          >×</button>
-        </div>
-      ))}
-    </div>
+    <Toaster
+      theme={theme}
+      position={prefs.position}
+      expand={prefs.expand}
+      richColors={prefs.richColors}
+      closeButton={prefs.closeButton}
+      duration={prefs.duration}
+      visibleToasts={prefs.visibleToasts}
+      className="picode-toaster"
+      toastOptions={{ className: "picode-toast" }}
+    />
   );
 }

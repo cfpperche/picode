@@ -4,6 +4,7 @@ const SELECTORS = [
   ".session-pop",
   ".slash-menu",
   ".toast",
+  "[data-sonner-toaster]",
   ".dlg",
   ".rail-pop",
   ".pkg-job",

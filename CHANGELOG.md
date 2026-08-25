@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Toasts use Sonner. Position and options live in Preferences.
 - `/quit` stops the agent and closes its tab.
 - `/session` dialog: name, file, git, model, usage, plus copy/rename/new/compact/tree.
 - Sidebar agent row: provider icon, name, and model (`Grok - grok-4.6`).
