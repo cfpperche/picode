@@ -14,7 +14,7 @@
   --ok: #63d297;
   --warn: #e5c07b;
   --danger: #f7768e;
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
   --radius-ctl: 8px;
   --radius-panel: 12px;
@@ -79,7 +79,9 @@ body {
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
   position: relative;
+  font-family: var(--mono);
 }
+#sidebar button, #sidebar input, #sidebar select { font-family: inherit; }
 .sidebar-sizer {
   position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
   cursor: col-resize; z-index: 6;
