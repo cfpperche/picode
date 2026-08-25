@@ -532,6 +532,17 @@ export default function App() {
         onRun={startManaged}
         onStop={stopAgent}
         onRemove={removeWorkspace}
+        termView={termView}
+        onChat={(id) => {
+          openTab(id);
+          setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
+        }}
+        onTerm={(id) => {
+          openTab(id);
+          setTermWanted((s) => new Set(s).add(id));
+          const ws = workspaces.find((w) => w.id === id);
+          if (ws && ws.agent && ws.agent.mode !== "interactive") openInteractive(id);
+        }}
         catalog={catalog}
         newCfg={newCfg}
         onNewCfg={setNewCfg}
@@ -555,48 +566,6 @@ export default function App() {
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
-            sessionSlot={selectedId ? (
-              <SessionBar
-                sessions={sessions}
-                current={sessionCurrent}
-                onNew={async () => {
-                  try {
-                    await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
-                    await loadWorkspaces();
-                    await loadSessions();
-                  } catch (e) { toastError(e); }
-                }}
-                onResume={async (path) => {
-                  try {
-                    await api("/api/workspaces/" + selectedId + "/sessions/resume", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ path }),
-                    });
-                    await loadWorkspaces();
-                    await loadSessions();
-                  } catch (e) { toastError(e); }
-                }}
-                onRename={async (s) => {
-                  const name = await askPrompt({
-                    title: "Rename session",
-                    defaultValue: s.name || "",
-                    confirmLabel: "Save",
-                  });
-                  if (!name) return;
-                  try {
-                    await api("/api/workspaces/" + selectedId + "/sessions/rename", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ path: s.path, name }),
-                    });
-                    await loadSessions();
-                    await loadStatus(selectedId);
-                  } catch (e) { toastError(e); }
-                }}
-                onChat={termView ? showChat : null}
-              />
-            ) : null}
           />
 
           <div id="empty" className="empty" hidden={!noTabs}>
@@ -696,6 +665,48 @@ export default function App() {
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               status, streaming, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
+              sessionBar: selectedId ? (
+                <SessionBar
+                  inline
+                  sessions={sessions}
+                  current={sessionCurrent}
+                  onNew={async () => {
+                    try {
+                      await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+                      await loadWorkspaces();
+                      await loadSessions();
+                    } catch (e) { toastError(e); }
+                  }}
+                  onResume={async (path) => {
+                    try {
+                      await api("/api/workspaces/" + selectedId + "/sessions/resume", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ path }),
+                      });
+                      await loadWorkspaces();
+                      await loadSessions();
+                    } catch (e) { toastError(e); }
+                  }}
+                  onRename={async (s) => {
+                    const name = await askPrompt({
+                      title: "Rename session",
+                      defaultValue: s.name || "",
+                      confirmLabel: "Save",
+                    });
+                    if (!name) return;
+                    try {
+                      await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ path: s.path, name }),
+                      });
+                      await loadSessions();
+                      await loadStatus(selectedId);
+                    } catch (e) { toastError(e); }
+                  }}
+                />
+              ) : null,
             }}
           />
 

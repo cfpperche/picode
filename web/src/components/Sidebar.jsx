@@ -2,7 +2,7 @@ import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal } from "./Icons.jsx";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -11,7 +11,7 @@ const SIDE_KEY = "picode-sidebar-w";
 export default function Sidebar({
   version, workspaces, selectedId, showForm, formError,
   onNew, onCancel, onSubmit, onSelect, onRun, onStop, onRemove,
-  userMenu, catalog, newCfg, onNewCfg,
+  userMenu, catalog, newCfg, onNewCfg, termView, onChat, onTerm,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -88,7 +88,24 @@ export default function Sidebar({
                 </div>
                 <div className="ws-row2">
                   <span className="ws-path" title={ws.path}>{ws.path}</span>
-                  <span className="ws-mode">{mode}</span>
+                  <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      role="radio"
+                      className="ws-mode-btn"
+                      aria-checked={ws.id === selectedId && !termView}
+                      title="Chat"
+                      onClick={() => onChat && onChat(ws.id)}
+                    ><IconChat size={14} /></button>
+                    <button
+                      type="button"
+                      role="radio"
+                      className="ws-mode-btn"
+                      aria-checked={ws.id === selectedId && !!termView}
+                      title="Terminal"
+                      onClick={() => onTerm && onTerm(ws.id)}
+                    ><IconTerminal size={14} /></button>
+                  </span>
                 </div>
               </li>
             );

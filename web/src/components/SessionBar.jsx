@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconSession, IconPlus, IconChat } from "./Icons.jsx";
 
-export default function SessionBar({ sessions, current, onNew, onResume, onRename, onChat }) {
+export default function SessionBar({ sessions, current, onNew, onResume, onRename, onChat, inline }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const cur = (sessions || []).find((s) => s.path === current);
@@ -17,7 +17,7 @@ export default function SessionBar({ sessions, current, onNew, onResume, onRenam
   }, [open]);
 
   return (
-    <div className="session-bar" ref={wrap}>
+    <div className={"session-bar" + (inline ? " inline" : "")} ref={wrap}>
       <button
         type="button"
         id="session-picker"

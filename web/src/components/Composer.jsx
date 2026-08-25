@@ -11,7 +11,7 @@ import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLa
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
-  stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact,
+  stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -88,6 +88,7 @@ export default function Composer({
         />
         <div className="composer-controls">
           <div className="composer-left">
+            {sessionBar || null}
             <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ThinkingChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
@@ -96,7 +97,6 @@ export default function Composer({
           </div>
           <div className="composer-right">
             <span id="chat-status-text" className="sr-only">{status}{streaming ? " streaming" : ""}</span>
-            <button id="btn-dock" className="cockpit-chip" hidden={stopped} onClick={onToggleDock}>Terminal</button>
             {streaming ? (
               <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
                 <IconStop size={16} />

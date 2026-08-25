@@ -239,6 +239,16 @@ body {
   font-family: var(--mono); font-size: 10px; color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; flex: none;
 }
+.ws-modes { display: inline-flex; gap: 2px; flex: none; }
+.ws-mode-btn {
+  width: 24px; height: 22px; padding: 0; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--text-secondary); cursor: pointer;
+}
+.ws-mode-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+.ws-mode-btn[aria-checked="true"] {
+  color: var(--accent); border-color: var(--border); background: var(--bg-base);
+}
 .ws-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
 .ws-item:hover .ws-actions, .ws-item.active .ws-actions { opacity: 1; }
 .ws-row2 { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
@@ -352,6 +362,12 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .session-bar-end { margin-left: auto; }
+.session-bar.inline {
+  padding: 0; background: none; border: 0; position: relative;
+}
+.session-bar.inline .session-pop {
+  top: auto; bottom: calc(100% + 6px); left: 0;
+}
 .session-count {
   min-width: 1.1em; font-size: 10.5px; color: var(--text-secondary);
 }
