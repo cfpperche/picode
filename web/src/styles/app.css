@@ -109,8 +109,15 @@ body {
 }
 .side-title {
   display: inline-flex; align-items: center; gap: 6px;
+  flex: 1; min-width: 0;
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
   color: var(--text-secondary);
+}
+.side-head .ws-icon-btn { margin-left: auto; flex: none; }
+.side-empty-hint { font-size: 11px; color: var(--text-secondary); opacity: .7; flex: none; }
+.side-empty {
+  margin: 2px 8px 10px 22px;
+  font-size: 12px; color: var(--text-secondary);
 }
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }

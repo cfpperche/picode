@@ -25,6 +25,8 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Changed
 
 - Sidebar type is JetBrains Mono (same face Tachyon ships as Tachyon Mono).
+- Sidebar section + aligns right. Empty groups show "— empty" collapsed
+  and a one-line placeholder expanded (never a 0 badge).
 - `#/settings` is pi (composer `/settings`). PiCode theme/port moved to
   `#/preferences` (ADR-0012). Settings page is a scoped shell (S0).
 - One chrome gray (`--bg-panel`); `--bg-elevated` aliases it. Hover/focus

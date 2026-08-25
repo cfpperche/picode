@@ -102,6 +102,9 @@ supersede it with a new one instead.
   switches, selects, tabs. Roll a custom control only when no library
   covers the case — and say why in the commit. Native `<select>` / `<input>`
   still beat a one-off styled fake.
+- **Empty states are required.** A list, gallery, or collapsible section
+  that can have zero items must show a one-line placeholder (and the add
+  action if one exists). Never a blank well. Never a "0" count badge.
 - Commits: imperative, scoped (`server: add /api/version endpoint`).
 - Docs: short paragraphs, tables for comparisons, diagrams over prose.
 - The audience includes terminal-averse users: UI copy avoids jargon;

@@ -27,6 +27,7 @@ styling, error messages.
 - [ ] Progressive disclosure: advanced options behind deliberate reveals;
       core flow is naked and obvious.
 - [ ] Empty states teach: what this is + the one next action.
+      A zero-item list/section without a placeholder, or a "0" badge, is FAIL.
 - [ ] Destructive actions confirmed, reversible where possible.
 - [ ] Jargon audit for terminal-averse users:
       PTY → "terminal integration"; RPC → "control channel"; real terms

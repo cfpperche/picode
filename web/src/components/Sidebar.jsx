@@ -47,6 +47,11 @@ export default function Sidebar({
     window.addEventListener("pointerup", up);
   }
 
+  function collapsedMark(n) {
+    if (n > 0) return <span className="ws-count">{n}</span>;
+    return <span className="side-empty-hint">— empty</span>;
+  }
+
   function isOpen(id) { return openWs[id] !== false; }
   function toggleWs(id) {
     setOpenWs((s) => {
@@ -99,7 +104,7 @@ export default function Sidebar({
         <div className="side-head" onClick={() => toggleWs("sec-agents")}>
           <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconAgent /> Agents</span>
-          {!isOpen("sec-agents") ? <span className="ws-count">{(freeAgents || []).length}</span> : null}
+          {!isOpen("sec-agents") ? collapsedMark((freeAgents || []).length) : null}
           <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-agents")) toggleWs("sec-agents"); onNewFree(); }}><IconPlus /></button>
         </div>
         {isOpen("sec-agents") && showForm && formKind === "free" ? (
@@ -115,15 +120,15 @@ export default function Sidebar({
           </form>
         ) : null}
         {isOpen("sec-agents") ? (
-        <ul className="ws-list">
-          {(freeAgents || []).map((ag) => agentRow(ag, null))}
-        </ul>
+          (freeAgents || []).length
+            ? <ul className="ws-list">{(freeAgents || []).map((ag) => agentRow(ag, null))}</ul>
+            : <p className="side-empty">No agents</p>
         ) : null}
 
         <div className="side-head" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
           <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconFolder /> Workspaces</span>
-          {!isOpen("sec-workspaces") ? <span className="ws-count">{workspaces.length}</span> : null}
+          {!isOpen("sec-workspaces") ? collapsedMark(workspaces.length) : null}
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-workspaces")) toggleWs("sec-workspaces"); onNew(); }}><IconPlus /></button>
         </div>
 
@@ -141,13 +146,16 @@ export default function Sidebar({
         ) : null}
 
         {isOpen("sec-workspaces") ? (
+        workspaces.length === 0 ? (
+          <p className="side-empty">No workspaces</p>
+        ) : (
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => (
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                {!isOpen(ws.id) ? <span className="ws-count">{agentsOf(ws).length}</span> : null}
+                {!isOpen(ws.id) ? collapsedMark(agentsOf(ws).length) : null}
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
@@ -165,13 +173,14 @@ export default function Sidebar({
                 </form>
               ) : null}
               {isOpen(ws.id) ? (
-              <ul className="ws-list nested">
-                {agentsOf(ws).map((ag) => agentRow(ag, ws))}
-              </ul>
+                agentsOf(ws).length
+                  ? <ul className="ws-list nested">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul>
+                  : <p className="side-empty">No agents</p>
               ) : null}
             </li>
           ))}
         </ul>
+        )
         ) : null}
       </div>
 
