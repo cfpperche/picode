@@ -224,8 +224,9 @@ export default function App() {
     const go = () => {
       if (nearBottom.current) pinToBottom(convRef.current);
     };
+    go();
     queueMicrotask(go);
-    requestAnimationFrame(go);
+    requestAnimationFrame(() => requestAnimationFrame(go));
   }
 
   function scrollToEnd() {

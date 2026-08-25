@@ -486,13 +486,13 @@ body {
   .conversation.with-rail { scrollbar-width: thin; scrollbar-gutter: stable; }
   .conversation.with-rail::-webkit-scrollbar { width: 10px; height: auto; }
 }
-.conv-col { width: 100%; max-width: 740px; margin: 0 auto; padding: 20px 24px 200px; }
+.conv-col { width: 100%; max-width: 740px; margin: 0 auto; padding: 20px 24px 280px; }
 
 .day-mark {
   text-align: center; font-size: 13px; color: var(--text-secondary);
   margin: 20px 0 14px;
 }
-.turn { padding: 4px 0 16px; }
+.turn { padding: 4px 0 16px; scroll-margin-bottom: 280px; }
 .work { margin: 6px 0 10px; }
 .work-head {
   display: inline-flex; align-items: center; gap: 6px;

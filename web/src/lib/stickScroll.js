@@ -1,6 +1,6 @@
 // Composer floats over ~200px of the conversation. "At the bottom"
 // means inside that pad, not a 48px sliver under the overlay.
-const PAD = 280;
+const PAD = 320;
 
 export function stuckToBottom(el) {
   if (!el) return true;
