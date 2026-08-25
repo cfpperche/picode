@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Settings layers resolve by depth (workspace beats global, like skills).
+  No "Pi default" empty option.
 - Pi Settings S3: agent card writes provider/model/thinking and Full/Read-only
   (existing PATCH, all sessions of that pi).
 - Pi Settings S2: workspace `.pi/settings.json` when the folder is in

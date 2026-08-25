@@ -13,14 +13,15 @@ import (
 
 // Layer is the GUI view of one settings file.
 type Layer struct {
-	Path                 string `json:"path"`
-	Exists               bool   `json:"exists"`
-	CompactionEnabled    bool   `json:"compactionEnabled"`
-	SteeringMode         string `json:"steeringMode"`
-	FollowUpMode         string `json:"followUpMode"`
-	DefaultProvider      string `json:"defaultProvider,omitempty"`
-	DefaultModel         string `json:"defaultModel,omitempty"`
-	DefaultThinkingLevel string `json:"defaultThinkingLevel,omitempty"`
+	Path                 string          `json:"path"`
+	Exists               bool            `json:"exists"`
+	CompactionEnabled    bool            `json:"compactionEnabled"`
+	SteeringMode         string          `json:"steeringMode"`
+	FollowUpMode         string          `json:"followUpMode"`
+	DefaultProvider      string          `json:"defaultProvider,omitempty"`
+	DefaultModel         string          `json:"defaultModel,omitempty"`
+	DefaultThinkingLevel string          `json:"defaultThinkingLevel,omitempty"`
+	Has                  map[string]bool `json:"has,omitempty"`
 }
 
 // Patch is an allowlisted update. Nil pointer = leave alone.
@@ -101,20 +102,34 @@ func Apply(path string, p Patch) error {
 }
 
 func fill(out *Layer, doc map[string]any) {
+	out.Has = map[string]bool{}
 	if c, ok := doc["compaction"].(map[string]any); ok {
-		if v, ok := c["enabled"].(bool); ok {
-			out.CompactionEnabled = v
+		if _, ok := c["enabled"]; ok {
+			out.Has["compactionEnabled"] = true
+			if v, ok := c["enabled"].(bool); ok {
+				out.CompactionEnabled = v
+			}
 		}
 	}
 	if s, ok := doc["steeringMode"].(string); ok && s != "" {
+		out.Has["steeringMode"] = true
 		out.SteeringMode = s
 	}
 	if s, ok := doc["followUpMode"].(string); ok && s != "" {
+		out.Has["followUpMode"] = true
 		out.FollowUpMode = s
 	}
-	out.DefaultProvider = str(doc, "defaultProvider")
-	out.DefaultModel = str(doc, "defaultModel")
-	out.DefaultThinkingLevel = str(doc, "defaultThinkingLevel")
+	markStr(out, doc, "defaultProvider", &out.DefaultProvider)
+	markStr(out, doc, "defaultModel", &out.DefaultModel)
+	markStr(out, doc, "defaultThinkingLevel", &out.DefaultThinkingLevel)
+}
+
+func markStr(out *Layer, doc map[string]any, key string, dest *string) {
+	if _, ok := doc[key]; !ok {
+		return
+	}
+	out.Has[key] = true
+	*dest = str(doc, key)
 }
 
 func merge(doc map[string]any, p Patch) error {

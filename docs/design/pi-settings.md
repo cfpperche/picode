@@ -53,8 +53,10 @@ thinking, Full/Read-only, cwd). It is not “this chat”.
 `/new` `/resume` `/name` `/compact` `/tree` stay session verbs.
 Settings does not grow a fourth card in v1.
 
-Effective value = merge (project overlays global, same as pi). GUI
-shows the effective value and **which layer last wrote it**.
+Effective value = merge by **depth** (same as competing skills):
+workspace beats global, agent beats workspace. GUI shows the resolved
+value at each card — no empty "Pi default". Changing a card writes an
+override at that layer.
 
 ## What we expose (v1) vs leave in the TUI
 

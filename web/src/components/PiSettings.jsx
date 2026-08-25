@@ -6,6 +6,7 @@ import ModeChip from "./ModeChip.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
+import { catalogBase, resolveLayer } from "../lib/resolveLayer.js";
 
 const MODES = ["one-at-a-time", "all"];
 
@@ -34,8 +35,15 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
     } catch (e) { toastError(e); }
   }
 
-  const g = rep && rep.global;
-  const p = rep && rep.project;
+  const floor = catalogBase(catalog);
+  const g = rep && rep.global ? resolveLayer(rep.global, floor) : null;
+  const p = rep && rep.project ? resolveLayer(rep.project, g || floor) : null;
+  const parent = p || g || floor;
+  const ag = agent ? {
+    provider: agent.provider || parent.defaultProvider || "",
+    model: agent.model || parent.defaultModel || "",
+    thinking: agent.thinking || parent.defaultThinkingLevel || "",
+  } : null;
   const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
@@ -78,9 +86,9 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
                 <span>Model</span>
                 <ConfigFields
                   catalog={catalog}
-                  provider={agent.provider || ""}
-                  model={agent.model || ""}
-                  thinking={agent.thinking || ""}
+                  provider={ag.provider}
+                  model={ag.model}
+                  thinking={ag.thinking}
                   onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)}
                   idPrefix="ag-set"
                   row
@@ -139,7 +147,6 @@ function LayerKnobs({ prefix, values, catalog, onSave }) {
       <div className="set-row set-row-stack">
         <span>Defaults</span>
         <ConfigFields
-          allowEmpty
           catalog={catalog}
           provider={values.defaultProvider || ""}
           model={values.defaultModel || ""}

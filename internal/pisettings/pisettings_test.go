@@ -36,6 +36,20 @@ func TestApplyKeepsUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestLoadHasOnlyPresentKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"defaultProvider":"xai"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	layer, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !layer.Has["defaultProvider"] || layer.Has["steeringMode"] {
+		t.Fatalf("has = %+v", layer.Has)
+	}
+}
+
 func TestLoadMissing(t *testing.T) {
 	layer, err := Load(filepath.Join(t.TempDir(), "nope.json"))
 	if err != nil {
