@@ -6,6 +6,7 @@ import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, parseForm } from "../lib/schemas.js";
 import { go } from "../lib/routes.js";
+import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 
 export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
@@ -16,16 +17,29 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [key, setKey] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recents, setRecents] = useState(readRecents);
 
   useEffect(() => {
     if (hidden || !wantAdd) return;
     openAdd();
   }, [hidden, wantAdd]);
 
+  useEffect(() => {
+    setRecents(rememberProviders(signed.map((p) => p.id)));
+  }, [signed.map((p) => p.id).join(",")]);
+
   const available = useMemo(
     () => list.filter((p) => !p.signedIn).sort((a, b) => a.id.localeCompare(b.id)),
     [list],
   );
+  const recentRows = recents
+    .map((id) => list.find((p) => p.id === id) || { id, signedIn: false, login: "api_key" })
+    .filter((p) => !p.signedIn);
+
+  async function signOut(id) {
+    setRecents(pushRecent(id));
+    if (onSignOut) await onSignOut(id);
+  }
 
   function openAdd() {
     setPick(null);
@@ -63,6 +77,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: parsed.value.key }),
       });
+      setRecents(pushRecent(pick.id));
       toast.ok("Signed in to " + pick.id + ".");
       closeAdd();
       if (onRefresh) await onRefresh();
@@ -94,12 +109,30 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 {p.login !== "oauth" ? (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPick(p); setStep("key"); setKey(""); setErr(""); setAdd(true); }}>Replace</button>
                 ) : null}
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSignOut && onSignOut(p.id)}>Sign out</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => signOut(p.id)}>Sign out</button>
               </li>
             ))}
           </ul>
         )}
       </section>
+      {recentRows.length ? (
+        <section className="settings-section">
+          <div className="set-row">
+            <h3>Recently used</h3>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRecents(clearRecents())}>Clear</button>
+          </div>
+          <ul className="prov-list">
+            {recentRows.map((p) => (
+              <li key={p.id} className="prov-row muted">
+                <span className="prov-id">{p.id}</span>
+                <span className="prov-auth">signed out</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { chooseProvider(p); setAdd(true); }}>Sign in</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRecents(removeRecent(p.id))}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <Dialog.Root open={add} onOpenChange={(o) => { if (!o) closeAdd(); }}>
         <Dialog.Portal>

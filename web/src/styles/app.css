@@ -143,6 +143,8 @@ body {
 .prov-pick-list { max-height: 240px; overflow-y: auto; }
 .prov-methods { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .prov-methods .btn { width: 100%; }
+.prov-row.muted { opacity: 0.55; }
+.prov-row.muted:hover { opacity: 1; }
 .prov-row {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px;
