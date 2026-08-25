@@ -227,6 +227,22 @@ func PutAPIKey(provider, key string) error {
 	})
 }
 
+// PutOAuth writes an oauth credential object. Never logs token values.
+func PutOAuth(provider string, cred map[string]any) error {
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		return fmt.Errorf("provider required")
+	}
+	raw, err := json.Marshal(cred)
+	if err != nil {
+		return err
+	}
+	return mutateAuth(func(obj map[string]json.RawMessage) error {
+		obj[provider] = raw
+		return nil
+	})
+}
+
 // RemoveAuth deletes one provider entry from auth.json. Other keys stay.
 func RemoveAuth(provider string) error {
 	provider = strings.TrimSpace(provider)

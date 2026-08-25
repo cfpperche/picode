@@ -36,7 +36,7 @@ var LoginMethods = map[string]string{
 	"cloudflare-ai-gateway":      LoginAPIKey,
 	"cloudflare-workers-ai":      LoginAPIKey,
 	"baseten":                    LoginAPIKey,
-	"kimi-coding":                LoginAPIKey,
+	"kimi-coding":                LoginBoth,
 	"minimax":                    LoginAPIKey,
 	"minimax-cn":                 LoginAPIKey,
 	"qwen-token-plan":            LoginAPIKey,

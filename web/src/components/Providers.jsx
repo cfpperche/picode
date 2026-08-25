@@ -18,6 +18,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [key, setKey] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [recents, setRecents] = useState(readRecents);
 
   useEffect(() => {
@@ -89,7 +90,44 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     }
   }
 
+  const canAccount = pick && (pick.id === "anthropic" || pick.id === "openai-codex");
   const title = !pick ? "Add provider" : step === "method" ? pick.id : step === "oauth" ? pick.id : "API key · " + pick.id;
+
+  async function startAccount() {
+    if (!pick) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await api("/api/oauth/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: pick.id }),
+      });
+      if (res && res.url) window.open(res.url, "_blank", "noopener");
+      setWaiting(true);
+      const t0 = Date.now();
+      while (Date.now() - t0 < 5 * 60 * 1000) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const st = await api("/api/oauth/status");
+        if (st && st.done) {
+          setWaiting(false);
+          if (st.error) { setErr(st.error); return; }
+          toast.ok("Signed in to " + pick.id + ".");
+          setRecents(pushRecent(pick.id));
+          closeAdd();
+          if (onRefresh) await onRefresh();
+          return;
+        }
+        if (st && !st.pending && !st.done) break;
+      }
+      setWaiting(false);
+    } catch (ex) {
+      toastError(ex);
+      setWaiting(false);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <PageFrame id="providers-view" title="Providers" hidden={hidden}>
@@ -174,10 +212,19 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
 
             {step === "oauth" ? (
               <div>
-                <p className="settings-desc">Pi has no RPC login. Use /login {pick ? pick.id : ""} in the terminal for subscriptions (Codex, Claude Pro, Copilot, xAI, OpenRouter, Radius).</p>
+                {canAccount ? (
+                  <p className="settings-desc">A browser tab opens on the provider. When it says signed in, this dialog finishes.</p>
+                ) : (
+                  <p className="settings-desc">Account login for this provider is not in PiCode yet. Use /login {pick ? pick.id : ""} in the terminal.</p>
+                )}
+                <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (pick && pick.login === "both") setStep("method"); else { setPick(null); setStep("pick"); } }}>Back</button>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={closeAdd}>Close</button>
+                  {canAccount ? (
+                    <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : "Continue in browser"}</button>
+                  ) : (
+                    <button type="button" className="btn btn-primary btn-sm" onClick={closeAdd}>Close</button>
+                  )}
                 </div>
               </div>
             ) : null}

@@ -71,6 +71,9 @@ func TestLoginMethod(t *testing.T) {
 	if loginMethod("groq") != LoginAPIKey {
 		t.Fatal("groq")
 	}
+	if loginMethod("kimi-coding") != LoginBoth {
+		t.Fatal("kimi")
+	}
 }
 
 func TestParseListModelsSkipsJunk(t *testing.T) {

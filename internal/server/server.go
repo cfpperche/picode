@@ -66,6 +66,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
 	registerFolderRoutes(mux)
+	registerOAuthRoutes(mux)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
 	mux.Handle("/ws/agent", agentWS(deps))

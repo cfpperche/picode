@@ -13,8 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Claude and Codex **account** login via the same loopback ports as pi TUI.
+- kimi-coding is account-or-api-key (TUI parity).
 - `#/providers` Add-provider wizard (full loginable set, account vs API key).
-  `/login` opens Add. OAuth still TUI until pi RPC login.
+  `/login` opens Add.
 - Folder field: type a path or Browse (list + create directory on this machine).
 
 ### Changed

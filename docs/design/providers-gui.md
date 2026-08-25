@@ -1,6 +1,6 @@
 # Providers GUI — complete login management
 
-> Status: P0 in progress 2026-08-25. Source: pi `docs/providers.md` (canonical),
+> Status: P0 shipped; P2 Claude+Codex account login in progress. Source: pi `docs/providers.md`,
 > TUI `/login` (account vs API key), ADR-0009 (amended). Not invented.
 
 Today `#/providers` is a **roster of keys already in `auth.json`**. The TUI
