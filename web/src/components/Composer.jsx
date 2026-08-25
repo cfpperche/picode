@@ -7,12 +7,14 @@ import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
+import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact,
 }) {
   const ta = useRef(null);
+  const hist = useRef(newHist());
   const [slashIdx, setSlashIdx] = useState(0);
   const hits = filterSlash(value);
 
@@ -57,7 +59,7 @@ export default function Composer({
           rows={2}
           placeholder="Message the agent, or / for commands"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => { histTyped(hist.current); onChange(e.target.value); }}
           onKeyDown={(e) => {
             if (hits.length) {
               if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(hits.length - 1, i + 1)); return; }
@@ -65,7 +67,23 @@ export default function Composer({
               if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
               if (e.key === "Escape") { e.preventDefault(); onChange(""); return; }
             }
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+            if (e.key === "ArrowUp" && caretFirstLine(ta.current)) {
+              e.preventDefault();
+              onChange(histUp(hist.current, value || ""));
+              requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
+              return;
+            }
+            if (e.key === "ArrowDown" && caretLastLine(ta.current)) {
+              e.preventDefault();
+              onChange(histDown(hist.current, value || ""));
+              requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
+              return;
+            }
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              histPush(hist.current, value);
+              onSend();
+            }
           }}
         />
         <div className="composer-controls">
@@ -84,7 +102,7 @@ export default function Composer({
                 <IconStop size={16} />
               </button>
             ) : (
-              <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={onSend}>
+              <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={() => { histPush(hist.current, value); onSend(); }}>
                 <IconSend size={16} />
               </button>
             )}
