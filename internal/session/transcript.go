@@ -9,15 +9,16 @@ import (
 
 // Event is one conversation beat for the chat surface (view-only).
 type Event struct {
-	Kind     string         `json:"kind"` // user | assistant | thinking | tool
-	Text     string         `json:"text,omitempty"`
-	ID       string         `json:"id,omitempty"`
-	Name     string         `json:"name,omitempty"`
-	Args     string         `json:"args,omitempty"`
-	Status   string         `json:"status,omitempty"`
-	Detail   string         `json:"detail,omitempty"`
-	ToolArgs map[string]any `json:"toolArgs,omitempty"`
-	Result   map[string]any `json:"result,omitempty"`
+	Kind      string         `json:"kind"` // user | assistant | thinking | tool
+	Text      string         `json:"text,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	Name      string         `json:"name,omitempty"`
+	Args      string         `json:"args,omitempty"`
+	Status    string         `json:"status,omitempty"`
+	Detail    string         `json:"detail,omitempty"`
+	ToolArgs  map[string]any `json:"toolArgs,omitempty"`
+	Result    map[string]any `json:"result,omitempty"`
+	Timestamp int64          `json:"ts,omitempty"`
 }
 
 // Transcript reads a JSONL session into chat events (ADR-0005: read-only).
@@ -41,13 +42,14 @@ func Transcript(path string) ([]Event, error) {
 		if json.Unmarshal(line, &raw) != nil {
 			continue
 		}
+		ts := entryTS(raw)
 		switch raw["type"] {
 		case "compaction", "compaction_summary":
 			sum, _ := raw["summary"].(string)
 			if sum == "" {
 				sum = "Session compacted."
 			}
-			out = append(out, Event{Kind: "assistant", Text: sum})
+			out = append(out, Event{Kind: "assistant", Text: sum, Timestamp: ts})
 			continue
 		case "message":
 		default:
@@ -60,10 +62,10 @@ func Transcript(path string) ([]Event, error) {
 		switch msg["role"] {
 		case "user":
 			if t := textOf(msg["content"]); t != "" {
-				out = append(out, Event{Kind: "user", Text: t})
+				out = append(out, Event{Kind: "user", Text: t, Timestamp: ts})
 			}
 		case "assistant":
-			out = appendAssistant(out, msg, pending)
+			out = appendAssistant(out, msg, pending, ts)
 		case "toolResult":
 			out = applyToolResult(out, msg, pending)
 		}
@@ -71,11 +73,23 @@ func Transcript(path string) ([]Event, error) {
 	return out, sc.Err()
 }
 
-func appendAssistant(out []Event, msg map[string]any, pending map[string]int) []Event {
+func entryTS(raw map[string]any) int64 {
+	if msg, _ := raw["message"].(map[string]any); msg != nil {
+		switch v := msg["timestamp"].(type) {
+		case float64:
+			return int64(v)
+		case int64:
+			return v
+		}
+	}
+	return 0
+}
+
+func appendAssistant(out []Event, msg map[string]any, pending map[string]int, ts int64) []Event {
 	blocks, _ := msg["content"].([]any)
 	if blocks == nil {
 		if t := textOf(msg["content"]); t != "" {
-			out = append(out, Event{Kind: "assistant", Text: t})
+			out = append(out, Event{Kind: "assistant", Text: t, Timestamp: ts})
 		}
 		return out
 	}
@@ -87,17 +101,17 @@ func appendAssistant(out []Event, msg map[string]any, pending map[string]int) []
 		switch blk["type"] {
 		case "text":
 			if t, _ := blk["text"].(string); strings.TrimSpace(t) != "" {
-				out = append(out, Event{Kind: "assistant", Text: t})
+				out = append(out, Event{Kind: "assistant", Text: t, Timestamp: ts})
 			}
 		case "thinking":
 			if t, _ := blk["thinking"].(string); strings.TrimSpace(t) != "" {
-				out = append(out, Event{Kind: "thinking", Text: t})
+				out = append(out, Event{Kind: "thinking", Text: t, Timestamp: ts})
 			}
 		case "toolCall":
 			id, _ := blk["id"].(string)
 			name, _ := blk["name"].(string)
 			args, _ := blk["arguments"].(map[string]any)
-			ev := Event{Kind: "tool", ID: id, Name: name, Args: summarize(args), Status: "···", ToolArgs: args}
+			ev := Event{Kind: "tool", ID: id, Name: name, Args: summarize(args), Status: "···", ToolArgs: args, Timestamp: ts}
 			pending[id] = len(out)
 			out = append(out, ev)
 		}

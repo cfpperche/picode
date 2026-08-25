@@ -13,10 +13,10 @@ function summarizeArgs(args) {
 export function eventsToItems(events) {
   return (events || []).map((e, i) => {
     if (e.kind === "user") {
-      return { kind: "block", cls: "user", actor: "You", text: e.text || "" };
+      return { kind: "block", cls: "user", actor: "You", text: e.text || "", ts: e.ts || 0 };
     }
     if (e.kind === "thinking") {
-      return { kind: "block", cls: "thinking", actor: "thinking", text: e.text || "" };
+      return { kind: "block", cls: "thinking", actor: "thinking", text: e.text || "", ts: e.ts || 0 };
     }
     if (e.kind === "tool") {
       const args = e.toolArgs || {};
@@ -29,8 +29,9 @@ export function eventsToItems(events) {
         detail: e.detail || "",
         expanded: false,
         change: fileChangeFromTool(e.name, args, e.result),
+        ts: e.ts || 0,
       };
     }
-    return { kind: "block", cls: "", actor: "agent", text: e.text || "" };
+    return { kind: "block", cls: "", actor: "agent", text: e.text || "", ts: e.ts || 0 };
   });
 }

@@ -5,6 +5,7 @@ const SELECTORS = [
   ".slash-menu",
   ".toast",
   ".dlg",
+  ".rail-pop",
 ];
 
 export function overlayAudit(win = globalThis) {

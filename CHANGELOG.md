@@ -27,6 +27,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Conversation **section rail** (Grok-style): ticks per message, hover
+  preview, jump. Native scrollbar hides while the rail is on.
+- Agent work (thinking + tools) collapses to **Worked for Xm Ys**;
+  expand for the step list. Duration from pi timestamps.
+
 - **Packages** gallery is a **2-column card grid** (adapted from
   [pi.dev/packages](https://pi.dev/packages)). Preview frame matches the
   official catalog: real `pi.image` when pi.dev has one, graph-paper

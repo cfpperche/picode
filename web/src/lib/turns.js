@@ -1,0 +1,80 @@
+export function groupTurns(items) {
+  const out = [];
+  let cur = emptyTurn();
+  function flush() {
+    if (!cur.user && cur.work.length === 0 && cur.replies.length === 0 && cur.loose.length === 0) return;
+    out.push(cur);
+    cur = emptyTurn();
+  }
+  for (const it of items || []) {
+    if (it.kind === "sys" || it.kind === "files") {
+      if (cur.user || cur.work.length || cur.replies.length) flush();
+      out.push({ kind: "loose", item: it });
+      continue;
+    }
+    if (it.kind === "block" && it.cls === "user") {
+      flush();
+      cur.user = it;
+      continue;
+    }
+    if (it.kind === "tool" || (it.kind === "block" && it.cls === "thinking")) {
+      cur.work.push(it);
+      continue;
+    }
+    if (it.kind === "block") {
+      cur.replies.push(it);
+      continue;
+    }
+    cur.loose.push(it);
+  }
+  flush();
+  return out;
+}
+
+function emptyTurn() {
+  return { kind: "turn", user: null, work: [], replies: [], loose: [] };
+}
+
+export function turnDurationMs(turn) {
+  const stamps = [];
+  for (const it of [turn.user, ...turn.work, ...turn.replies]) {
+    if (it && it.ts) stamps.push(Number(it.ts));
+  }
+  if (stamps.length < 2) return 0;
+  const a = Math.min(...stamps);
+  const b = Math.max(...stamps);
+  return Math.max(0, b - a);
+}
+
+export function fmtWorked(ms) {
+  if (!ms || ms < 400) return "Worked";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return "Worked for " + s + "s";
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? "Worked for " + m + "m " + r + "s" : "Worked for " + m + "m";
+}
+
+export function stepLabel(it) {
+  if (!it) return "";
+  if (it.cls === "thinking") return "Thought";
+  if (it.kind !== "tool") return it.actor || "";
+  const n = String(it.name || "").toLowerCase();
+  const arg = String(it.args || "").trim();
+  const clip = (s) => (s.length > 64 ? s.slice(0, 61) + "…" : s);
+  if (n.includes("web_search") || n.includes("websearch") || n === "search") {
+    return arg ? "Searched " + clip(arg) : "Searched the web";
+  }
+  if (n === "read") return arg ? "Read " + base(arg) : "Read a file";
+  if (n === "write" || n === "edit") return arg ? "Edited " + base(arg) : "Edited a file";
+  if (n === "bash") return arg ? "Ran " + clip(arg) : "Ran a command";
+  if (n === "grep" || n === "find") return arg ? "Searched " + clip(arg) : "Searched files";
+  if (n === "ls") return arg ? "Listed " + clip(arg) : "Listed files";
+  return it.name + (arg ? " " + clip(arg) : "");
+}
+
+function base(p) {
+  const s = p.replace(/^@/, "").replace(/\\/g, "/");
+  const i = s.lastIndexOf("/");
+  return i >= 0 ? s.slice(i + 1) : s;
+}

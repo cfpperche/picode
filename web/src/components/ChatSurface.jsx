@@ -1,4 +1,5 @@
 import Conversation from "./Conversation.jsx";
+import ConversationRail from "./ConversationRail.jsx";
 import Composer from "./Composer.jsx";
 import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
@@ -22,6 +23,7 @@ export default function ChatSurface({
     <section id="chat-surface" className="chat-surface" hidden={hidden}>
       <div className="chat-body">
         <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} />
+        {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className="composer-wrap">
             <div className="composer" id="run-cta">
