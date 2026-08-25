@@ -22,6 +22,10 @@ export const createWsAgentSchema = modelPick.extend({
   name: required("Name"),
 });
 
+export const apiKeySchema = z.object({
+  key: z.string().trim().min(1, "API key is required."),
+});
+
 export function parseForm(schema, data) {
   const got = schema.safeParse(data);
   if (got.success) return { ok: true, value: got.data, error: "" };

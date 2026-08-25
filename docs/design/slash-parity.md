@@ -27,7 +27,7 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **17 ui · 1 partial · 0 proxy · 6 missing**.
+Count against the TUI 24 (not extras): **18 ui · 0 partial · 0 proxy · 6 missing**.
 
 ## Matrix (TUI 24)
 
@@ -49,7 +49,7 @@ Count against the TUI 24 (not extras): **17 ui · 1 partial · 0 proxy · 6 miss
 | 14 | `/fork` | new session from a user turn | tree dialog, user rows | **ui** | RPC `fork` when in chat |
 | 15 | `/clone` | duplicate current branch | clone in tree dialog | **ui** | RPC `clone` when in chat |
 | 16 | `/trust` | save project trust | trust UI / confirm | **ui** | Writes `trust.json` for the agent cwd |
-| 17 | `/login` | provider auth | `#/providers` + TUI OAuth | **partial** | Still needs the dock for OAuth |
+| 17 | `/login` | provider auth | `#/providers` API key | **ui** | OAuth/subscriptions still TUI until pi RPC login |
 | 18 | `/logout` | drop credentials | `#/providers` sign-out | **ui** | Deletes that key from `auth.json` |
 | 19 | `/new` | new session | new session (API) | **ui** | Session bar |
 | 20 | `/compact` | compact context | compact confirm | **ui** | |

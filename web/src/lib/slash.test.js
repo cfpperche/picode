@@ -29,6 +29,7 @@ test("copy quit reload logout session trust are PiCode UI", () => {
   assert.equal(run("/copy"), "copy");
   assert.equal(run("/quit"), "quit");
   assert.equal(run("/reload"), "reload");
+  assert.equal(run("/login"), "go-providers");
   assert.equal(run("/logout"), "go-providers");
   assert.equal(run("/session"), "session-info");
   assert.equal(run("/trust"), "trust");

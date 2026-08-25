@@ -86,7 +86,7 @@ Canonical: [pi Compaction](https://github.com/earendil-works/pi/blob/main/packag
 
 ## /login {#login}
 
-Opens `#/providers`. OAuth still needs the terminal dock.
+Opens `#/providers`. Paste an API key (saved in pi's `auth.json`). Subscriptions still use TUI `/login`.
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 

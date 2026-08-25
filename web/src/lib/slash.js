@@ -3,7 +3,7 @@
 export const SLASH = [
   { id: "settings", label: "/settings", hint: "Pi JSON for this agent", run: "go-settings" },
   { id: "scoped-models", label: "/scoped-models", hint: "Models the chip cycles", run: "go-scoped" },
-  { id: "login", label: "/login", hint: "Sign in a provider", run: "login" },
+  { id: "login", label: "/login", hint: "Sign in a provider", run: "go-providers" },
   { id: "logout", label: "/logout", hint: "Sign out a provider", run: "go-providers" },
   { id: "copy", label: "/copy", hint: "Copy the last reply", run: "copy" },
   { id: "quit", label: "/quit", hint: "Stop this agent", run: "quit" },

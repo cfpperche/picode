@@ -782,19 +782,6 @@ export default function App() {
               }
               if (cmd.run === "compact") { compactSession(); return; }
               if (cmd.run === "session-name") { await renameSession(); return; }
-              try {
-                if (cmd.run === "login") {
-                  await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-                } else if (cmd.run === "term") {
-                  await api("/api/agents/" + agent.id + "/command", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: cmd.label }),
-                  });
-                }
-                await loadWorkspaces();
-                if (selectedId) setTermWanted((s) => new Set(s).add(selectedId));
-              } catch (e) { toastError(e); }
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
@@ -863,6 +850,7 @@ export default function App() {
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}
+          onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }}
           onSignOut={async (provider) => {
             const ok = await askConfirm({
               title: "Sign out " + provider,
@@ -875,21 +863,6 @@ export default function App() {
               await api("/api/providers/" + encodeURIComponent(provider), { method: "DELETE" });
               setCatalog(await api("/api/catalog"));
               toast.ok("Signed out of " + provider + ".");
-            } catch (e) { toastError(e); }
-          }}
-          onSignIn={async (provider) => {
-            const ws = selected || workspaces[0];
-            if (!ws || !ws.agent) { toast.info("Add a workspace first."); return; }
-            try {
-              await api("/api/agents/" + ws.agent.id + "/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ provider }),
-              });
-              const list = await loadWorkspaces();
-              openTab(ws.id, list);
-              setTermWanted((s) => new Set(s).add(ws.id));
-              go("workspace");
             } catch (e) { toastError(e); }
           }}
         />

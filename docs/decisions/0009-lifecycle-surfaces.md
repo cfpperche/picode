@@ -18,10 +18,12 @@ models), philosophy "door, not cage", UI chrome carries state not docs.
    offers **Inherit** (empty `provider`/`model`/`thinking` columns = pi
    defaults). PiCode never ships a curated subset.
 
-2. **Auth stays in pi.** Settings → Providers lists catalog providers and
-   whether `~/.pi/agent/auth.json` has a key for that id (keys only — never
-   values). **Sign in** starts the agent interactively and sends
-   `/login [<provider>]` through tmux. No API-key fields in PiCode.
+2. **Auth stays in pi's `auth.json`.** `#/providers` lists catalog providers
+   and whether that file has an entry (keys only — never values).
+   **API keys** are written by the GUI (`{ "type": "api_key", "key" }`).
+   **OAuth / subscriptions** (Codex, Claude Pro, xAI sub, OpenRouter PKCE)
+   stay TUI `/login` until pi exposes RPC login. Composer `/login` opens
+   `#/providers`; it does not type into tmux.
 
 3. **MCP is not part of creation.** Settings → MCP is a separate status
    surface. v1 reports whether a community adapter/config is present; it
@@ -35,7 +37,8 @@ Starting an agent (interactive or managed) passes stored
 - **Easier**: one source of truth (pi) for models and credentials; wizard
   stays three fields; MCP cannot block "add a folder".
 - **Harder**: catalog parsing depends on `pi --list-models` table format;
-  `/login` requires an interactive session (OAuth still happens in the TUI).
+  OAuth still happens in the TUI (no RPC `login`). If that door hurts,
+  a PiCode credential store is a future ADR — not this one.
 - **If wrong**: a curated provider list would hide working setups (cage);
   a PiCode login form would fork auth from `auth.json`.
 

@@ -67,6 +67,25 @@ func TestParseListModelsSkipsJunk(t *testing.T) {
 	}
 }
 
+func TestPutAPIKey(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := PutAPIKey("xai", "sk-test"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(home, ".pi", "agent", "auth.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]map[string]string
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["xai"]["type"] != "api_key" || m["xai"]["key"] != "sk-test" {
+		t.Fatalf("%s", raw)
+	}
+}
+
 func TestRemoveAuthKeepsOtherKeys(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

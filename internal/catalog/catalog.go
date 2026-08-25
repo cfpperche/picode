@@ -187,28 +187,58 @@ func AuthPath() string {
 	return filepath.Join(home, ".pi", "agent", "auth.json")
 }
 
+// PutAPIKey writes {type:api_key,key} for provider. Other keys stay. The key is never logged.
+func PutAPIKey(provider, key string) error {
+	provider = strings.TrimSpace(provider)
+	key = strings.TrimSpace(key)
+	if provider == "" {
+		return fmt.Errorf("provider required")
+	}
+	if key == "" {
+		return fmt.Errorf("key required")
+	}
+	cred, err := json.Marshal(map[string]string{"type": "api_key", "key": key})
+	if err != nil {
+		return err
+	}
+	return mutateAuth(func(obj map[string]json.RawMessage) error {
+		obj[provider] = cred
+		return nil
+	})
+}
+
 // RemoveAuth deletes one provider entry from auth.json. Other keys stay.
 func RemoveAuth(provider string) error {
 	provider = strings.TrimSpace(provider)
 	if provider == "" {
 		return fmt.Errorf("provider required")
 	}
+	return mutateAuth(func(obj map[string]json.RawMessage) error {
+		delete(obj, provider)
+		return nil
+	})
+}
+
+func mutateAuth(fn func(map[string]json.RawMessage) error) error {
 	path := AuthPath()
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
+	if path == "" {
+		return fmt.Errorf("no home directory")
 	}
 	obj := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &obj); err != nil {
+	raw, err := os.ReadFile(path)
+	if err == nil {
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
-	if _, ok := obj[provider]; !ok {
-		return nil
+	if err := fn(obj); err != nil {
+		return err
 	}
-	delete(obj, provider)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
 	out, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		return err

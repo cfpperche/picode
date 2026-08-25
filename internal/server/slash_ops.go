@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/cfpperche/picode/internal/catalog"
@@ -10,6 +11,7 @@ import (
 
 func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
+	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
 }
 
@@ -36,6 +38,22 @@ func handleAgentTrust(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"trusted": true, "cwd": cwd, "already": false})
 	}
+}
+
+func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req struct {
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if err := catalog.PutAPIKey(id, req.Key); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "signedIn": true})
 }
 
 func handleProviderLogout(deps Deps) http.HandlerFunc {
