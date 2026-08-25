@@ -34,10 +34,10 @@ export default function ChatSurface({
         {stopped ? (
           <div className="composer-wrap">
             <div className="composer" id="run-cta">
+              {composer && composer.sessionBar ? <div className="composer-tools">{composer.sessionBar}</div> : null}
               <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
               <div className="composer-controls">
                 <div className="composer-left">
-                  {composer && composer.sessionBar ? composer.sessionBar : null}
                   <ProviderChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ModelChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ThinkingChip catalog={catalog} cfg={cfg} onChange={onCfg} />

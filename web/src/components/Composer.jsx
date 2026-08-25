@@ -53,6 +53,7 @@ export default function Composer({
             ))}
           </ul>
         )}
+        {sessionBar ? <div className="composer-tools">{sessionBar}</div> : null}
         <textarea
           id="task-input"
           ref={ta}
@@ -88,7 +89,6 @@ export default function Composer({
         />
         <div className="composer-controls">
           <div className="composer-left">
-            {sessionBar || null}
             <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
             <ThinkingChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />

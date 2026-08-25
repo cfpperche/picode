@@ -665,6 +665,11 @@ body {
   padding: 10px 12px 8px;
 }
 .composer:focus-within { border-color: var(--accent); }
+.composer-tools {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 2px 8px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
 #task-input {
   display: block; width: 100%; min-height: 52px; max-height: 160px;
   padding: 2px 4px 6px; background: transparent; border: none; outline: none; resize: none;
