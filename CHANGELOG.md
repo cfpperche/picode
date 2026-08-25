@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Sidebar agent row: provider icon, name, and model (`Grok - grok-4.6`).
 - Slash hints: docs icon, italic + dotted underline, slightly more context.
 - Collapsed sidebar groups show stacked provider favicons (max 5, then +N)
   instead of a count.

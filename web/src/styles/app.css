@@ -346,6 +346,7 @@ body {
 .ws-dot.streaming { background: var(--accent); animation: pulse 1.4s ease infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 .ws-name { font-weight: 550; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-model { font-weight: 450; color: var(--text-secondary); }
 .ws-mode {
   font-family: var(--mono); font-size: 10px; color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; flex: none;

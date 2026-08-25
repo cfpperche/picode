@@ -4,6 +4,7 @@ import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
 import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck, IconGit, IconChevronRight } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
+import { shortModel } from "../lib/chip.js";
 import { repoLine } from "../lib/repoLine.js";
 import { workspaceAgents } from "../lib/providerIcon.js";
 import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
@@ -65,6 +66,8 @@ export default function Sidebar({
   function agentRow(ag, ws) {
     const mode = ag.mode || "stopped";
     const label = displayAgentName(ag, ws);
+    const model = shortModel(ag.model || "");
+    const title = model ? label + " - " + model : label;
     const repo = repoLine(ag, ws);
     return (
       <li
@@ -74,7 +77,7 @@ export default function Sidebar({
       >
         <div className="ws-row1">
           <ProviderFace agent={ag} />
-          <span className="ws-name" title={label}>{label}</span>
+          <span className="ws-name" title={title}>{label}{model ? <span className="ws-model"> - {model}</span> : null}</span>
           <span className="ws-actions">
             {mode === "stopped"
               ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
