@@ -1,6 +1,7 @@
 # Pi settings GUI — plan
 
-> Status: **S0 shipped** (2026-08-25). Knobs start in S1. Slash matrix:
+> Status: **S1 shipped** (2026-08-25). Global JSON read/write. S2 = workspace.
+> Slash matrix:
 > [`slash-parity.md`](slash-parity.md). Product vs pi split: ADR-0012.
 
 ## Goal

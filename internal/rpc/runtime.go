@@ -297,6 +297,24 @@ func (ma *ManagedAgent) Compact(ctx context.Context) (Response, error) {
 	return ma.client.Send(ctx, Command{Type: "compact"})
 }
 
+// SetAutoCompaction toggles live auto-compact (RPC).
+func (ma *ManagedAgent) SetAutoCompaction(ctx context.Context, enabled bool) error {
+	_, err := ma.client.Send(ctx, Command{Type: "set_auto_compaction", Body: map[string]any{"enabled": enabled}})
+	return err
+}
+
+// SetSteeringMode sets live steering delivery (RPC).
+func (ma *ManagedAgent) SetSteeringMode(ctx context.Context, mode string) error {
+	_, err := ma.client.Send(ctx, Command{Type: "set_steering_mode", Body: map[string]any{"mode": mode}})
+	return err
+}
+
+// SetFollowUpMode sets live follow-up delivery (RPC).
+func (ma *ManagedAgent) SetFollowUpMode(ctx context.Context, mode string) error {
+	_, err := ma.client.Send(ctx, Command{Type: "set_follow_up_mode", Body: map[string]any{"mode": mode}})
+	return err
+}
+
 // SendPrompt delivers a one-off prompt outside the queue (UI "send now").
 func (ma *ManagedAgent) SendPrompt(message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

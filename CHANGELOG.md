@@ -11,6 +11,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- Pi Settings S1: read/write global `settings.json` (auto-compact, steering,
+  follow-up, defaults). Radix switch + native selects.
+
 ### Changed
 
 - `#/settings` is pi (composer `/settings`). PiCode theme/port moved to

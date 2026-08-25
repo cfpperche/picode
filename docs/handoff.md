@@ -56,7 +56,7 @@ What exists right now:
 
 ## Next up
 
-1. Pi settings S1: read/write global JSON knobs (`docs/design/pi-settings.md`).
+1. Pi settings S2: workspace `.pi/settings.json` layer (`docs/design/pi-settings.md`).
 2. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
 3. Pretty search cards in chat, gated on `capabilities.webSearch`.
 

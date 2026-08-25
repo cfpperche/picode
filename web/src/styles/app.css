@@ -1080,6 +1080,28 @@ body {
 .settings-section + .settings-section { border-top: 1px solid var(--border); }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
+.set-rows { display: flex; flex-direction: column; gap: 10px; }
+.set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 32px;
+}
+.set-row label { font-size: 13px; }
+.set-row select {
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 4px 8px; font: inherit; font-size: 12.5px;
+}
+.set-row-stack { align-items: flex-start; }
+.rx-switch {
+  width: 36px; height: 20px; padding: 0; flex: none;
+  border: 0; border-radius: 99px; background: var(--border-strong); cursor: pointer;
+}
+.rx-switch[data-state="checked"] { background: var(--accent); }
+.rx-switch-thumb {
+  display: block; width: 16px; height: 16px; border-radius: 99px;
+  background: var(--bg-base); transform: translateX(2px); transition: transform .12s;
+}
+.rx-switch[data-state="checked"] .rx-switch-thumb { transform: translateX(16px); }
 .theme-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .theme-card {
   display: flex; flex-direction: column; align-items: flex-start; gap: 5px;

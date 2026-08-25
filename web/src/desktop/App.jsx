@@ -778,7 +778,7 @@ export default function App() {
           />
         </div>
 
-        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} />
+        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
