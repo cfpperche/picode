@@ -741,7 +741,7 @@ body {
   transform: translate(-50%, -50%);
   width: min(400px, calc(100vw - 32px));
   padding: 18px 18px 14px;
-  background: var(--bg-panel); border: 1px solid var(--border-strong);
+  background: var(--bg-base); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
 }
 .dlg-title { font-size: 15px; font-weight: 650; margin-bottom: 8px; }
@@ -938,7 +938,7 @@ body {
 }
 .share-panel {
   width: min(420px, 100vw);
-  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  background: var(--bg-base); border: 1px solid var(--border-strong);
   border-radius: 16px 16px 0 0; padding: 16px 18px 22px;
   max-height: min(88vh, 640px); overflow-y: auto;
 }
