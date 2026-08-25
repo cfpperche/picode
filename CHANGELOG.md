@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Chat body type is **16px / 1.7** (Claude/Grok reading size); chrome stays 13px.
 - Date marks between turns (Today / Yesterday / weekday), ChatGPT-style.
 - Conversation **section rail** (Grok-style): ticks per message, hover
   preview, jump. Native scrollbar hides while the rail is on.
