@@ -85,6 +85,9 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Optimistic UI is a bar (`docs/philosophy.md` §7).
+  Packages gallery uses layout skeletons on first load; refetch keeps
+  last hits. Blank wells while fetching are FAIL.
 - **2026-08-25** — Voice **V1 shipped** (dictation bar + Grok composer +
   browser TTS). Later phases recorded in
   [`docs/design/voice-mode.md`](design/voice-mode.md) §4: V1.1 cloud STT

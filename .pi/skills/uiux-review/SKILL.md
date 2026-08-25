@@ -58,6 +58,9 @@ milestone); apply tokens and density from day one.
 - [ ] Reachability: model picker ≤2 clicks from any agent view;
       Ctrl+K command palette for navigation (when present).
 - [ ] Motion: 100–200ms transitions; skeletons over spinner-only waits.
+- [ ] Optimistic UI: first load = skeleton matching the real layout;
+      refetch = keep last results. Blank content well while fetching = FAIL.
+      Skeletons are chrome, never invented rows/names.
 - [ ] Design tokens: surfaces, type, accent and status colors follow the
       token set in docs/benchmark-cursor.md.
 

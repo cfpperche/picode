@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Packages gallery shows **skeleton cards** while npm search is in flight.
+  Optimistic UI is now a project bar (`docs/philosophy.md` §7).
 - Composer **dictation** (mic, Ctrl+D) and **voice mode** (waveform,
   Ctrl+Shift+O). Voice replaces the composer like Grok on x.ai; silence
   sends through pi. Dictation stays in the textarea until Send.

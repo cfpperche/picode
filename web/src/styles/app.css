@@ -204,6 +204,17 @@ body {
   font-size: 11px; color: var(--text-secondary);
 }
 .pkg-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.pkg-card.pkg-skel { pointer-events: none; }
+.skel-line {
+  height: 10px; border-radius: 6px; background: var(--bg-hover);
+  animation: skel 1.15s ease-in-out infinite;
+}
+.skel-line.w-40 { width: 40%; }
+.skel-line.w-50 { width: 50%; }
+.skel-line.w-70 { width: 70%; }
+.skel-line.w-80 { width: 80%; }
+.skel-line.w-90 { width: 90%; }
+@keyframes skel { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .pkg-cmd {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);

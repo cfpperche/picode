@@ -59,3 +59,15 @@ it. That means: no unexplained jargon, no "just run this command" dead ends,
 progressive disclosure, friendly empty states, and safety rails on
 destructive actions — while still being a power tool for people who *do*
 live in the terminal. Both audiences, one tool, no dumbing down.
+
+## 7. Optimistic UI (never a blank wait)
+
+A waiting screen is a broken screen. While data is in flight the UI shows
+the **shape** of the result (skeletons that match the loaded layout) or
+the **last good data** (stale-while-revalidate). Spinner-only and empty
+white wells are defects.
+
+This is not license to invent content. Skeletons are chrome. Status stays
+truthful (philosophy of deference): we never paint fake packages, fake
+search hits, or fake progress bars. Pending *actions* (Install…) live on
+the control that was clicked.

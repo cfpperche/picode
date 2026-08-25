@@ -52,6 +52,8 @@ state = one line + one action; statusbar = live state, not hints).
 - [ ] Keyboard-first: every primary action reachable without the mouse.
 - [ ] Dark-first design; light mode is a derivative, not the default.
 - [ ] Density with breathing room — power tool, not toy.
+- [ ] **Optimistic UI:** in-flight fetches show layout skeletons or keep
+      last good results. A blank content well while loading is FAIL.
 
 **Clarity (Stripe/HIG)**
 - [ ] Progressive disclosure: advanced options hidden behind a deliberate
@@ -76,6 +78,6 @@ state = one line + one action; statusbar = live state, not hints).
 ### Anti-benchmarks (things we refuse)
 
 - AI-slop UI: generic dashboard shells, 12-card grids of nothing, gradients
-  for depth, spinner-only loading states.
+  for depth, spinner-only loading states, **blank wells while fetching**.
 - Hiding the terminal to "protect" users (see philosophy: door, not cage).
 - Modals for flows longer than 2 fields — wizards use full pages.

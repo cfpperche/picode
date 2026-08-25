@@ -9,7 +9,7 @@ export default function Packages({ hidden }) {
   const [source, setSource] = useState("");
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(true);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -100,7 +100,7 @@ export default function Packages({ hidden }) {
           placeholder="Filter packages…"
           aria-label="Search gallery"
         />
-        <span className="pkg-count">{searching ? "Searching…" : hits.length ? hits.length + " shown" : "No matches"}</span>
+        <span className="pkg-count">{searching && !hits.length ? "Loading…" : searching ? "Updating…" : hits.length ? hits.length + " shown" : "No matches"}</span>
         <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
       </section>
 
@@ -118,7 +118,21 @@ export default function Packages({ hidden }) {
         </section>
       ) : null}
 
-      <ul className="pkg-grid">
+      <ul className="pkg-grid" aria-busy={searching && !hits.length}>
+        {searching && !hits.length ? Array.from({ length: 6 }, (_, i) => (
+          <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
+            <div className="pkg-preview">
+              <div className="pkg-preview-frame"><span /><span /><span /></div>
+            </div>
+            <div className="pkg-card-body">
+              <div className="skel-line w-50" />
+              <div className="skel-line w-90" />
+              <div className="skel-line w-70" />
+              <div className="skel-line w-40" />
+              <div className="skel-line w-80" />
+            </div>
+          </li>
+        )) : null}
         {hits.map((h) => {
           const on = installed.has(h.source);
           return (
