@@ -23,10 +23,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/config"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -108,7 +110,19 @@ func serve() {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	defer unlock()
+	var unlockOnce sync.Once
+	safeUnlock := func() { unlockOnce.Do(unlock) }
+	defer safeUnlock()
+
+	if stamp, err := binwatch.Capture(); err != nil {
+		log.Printf("picode: cannot watch binary: %v", err)
+	} else {
+		log.Printf("picode: binary %s", stamp.Path)
+		binwatch.Watch(stamp, func() {
+			safeUnlock()
+			binwatch.Reexec(stamp.Path)
+		})
+	}
 
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {

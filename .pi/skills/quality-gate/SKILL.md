@@ -19,6 +19,7 @@ passed gate reported falsely.
    issue/TODO in `docs/handoff.md`.
 4. **UI build** (if `web/` changed): `cd web && npm run build`. Must succeed.
 5. **Build**: run `make build` (UI + Go) or `go build ./cmd/picode` after `make web`. Must compile.
+5b. **Running binary**: the process on :8445 MUST be the binary you just built (`go:embed` is compile-time). After a UI/Go build, run `make restart` or overwrite `bin/picode` so the running process self-reloads (mtime watch). Incognito still sees yesterday's UI if the old process is alive. Verify: `curl -sk https://localhost:8445/` asset names match `internal/web/public/index.html`.
 6. **Diff review**: `git diff --stat` —
    - One logical change? If not, propose splitting the commit.
    - New code without tests? Add tests (table-driven) before finishing.

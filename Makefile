@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help dev ui web build test fmt fmt-check vet ci clean
+.PHONY: help dev ui web build restart test fmt fmt-check vet ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -23,6 +23,12 @@ install: ## Install as systemd user service + cert renewal timer
 
 build: web ## Build UI + bin/picode
 	go build -o bin/picode ./cmd/picode
+
+restart: build ## Rebuild and bounce the running server (self-reload within 2s if already this binary)
+	-pkill -x picode
+	sleep 1
+	rm -f $$HOME/.picode/picode.lock
+	setsid $(CURDIR)/bin/picode >>/tmp/pc.log 2>&1 </dev/null &
 
 test: ## Run all Go tests
 	go test ./...
