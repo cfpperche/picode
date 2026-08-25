@@ -20,6 +20,7 @@ import { toast } from "../lib/toast.js";
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
+  slashExtra,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -42,7 +43,7 @@ export default function Composer({
   const [muted, setMuted] = useState(false);
   const [dictate, setDictate] = useState(false);
   const [micStream, setMicStream] = useState(null);
-  const hits = filterSlash(value);
+  const hits = filterSlash(value, slashExtra);
 
   useEffect(() => { valueRef.current = value; }, [value]);
   useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
@@ -106,8 +107,13 @@ export default function Composer({
   }, [voice, expanded, listening, caption, streaming, dictate]);
 
   function pickSlash(cmd) {
-    onChange("");
     if (!cmd) return;
+    if (cmd.run === "insert") {
+      onChange(cmd.insert || cmd.label + " ");
+      requestAnimationFrame(() => ta.current?.focus());
+      return;
+    }
+    onChange("");
     if (cmd.run === "copy") {
       const t = lastReply || "";
       if (!t) { toast.info("No assistant reply yet."); return; }
@@ -309,6 +315,9 @@ export default function Composer({
                   onSelect={() => pickSlash(c)}
                 >
                   <span className="slash-label">{c.label}</span>
+                  {c.docs === false ? (
+                    <span className="slash-hint">{c.hint}</span>
+                  ) : (
                   <a
                     className="slash-hint"
                     href={commandDocUrl(c.id)}
@@ -320,6 +329,7 @@ export default function Composer({
                     <IconDocs />
                     {c.hint}
                   </a>
+                  )}
                 </Command.Item>
               ))}
             </Command.List>

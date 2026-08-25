@@ -32,6 +32,9 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
 import { locate, firstAgentId } from "../lib/tree.js";
+import { extraSlash } from "../lib/slash.js";
+import Hotkeys from "../components/Hotkeys.jsx";
+import Changelog from "../components/Changelog.jsx";
 import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
 import Toasts from "../components/Toasts.jsx";
 
@@ -65,6 +68,9 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
+  const [slashExtra, setSlashExtra] = useState([]);
+  const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
   const [statusBar, setStatusBar] = useState(null);
   const convRef = useRef(null);
   const nearBottom = useRef(true);
@@ -138,6 +144,12 @@ export default function App() {
   }, [selectedId, workspaces, freeAgents]);
 
   useEffect(() => { loadSessions(); }, [selectedId, loadSessions]);
+  useEffect(() => {
+    if (!selectedId) { setSlashExtra([]); return; }
+    api("/api/agents/" + selectedId + "/slash")
+      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates)))
+      .catch(() => setSlashExtra([]));
+  }, [selectedId]);
   useEffect(() => { scrollConv(); }, [items]);
 
   const loadStatus = useCallback(async (wsId) => {
@@ -783,9 +795,40 @@ export default function App() {
               }
               if (cmd.run === "compact") { compactSession(); return; }
               if (cmd.run === "session-name") { await renameSession(); return; }
+              if (cmd.run === "hotkeys") { setHotkeysOpen(true); return; }
+              if (cmd.run === "changelog") { setChangelogOpen(true); return; }
+              if (cmd.run === "export") {
+                if (!selectedId) return;
+                const a = document.createElement("a");
+                a.href = "/api/agents/" + selectedId + "/export";
+                a.download = "session.jsonl";
+                a.click();
+                return;
+              }
+              if (cmd.run === "import") {
+                if (!selectedId) return;
+                const inp = document.createElement("input");
+                inp.type = "file";
+                inp.accept = ".jsonl";
+                inp.onchange = async () => {
+                  const f = inp.files && inp.files[0];
+                  if (!f) return;
+                  const fd = new FormData();
+                  fd.append("file", f);
+                  try {
+                    await api("/api/agents/" + selectedId + "/import", { method: "POST", body: fd });
+                    toast.ok("Session imported.");
+                    await loadWorkspaces();
+                    await loadSessions();
+                  } catch (e) { toastError(e); }
+                };
+                inp.click();
+                return;
+              }
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
+              slashExtra,
               status, streaming, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
               lastReply: lastAssistantText(items),
@@ -915,6 +958,8 @@ export default function App() {
         onFork={forkFrom}
         onClone={cloneSession}
       />
+      <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+      <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       <ConfirmDialog />
       <PromptDialog />
     </div>

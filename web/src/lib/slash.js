@@ -20,11 +20,40 @@ export const SLASH = [
   { id: "fork", label: "/fork", hint: "New session from a prompt", run: "session-fork" },
   { id: "clone", label: "/clone", hint: "Copy this branch", run: "session-clone" },
   { id: "reload", label: "/reload", hint: "Reload skills and config", run: "reload" },
+  { id: "export", label: "/export", hint: "Download this session", run: "export" },
+  { id: "import", label: "/import", hint: "Resume from a JSONL file", run: "import" },
+  { id: "hotkeys", label: "/hotkeys", hint: "PiCode shortcuts", run: "hotkeys" },
+  { id: "changelog", label: "/changelog", hint: "pi version history", run: "changelog" },
 ];
 
-export function filterSlash(q) {
+export function extraSlash(skills, templates) {
+  const out = [];
+  for (const s of skills || []) {
+    out.push({
+      id: "skill:" + s.name,
+      label: "/skill:" + s.name,
+      hint: s.hint || "Skill",
+      run: "insert",
+      insert: "/skill:" + s.name + " ",
+      docs: false,
+    });
+  }
+  for (const t of templates || []) {
+    out.push({
+      id: "tpl:" + t.name,
+      label: "/" + t.name,
+      hint: t.hint || "Template",
+      run: "insert",
+      insert: "/" + t.name + " ",
+      docs: false,
+    });
+  }
+  return out;
+}
+
+export function filterSlash(q, extras) {
   const s = (q || "").trim();
   if (!s.startsWith("/")) return [];
   const needle = s.slice(1).toLowerCase();
-  return SLASH.filter((c) => c.label.slice(1).startsWith(needle) || c.id.startsWith(needle));
+  return SLASH.concat(extras || []).filter((c) => c.label.slice(1).startsWith(needle) || c.id.startsWith(needle));
 }

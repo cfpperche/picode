@@ -124,3 +124,35 @@ Canonical: [pi Sessions](https://github.com/earendil-works/pi/blob/main/packages
 ## /reload {#reload}
 
 Restarts this agent so skills and config reload. Session JSONL stays. RPC has no `reload`.
+
+## /export {#export}
+
+Downloads this session as JSONL.
+
+Canonical: [pi Usage](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/usage.md) (`/export`).
+
+| | pi TUI | PiCode |
+|---|---|---|
+| Default | HTML | JSONL download |
+
+## /import {#import}
+
+Pick a `.jsonl` file and resume it as this agent's session.
+
+Canonical: [pi Usage](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/usage.md) (`/import`).
+
+## /hotkeys {#hotkeys}
+
+PiCode shortcuts (palette, composer, send). Not the TUI keymap.
+
+## /changelog {#changelog}
+
+Changelog of the **installed pi** package. Not PiCode's CHANGELOG.
+
+Canonical: pi repo CHANGELOG.
+
+## Skills and templates
+
+`/skill:name` and `/templatename` appear in the composer picker (global + trusted project). Choosing one **inserts** the command; Send lets pi expand it (RPC already expands skills and templates).
+
+Canonical: [Skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md) · [Prompt templates](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md).

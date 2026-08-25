@@ -65,6 +65,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerPiSettingsRoutes(mux, deps)
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
+	registerSlashRes(mux, deps)
 	registerFolderRoutes(mux)
 	registerOAuthRoutes(mux)
 

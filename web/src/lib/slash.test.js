@@ -1,4 +1,4 @@
-import { filterSlash } from "./slash.js";
+import { extraSlash, filterSlash } from "./slash.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -33,4 +33,18 @@ test("copy quit reload logout session trust are PiCode UI", () => {
   assert.equal(run("/logout"), "go-providers");
   assert.equal(run("/session"), "session-info");
   assert.equal(run("/trust"), "trust");
+  assert.equal(run("/export"), "export");
+  assert.equal(run("/import"), "import");
+  assert.equal(run("/hotkeys"), "hotkeys");
+  assert.equal(run("/changelog"), "changelog");
+});
+
+test("skills and templates insert into composer", () => {
+  const extra = extraSlash([{ name: "brave-search", hint: "Web" }], [{ name: "review", hint: "Diff" }]);
+  const skill = filterSlash("/skill:br", extra)[0];
+  assert.equal(skill.run, "insert");
+  assert.equal(skill.insert, "/skill:brave-search ");
+  const tpl = filterSlash("/rev", extra).find((c) => c.id === "tpl:review");
+  assert.ok(tpl);
+  assert.equal(tpl.insert, "/review ");
 });

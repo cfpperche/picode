@@ -14,8 +14,9 @@
 | PiCode composer | a **PiCode** action — hash route, chip, dialog, page |
 
 Forwarding the keystroke to tmux is a **debt**, not a design. Skills
-and prompt templates (`/skill:…`, `/templatename`) stay pi's; we do
-not reimplement those.
+Skills and prompt templates (`/skill:…`, `/templatename`) appear in the
+composer picker (insert, then Send — pi RPC expands them). We do not
+reimplement the skill engine.
 
 ## Status key
 
@@ -27,7 +28,7 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **18 ui · 0 partial · 0 proxy · 6 missing**.
+Count against the TUI 24 (not extras): **22 ui · 0 partial · 0 proxy · 2 missing**.
 
 ## Matrix (TUI 24)
 
@@ -38,14 +39,14 @@ Count against the TUI 24 (not extras): **18 ui · 0 partial · 0 proxy · 6 miss
 | 3 | `/tree` | session tree / **in-place** leaf jump | session tree dialog | **ui\*** | \*Parity break: see below. |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |
 | 5 | `/scoped-models` | Ctrl+P cycle set | `#/settings` Scoped models | **ui** | Patterns in `enabledModels`. |
-| 6 | `/export` | HTML / JSONL export | download / save dialog | **missing** | |
-| 7 | `/import` | resume from JSONL | file picker + resume | **missing** | |
+| 6 | `/export` | HTML / JSONL export | download JSONL | **ui** | HTML later |
+| 7 | `/import` | resume from JSONL | file picker + resume | **ui** | |
 | 8 | `/share` | private GitHub gist | share dialog | **missing** | Not the phone QR |
 | 9 | `/copy` | last assistant → clipboard | clipboard of last reply | **ui** | Same text as bubble copy |
 | 10 | `/name` | session display name | rename dialog | **ui** | |
 | 11 | `/session` | file, id, tokens, cost | session facts pop | **ui** | Dialog from status bar + session file |
-| 12 | `/changelog` | pi version history | pi changelog viewer | **missing** | Not PiCode CHANGELOG |
-| 13 | `/hotkeys` | pi shortcuts | PiCode keymap overlay | **missing** | |
+| 12 | `/changelog` | pi version history | pi changelog viewer | **ui** | Installed pi package |
+| 13 | `/hotkeys` | pi shortcuts | PiCode keymap overlay | **ui** | PiCode keys, not TUI |
 | 14 | `/fork` | new session from a user turn | tree dialog, user rows | **ui** | RPC `fork` when in chat |
 | 15 | `/clone` | duplicate current branch | clone in tree dialog | **ui** | RPC `clone` when in chat |
 | 16 | `/trust` | save project trust | trust UI / confirm | **ui** | Writes `trust.json` for the agent cwd |
@@ -106,6 +107,8 @@ are a later surface, not a dump of the 29.
 | Composer | Does | Status |
 |---|---|---|
 | `/provider` | focus provider chip | **ui** | TUI folds this into `/model` |
+| `/skill:name` | insert, pi expands on send | **ui** | Picker from disk; not in the 24 |
+| `/templatename` | insert, pi expands on send | **ui** | Same |
 
 ## Where it lives
 
