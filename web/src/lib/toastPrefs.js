@@ -9,12 +9,15 @@ export const TOAST_POSITIONS = [
   "bottom-right",
 ];
 
+export const TOAST_CLOSE_PLACES = ["inside-right", "edge-left", "edge-right"];
+
 export function defaultToastPrefs() {
   return {
     position: "top-right",
     expand: false,
     richColors: false,
     closeButton: true,
+    closePlace: "inside-right",
     duration: 4000,
     visibleToasts: 3,
   };
@@ -28,6 +31,7 @@ export function readToastPrefs() {
     d.expand = !!j.expand;
     d.richColors = !!j.richColors;
     d.closeButton = j.closeButton !== false;
+    if (TOAST_CLOSE_PLACES.includes(j.closePlace)) d.closePlace = j.closePlace;
     const dur = Number(j.duration);
     if (Number.isFinite(dur)) d.duration = Math.min(15000, Math.max(1500, dur));
     const n = Number(j.visibleToasts);

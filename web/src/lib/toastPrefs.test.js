@@ -11,9 +11,10 @@ test("toast prefs round-trip", () => {
   globalThis.window = { dispatchEvent() {} };
   const d = defaultToastPrefs();
   assert.equal(readToastPrefs().position, d.position);
-  persistToastPrefs({ position: "bottom-left", duration: 8000, expand: true });
+  persistToastPrefs({ position: "bottom-left", duration: 8000, expand: true, closePlace: "edge-left" });
   const got = readToastPrefs();
   assert.equal(got.position, "bottom-left");
   assert.equal(got.duration, 8000);
   assert.equal(got.expand, true);
+  assert.equal(got.closePlace, "edge-left");
 });

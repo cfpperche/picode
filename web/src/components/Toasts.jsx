@@ -30,7 +30,7 @@ export default function Toasts() {
       closeButton={prefs.closeButton}
       duration={prefs.duration}
       visibleToasts={prefs.visibleToasts}
-      className="picode-toaster"
+      className={"picode-toaster close-" + prefs.closePlace}
       toastOptions={{ className: "picode-toast" }}
     />
   );

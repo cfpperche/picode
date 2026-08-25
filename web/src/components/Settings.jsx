@@ -4,7 +4,7 @@ import { api } from "../lib/api.js";
 import { IconSun, IconMonitor, IconMoon } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import { toast } from "../lib/toast.js";
-import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
+import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
 
 export default function Settings({ hidden, themeMode, onTheme }) {
   const [port, setPort] = useState("");
@@ -86,6 +86,12 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             <Switch.Root id="toast-close" className="rx-switch" checked={toastPrefs.closeButton} onCheckedChange={(v) => saveToast({ closeButton: v })}>
               <Switch.Thumb className="rx-switch-thumb" />
             </Switch.Root>
+          </div>
+          <div className="set-row">
+            <label htmlFor="toast-close-place">Close position</label>
+            <select id="toast-close-place" value={toastPrefs.closePlace} disabled={!toastPrefs.closeButton} onChange={(e) => saveToast({ closePlace: e.target.value })}>
+              {TOAST_CLOSE_PLACES.map((p) => <option key={p} value={p}>{p.replaceAll("-", " ")}</option>)}
+            </select>
           </div>
           <div className="set-row">
             <label htmlFor="toast-rich">Rich colors</label>
