@@ -93,6 +93,36 @@ func TestVersionEndpoint(t *testing.T) {
 	}
 }
 
+func TestPackagesEndpoint(t *testing.T) {
+	ts := newTestServer(t, "cat")
+
+	res, err := ts.Client().Get(ts.URL + "/api/packages")
+	if err != nil {
+		t.Fatalf("GET /api/packages: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", res.StatusCode)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["packages"]; !ok {
+		t.Fatalf("missing packages: %+v", body)
+	}
+
+	bad, _ := json.Marshal(map[string]string{"source": "npm:foo; rm"})
+	pres, err := ts.Client().Post(ts.URL+"/api/packages", "application/json", bytes.NewReader(bad))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pres.Body.Close()
+	if pres.StatusCode != http.StatusBadRequest {
+		t.Fatalf("inject status = %d", pres.StatusCode)
+	}
+}
+
 func TestSystemEndpoint(t *testing.T) {
 	ts := newTestServer(t, "cat")
 

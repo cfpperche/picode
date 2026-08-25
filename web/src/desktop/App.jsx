@@ -14,6 +14,7 @@ import Settings from "../components/Settings.jsx";
 import System from "../components/System.jsx";
 import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
+import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
 import Palette from "../components/Palette.jsx";
 import { parseRoute, go } from "../lib/routes.js";
@@ -736,6 +737,7 @@ export default function App() {
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
+        <Packages hidden={route !== "packages"} />
         <Devices hidden={route !== "devices"} />
       </main>
 
@@ -744,7 +746,7 @@ export default function App() {
         workspaces={workspaces}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
-          if (a.kind === "settings" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "devices") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
           if (a.kind === "open") openTab(a.wsId);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);

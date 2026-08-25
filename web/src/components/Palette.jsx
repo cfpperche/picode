@@ -72,6 +72,7 @@ function buildActions(workspaces) {
     { id: "system", label: "System", group: "app", kind: "system" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
+    { id: "packages", label: "Packages", group: "app", kind: "packages" },
     { id: "devices", label: "Devices", group: "app", kind: "devices" },
   ];
   for (const ws of workspaces) {

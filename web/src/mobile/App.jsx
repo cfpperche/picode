@@ -16,6 +16,7 @@ import Settings from "../components/Settings.jsx";
 import System from "../components/System.jsx";
 import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
+import Packages from "../components/Packages.jsx";
 import "./mobile.css";
 import { toastError } from "../lib/toast.js";
 import Toasts from "../components/Toasts.jsx";
@@ -273,6 +274,7 @@ export default function MobileApp() {
                 <li><button type="button" className="m-ws" onClick={() => setMore("system")}>System</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("providers")}>Providers</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setMore("mcps")}>MCPs</button></li>
+                <li><button type="button" className="m-ws" onClick={() => setMore("packages")}>Packages</button></li>
                 <li><button type="button" className="m-ws" onClick={() => setShell("desktop")}>Desktop layout</button></li>
                 <li style={{ paddingTop: 12 }}><InstallButton /></li>
               </ul>
@@ -282,6 +284,7 @@ export default function MobileApp() {
             {more === "system" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><System hidden={false} version="" system={null} /></>}
             {more === "providers" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Providers hidden={false} catalog={{ providers: [] }} onSignIn={() => {}} /></>}
             {more === "mcps" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Mcps hidden={false} mcp={{}} /></>}
+            {more === "packages" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Packages hidden={false} /></>}
           </section>
         )}
       </div>

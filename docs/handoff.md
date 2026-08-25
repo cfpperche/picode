@@ -15,7 +15,7 @@
 seen clip (sessions4) is a contract violation. Session picker now opens
 **down** (no Radix portal) so it cannot leave the viewport.
 
-**Phase: M3 lifecycle v1 shipped (ADR-0009). Catalog/auth/MCP surfaces live.**
+**Phase: M3 lifecycle + packages surface (ADR-0009, ADR-0010).**
 
 What exists right now:
 - Repo public at `cfpperche/picode`, MIT, CI green (linux/macos/windows).
@@ -56,10 +56,9 @@ What exists right now:
 
 ## Next up
 
-1. More pi slash-command parity (`/compact` on managed). Composer cockpit shipped (model chip + thinking nested).
-2. Sibling agents per workspace (API/store ready; UI still one default).
-2. Visual MCP manager — only if/when an adapter config format is chosen.
-3. Session replay (JSONL reader) — M3 candidate, still open.
+1. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
+2. Pretty search cards in chat, gated on `capabilities.webSearch`.
+3. Sibling agents per workspace (API/store ready; UI still one default).
 
 ## Known debts / open questions
 
