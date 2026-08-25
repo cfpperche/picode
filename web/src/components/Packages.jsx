@@ -79,6 +79,19 @@ export default function Packages({ hidden }) {
 
   return (
     <PageFrame id="packages-view" title="Packages" hidden={hidden} wide>
+      <form className="pkg-by-source" onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
+        <input
+          className="dlg-input"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          placeholder="Install by source — npm:pi-web-search"
+          disabled={busy}
+          aria-label="Package source"
+        />
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !source.trim()}>Install</button>
+      </form>
+      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
+
       <section className="pkg-toolbar">
         <input
           className="dlg-input pkg-search"
@@ -144,18 +157,6 @@ export default function Packages({ hidden }) {
         })}
       </ul>
 
-      <form className="pkg-by-source" onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
-        <input
-          className="dlg-input"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          placeholder="Or install by source — npm:pi-web-search"
-          disabled={busy}
-          aria-label="Package source"
-        />
-        <button type="submit" className="btn btn-ghost btn-sm" disabled={busy || !source.trim()}>Install</button>
-      </form>
-      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
     </PageFrame>
   );
 }
