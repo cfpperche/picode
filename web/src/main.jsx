@@ -12,5 +12,5 @@ const App = pickShell() === "mobile" ? MobileApp : DesktopApp;
 createRoot(document.getElementById("root")).render(<App />);
 
 if (location.protocol === "https:" && "serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker.register("/sw.js").then((reg) => reg.update()).catch(() => {});
 }

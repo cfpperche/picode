@@ -1,9 +1,7 @@
-/* PiCode service worker — installability + offline shell. APIs stay live. */
-const CACHE = "picode-shell-v4";
+/* Cache hashed Vite assets only. index.html is always network (new release = new JS). */
+const CACHE = "picode-assets-v1";
 
-self.addEventListener("install", (e) => {
-  self.skipWaiting();
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
@@ -18,13 +16,19 @@ self.addEventListener("fetch", (e) => {
   if (u.origin !== location.origin) return;
   if (u.pathname.startsWith("/api/") || u.pathname.startsWith("/ws/")) return;
   if (e.request.method !== "GET") return;
+  if (!u.pathname.startsWith("/assets/")) {
+    e.respondWith(fetch(e.request, { cache: "no-store" }));
+    return;
+  }
   e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-        return res;
+    caches.open(CACHE).then((c) =>
+      c.match(e.request).then((hit) => {
+        if (hit) return hit;
+        return fetch(e.request).then((res) => {
+          if (res.ok) c.put(e.request, res.clone());
+          return res;
+        });
       })
-      .catch(() => caches.match(e.request))
+    )
   );
 });
