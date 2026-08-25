@@ -19,14 +19,7 @@ export function parseRoute(hash) {
   if (h === "/mcps") return "mcps";
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
-  if (h === "/docs" || h.startsWith("/docs/")) return "docs";
   return "workspace";
-}
-
-export function docsSlug(hash) {
-  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  const m = /^\/docs\/([^/?#]+)$/.exec(h);
-  return m ? decodeURIComponent(m[1]) : "";
 }
 
 export function go(name) {

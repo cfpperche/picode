@@ -19,10 +19,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Public docs on GitHub Pages (`www/`); `#/docs/{cmd}` iframes them. Slash
-  hint still links in-app. Command pages that overlap pi link canonical
-  pi docs and a compatibility table ([docs/guidelines.md](docs/guidelines.md)).
-- Slash hint (muted, next to `/command`) links to `#/docs/{cmd}`; missing pages are 404.
+- Public docs are VitePress (Markdown in `www/` → GitHub Pages). Slash hints
+  open `/commands#{id}` in a new tab. No in-app docs viewer.
 - Session tree dots sit mid-card; the spine runs through the last card.
 - Session tree is a chain of prompt cards; replies/tools sit on the card.
 - Composer `/tree` `/fork` `/clone`: session tree dialog. Fork is a new

@@ -1114,10 +1114,6 @@ body {
 .settings-head h2 { font-size: 16px; font-weight: 650; }
 .settings-head .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; color: var(--text-secondary); }
 .settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 20px 24px; }
-.docs-frame {
-  display: block; width: 100%; height: min(72vh, 800px);
-  border: 0; border-radius: 8px; background: #fff; margin-top: 8px;
-}
 .settings-section { padding: 20px 0; }
 .settings-section:first-child { padding-top: 0; }
 .settings-section:last-child { padding-bottom: 0; }

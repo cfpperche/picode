@@ -8,6 +8,7 @@ import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSp
 import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
+import { commandDocUrl } from "../lib/commandDocs.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
 import {
   speechSupported, createRecognizer, mergeTranscript, humanizeSpeechError, discloseSttOnce,
@@ -290,7 +291,7 @@ export default function Composer({
                 onMouseEnter={() => setSlashIdx(i)}
               >
                 <button type="button" className="slash-label" onClick={() => pickSlash(c)}>{c.label}</button>
-                <a className="slash-hint" href={"#/docs/" + c.id} onClick={(e) => e.stopPropagation()}>{c.hint}</a>
+                <a className="slash-hint" href={commandDocUrl(c.id)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{c.hint}</a>
               </li>
             ))}
           </ul>

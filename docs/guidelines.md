@@ -5,26 +5,27 @@ Two layers. Do not mix them.
 | Layer | Path | Audience | Published |
 |---|---|---|---|
 | Internal | `docs/` | agents, contributors | git only |
-| Public | `www/` | users | GitHub Pages |
+| Public | `www/` (Markdown → VitePress) | users | GitHub Pages |
 
 Internal rules stay in [AGENTS.md](../AGENTS.md) (code and docs in the
 same commit, handoff, changelog). This file is the **user-facing** contract.
 
+Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
+(Stripe, Diátaxis, VitePress, pi). Do not invent a docs engine.
+
 ## Public site (`www/`)
 
-- Source of truth for slash/command help. **Never** duplicate that copy
-  into the React bundle (`commandDocs.js` is a URL helper only).
-- GitHub Pages: `https://cfpperche.github.io/picode/`
-- The app `#/docs/{cmd}` **iframes** `…/commands/{cmd}/`.
-- Missing page → public `404.html`. Do not invent in-app prose.
-- One command per folder: `www/commands/{id}/index.html` (`id` matches
-  `SLASH[].id` in `web/src/lib/slash.js`).
+- Markdown in `www/`. VitePress builds static HTML (`npm run build` in `www/`).
+- Live: `https://cfpperche.github.io/picode/`
+- Slash-menu hints open **a new tab** at `/commands#{id}` (`id` = `SLASH[].id`).
+  No in-app docs route, no iframe.
+- Command copy lives in `www/commands.md` as `## /name {#id}` headings.
 - English. Short paragraphs. Tables for TUI vs PiCode.
 
 ## Related pi documentation (when applicable)
 
-If a public PiCode page documents something that exists in pi (slash
-command, `settings.json`, session JSONL, trust, packages, RPC):
+If a public heading documents something that exists in pi (slash command,
+`settings.json`, session JSONL, trust, packages, RPC):
 
 1. Link the **canonical pi doc** in
    [earendil-works/pi](https://github.com/earendil-works/pi)
@@ -36,11 +37,4 @@ command, `settings.json`, session JSONL, trust, packages, RPC):
    (example: `/tree` click is fork until `navigate_tree`,
    [pi#8645](https://github.com/earendil-works/pi/issues/8645)).
 
-A page with no pi counterpart (PiCode-only chrome) skips this section.
-
-## In-app iframe
-
-- `#/docs/{cmd}` loads the public URL in an iframe. No second copy.
-- “Open in browser” may sit next to Back; the public URL is canonical.
-- Do not iframe `github.com` (X-Frame-Options). Iframe **our** Pages;
-  pi links on those pages open in a new tab.
+A PiCode-only heading skips this section.

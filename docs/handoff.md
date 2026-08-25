@@ -51,9 +51,8 @@ What exists right now:
 
 ## In flight
 
-- GitHub Pages: first workflow deploy after this commit. Owner may need to
-  approve the `github-pages` environment. Public URL:
-  `https://cfpperche.github.io/picode/`.
+- Public docs: VitePress on GitHub Pages. Slash hint → new tab
+  `https://cfpperche.github.io/picode/commands#{id}`.
 
 ## Next up
 
@@ -87,6 +86,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Public docs: VitePress Markdown, new-tab slash hints
+  (`/commands#{id}`). No in-app docs/iframe.
 - **2026-08-25** — Relicensed: PolyForm Noncommercial + commercial notice
   (`LICENSING.md`). MIT no longer applies to this tree.
 - **2026-08-25** — Public docs (`www/` → GitHub Pages). `#/docs/{cmd}`

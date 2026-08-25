@@ -8,6 +8,8 @@ coverage.out
 node_modules/
 dist/
 web/dist/
+www/.vitepress/cache/
+www/.vitepress/dist/
 
 # OS / editor
 .DS_Store

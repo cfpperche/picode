@@ -30,6 +30,27 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 8. **Decisions are recorded.** Architectural choice ⇒ ADR. Superseded ADRs
    stay; history is evidence, not clutter.
 
+## Documentation benchmarks
+
+Inspired by: **Stripe** (docs as a product), **Diátaxis** (tutorials /
+how-to / reference / explanation), **VitePress** (Markdown → static HTML,
+heading anchors, local search — Vite/Vue/Vitest), **pi**
+(`packages/coding-agent/docs`: command tables, no duplicate source of truth).
+
+Public user docs are Markdown in `www/`, built by VitePress, hosted on
+GitHub Pages. The app never hosts a docs viewer. See
+[guidelines.md](guidelines.md).
+
+### The bar
+
+1. **One generator, not ours.** VitePress only. No handmade HTML site, no
+   in-app iframe, no second copy in the React bundle.
+2. **Reference has anchors.** Slash hints open `/commands#{id}` in a new tab.
+3. **Pi correlation.** When a heading exists in pi, link the canonical doc
+   and a same / changed / TUI-only table. Do not paste pi.
+4. **Diátaxis-ish IA.** Getting started ≠ command reference ≠ internal ADRs.
+5. **Short.** Tables over prose. Status of debts said plainly.
+
 ## UI/UX benchmarks
 
 Inspired by: **Cursor** (product + aesthetic north star — see

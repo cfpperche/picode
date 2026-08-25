@@ -17,8 +17,8 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [decisions/](decisions/) | ADRs — architectural decision records (0011: workspaces vs agents) |
 | [handoff-archive.md](handoff-archive.md) | Archived handoff activity (created when needed) |
 
-User-facing command pages live in [`www/`](../www/) (GitHub Pages),
-opened in-app via iframe (`#/docs/{cmd}`). Rules:
+User-facing docs: Markdown in [`www/`](../www/), VitePress → GitHub Pages.
+Slash hints open `/commands#{id}` in a new tab. Rules:
 [guidelines.md](guidelines.md).
 
 Docs style follows our own benchmark: short paragraphs, tables for
