@@ -4,7 +4,8 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck } from "./Icons.jsx";
+import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
@@ -30,12 +31,15 @@ export default function Composer({
   const streamingRef = useRef(!!streaming);
   const prevStream = useRef(!!streaming);
   const mutedRef = useRef(false);
+  const streamRef = useRef(null);
   const [slashIdx, setSlashIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [voice, setVoice] = useState(false);
   const [listening, setListening] = useState(false);
   const [caption, setCaption] = useState("");
   const [muted, setMuted] = useState(false);
+  const [dictate, setDictate] = useState(false);
+  const [micStream, setMicStream] = useState(null);
   const hits = filterSlash(value);
 
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -84,17 +88,20 @@ export default function Composer({
       }
       if (mod && !e.shiftKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        if (!voice) toggleDictate();
+        if (voice) return;
+        if (dictate) confirmDictate();
+        else startListen("dictate");
         return;
       }
       if (e.key === "Escape") {
+        if (dictate) { e.preventDefault(); cancelDictate(); return; }
         if (voice) { e.preventDefault(); leaveVoice(); return; }
         if (expanded) { e.preventDefault(); setExpanded(false); }
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [voice, expanded, listening, caption, streaming]);
+  }, [voice, expanded, listening, caption, streaming, dictate]);
 
   function pickSlash(cmd) {
     onChange("");
@@ -109,6 +116,11 @@ export default function Composer({
     rec.current = null;
     setListening(false);
     if (r) try { r.abort(); } catch { /* already stopped */ }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setMicStream(null);
   }
 
   async function startListen(mode) {
@@ -118,17 +130,26 @@ export default function Composer({
     rec.current = null;
     setListening(false);
     if (prev) try { prev.abort(); } catch { /* already stopped */ }
+    if (mode === "dictate") setDictate(true);
 
     if (!speechSupported()) {
       toast.error(humanizeSpeechError("not-supported"));
+      setDictate(false);
       return;
     }
     try {
-      await unlockMic();
+      const stream = await unlockMic(undefined, true);
+      if (my !== gen.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
+      setMicStream(stream);
     } catch {
       if (my !== gen.current) return;
       toast.error("Microphone permission denied.");
       setCaption("Microphone blocked — click the mic to retry");
+      setDictate(false);
       return;
     }
     if (my !== gen.current) return;
@@ -159,6 +180,7 @@ export default function Composer({
             wantListen.current = false;
             setListening(false);
             setCaption("Microphone blocked — click the mic to retry");
+            setDictate(false);
           }
         },
         onEnd: () => {
@@ -182,13 +204,25 @@ export default function Composer({
     }
   }
 
+  function confirmDictate() {
+    stopRec();
+    modeRef.current = "off";
+    setDictate(false);
+    setCaption("");
+  }
+
+  function cancelDictate() {
+    const base = dictateBase.current || "";
+    stopRec();
+    modeRef.current = "off";
+    setDictate(false);
+    setCaption("");
+    onChange(base);
+  }
+
   function toggleDictate() {
-    if (listening && modeRef.current === "dictate") {
-      stopRec();
-      modeRef.current = "off";
-      return;
-    }
-    startListen("dictate");
+    if (dictate) confirmDictate();
+    else startListen("dictate");
   }
 
   function toggleVoice() {
@@ -234,7 +268,6 @@ export default function Composer({
     });
   }
 
-  const dictating = listening && !voice;
 
   return (
     <div className={"composer-wrap" + (expanded ? " expanded" : "") + (voice ? " voice" : "")}>
@@ -355,15 +388,24 @@ export default function Composer({
               <button type="button" className="btn-voice-interrupt" id="btn-voice-interrupt" onClick={interrupt}>
                 Interrupt
               </button>
+            ) : dictate ? (
+              <div className="dictate-bar" data-align-row>
+                <VoiceMeter stream={micStream} />
+                <button type="button" className="icon-btn" title="Cancel dictation" aria-label="Cancel dictation" onClick={cancelDictate}>
+                  <IconX />
+                </button>
+                <button type="button" className="icon-btn icon-btn-ok" title="Done" aria-label="Confirm dictation" onClick={confirmDictate}>
+                  <IconCheck />
+                </button>
+              </div>
             ) : (
               <>
                 <button
                   type="button"
-                  className={"icon-btn" + (dictating ? " listening" : "")}
+                  className="icon-btn icon-btn-mic"
                   title="Dictation (Ctrl+D)"
                   aria-label="Dictation"
-                  aria-pressed={dictating}
-                  onClick={toggleDictate}
+                  onClick={() => startListen("dictate")}
                 >
                   <IconMic />
                 </button>

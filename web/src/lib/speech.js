@@ -56,13 +56,14 @@ export function discloseSttOnce(notify, store) {
   return true;
 }
 
-export async function unlockMic(nav) {
+export async function unlockMic(nav, keep) {
   const n = nav || (typeof navigator !== "undefined" ? navigator : null);
   if (!n || !n.mediaDevices || !n.mediaDevices.getUserMedia) {
     throw new Error("not-supported");
   }
   const stream = await n.mediaDevices.getUserMedia({ audio: true });
-  stream.getTracks().forEach((t) => t.stop());
+  if (!keep) stream.getTracks().forEach((t) => t.stop());
+  return stream;
 }
 
 export function speakable(text) {

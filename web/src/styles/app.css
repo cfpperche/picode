@@ -699,6 +699,29 @@ body {
 }
 .icon-btn.listening { color: var(--accent); }
 .icon-btn.muted { opacity: 0.55; }
+.icon-btn.icon-btn-mic {
+  background: var(--bg-elevated); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.icon-btn.icon-btn-mic:hover { background: var(--bg-base); color: var(--text-primary); }
+.icon-btn.icon-btn-ok {
+  background: var(--text-primary); color: var(--bg-base); border-radius: 999px;
+}
+.icon-btn.icon-btn-ok:hover { background: var(--text-primary); color: var(--bg-base); filter: brightness(1.12); }
+.dictate-bar {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 40px; padding: 0 4px 0 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px;
+}
+.dictate-wave {
+  display: flex; align-items: center; gap: 2px;
+  height: 22px; width: 96px;
+}
+.dictate-wave i {
+  display: block; width: 2px; min-height: 3px;
+  background: var(--text-primary); border-radius: 1px;
+  align-self: center;
+}
 .icon-btn.icon-btn-wave {
   background: var(--text-primary); color: var(--bg-base); border-radius: 999px;
 }

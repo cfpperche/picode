@@ -21,6 +21,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 - Voice composer mic actually requests the microphone (and retries).
   Speaker toggles spoken replies (browser TTS) instead of a dead control.
+- Dictation swaps the send cluster for a live waveform + cancel/confirm
+  (ChatGPT pattern) so the recording state is obvious.
 
 ### Changed
 
