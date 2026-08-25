@@ -33,7 +33,7 @@ Count against the TUI 24 (not extras): **7 ui · 1 partial · 4 proxy · 12 miss
 
 | # | TUI | TUI does | PiCode should | Status | Notes |
 |---|---|---|---|---|---|
-| 1 | `/settings` | thinking, theme, delivery, transport | `#/settings` (PiCode theme + server) | **missing** | First to land. Thinking stays `/thinking`. |
+| 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | see § `/settings` scope | **missing** | Not session, not project. |
 | 2 | `/model` | model picker | focus model chip | **ui** | Composer cockpit |
 | 3 | `/tree` | session tree / branch jump | session tree UI | **proxy** | UI not built |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |
@@ -57,6 +57,27 @@ Count against the TUI 24 (not extras): **7 ui · 1 partial · 4 proxy · 12 miss
 | 22 | `/reload` | reload skills/config | reload + toast | **proxy** | |
 | 23 | `/quit` | quit pi | stop this agent | **missing** | Must not close the browser |
 | 24 | `/llama` | llama.cpp models | llama manager or `#/providers` | **missing** | Extension command |
+
+## `/settings` scope (pi 0.84.x)
+
+TUI `/settings` is **not** session and **not** workspace.
+
+| Layer | Path | Who writes |
+|---|---|---|
+| Global | `~/.pi/agent/settings.json` | TUI `/settings` (all 29 rows) |
+| Project | `<cwd>/.pi/settings.json` | `pi config` (Tab) / `pi install -l` — **not** `/settings` |
+| Session | JSONL + in-memory | `/model` `/thinking` `/compact` this run |
+| PiCode | `#/settings` | our theme + server port (product, not pi) |
+
+Project settings *override* global when the cwd is trusted. `/settings`
+still always `save()`s `globalSettings`. `defaultProjectTrust` is
+global-only by spec. Auto-compact in that menu goes through
+`setCompactionEnabled` → global `compaction.enabled`.
+
+Many of the 29 are TUI chrome (padding, hardware cursor, OSC progress).
+Those stay in the dock. PiCode `/settings` stays the **product** page.
+Pi knobs that matter in the GUI (auto-compact, steering, follow-up)
+are a later surface, not a dump of the 29.
 
 ## PiCode extras (not in the 24)
 
