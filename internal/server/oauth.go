@@ -16,12 +16,13 @@ func registerOAuthRoutes(mux *http.ServeMux) {
 func handleOAuthStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Provider string `json:"provider"`
+		ReturnTo string `json:"returnTo"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	url, err := oauth.Start(req.Provider)
+	url, err := oauth.Start(req.Provider, req.ReturnTo)
 	if err != nil {
 		writeErr(w, http.StatusConflict, err.Error())
 		return

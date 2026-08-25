@@ -101,7 +101,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
       const res = await api("/api/oauth/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: pick.id }),
+        body: JSON.stringify({ provider: pick.id, returnTo: location.origin + "/#/providers" }),
       });
       if (res && res.url) window.open(res.url, "_blank", "noopener");
       setWaiting(true);

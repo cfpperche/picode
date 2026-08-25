@@ -42,6 +42,7 @@ type pending struct {
 	provider string
 	verifier string
 	state    string
+	returnTo string
 	ln       net.Listener
 	done     chan result
 }
@@ -69,7 +70,7 @@ func pkce() (verifier, challenge string, err error) {
 }
 
 // Start begins loopback OAuth. Returns the URL to open in the browser.
-func Start(provider string) (authorizeURL string, err error) {
+func Start(provider, returnTo string) (authorizeURL string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if cur != nil {
@@ -101,7 +102,12 @@ func Start(provider string) (authorizeURL string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("callback port busy (%s): %w", addr, err)
 	}
-	p := &pending{provider: provider, verifier: verifier, state: state, ln: ln, done: make(chan result, 1)}
+	if returnTo != "" {
+		if u, err := url.Parse(returnTo); err != nil || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
+			returnTo = ""
+		}
+	}
+	p := &pending{provider: provider, verifier: verifier, state: state, returnTo: returnTo, ln: ln, done: make(chan result, 1)}
 	cur = p
 	go serve(p, path, redirect, clientID)
 
@@ -322,12 +328,50 @@ func accountID(access string) string {
 }
 
 func htmlOK(w http.ResponseWriter) {
+	back := ""
+	mu.Lock()
+	if cur != nil {
+		back = cur.returnTo
+	}
+	mu.Unlock()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = io.WriteString(w, "<!doctype html><title>PiCode</title><p>Signed in. You can close this tab and return to PiCode.</p>")
+	_, _ = io.WriteString(w, oauthPage(true, back))
 }
 
 func htmlFail(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusBadRequest)
-	_, _ = io.WriteString(w, "<!doctype html><title>PiCode</title><p>Sign-in did not complete.</p>")
+	_, _ = io.WriteString(w, oauthPage(false, ""))
+}
+
+func oauthPage(ok bool, back string) string {
+	heading := "Authentication complete"
+	msg := "Returning to PiCode…"
+	if !ok {
+		heading = "Authentication did not complete"
+		msg = "You can close this tab."
+	}
+	script := ""
+	if ok {
+		script = `<script>(function(){var n=3,el=document.getElementById("n");function tick(){if(el)el.textContent=n;if(n<=0){try{if(window.opener)window.opener.focus()}catch(e){}window.close();` +
+			`setTimeout(function(){` + backJS(back) + `},200);return}n--;setTimeout(tick,1000)}setTimeout(tick,400)})()</script>`
+	}
+	return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>PiCode</title>
+<style>:root{--text:#fafafa;--dim:#a1a1aa;--bg:#09090b}*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,sans-serif;text-align:center}main{max-width:480px}.logo{width:72px;height:72px;margin:0 auto 24px}h1{margin:0 0 10px;font-size:28px;font-weight:650}p{margin:0;color:var(--dim);font-size:15px;line-height:1.6}</style></head>
+<body><main>
+<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true"><path fill="#fff" fill-rule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"/><path fill="#fff" d="M517.36 400H634.72V634.72H517.36Z"/></svg>
+<h1>` + heading + `</h1><p>` + msg + ` <span id="n"></span></p>
+</main>` + script + `</body></html>`
+}
+
+func backJS(back string) string {
+	if back == "" {
+		return ""
+	}
+	return "location.replace(" + strconvQuote(back) + ")"
+}
+
+func strconvQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
