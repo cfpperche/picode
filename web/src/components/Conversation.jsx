@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs } from "../lib/turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden }) {
@@ -17,10 +17,16 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
           } else {
             const n = acc.n++;
             const live = i === lastTurn && t.replies.length === 0;
+            const ts = firstTs(t);
+            const day = dayKey(ts);
+            if (day && day !== acc.day) {
+              acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
+              acc.day = day;
+            }
             acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} onToggleTool={onToggleTool} />);
           }
           return acc;
-        }, { n: 0, nodes: [] }).nodes}
+        }, { n: 0, day: "", nodes: [] }).nodes}
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Date marks between turns (Today / Yesterday / weekday), ChatGPT-style.
 - Conversation **section rail** (Grok-style): ticks per message, hover
   preview, jump. Native scrollbar hides while the rail is on.
 - Agent work (thinking + tools) collapses to **Worked for Xm Ys**;

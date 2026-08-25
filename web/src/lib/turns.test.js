@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs } from "./turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, dayKey, fmtDayMark } from "./turns.js";
 
 test("groups user / work / reply", () => {
   const t = groupTurns([
@@ -15,6 +15,13 @@ test("groups user / work / reply", () => {
   assert.equal(turnDurationMs(t[0]), 4000);
   assert.equal(fmtWorked(4000), "Worked for 4s");
   assert.equal(fmtElapsed(4000), "4s");
+});
+
+test("day marks", () => {
+  const now = Date.parse("2026-08-24T18:00:00Z");
+  assert.equal(dayKey(now), "2026-8-24");
+  assert.match(fmtDayMark(now, now), /^Today at /);
+  assert.match(fmtDayMark(now - 86400000, now), /^Yesterday at /);
 });
 
 test("step labels stay factual", () => {

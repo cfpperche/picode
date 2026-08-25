@@ -488,6 +488,10 @@ body {
 }
 .conv-col { width: 100%; max-width: 760px; margin: 0 auto; padding: 16px 20px 200px; }
 
+.day-mark {
+  text-align: center; font-size: 12px; color: var(--text-secondary);
+  margin: 20px 0 14px;
+}
 .turn { padding: 4px 0 16px; }
 .work { margin: 6px 0 10px; }
 .work-head {

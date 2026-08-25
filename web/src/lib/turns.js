@@ -59,6 +59,26 @@ export function fmtWorked(ms) {
   return "Worked for " + fmtElapsed(ms);
 }
 
+export function dayKey(ts) {
+  if (!ts) return "";
+  const d = new Date(Number(ts));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+
+export function fmtDayMark(ts, now = Date.now()) {
+  if (!ts) return "";
+  const d = new Date(Number(ts));
+  if (Number.isNaN(d.getTime())) return "";
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const today = new Date(now);
+  const yday = new Date(now - 86400000);
+  const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (same(d, today)) return "Today at " + time;
+  if (same(d, yday)) return "Yesterday at " + time;
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " at " + time;
+}
+
 export function firstTs(turn) {
   const stamps = [];
   for (const it of [turn.user, ...(turn.work || []), ...(turn.replies || [])]) {
