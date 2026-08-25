@@ -271,6 +271,7 @@ body {
 .session-list .cockpit-opt { flex-direction: column; align-items: flex-start; gap: 2px; }
 .session-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .session-list .combo-hint { margin-left: 0; }
+.session-rename { font-size: 11px; color: var(--accent); cursor: pointer; }
 .mtab {
   display: flex; align-items: center; gap: 8px;
   padding: 0 10px 0 12px; font-size: 12.5px;
@@ -352,6 +353,19 @@ body {
 .block-content { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .block.thinking .block-content { color: var(--text-secondary); font-style: italic; }
 .block.user .block-content { color: var(--text-primary); }
+.md p { margin: 0 0 0.7em; }
+.md p:last-child { margin-bottom: 0; }
+.md ul, .md ol { margin: 0 0 0.7em; padding-left: 1.3em; }
+.md li { margin: 0.15em 0; }
+.md pre {
+  margin: 0.6em 0; padding: 10px 12px; overflow-x: auto;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--mono); font-size: 12px;
+}
+.md code { font-family: var(--mono); font-size: 0.92em; }
+.md pre code { font-size: 12px; }
+.md h1, .md h2, .md h3 { font-size: 14px; font-weight: 650; margin: 0.9em 0 0.4em; }
+.md a { color: var(--accent); }
 .actor .copy-btn { margin-left: auto; }
 .copy-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -546,6 +560,12 @@ body {
 }
 .dlg-title { font-size: 15px; font-weight: 650; margin-bottom: 8px; }
 .dlg-body { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+.dlg-input {
+  display: block; width: 100%; margin-top: 12px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 13px;
+}
+.dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .toasts {
   position: fixed; z-index: 80;

@@ -116,6 +116,40 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 	}
 }
 
+func handleRenameSession(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		var req struct {
+			Path string `json:"path"`
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+			writeErr(w, http.StatusBadRequest, "name required")
+			return
+		}
+		path := req.Path
+		if path == "" && agent.SessionPath != nil {
+			path = *agent.SessionPath
+		}
+		if path == "" || !safeSessionPath(wk.Path, path) {
+			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
+			return
+		}
+		if err := session.SetName(path, req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if ma := deps.Runtime.Get(agent.ID); ma != nil && agent.SessionPath != nil && *agent.SessionPath == path {
+			_ = ma.SetSessionName(r.Context(), req.Name)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "name": strings.TrimSpace(req.Name)})
+	}
+}
+
 func loadWS(deps Deps, id string) (store.Workspace, store.Agent, error) {
 	wk, err := deps.Store.GetWorkspace(id)
 	if err != nil {

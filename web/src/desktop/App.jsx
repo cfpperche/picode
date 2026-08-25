@@ -22,6 +22,8 @@ import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import PromptDialog from "../components/PromptDialog.jsx";
+import { askPrompt } from "../lib/prompt.js";
 import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
@@ -576,6 +578,23 @@ export default function App() {
                     await loadSessions();
                   } catch (e) { toastError(e); }
                 }}
+                onRename={async (s) => {
+                  const name = await askPrompt({
+                    title: "Rename session",
+                    defaultValue: s.name || "",
+                    confirmLabel: "Save",
+                  });
+                  if (!name) return;
+                  try {
+                    await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ path: s.path, name }),
+                    });
+                    await loadSessions();
+                    await loadStatus(selectedId);
+                  } catch (e) { toastError(e); }
+                }}
               />
             ) : null}
           />
@@ -643,6 +662,22 @@ export default function App() {
                 return;
               }
               if (cmd.run === "compact") { compactSession(); return; }
+              if (cmd.run === "session-name") {
+                const cur = sessions.find((s) => s.path === sessionCurrent) || { path: sessionCurrent, name: "" };
+                if (!cur.path) return;
+                const name = await askPrompt({ title: "Rename session", defaultValue: cur.name || "", confirmLabel: "Save" });
+                if (!name) return;
+                try {
+                  await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: cur.path, name }),
+                  });
+                  await loadSessions();
+                  await loadStatus(selectedId);
+                } catch (e) { toastError(e); }
+                return;
+              }
               try {
                 if (cmd.run === "login") {
                   await api("/api/agents/" + agent.id + "/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -718,6 +753,7 @@ export default function App() {
       />
       <Toasts />
       <ConfirmDialog />
+      <PromptDialog />
     </div>
   );
 }

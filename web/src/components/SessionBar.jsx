@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function SessionBar({ sessions, current, onNew, onResume }) {
+export default function SessionBar({ sessions, current, onNew, onResume, onRename }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const cur = (sessions || []).find((s) => s.path === current);
@@ -42,6 +42,12 @@ export default function SessionBar({ sessions, current, onNew, onResume }) {
               >
                 <span className="session-name">{s.name || s.preview || "Untitled"}</span>
                 <span className="combo-hint">{shortDate(s.updatedAt || s.createdAt)}</span>
+                {onRename ? (
+                  <span
+                    className="session-rename"
+                    onClick={(e) => { e.stopPropagation(); onRename(s); }}
+                  >Rename</span>
+                ) : null}
               </button>
             ))}
           </div>

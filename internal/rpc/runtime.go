@@ -280,6 +280,12 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	return err
 }
 
+// SetSessionName sets the display name of the live session.
+func (ma *ManagedAgent) SetSessionName(ctx context.Context, name string) error {
+	_, err := ma.client.Send(ctx, Command{Type: "set_session_name", Body: map[string]any{"name": name}})
+	return err
+}
+
 // Compact asks pi to summarize older turns (RPC compact).
 func (ma *ManagedAgent) Compact(ctx context.Context) (Response, error) {
 	return ma.client.Send(ctx, Command{Type: "compact"})

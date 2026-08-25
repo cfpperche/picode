@@ -37,6 +37,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces/{id}/sessions", handleListSessions(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/sessions/new", handleNewSession(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/sessions/resume", handleResumeSession(deps))
+	mux.HandleFunc("POST /api/workspaces/{id}/sessions/rename", handleRenameSession(deps))
 	mux.HandleFunc("POST /api/agents/{id}/tasks", handleEnqueueTask(deps))
 	mux.HandleFunc("GET /api/agents/{id}/tasks", handleListTasks(deps))
 	registerAgentRoutes(mux, deps)

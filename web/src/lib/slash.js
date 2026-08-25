@@ -9,6 +9,7 @@ export const SLASH = [
   { id: "compact", label: "/compact", hint: "Compact context", run: "compact" },
   { id: "new", label: "/new", hint: "New session", run: "session-new" },
   { id: "resume", label: "/resume", hint: "Resume a session", run: "session-resume" },
+  { id: "name", label: "/name", hint: "Rename session", run: "session-name" },
   { id: "session", label: "/session", hint: "Session info", run: "term" },
   { id: "tree", label: "/tree", hint: "Session tree", run: "term" },
   { id: "reload", label: "/reload", hint: "Reload skills and config", run: "term" },

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
 import { IconCopy } from "./Icons.jsx";
 
@@ -49,7 +50,9 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
                 {it.chip ? <span className="chip">{it.chip}</span> : null}
                 {it.cls !== "user" && it.cls !== "thinking" && it.text ? <CopyBtn text={it.text} /> : null}
               </div>
-              <div className="block-content">{it.text}</div>
+              <div className={"block-content" + (it.cls !== "user" && it.cls !== "thinking" ? " md" : "")}>
+                {it.cls !== "user" && it.cls !== "thinking" ? <Markdown>{it.text || ""}</Markdown> : it.text}
+              </div>
             </div>
           );
         })}

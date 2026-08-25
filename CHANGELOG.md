@@ -27,6 +27,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Assistant replies render **markdown**. Sessions can be **renamed**
+  (picker or `/name`).
 - Confirms use a **Radix dialog** (compact, remove workspace), not `window.confirm`.
 - Click the context bar (or `/compact`) to **compact** the session via pi RPC.
 - **Copy** on assistant replies.
