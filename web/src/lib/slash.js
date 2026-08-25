@@ -13,7 +13,9 @@ export const SLASH = [
   { id: "resume", label: "/resume", hint: "Resume a session", run: "session-resume" },
   { id: "name", label: "/name", hint: "Rename session", run: "session-name" },
   { id: "session", label: "/session", hint: "Session info", run: "term" },
-  { id: "tree", label: "/tree", hint: "Session tree", run: "term" },
+  { id: "tree", label: "/tree", hint: "Session tree", run: "session-tree" },
+  { id: "fork", label: "/fork", hint: "New session from a prompt", run: "session-fork" },
+  { id: "clone", label: "/clone", hint: "Duplicate this branch", run: "session-clone" },
   { id: "reload", label: "/reload", hint: "Reload skills and config", run: "term" },
 ];
 

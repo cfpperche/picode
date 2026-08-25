@@ -315,6 +315,21 @@ func (ma *ManagedAgent) SetFollowUpMode(ctx context.Context, mode string) error 
 	return err
 }
 
+// Fork starts a new session from entryId (RPC fork).
+func (ma *ManagedAgent) Fork(ctx context.Context, entryID string) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "fork", Body: map[string]any{"entryId": entryID}})
+}
+
+// Clone duplicates the current branch (RPC clone).
+func (ma *ManagedAgent) Clone(ctx context.Context) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "clone"})
+}
+
+// GetState returns live sessionFile and related fields.
+func (ma *ManagedAgent) GetState(ctx context.Context) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "get_state"})
+}
+
 // SendPrompt delivers a one-off prompt outside the queue (UI "send now").
 func (ma *ManagedAgent) SendPrompt(message string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

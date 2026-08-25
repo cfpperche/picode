@@ -27,7 +27,7 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **9 ui · 1 partial · 4 proxy · 10 missing**.
+Count against the TUI 24 (not extras): **12 ui · 1 partial · 3 proxy · 8 missing**.
 
 ## Matrix (TUI 24)
 
@@ -35,7 +35,7 @@ Count against the TUI 24 (not extras): **9 ui · 1 partial · 4 proxy · 10 miss
 |---|---|---|---|---|---|
 | 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | `#/settings` pi GUI (ADR-0012) | **ui** | S0 shell. Knobs in S1. Product chrome → `#/preferences`. |
 | 2 | `/model` | model picker | focus model chip | **ui** | Composer cockpit |
-| 3 | `/tree` | session tree / branch jump | session tree UI | **proxy** | UI not built |
+| 3 | `/tree` | session tree / branch jump | session tree dialog | **ui** | View from JSONL. In-place jump is not in RPC; pick a prompt to fork. |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |
 | 5 | `/scoped-models` | Ctrl+P cycle set | `#/settings` Scoped models | **ui** | Patterns in `enabledModels`. |
 | 6 | `/export` | HTML / JSONL export | download / save dialog | **missing** | |
@@ -46,8 +46,8 @@ Count against the TUI 24 (not extras): **9 ui · 1 partial · 4 proxy · 10 miss
 | 11 | `/session` | file, id, tokens, cost | session facts pop | **proxy** | Status bar has some of this |
 | 12 | `/changelog` | pi version history | pi changelog viewer | **missing** | Not PiCode CHANGELOG |
 | 13 | `/hotkeys` | pi shortcuts | PiCode keymap overlay | **missing** | |
-| 14 | `/fork` | new session from a user turn | fork from a bubble | **missing** | Timeline work |
-| 15 | `/clone` | duplicate current branch | clone current session | **missing** | Timeline work |
+| 14 | `/fork` | new session from a user turn | tree dialog, user rows | **ui** | RPC `fork` when in chat |
+| 15 | `/clone` | duplicate current branch | clone in tree dialog | **ui** | RPC `clone` when in chat |
 | 16 | `/trust` | save project trust | trust UI / confirm | **missing** | |
 | 17 | `/login` | provider auth | `#/providers` + TUI OAuth | **partial** | Still needs the dock for OAuth |
 | 18 | `/logout` | drop credentials | `#/providers` sign-out | **proxy** | |

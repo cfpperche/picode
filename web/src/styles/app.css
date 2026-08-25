@@ -977,6 +977,22 @@ body {
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.dlg-tree {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(72vh, 560px);
+  display: flex; flex-direction: column;
+}
+.tree-list { overflow-y: auto; margin: 10px 0 0; display: flex; flex-direction: column; gap: 2px; min-height: 80px; }
+.tree-row {
+  display: flex; align-items: baseline; gap: 8px;
+  width: 100%; text-align: left; border: 0; background: none; cursor: pointer;
+  padding: 6px 8px; border-radius: 6px; font: inherit; color: var(--text-primary);
+}
+.tree-row:disabled { cursor: default; color: var(--text-secondary); }
+.tree-row.user:hover { background: var(--bg-hover); }
+.tree-row.leaf { box-shadow: inset 2px 0 0 var(--accent); }
+.tree-kind { flex: none; font-size: 11px; color: var(--text-secondary); min-width: 4.5em; }
+.tree-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
 .toasts {
   position: fixed; z-index: 80;
   top: 52px; left: 50%; transform: translateX(-50%);

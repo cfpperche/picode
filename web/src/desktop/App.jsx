@@ -18,6 +18,7 @@ import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
 import Palette from "../components/Palette.jsx";
+import SessionTree from "../components/SessionTree.jsx";
 import { parseRoute, go } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -45,6 +46,9 @@ export default function App() {
   const [route, setRoute] = useState(() => parseRoute());
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
+  const [treeMode, setTreeMode] = useState("tree");
+  const [treeData, setTreeData] = useState({ tree: [], leafId: "" });
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
   const [mcp, setMcp] = useState({ configured: false, path: "" });
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
@@ -562,6 +566,49 @@ export default function App() {
     setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
   }
 
+  async function openTree(mode) {
+    if (!agent) { toast.info("Select an agent first."); return; }
+    setTreeMode(mode || "tree");
+    setTreeOpen(true);
+    try {
+      setTreeData(await api("/api/agents/" + agent.id + "/tree"));
+    } catch (e) { toastError(e); }
+  }
+
+  async function forkFrom(entryId) {
+    if (!agent) return;
+    try {
+      const res = await api("/api/agents/" + agent.id + "/fork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId }),
+      });
+      setTreeOpen(false);
+      if (res && res.cancelled) { toast.info("Fork cancelled."); return; }
+      toast.ok("New session from that prompt.");
+      await loadWorkspaces();
+      await loadSessions(selectedId);
+    } catch (e) { toastError(e); }
+  }
+
+  async function cloneSession() {
+    if (!agent) return;
+    const ok = await askConfirm({
+      title: "Clone session",
+      message: "Duplicate this branch into a new session file.",
+      confirmLabel: "Clone",
+    });
+    if (!ok) return;
+    try {
+      const res = await api("/api/agents/" + agent.id + "/clone", { method: "POST" });
+      setTreeOpen(false);
+      if (res && res.cancelled) { toast.info("Clone cancelled."); return; }
+      toast.ok("Branch duplicated.");
+      await loadWorkspaces();
+      await loadSessions(selectedId);
+    } catch (e) { toastError(e); }
+  }
+
   async function patchAgent(cfg) {
     if (!agent) return;
     const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
@@ -671,6 +718,9 @@ export default function App() {
             agent={agent}
             onConfig={patchAgent}
             onSlash={async (cmd) => {
+              if (cmd.run === "session-tree") { openTree("tree"); return; }
+              if (cmd.run === "session-fork") { openTree("fork"); return; }
+              if (cmd.run === "session-clone") { cloneSession(); return; }
               if (cmd.run === "go-settings" || cmd.run === "go-scoped") {
                 if (!agent) { toast.info("Select an agent first."); return; }
                 go("settings");
@@ -827,6 +877,14 @@ export default function App() {
         }}
       />
       <Toasts />
+      <SessionTree
+        open={treeOpen}
+        mode={treeMode}
+        tree={treeData}
+        onClose={() => setTreeOpen(false)}
+        onFork={forkFrom}
+        onClone={cloneSession}
+      />
       <ConfirmDialog />
       <PromptDialog />
     </div>

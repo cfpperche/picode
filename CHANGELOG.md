@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Composer `/tree` `/fork` `/clone`: session tree dialog. Fork is a new
+  session from a user prompt; clone duplicates this branch (RPC in chat).
 - `/scoped-models` opens Settings; `enabledModels` patterns + default
   tools (native checkboxes) on global/workspace cards.
 - Settings layers resolve by depth (workspace beats global, like skills).
