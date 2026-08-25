@@ -56,19 +56,20 @@ function Loose({ it, items, onToggleFiles }) {
 }
 
 function Turn({ turn, i, live, queued, onToggleTool }) {
-  const [open, setOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
+  const replyN = turn.replies.length;
   useEffect(() => {
-    setOpen(!!live);
-  }, [live]);
+    if (replyN > 0) setUserOpen(false);
+  }, [replyN]);
   useEffect(() => {
     if (!live) { liveFrom.current = 0; return; }
     if (!liveFrom.current) liveFrom.current = Date.now();
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [live]);
-  const shown = live || open;
+  const shown = !!live || userOpen;
   const label = live
     ? "Working… " + fmtElapsed(now - (liveFrom.current || now))
     : queued
@@ -80,7 +81,7 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
       {turn.user ? <Block it={turn.user} /> : null}
       {showWork ? (
         <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
-          <button type="button" className="work-head" onClick={() => !live && setOpen((v) => !v)}>
+          <button type="button" className="work-head" onClick={() => !live && setUserOpen((v) => !v)}>
             <span className="work-dot" aria-hidden="true" />
             <span>{label}</span>
             {!live ? <span className="tp-chevron">›</span> : null}
