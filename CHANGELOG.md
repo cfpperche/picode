@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Slash hints: docs icon, italic + dotted underline, slightly more context.
 - Collapsed sidebar groups show stacked provider favicons (max 5, then +N)
   instead of a count.
 - License: MIT → PolyForm Noncommercial 1.0.0 for personal/noncommercial

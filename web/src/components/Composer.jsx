@@ -4,7 +4,7 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
@@ -291,7 +291,10 @@ export default function Composer({
                 onMouseEnter={() => setSlashIdx(i)}
               >
                 <button type="button" className="slash-label" onClick={() => pickSlash(c)}>{c.label}</button>
-                <a className="slash-hint" href={commandDocUrl(c.id)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{c.hint}</a>
+                <a className="slash-hint" href={commandDocUrl(c.id)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <IconDocs />
+                  {c.hint}
+                </a>
               </li>
             ))}
           </ul>
