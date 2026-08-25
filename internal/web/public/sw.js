@@ -1,5 +1,5 @@
 /* PiCode service worker — installability + offline shell. APIs stay live. */
-const CACHE = "picode-shell-v1";
+const CACHE = "picode-shell-v2";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

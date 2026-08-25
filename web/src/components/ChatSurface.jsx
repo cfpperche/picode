@@ -11,7 +11,8 @@ export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact,
 }) {
-  const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool");
+  const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert");
+  const empty = !hasChat;
   const cfg = {
     provider: (agent && agent.provider) || "",
     model: (agent && agent.model) || "",
@@ -22,6 +23,12 @@ export default function ChatSurface({
   return (
     <section id="chat-surface" className="chat-surface" hidden={hidden}>
       <div className="chat-body">
+        {empty && !hidden ? (
+          <div className="chat-hello">
+            <h2>What should we work on?</h2>
+            <p>Ask anything in this project, or type / for commands.</p>
+          </div>
+        ) : null}
         <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
