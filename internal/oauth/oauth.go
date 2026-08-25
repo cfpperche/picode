@@ -3,6 +3,7 @@
 package oauth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -44,6 +45,7 @@ type pending struct {
 	state    string
 	returnTo string
 	ln       net.Listener
+	cancel   context.CancelFunc
 	done     chan result
 }
 
@@ -70,16 +72,16 @@ func pkce() (verifier, challenge string, err error) {
 }
 
 // Start begins loopback OAuth. Returns the URL to open in the browser.
-func Start(provider, returnTo string) (authorizeURL string, err error) {
+func Start(provider, returnTo string) (authorizeURL, userCode string, err error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if cur != nil {
-		return "", fmt.Errorf("an account login is already in progress")
+		return "", "", fmt.Errorf("an account login is already in progress")
 	}
 	lastDone, lastErr = false, nil
 	verifier, challenge, err := pkce()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	var addr, path, authURL, clientID, scopes, redirect, state string
 	switch provider {
@@ -92,15 +94,25 @@ func Start(provider, returnTo string) (authorizeURL string, err error) {
 		authURL, clientID, scopes, redirect = codexAuth, codexClientID, codexScopes, codexRedirect
 		b := make([]byte, 16)
 		if _, err = rand.Read(b); err != nil {
-			return "", err
+			return "", "", err
 		}
 		state = fmt.Sprintf("%x", b)
+	case "github-copilot", "kimi-coding", "xai":
+		dc, err := beginDevice(provider)
+		if err != nil {
+			return "", "", err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		p := &pending{provider: provider, returnTo: returnTo, cancel: cancel, done: make(chan result, 1)}
+		cur = p
+		go func() { p.finish(dc.poll(ctx)) }()
+		return dc.url, dc.code, nil
 	default:
-		return "", fmt.Errorf("account login in PiCode is only Claude or Codex for now")
+		return "", "", fmt.Errorf("account login for this provider is not wired yet")
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return "", fmt.Errorf("callback port busy (%s): %w", addr, err)
+		return "", "", fmt.Errorf("callback port busy (%s): %w", addr, err)
 	}
 	if returnTo != "" {
 		if u, err := url.Parse(returnTo); err != nil || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
@@ -122,7 +134,7 @@ func Start(provider, returnTo string) (authorizeURL string, err error) {
 	q.Set("code_challenge", challenge)
 	q.Set("code_challenge_method", "S256")
 	q.Set("state", state)
-	return authURL + "?" + q.Encode(), nil
+	return authURL + "?" + q.Encode(), "", nil
 }
 
 func serve(p *pending, path, redirect, clientID string) {
@@ -172,7 +184,9 @@ func (p *pending) finish(err error) {
 	}
 	go func() {
 		time.Sleep(400 * time.Millisecond)
-		_ = p.ln.Close()
+		if p.ln != nil {
+			_ = p.ln.Close()
+		}
 	}()
 }
 
@@ -197,8 +211,13 @@ func Cancel() {
 	p := cur
 	mu.Unlock()
 	if p != nil {
+		if p.cancel != nil {
+			p.cancel()
+		}
 		p.finish(fmt.Errorf("cancelled"))
-		_ = p.ln.Close()
+		if p.ln != nil {
+			_ = p.ln.Close()
+		}
 	}
 }
 

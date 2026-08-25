@@ -143,6 +143,10 @@ body {
 .prov-pick-list { max-height: 240px; overflow-y: auto; }
 .prov-pick .cockpit-opt { display: flex; align-items: center; gap: 8px; }
 .prov-row .ws-face { flex: none; }
+.oauth-code {
+  margin: 16px 0 8px; font-family: var(--mono); font-size: 28px; font-weight: 650;
+  letter-spacing: .12em; text-align: center;
+}
 .prov-methods { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .prov-methods .btn { width: 100%; }
 .prov-row.muted { opacity: 0.55; }

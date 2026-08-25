@@ -19,6 +19,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [userCode, setUserCode] = useState("");
   const [recents, setRecents] = useState(readRecents);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     setStep("pick");
     setKey("");
     setErr("");
+    setUserCode("");
     setAdd(true);
   }
 
@@ -56,6 +58,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     setPick(null);
     setKey("");
     setErr("");
+    setUserCode("");
     if (wantAdd) go("providers");
   }
 
@@ -90,7 +93,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     }
   }
 
-  const canAccount = pick && (pick.id === "anthropic" || pick.id === "openai-codex");
+  const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(pick.id);
   const title = !pick ? "Add provider" : step === "method" ? pick.id : step === "oauth" ? pick.id : "API key · " + pick.id;
 
   async function startAccount() {
@@ -103,6 +106,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: pick.id, returnTo: location.origin + "/#/providers" }),
       });
+      if (res && res.userCode) setUserCode(res.userCode);
       if (res && res.url) window.open(res.url, "_blank", "noopener");
       setWaiting(true);
       const t0 = Date.now();
@@ -213,10 +217,11 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
             {step === "oauth" ? (
               <div>
                 {canAccount ? (
-                  <p className="settings-desc">Continue opens Claude/Codex in a new tab. This dialog waits until that tab finishes.</p>
+                  <p className="settings-desc">Continue opens the provider in a new tab. This dialog waits until you finish there.</p>
                 ) : (
                   <p className="settings-desc">Account login for {pick ? pick.id : "this provider"} is not wired yet. Use API key, or /login in the terminal.</p>
                 )}
+                {userCode ? <p className="oauth-code">{userCode}</p> : null}
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (pick && pick.login === "both") setStep("method"); else { setPick(null); setStep("pick"); } }}>Back</button>

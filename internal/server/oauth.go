@@ -22,12 +22,16 @@ func handleOAuthStart(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	url, err := oauth.Start(req.Provider, req.ReturnTo)
+	url, code, err := oauth.Start(req.Provider, req.ReturnTo)
 	if err != nil {
 		writeErr(w, http.StatusConflict, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"url": url})
+	out := map[string]any{"url": url}
+	if code != "" {
+		out["userCode"] = code
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func handleOAuthStatus(w http.ResponseWriter, r *http.Request) {
