@@ -671,9 +671,12 @@ export default function App() {
             agent={agent}
             onConfig={patchAgent}
             onSlash={async (cmd) => {
-              if (cmd.run === "go-settings") {
+              if (cmd.run === "go-settings" || cmd.run === "go-scoped") {
                 if (!agent) { toast.info("Select an agent first."); return; }
                 go("settings");
+                if (cmd.run === "go-scoped") {
+                  requestAnimationFrame(() => document.getElementById("scoped-models")?.scrollIntoView({ block: "center" }));
+                }
                 return;
               }
               if (!agent) return;

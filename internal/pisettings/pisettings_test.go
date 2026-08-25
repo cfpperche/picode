@@ -60,6 +60,32 @@ func TestLoadMissing(t *testing.T) {
 	}
 }
 
+func TestApplyEnabledModels(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list := []string{"claude-*", "gpt-4o"}
+	if err := Apply(path, Patch{EnabledModels: &list}); err != nil {
+		t.Fatal(err)
+	}
+	layer, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !layer.Has["enabledModels"] || len(layer.EnabledModels) != 2 {
+		t.Fatalf("%+v", layer)
+	}
+	empty := []string{}
+	if err := Apply(path, Patch{EnabledModels: &empty}); err != nil {
+		t.Fatal(err)
+	}
+	layer, _ = Load(path)
+	if layer.Has["enabledModels"] {
+		t.Fatal("empty list should drop the key")
+	}
+}
+
 func TestApplyRejectsBadMode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	bad := "sometimes"

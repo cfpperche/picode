@@ -2,6 +2,7 @@
 // Target: each /x opens PiCode UI. run:term is a recorded debt.
 export const SLASH = [
   { id: "settings", label: "/settings", hint: "Pi settings", run: "go-settings" },
+  { id: "scoped-models", label: "/scoped-models", hint: "Models for cycling", run: "go-scoped" },
   { id: "login", label: "/login", hint: "Sign in a provider", run: "login" },
   { id: "logout", label: "/logout", hint: "Clear credentials", run: "term" },
   { id: "model", label: "/model", hint: "Switch model", run: "focus-model" },

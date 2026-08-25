@@ -12,6 +12,12 @@ test("filters by prefix", () => {
   assert.equal(hits[0].id, "login");
 });
 
+test("/scoped-models opens settings", () => {
+  const hits = filterSlash("/scoped");
+  assert.equal(hits[0].id, "scoped-models");
+  assert.equal(hits[0].run, "go-scoped");
+});
+
 test("/settings is a PiCode route, not a TUI proxy", () => {
   const hits = filterSlash("/settings");
   assert.equal(hits[0].id, "settings");

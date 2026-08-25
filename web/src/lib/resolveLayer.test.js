@@ -11,6 +11,14 @@ test("workspace wins over global like skills", () => {
   assert.equal(got.compactionEnabled, true);
 });
 
+test("workspace model patterns beat global", () => {
+  const got = resolveLayer(
+    { has: { enabledModels: true }, enabledModels: ["gpt-4o"] },
+    { enabledModels: ["claude-*"] },
+  );
+  assert.deepEqual(got.enabledModels, ["gpt-4o"]);
+});
+
 test("catalog base fills the floor", () => {
   const b = catalogBase({ providers: [{ id: "xai", models: [{ id: "grok-4.6" }] }] });
   assert.equal(b.defaultProvider, "xai");

@@ -56,7 +56,7 @@ What exists right now:
 
 ## Next up
 
-1. Pi settings S4: `/scoped-models` + remaining settings slash rows.
+1. Slash UI next: `/tree` `/fork` `/clone` (session timeline).
 2. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
 3. Pretty search cards in chat, gated on `capabilities.webSearch`.
 

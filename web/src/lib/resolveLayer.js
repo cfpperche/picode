@@ -9,8 +9,12 @@ export function resolveLayer(layer, parent) {
     defaultProvider: has.defaultProvider ? l.defaultProvider : (p.defaultProvider || ""),
     defaultModel: has.defaultModel ? l.defaultModel : (p.defaultModel || ""),
     defaultThinkingLevel: has.defaultThinkingLevel ? l.defaultThinkingLevel : (p.defaultThinkingLevel || ""),
+    enabledModels: has.enabledModels ? (l.enabledModels || []) : (p.enabledModels || []),
+    defaultTools: has.defaultTools ? (l.defaultTools || []) : (p.defaultTools || PI_TOOLS),
   };
 }
+
+export const PI_TOOLS = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 
 export function catalogBase(catalog) {
   const p = catalog && catalog.providers && catalog.providers[0];
@@ -22,5 +26,7 @@ export function catalogBase(catalog) {
     defaultProvider: p ? p.id : "",
     defaultModel: m ? m.id : "",
     defaultThinkingLevel: "medium",
+    enabledModels: [],
+    defaultTools: PI_TOOLS,
   };
 }

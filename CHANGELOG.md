@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- `/scoped-models` opens Settings; `enabledModels` patterns + default
+  tools (native checkboxes) on global/workspace cards.
 - Settings layers resolve by depth (workspace beats global, like skills).
   No "Pi default" empty option.
 - Pi Settings S3: agent card writes provider/model/thinking and Full/Read-only

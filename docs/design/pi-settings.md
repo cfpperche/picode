@@ -1,7 +1,7 @@
 # Pi settings GUI — plan
 
-> Status: **S3 shipped** (2026-08-25). Global + workspace + agent card.
-> S4 = scoped-models / leftover settings slash. Slash matrix:
+> Status: **S4 shipped** (2026-08-25). Scoped models + default tools on
+> global/workspace cards. Slash matrix:
 > [`slash-parity.md`](slash-parity.md). Product vs pi split: ADR-0012.
 
 ## Goal

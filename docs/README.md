@@ -11,7 +11,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [benchmark-cursor.md](benchmark-cursor.md) | Cursor product patterns + aesthetic/density north star |
 | [handoff.md](handoff.md) | **Project state right now** — start here |
 | [design/voice-mode.md](design/voice-mode.md) | Dictation + voice composer: V1 shipped, V1.1–V3 phases |
-| [design/slash-parity.md](design/slash-parity.md) | TUI `/` vs PiCode composer — 8/24 UI, rest planned |
+| [design/slash-parity.md](design/slash-parity.md) | TUI `/` vs PiCode composer — 9/24 UI, rest planned |
 | [design/pi-settings.md](design/pi-settings.md) | Plan: `#/settings` = pi GUI; `#/preferences` = PiCode |
 | [decisions/](decisions/) | ADRs — architectural decision records (0011: workspaces vs agents) |
 | [handoff-archive.md](handoff-archive.md) | Archived handoff activity (created when needed) |

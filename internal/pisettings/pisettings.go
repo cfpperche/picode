@@ -21,17 +21,21 @@ type Layer struct {
 	DefaultProvider      string          `json:"defaultProvider,omitempty"`
 	DefaultModel         string          `json:"defaultModel,omitempty"`
 	DefaultThinkingLevel string          `json:"defaultThinkingLevel,omitempty"`
+	EnabledModels        []string        `json:"enabledModels,omitempty"`
+	DefaultTools         []string        `json:"defaultTools,omitempty"`
 	Has                  map[string]bool `json:"has,omitempty"`
 }
 
 // Patch is an allowlisted update. Nil pointer = leave alone.
 type Patch struct {
-	CompactionEnabled    *bool   `json:"compactionEnabled"`
-	SteeringMode         *string `json:"steeringMode"`
-	FollowUpMode         *string `json:"followUpMode"`
-	DefaultProvider      *string `json:"defaultProvider"`
-	DefaultModel         *string `json:"defaultModel"`
-	DefaultThinkingLevel *string `json:"defaultThinkingLevel"`
+	CompactionEnabled    *bool     `json:"compactionEnabled"`
+	SteeringMode         *string   `json:"steeringMode"`
+	FollowUpMode         *string   `json:"followUpMode"`
+	DefaultProvider      *string   `json:"defaultProvider"`
+	DefaultModel         *string   `json:"defaultModel"`
+	DefaultThinkingLevel *string   `json:"defaultThinkingLevel"`
+	EnabledModels        *[]string `json:"enabledModels"`
+	DefaultTools         *[]string `json:"defaultTools"`
 }
 
 // UserFile is ~/.pi/agent/settings.json.
@@ -122,6 +126,8 @@ func fill(out *Layer, doc map[string]any) {
 	markStr(out, doc, "defaultProvider", &out.DefaultProvider)
 	markStr(out, doc, "defaultModel", &out.DefaultModel)
 	markStr(out, doc, "defaultThinkingLevel", &out.DefaultThinkingLevel)
+	markStrs(out, doc, "enabledModels", &out.EnabledModels)
+	markStrs(out, doc, "defaultTools", &out.DefaultTools)
 }
 
 func markStr(out *Layer, doc map[string]any, key string, dest *string) {
@@ -130,6 +136,14 @@ func markStr(out *Layer, doc map[string]any, key string, dest *string) {
 	}
 	out.Has[key] = true
 	*dest = str(doc, key)
+}
+
+func markStrs(out *Layer, doc map[string]any, key string, dest *[]string) {
+	if _, ok := doc[key]; !ok {
+		return
+	}
+	out.Has[key] = true
+	*dest = asStrings(doc[key])
 }
 
 func merge(doc map[string]any, p Patch) error {
@@ -155,6 +169,16 @@ func merge(doc map[string]any, p Patch) error {
 			return fmt.Errorf("pi settings: bad thinking %q", s)
 		}
 		setOrDelete(doc, "defaultThinkingLevel", p.DefaultThinkingLevel)
+	}
+	if p.EnabledModels != nil {
+		if len(*p.EnabledModels) == 0 {
+			delete(doc, "enabledModels")
+		} else {
+			doc["enabledModels"] = *p.EnabledModels
+		}
+	}
+	if p.DefaultTools != nil {
+		doc["defaultTools"] = *p.DefaultTools
 	}
 	return nil
 }
@@ -185,6 +209,22 @@ func setOrDelete(doc map[string]any, key string, v *string) {
 func str(doc map[string]any, key string) string {
 	s, _ := doc[key].(string)
 	return s
+}
+
+func asStrings(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, x := range t {
+			if s, ok := x.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 func validThinking(s string) bool {

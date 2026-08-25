@@ -6,7 +6,8 @@ import ModeChip from "./ModeChip.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
-import { catalogBase, resolveLayer } from "../lib/resolveLayer.js";
+import { catalogBase, PI_TOOLS, resolveLayer } from "../lib/resolveLayer.js";
+import { IconX } from "./Icons.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
@@ -160,6 +161,65 @@ function LayerKnobs({ prefix, values, catalog, onSave }) {
           row
         />
       </div>
+      <div className="set-row set-row-stack" id={prefix === "g" ? "scoped-models" : undefined}>
+        <span>Scoped models</span>
+        <PatternField list={values.enabledModels || []} onSave={(enabledModels) => onSave({ enabledModels })} />
+      </div>
+      <div className="set-row set-row-stack">
+        <span>Tools</span>
+        <div className="set-tools" data-align-row>
+          {PI_TOOLS.map((t) => {
+            const on = (values.defaultTools || []).includes(t);
+            return (
+              <label key={t} className="set-check">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => {
+                    const cur = new Set(values.defaultTools || []);
+                    if (on) cur.delete(t); else cur.add(t);
+                    onSave({ defaultTools: PI_TOOLS.filter((x) => cur.has(x)) });
+                  }}
+                />
+                {t}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatternField({ list, onSave }) {
+  const [draft, setDraft] = useState("");
+  return (
+    <div className="set-pats">
+      <form
+        className="set-pat-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const s = draft.trim();
+          if (!s || list.includes(s)) return;
+          onSave([...list, s]);
+          setDraft("");
+        }}
+      >
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="claude-* · gpt-4o" aria-label="Model pattern" />
+        <button type="submit" className="btn btn-ghost btn-sm">Add</button>
+      </form>
+      {list.length === 0 ? (
+        <p className="side-empty">All models</p>
+      ) : (
+        <ul className="set-pat-list">
+          {list.map((pat) => (
+            <li key={pat}>
+              <code>{pat}</code>
+              <button type="button" className="ws-icon-btn" title="Remove" onClick={() => onSave(list.filter((x) => x !== pat))}><IconX size={12} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

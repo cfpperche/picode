@@ -27,7 +27,7 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **8 ui · 1 partial · 4 proxy · 11 missing**.
+Count against the TUI 24 (not extras): **9 ui · 1 partial · 4 proxy · 10 missing**.
 
 ## Matrix (TUI 24)
 
@@ -37,7 +37,7 @@ Count against the TUI 24 (not extras): **8 ui · 1 partial · 4 proxy · 11 miss
 | 2 | `/model` | model picker | focus model chip | **ui** | Composer cockpit |
 | 3 | `/tree` | session tree / branch jump | session tree UI | **proxy** | UI not built |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |
-| 5 | `/scoped-models` | Ctrl+P cycle set | scoped-models UI | **missing** | |
+| 5 | `/scoped-models` | Ctrl+P cycle set | `#/settings` Scoped models | **ui** | Patterns in `enabledModels`. |
 | 6 | `/export` | HTML / JSONL export | download / save dialog | **missing** | |
 | 7 | `/import` | resume from JSONL | file picker + resume | **missing** | |
 | 8 | `/share` | private GitHub gist | share dialog | **missing** | Not the phone QR |
