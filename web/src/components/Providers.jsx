@@ -181,7 +181,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {step === "pick" ? "Search the same set as TUI /login." : step === "method" ? "This provider accepts an account or an API key." : step === "oauth" ? "Account login is not in pi RPC yet." : "Saved in ~/.pi/agent/auth.json. The key is never shown again."}
+              {step === "pick" ? "Search the same set as TUI /login." : step === "method" ? "This provider accepts an account or an API key." : step === "oauth" ? (canAccount ? "A browser tab opens. Come back when it says signed in." : "Account login for this provider is not in PiCode yet.") : "Saved in ~/.pi/agent/auth.json. The key is never shown again."}
             </Dialog.Description>
 
             {step === "pick" ? (
@@ -213,9 +213,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
             {step === "oauth" ? (
               <div>
                 {canAccount ? (
-                  <p className="settings-desc">A browser tab opens on the provider. When it says signed in, this dialog finishes.</p>
+                  <p className="settings-desc">Continue opens Claude/Codex in a new tab. This dialog waits until that tab finishes.</p>
                 ) : (
-                  <p className="settings-desc">Account login for this provider is not in PiCode yet. Use /login {pick ? pick.id : ""} in the terminal.</p>
+                  <p className="settings-desc">Account login for {pick ? pick.id : "this provider"} is not wired yet. Use API key, or /login in the terminal.</p>
                 )}
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">
