@@ -16,14 +16,14 @@ function Card({ card, leaf, last, onFork }) {
   const reply = replies.length ? replies[replies.length - 1].text : "";
   const current = card.id === leaf;
   return (
-    <li className="flex gap-2.5">
-      <div className="flex w-4 shrink-0 flex-col items-center" aria-hidden="true">
-        <span className={"mt-3 size-2 shrink-0 rounded-full " + (current ? "bg-accent" : "bg-[var(--border-strong)]")} />
-        {last ? null : <span className="w-px min-h-2 flex-1 bg-[var(--border)]" />}
+    <li className={"flex gap-2.5" + (last ? "" : " mb-2.5")}>
+      <div className="relative flex w-4 shrink-0 items-center justify-center self-stretch" aria-hidden="true">
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--border)]" />
+        <span className={"relative z-[1] size-2 shrink-0 rounded-full " + (current ? "bg-accent" : "bg-[var(--border-strong)]")} />
       </div>
       <button
         type="button"
-        className={"tree-card mb-2.5 min-w-0 flex-1" + (current ? " leaf" : "")}
+        className={"tree-card min-w-0 flex-1" + (current ? " leaf" : "")}
         onClick={() => onFork(card.id)}
       >
         <span className="tree-card-prompt">{card.text}</span>

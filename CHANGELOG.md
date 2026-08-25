@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Session tree uses the shadcn flex timeline recipe (dot + flex-1 line).
+- Session tree dots sit mid-card; the spine runs through the last card.
 - Session tree is a chain of prompt cards; replies/tools sit on the card.
 - Composer `/tree` `/fork` `/clone`: session tree dialog. Fork is a new
   session from a user prompt; clone duplicates this branch (RPC in chat).
