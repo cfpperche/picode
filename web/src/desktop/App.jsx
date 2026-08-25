@@ -22,6 +22,7 @@ import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
+import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
@@ -130,6 +131,7 @@ export default function App() {
   }, [selectedId]);
 
   useEffect(() => { loadSessions(selectedId); }, [selectedId, loadSessions]);
+  useEffect(() => { scrollConv(); }, [items]);
 
   const loadStatus = useCallback(async (wsId) => {
     const id = wsId || selectedId;
@@ -218,18 +220,17 @@ export default function App() {
   }
 
   function scrollConv() {
-    const el = convRef.current;
-    if (el && nearBottom.current) el.scrollTop = el.scrollHeight;
+    if (!nearBottom.current) return;
+    const go = () => {
+      if (nearBottom.current) pinToBottom(convRef.current);
+    };
+    queueMicrotask(go);
+    requestAnimationFrame(go);
   }
 
   function scrollToEnd() {
     nearBottom.current = true;
-    const go = () => {
-      const el = convRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    };
-    queueMicrotask(go);
-    requestAnimationFrame(() => requestAnimationFrame(go));
+    scrollConv();
   }
 
   function connectPanel(ws) {
@@ -262,6 +263,7 @@ export default function App() {
         setStatus("streaming");
         setStreaming(true);
         turnFiles.current = new Set();
+        scrollToEnd();
         break;
       case "agent_settled": {
         setStatus("idle");
@@ -472,6 +474,7 @@ export default function App() {
       setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, ts: Date.now() }]);
       setDraft("");
       pendingPayload.current = "";
+      scrollToEnd();
       if (agent.mode === "interactive") {
         setDockWanted((s) => { const n = new Set(s); n.delete(selected.id); return n; });
       }
@@ -626,7 +629,7 @@ export default function App() {
             convRef={convRef}
             onScroll={() => {
               const el = convRef.current;
-              if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+              if (el) nearBottom.current = stuckToBottom(el);
             }}
             statusBar={statusBar}
             onCompact={compactSession}

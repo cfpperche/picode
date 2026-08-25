@@ -19,6 +19,7 @@ import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import "./mobile.css";
 import { toastError } from "../lib/toast.js";
+import { stuckToBottom } from "../lib/stickScroll.js";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
@@ -241,7 +242,7 @@ export default function MobileApp() {
                 <Conversation items={items} onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
                   onToggleFiles={() => {}} convRef={convRef} onScroll={() => {
                     const el = convRef.current;
-                    if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+                    if (el) nearBottom.current = stuckToBottom(el);
                   }} hidden={stopped} />
                 <Composer kind={kind} onKind={setKind} value={draft} onChange={setDraft} onSend={sendTask}
                   status={status} streaming={streaming} stopped={stopped}
