@@ -10,9 +10,11 @@ test("skips sys/tool and empty", () => {
     { kind: "block", actor: "agent", text: "Answer" },
     { kind: "block", cls: "user", actor: "You", text: "Again" },
   ]);
-  assert.equal(a.length, 2);
-  assert.equal(a[0].id, "turn-0");
+  assert.equal(a.length, 3);
+  assert.equal(a[0].id, "turn-0-user");
   assert.equal(a[0].actor, "You");
+  assert.equal(a[1].actor, "Agent");
+  assert.equal(a[2].id, "turn-1-user");
 });
 
 test("truncates preview", () => {

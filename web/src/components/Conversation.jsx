@@ -77,8 +77,8 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
       : fmtWorked(turnDurationMs(turn));
   const showWork = turn.work.length > 0 || live || queued;
   return (
-    <div className="turn" id={"turn-" + i} data-rail={"turn-" + i}>
-      {turn.user ? <Block it={turn.user} /> : null}
+    <div className="turn" id={"turn-" + i}>
+      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} /> : null}
       {showWork ? (
         <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
           <button type="button" className="work-head" onClick={() => !live && setUserOpen((v) => !v)}>
@@ -98,16 +98,16 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
           ) : null}
         </div>
       ) : null}
-      {turn.replies.map((it, j) => <Block key={j} it={it} />)}
+      {turn.replies.map((it, j) => <Block key={j} it={it} railId={j === 0 ? "turn-" + i + "-agent" : undefined} />)}
     </div>
   );
 }
 
-function Block({ it }) {
+function Block({ it, railId }) {
   const user = it.cls === "user";
   const md = !user && it.cls !== "thinking";
   return (
-    <div className={"block " + (it.cls || "")}>
+    <div className={"block " + (it.cls || "")} data-rail={railId || undefined}>
       {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
       <div className={"block-content" + (md ? " md" : "")}>
         {md ? <Markdown>{it.text || ""}</Markdown> : it.text}

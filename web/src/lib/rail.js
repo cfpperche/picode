@@ -1,20 +1,22 @@
 import { groupTurns } from "./turns.js";
 
+function clip(text) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  return t.length > 140 ? t.slice(0, 137) + "…" : t;
+}
+
 export function railAnchors(items) {
   const out = [];
   let i = 0;
   groupTurns(items).forEach((t) => {
     if (t.kind !== "turn") return;
     const id = "turn-" + (i++);
-    const text = String((t.user && t.user.text) || (t.replies[0] && t.replies[0].text) || "").replace(/\s+/g, " ").trim();
-    if (!text && t.work.length === 0) return;
-    const preview = text.length > 140 ? text.slice(0, 137) + "…" : (text || "Work");
-    out.push({
-      id,
-      actor: t.user ? "You" : "Agent",
-      cls: t.user ? "user" : "",
-      preview,
-    });
+    const userText = clip(t.user && t.user.text);
+    const agentText = clip(t.replies[0] && t.replies[0].text);
+    if (userText) out.push({ id: id + "-user", actor: "You", cls: "user", preview: userText });
+    if (agentText) out.push({ id: id + "-agent", actor: "Agent", cls: "", preview: agentText });
+    else if (t.work.length && !userText) out.push({ id: id + "-agent", actor: "Agent", cls: "", preview: "Work" });
   });
   return out;
 }
