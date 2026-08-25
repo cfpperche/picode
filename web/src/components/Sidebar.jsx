@@ -1,8 +1,7 @@
 import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
-import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck, IconGit, IconChevronRight } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine } from "../lib/repoLine.js";
@@ -14,10 +13,10 @@ const SIDE_MAX = 480;
 const SIDE_KEY = "picode-sidebar-w";
 
 export default function Sidebar({
-  version, workspaces, selectedId, showForm, formError,
-  onNew, onCancel, onSubmit, onSelect, onRun, onStop, onRemove,
-  userMenu, catalog, newCfg, onNewCfg, termView, onChat, onTerm,
-  freeAgents, onNewFree, onNewAgent, onRemoveAgent, formKind, formWs,
+  version, workspaces, selectedId,
+  onNew, onSelect, onRun, onStop, onRemove,
+  userMenu, termView, onChat, onTerm,
+  freeAgents, onNewFree, onNewAgent, onRemoveAgent,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -110,20 +109,8 @@ export default function Sidebar({
           <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconAgent /> Agents</span>
           {!isOpen("sec-agents") ? collapsedMark(freeAgents) : null}
-          <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-agents")) toggleWs("sec-agents"); onNewFree(); }}><IconPlus /></button>
+          <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); onNewFree(); }}><IconPlus /></button>
         </div>
-        {isOpen("sec-agents") && showForm && formKind === "free" ? (
-          <form className="form-new" onSubmit={onSubmit}>
-            <input name="name" type="text" placeholder="Name" autoComplete="off" />
-            <input name="path" type="text" placeholder="Folder (optional — ~/.picode/work/name)" autoComplete="off" />
-            <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="free" />
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
-              <button type="button" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
-            </div>
-            <p className="form-error" hidden={!formError}>{formError}</p>
-          </form>
-        ) : null}
         {isOpen("sec-agents") ? (
           (freeAgents || []).length
             ? <ul className="ws-list">{(freeAgents || []).map((ag) => agentRow(ag, null))}</ul>
@@ -134,21 +121,8 @@ export default function Sidebar({
           <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconFolder /> Workspaces</span>
           {!isOpen("sec-workspaces") ? collapsedMark(workspaceAgents(workspaces)) : null}
-          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-workspaces")) toggleWs("sec-workspaces"); onNew(); }}><IconPlus /></button>
+          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); onNew(); }}><IconPlus /></button>
         </div>
-
-        {isOpen("sec-workspaces") && showForm && formKind === "workspace" ? (
-        <form id="form-new" className="form-new" onSubmit={onSubmit}>
-          <input id="inp-name" name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" />
-          <input id="inp-path" name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
-          <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="new" />
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
-            <button type="button" id="btn-cancel" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
-          </div>
-          <p id="form-error" className="form-error" hidden={!formError}>{formError}</p>
-        </form>
-        ) : null}
 
         {isOpen("sec-workspaces") ? (
         workspaces.length === 0 ? (
@@ -166,17 +140,6 @@ export default function Sidebar({
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
                 </span>
               </div>
-              {showForm && formKind === "agent" && formWs === ws.id ? (
-                <form className="form-new" onSubmit={onSubmit}>
-                  <input name="name" type="text" placeholder="Agent name" autoComplete="off" />
-                  <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix={"ag-" + ws.id} />
-                  <div className="form-actions">
-                    <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
-                    <button type="button" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
-                  </div>
-                  <p className="form-error" hidden={!formError}>{formError}</p>
-                </form>
-              ) : null}
               {isOpen(ws.id) ? (
                 agentsOf(ws).length
                   ? <ul className="ws-list nested">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul>

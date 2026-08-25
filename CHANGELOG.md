@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- New agent / workspace forms are a dialog (desktop) or Vaul drawer (mobile),
+  not inline in the sidebar.
 - Palette, session picker, kind chip, slash menu, and user menu use cmdk / Radix.
   Icons are lucide-react.
 - Toasts use Sonner. Position and options live in Preferences.

@@ -20,6 +20,7 @@ import Devices from "../components/Devices.jsx";
 import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
+import CreateForm from "../components/CreateForm.jsx";
 import { parseRoute, go } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -658,21 +659,15 @@ export default function App() {
         version={version}
         workspaces={workspaces}
         selectedId={selectedId}
-        showForm={showForm}
-        formError={formError}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
         onNewFree={() => { setFormKind("free"); setShowForm(true); }}
         onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
-        onCancel={() => { setShowForm(false); setFormError(""); }}
-        onSubmit={submitNew}
         onSelect={(id) => openTab(id)}
         onRun={startManaged}
         onStop={stopAgent}
         onRemove={removeWorkspace}
         onRemoveAgent={removeAgent}
         freeAgents={freeAgents}
-        formKind={formKind}
-        formWs={formWs}
         termView={termView}
         onChat={(id) => {
           openTab(id);
@@ -684,9 +679,6 @@ export default function App() {
           const loc = locate(workspaces, freeAgents, id);
           if (loc && loc.agent && loc.agent.mode !== "interactive") openInteractive(id);
         }}
-        catalog={catalog}
-        newCfg={newCfg}
-        onNewCfg={setNewCfg}
         userMenu={{
           host,
           version,
@@ -923,6 +915,17 @@ export default function App() {
         }}
       />
       <Toasts />
+      <CreateForm
+        open={showForm}
+        kind={formKind}
+        workspaceName={(workspaces.find((w) => w.id === formWs) || {}).name}
+        catalog={catalog}
+        cfg={newCfg}
+        onCfg={setNewCfg}
+        error={formError}
+        onSubmit={submitNew}
+        onClose={() => { setShowForm(false); setFormError(""); }}
+      />
       <SessionInfo
         open={sessionOpen}
         onClose={() => setSessionOpen(false)}

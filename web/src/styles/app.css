@@ -990,6 +990,27 @@ body {
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .dlg-session { width: min(460px, calc(100vw - 32px)); }
+.dlg-create { width: min(420px, calc(100vw - 32px)); }
+.dlg-create .form-new { padding: 12px 0 0; }
+.dlg-create .form-new input,
+.dlg-create .cfg-fields select { width: 100%; }
+.create-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: color-mix(in srgb, #000 35%, transparent);
+}
+.create-drawer {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 71;
+  background: var(--bg-base); border-radius: 16px 16px 0 0;
+  padding: 10px 18px 24px; outline: none;
+  max-height: 90vh; overflow-y: auto;
+}
+.create-handle {
+  width: 36px; height: 4px; border-radius: 99px; background: var(--border-strong);
+  margin: 4px auto 12px;
+}
+.create-drawer .form-new { padding: 12px 0 0; }
+.create-drawer .form-new input,
+.create-drawer .cfg-fields select { width: 100%; }
 .session-facts { margin: 12px 0 0; }
 .session-fact {
   display: grid; grid-template-columns: 72px 1fr; gap: 8px;

@@ -6,6 +6,7 @@ const SELECTORS = [
   ".toast",
   "[data-sonner-toaster]",
   ".dlg",
+  ".create-drawer",
   ".rail-pop",
   ".pkg-job",
 ];
