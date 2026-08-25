@@ -46,13 +46,25 @@ export function turnDurationMs(turn) {
   return Math.max(0, b - a);
 }
 
-export function fmtWorked(ms) {
-  if (!ms || ms < 400) return "Worked";
-  const s = Math.round(ms / 1000);
-  if (s < 60) return "Worked for " + s + "s";
+export function fmtElapsed(ms) {
+  const s = Math.max(0, Math.round((ms || 0) / 1000));
+  if (s < 60) return s + "s";
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return r ? "Worked for " + m + "m " + r + "s" : "Worked for " + m + "m";
+  return r ? m + "m " + r + "s" : m + "m";
+}
+
+export function fmtWorked(ms) {
+  if (!ms || ms < 400) return "Worked";
+  return "Worked for " + fmtElapsed(ms);
+}
+
+export function firstTs(turn) {
+  const stamps = [];
+  for (const it of [turn.user, ...(turn.work || []), ...(turn.replies || [])]) {
+    if (it && it.ts) stamps.push(Number(it.ts));
+  }
+  return stamps.length ? Math.min(...stamps) : 0;
 }
 
 export function stepLabel(it) {

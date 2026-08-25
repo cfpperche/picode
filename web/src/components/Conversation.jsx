@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
-import { groupTurns, fmtWorked, stepLabel, turnDurationMs } from "../lib/turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden }) {
   const turns = groupTurns(items);
+  let lastTurn = -1;
+  turns.forEach((t, i) => { if (t.kind === "turn") lastTurn = i; });
   return (
     <div id="conversation" className="conversation" ref={convRef} onScroll={onScroll} style={{ visibility: hidden ? "hidden" : "visible" }}>
       <div className="conv-col">
@@ -14,7 +16,8 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
             acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} />);
           } else {
             const n = acc.n++;
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} onToggleTool={onToggleTool} />);
+            const live = i === lastTurn && t.replies.length === 0;
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} onToggleTool={onToggleTool} />);
           }
           return acc;
         }, { n: 0, nodes: [] }).nodes}
@@ -46,23 +49,34 @@ function Loose({ it, items, onToggleFiles }) {
   return null;
 }
 
-function Turn({ turn, i, onToggleTool }) {
-  const live = turn.work.length > 0 && turn.replies.length === 0;
+function Turn({ turn, i, live, onToggleTool }) {
   const [open, setOpen] = useState(live);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [live]);
   const shown = live || open;
+  const started = firstTs(turn) || now;
+  const label = live
+    ? "Working… " + fmtElapsed(now - started)
+    : fmtWorked(turnDurationMs(turn));
+  const showWork = turn.work.length > 0 || live;
   return (
     <div className="turn" id={"turn-" + i} data-rail={"turn-" + i}>
       {turn.user ? <Block it={turn.user} /> : null}
-      {turn.work.length > 0 ? (
-        <div className={"work" + (shown ? " open" : "")}>
-          <button type="button" className="work-head" onClick={() => setOpen((v) => !v)}>
-            <span>{live ? "Working…" : fmtWorked(turnDurationMs(turn))}</span>
-            <span className="tp-chevron">›</span>
+      {showWork ? (
+        <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
+          <button type="button" className="work-head" onClick={() => !live && setOpen((v) => !v)}>
+            <span className="work-dot" aria-hidden="true" />
+            <span>{label}</span>
+            {!live ? <span className="tp-chevron">›</span> : null}
           </button>
-          {shown ? (
+          {shown && turn.work.length > 0 ? (
             <ol className="work-steps">
               {turn.work.map((it, j) => (
-                <li key={it.id || j} className="work-step">
+                <li key={it.id || j} className={"work-step" + (live && j === turn.work.length - 1 ? " current" : "")}>
                   <span className="work-step-lab">{stepLabel(it)}</span>
                   {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} /> : null}
                 </li>
@@ -77,15 +91,13 @@ function Turn({ turn, i, onToggleTool }) {
 }
 
 function Block({ it }) {
+  const user = it.cls === "user";
+  const md = !user && it.cls !== "thinking";
   return (
     <div className={"block " + (it.cls || "")}>
-      <div className="actor">
-        {it.actor}
-        {it.chip ? <span className="chip">{it.chip}</span> : null}
-        {it.cls !== "user" && it.cls !== "thinking" && it.text ? <CopyBtn text={it.text} /> : null}
-      </div>
-      <div className={"block-content" + (it.cls !== "user" && it.cls !== "thinking" ? " md" : "")}>
-        {it.cls !== "user" && it.cls !== "thinking" ? <Markdown>{it.text || ""}</Markdown> : it.text}
+      {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
+      <div className={"block-content" + (md ? " md" : "")}>
+        {md ? <Markdown>{it.text || ""}</Markdown> : it.text}
       </div>
     </div>
   );

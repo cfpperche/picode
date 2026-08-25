@@ -297,6 +297,7 @@ export default function App() {
           detail: JSON.stringify(ev.args || {}, null, 2),
           expanded: false,
           change,
+          ts: Date.now(),
         }]);
         queueMicrotask(scrollConv);
         break;
@@ -320,14 +321,13 @@ export default function App() {
         setDraft("");
         if (text) {
           setItems((cur) => [...cur, {
-            kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt", text,
+            kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt", text, ts: Date.now(),
           }]);
         }
         queueMicrotask(scrollConv);
         break;
       }
       case "task_delivered":
-        setItems((cur) => [...cur, { kind: "sys", text: `✓ delivered (${ev.kind})` }]);
         break;
       case "task_failed":
         setItems((cur) => [...cur, { kind: "sys", text: `✗ failed: ${ev.error}`, err: true }]);
@@ -460,7 +460,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, payload, source: "user" }),
       });
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload }]);
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, ts: Date.now() }]);
       setDraft("");
       pendingPayload.current = "";
       if (agent.mode === "interactive") {
@@ -767,5 +767,5 @@ function appendDelta(cur, cls, actor, delta) {
     next[next.length - 1] = { ...last, text: last.text + delta };
     return next;
   }
-  return [...cur, { kind: "block", cls, actor, text: delta }];
+  return [...cur, { kind: "block", cls, actor, text: delta, ts: Date.now() }];
 }

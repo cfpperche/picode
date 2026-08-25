@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupTurns, fmtWorked, stepLabel, turnDurationMs } from "./turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs } from "./turns.js";
 
 test("groups user / work / reply", () => {
   const t = groupTurns([
@@ -14,6 +14,7 @@ test("groups user / work / reply", () => {
   assert.equal(t[0].replies.length, 1);
   assert.equal(turnDurationMs(t[0]), 4000);
   assert.equal(fmtWorked(4000), "Worked for 4s");
+  assert.equal(fmtElapsed(4000), "4s");
 });
 
 test("step labels stay factual", () => {
