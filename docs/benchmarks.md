@@ -69,6 +69,11 @@ state = one line + one action; statusbar = live state, not hints).
 
 ### The bar — every UI change must satisfy
 
+**Control rhythm (shadcn `h-9` / HIG)**
+- [ ] Adjacent controls share `--ctl-h` (36px): input + button in a row are
+      the same height. Mismatched heights in one axis are FAIL.
+- [ ] Buttons are `inline-flex` + `nowrap`; icon and label stay one line.
+
 **Feel (Linear)**
 - [ ] Interactions respond in <100ms; never a frozen frame without feedback.
 - [ ] Keyboard-first: every primary action reachable without the mouse.

@@ -18,6 +18,11 @@ styling, error messages.
 - [ ] Dark-first: design looks native in dark mode; light mode derived.
 - [ ] Density with breathing room (power tool, not toy).
 
+### Control rhythm (shadcn / HIG)
+- [ ] Input + button (or any controls on one row) share `--ctl-h` (36px).
+      Uneven heights in a row are FAIL.
+- [ ] Icon + label on a button stay one line (`nowrap` + `inline-flex`).
+
 ### Primitives
 - [ ] New chrome uses Radix, cmdk, or native controls. Homemade dialogs,
       switches, selects, or menus are FAIL unless the commit says why no

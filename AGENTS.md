@@ -108,6 +108,8 @@ supersede it with a new one instead.
   (ADR-0008) is the utility layer; tokens stay CSS variables. Roll a custom
   control only when no library/pattern covers the case — and say why.
   Native `<select>` / `<input>` still beat a one-off styled fake.
+- **One control height.** Adjacent input/select/button use `--ctl-h` (36px).
+  A row of mixed heights is FAIL (shadcn `h-9` / HIG).
 - **Empty states are required.** A list, gallery, or collapsible section
   that can have zero items must show a one-line placeholder (and the add
   action if one exists). Never a blank well. Never a "0" count badge.
