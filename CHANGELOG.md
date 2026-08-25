@@ -20,6 +20,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Slash parity matrix: TUI `/` vs PiCode composer
+  (`docs/design/slash-parity.md`). 7 of 24 have UI.
 - Workspace groups collapse (agent count), hover-only action icons, and a
   real git branch/worktree line (or "local").
 - Sidebar splits **Agents** (`~/.picode/work/<name>/`, optional folder) and **Workspaces** with many

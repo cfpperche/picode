@@ -1,5 +1,5 @@
-// Native pi slash commands we surface in the composer (parity with the TUI).
-// run: login | focus-model | focus-thinking | focus-provider | term
+// Composer slash list. Matrix + statuses: docs/design/slash-parity.md
+// Target: each /x opens PiCode UI. run:term is a recorded debt.
 export const SLASH = [
   { id: "login", label: "/login", hint: "Sign in a provider", run: "login" },
   { id: "logout", label: "/logout", hint: "Clear credentials", run: "term" },

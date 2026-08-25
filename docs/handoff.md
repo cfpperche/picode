@@ -56,9 +56,9 @@ What exists right now:
 
 ## Next up
 
-1. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
-2. Pretty search cards in chat, gated on `capabilities.webSearch`.
-3. Sibling agents per workspace (API/store ready; UI still one default).
+1. Slash parity (`docs/design/slash-parity.md`): `/settings` → `#/settings`, then row by row.
+2. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
+3. Pretty search cards in chat, gated on `capabilities.webSearch`.
 
 ## Known debts / open questions
 
