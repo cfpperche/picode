@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Palette, session picker, kind chip, slash menu, and user menu use cmdk / Radix.
+  Icons are lucide-react.
 - Toasts use Sonner. Position and options live in Preferences.
 - `/quit` stops the agent and closes its tab.
 - `/session` dialog: name, file, git, model, usage, plus copy/rename/new/compact/tree.

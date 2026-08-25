@@ -7,6 +7,7 @@ import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
+import { Command } from "cmdk";
 import { filterSlash } from "../lib/slash.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
@@ -289,21 +290,40 @@ export default function Composer({
           {expanded ? <IconCollapse /> : <IconExpand />}
         </button>
         {hits.length > 0 && !voice && (
-          <ul className="slash-menu" role="listbox">
-            {hits.map((c, i) => (
-              <li
-                key={c.id}
-                className={"slash-item" + (i === slashIdx ? " active" : "")}
-                onMouseEnter={() => setSlashIdx(i)}
-              >
-                <button type="button" className="slash-label" onClick={() => pickSlash(c)}>{c.label}</button>
-                <a className="slash-hint" href={commandDocUrl(c.id)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                  <IconDocs />
-                  {c.hint}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <Command
+            className="slash-menu"
+            shouldFilter={false}
+            loop
+            value={hits[slashIdx] ? hits[slashIdx].id : ""}
+            onValueChange={(id) => {
+              const i = hits.findIndex((c) => c.id === id);
+              if (i >= 0) setSlashIdx(i);
+            }}
+          >
+            <Command.List>
+              {hits.map((c) => (
+                <Command.Item
+                  key={c.id}
+                  value={c.id}
+                  className={"slash-item" + (c.id === (hits[slashIdx] && hits[slashIdx].id) ? " active" : "")}
+                  onSelect={() => pickSlash(c)}
+                >
+                  <span className="slash-label">{c.label}</span>
+                  <a
+                    className="slash-hint"
+                    href={commandDocUrl(c.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <IconDocs />
+                    {c.hint}
+                  </a>
+                </Command.Item>
+              ))}
+            </Command.List>
+          </Command>
         )}
         {sessionBar ? <div className="composer-tools">{sessionBar}</div> : null}
         {voice ? (

@@ -45,7 +45,6 @@ export default function App() {
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
-  const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
@@ -91,28 +90,21 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
-      setMenuOpen(false);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   useEffect(() => {
-    const onDoc = (e) => { if (!e.target.closest("#usermenu")) setMenuOpen(false); };
     const onKey = (e) => {
-      if (e.key === "Escape") setMenuOpen(false);
       const pal = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "k";
       if (pal) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }
     };
-    document.addEventListener("click", onDoc);
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const loadWorkspaces = useCallback(async () => {
@@ -696,14 +688,11 @@ export default function App() {
         newCfg={newCfg}
         onNewCfg={setNewCfg}
         userMenu={{
-          open: menuOpen,
-          onToggle: () => setMenuOpen((v) => !v),
-          onClose: () => setMenuOpen(false),
           host,
           version,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (name) => { go(name); setMenuOpen(false); },
+          onNavigate: go,
         }}
       />
 

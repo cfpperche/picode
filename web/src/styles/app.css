@@ -397,7 +397,7 @@ body {
 .um-sub { font-size: 11px; color: var(--text-secondary); }
 .um-chev { color: var(--text-secondary); flex: none; }
 .um-popover {
-  position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40;
+  z-index: 40;
   width: 236px; padding: 6px;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: 8px;
@@ -430,7 +430,7 @@ body {
   background: none; border: none; color: var(--text-primary);
   font-family: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none;
 }
-.um-item:hover { background: var(--bg-panel); }
+.um-item:hover, .um-item[data-highlighted] { background: var(--bg-panel); outline: none; }
 .um-item svg { color: var(--text-secondary); }
 .um-version {
   display: flex; justify-content: space-between; padding: 6px 8px 3px;
@@ -485,7 +485,6 @@ body {
   padding: 0; background: none; border: 0; position: relative;
 }
 .session-bar.inline .session-pop {
-  top: auto; bottom: calc(100% + 6px); left: 0;
   display: flex; flex-direction: column; gap: 6px;
 }
 .session-pop > .combo-input { margin: 0; flex: none; }
@@ -493,7 +492,6 @@ body {
   min-width: 1.1em; font-size: 10.5px; color: var(--text-secondary);
 }
 .session-pop {
-  position: absolute; top: calc(100% + 4px); left: 12px; bottom: auto;
   min-width: 360px; max-width: min(440px, calc(100vw - 24px));
   max-height: min(320px, calc(100vh - 120px));
   overflow: auto; z-index: 20;
@@ -1076,7 +1074,7 @@ body {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 7px 10px; border-radius: 6px;
 }
-.slash-item.active { background: var(--bg-hover); }
+.slash-item.active, .slash-item[aria-selected="true"] { background: var(--bg-hover); }
 .slash-label {
   border: 0; background: none; padding: 0; font: inherit; cursor: pointer;
   font-family: var(--mono); font-size: 12.5px; color: var(--text-primary);
@@ -1236,27 +1234,31 @@ body {
 .palette-root {
   position: fixed; inset: 0; z-index: 50;
   background: color-mix(in srgb, #000 35%, transparent);
-  display: grid; place-items: start center; padding-top: 14vh;
 }
 .palette {
+  position: fixed; z-index: 51; left: 50%; top: 14vh; transform: translateX(-50%);
   width: min(520px, calc(100vw - 32px));
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel); overflow: hidden;
   box-shadow: 0 12px 40px color-mix(in srgb, #000 28%, transparent);
 }
-#palette-input {
+.palette-input {
   width: 100%; background: transparent; border: none; outline: none;
   color: var(--text-primary); font-family: inherit; font-size: 13px;
   padding: 12px 14px; border-bottom: 1px solid var(--border);
 }
-#palette-input::placeholder { color: var(--text-secondary); }
+.palette-input::placeholder { color: var(--text-secondary); }
 .palette-list { list-style: none; padding: 4px; margin: 0; max-height: 320px; overflow-y: auto; }
+.palette [cmdk-group-heading] {
+  padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-secondary);
+}
 .palette-item {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 7px 10px; border-radius: var(--radius-ctl); cursor: pointer;
   font-size: 12.5px;
 }
-.palette-item.active { background: var(--bg-hover); }
+.palette-item[aria-selected="true"], .palette-item.active { background: var(--bg-hover); }
 .palette-label { color: var(--text-primary); }
 .palette-group { color: var(--text-secondary); font-family: var(--mono); font-size: 11px; }
 .palette-empty { padding: 10px; color: var(--text-secondary); font-size: 12.5px; }

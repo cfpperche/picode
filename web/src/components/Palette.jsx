@@ -1,68 +1,48 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Command } from "cmdk";
 
 export default function Palette({ open, workspaces, onClose, onRun }) {
-  const [q, setQ] = useState("");
-  const [idx, setIdx] = useState(0);
-  const inputRef = useRef(null);
-
   const actions = useMemo(() => buildActions(workspaces), [workspaces]);
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return actions;
-    return actions.filter((a) => a.label.toLowerCase().includes(s) || a.group.toLowerCase().includes(s));
-  }, [actions, q]);
-
-  useEffect(() => {
-    if (open) {
-      setQ("");
-      setIdx(0);
-      requestAnimationFrame(() => inputRef.current && inputRef.current.focus());
+  const groups = useMemo(() => {
+    const m = new Map();
+    for (const a of actions) {
+      if (!m.has(a.group)) m.set(a.group, []);
+      m.get(a.group).push(a);
     }
-  }, [open]);
-
-  useEffect(() => { setIdx(0); }, [q]);
-
-  if (!open) return null;
-
-  function run(i) {
-    const a = filtered[i];
-    if (!a) return;
-    onClose();
-    onRun(a);
-  }
+    return [...m.entries()];
+  }, [actions]);
 
   return (
-    <div id="palette-root" className="palette-root" onMouseDown={(e) => { if (e.target.id === "palette-root") onClose(); }}>
-      <div id="palette" className="palette" role="dialog" aria-label="Command palette">
-        <input
-          id="palette-input"
-          ref={inputRef}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Switch agent, run, stop…"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") { e.preventDefault(); onClose(); }
-            if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => Math.min(filtered.length - 1, i + 1)); }
-            if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => Math.max(0, i - 1)); }
-            if (e.key === "Enter") { e.preventDefault(); run(idx); }
-          }}
-        />
-        <ul className="palette-list">
-          {filtered.length === 0 ? <li className="palette-empty">No matches</li> : null}
-          {filtered.map((a, i) => (
-            <li
-              key={a.id}
-              className={"palette-item" + (i === idx ? " active" : "")}
-              onMouseEnter={() => setIdx(i)}
-              onClick={() => run(i)}
-            >
-              <span className="palette-label">{a.label}</span>
-              <span className="palette-group">{a.group}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="palette-root" />
+        <Dialog.Content className="palette" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Title className="sr-only">Command palette</Dialog.Title>
+          <Command loop>
+            <Command.Input className="palette-input" placeholder="Switch agent, run, stop…" />
+            <Command.List className="palette-list">
+              <Command.Empty className="palette-empty">No matches</Command.Empty>
+              {groups.map(([group, items]) => (
+                <Command.Group key={group} heading={group} className="palette-group">
+                  {items.map((a) => (
+                    <Command.Item
+                      key={a.id}
+                      value={a.label + " " + a.group}
+                      className="palette-item"
+                      onSelect={() => { onClose(); onRun(a); }}
+                    >
+                      <span className="palette-label">{a.label}</span>
+                      <span className="palette-group">{a.group}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ))}
+            </Command.List>
+          </Command>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
