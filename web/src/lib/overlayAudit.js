@@ -30,8 +30,28 @@ export function overlayAudit(win = globalThis) {
       });
     }
   }
+  const rows = [];
+  for (const row of doc.querySelectorAll("[data-align-row]")) {
+    const rs = [];
+    for (const el of row.children) {
+      const s = win.getComputedStyle(el);
+      if (s.display === "none" || s.visibility === "hidden") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      rs.push({ top: r.top, height: r.height });
+    }
+    if (rs.length < 2) continue;
+    const misaligned = rs.some((r) => Math.abs(r.height - rs[0].height) > 1 || Math.abs(r.top - rs[0].top) > 1);
+    rows.push({
+      misaligned,
+      heights: rs.map((r) => Math.round(r.height)),
+      tops: rs.map((r) => Math.round(r.top)),
+    });
+  }
   return {
-    ok: hits.every((h) => !h.clipTop && !h.clipBottom && !h.clipLeft && !h.clipRight),
+    ok: hits.every((h) => !h.clipTop && !h.clipBottom && !h.clipLeft && !h.clipRight)
+      && rows.every((r) => !r.misaligned),
     hits,
+    rows,
   };
 }

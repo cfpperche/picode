@@ -92,9 +92,9 @@ export default function Packages({ hidden }) {
       </form>
       <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
 
-      <section className="pkg-toolbar">
+      <section className="pkg-toolbar" data-align-row>
         <input
-          className="dlg-input pkg-search"
+          className="pkg-search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filter packages…"

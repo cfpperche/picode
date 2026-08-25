@@ -18,6 +18,9 @@ Any one of these on a captured screenshot or geometry audit:
 4. **Double scrollbar** on one surface
 5. **Dead hover** — primary action paints the same color as its parent
 6. **Geometry clip** — `overlayAudit` reports `ok: false`
+7. **Uneven row** — `[data-align-row]` children differ in height or top
+   by more than 1px (toolbar/filter lines). Untagged rows are invisible
+   to the auditor — mark them.
 
 If you **noticed** a defect in reasoning and still said done, that is a
 contract violation (AGENTS.md honesty). Fix it or emit FAIL. Never ship it.
