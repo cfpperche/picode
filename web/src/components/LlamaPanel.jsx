@@ -6,21 +6,17 @@ import { askConfirm } from "../lib/confirm.js";
 export default function LlamaPanel() {
   const [url, setUrl] = useState("");
   const [ok, setOk] = useState(false);
-  const [err, setErr] = useState("");
   const [models, setModels] = useState([]);
   const [busy, setBusy] = useState("");
 
   async function refresh() {
-    setErr("");
     try {
       const res = await api("/api/llama");
       setUrl(res.url || "");
       setOk(!!res.ok);
-      setErr(res.error || "");
       setModels(res.models || []);
-    } catch (ex) {
+    } catch {
       setOk(false);
-      setErr(ex.message || "unreachable");
       setModels([]);
     }
   }
@@ -76,7 +72,7 @@ export default function LlamaPanel() {
         <h3>llama.cpp</h3>
         <button type="button" className="btn btn-ghost btn-sm" onClick={refresh}>Retry</button>
       </div>
-      <p className="settings-desc">{url || "No router URL"}{ok ? "" : err ? " — " + err : " — unreachable"}</p>
+      <p className="settings-desc">{url || "No router URL"}{ok ? "" : " — unreachable"}</p>
       {!ok ? (
         <p className="side-empty">Start llama-server, then Retry.</p>
       ) : models.length === 0 ? (
