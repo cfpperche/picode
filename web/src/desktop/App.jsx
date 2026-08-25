@@ -451,6 +451,13 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
+  async function abortTurn() {
+    if (!agent) return;
+    try {
+      await api("/api/agents/" + agent.id + "/abort", { method: "POST" });
+    } catch (e) { toastError(e); }
+  }
+
   async function sendTask() {
     const payload = draft.trim();
     if (!payload || !selected || !agent) return;
@@ -696,6 +703,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               status, streaming, onToggleDock: toggleDock, onStop: () => selectedId && stopAgent(selectedId),
+              onAbort: abortTurn,
             }}
           />
 

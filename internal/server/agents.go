@@ -23,6 +23,7 @@ func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/login", handleAgentLogin(deps))
 	mux.HandleFunc("POST /api/agents/{id}/command", handleAgentCommand(deps))
 	mux.HandleFunc("POST /api/agents/{id}/compact", handleAgentCompact(deps))
+	mux.HandleFunc("POST /api/agents/{id}/abort", handleAgentAbort(deps))
 }
 
 // agentRunMode reports how an agent is currently running.
@@ -103,6 +104,24 @@ func handleManagedStop(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"mode": modeStopped})
+	}
+}
+
+func handleAgentAbort(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		agentID := r.PathValue("id")
+		ma := deps.Runtime.Get(agentID)
+		if ma == nil {
+			writeErr(w, http.StatusConflict, "agent is not running")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+		defer cancel()
+		if err := ma.Abort(ctx); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
 

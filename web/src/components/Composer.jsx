@@ -4,13 +4,13 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend } from "./Icons.jsx";
+import { IconSend, IconStop } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
-  stopped, onToggleDock, onStop, catalog, cfg, onConfig, onSlash, statusBar, onCompact,
+  stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact,
 }) {
   const ta = useRef(null);
   const [slashIdx, setSlashIdx] = useState(0);
@@ -79,10 +79,15 @@ export default function Composer({
           <div className="composer-right">
             <span id="chat-status-text" className="sr-only">{status}{streaming ? " streaming" : ""}</span>
             <button id="btn-dock" className="cockpit-chip" hidden={stopped} onClick={onToggleDock}>Terminal</button>
-            <button id="btn-stop-agent" className="cockpit-chip cockpit-chip-danger" hidden={stopped} onClick={onStop}>Stop</button>
-            <button id="task-send" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={onSend}>
-              <IconSend size={16} />
-            </button>
+            {streaming ? (
+              <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
+                <IconStop size={16} />
+              </button>
+            ) : (
+              <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={onSend}>
+                <IconSend size={16} />
+              </button>
+            )}
           </div>
         </div>
         <ComposerStatus bar={statusBar} onCompact={onCompact} />

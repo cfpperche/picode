@@ -286,6 +286,12 @@ func (ma *ManagedAgent) SetSessionName(ctx context.Context, name string) error {
 	return err
 }
 
+// Abort interrupts the current turn (RPC abort). The process stays up.
+func (ma *ManagedAgent) Abort(ctx context.Context) error {
+	_, err := ma.client.Send(ctx, Command{Type: "abort"})
+	return err
+}
+
 // Compact asks pi to summarize older turns (RPC compact).
 func (ma *ManagedAgent) Compact(ctx context.Context) (Response, error) {
 	return ma.client.Send(ctx, Command{Type: "compact"})
