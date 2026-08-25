@@ -22,6 +22,17 @@ const ICON = {
   bedrock: "bedrock",
   "github-copilot": "githubcopilot",
   copilot: "githubcopilot",
+  cerebras: "cerebras",
+  nvidia: "nvidia",
+  azure: "azure",
+  "azure-openai-responses": "azure",
+  cloudflare: "cloudflare",
+  "cloudflare-ai-gateway": "cloudflare",
+  "cloudflare-workers-ai": "cloudflare",
+  zai: "zhipu",
+  "zai-coding-cn": "zhipu",
+  opencode: "opencode",
+  minimax: "minimax",
 };
 
 const ICON_BASE = "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/";

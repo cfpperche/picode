@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { faceSlice, providerFaviconUrl, providerId, providerLetter } from "../lib/providerIcon.js";
 
-export function ProviderFace({ agent }) {
-  const id = providerId(agent);
-  const src = providerFaviconUrl(id);
-  const letter = providerLetter(id || (agent && agent.name));
+export function ProviderFace({ agent, id }) {
+  const pid = (id || providerId(agent)).toLowerCase();
+  const src = providerFaviconUrl(pid);
+  const letter = providerLetter(pid || (agent && agent.name));
   const [fail, setFail] = useState(false);
-  const title = id || (agent && agent.name) || "agent";
+  const title = pid || (agent && agent.name) || "agent";
   if (!src || fail) {
     return <span className="ws-face" title={title}>{letter}</span>;
   }

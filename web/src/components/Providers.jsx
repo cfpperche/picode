@@ -6,6 +6,7 @@ import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, parseForm } from "../lib/schemas.js";
 import { go } from "../lib/routes.js";
+import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 
 export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
@@ -104,6 +105,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <ul className="prov-list">
             {signed.map((p) => (
               <li key={p.id} className="prov-row">
+                <ProviderFace id={p.id} />
                 <span className="prov-id">{p.id}</span>
                 <span className="prov-auth in">{p.authType === "oauth" ? "account" : "api key"}</span>
                 {p.login !== "oauth" ? (
@@ -124,6 +126,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <ul className="prov-list">
             {recentRows.map((p) => (
               <li key={p.id} className="prov-row muted">
+                <ProviderFace id={p.id} />
                 <span className="prov-id">{p.id}</span>
                 <span className="prov-auth">signed out</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => { chooseProvider(p); setAdd(true); }}>Sign in</button>
@@ -150,6 +153,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                   <Command.Empty className="combo-empty">No matches</Command.Empty>
                   {available.map((p) => (
                     <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
+                      <ProviderFace id={p.id} />
                       <span>{p.id}</span>
                       <span className="combo-hint">{p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                     </Command.Item>
