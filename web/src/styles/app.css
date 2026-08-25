@@ -330,8 +330,15 @@ body {
 
 .conversation {
   position: absolute; inset: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   display: flex; flex-direction: column;
+}
+.conversation::-webkit-scrollbar { width: 10px; }
+.conversation::-webkit-scrollbar-thumb {
+  background: var(--border-strong); border-radius: 99px;
 }
 .conv-col { width: 100%; max-width: 760px; margin: 0 auto; padding: 16px 20px 200px; }
 
@@ -413,12 +420,17 @@ body {
 
 /* ============ composer ============ */
 .composer-wrap {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
-  padding: 28px 20px 14px;
-  background: linear-gradient(to bottom, transparent, var(--bg-base) 36%);
+  position: absolute; left: 0; right: 12px; bottom: 0; z-index: 4;
+  padding: 12px 20px 14px;
+  background: none;
   pointer-events: none;
+  display: flex; justify-content: center;
 }
-.composer-wrap .composer { pointer-events: auto; }
+.composer-wrap .composer {
+  pointer-events: auto;
+  width: 100%;
+  box-shadow: 0 -16px 28px color-mix(in srgb, var(--bg-base) 80%, transparent);
+}
 .composer {
   max-width: 820px; margin: 0 auto; position: relative;
   background: var(--bg-panel); border: 1px solid var(--border-strong);
