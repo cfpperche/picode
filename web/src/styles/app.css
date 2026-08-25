@@ -1088,8 +1088,10 @@ body {
 .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .settings-head h2 { font-size: 16px; font-weight: 650; }
 .settings-head .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; color: var(--text-secondary); }
-.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); }
-.settings-section { padding: 20px 24px; }
+.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 20px 24px; }
+.settings-section { padding: 20px 0; }
+.settings-section:first-child { padding-top: 0; }
+.settings-section:last-child { padding-bottom: 0; }
 .settings-section + .settings-section { border-top: 1px solid var(--border); }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
