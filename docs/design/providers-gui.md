@@ -47,7 +47,7 @@ Some ids support **both** (xAI, OpenRouter, Anthropic).
 |---|---|---|
 | **P0** | Add provider; full list; method picker; API key save; roster + type badge; `/login` opens Add | OAuth |
 | **P1** | llama.cpp row (path, optional key) on this page | — |
-| **P2** | OAuth: only if pi adds RPC `login`, or we accept a PiCode PKCE helper (new ADR) | Reimplement 6 OAuth stacks silently |
+| **P2** | Account login via our HTTPS callback into `auth.json` | OpenRouter (API key in P0). xAI/Grok skipped. |
 
 ## Constraints
 
@@ -56,8 +56,22 @@ Some ids support **both** (xAI, OpenRouter, Anthropic).
 - Zod + `noValidate`. `--ctl-h` on the dialog row.
 - Related pi doc on the public `/commands#login` page.
 
+## P2 account login (Claude + Codex)
+
+OpenRouter is **API key** (P0). Grok/xAI is out of scope (this agent runs on pi).
+Need: **Claude Pro/Max** and **ChatGPT Codex** — the TUI "Sign in with an account".
+
+Workaround (same idea as `/tree` → fork): we already have HTTPS on :8445 and
+we already write `auth.json`. Pi stores oauth as
+`{ type, access, refresh, expires }` (Codex also `accountId`).
+
+1. GUI Account → open the provider authorize URL in the **same browser**.
+2. Redirect to `https://localhost:8445/api/oauth/{anthropic|openai-codex}/callback`.
+3. Exchange code → write pi's oauth shape. Never echo tokens.
+4. Parallel: issue on pi for RPC `login` (like #8645).
+
+Cost: copy client_id / token URL from pi; they can drift.
+
 ## Open questions (need you only if we leave the default)
 
-- Default for `both`: land on **API key** (GUI-complete) with Account as
-  secondary. OK?
-- Copilot Enterprise hostname: skip until P2.
+- Copilot Enterprise hostname: skip until later.
