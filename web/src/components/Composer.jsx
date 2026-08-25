@@ -4,38 +4,43 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
 import {
   speechSupported, createRecognizer, mergeTranscript, humanizeSpeechError, discloseSttOnce,
+  unlockMic, speakText, stopSpeak,
 } from "../lib/speech.js";
 import { toast } from "../lib/toast.js";
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
-  stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar,
+  stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
   const rec = useRef(null);
   const wantListen = useRef(false);
+  const gen = useRef(0);
   const modeRef = useRef("off");
   const finals = useRef("");
   const dictateBase = useRef("");
   const valueRef = useRef(value);
   const streamingRef = useRef(!!streaming);
+  const prevStream = useRef(!!streaming);
+  const mutedRef = useRef(false);
   const [slashIdx, setSlashIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [voice, setVoice] = useState(false);
   const [listening, setListening] = useState(false);
   const [caption, setCaption] = useState("");
+  const [muted, setMuted] = useState(false);
   const hits = filterSlash(value);
-  const canTalk = speechSupported();
 
   useEffect(() => { valueRef.current = value; }, [value]);
   useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
 
   useEffect(() => {
     const el = ta.current;
@@ -48,19 +53,26 @@ export default function Composer({
   useEffect(() => { setSlashIdx(0); }, [value]);
 
   useEffect(() => {
-    return () => stopRec(true);
+    return () => stopRec();
   }, []);
 
   useEffect(() => {
     if (!voice) return;
     if (streaming) {
-      wantListen.current = false;
-      rec.current && rec.current.stop();
-      setListening(false);
+      stopRec();
+      stopSpeak();
       return;
     }
     startListen("voice");
   }, [streaming, voice]);
+
+  useEffect(() => {
+    const was = prevStream.current;
+    prevStream.current = !!streaming;
+    if (voice && was && !streaming && !mutedRef.current && lastReply) {
+      speakText(lastReply);
+    }
+  }, [streaming, voice, lastReply]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -90,27 +102,44 @@ export default function Composer({
     if (onSlash) onSlash(cmd);
   }
 
-  function stopRec(abort) {
+  function stopRec() {
     wantListen.current = false;
-    if (rec.current) {
-      if (abort) rec.current.abort();
-      else rec.current.stop();
-      rec.current = null;
-    }
+    gen.current += 1;
+    const r = rec.current;
+    rec.current = null;
     setListening(false);
+    if (r) try { r.abort(); } catch { /* already stopped */ }
   }
 
-  function startListen(mode) {
-    if (!canTalk) {
+  async function startListen(mode) {
+    const my = ++gen.current;
+    wantListen.current = false;
+    const prev = rec.current;
+    rec.current = null;
+    setListening(false);
+    if (prev) try { prev.abort(); } catch { /* already stopped */ }
+
+    if (!speechSupported()) {
       toast.error(humanizeSpeechError("not-supported"));
       return;
     }
-    stopRec(true);
+    try {
+      await unlockMic();
+    } catch {
+      if (my !== gen.current) return;
+      toast.error("Microphone permission denied.");
+      setCaption("Microphone blocked — click the mic to retry");
+      return;
+    }
+    if (my !== gen.current) return;
+    await new Promise((ok) => setTimeout(ok, 80));
+    if (my !== gen.current) return;
+
+    discloseSttOnce((m) => toast.info(m));
+    wantListen.current = true;
     modeRef.current = mode;
     finals.current = "";
     if (mode === "dictate") dictateBase.current = valueRef.current || "";
-    discloseSttOnce((m) => toast.info(m));
-    wantListen.current = true;
     try {
       rec.current = createRecognizer({
         onInterim: (t) => {
@@ -129,6 +158,7 @@ export default function Composer({
           if (code === "not-allowed" || code === "audio-capture") {
             wantListen.current = false;
             setListening(false);
+            setCaption("Microphone blocked — click the mic to retry");
           }
         },
         onEnd: () => {
@@ -140,7 +170,7 @@ export default function Composer({
             histPush(hist.current, text);
             onSend(text);
           }
-          if (wantListen.current && rec.current) {
+          if (wantListen.current && rec.current && my === gen.current) {
             try { rec.current.start(); setListening(true); } catch { /* restart race */ }
           }
         },
@@ -148,13 +178,13 @@ export default function Composer({
       rec.current.start();
       setListening(true);
     } catch (e) {
-      toast.error(humanizeSpeechError(e && e.message));
+      toast.error(humanizeSpeechError((e && e.message) || "failed"));
     }
   }
 
   function toggleDictate() {
     if (listening && modeRef.current === "dictate") {
-      stopRec(false);
+      stopRec();
       modeRef.current = "off";
       return;
     }
@@ -172,7 +202,8 @@ export default function Composer({
 
   function leaveVoice() {
     const leftover = (caption || finals.current || "").trim();
-    stopRec(true);
+    stopRec();
+    stopSpeak();
     modeRef.current = "off";
     setVoice(false);
     setCaption("");
@@ -181,11 +212,26 @@ export default function Composer({
   }
 
   function interrupt() {
+    stopSpeak();
     if (streaming) {
       if (onAbort) onAbort();
       return;
     }
-    stopRec(false);
+    stopRec();
+  }
+
+  function toggleMute() {
+    setMuted((m) => {
+      const next = !m;
+      if (next) stopSpeak();
+      else if (lastReply) {
+        const ok = speakText(lastReply);
+        if (!ok) toast.error("This browser cannot speak replies.");
+      } else {
+        toast.info("I'll speak the agent's replies.");
+      }
+      return next;
+    });
   }
 
   const dictating = listening && !voice;
@@ -279,17 +325,18 @@ export default function Composer({
                   className={"icon-btn" + (listening ? " listening" : "")}
                   title={listening ? "Stop listening" : "Listen"}
                   aria-pressed={listening}
-                  onClick={() => listening ? stopRec(false) : startListen("voice")}
+                  onClick={() => listening ? stopRec() : startListen("voice")}
                 >
                   <IconMic />
                 </button>
                 <button
                   type="button"
-                  className="icon-btn"
-                  title="Spoken replies come in V2"
-                  disabled
+                  className={"icon-btn" + (muted ? " muted" : "")}
+                  title={muted ? "Unmute replies" : "Mute replies"}
+                  aria-pressed={!muted}
+                  onClick={toggleMute}
                 >
-                  <IconSpeaker />
+                  {muted ? <IconSpeakerOff /> : <IconSpeaker />}
                 </button>
               </div>
             </div>

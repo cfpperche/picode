@@ -231,6 +231,16 @@ export function IconSpeaker({ size = 16 }) {
   );
 }
 
+export function IconSpeakerOff({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="m22 9-6 6" />
+      <path d="m16 9 6 6" />
+    </svg>
+  );
+}
+
 export function IconExpand({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

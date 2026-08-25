@@ -56,6 +56,40 @@ export function discloseSttOnce(notify, store) {
   return true;
 }
 
+export async function unlockMic(nav) {
+  const n = nav || (typeof navigator !== "undefined" ? navigator : null);
+  if (!n || !n.mediaDevices || !n.mediaDevices.getUserMedia) {
+    throw new Error("not-supported");
+  }
+  const stream = await n.mediaDevices.getUserMedia({ audio: true });
+  stream.getTracks().forEach((t) => t.stop());
+}
+
+export function speakable(text) {
+  return String(text || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/[#*_>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function speakText(text, win = globalThis) {
+  const synth = win && win.speechSynthesis;
+  if (!synth) return false;
+  const t = speakable(text);
+  if (!t) return false;
+  synth.cancel();
+  const u = new win.SpeechSynthesisUtterance(t);
+  u.lang = (win.navigator && win.navigator.language) || "pt-BR";
+  synth.speak(u);
+  return true;
+}
+
+export function stopSpeak(win = globalThis) {
+  if (win && win.speechSynthesis) win.speechSynthesis.cancel();
+}
+
 export function createRecognizer(opts = {}, win = globalThis) {
   const Ctor = speechCtor(win);
   if (!Ctor) throw new Error("not-supported");

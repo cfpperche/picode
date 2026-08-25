@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   speechSupported, mergeTranscript, collectResults, humanizeSpeechError, discloseSttOnce,
+  speakable, unlockMic,
 } from "./speech.js";
 
 test("speechSupported is false without a constructor", () => {
@@ -39,4 +40,20 @@ test("discloseSttOnce fires once", () => {
   assert.equal(discloseSttOnce((m) => notes.push(m), store), true);
   assert.equal(discloseSttOnce((m) => notes.push(m), store), false);
   assert.equal(notes.length, 1);
+});
+
+test("speakable strips fences and marks", () => {
+  assert.equal(speakable("hello **world**"), "hello world");
+  assert.equal(speakable("x\n```js\ncode\n```\ny"), "x y");
+});
+
+test("unlockMic stops tracks after grant", async () => {
+  const stopped = [];
+  const nav = {
+    mediaDevices: {
+      getUserMedia: async () => ({ getTracks: () => [{ stop: () => stopped.push(1) }] }),
+    },
+  };
+  await unlockMic(nav);
+  assert.equal(stopped.length, 1);
 });

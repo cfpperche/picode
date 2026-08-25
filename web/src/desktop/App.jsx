@@ -665,6 +665,7 @@ export default function App() {
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               status, streaming, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
+              lastReply: lastAssistantText(items),
               sessionBar: selectedId ? (
                 <SessionBar
                   inline
@@ -764,6 +765,14 @@ export default function App() {
       <PromptDialog />
     </div>
   );
+}
+
+function lastAssistantText(items) {
+  for (let i = (items || []).length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it && it.kind === "block" && it.cls !== "user" && it.cls !== "thinking" && it.text) return it.text;
+  }
+  return "";
 }
 
 function appendDelta(cur, cls, actor, delta) {

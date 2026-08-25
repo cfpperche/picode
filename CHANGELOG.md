@@ -17,6 +17,11 @@ to the `[Unreleased]` section. The repository's official language is English
   Ctrl+Shift+O). Voice replaces the composer like Grok on x.ai; silence
   sends through pi. Dictation stays in the textarea until Send.
 
+### Fixed
+
+- Voice composer mic actually requests the microphone (and retries).
+  Speaker toggles spoken replies (browser TTS) instead of a dead control.
+
 ### Changed
 
 - Agent cockpit lives in the **composer**: searchable provider, model,
