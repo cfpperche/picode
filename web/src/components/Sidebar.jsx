@@ -62,7 +62,7 @@ export default function Sidebar({
           </span>
         </div>
         <div className="ws-row2">
-          <span className="ws-path" title={ws ? ws.path : "unbound"}>{ws ? ws.path : "unbound"}</span>
+          <span className="ws-path" title={ws ? ws.path : "~"}>{ws ? ws.path : "~"}</span>
           <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
             <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !termView} title="Chat" onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
             <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !!termView} title="Terminal" onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
@@ -84,8 +84,8 @@ export default function Sidebar({
 
       <div className="side-section">
         <div className="side-head">
-          <span className="side-title">Free</span>
-          <button type="button" className="btn btn-ghost btn-sm" title="New unbound agent" onClick={onNewFree}>+ Agent</button>
+          <span className="side-title">Agents</span>
+          <button type="button" className="btn btn-ghost btn-sm" title="New agent (starts in your home folder)" onClick={onNewFree}>+ Agent</button>
         </div>
         {showForm && formKind === "free" ? (
           <form className="form-new" onSubmit={onSubmit}>
