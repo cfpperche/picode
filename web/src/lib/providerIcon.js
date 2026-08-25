@@ -1,41 +1,39 @@
 export const FACE_MAX = 5;
 
-const HOST = {
-  anthropic: "anthropic.com",
-  openai: "openai.com",
-  "openai-codex": "openai.com",
-  xai: "x.ai",
-  google: "gemini.google.com",
-  gemini: "gemini.google.com",
-  "google-gemini": "gemini.google.com",
-  groq: "groq.com",
-  openrouter: "openrouter.ai",
-  mistral: "mistral.ai",
-  deepseek: "deepseek.com",
-  ollama: "ollama.com",
-  cohere: "cohere.com",
-  together: "together.ai",
-  fireworks: "fireworks.ai",
-  perplexity: "perplexity.ai",
-  huggingface: "huggingface.co",
-  "amazon-bedrock": "aws.amazon.com",
-  bedrock: "aws.amazon.com",
-  "github-copilot": "github.com",
-  copilot: "github.com",
+const ICON = {
+  anthropic: "claude",
+  openai: "openai",
+  "openai-codex": "openai",
+  xai: "grok",
+  google: "gemini",
+  gemini: "gemini",
+  "google-gemini": "gemini",
+  groq: "groq",
+  openrouter: "openrouter",
+  mistral: "mistral",
+  deepseek: "deepseek",
+  ollama: "ollama",
+  cohere: "cohere",
+  together: "together",
+  fireworks: "fireworks",
+  perplexity: "perplexity",
+  huggingface: "huggingface",
+  "amazon-bedrock": "bedrock",
+  bedrock: "bedrock",
+  "github-copilot": "githubcopilot",
+  copilot: "githubcopilot",
 };
+
+const ICON_BASE = "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/";
 
 export function providerId(agent) {
   return String((agent && agent.provider) || "").toLowerCase();
 }
 
-export function providerHost(id) {
-  return HOST[String(id || "").toLowerCase()] || "";
-}
-
 export function providerFaviconUrl(id) {
-  const host = providerHost(id);
-  if (!host) return "";
-  return "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(host) + "&sz=32";
+  const name = ICON[String(id || "").toLowerCase()];
+  if (!name) return "";
+  return ICON_BASE + name + ".svg";
 }
 
 export function providerLetter(id) {

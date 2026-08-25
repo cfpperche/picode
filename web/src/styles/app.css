@@ -322,12 +322,15 @@ body {
 .ws-faces { display: flex; align-items: center; flex: none; }
 .ws-face {
   width: 16px; height: 16px; border-radius: 50%;
-  border: 1.5px solid var(--bg-panel); background: var(--bg-hover);
-  margin-left: -6px; object-fit: cover; display: grid; place-items: center;
+  border: 1.5px solid var(--bg-panel); background: #fff;
+  margin-left: -6px; object-fit: contain; padding: 1px;
+  display: grid; place-items: center;
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
+  box-sizing: border-box;
 }
-.ws-face:first-child { margin-left: 0; }
-.ws-face-more { font-size: 8px; padding: 0 2px; width: auto; min-width: 16px; }
+.ws-row1 > .ws-face { margin-left: 0; flex: none; }
+.ws-faces .ws-face:first-child { margin-left: 0; }
+.ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
 .ws-group-actions { display: flex; gap: 2px; flex: none; opacity: 0; }
 .ws-group:hover .ws-group-actions { opacity: 1; }
 .ws-item {

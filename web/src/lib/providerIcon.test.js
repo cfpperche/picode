@@ -11,7 +11,8 @@ test("faceSlice caps at 5", () => {
 });
 
 test("providerFaviconUrl", () => {
-  assert.ok(providerFaviconUrl("xai").includes("x.ai"));
+  assert.ok(providerFaviconUrl("xai").includes("grok.svg"));
+  assert.ok(providerFaviconUrl("anthropic").includes("claude.svg"));
   assert.equal(providerFaviconUrl("nope"), "");
   assert.equal(providerLetter("xai"), "X");
 });

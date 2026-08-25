@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { faceSlice, providerFaviconUrl, providerId, providerLetter } from "../lib/providerIcon.js";
 
-function Face({ agent }) {
+export function ProviderFace({ agent }) {
   const id = providerId(agent);
   const src = providerFaviconUrl(id);
   const letter = providerLetter(id || (agent && agent.name));
@@ -19,7 +19,7 @@ export default function ProviderFaces({ agents }) {
   const { shown, extra } = faceSlice(list);
   return (
     <span className="ws-faces">
-      {shown.map((ag) => <Face key={ag.id} agent={ag} />)}
+      {shown.map((ag) => <ProviderFace key={ag.id} agent={ag} />)}
       {extra ? <span className="ws-face ws-face-more" title={extra + " more"}>+{extra}</span> : null}
     </span>
   );

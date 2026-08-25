@@ -6,7 +6,7 @@ import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPl
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { repoLine } from "../lib/repoLine.js";
 import { workspaceAgents } from "../lib/providerIcon.js";
-import ProviderFaces from "./ProviderFaces.jsx";
+import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -73,6 +73,7 @@ export default function Sidebar({
         onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
       >
         <div className="ws-row1">
+          <ProviderFace agent={ag} />
           <span className="ws-name" title={label}>{label}</span>
           <span className="ws-actions">
             {mode === "stopped"
