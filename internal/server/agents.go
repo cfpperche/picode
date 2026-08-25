@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -448,7 +449,11 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 		out := make([]agentView, 0, len(agents))
 		for _, a := range agents {
 			mode := deps.runMode(r, a.ID)
-			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode)})
+			cwd := ""
+			if a.WorkPath != nil {
+				cwd = *a.WorkPath
+			}
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd)})
 		}
 		writeJSON(w, http.StatusOK, out)
 	}

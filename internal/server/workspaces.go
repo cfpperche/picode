@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os/exec"
 
+	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -13,14 +14,16 @@ import (
 // workspaceView is a workspace plus its agents (ADR-0011).
 type workspaceView struct {
 	store.Workspace
-	Agent  agentView   `json:"agent"` // first agent; kept for older clients
-	Agents []agentView `json:"agents"`
+	Agent  agentView     `json:"agent"` // first agent; kept for older clients
+	Agents []agentView   `json:"agents"`
+	Git    *gitinfo.Info `json:"git,omitempty"`
 }
 
 type agentView struct {
 	store.Agent
-	Running bool   `json:"running"`
-	Mode    string `json:"mode"` // stopped | interactive | managed (ADR-0006)
+	Running bool          `json:"running"`
+	Mode    string        `json:"mode"` // stopped | interactive | managed (ADR-0006)
+	Git     *gitinfo.Info `json:"git,omitempty"`
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
@@ -64,7 +67,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	if len(views) > 0 {
 		first = views[0]
 	}
-	return workspaceView{Workspace: w, Agent: first, Agents: views}, nil
+	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path)}, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {

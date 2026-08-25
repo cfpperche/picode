@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Workspace groups collapse (agent count), hover-only action icons, and a
+  real git branch/worktree line (or "local").
 - Sidebar splits **Agents** (`~/.picode/work/<name>/`, optional folder) and **Workspaces** with many
   agents per folder (own model/config). ADR-0011.
 - Package install scope: **This machine** or **This workspace** (`pi install -l`).

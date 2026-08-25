@@ -287,9 +287,18 @@ body {
 .ws-group-head {
   display: flex; align-items: center; gap: 4px;
   padding: 4px 6px 2px; color: var(--text-secondary); font-size: 11px;
-  letter-spacing: 0.04em; text-transform: uppercase;
+  letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
 }
 .ws-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-chev { display: grid; place-items: center; flex: none; transition: transform .12s; }
+.ws-chev.open { transform: rotate(90deg); }
+.ws-count {
+  flex: none; min-width: 1.2em; height: 16px; padding: 0 5px;
+  border: 1px solid var(--border); border-radius: 99px;
+  font-size: 10px; display: grid; place-items: center;
+}
+.ws-group-actions { display: flex; gap: 2px; flex: none; opacity: 0; }
+.ws-group:hover .ws-group-actions { opacity: 1; }
 .ws-item {
   padding: 7px 9px; margin: 1px 0;
   border-radius: var(--radius-ctl);
@@ -325,7 +334,7 @@ body {
 }
 .ws-icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
 .ws-icon-btn.danger:hover { color: var(--danger); }
-.ws-item:hover .ws-actions, .ws-item.active .ws-actions { opacity: 1; }
+.ws-item:hover .ws-actions { opacity: 1; }
 .ws-row2 { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
 .ws-path {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);

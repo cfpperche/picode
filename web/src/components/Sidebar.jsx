@@ -2,8 +2,9 @@ import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck, IconGit, IconChevronRight } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
+import { repoLine } from "../lib/repoLine.js";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -21,6 +22,10 @@ export default function Sidebar({
   });
   const [resizing, setResizing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [openWs, setOpenWs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("picode-ws-open") || "{}"); }
+    catch { return {}; }
+  });
 
   function onSizerDown(e) {
     e.preventDefault();
@@ -42,9 +47,19 @@ export default function Sidebar({
     window.addEventListener("pointerup", up);
   }
 
+  function isOpen(id) { return openWs[id] !== false; }
+  function toggleWs(id) {
+    setOpenWs((s) => {
+      const n = { ...s, [id]: !isOpen(id) };
+      try { localStorage.setItem("picode-ws-open", JSON.stringify(n)); } catch { /* ignore */ }
+      return n;
+    });
+  }
+
   function agentRow(ag, ws) {
     const mode = ag.mode || "stopped";
     const label = displayAgentName(ag, ws);
+    const repo = repoLine(ag, ws);
     return (
       <li
         key={ag.id}
@@ -52,21 +67,19 @@ export default function Sidebar({
         onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
       >
         <div className="ws-row1">
-          <span className={"ws-dot" + (mode !== "stopped" ? " running" : "")} />
           <span className="ws-name" title={label}>{label}</span>
           <span className="ws-actions">
             {mode === "stopped"
               ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
               : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
             <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
+            <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
+            <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
           </span>
         </div>
         <div className="ws-row2">
-          <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{ws ? ws.path : (ag.workPath || "~/.picode/work")}</span>
-          <span className="ws-modes" role="radiogroup" aria-label="View" onClick={(e) => e.stopPropagation()}>
-            <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !termView} title="Chat" onClick={() => onChat && onChat(ag.id)}><IconChat size={14} /></button>
-            <button type="button" role="radio" className="ws-mode-btn" aria-checked={ag.id === selectedId && !!termView} title="Terminal" onClick={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /></button>
-          </span>
+          {repo.git ? <IconGit /> : <IconFolder size={12} />}
+          <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{repo.text}</span>
         </div>
       </li>
     );
@@ -124,10 +137,14 @@ export default function Sidebar({
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => (
             <li key={ws.id} className="ws-group">
-              <div className="ws-group-head">
+              <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
+                <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
-                <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
+                {!isOpen(ws.id) ? <span className="ws-count">{agentsOf(ws).length}</span> : null}
+                <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
+                  <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
+                </span>
               </div>
               {showForm && formKind === "agent" && formWs === ws.id ? (
                 <form className="form-new" onSubmit={onSubmit}>
@@ -140,9 +157,11 @@ export default function Sidebar({
                   <p className="form-error" hidden={!formError}>{formError}</p>
                 </form>
               ) : null}
+              {isOpen(ws.id) ? (
               <ul className="ws-list nested">
                 {agentsOf(ws).map((ag) => agentRow(ag, ws))}
               </ul>
+              ) : null}
             </li>
           ))}
         </ul>
