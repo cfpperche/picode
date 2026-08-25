@@ -26,6 +26,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Rail tick preview uses Radix Tooltip (no longer misplaced by the rail transform).
 - Settings and Packages sit in the same gray panel card as System.
 - Conversation rail is compact and centered; it grows with the thread up to 360px.
 - Sidebar type is JetBrains Mono (same face Tachyon ships as Tachyon Mono).

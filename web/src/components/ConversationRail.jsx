@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { railAnchors } from "../lib/rail.js";
 
 export default function ConversationRail({ items, convRef }) {
   const anchors = railAnchors(items);
   const [on, setOn] = useState(false);
   const [active, setActive] = useState("");
-  const [hover, setHover] = useState(null);
 
   useEffect(() => {
     const root = convRef && convRef.current;
@@ -48,40 +48,37 @@ export default function ConversationRail({ items, convRef }) {
   }
 
   return (
-    <div className="conv-rail" onMouseLeave={() => setHover(null)}>
-      <button type="button" className="rail-chev" aria-label="Scroll up" onClick={() => page(-1)}>
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8l4-4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
-      </button>
-      <div className="rail-ticks" role="navigation" aria-label="Conversation">
-        {anchors.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            className={"rail-tick" + (a.id === active ? " active" : "") + (a.cls === "user" ? " user" : "")}
-            aria-label={a.actor}
-            onClick={() => jump(a.id)}
-            onMouseEnter={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setHover({ ...a, top: r.top + r.height / 2, left: r.left });
-            }}
-          />
-        ))}
-      </div>
-      <button type="button" className="rail-chev" aria-label="Scroll down" onClick={() => page(1)}>
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
-      </button>
-      {hover ? (
-        <div
-          className="rail-pop"
-          style={{
-            top: Math.min(Math.max(12, hover.top - 28), (typeof window !== "undefined" ? window.innerHeight : 800) - 90),
-            right: (typeof window !== "undefined" ? window.innerWidth - hover.left + 10 : 28),
-          }}
-        >
-          <div className="rail-pop-actor">{hover.actor}</div>
-          <div className="rail-pop-text">{hover.preview}</div>
+    <Tooltip.Provider delayDuration={200}>
+      <div className="conv-rail">
+        <div className="conv-rail-stack">
+          <button type="button" className="rail-chev" aria-label="Scroll up" onClick={() => page(-1)}>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8l4-4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+          </button>
+          <div className="rail-ticks" role="navigation" aria-label="Conversation">
+            {anchors.map((a) => (
+              <Tooltip.Root key={a.id}>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    className={"rail-tick" + (a.id === active ? " active" : "") + (a.cls === "user" ? " user" : "")}
+                    aria-label={a.actor}
+                    onClick={() => jump(a.id)}
+                  />
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content className="rail-pop" side="left" sideOffset={10} collisionPadding={8}>
+                    <div className="rail-pop-actor">{a.actor}</div>
+                    <div className="rail-pop-text">{a.preview}</div>
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            ))}
+          </div>
+          <button type="button" className="rail-chev" aria-label="Scroll down" onClick={() => page(1)}>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+          </button>
         </div>
-      ) : null}
-    </div>
+      </div>
+    </Tooltip.Provider>
   );
 }
