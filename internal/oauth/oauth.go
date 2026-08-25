@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	anthropicClientID = "9d1c250a-e61b-44d9-88e8-5944d1962f5e" // pi's CLI id
+	anthropicClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e" // pi CLI (base64 in pi-ai)
 	anthropicAuth     = "https://claude.ai/oauth/authorize"
 	anthropicToken    = "https://platform.claude.com/v1/oauth/token"
 	anthropicPort     = "53692"
