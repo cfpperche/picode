@@ -18,6 +18,8 @@
   --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
   --radius-ctl: 8px;
   --radius-panel: 12px;
+  --chat-col: 768px;
+  --chat-gutter: 24px;
 }
 :root[data-theme="light"] {
   --bg-base: #ffffff;
@@ -453,6 +455,7 @@ body {
 .chat-hello p { margin: 0; font-size: 15px; color: var(--text-secondary); max-width: 28em; }
 .conversation {
   position: absolute; inset: 0;
+  padding: 0 var(--chat-gutter);
   overflow-y: scroll;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
@@ -512,7 +515,10 @@ body {
   .conversation.with-rail { scrollbar-width: thin; scrollbar-gutter: stable; }
   .conversation.with-rail::-webkit-scrollbar { width: 10px; height: auto; }
 }
-.conv-col { width: 100%; max-width: 740px; margin: 0 auto; padding: 20px 24px 280px; }
+.conv-col {
+  width: 100%; max-width: var(--chat-col); margin: 0 auto;
+  padding: 20px 0 280px;
+}
 
 .chat-alert {
   margin: 8px 0 12px; padding: 10px 12px; border-radius: 10px;
@@ -649,8 +655,8 @@ body {
 
 /* ============ composer ============ */
 .composer-wrap {
-  position: absolute; left: 0; right: 12px; bottom: 0; z-index: 4;
-  padding: 12px 20px 14px;
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  padding: 12px var(--chat-gutter) 14px;
   background: none;
   pointer-events: none;
   display: flex; justify-content: center;
@@ -661,7 +667,7 @@ body {
   box-shadow: 0 -16px 28px color-mix(in srgb, var(--bg-base) 80%, transparent);
 }
 .composer {
-  max-width: 820px; margin: 0 auto; position: relative;
+  width: 100%; max-width: var(--chat-col); margin: 0 auto; position: relative;
   background: var(--bg-panel); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
   padding: 10px 12px 8px;
