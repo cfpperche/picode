@@ -9,14 +9,14 @@ function flattenCards(cards, depth, out) {
   return out;
 }
 
-function Card({ card, leaf, last, onFork }) {
+function Card({ card, leaf, onFork }) {
   const replies = card.info.filter((i) => i.kind === "reply");
   const tools = card.info.filter((i) => i.kind === "tool").length;
   const meta = card.info.filter((i) => i.kind === "meta").map((i) => i.text);
   const reply = replies.length ? replies[replies.length - 1].text : "";
   const current = card.id === leaf;
   return (
-    <li className={"flex gap-2.5" + (last ? "" : " mb-4")}>
+    <li className="flex gap-2.5">
       <div className="relative flex w-4 shrink-0 items-center justify-center self-stretch" aria-hidden="true">
         <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--border)]" />
         <span className={"relative z-[1] size-2 shrink-0 rounded-full " + (current ? "bg-accent" : "bg-[var(--border-strong)]")} />
@@ -60,8 +60,8 @@ export default function SessionTree({ open, onClose, mode, tree, onFork, onClone
               <p className="side-empty">No messages yet</p>
             ) : (
               <ol className="m-0 flex list-none flex-col p-0">
-                {cards.map((c, i) => (
-                  <Card key={c.id} card={c} leaf={leaf} last={i === cards.length - 1} onFork={onFork} />
+                {cards.map((c) => (
+                  <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
                 ))}
               </ol>
             )}
