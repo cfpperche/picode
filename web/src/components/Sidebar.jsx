@@ -2,7 +2,7 @@ import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent } from "./Icons.jsx";
+import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 
 const SIDE_MIN = 180;
@@ -56,9 +56,9 @@ export default function Sidebar({
           <span className="ws-name" title={label}>{label}</span>
           <span className="ws-actions">
             {mode === "stopped"
-              ? <button className="btn btn-ghost btn-sm btn-managed" title="Run" onClick={() => onRun(ag.id)}>Run</button>
-              : <button className="btn btn-ghost btn-sm btn-stop" title="Stop" onClick={() => onStop(ag.id)}>Stop</button>}
-            <button className="btn btn-ghost btn-sm btn-danger btn-remove" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}>×</button>
+              ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
+              : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
+            <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
           </span>
         </div>
         <div className="ws-row2">
@@ -84,8 +84,8 @@ export default function Sidebar({
 
       <div className="side-section">
         <div className="side-head">
-          <span className="side-title"><IconAgent /> Agents</span>
-          <button type="button" className="btn btn-ghost btn-sm" title="New agent" onClick={onNewFree}>+ Agent</button>
+          <span className="side-title" title="Agents"><IconAgent /></span>
+          <button type="button" className="ws-icon-btn" title="New agent" onClick={onNewFree}><IconPlus /></button>
         </div>
         {showForm && formKind === "free" ? (
           <form className="form-new" onSubmit={onSubmit}>
@@ -93,8 +93,8 @@ export default function Sidebar({
             <input name="path" type="text" placeholder="Folder (optional — ~/.picode/work/name)" autoComplete="off" />
             <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="free" />
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary btn-sm">Add</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+              <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
+              <button type="button" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
             </div>
             <p className="form-error" hidden={!formError}>{formError}</p>
           </form>
@@ -104,8 +104,8 @@ export default function Sidebar({
         </ul>
 
         <div className="side-head" style={{ marginTop: 14 }}>
-          <span className="side-title"><IconFolder /> Workspaces</span>
-          <button id="btn-new" className="btn btn-ghost btn-sm" title="Add a workspace" onClick={onNew}>+ Folder</button>
+          <span className="side-title" title="Workspaces"><IconFolder /></span>
+          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={onNew}><IconPlus /></button>
         </div>
 
         {showForm && formKind === "workspace" ? (
@@ -114,8 +114,8 @@ export default function Sidebar({
           <input id="inp-path" name="path" type="text" placeholder="Folder path (e.g. ~/code/my-app)" autoComplete="off" />
           <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix="new" />
           <div className="form-actions">
-            <button type="submit" className="btn btn-primary btn-sm">Add</button>
-            <button type="button" id="btn-cancel" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+            <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
+            <button type="button" id="btn-cancel" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
           </div>
           <p id="form-error" className="form-error" hidden={!formError}>{formError}</p>
         </form>
@@ -126,16 +126,16 @@ export default function Sidebar({
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head">
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                <button type="button" className="btn btn-ghost btn-sm" title="Add agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
-                <button type="button" className="btn btn-ghost btn-sm btn-danger btn-remove" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}>×</button>
+                <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
+                <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
               </div>
               {showForm && formKind === "agent" && formWs === ws.id ? (
                 <form className="form-new" onSubmit={onSubmit}>
                   <input name="name" type="text" placeholder="Agent name" autoComplete="off" />
                   <ConfigFields catalog={catalog} provider={newCfg.provider} model={newCfg.model} thinking={newCfg.thinking} onChange={onNewCfg} idPrefix={"ag-" + ws.id} />
                   <div className="form-actions">
-                    <button type="submit" className="btn btn-primary btn-sm">Add</button>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-sm" title="Add"><IconCheck size={14} /></button>
+                    <button type="button" className="ws-icon-btn" title="Cancel" onClick={onCancel}><IconX size={12} /></button>
                   </div>
                   <p className="form-error" hidden={!formError}>{formError}</p>
                 </form>
