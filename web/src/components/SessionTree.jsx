@@ -1,13 +1,22 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { cardsFrom } from "../lib/sessionCards.js";
 
+function flattenCards(cards, depth, out) {
+  for (const c of cards || []) {
+    out.push({ ...c, depth });
+    flattenCards(c.children, depth + 1, out);
+  }
+  return out;
+}
+
 function Card({ card, leaf, onFork }) {
   const replies = card.info.filter((i) => i.kind === "reply");
   const tools = card.info.filter((i) => i.kind === "tool").length;
   const meta = card.info.filter((i) => i.kind === "meta").map((i) => i.text);
   const reply = replies.length ? replies[replies.length - 1].text : "";
   return (
-    <li className="tree-chain-item">
+    <li className="tree-item">
+      <span className={"tree-dot" + (card.id === leaf ? " leaf" : "") + (card.depth ? " nested" : "")} aria-hidden="true" />
       <button
         type="button"
         className={"tree-card" + (card.id === leaf ? " leaf" : "")}
@@ -23,19 +32,12 @@ function Card({ card, leaf, onFork }) {
           </span>
         ) : null}
       </button>
-      {card.children && card.children.length ? (
-        <ol className="tree-chain">
-          {card.children.map((c) => (
-            <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
-          ))}
-        </ol>
-      ) : null}
     </li>
   );
 }
 
 export default function SessionTree({ open, onClose, mode, tree, onFork, onClone }) {
-  const cards = cardsFrom((tree && tree.tree) || []);
+  const cards = flattenCards(cardsFrom((tree && tree.tree) || []), 0, []);
   const leaf = tree && tree.leafId;
   const forkOnly = mode === "fork";
   const title = forkOnly ? "Fork from a prompt" : "Session tree";
@@ -53,7 +55,7 @@ export default function SessionTree({ open, onClose, mode, tree, onFork, onClone
             {cards.length === 0 ? (
               <p className="side-empty">No messages yet</p>
             ) : (
-              <ol className="tree-chain">
+              <ol className="tree-spine">
                 {cards.map((c) => (
                   <Card key={c.id} card={c} leaf={leaf} onFork={onFork} />
                 ))}
