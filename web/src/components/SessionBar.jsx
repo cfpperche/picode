@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { IconSession, IconPlus, IconChat } from "./Icons.jsx";
 
-export default function SessionBar({ sessions, current, onNew, onResume, onRename, end }) {
+export default function SessionBar({ sessions, current, onNew, onResume, onRename, onChat }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const cur = (sessions || []).find((s) => s.path === current);
@@ -25,11 +26,25 @@ export default function SessionBar({ sessions, current, onNew, onResume, onRenam
         title="Sessions"
         onClick={() => setOpen((o) => !o)}
       >
+        <span className="cockpit-chip-icon"><IconSession /></span>
         <span className="cockpit-chip-label">{label}</span>
         <span className="session-count">{(sessions || []).length}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
-      <button type="button" className="cockpit-chip" onClick={onNew} title="New session">New</button>
-      {end ? <div className="session-bar-end">{end}</div> : null}
+      <button type="button" className="cockpit-chip" onClick={onNew} title="New session">
+        <span className="cockpit-chip-icon"><IconPlus /></span>
+        <span className="cockpit-chip-label">New</span>
+      </button>
+      {onChat ? (
+        <div className="session-bar-end">
+          <button type="button" className="cockpit-chip" onClick={onChat} title="Chat">
+            <span className="cockpit-chip-icon"><IconChat /></span>
+            <span className="cockpit-chip-label">Chat</span>
+          </button>
+        </div>
+      ) : null}
       {open && (
         <div className="session-pop" role="listbox">
           <div className="session-list">
