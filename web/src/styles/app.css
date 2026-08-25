@@ -488,6 +488,13 @@ body {
 }
 .conv-col { width: 100%; max-width: 740px; margin: 0 auto; padding: 20px 24px 280px; }
 
+.chat-alert {
+  margin: 8px 0 12px; padding: 10px 12px; border-radius: 10px;
+  font-size: 14px; line-height: 1.45;
+}
+.chat-alert.error { background: color-mix(in srgb, var(--danger) 12%, var(--bg-panel)); color: var(--danger); }
+.chat-alert.warn { background: color-mix(in srgb, var(--warn) 14%, var(--bg-panel)); color: var(--text-primary); }
+.chat-alert.info { background: var(--bg-panel); color: var(--text-secondary); }
 .day-mark {
   text-align: center; font-size: 13px; color: var(--text-secondary);
   margin: 20px 0 14px;

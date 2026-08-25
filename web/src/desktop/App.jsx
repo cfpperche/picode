@@ -23,6 +23,7 @@ import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
+import { alertFromPi } from "../lib/piError.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
@@ -332,8 +333,24 @@ export default function App() {
       }
       case "task_delivered":
         break;
+      case "message_end":
+      case "turn_end":
+      case "agent_end":
+      case "auto_retry_start":
+      case "auto_retry_end":
+      case "compaction_end":
+      case "extension_error": {
+        const a = alertFromPi(ev);
+        if (a) {
+          setItems((cur) => [...cur, { kind: "alert", level: a.level, text: a.text, ts: Date.now() }]);
+          if (a.level === "error" && ev.type !== "auto_retry_start") setStreaming(false);
+          queueMicrotask(scrollConv);
+        }
+        break;
+      }
       case "task_failed":
-        setItems((cur) => [...cur, { kind: "sys", text: `✗ failed: ${ev.error}`, err: true }]);
+        setItems((cur) => [...cur, { kind: "alert", level: "error", text: humanizeError(ev.error || "Task failed"), ts: Date.now() }]);
+        setStreaming(false);
         break;
       case "enqueue_rejected":
         toastError(ev.error);

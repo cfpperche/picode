@@ -98,9 +98,15 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
           ) : null}
         </div>
       ) : null}
-      {turn.replies.map((it, j) => <Block key={j} it={it} railId={j === 0 ? "turn-" + i + "-agent" : undefined} />)}
+      {turn.replies.map((it, j) => it.kind === "alert"
+        ? <Alert key={j} it={it} />
+        : <Block key={j} it={it} railId={j === 0 ? "turn-" + i + "-agent" : undefined} />)}
     </div>
   );
+}
+
+function Alert({ it }) {
+  return <div className={"chat-alert " + (it.level || "error")}>{it.text}</div>;
 }
 
 function Block({ it, railId }) {

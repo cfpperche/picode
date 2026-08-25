@@ -25,6 +25,18 @@ export function humanizeError(msg) {
   if (/already compacted/i.test(msg)) {
     return "Nothing left to compact.";
   }
+  if (/CreditsError|Insufficient balance|out of credit/i.test(msg)) {
+    return "This provider is out of credit. Add billing or switch provider.";
+  }
+  if (/\b401\b|Unauthorized|invalid api key|authentication/i.test(msg)) {
+    return "Not authorized. Sign in again or check this provider's key.";
+  }
+  if (/overloaded|\b529\b/i.test(msg)) {
+    return "The provider is overloaded. Wait a moment and try again.";
+  }
+  if (/rate.?limit|\b429\b/i.test(msg)) {
+    return "Rate limited. Wait and retry.";
+  }
   const compact = msg.match(/^rpc: compact failed:\s*(.*)/i);
   if (compact) return compact[1];
   return msg;

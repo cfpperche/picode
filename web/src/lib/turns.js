@@ -21,6 +21,10 @@ export function groupTurns(items) {
       cur.work.push(it);
       continue;
     }
+    if (it.kind === "alert") {
+      cur.replies.push(it);
+      continue;
+    }
     if (it.kind === "block") {
       cur.replies.push(it);
       continue;
