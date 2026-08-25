@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/llama"
 )
 
 // Model is one row from `pi --list-models`, plus thinking levels from models-store.json.
@@ -252,6 +254,64 @@ func PutOAuth(provider string, cred map[string]any) error {
 		return err
 	}
 	return remember(provider, old, raw)
+}
+
+// PutLlama stores llama.cpp router URL (+ optional key) in auth.json, same shape as pi.
+func PutLlama(serverURL, key string) error {
+	u, err := llama.NormalizeURL(serverURL)
+	if err != nil {
+		return err
+	}
+	cred := map[string]any{
+		"type": "api_key",
+		"env":  map[string]string{"LLAMA_BASE_URL": u},
+	}
+	if k := strings.TrimSpace(key); k != "" {
+		cred["key"] = k
+	}
+	raw, err := json.Marshal(cred)
+	if err != nil {
+		return err
+	}
+	old := peekCred("llama.cpp")
+	if err := mutateAuth(func(obj map[string]json.RawMessage) error {
+		obj["llama.cpp"] = raw
+		return nil
+	}); err != nil {
+		return err
+	}
+	return remember("llama.cpp", old, raw)
+}
+
+// LlamaURL returns the stored router URL (never the key).
+func LlamaURL() string {
+	raw := peekCred("llama.cpp")
+	if len(raw) == 0 {
+		return ""
+	}
+	var m struct {
+		Env map[string]string `json:"env"`
+	}
+	_ = json.Unmarshal(raw, &m)
+	if m.Env != nil {
+		if u := strings.TrimSpace(m.Env["LLAMA_BASE_URL"]); u != "" {
+			return u
+		}
+	}
+	return ""
+}
+
+// LlamaKey is the optional router API key. Never log or return to the browser.
+func LlamaKey() string {
+	raw := peekCred("llama.cpp")
+	if len(raw) == 0 {
+		return ""
+	}
+	var m struct {
+		Key string `json:"key"`
+	}
+	_ = json.Unmarshal(raw, &m)
+	return strings.TrimSpace(m.Key)
 }
 
 // RemoveAuth deletes one provider entry from auth.json. Other keys stay.

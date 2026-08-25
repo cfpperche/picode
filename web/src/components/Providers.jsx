@@ -4,8 +4,9 @@ import { Command } from "cmdk";
 import PageFrame from "./PageFrame.jsx";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
-import { apiKeySchema, parseForm } from "../lib/schemas.js";
+import { apiKeySchema, llamaLoginSchema, parseForm } from "../lib/schemas.js";
 import { go } from "../lib/routes.js";
+import LlamaPanel from "./LlamaPanel.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -48,7 +49,7 @@ function AccountName({ provider, acc, onSaved }) {
   );
 }
 
-export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
+export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd, wantLlama }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
   const signed = list.filter((p) => p.signedIn);
   const [add, setAdd] = useState(false);
@@ -60,12 +61,24 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [waiting, setWaiting] = useState(false);
   const [userCode, setUserCode] = useState("");
   const [replacing, setReplacing] = useState(false);
+  const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   const [recents, setRecents] = useState(readRecents);
 
   useEffect(() => {
     if (hidden || !wantAdd) return;
     openAdd();
   }, [hidden, wantAdd]);
+
+  useEffect(() => {
+    if (hidden || !wantLlama) return;
+    const p = list.find((x) => x.id === "llama.cpp");
+    if (p && !p.signedIn) {
+      chooseProvider(p);
+      setAdd(true);
+      return;
+    }
+    requestAnimationFrame(() => document.getElementById("llama-panel")?.scrollIntoView({ block: "start" }));
+  }, [hidden, wantLlama]);
 
   useEffect(() => {
     setRecents(rememberProviders(signed.map((p) => p.id)));
@@ -110,6 +123,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     setErr("");
     setUserCode("");
     setReplacing(false);
+    setLlamaUrl("http://127.0.0.1:8080");
     setAdd(true);
   }
 
@@ -142,7 +156,8 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   function chooseProvider(p) {
     setPick(p);
     setErr("");
-    if (p.login === "oauth") setStep("oauth");
+    if (p.id === "llama.cpp") setStep("llama");
+    else if (p.login === "oauth") setStep("oauth");
     else if (p.login === "both") setStep("method");
     else setStep("key");
   }
@@ -170,8 +185,31 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     }
   }
 
+  async function saveLlama(e) {
+    e.preventDefault();
+    const parsed = parseForm(llamaLoginSchema, { url: llamaUrl, key });
+    if (!parsed.ok) { setErr(parsed.error); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/providers/llama.cpp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: parsed.value.url, key: parsed.value.key || "" }),
+      });
+      setRecents(pushRecent("llama.cpp"));
+      toast.ok("Signed in to llama.cpp.");
+      closeAdd();
+      if (onRefresh) await onRefresh();
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
-  const title = !pick ? "Add provider" : step === "method" ? pick.id : step === "oauth" ? pick.id : "API key · " + pick.id;
+  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
 
   async function startAccount() {
     if (!pick) return;
@@ -246,6 +284,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           </ul>
         )}
       </section>
+      {signed.some((p) => p.id === "llama.cpp") ? <LlamaPanel /> : null}
       {recentRows.length ? (
         <section className="settings-section">
           <div className="set-row">
@@ -272,7 +311,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
             </Dialog.Description>
 
             {step === "pick" ? (
@@ -284,7 +323,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                     <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
                       <ProviderFace id={p.id} />
                       <span>{p.id}</span>
-                      <span className="combo-hint">{p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
+                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                     </Command.Item>
                   ))}
                 </Command.List>
@@ -314,6 +353,18 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                   )}
                 </div>
               </div>
+            ) : null}
+
+            {step === "llama" ? (
+              <form className="form-new" noValidate onSubmit={saveLlama}>
+                <input type="url" autoComplete="off" placeholder="http://127.0.0.1:8080" value={llamaUrl} onChange={(e) => setLlamaUrl(e.target.value)} />
+                <input type="password" autoComplete="off" placeholder="API key (optional)" value={key} onChange={(e) => setKey(e.target.value)} />
+                <p className="form-error" hidden={!err}>{err}</p>
+                <div className="dlg-actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
+                </div>
+              </form>
             ) : null}
 
             {step === "key" ? (

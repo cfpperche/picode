@@ -27,9 +27,18 @@ export function providersNew(hash) {
   return h === "/providers/new";
 }
 
+export function providersLlama(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  return h === "/providers/llama";
+}
+
 export function go(name) {
   if (name === "providers-new") {
     location.hash = "#/providers/new";
+    return;
+  }
+  if (name === "providers-llama") {
+    location.hash = "#/providers/llama";
     return;
   }
   const path = ROUTES[name] || "/";

@@ -38,6 +38,7 @@ test("copy quit reload logout session trust are PiCode UI", () => {
   assert.equal(run("/hotkeys"), "hotkeys");
   assert.equal(run("/changelog"), "changelog");
   assert.equal(run("/share"), "share");
+  assert.equal(run("/llama"), "go-llama");
 });
 
 test("skills and templates insert into composer", () => {

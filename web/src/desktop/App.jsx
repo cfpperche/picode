@@ -21,7 +21,7 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -742,6 +742,7 @@ export default function App() {
               if (cmd.run === "session-clone") { cloneSession(); return; }
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "go-providers-new") { go("providers-new"); return; }
+              if (cmd.run === "go-llama") { go("providers-llama"); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
                 if (agent && agent.mode !== "stopped") await stopAgent(selectedId);
@@ -913,6 +914,7 @@ export default function App() {
           hidden={route !== "providers"}
           catalog={catalog}
           wantAdd={providersNew()}
+          wantLlama={providersLlama()}
           onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }}
           onSignOut={async (provider) => {
             const ok = await askConfirm({

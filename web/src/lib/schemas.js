@@ -26,6 +26,14 @@ export const apiKeySchema = z.object({
   key: z.string().trim().min(1, "API key is required."),
 });
 
+export const llamaLoginSchema = z.object({
+  url: z.string().trim().min(1, "Router URL is required.").refine(
+    (u) => { try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; } catch { return false; } },
+    "URL must be http or https.",
+  ),
+  key: z.string().optional(),
+});
+
 export function parseForm(schema, data) {
   const got = schema.safeParse(data);
   if (got.success) return { ok: true, value: got.data, error: "" };

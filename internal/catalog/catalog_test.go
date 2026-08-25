@@ -101,6 +101,20 @@ func TestPutAPIKey(t *testing.T) {
 	}
 }
 
+func TestPutLlama(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := PutLlama("http://127.0.0.1:8080/v1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if LlamaURL() != "http://127.0.0.1:8080" {
+		t.Fatalf("%s", LlamaURL())
+	}
+	if LlamaKey() != "" {
+		t.Fatal("key leaked empty")
+	}
+}
+
 func TestRemoveAuthKeepsOtherKeys(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

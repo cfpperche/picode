@@ -46,6 +46,7 @@ var LoginMethods = map[string]string{
 	"xiaomi-token-plan-cn":       LoginAPIKey,
 	"xiaomi-token-plan-ams":      LoginAPIKey,
 	"xiaomi-token-plan-sgp":      LoginAPIKey,
+	"llama.cpp":                  LoginAPIKey,
 }
 
 func loginMethod(id string) string {

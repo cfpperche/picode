@@ -28,7 +28,7 @@ reimplement the skill engine.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **23 ui · 0 partial · 0 proxy · 1 missing**.
+Count against the TUI 24 (not extras): **24 ui · 0 partial · 0 proxy · 0 missing**.
 
 ## Matrix (TUI 24)
 
@@ -57,7 +57,7 @@ Count against the TUI 24 (not extras): **23 ui · 0 partial · 0 proxy · 1 miss
 | 21 | `/resume` | pick a session | session picker | **ui** | |
 | 22 | `/reload` | reload skills/config | reload + toast | **ui** | Restarts the process; RPC has no reload |
 | 23 | `/quit` | quit pi | stop this agent | **ui** | Must not close the browser |
-| 24 | `/llama` | llama.cpp models | llama manager or `#/providers` | **missing** | Extension command |
+| 24 | `/llama` | llama.cpp models | `#/providers` llama.cpp panel | **ui** | Load/unload. HF download later. |
 
 ## `/tree` TUI vs GUI (parity break)
 

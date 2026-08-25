@@ -161,6 +161,17 @@ Changelog of the **installed pi** package. Not PiCode's CHANGELOG.
 
 Canonical: pi repo CHANGELOG.
 
+## /llama {#llama}
+
+Opens the llama.cpp panel on Providers. Login stores the router URL. Load/unload GGUF on the running `llama-server`. Does not start the server or delete files.
+
+Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/llama-cpp.md).
+
+| | pi TUI | PiCode |
+|---|---|---|
+| Login | URL + optional key | same |
+| Manage | `/llama` load/unload/download | load/unload; download later |
+
 ## Skills and templates
 
 `/skill:name` and `/templatename` appear in the composer picker (global + trusted project). Choosing one **inserts** the command; Send lets pi expand it (RPC already expands skills and templates).

@@ -48,12 +48,19 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
 		Key string `json:"key"`
+		URL string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if err := catalog.PutAPIKey(id, req.Key); err != nil {
+	var err error
+	if id == "llama.cpp" {
+		err = catalog.PutLlama(req.URL, req.Key)
+	} else {
+		err = catalog.PutAPIKey(id, req.Key)
+	}
+	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
