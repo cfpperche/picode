@@ -163,7 +163,7 @@ Canonical: pi repo CHANGELOG.
 
 ## /llama {#llama}
 
-Opens the llama.cpp panel on Providers. Login stores the router URL. Load/unload GGUF on the running `llama-server`. Does not start the server or delete files.
+Opens a dialog: router URL, load/unload, Hugging Face download. Does not leave the agent. Does not start `llama-server` or delete files.
 
 Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/llama-cpp.md).
 

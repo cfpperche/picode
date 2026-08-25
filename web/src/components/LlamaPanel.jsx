@@ -13,8 +13,8 @@ function bytes(n) {
   return (n / (1024 * 1024 * 1024)).toFixed(2) + " GiB";
 }
 
-export default function LlamaPanel({ onRefresh }) {
-  const [url, setUrl] = useState("");
+export default function LlamaPanel({ onRefresh, hideTitle }) {
+  const [url, setUrl] = useState("http://127.0.0.1:8080");
   const [ok, setOk] = useState(false);
   const [models, setModels] = useState([]);
   const [busy, setBusy] = useState("");
@@ -26,16 +26,31 @@ export default function LlamaPanel({ onRefresh }) {
   async function refresh() {
     try {
       const res = await api("/api/llama");
-      setUrl(res.url || "");
+      setUrl(res.url || "http://127.0.0.1:8080");
       setOk(!!res.ok);
       setModels(res.models || []);
     } catch {
       setOk(false);
+      setUrl((u) => u || "http://127.0.0.1:8080");
       setModels([]);
     }
   }
 
   useEffect(() => { refresh(); }, []);
+
+  async function saveUrl(e) {
+    e.preventDefault();
+    try {
+      await api("/api/providers/llama.cpp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, key: "" }),
+      });
+      toast.ok("Saved router URL.");
+      await refresh();
+      if (onRefresh) await onRefresh();
+    } catch (ex) { toastError(ex); }
+  }
 
   async function runOp(fn) {
     const tick = setInterval(refresh, 1000);
@@ -132,16 +147,18 @@ export default function LlamaPanel({ onRefresh }) {
 
   return (
     <section id="llama-panel" className="settings-section">
-      <div className="set-row">
-        <h3>llama.cpp</h3>
-        <span>
-          {ok ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setDl(true); setHits([]); setInfo(null); }}>Download</button> : null}
+      {hideTitle ? null : <h3>llama.cpp</h3>}
+      <form className="form-new" noValidate onSubmit={saveUrl}>
+        <div className="set-row" style={{ marginBottom: 0 }}>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://127.0.0.1:8080" />
+          <button type="submit" className="btn btn-primary btn-sm">Save</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={refresh}>Retry</button>
-        </span>
-      </div>
-      <p className="settings-desc">{url || "No router URL"}{ok ? "" : " — unreachable"}{busy ? " · " + busy : ""}</p>
+          {ok ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setDl(true); setHits([]); setInfo(null); }}>Download</button> : null}
+        </div>
+      </form>
+      <p className="settings-desc">{ok ? "" : "unreachable"}{busy ? (ok ? "" : " · ") + busy : ""}</p>
       {!ok ? (
-        <p className="side-empty">Start llama-server, then Retry.</p>
+        <p className="side-empty">Start llama-server on that URL, then Retry.</p>
       ) : models.length === 0 ? (
         <p className="side-empty">No models in the router.</p>
       ) : (

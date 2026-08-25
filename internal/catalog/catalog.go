@@ -268,6 +268,8 @@ func PutLlama(serverURL, key string) error {
 	}
 	if k := strings.TrimSpace(key); k != "" {
 		cred["key"] = k
+	} else if old := LlamaKey(); old != "" {
+		cred["key"] = old
 	}
 	raw, err := json.Marshal(cred)
 	if err != nil {

@@ -36,6 +36,7 @@ import { extraSlash } from "../lib/slash.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
+import LlamaDialog from "../components/LlamaDialog.jsx";
 import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
 import Toasts from "../components/Toasts.jsx";
 
@@ -72,6 +73,7 @@ export default function App() {
   const [slashExtra, setSlashExtra] = useState([]);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [llamaOpen, setLlamaOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
@@ -742,7 +744,7 @@ export default function App() {
               if (cmd.run === "session-clone") { cloneSession(); return; }
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "go-providers-new") { go("providers-new"); return; }
-              if (cmd.run === "go-llama") { go("providers-llama"); return; }
+              if (cmd.run === "llama") { setLlamaOpen(true); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
                 if (agent && agent.mode !== "stopped") await stopAgent(selectedId);
@@ -978,6 +980,7 @@ export default function App() {
         onFork={forkFrom}
         onClone={cloneSession}
       />
+      <LlamaDialog open={llamaOpen} onClose={() => setLlamaOpen(false)} onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} />
       <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
