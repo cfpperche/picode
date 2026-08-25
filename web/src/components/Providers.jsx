@@ -93,7 +93,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     }
   }
 
-  const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(pick.id);
+  const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
   const title = !pick ? "Add provider" : step === "method" ? pick.id : step === "oauth" ? pick.id : "API key · " + pick.id;
 
   async function startAccount() {
