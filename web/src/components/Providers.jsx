@@ -8,6 +8,7 @@ import { apiKeySchema, parseForm } from "../lib/schemas.js";
 import { go } from "../lib/routes.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
+import { askConfirm } from "../lib/confirm.js";
 
 export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
@@ -40,9 +41,28 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     .map((id) => list.find((p) => p.id === id) || { id, signedIn: false, login: "api_key" })
     .filter((p) => !p.signedIn);
 
-  async function signOut(id) {
-    setRecents(pushRecent(id));
-    if (onSignOut) await onSignOut(id);
+  async function useAccount(provider, aid) {
+    try {
+      await api("/api/providers/" + encodeURIComponent(provider) + "/accounts/" + encodeURIComponent(aid) + "/activate", { method: "POST" });
+      toast.ok("Using this account.");
+      if (onRefresh) await onRefresh();
+    } catch (ex) { toastError(ex); }
+  }
+
+  async function removeAccount(provider, acc) {
+    const ok = await askConfirm({
+      title: "Sign out " + (acc.label || provider),
+      message: "Remove this login from this machine.",
+      confirmLabel: "Sign out",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/api/providers/" + encodeURIComponent(provider) + "/accounts/" + encodeURIComponent(acc.id), { method: "DELETE" });
+      setRecents(pushRecent(provider));
+      toast.ok("Signed out.");
+      if (onRefresh) await onRefresh();
+    } catch (ex) { toastError(ex); }
   }
 
   function openAdd() {
@@ -163,15 +183,28 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <p className="side-empty">No providers yet. Add a provider to sign in.</p>
         ) : (
           <ul className="prov-list">
-            {signed.map((p) => (
-              <li key={p.id} className="prov-row">
-                <ProviderFace id={p.id} />
-                <span className="prov-id">{p.id}</span>
-                <span className="prov-auth in">{p.authType === "oauth" ? "account" : "api key"}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Replace</button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => signOut(p.id)}>Sign out</button>
-              </li>
-            ))}
+            {signed.map((p) => {
+              const accs = p.accounts && p.accounts.length ? p.accounts : [{ id: "live", label: "Default", type: p.authType, active: true }];
+              return (
+                <li key={p.id} className="prov-group">
+                  <div className="prov-row">
+                    <ProviderFace id={p.id} />
+                    <span className="prov-id">{p.id}</span>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
+                  </div>
+                  <ul className="prov-accounts">
+                    {accs.map((a) => (
+                      <li key={a.id} className={"prov-row" + (a.active ? "" : " muted")}>
+                        <span className="prov-acc-label">{a.label}</span>
+                        <span className={"prov-auth" + (a.active ? " in" : "")}>{a.type === "oauth" ? "account" : "api key"}{a.active ? " · active" : ""}</span>
+                        {!a.active ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button> : null}
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeAccount(p.id, a)}>Sign out</button>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

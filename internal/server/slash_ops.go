@@ -13,6 +13,8 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
+	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
+	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
 }
 
 func handleAgentTrust(deps Deps) http.HandlerFunc {
@@ -54,6 +56,26 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "signedIn": true})
+}
+
+func handleAccountActivate(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	aid := r.PathValue("aid")
+	if err := catalog.ActivateAccount(id, aid); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "active": aid})
+}
+
+func handleAccountDelete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	aid := r.PathValue("aid")
+	if err := catalog.RemoveAccount(id, aid); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "removed": aid})
 }
 
 func handleProviderLogout(deps Deps) http.HandlerFunc {

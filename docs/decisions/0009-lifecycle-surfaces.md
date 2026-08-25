@@ -36,9 +36,9 @@ Starting an agent (interactive or managed) passes stored
 
 - **Easier**: one source of truth (pi) for models and credentials; wizard
   stays three fields; MCP cannot block "add a folder".
-- **Harder**: catalog parsing depends on `pi --list-models` table format;
-  OAuth still happens in the TUI (no RPC `login`). If that door hurts,
-  a PiCode credential store is a future ADR — not this one.
+- **Harder**: catalog parsing depends on `pi --list-models` table format.
+  Extra logins per provider: [ADR-0013](0013-provider-accounts.md)
+  (`auth.json` stays the one slot pi reads).
 - **If wrong**: a curated provider list would hide working setups (cage);
   a PiCode login form would fork auth from `auth.json`.
 

@@ -22,11 +22,12 @@ type Model struct {
 
 // Provider is a catalog group plus auth.json presence (never key values).
 type Provider struct {
-	ID       string  `json:"id"`
-	SignedIn bool    `json:"signedIn"`
-	AuthType string  `json:"authType,omitempty"` // api_key | oauth
-	Login    string  `json:"login"`              // api_key | oauth | both
-	Models   []Model `json:"models"`
+	ID       string    `json:"id"`
+	SignedIn bool      `json:"signedIn"`
+	AuthType string    `json:"authType,omitempty"` // api_key | oauth
+	Login    string    `json:"login"`              // api_key | oauth | both
+	Accounts []Account `json:"accounts,omitempty"`
+	Models   []Model   `json:"models"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -49,6 +50,7 @@ func Load(piCmd string) (Report, error) {
 		return rep, fmt.Errorf("catalog: list-models: %w", err)
 	}
 	info := authInfo()
+	syncFromAuth()
 	store := loadThinkingMaps()
 	byID := map[string]*Provider{}
 	var order []string
@@ -77,6 +79,7 @@ func Load(piCmd string) (Report, error) {
 		if a, ok := info[id]; ok {
 			p.SignedIn = true
 			p.AuthType = a
+			p.Accounts = accountsOf(id)
 		}
 		rep.Providers = append(rep.Providers, *p)
 	}
@@ -221,10 +224,14 @@ func PutAPIKey(provider, key string) error {
 	if err != nil {
 		return err
 	}
-	return mutateAuth(func(obj map[string]json.RawMessage) error {
+	old := peekCred(provider)
+	if err := mutateAuth(func(obj map[string]json.RawMessage) error {
 		obj[provider] = cred
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return remember(provider, old, cred)
 }
 
 // PutOAuth writes an oauth credential object. Never logs token values.
@@ -237,10 +244,14 @@ func PutOAuth(provider string, cred map[string]any) error {
 	if err != nil {
 		return err
 	}
-	return mutateAuth(func(obj map[string]json.RawMessage) error {
+	old := peekCred(provider)
+	if err := mutateAuth(func(obj map[string]json.RawMessage) error {
 		obj[provider] = raw
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return remember(provider, old, raw)
 }
 
 // RemoveAuth deletes one provider entry from auth.json. Other keys stay.
@@ -249,6 +260,7 @@ func RemoveAuth(provider string) error {
 	if provider == "" {
 		return fmt.Errorf("provider required")
 	}
+	clearVaultProvider(provider)
 	return mutateAuth(func(obj map[string]json.RawMessage) error {
 		delete(obj, provider)
 		return nil
