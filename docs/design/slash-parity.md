@@ -27,13 +27,13 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **7 ui · 1 partial · 4 proxy · 12 missing**.
+Count against the TUI 24 (not extras): **8 ui · 1 partial · 4 proxy · 11 missing**.
 
 ## Matrix (TUI 24)
 
 | # | TUI | TUI does | PiCode should | Status | Notes |
 |---|---|---|---|---|---|
-| 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | `#/settings` pi GUI (ADR-0012) | **missing** | Plan: [pi-settings.md](pi-settings.md). Product chrome → `#/preferences`. |
+| 1 | `/settings` | 29 knobs; writes **global** `~/.pi/agent/settings.json` | `#/settings` pi GUI (ADR-0012) | **ui** | S0 shell. Knobs in S1. Product chrome → `#/preferences`. |
 | 2 | `/model` | model picker | focus model chip | **ui** | Composer cockpit |
 | 3 | `/tree` | session tree / branch jump | session tree UI | **proxy** | UI not built |
 | 4 | `/thinking` | thinking level | focus thinking chip | **ui** | Composer cockpit |
@@ -67,7 +67,8 @@ TUI `/settings` is **not** session and **not** workspace.
 | Global | `~/.pi/agent/settings.json` | TUI `/settings` (all 29 rows) |
 | Project | `<cwd>/.pi/settings.json` | `pi config` (Tab) / `pi install -l` — **not** `/settings` |
 | Session | JSONL + in-memory | `/model` `/thinking` `/compact` this run |
-| PiCode | `#/settings` | our theme + server port (product, not pi) |
+| PiCode | `#/preferences` | theme + server port (product, not pi) |
+| PiCode | `#/settings` | pi GUI for the selected agent (ADR-0012) |
 
 Project settings *override* global when the cwd is trusted. `/settings`
 still always `save()`s `globalSettings`. `defaultProjectTrust` is

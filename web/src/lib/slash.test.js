@@ -11,3 +11,9 @@ test("filters by prefix", () => {
   const hits = filterSlash("/log");
   assert.equal(hits[0].id, "login");
 });
+
+test("/settings is a PiCode route, not a TUI proxy", () => {
+  const hits = filterSlash("/settings");
+  assert.equal(hits[0].id, "settings");
+  assert.equal(hits[0].run, "go-settings");
+});

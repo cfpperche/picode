@@ -59,6 +59,10 @@ export default function UserMenu({
         </div>
 
         <div className="um-divider" />
+        <button type="button" className="um-item" id="um-preferences" role="menuitem" onClick={() => onNavigate("preferences")}>
+          <span>Preferences</span>
+          <IconChevronRight />
+        </button>
         <button type="button" className="um-item" id="um-settings" role="menuitem" onClick={() => onNavigate("settings")}>
           <span>Settings</span>
           <IconChevronRight />

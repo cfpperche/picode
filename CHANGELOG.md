@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- `#/settings` is pi (composer `/settings`). PiCode theme/port moved to
+  `#/preferences` (ADR-0012). Settings page is a scoped shell (S0).
 - One chrome gray (`--bg-panel`); `--bg-elevated` aliases it. Hover/focus
   still use `--bg-hover`. Canvas stays `--bg-base`.
 - Compact 8px overlay scrollbar on every overflow (no Windows arrows).

@@ -16,4 +16,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted |
 | [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted |
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted |
-| [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | proposed |
+| [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |

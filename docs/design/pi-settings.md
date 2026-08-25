@@ -1,6 +1,6 @@
 # Pi settings GUI — plan
 
-> Status: **plan** (2026-08-25). Not implemented. Slash matrix:
+> Status: **S0 shipped** (2026-08-25). Knobs start in S1. Slash matrix:
 > [`slash-parity.md`](slash-parity.md). Product vs pi split: ADR-0012.
 
 ## Goal

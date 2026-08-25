@@ -1,6 +1,7 @@
 // Composer slash list. Matrix + statuses: docs/design/slash-parity.md
 // Target: each /x opens PiCode UI. run:term is a recorded debt.
 export const SLASH = [
+  { id: "settings", label: "/settings", hint: "Pi settings", run: "go-settings" },
   { id: "login", label: "/login", hint: "Sign in a provider", run: "login" },
   { id: "logout", label: "/logout", hint: "Clear credentials", run: "term" },
   { id: "model", label: "/model", hint: "Switch model", run: "focus-model" },

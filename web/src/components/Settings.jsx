@@ -32,7 +32,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         setMoving(true);
         const host = location.hostname;
         const scheme = location.protocol === "http:" ? "http" : "https";
-        setTimeout(() => { location.replace(`${scheme}://${host}:${res.port}/#/settings`); }, 1500);
+        setTimeout(() => { location.replace(`${scheme}://${host}:${res.port}/#/preferences`); }, 1500);
       }
     } catch (e) {
       setErr(e.message);
@@ -40,7 +40,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   }
 
   return (
-    <PageFrame id="settings-view" title="Settings" hidden={hidden}>
+    <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <section className="settings-section">
         <h3>Appearance</h3>
         <div className="theme-cards" role="radiogroup" aria-label="Theme">

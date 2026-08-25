@@ -20,14 +20,15 @@ Shared code lives in `web/src/lib`. Rotate does not remount (would drop WS).
 The mobile shell is a PWA (`manifest.webmanifest`, `sw.js`, Apple
 `apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
 
-Hash routes. **Settings is PiCode-the-product only.** Anything that
-configures *pi* (credentials, MCP, packages) gets its own
-route — never a section inside Settings.
+Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
+**Settings** is pi JSON for the selected agent. Auth, MCP, packages
+stay on their own routes.
 
 | Hash | Surface | Owns |
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal, per-agent provider/model/thinking |
-| `#/settings` | PiCode config | theme, server port |
+| `#/settings` | pi config | global + workspace + agent (composer `/settings`) |
+| `#/preferences` | PiCode chrome | theme, server port |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
@@ -38,7 +39,7 @@ Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History
 is not copied into SQLite (ADR-0005).
 
-Entry: user menu (Settings, Providers, MCPs, Documentation) and `Ctrl+K`.
+Entry: user menu (Settings, Preferences, Providers, MCPs) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):
 HTTPS + bind + reachable IP + cert SAN + mkcert CA. Missing checks
 list the action; a QR is only drawn when every check passes.

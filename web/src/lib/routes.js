@@ -1,7 +1,7 @@
-// Hash routes. Settings is PiCode-the-product. Pi-facing surfaces
-// get their own paths (docs/architecture.md — Application routes).
+// Hash routes. Preferences is PiCode-the-product. Settings is pi (ADR-0012).
 export const ROUTES = {
   workspace: "/",
+  preferences: "/preferences",
   settings: "/settings",
   system: "/system",
   providers: "/providers",
@@ -11,7 +11,8 @@ export const ROUTES = {
 };
 
 export function parseRoute(hash) {
-  const h = (hash || location.hash || "").replace(/^#/, "") || "/";
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (h === "/preferences") return "preferences";
   if (h === "/settings") return "settings";
   if (h === "/system") return "system";
   if (h === "/providers") return "providers";

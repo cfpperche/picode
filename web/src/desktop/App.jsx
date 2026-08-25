@@ -11,6 +11,7 @@ import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
 import Settings from "../components/Settings.jsx";
+import PiSettings from "../components/PiSettings.jsx";
 import System from "../components/System.jsx";
 import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
@@ -668,6 +669,11 @@ export default function App() {
               } catch (e) { toastError(e); }
             }}
             onSlash={async (cmd) => {
+              if (cmd.run === "go-settings") {
+                if (!agent) { toast.info("Select an agent first."); return; }
+                go("settings");
+                return;
+              }
               if (!agent) return;
               if (cmd.run === "focus-model") { document.getElementById("agent-model")?.focus(); return; }
               if (cmd.run === "focus-thinking") { document.getElementById("agent-thinking")?.focus(); return; }
@@ -772,8 +778,9 @@ export default function App() {
           />
         </div>
 
+        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} />
         <Settings
-          hidden={route !== "settings"}
+          hidden={route !== "preferences"}
           themeMode={themeMode}
           onTheme={setTheme}
         />
@@ -807,7 +814,7 @@ export default function App() {
         workspaces={workspaces}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
-          if (a.kind === "settings" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
           if (a.kind === "open") openTab(a.wsId);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);

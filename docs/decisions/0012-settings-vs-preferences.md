@@ -1,6 +1,6 @@
 # ADR-0012: Preferences is PiCode; Settings is pi
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-08-25
 
 ## Context
