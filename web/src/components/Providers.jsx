@@ -10,6 +10,44 @@ import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 import { askConfirm } from "../lib/confirm.js";
 
+function AccountName({ provider, acc, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(acc.label);
+  useEffect(() => { setVal(acc.label); }, [acc.label]);
+  async function save() {
+    const name = val.trim();
+    setEditing(false);
+    if (!name || name === acc.label) { setVal(acc.label); return; }
+    try {
+      await api("/api/providers/" + encodeURIComponent(provider) + "/accounts/" + encodeURIComponent(acc.id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: name }),
+      });
+      if (onSaved) await onSaved();
+    } catch (ex) {
+      toastError(ex);
+      setVal(acc.label);
+    }
+  }
+  if (!editing) {
+    return <button type="button" className="prov-acc-label" title="Rename" onClick={() => setEditing(true)}>{acc.label}</button>;
+  }
+  return (
+    <input
+      className="prov-acc-input"
+      value={val}
+      autoFocus
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { setVal(acc.label); setEditing(false); }
+      }}
+    />
+  );
+}
+
 export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
   const signed = list.filter((p) => p.signedIn);
@@ -195,7 +233,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                   <ul className="prov-accounts">
                     {accs.map((a) => (
                       <li key={a.id} className={"prov-row" + (a.active ? "" : " muted")}>
-                        <span className="prov-acc-label">{a.label}</span>
+                        <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
                         <span className={"prov-auth" + (a.active ? " in" : "")}>{a.type === "oauth" ? "account" : "api key"}{a.active ? " · active" : ""}</span>
                         {!a.active ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button> : null}
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeAccount(p.id, a)}>Sign out</button>

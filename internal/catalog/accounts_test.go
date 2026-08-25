@@ -101,6 +101,42 @@ func TestRemoveLastClearsAuth(t *testing.T) {
 	}
 }
 
+func TestOAuthReloginUpdatesSameAccount(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := PutOAuth("anthropic", map[string]any{"type": "oauth", "access": "a1", "refresh": "r1", "expires": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := PutOAuth("anthropic", map[string]any{"type": "oauth", "access": "a2", "refresh": "r2", "expires": 2}); err != nil {
+		t.Fatal(err)
+	}
+	acc := AccountsFor("anthropic")
+	if len(acc) != 1 {
+		t.Fatalf("got %d", len(acc))
+	}
+	raw, _ := os.ReadFile(filepath.Join(home, ".pi", "agent", "auth.json"))
+	var m map[string]map[string]any
+	_ = json.Unmarshal(raw, &m)
+	if m["anthropic"]["refresh"] != "r2" {
+		t.Fatalf("latest refresh not active: %s", raw)
+	}
+}
+
+func TestRenameAccount(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := PutAPIKey("xai", "sk-one"); err != nil {
+		t.Fatal(err)
+	}
+	id := AccountsFor("xai")[0].ID
+	if err := RenameAccount("xai", id, "work"); err != nil {
+		t.Fatal(err)
+	}
+	if got := AccountsFor("xai")[0].Label; got != "work" {
+		t.Fatalf("%s", got)
+	}
+}
+
 func TestSameKeyDoesNotDuplicate(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

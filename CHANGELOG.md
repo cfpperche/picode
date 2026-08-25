@@ -14,6 +14,7 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Added
 
 - Multiple logins per provider (**Add account** / **Use**). pi still has one active slot.
+  Re-login on the same OAuth account updates tokens (no duplicate). Click the name to rename.
 - Claude and Codex **account** login via the same loopback ports as pi TUI.
 - kimi-coding is account-or-api-key (TUI parity).
 - `#/providers` Add-provider wizard (full loginable set, account vs API key).

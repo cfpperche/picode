@@ -67,12 +67,13 @@ func fingerprint(raw json.RawMessage) string {
 	var m map[string]any
 	_ = json.Unmarshal(raw, &m)
 	s := string(raw)
-	if k, ok := m["key"].(string); ok && k != "" {
+	if id, ok := m["accountId"].(string); ok && id != "" {
+		s = "id:" + id
+	} else if k, ok := m["key"].(string); ok && k != "" {
 		s = "k:" + k
-	} else if r, ok := m["refresh"].(string); ok && r != "" {
-		s = "r:" + r
-	} else if a, ok := m["access"].(string); ok && a != "" {
-		s = "a:" + a
+	} else if t, _ := m["type"].(string); t == "oauth" {
+		// Refresh tokens rotate. One oauth slot per provider unless accountId exists (Codex).
+		s = "oauth"
 	}
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
@@ -88,7 +89,53 @@ func loadVault() vaultFile {
 	if v == nil {
 		v = vaultFile{}
 	}
+	changed := false
+	for id, slot := range v {
+		n, c := collapse(slot)
+		if c {
+			v[id] = n
+			changed = true
+		}
+	}
+	if changed {
+		_ = saveVault(v)
+	}
 	return v
+}
+
+func collapse(slot vaultProvider) (vaultProvider, bool) {
+	byFP := map[string]int{}
+	keep := make([]vaultAccount, 0, len(slot.Accounts))
+	changed := false
+	for _, a := range slot.Accounts {
+		fp := fingerprint(a.Cred)
+		if fp != a.FP {
+			a.FP = fp
+			changed = true
+		}
+		if i, ok := byFP[fp]; ok {
+			keep[i] = a // later tokens win
+			changed = true
+			continue
+		}
+		byFP[fp] = len(keep)
+		keep = append(keep, a)
+	}
+	slot.Accounts = keep
+	if slot.Active != "" {
+		found := false
+		for _, a := range keep {
+			if a.ID == slot.Active {
+				found = true
+				break
+			}
+		}
+		if !found && len(keep) > 0 {
+			slot.Active = keep[len(keep)-1].ID
+			changed = true
+		}
+	}
+	return slot, changed
 }
 
 func saveVault(v vaultFile) error {
@@ -270,6 +317,25 @@ func RemoveAccount(provider, accountID string) error {
 	}
 	v[provider] = slot
 	return saveVault(v)
+}
+
+// RenameAccount sets the display name. Secrets unchanged.
+func RenameAccount(provider, accountID, label string) error {
+	provider = strings.TrimSpace(provider)
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return fmt.Errorf("name required")
+	}
+	v := loadVault()
+	slot := v[provider]
+	for i, a := range slot.Accounts {
+		if a.ID == accountID {
+			slot.Accounts[i].Label = label
+			v[provider] = slot
+			return saveVault(v)
+		}
+	}
+	return fmt.Errorf("unknown account")
 }
 
 func clearVaultProvider(provider string) {

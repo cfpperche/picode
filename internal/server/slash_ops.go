@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/pisettings"
@@ -14,6 +15,7 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
+	mux.HandleFunc("PATCH /api/providers/{id}/accounts/{aid}", handleAccountRename)
 	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
 }
 
@@ -66,6 +68,23 @@ func handleAccountActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "active": aid})
+}
+
+func handleAccountRename(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	aid := r.PathValue("aid")
+	var req struct {
+		Label string `json:"label"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if err := catalog.RenameAccount(id, aid, req.Label); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "account": aid, "label": strings.TrimSpace(req.Label)})
 }
 
 func handleAccountDelete(w http.ResponseWriter, r *http.Request) {
