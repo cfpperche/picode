@@ -16,7 +16,9 @@ moment of creation**. Read [README.md](README.md) and
 ## The non-negotiables
 
 1. **Documentation is a living system.** Code changes and documentation
-   changes travel together, in the same commit. Specifically:
+   changes travel together, in the same commit. User-facing command help
+   lives in `www/` (GitHub Pages), not in the app bundle — see
+   [docs/guidelines.md](docs/guidelines.md). Specifically:
    - Behavior/architecture changed → update `docs/architecture.md` **and**
      add/revise an ADR in `docs/decisions/` if the decision is architectural.
    - Anything user-visible changed → add an entry to `[Unreleased]` in
@@ -70,7 +72,8 @@ At session end, run `/skill:handoff-update`.
 
 ```
 AGENTS.md          this contract
-docs/              living documentation (handoff.md = project state)
+docs/              living documentation (handoff.md = project state; guidelines.md = how to write docs)
+www/               public GitHub Pages (slash/command help; iframe in #/docs/{cmd})
 docs/decisions/    ADRs — one decision per file, immutable once accepted
 docs/screenshots/  committed visual evidence (see its README)
 .pi/               Pi harness: skills, project settings

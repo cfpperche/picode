@@ -34,7 +34,7 @@ stay on their own routes.
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
 | `#/packages` | Pi packages | `pi install` / `pi remove` / list (ADR-0010) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
-| `#/docs/{cmd}` | Slash command docs | public pages; missing slug → 404 |
+| `#/docs/{cmd}` | Slash command docs | iframe of GitHub Pages `www/commands/{cmd}/`; missing → public 404 |
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History

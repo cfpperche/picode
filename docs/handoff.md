@@ -51,8 +51,9 @@ What exists right now:
 
 ## In flight
 
-- Nothing. ADR-0008 landed (React + Vite + Tailwind). Tree should be clean
-  after this commit.
+- GitHub Pages: first workflow deploy after this commit. Owner may need to
+  approve the `github-pages` environment. Public URL:
+  `https://cfpperche.github.io/picode/`.
 
 ## Next up
 
@@ -86,6 +87,9 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Public docs (`www/` → GitHub Pages). `#/docs/{cmd}`
+  iframes them. Guidelines: correlate with pi docs when applicable.
+  `/tree` click remains fork ([pi#8645](https://github.com/earendil-works/pi/issues/8645)).
 - **2026-08-25** — ADR-0011: sidebar **Free** vs **Workspaces**, many agents
   per folder (own model). Selected entity is the agent id.
 - **2026-08-25** — Packages: This machine vs This workspace (`-l`).

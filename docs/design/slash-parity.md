@@ -77,6 +77,8 @@ into pi's JSONL.
 [earendil-works/pi#8645](https://github.com/earendil-works/pi/issues/8645)
 (read side was #5810; #5119 asked for both and closed completed).
 
+Public page: [commands/tree](https://cfpperche.github.io/picode/commands/tree/).
+
 ## `/settings` scope (pi 0.84.x)
 
 TUI `/settings` is **not** session and **not** workspace.

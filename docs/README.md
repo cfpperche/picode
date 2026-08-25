@@ -4,6 +4,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 
 | Doc | What it holds |
 |---|---|
+| [guidelines.md](guidelines.md) | **How we write docs** — internal vs public Pages; pi correlation |
 | [architecture.md](architecture.md) | Components, protocols, security model |
 | [philosophy.md](philosophy.md) | Moat, values, the "door not cage" principle |
 | [benchmarks.md](benchmarks.md) | Engineering + UI/UX *bars* (enforced by skills) |
@@ -15,6 +16,10 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [design/pi-settings.md](design/pi-settings.md) | Plan: `#/settings` = pi GUI; `#/preferences` = PiCode |
 | [decisions/](decisions/) | ADRs — architectural decision records (0011: workspaces vs agents) |
 | [handoff-archive.md](handoff-archive.md) | Archived handoff activity (created when needed) |
+
+User-facing command pages live in [`www/`](../www/) (GitHub Pages),
+opened in-app via iframe (`#/docs/{cmd}`). Rules:
+[guidelines.md](guidelines.md).
 
 Docs style follows our own benchmark: short paragraphs, tables for
 comparisons, diagrams over prose, dates on status lines.
