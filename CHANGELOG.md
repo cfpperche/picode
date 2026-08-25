@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- One chrome gray (`--bg-panel`); `--bg-elevated` aliases it. Hover/focus
+  still use `--bg-hover`. Canvas stays `--bg-base`.
 - Compact 8px overlay scrollbar on every overflow (no Windows arrows).
   VS Code / Cursor / Linear pattern.
 
