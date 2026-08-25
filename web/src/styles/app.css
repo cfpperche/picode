@@ -36,11 +36,28 @@
   --warn: #a16207;
   --danger: #cf3b54;
 }
-* { box-sizing: border-box; margin: 0; }
+* {
+  box-sizing: border-box; margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+}
 html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
 }
+/* Compact overlay scrollbar — VS Code / Cursor / Linear.
+   Windows Chromium otherwise paints 17px + arrows. No JS. */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+*::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
 /* Author `display:` beats the UA [hidden] rule. One global override so
    hideDock / empty / form / tabs actually disappear. */
 [hidden] { display: none !important; }
@@ -541,13 +558,7 @@ body {
   padding: 0 var(--chat-gutter);
   overflow-y: scroll;
   scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
   display: flex; flex-direction: column;
-}
-.conversation::-webkit-scrollbar { width: 10px; }
-.conversation::-webkit-scrollbar-thumb {
-  background: var(--border-strong); border-radius: 99px;
 }
 .conversation.with-rail {
   scrollbar-width: none;
@@ -596,7 +607,7 @@ body {
 @media (max-width: 700px) {
   .conv-rail { display: none; }
   .conversation.with-rail { scrollbar-width: thin; scrollbar-gutter: stable; }
-  .conversation.with-rail::-webkit-scrollbar { width: 10px; height: auto; }
+  .conversation.with-rail::-webkit-scrollbar { width: 8px; height: auto; }
 }
 .conv-col {
   width: 100%; max-width: var(--chat-col); margin: 0 auto;

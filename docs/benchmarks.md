@@ -68,6 +68,8 @@ state = one line + one action; statusbar = live state, not hints).
 **Deference (HIG)**
 - [ ] The agent's output is the hero; chrome recedes. No gratuitous
       animation competing with content.
+- [ ] Scrollbars are overlay chrome: ≤8px, no arrow buttons, transparent
+      track (VS Code / Cursor / Linear). Native Windows 17px+arrows is FAIL.
 - [ ] Status is always truthful: streaming shows streaming, stuck shows
       why, unknown says "unknown" — never fake progress.
 

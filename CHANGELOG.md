@@ -11,6 +11,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- Compact 8px overlay scrollbar on every overflow (no Windows arrows).
+  VS Code / Cursor / Linear pattern.
+
 ### Added
 
 - Workspace groups collapse (agent count), hover-only action icons, and a
