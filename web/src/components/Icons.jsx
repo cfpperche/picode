@@ -200,6 +200,28 @@ export function IconBack() {
   );
 }
 
+export function IconExpand({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 3h6v6" />
+      <path d="M21 3 14 10" />
+      <path d="M9 21H3v-6" />
+      <path d="M3 21 10 14" />
+    </svg>
+  );
+}
+
+export function IconCollapse({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 3H3v6" />
+      <path d="M3 3 10 10" />
+      <path d="M15 21h6v-6" />
+      <path d="M21 21 14 14" />
+    </svg>
+  );
+}
+
 export function IconMaximize() {
   return (
     <svg className="icon-max" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">

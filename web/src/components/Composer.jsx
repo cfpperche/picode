@@ -4,7 +4,7 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { filterSlash } from "../lib/slash.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
@@ -16,14 +16,23 @@ export default function Composer({
   const ta = useRef(null);
   const hist = useRef(newHist());
   const [slashIdx, setSlashIdx] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const hits = filterSlash(value);
 
   useEffect(() => {
     const el = ta.current;
     if (!el) return;
+    if (expanded) { el.style.height = "100%"; return; }
     el.style.height = "auto";
     el.style.height = Math.max(52, Math.min(el.scrollHeight, 160)) + "px";
-  }, [value]);
+  }, [value, expanded]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   useEffect(() => { setSlashIdx(0); }, [value]);
 
@@ -34,8 +43,17 @@ export default function Composer({
   }
 
   return (
-    <div className="composer-wrap">
+    <div className={"composer-wrap" + (expanded ? " expanded" : "")}>
       <div className="composer" onClick={(e) => { if (e.target === e.currentTarget) ta.current?.focus(); }}>
+        <button
+          type="button"
+          className="composer-expand"
+          title={expanded ? "Collapse" : "Expand"}
+          aria-label={expanded ? "Collapse composer" : "Expand composer"}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? <IconCollapse /> : <IconExpand />}
+        </button>
         {hits.length > 0 && (
           <ul className="slash-menu" role="listbox">
             {hits.map((c, i) => (
