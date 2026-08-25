@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Package install scope: **This machine** or **This workspace** (`pi install -l`).
+  Source field accepts npm, git, and path.
 - Package install/remove freezes the page behind a blur overlay and lists
   the real `pi install` / `pi remove` steps (no more every-button Working…).
 - Packages gallery shows **skeleton cards** while npm search is in flight.

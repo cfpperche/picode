@@ -148,6 +148,20 @@ body {
   border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px 4px 10px;
   background: var(--bg-panel);
 }
+.pkg-scope-tag {
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+}
+.pkg-scope { display: inline-flex; gap: 4px; margin: 8px 0 0; }
+.pkg-scope-btn {
+  height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: none; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer;
+}
+.pkg-scope-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+.pkg-scope-btn[aria-checked="true"] {
+  color: var(--accent); border-color: var(--border-strong); background: var(--bg-base);
+}
+.pkg-scope-btn:disabled { opacity: 0.45; cursor: default; }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
   display: grid; grid-template-columns: 1fr; gap: 12px;

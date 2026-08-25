@@ -121,6 +121,16 @@ func TestPackagesEndpoint(t *testing.T) {
 	if pres.StatusCode != http.StatusBadRequest {
 		t.Fatalf("inject status = %d", pres.StatusCode)
 	}
+
+	proj, _ := json.Marshal(map[string]string{"source": "npm:foo", "scope": "project"})
+	pres2, err := ts.Client().Post(ts.URL+"/api/packages", "application/json", bytes.NewReader(proj))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pres2.Body.Close()
+	if pres2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("project without workspace status = %d", pres2.StatusCode)
+	}
 }
 
 func TestSystemEndpoint(t *testing.T) {

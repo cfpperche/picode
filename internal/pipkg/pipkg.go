@@ -195,15 +195,34 @@ func existingInstallPath(p Pkg, baseDir string) string {
 	return ""
 }
 
-// Install runs `pi install <source> --no-approve` (user scope).
-func Install(ctx context.Context, piCmd, source string) error {
+// MutateOpts selects user vs project (`-l`) install/remove.
+type MutateOpts struct {
+	Local bool
+	Cwd   string
+}
+
+// MutateArgs is the pi CLI argv after the binary (tested).
+func MutateArgs(verb, source string, local bool) []string {
+	if local {
+		return []string{verb, "-l", source, "--no-approve"}
+	}
+	return []string{verb, source, "--no-approve"}
+}
+
+func runPi(ctx context.Context, piCmd, verb, source string, opts MutateOpts) error {
 	if err := ValidSource(source); err != nil {
 		return err
+	}
+	if opts.Local && strings.TrimSpace(opts.Cwd) == "" {
+		return fmt.Errorf("project scope needs a workspace")
 	}
 	if piCmd == "" {
 		piCmd = "pi"
 	}
-	cmd := exec.CommandContext(ctx, piCmd, "install", source, "--no-approve")
+	cmd := exec.CommandContext(ctx, piCmd, MutateArgs(verb, source, opts.Local)...)
+	if opts.Cwd != "" {
+		cmd.Dir = opts.Cwd
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
@@ -215,24 +234,14 @@ func Install(ctx context.Context, piCmd, source string) error {
 	return nil
 }
 
+// Install runs `pi install <source> --no-approve` (add `-l` when opts.Local).
+func Install(ctx context.Context, piCmd, source string, opts MutateOpts) error {
+	return runPi(ctx, piCmd, "install", source, opts)
+}
+
 // Remove runs `pi remove <source> --no-approve`.
-func Remove(ctx context.Context, piCmd, source string) error {
-	if err := ValidSource(source); err != nil {
-		return err
-	}
-	if piCmd == "" {
-		piCmd = "pi"
-	}
-	cmd := exec.CommandContext(ctx, piCmd, "remove", source, "--no-approve")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return fmt.Errorf("%s", firstLine(msg))
-	}
-	return nil
+func Remove(ctx context.Context, piCmd, source string, opts MutateOpts) error {
+	return runPi(ctx, piCmd, "remove", source, opts)
 }
 
 func firstLine(s string) string {

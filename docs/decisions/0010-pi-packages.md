@@ -14,8 +14,9 @@ copy package state into SQLite (ADR-0005).
 ## Decision
 
 1. **`#/packages` is a pi surface**, like Providers — never a Settings
-   section. It lists, installs, and removes what `~/.pi/agent/settings.json`
-   already stores.
+   section. It lists, installs, and removes what pi already stores:
+   user `~/.pi/agent/settings.json` and, when a workspace is selected,
+   `<workspace>/.pi/settings.json`.
 2. **Mutations go through `pi install` / `pi remove`.** PiCode does not
    rewrite settings.json itself.
 3. **In-app gallery search is npm**, not a PiCode catalog and not a scrape
@@ -31,8 +32,7 @@ copy package state into SQLite (ADR-0005).
 
 - **Easier**: one source of truth (pi settings + CLI); first search package
   can land without a PiCode-owned engine.
-- **Harder**: install latency and errors are whatever `pi install` returns;
-  project-local (`-l`) packages are out of v1.
+- **Harder**: install latency and errors are whatever `pi install` returns.
 - **If wrong**: scraping npm into a fake store would fork from `pi list`.
 
 ## Alternatives considered
@@ -42,3 +42,9 @@ copy package state into SQLite (ADR-0005).
 - **Full gallery browser in-app**: deferred — pi.dev already is that UI.
 - **Pretty search cards first**: rejected — without an installed search
   package the cards would be invented.
+
+## Amendment 2026-08-25
+
+The UI now offers **This machine** (`pi install`) and **This workspace**
+(`pi install -l`, cwd = selected agent folder). Session-only (`pi -e`,
+This run) is still deferred.

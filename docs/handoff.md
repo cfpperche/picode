@@ -85,6 +85,8 @@ What exists right now:
 
 ## Recent activity
 
+- **2026-08-25** — Packages: This machine vs This workspace (`-l`).
+  Session/`pi -e` still deferred (This run). ADR-0010 amended.
 - **2026-08-25** — Optimistic UI is a bar (`docs/philosophy.md` §7).
   Packages gallery uses layout skeletons on first load; refetch keeps
   last hits. Blank wells while fetching are FAIL.

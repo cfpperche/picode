@@ -3,20 +3,28 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import PageFrame from "./PageFrame.jsx";
 
-export default function Packages({ hidden }) {
+export default function Packages({ hidden, workspaceId, workspaceName, workspacePath }) {
   const [data, setData] = useState(null);
   const [source, setSource] = useState("");
+  const [scope, setScope] = useState("user");
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
   const [job, setJob] = useState(null);
 
+  function listURL() {
+    return "/api/packages" + (workspaceId ? "?workspace=" + encodeURIComponent(workspaceId) : "");
+  }
+
   async function load() {
-    try { setData(await api("/api/packages")); }
+    try { setData(await api(listURL())); }
     catch { setData({ packages: [], capabilities: {}, gallery: "https://pi.dev/packages" }); }
   }
 
-  useEffect(() => { if (!hidden) load(); }, [hidden]);
+  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId]);
+  useEffect(() => {
+    if (!workspaceId && scope === "project") setScope("user");
+  }, [workspaceId, scope]);
 
   useEffect(() => {
     if (hidden) return;
@@ -33,19 +41,23 @@ export default function Packages({ hidden }) {
 
   const installed = useMemo(() => {
     const s = new Set();
-    for (const p of (data && data.packages) || []) s.add(p.source);
+    const want = scope === "project" ? "project" : "user";
+    for (const p of (data && data.packages) || []) {
+      if (p.scope === want) s.add(p.source);
+    }
     return s;
-  }, [data]);
+  }, [data, scope]);
 
   async function installSource(src) {
     const nextSrc = (src || "").trim();
     if (!nextSrc || job) return;
-    setJob({ action: "install", source: nextSrc, step: 0, error: "" });
+    if (scope === "project" && !workspaceId) return;
+    setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "" });
     try {
       const next = await api("/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: nextSrc }),
+        body: JSON.stringify({ source: nextSrc, scope, workspaceId: workspaceId || undefined }),
       });
       setJob((j) => j && { ...j, step: 1 });
       setData(next);
@@ -65,9 +77,12 @@ export default function Packages({ hidden }) {
       danger: true,
     });
     if (!ok || job) return;
-    setJob({ action: "remove", source: pkg.source, step: 0, error: "" });
+    const sc = pkg.scope === "project" ? "project" : "user";
+    setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "" });
     try {
-      const next = await api("/api/packages?source=" + encodeURIComponent(pkg.source), { method: "DELETE" });
+      let url = "/api/packages?source=" + encodeURIComponent(pkg.source) + "&scope=" + sc;
+      if (workspaceId) url += "&workspace=" + encodeURIComponent(workspaceId);
+      const next = await api(url, { method: "DELETE" });
       setJob((j) => j && { ...j, step: 1 });
       setData(next);
       setJob((j) => j && { ...j, step: 2 });
@@ -87,13 +102,25 @@ export default function Packages({ hidden }) {
           className="dlg-input"
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          placeholder="Install by source — npm:pi-web-search"
+          placeholder="npm:pkg  ·  git:github.com/user/repo  ·  ./path"
           disabled={!!job}
           aria-label="Package source"
         />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim()}>Install</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId)}>Install</button>
       </form>
-      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
+      <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Install scope">
+        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+        <button
+          type="button"
+          role="radio"
+          className="pkg-scope-btn"
+          aria-checked={scope === "project"}
+          disabled={!workspaceId}
+          title={workspaceId ? "Writes .pi/settings.json in this workspace" : "Select an agent first"}
+          onClick={() => workspaceId && setScope("project")}
+        >This workspace</button>
+      </div>
+      <p className="pkg-fine">Packages run with full access. Only install what you review.{scope === "project" && workspaceName ? " Target: " + workspaceName + "/.pi" : ""}</p>
 
       <section className="pkg-toolbar" data-align-row>
         <input
@@ -113,6 +140,7 @@ export default function Packages({ hidden }) {
           <ul className="pkg-chips">
             {list.map((p) => (
               <li key={p.scope + ":" + p.source} className="pkg-chip">
+                <span className="pkg-scope-tag">{p.scope === "project" ? (workspaceName || "workspace") : "machine"}</span>
                 <span className="pkg-src">{p.source}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
               </li>
@@ -181,10 +209,14 @@ export default function Packages({ hidden }) {
 
 function jobSteps(job) {
   const bin = job.action === "remove" ? "remove" : "install";
-  return [
-    { id: "run", label: "pi " + bin + " " + job.source + " --no-approve" },
-    { id: "list", label: "Reload installed packages" },
-  ];
+  const local = job.scope === "project";
+  const cmd = local
+    ? "pi " + bin + " -l " + job.source + " --no-approve"
+    : "pi " + bin + " " + job.source + " --no-approve";
+  const steps = [{ id: "run", label: cmd }];
+  if (local && job.cwd) steps[0].label += "  (cwd " + job.cwd + ")";
+  steps.push({ id: "list", label: "Reload installed packages" });
+  return steps;
 }
 
 function JobOverlay({ job, onClose }) {

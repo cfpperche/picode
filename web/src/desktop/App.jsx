@@ -744,7 +744,7 @@ export default function App() {
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
-        <Packages hidden={route !== "packages"} />
+        <Packages hidden={route !== "packages"} workspaceId={selectedId || ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} />
         <Devices hidden={route !== "devices"} />
       </main>
 

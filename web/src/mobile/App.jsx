@@ -285,7 +285,7 @@ export default function MobileApp() {
             {more === "system" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><System hidden={false} version="" system={null} /></>}
             {more === "providers" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Providers hidden={false} catalog={{ providers: [] }} onSignIn={() => {}} /></>}
             {more === "mcps" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Mcps hidden={false} mcp={{}} /></>}
-            {more === "packages" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Packages hidden={false} /></>}
+            {more === "packages" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Packages hidden={false} workspaceId={selectedId || ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} /></>}
           </section>
         )}
       </div>

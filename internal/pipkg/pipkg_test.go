@@ -3,6 +3,7 @@ package pipkg
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -66,6 +67,42 @@ func TestListMissingIsEmpty(t *testing.T) {
 	rep, err := List(t.TempDir(), "")
 	if err != nil || len(rep.Packages) != 0 || rep.Capabilities.WebSearch {
 		t.Fatalf("%v %+v", err, rep)
+	}
+}
+
+func TestMutateArgs(t *testing.T) {
+	got := MutateArgs("install", "npm:foo", false)
+	want := []string{"install", "npm:foo", "--no-approve"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("%v", got)
+	}
+	got = MutateArgs("install", "npm:foo", true)
+	if got[1] != "-l" {
+		t.Fatalf("local: %v", got)
+	}
+}
+
+func TestListMergesProject(t *testing.T) {
+	user := t.TempDir()
+	proj := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(proj, ".pi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(user, "settings.json"), []byte(`{"packages":["npm:user-pkg"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(proj, ".pi", "settings.json"), []byte(`{"packages":["npm:proj-pkg"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := List(user, proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Packages) != 2 {
+		t.Fatalf("%+v", rep.Packages)
+	}
+	if rep.Packages[0].Scope != "user" || rep.Packages[1].Scope != "project" {
+		t.Fatalf("%+v", rep.Packages)
 	}
 }
 
