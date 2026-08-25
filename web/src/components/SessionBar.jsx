@@ -3,18 +3,29 @@ import { IconSession, IconPlus, IconChat } from "./Icons.jsx";
 
 export default function SessionBar({ sessions, current, onNew, onResume, onRename, onChat, inline }) {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
   const wrap = useRef(null);
+  const searchRef = useRef(null);
   const cur = (sessions || []).find((s) => s.path === current);
   const label = cur ? (cur.name || cur.preview || "Current session") : "Sessions";
 
   useEffect(() => {
     if (!open) return;
+    setQ("");
     const onDoc = (e) => {
       if (wrap.current && !wrap.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
+    requestAnimationFrame(() => searchRef.current && searchRef.current.focus());
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  const needle = q.trim().toLowerCase();
+  const filtered = (sessions || []).filter((s) => {
+    if (!needle) return true;
+    const hay = ((s.name || "") + " " + (s.preview || "") + " " + (s.updatedAt || "")).toLowerCase();
+    return hay.includes(needle);
+  });
 
   return (
     <div className={"session-bar" + (inline ? " inline" : "")} ref={wrap}>
@@ -47,9 +58,18 @@ export default function SessionBar({ sessions, current, onNew, onResume, onRenam
       ) : null}
       {open && (
         <div className="session-pop" role="listbox">
+          <input
+            ref={searchRef}
+            className="combo-input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search sessions"
+            aria-label="Search sessions"
+            onKeyDown={(e) => e.stopPropagation()}
+          />
           <div className="session-list">
-            {(sessions || []).length === 0 && <div className="combo-empty">No sessions yet</div>}
-            {(sessions || []).map((s) => (
+            {filtered.length === 0 && <div className="combo-empty">{(sessions || []).length === 0 ? "No sessions yet" : "No matches"}</div>}
+            {filtered.map((s) => (
               <button
                 key={s.path}
                 type="button"
