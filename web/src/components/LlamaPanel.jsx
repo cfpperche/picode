@@ -22,6 +22,7 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [info, setInfo] = useState(null);
+  const [setup, setSetup] = useState(null);
 
   async function refresh() {
     try {
@@ -29,6 +30,7 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
       setUrl(res.url || "http://127.0.0.1:8080");
       setOk(!!res.ok);
       setModels(res.models || []);
+      setSetup(res.setup || null);
     } catch {
       setOk(false);
       setUrl((u) => u || "http://127.0.0.1:8080");
@@ -39,7 +41,7 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
   useEffect(() => { refresh(); }, []);
 
   async function saveUrl(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     try {
       await api("/api/providers/llama.cpp", {
         method: "PUT",
@@ -49,6 +51,16 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
       toast.ok("Saved router URL.");
       await refresh();
       if (onRefresh) await onRefresh();
+    } catch (ex) { toastError(ex); }
+  }
+
+  async function startRouter() {
+    try {
+      await api("/api/llama/start", { method: "POST" });
+      toast.ok("Starting llama-server…");
+      await saveUrl();
+      await new Promise((r) => setTimeout(r, 1200));
+      await refresh();
     } catch (ex) { toastError(ex); }
   }
 
@@ -156,11 +168,47 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
           {ok ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setDl(true); setHits([]); setInfo(null); }}>Download</button> : null}
         </div>
       </form>
-      <p className="settings-desc">{ok ? "" : "unreachable"}{busy ? (ok ? "" : " · ") + busy : ""}</p>
-      {!ok ? (
-        <p className="side-empty">Start llama-server on that URL, then Retry.</p>
+      <p className="settings-desc">{busy ? busy : ""}</p>
+      {setup && !ok ? (
+        <ol className="llama-steps">
+          <li className={setup.binary ? "done" : ""}>
+            <span>{setup.binary ? "Done" : "Next"}</span>
+            <div>
+              <p>Install llama-server and put it on PATH.</p>
+              {!setup.binary ? (
+                <p>
+                  <a href={setup.releases} target="_blank" rel="noreferrer">Releases</a>
+                  {" — Linux/WSL: llama-server. Windows: llama-server.exe."}
+                </p>
+              ) : <p className="settings-desc">{setup.binary}</p>}
+            </div>
+          </li>
+          <li className={ok ? "done" : ""}>
+            <span>{ok ? "Done" : "Next"}</span>
+            <div>
+              <p>Start the router (no --model flag).</p>
+              {!ok ? (
+                <div className="dlg-actions" style={{ marginTop: 8 }}>
+                  {setup.binary ? <button type="button" className="btn btn-primary btn-sm" onClick={startRouter}>Start</button> : null}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(setup.startCmd).then(() => toast.ok("Copied start command."))}>Copy command</button>
+                </div>
+              ) : null}
+            </div>
+          </li>
+          <li className={ok && setup.models > 0 ? "done" : ""}>
+            <span>{ok && setup.models > 0 ? "Done" : "Next"}</span>
+            <div>
+              <p>Download or place a GGUF, then Load.</p>
+              {ok && setup.models === 0 ? (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => { setDl(true); setHits([]); setInfo(null); }}>Download</button>
+              ) : null}
+            </div>
+          </li>
+        </ol>
+      ) : !ok ? (
+        <p className="side-empty">Router unreachable. Retry after it is running.</p>
       ) : models.length === 0 ? (
-        <p className="side-empty">No models in the router.</p>
+        <p className="side-empty">No models. Download one.</p>
       ) : (
         <ul className="prov-list">
           {models.map((m) => {

@@ -8,7 +8,7 @@ export default function LlamaDialog({ open, onClose, onRefresh }) {
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-create dlg-llama" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">llama.cpp</Dialog.Title>
-          <Dialog.Description className="dlg-body">Load and download GGUF on the local router.</Dialog.Description>
+          <Dialog.Description className="dlg-body">Checks what is missing, then load or download GGUF.</Dialog.Description>
           {open ? <LlamaPanel hideTitle onRefresh={onRefresh} /> : null}
           <div className="dlg-actions">
             <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>

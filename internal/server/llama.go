@@ -17,6 +17,7 @@ func registerLlama(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/llama/hf", handleLlamaHFSearch)
 	mux.HandleFunc("GET /api/llama/hf/info", handleLlamaHFInfo)
 	mux.HandleFunc("POST /api/llama/download", handleLlamaDownload)
+	mux.HandleFunc("POST /api/llama/start", handleLlamaStart)
 }
 
 func llamaClient() (*llama.Client, error) {
@@ -37,19 +38,24 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	models, err := c.List()
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"url":    llamaURL(),
-			"ok":     false,
-			"models": []any{},
-		})
-		return
+	ok := err == nil
+	if models == nil {
+		models = []llama.Model{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"url":    llamaURL(),
-		"ok":     true,
+		"ok":     ok,
 		"models": models,
+		"setup":  llama.Inspect(llamaURL(), models, ok),
 	})
+}
+
+func handleLlamaStart(w http.ResponseWriter, r *http.Request) {
+	if err := llama.StartRouter(llamaURL()); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func handleLlamaLoad(w http.ResponseWriter, r *http.Request) {
