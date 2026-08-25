@@ -154,7 +154,6 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
 
   return (
     <PageFrame id="providers-view" title="Providers" hidden={hidden}>
-      <p className="settings-desc">Credentials stay in pi's auth.json. API keys are saved here. Account / subscription login is still the TUI until pi adds RPC login.</p>
       <div className="set-row" style={{ marginBottom: 12 }}>
         <span />
         <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>Add provider</button>
@@ -202,7 +201,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {step === "pick" ? "Search the same set as TUI /login." : step === "method" ? "This provider accepts an account or an API key." : step === "oauth" ? (canAccount ? "A browser tab opens. Come back when it says signed in." : "Account login for this provider is not in PiCode yet.") : "Saved in ~/.pi/agent/auth.json. The key is never shown again."}
+              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
             </Dialog.Description>
 
             {step === "pick" ? (
@@ -233,11 +232,6 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
 
             {step === "oauth" ? (
               <div>
-                {canAccount ? (
-                  <p className="settings-desc">Continue opens the provider in a new tab. This dialog waits until you finish there.</p>
-                ) : (
-                  <p className="settings-desc">Account login for {pick ? pick.id : "this provider"} is not wired yet. Use API key, or /login in the terminal.</p>
-                )}
                 {userCode ? <p className="oauth-code">{userCode}</p> : null}
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions">

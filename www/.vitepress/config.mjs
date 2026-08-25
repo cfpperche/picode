@@ -22,6 +22,7 @@ export default defineConfig({
         items: [
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
+          { text: "Providers", link: "/guide/providers" },
         ],
       },
       {

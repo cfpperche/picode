@@ -86,13 +86,13 @@ Canonical: [pi Compaction](https://github.com/earendil-works/pi/blob/main/packag
 
 ## /login {#login}
 
-Opens Add provider. API key is saved in pi's `auth.json`. Account/subscription still needs TUI `/login` (no RPC).
+Opens Add provider. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
 ## /logout {#logout}
 
-Opens `#/providers`. Sign out removes that provider from `~/.pi/agent/auth.json`.
+Opens `#/providers`. Sign out removes that provider. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
