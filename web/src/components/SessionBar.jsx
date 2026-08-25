@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function SessionBar({ sessions, current, onNew, onResume, onRename }) {
+export default function SessionBar({ sessions, current, onNew, onResume, onRename, end }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const cur = (sessions || []).find((s) => s.path === current);
@@ -29,6 +29,7 @@ export default function SessionBar({ sessions, current, onNew, onResume, onRenam
         <span className="session-count">{(sessions || []).length}</span>
       </button>
       <button type="button" className="cockpit-chip" onClick={onNew} title="New session">New</button>
+      {end ? <div className="session-bar-end">{end}</div> : null}
       {open && (
         <div className="session-pop" role="listbox">
           <div className="session-list">

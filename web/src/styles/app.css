@@ -351,6 +351,7 @@ body {
   padding: 6px 12px; background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
 }
+.session-bar-end { margin-left: auto; }
 .session-count {
   min-width: 1.1em; font-size: 10.5px; color: var(--text-secondary);
 }

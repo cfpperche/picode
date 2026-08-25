@@ -7,7 +7,7 @@ import { wsURL } from "../lib/api.js";
 import "@xterm/xterm/css/xterm.css";
 
 export default function TerminalDock({
-  open, agent, workspace, onBack,
+  open, agent, workspace,
 }) {
   const hostRef = useRef(null);
   const status = useRef({ set: () => {} });
@@ -113,12 +113,6 @@ export default function TerminalDock({
       className="dock view"
       hidden={!open}
     >
-      <div className="dock-head">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>Chat</button>
-        <span id="dock-title" className="dock-title">
-          {workspace ? "Terminal · " + workspace.name : "Terminal"}
-        </span>
-      </div>
       <div id="terms" className="terms" ref={hostRef} />
       <div id="statusbar" className="statusbar">
         <span className="sb-state" id="sb-state">

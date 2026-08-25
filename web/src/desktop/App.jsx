@@ -594,6 +594,9 @@ export default function App() {
                     await loadStatus(selectedId);
                   } catch (e) { toastError(e); }
                 }}
+                end={termView ? (
+                  <button type="button" className="cockpit-chip" onClick={showChat}>Chat</button>
+                ) : null}
               />
             ) : null}
           />
@@ -702,7 +705,6 @@ export default function App() {
             open={termView && !onPane}
             agent={agent}
             workspace={selected}
-            onBack={showChat}
           />
         </div>
 
