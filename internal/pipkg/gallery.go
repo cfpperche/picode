@@ -19,6 +19,10 @@ type Hit struct {
 	Version     string `json:"version"`
 	Description string `json:"description,omitempty"`
 	Source      string `json:"source"`
+	Publisher   string `json:"publisher,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Downloads   int    `json:"downloads,omitempty"`
+	Updated     string `json:"updated,omitempty"`
 }
 
 // GalleryPage is GET /api/packages/gallery.
@@ -86,10 +90,18 @@ func searchGallery(ctx context.Context, client *http.Client, endpoint, q string)
 func parseNpmSearch(body []byte) ([]Hit, error) {
 	var raw struct {
 		Objects []struct {
+			Downloads struct {
+				Monthly int `json:"monthly"`
+			} `json:"downloads"`
 			Package struct {
-				Name        string `json:"name"`
-				Version     string `json:"version"`
-				Description string `json:"description"`
+				Name        string   `json:"name"`
+				Version     string   `json:"version"`
+				Description string   `json:"description"`
+				Date        string   `json:"date"`
+				Keywords    []string `json:"keywords"`
+				Publisher   struct {
+					Username string `json:"username"`
+				} `json:"publisher"`
 			} `json:"package"`
 		} `json:"objects"`
 	}
@@ -107,7 +119,25 @@ func parseNpmSearch(body []byte) ([]Hit, error) {
 			Version:     o.Package.Version,
 			Description: strings.TrimSpace(o.Package.Description),
 			Source:      "npm:" + name,
+			Publisher:   o.Package.Publisher.Username,
+			Kind:        kindFromKeywords(o.Package.Keywords),
+			Downloads:   o.Downloads.Monthly,
+			Updated:     o.Package.Date,
 		})
 	}
 	return out, nil
+}
+
+func kindFromKeywords(kws []string) string {
+	joined := strings.ToLower(strings.Join(kws, " "))
+	switch {
+	case strings.Contains(joined, "extension"):
+		return "extension"
+	case strings.Contains(joined, "skill"):
+		return "skill"
+	case strings.Contains(joined, "theme"):
+		return "theme"
+	default:
+		return "package"
+	}
 }

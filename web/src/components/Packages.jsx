@@ -78,80 +78,100 @@ export default function Packages({ hidden }) {
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
-    <PageFrame id="packages-view" title="Packages" hidden={hidden}>
-      <section className="settings-section">
-        <h3>Installed</h3>
-        {list.length === 0 ? (
-          <p className="pkg-empty">No packages installed.</p>
-        ) : (
-          <ul className="pkg-list">
+    <PageFrame id="packages-view" title="Packages" hidden={hidden} wide>
+      <section className="pkg-toolbar">
+        <input
+          className="dlg-input pkg-search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Filter packages…"
+          aria-label="Search gallery"
+        />
+        <span className="pkg-count">{searching ? "Searching…" : hits.length ? hits.length + " shown" : "No matches"}</span>
+        <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
+      </section>
+
+      {list.length > 0 ? (
+        <section className="pkg-installed">
+          <h3>Installed</h3>
+          <ul className="pkg-chips">
             {list.map((p) => (
-              <li key={p.scope + ":" + p.source} className="pkg-row">
+              <li key={p.scope + ":" + p.source} className="pkg-chip">
                 <span className="pkg-src">{p.source}</span>
-                <span className="pkg-meta">{p.kind} · {p.scope}{p.filtered ? " · filtered" : ""}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={busy}>Remove</button>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="settings-section">
-        <h3>Gallery</h3>
-        <p className="pkg-lead">
-          npm packages tagged <code>pi-package</code>. They run with <strong>full access</strong> — only install what you review.
-          {" "}<a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
-        </p>
+      <ul className="pkg-grid">
+        {hits.map((h) => {
+          const on = installed.has(h.source);
+          return (
+            <li key={h.source} className="pkg-card">
+              <div className="pkg-card-head">
+                <span className="pkg-card-name">{h.name}</span>
+                {h.kind ? <span className="pkg-type">{h.kind}</span> : null}
+              </div>
+              {h.description ? <p className="pkg-card-desc">{h.description}</p> : <p className="pkg-card-desc"> </p>}
+              <div className="pkg-card-meta">
+                {h.publisher ? <span>{h.publisher}</span> : null}
+                {h.downloads ? <span>{fmtDown(h.downloads)}</span> : null}
+                {h.updated ? <span>{fmtAge(h.updated)}</span> : null}
+                {h.version ? <span>{h.version}</span> : null}
+              </div>
+              <div className="pkg-card-foot">
+                <code className="pkg-cmd">pi install {h.source}</code>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={busy || on}
+                  onClick={() => installSource(h.source)}
+                >
+                  {on ? "Installed" : busy ? "Working…" : "Install"}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <form className="pkg-by-source" onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
         <input
           className="dlg-input"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search packages"
-          aria-label="Search gallery"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          placeholder="Or install by source — npm:pi-web-search"
+          disabled={busy}
+          aria-label="Package source"
         />
-        {searching ? <p className="pkg-empty">Searching…</p> : null}
-        {!searching && hits.length === 0 ? <p className="pkg-empty">No matches.</p> : null}
-        <ul className="pkg-list">
-          {hits.map((h) => {
-            const on = installed.has(h.source);
-            return (
-              <li key={h.source} className="pkg-hit">
-                <div className="pkg-hit-top">
-                  <span className="pkg-src">{h.name}</span>
-                  <span className="pkg-meta">{h.version}</span>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={busy || on}
-                    onClick={() => installSource(h.source)}
-                  >
-                    {on ? "Installed" : busy ? "Working…" : "Install"}
-                  </button>
-                </div>
-                {h.description ? <p className="pkg-desc">{h.description}</p> : null}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      <section className="settings-section">
-        <h3>Install by source</h3>
-        <p className="pkg-lead">npm:, git:, or a local path — same as <code>pi install</code>.</p>
-        <form className="pkg-install" onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
-          <input
-            className="dlg-input"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="npm:pi-web-search"
-            disabled={busy}
-            aria-label="Package source"
-          />
-          <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !source.trim()}>
-            {busy ? "Working…" : "Install"}
-          </button>
-        </form>
-      </section>
+        <button type="submit" className="btn btn-ghost btn-sm" disabled={busy || !source.trim()}>Install</button>
+      </form>
+      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
     </PageFrame>
   );
+}
+
+function fmtDown(n) {
+  if (!n) return "";
+  if (n >= 1e6) return trimNum(n / 1e6) + "M/mo";
+  if (n >= 1000) return trimNum(n / 1000) + "k/mo";
+  return n + "/mo";
+}
+
+function trimNum(n) {
+  return n.toFixed(n >= 10 ? 0 : 1).replace(/\.0$/, "");
+}
+
+function fmtAge(iso) {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const d = Date.now() - t;
+  const day = 86400000;
+  if (d < day) return "today";
+  if (d < 2 * day) return "1d ago";
+  if (d < 30 * day) return Math.floor(d / day) + "d ago";
+  if (d < 365 * day) return Math.floor(d / (30 * day)) + "mo ago";
+  return Math.floor(d / (365 * day)) + "y ago";
 }

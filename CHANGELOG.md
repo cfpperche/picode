@@ -27,8 +27,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Packages** (`#/packages`): install/remove via `pi install`, and
-  search the npm `pi-package` gallery in-app. ADR-0010.
+- **Packages** gallery is a **2-column card grid** (adapted from
+  [pi.dev/packages](https://pi.dev/packages); install on the card, no
+  invented charts). Search is npm `keywords:pi-package`.
+- App icon is the official **pi favicon**.
 - Assistant replies render **markdown**. Sessions can be **renamed**
   (picker or `/name`).
 - Confirms use a **Radix dialog** (compact, remove workspace), not `window.confirm`.

@@ -10,11 +10,11 @@ import (
 func TestParseNpmSearch(t *testing.T) {
 	hits, err := parseNpmSearch([]byte(`{
 	  "objects": [
-	    {"package": {"name": "pi-web-search", "version": "1.3.1", "description": "Provider-native web search"}},
+	    {"downloads": {"monthly": 1500}, "package": {"name": "pi-web-search", "version": "1.3.1", "description": "Provider-native web search", "keywords": ["pi-package", "pi-extension"], "publisher": {"username": "ttttmr"}}},
 	    {"package": {"name": "", "version": "0"}}
 	  ]
 	}`))
-	if err != nil || len(hits) != 1 || hits[0].Source != "npm:pi-web-search" {
+	if err != nil || len(hits) != 1 || hits[0].Source != "npm:pi-web-search" || hits[0].Kind != "extension" || hits[0].Downloads != 1500 {
 		t.Fatalf("%v %+v", err, hits)
 	}
 }

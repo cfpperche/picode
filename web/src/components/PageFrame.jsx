@@ -1,9 +1,9 @@
 import { IconBack } from "./Icons.jsx";
 
-export default function PageFrame({ id, title, children, hidden }) {
+export default function PageFrame({ id, title, children, hidden, wide }) {
   return (
     <section id={id} className="pane-view" hidden={hidden}>
-      <div className="settings-wrap">
+      <div className={"settings-wrap" + (wide ? " wide" : "")}>
         <header className="settings-head">
           <a href="#/" className="btn btn-ghost btn-sm">
             <IconBack />
@@ -11,7 +11,7 @@ export default function PageFrame({ id, title, children, hidden }) {
           </a>
           <h2>{title}</h2>
         </header>
-        <div className="settings-card">{children}</div>
+        {wide ? children : <div className="settings-card">{children}</div>}
       </div>
     </section>
   );
