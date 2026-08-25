@@ -19,6 +19,7 @@ import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
 import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
+import SessionInfo from "../components/SessionInfo.jsx";
 import { parseRoute, go } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -47,6 +48,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [treeMode, setTreeMode] = useState("tree");
   const [treeData, setTreeData] = useState({ tree: [], leafId: "" });
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
@@ -721,6 +723,44 @@ export default function App() {
               if (cmd.run === "session-tree") { openTree("tree"); return; }
               if (cmd.run === "session-fork") { openTree("fork"); return; }
               if (cmd.run === "session-clone") { cloneSession(); return; }
+              if (cmd.run === "go-providers") { go("providers"); return; }
+              if (cmd.run === "session-info") { setSessionOpen(true); return; }
+              if (cmd.run === "quit") {
+                if (!agent || agent.mode === "stopped") { toast.info("Agent is already stopped."); return; }
+                await stopAgent(selectedId);
+                toast.ok("Agent stopped.");
+                return;
+              }
+              if (cmd.run === "reload") {
+                if (!agent || agent.mode === "stopped") { toast.info("Start the agent first."); return; }
+                const ok = await askConfirm({
+                  title: "Reload",
+                  message: "Restart this agent so skills and config reload. The session file stays.",
+                  confirmLabel: "Reload",
+                });
+                if (!ok) return;
+                const was = agent.mode;
+                await stopAgent(selectedId);
+                if (was === "interactive") await openInteractive(selectedId);
+                else await startManaged(selectedId);
+                toast.ok("Reloaded.");
+                return;
+              }
+              if (cmd.run === "trust") {
+                if (!agent) { toast.info("Select an agent first."); return; }
+                const cwd = agent.workPath || (selected && selected.path) || "this folder";
+                const ok = await askConfirm({
+                  title: "Trust this folder",
+                  message: cwd + " — pi will load project settings and local skills.",
+                  confirmLabel: "Trust",
+                });
+                if (!ok) return;
+                try {
+                  const res = await api("/api/agents/" + agent.id + "/trust", { method: "POST" });
+                  toast.ok(res && res.already ? "Already trusted." : "Folder trusted.");
+                } catch (e) { toastError(e); }
+                return;
+              }
               if (cmd.run === "go-settings" || cmd.run === "go-scoped") {
                 if (!agent) { toast.info("Select an agent first."); return; }
                 go("settings");
@@ -843,6 +883,20 @@ export default function App() {
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}
+          onSignOut={async (provider) => {
+            const ok = await askConfirm({
+              title: "Sign out " + provider,
+              message: "Remove saved credentials for " + provider + " on this machine.",
+              confirmLabel: "Sign out",
+              danger: true,
+            });
+            if (!ok) return;
+            try {
+              await api("/api/providers/" + encodeURIComponent(provider), { method: "DELETE" });
+              setCatalog(await api("/api/catalog"));
+              toast.ok("Signed out of " + provider + ".");
+            } catch (e) { toastError(e); }
+          }}
           onSignIn={async (provider) => {
             const ws = selected || workspaces[0];
             if (!ws || !ws.agent) { toast.info("Add a workspace first."); return; }
@@ -877,6 +931,7 @@ export default function App() {
         }}
       />
       <Toasts />
+      <SessionInfo open={sessionOpen} onClose={() => setSessionOpen(false)} bar={statusBar} agent={agent} />
       <SessionTree
         open={treeOpen}
         mode={treeMode}

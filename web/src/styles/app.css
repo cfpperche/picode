@@ -985,6 +985,13 @@ body {
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.session-facts { margin: 12px 0 0; }
+.session-fact {
+  display: grid; grid-template-columns: 72px 1fr; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.session-fact dt { color: var(--text-secondary); font-size: 12px; }
+.session-fact dd { font-family: var(--mono); font-size: 12px; word-break: break-all; }
 .dlg-tree {
   width: min(480px, calc(100vw - 32px));
   max-height: min(72vh, 560px);

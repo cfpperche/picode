@@ -92,12 +92,34 @@ Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/package
 
 ## /logout {#logout}
 
-Not a PiCode screen yet. Debt: still forwarded to the TUI.
+Opens `#/providers`. Sign out removes that provider from `~/.pi/agent/auth.json`.
+
+Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
+
+## /copy {#copy}
+
+Copies the last assistant reply to the clipboard. Same text as the bubble copy button.
+
+## /quit {#quit}
+
+Stops **this** agent. Does not close the browser.
+
+| | pi TUI | PiCode |
+|---|---|---|
+| Effect | quit the pi process | stop this agent |
+
+## /trust {#trust}
+
+Trust this agent's folder (`trust.json`). Needed before PiCode can write workspace `.pi/settings.json`.
+
+Canonical: [pi Settings](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md) (project trust).
 
 ## /session {#session}
 
-Not a PiCode screen yet. Some facts are on the status bar. Debt: TUI `/session`.
+Dialog: session file, name, folder, tokens, context, cost.
+
+Canonical: [pi Sessions](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sessions.md) (`/session`).
 
 ## /reload {#reload}
 
-Not a PiCode screen yet. Debt: forwarded to the TUI (`reload` skills and config).
+Restarts this agent so skills and config reload. Session JSONL stays. RPC has no `reload`.

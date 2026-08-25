@@ -23,3 +23,13 @@ test("/settings is a PiCode route, not a TUI proxy", () => {
   assert.equal(hits[0].id, "settings");
   assert.equal(hits[0].run, "go-settings");
 });
+
+test("copy quit reload logout session trust are PiCode UI", () => {
+  const run = (q) => filterSlash(q)[0].run;
+  assert.equal(run("/copy"), "copy");
+  assert.equal(run("/quit"), "quit");
+  assert.equal(run("/reload"), "reload");
+  assert.equal(run("/logout"), "go-providers");
+  assert.equal(run("/session"), "session-info");
+  assert.equal(run("/trust"), "trust");
+});

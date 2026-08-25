@@ -1,6 +1,11 @@
 package catalog
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 const sample = `provider      model                                               context  max-out  thinking  images
 anthropic     claude-sonnet-4-5                                   1M       64K      yes       yes
@@ -59,5 +64,35 @@ func stringsJoin(s []string) string {
 func TestParseListModelsSkipsJunk(t *testing.T) {
 	if n := len(ParseListModels("not a table\n\n")); n != 0 {
 		t.Fatalf("got %d", n)
+	}
+}
+
+func TestRemoveAuthKeepsOtherKeys(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "auth.json")
+	if err := os.WriteFile(path, []byte(`{"xai":{"type":"api"},"openai":{"type":"api"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveAuth("xai"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["xai"]; ok {
+		t.Fatal("xai still present")
+	}
+	if _, ok := m["openai"]; !ok {
+		t.Fatal("openai dropped")
 	}
 }

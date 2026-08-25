@@ -56,7 +56,7 @@ What exists right now:
 
 ## Next up
 
-1. Slash UI next: `/copy` `/quit` `/reload` `/logout` `/session` `/trust`.
+1. Slash UI next: `/export` `/import` `/share` `/hotkeys` `/changelog` `/llama`.
    `/tree` click is fork until pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)).
 2. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only.
 3. Pretty search cards in chat, gated on `capabilities.webSearch`.

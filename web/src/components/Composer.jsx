@@ -107,6 +107,12 @@ export default function Composer({
   function pickSlash(cmd) {
     onChange("");
     if (!cmd) return;
+    if (cmd.run === "copy") {
+      const t = lastReply || "";
+      if (!t) { toast.info("No assistant reply yet."); return; }
+      navigator.clipboard.writeText(t).then(() => toast.ok("Copied last reply.")).catch(() => toast.error("Clipboard blocked."));
+      return;
+    }
     if (onSlash) onSlash(cmd);
   }
 

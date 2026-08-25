@@ -27,7 +27,7 @@ not reimplement those.
 | **missing** | Not in `web/src/lib/slash.js` |
 | **n/a** | Deliberately not mirrored (or PiCode-only) |
 
-Count against the TUI 24 (not extras): **12 ui · 1 partial · 3 proxy · 8 missing**.
+Count against the TUI 24 (not extras): **17 ui · 1 partial · 0 proxy · 6 missing**.
 
 ## Matrix (TUI 24)
 
@@ -41,21 +41,21 @@ Count against the TUI 24 (not extras): **12 ui · 1 partial · 3 proxy · 8 miss
 | 6 | `/export` | HTML / JSONL export | download / save dialog | **missing** | |
 | 7 | `/import` | resume from JSONL | file picker + resume | **missing** | |
 | 8 | `/share` | private GitHub gist | share dialog | **missing** | Not the phone QR |
-| 9 | `/copy` | last assistant → clipboard | clipboard of last reply | **missing** | Copy on bubbles exists; slash does not |
+| 9 | `/copy` | last assistant → clipboard | clipboard of last reply | **ui** | Same text as bubble copy |
 | 10 | `/name` | session display name | rename dialog | **ui** | |
-| 11 | `/session` | file, id, tokens, cost | session facts pop | **proxy** | Status bar has some of this |
+| 11 | `/session` | file, id, tokens, cost | session facts pop | **ui** | Dialog from status bar + session file |
 | 12 | `/changelog` | pi version history | pi changelog viewer | **missing** | Not PiCode CHANGELOG |
 | 13 | `/hotkeys` | pi shortcuts | PiCode keymap overlay | **missing** | |
 | 14 | `/fork` | new session from a user turn | tree dialog, user rows | **ui** | RPC `fork` when in chat |
 | 15 | `/clone` | duplicate current branch | clone in tree dialog | **ui** | RPC `clone` when in chat |
-| 16 | `/trust` | save project trust | trust UI / confirm | **missing** | |
+| 16 | `/trust` | save project trust | trust UI / confirm | **ui** | Writes `trust.json` for the agent cwd |
 | 17 | `/login` | provider auth | `#/providers` + TUI OAuth | **partial** | Still needs the dock for OAuth |
-| 18 | `/logout` | drop credentials | `#/providers` sign-out | **proxy** | |
+| 18 | `/logout` | drop credentials | `#/providers` sign-out | **ui** | Deletes that key from `auth.json` |
 | 19 | `/new` | new session | new session (API) | **ui** | Session bar |
 | 20 | `/compact` | compact context | compact confirm | **ui** | |
 | 21 | `/resume` | pick a session | session picker | **ui** | |
-| 22 | `/reload` | reload skills/config | reload + toast | **proxy** | |
-| 23 | `/quit` | quit pi | stop this agent | **missing** | Must not close the browser |
+| 22 | `/reload` | reload skills/config | reload + toast | **ui** | Restarts the process; RPC has no reload |
+| 23 | `/quit` | quit pi | stop this agent | **ui** | Must not close the browser |
 | 24 | `/llama` | llama.cpp models | llama manager or `#/providers` | **missing** | Extension command |
 
 ## `/tree` TUI vs GUI (parity break)

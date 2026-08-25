@@ -51,3 +51,32 @@ func TestTrustedMissingFile(t *testing.T) {
 		t.Fatal("no trust.json")
 	}
 }
+
+func TestSetTrustRMW(t *testing.T) {
+	dir := t.TempDir()
+	cwd := filepath.Join(dir, "app")
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	trust := filepath.Join(dir, "trust.json")
+	if err := os.WriteFile(trust, []byte(`{"other":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := setAt(cwd, true, trust); err != nil {
+		t.Fatal(err)
+	}
+	if !trustedAt(cwd, trust) {
+		t.Fatal("set true")
+	}
+	raw, err := os.ReadFile(trust)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]bool
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if !m["other"] {
+		t.Fatal("kept other key")
+	}
+}

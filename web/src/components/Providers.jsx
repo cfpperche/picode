@@ -1,6 +1,6 @@
 import PageFrame from "./PageFrame.jsx";
 
-export default function Providers({ hidden, catalog, onSignIn }) {
+export default function Providers({ hidden, catalog, onSignIn, onSignOut }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
   return (
     <PageFrame id="providers-view" title="Providers" hidden={hidden}>
@@ -10,7 +10,9 @@ export default function Providers({ hidden, catalog, onSignIn }) {
             <li key={p.id} className="prov-row">
               <span className="prov-id">{p.id}</span>
               <span className={"prov-auth" + (p.signedIn ? " in" : "")}>{p.signedIn ? "signed in" : "not signed in"}</span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSignIn(p.id)}>Sign in</button>
+              {p.signedIn
+                ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSignOut && onSignOut(p.id)}>Sign out</button>
+                : <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSignIn(p.id)}>Sign in</button>}
             </li>
           ))}
         </ul>

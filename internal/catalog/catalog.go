@@ -186,3 +186,32 @@ func AuthPath() string {
 	}
 	return filepath.Join(home, ".pi", "agent", "auth.json")
 }
+
+// RemoveAuth deletes one provider entry from auth.json. Other keys stay.
+func RemoveAuth(provider string) error {
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		return fmt.Errorf("provider required")
+	}
+	path := AuthPath()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	obj := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return err
+	}
+	if _, ok := obj[provider]; !ok {
+		return nil
+	}
+	delete(obj, provider)
+	out, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(out, '\n'), 0o600)
+}

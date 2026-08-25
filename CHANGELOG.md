@@ -23,6 +23,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Composer `/copy` `/quit` `/reload` `/logout` `/session` `/trust` open PiCode UI
+  (clipboard, stop agent, restart, providers sign-out, session dialog, trust.json).
 - Public docs are VitePress (Markdown in `www/` → GitHub Pages). Slash hints
   open `/commands#{id}` in a new tab. No in-app docs viewer.
 - Session tree dots sit mid-card; the spine runs through the last card.
