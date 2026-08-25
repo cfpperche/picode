@@ -284,16 +284,13 @@ export default function Composer({
         {hits.length > 0 && !voice && (
           <ul className="slash-menu" role="listbox">
             {hits.map((c, i) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  className={"slash-item" + (i === slashIdx ? " active" : "")}
-                  onMouseEnter={() => setSlashIdx(i)}
-                  onClick={() => pickSlash(c)}
-                >
-                  <span className="slash-label">{c.label}</span>
-                  <span className="slash-hint">{c.hint}</span>
-                </button>
+              <li
+                key={c.id}
+                className={"slash-item" + (i === slashIdx ? " active" : "")}
+                onMouseEnter={() => setSlashIdx(i)}
+              >
+                <button type="button" className="slash-label" onClick={() => pickSlash(c)}>{c.label}</button>
+                <a className="slash-hint" href={"#/docs/" + c.id} onClick={(e) => e.stopPropagation()}>{c.hint}</a>
               </li>
             ))}
           </ul>

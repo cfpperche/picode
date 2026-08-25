@@ -1035,13 +1035,18 @@ body {
   border-radius: 10px; max-height: 240px; overflow-y: auto; z-index: 8;
 }
 .slash-item {
-  display: flex; justify-content: space-between; gap: 12px; width: 100%;
-  padding: 7px 10px; border: 0; background: none; border-radius: 6px;
-  font: inherit; cursor: pointer; color: var(--text-primary); text-align: left;
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 7px 10px; border-radius: 6px;
 }
 .slash-item.active { background: var(--bg-hover); }
-.slash-label { font-family: var(--mono); font-size: 12.5px; }
-.slash-hint { font-size: 11.5px; color: var(--text-secondary); }
+.slash-label {
+  border: 0; background: none; padding: 0; font: inherit; cursor: pointer;
+  font-family: var(--mono); font-size: 12.5px; color: var(--text-primary);
+}
+.slash-hint {
+  font-size: 11.5px; color: var(--text-secondary); text-decoration: none;
+}
+.slash-hint:hover { color: var(--accent); text-decoration: underline; }
 .kind-chip {
   background: var(--bg-base); color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: 6px;

@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Slash hint (muted, next to `/command`) links to `#/docs/{cmd}`; missing pages are 404.
 - Session tree dots sit mid-card; the spine runs through the last card.
 - Session tree is a chain of prompt cards; replies/tools sit on the card.
 - Composer `/tree` `/fork` `/clone`: session tree dialog. Fork is a new

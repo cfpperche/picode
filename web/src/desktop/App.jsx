@@ -17,9 +17,10 @@ import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
+import Docs from "../components/Docs.jsx";
 import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
-import { parseRoute, go } from "../lib/routes.js";
+import { parseRoute, go, docsSlug } from "../lib/routes.js";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -862,6 +863,7 @@ export default function App() {
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} />
         <Devices hidden={route !== "devices"} />
+        <Docs hidden={route !== "docs"} slug={docsSlug()} />
       </main>
 
       <Palette
