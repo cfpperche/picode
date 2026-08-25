@@ -60,6 +60,9 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
   useEffect(() => {
+    setOpen(!!live);
+  }, [live]);
+  useEffect(() => {
     if (!live) { liveFrom.current = 0; return; }
     if (!liveFrom.current) liveFrom.current = Date.now();
     const t = setInterval(() => setNow(Date.now()), 1000);
