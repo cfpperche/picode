@@ -26,6 +26,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Conversation rail is compact and centered; it grows with the thread up to 360px.
 - Sidebar type is JetBrains Mono (same face Tachyon ships as Tachyon Mono).
 - Sidebar section + aligns right. Empty groups show "— empty" collapsed
   and a one-line placeholder expanded (never a 0 badge).

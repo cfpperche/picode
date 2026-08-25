@@ -575,8 +575,10 @@ body {
 }
 .conversation.with-rail::-webkit-scrollbar { width: 0; height: 0; }
 .conv-rail {
-  position: absolute; right: 8px; top: 16px; bottom: 180px;
-  z-index: 5; width: 22px;
+  position: absolute; right: 8px; z-index: 5; width: 22px;
+  top: calc((100% - 200px) / 2);
+  transform: translateY(-50%);
+  height: auto; max-height: min(360px, calc(100% - 220px));
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   pointer-events: none;
 }
@@ -589,11 +591,13 @@ body {
 }
 .rail-chev:hover { color: var(--text-primary); border-color: var(--border-strong); }
 .rail-ticks {
-  flex: 1; min-height: 48px; width: 22px;
-  display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+  flex: 1 1 auto; min-height: 24px; width: 22px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  gap: 2px; overflow: hidden;
 }
 .rail-tick {
-  width: 14px; height: 8px; padding: 0; border: 0; background: transparent; cursor: pointer;
+  width: 14px; flex: 1 1 8px; min-height: 6px; max-height: 12px; padding: 0; border: 0;
+  background: transparent; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
 .rail-tick::after {
