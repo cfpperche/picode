@@ -11,7 +11,7 @@ export default function PageFrame({ id, title, children, hidden, wide }) {
           </a>
           <h2>{title}</h2>
         </header>
-        {wide ? children : <div className="settings-card">{children}</div>}
+        <div className="settings-card">{children}</div>
       </div>
     </section>
   );
