@@ -319,11 +319,15 @@ body {
 .ws-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-chev { display: grid; place-items: center; flex: none; transition: transform .12s; }
 .ws-chev.open { transform: rotate(90deg); }
-.ws-count {
-  flex: none; min-width: 1.2em; height: 16px; padding: 0 5px;
-  border: 1px solid var(--border); border-radius: 99px;
-  font-size: 10px; display: grid; place-items: center;
+.ws-faces { display: flex; align-items: center; flex: none; }
+.ws-face {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1.5px solid var(--bg-panel); background: var(--bg-hover);
+  margin-left: -6px; object-fit: cover; display: grid; place-items: center;
+  font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
 }
+.ws-face:first-child { margin-left: 0; }
+.ws-face-more { font-size: 8px; padding: 0 2px; width: auto; min-width: 16px; }
 .ws-group-actions { display: flex; gap: 2px; flex: none; opacity: 0; }
 .ws-group:hover .ws-group-actions { opacity: 1; }
 .ws-item {

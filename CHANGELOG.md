@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Collapsed sidebar groups show stacked provider favicons (max 5, then +N)
+  instead of a count.
 - License: MIT → PolyForm Noncommercial 1.0.0 for personal/noncommercial
   use; commercial/enterprise needs a signed license
   ([LICENSING.md](LICENSING.md)). Prior MIT tags stay MIT.

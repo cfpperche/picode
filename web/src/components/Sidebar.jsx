@@ -5,6 +5,8 @@ import ShareDrawer from "./ShareDrawer.jsx";
 import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconCheck, IconGit, IconChevronRight } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { repoLine } from "../lib/repoLine.js";
+import { workspaceAgents } from "../lib/providerIcon.js";
+import ProviderFaces from "./ProviderFaces.jsx";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -47,9 +49,8 @@ export default function Sidebar({
     window.addEventListener("pointerup", up);
   }
 
-  function collapsedMark(n) {
-    if (n > 0) return <span className="ws-count">{n}</span>;
-    return <span className="side-empty-hint">— empty</span>;
+  function collapsedMark(agents) {
+    return <ProviderFaces agents={agents} />;
   }
 
   function isOpen(id) { return openWs[id] !== false; }
@@ -104,7 +105,7 @@ export default function Sidebar({
         <div className="side-head" onClick={() => toggleWs("sec-agents")}>
           <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconAgent /> Agents</span>
-          {!isOpen("sec-agents") ? collapsedMark((freeAgents || []).length) : null}
+          {!isOpen("sec-agents") ? collapsedMark(freeAgents) : null}
           <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-agents")) toggleWs("sec-agents"); onNewFree(); }}><IconPlus /></button>
         </div>
         {isOpen("sec-agents") && showForm && formKind === "free" ? (
@@ -128,7 +129,7 @@ export default function Sidebar({
         <div className="side-head" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
           <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
           <span className="side-title"><IconFolder /> Workspaces</span>
-          {!isOpen("sec-workspaces") ? collapsedMark(workspaces.length) : null}
+          {!isOpen("sec-workspaces") ? collapsedMark(workspaceAgents(workspaces)) : null}
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); if (!isOpen("sec-workspaces")) toggleWs("sec-workspaces"); onNew(); }}><IconPlus /></button>
         </div>
 
@@ -155,7 +156,7 @@ export default function Sidebar({
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                {!isOpen(ws.id) ? collapsedMark(agentsOf(ws).length) : null}
+                {!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
