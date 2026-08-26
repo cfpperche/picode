@@ -12,6 +12,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [benchmarks/](benchmarks/) | **Who we study**: Cursor, t3code, paseo — dated notes |
 | [benchmark-cursor.md](benchmark-cursor.md) | Cursor product patterns + aesthetic/density north star |
 | [handoff.md](handoff.md) | **Project state right now** — start here |
+| [design/composer-mcp-roadmap.md](design/composer-mcp-roadmap.md) | `@` / images / `!` then MCP; auth parked |
 | [design/voice-mode.md](design/voice-mode.md) | Dictation + voice composer: V1 shipped, V1.1–V3 phases |
 | [design/slash-parity.md](design/slash-parity.md) | TUI `/` vs PiCode composer — 12/24 UI, rest planned |
 | [design/pi-settings.md](design/pi-settings.md) | Plan: `#/settings` = pi GUI; `#/preferences` = PiCode |

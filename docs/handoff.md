@@ -31,9 +31,10 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Next up
 
-1. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
-2. MCP visual manager — **blocked** until adapter format is decided.
-3. Backup V2 (remote bucket + encrypt) when asked.
+1. Composer files (A1 `@` → A2 images → A3 `!`). Plan: `docs/design/composer-mcp-roadmap.md`.
+2. MCP manager after A **and** adapter write-format is decided (same doc, track B).
+3. Voice V1 dogfood (owner, Chrome Windows mic).
+4. Auth / llama.cpp / Radius — discuss after A+B. Backup V2 when asked.
 
 ## Backlog
 
@@ -52,6 +53,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Roadmap: composer files then MCP (`docs/design/composer-mcp-roadmap.md`). Auth/llama parked.
 - **2026-08-26** — Restore walks the same job overlay (stop agents → db → pins → sessions) and asks to reload.
 - **2026-08-26** — Reveal uses host Explorer on WSL. Backup job steps animate. Motion + optimistic UI is a gate.
 - **2026-08-26** — Backup schedule is explicit (off until Schedule). Preferences split into tabs.
