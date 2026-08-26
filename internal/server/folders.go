@@ -18,8 +18,10 @@ type fsEntry struct {
 
 type fsList struct {
 	Path   string    `json:"path"`
+	Label  string    `json:"label,omitempty"`
 	Parent string    `json:"parent,omitempty"`
 	Dirs   []fsEntry `json:"dirs"`
+	Places []fsEntry `json:"places,omitempty"`
 }
 
 func registerFolderRoutes(mux *http.ServeMux) {
@@ -38,8 +40,93 @@ func expandPath(p string) (string, error) {
 	}
 	if strings.HasPrefix(p, "~/") {
 		p = filepath.Join(home, p[2:])
+	} else if wsl, ok := winPathToWSL(p); ok && isWSL() {
+		p = wsl
 	}
 	return filepath.Abs(filepath.Clean(p))
+}
+
+func isWSL() bool {
+	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSL_INTEROP") != "" {
+		return true
+	}
+	b, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(b)), "microsoft")
+}
+
+// winPathToWSL maps "C:\Users\x" or "C:/Users/x" to "/mnt/c/Users/x".
+func winPathToWSL(p string) (string, bool) {
+	p = strings.TrimSpace(p)
+	if len(p) < 2 || p[1] != ':' {
+		return "", false
+	}
+	drive := p[0]
+	if (drive < 'A' || drive > 'Z') && (drive < 'a' || drive > 'z') {
+		return "", false
+	}
+	rest := strings.ReplaceAll(p[2:], "\\", "/")
+	rest = strings.TrimPrefix(rest, "/")
+	letter := strings.ToLower(string(drive))
+	if rest == "" {
+		return "/mnt/" + letter, true
+	}
+	return "/mnt/" + letter + "/" + rest, true
+}
+
+func windowsMounts() []fsEntry {
+	ents, err := os.ReadDir("/mnt")
+	if err != nil {
+		return nil
+	}
+	var out []fsEntry
+	for _, e := range ents {
+		name := e.Name()
+		if len(name) != 1 || name[0] < 'a' || name[0] > 'z' {
+			continue
+		}
+		p := filepath.Join("/mnt", name)
+		st, err := os.Stat(p)
+		if err != nil || !st.IsDir() {
+			continue
+		}
+		out = append(out, fsEntry{Name: strings.ToUpper(name) + ":", Path: p})
+	}
+	return out
+}
+
+func wslPlaces(home string) []fsEntry {
+	if !isWSL() {
+		return nil
+	}
+	out := []fsEntry{{Name: "Home", Path: home}}
+	out = append(out, windowsMounts()...)
+	if len(out) == 1 {
+		return out
+	}
+	return out
+}
+
+func winLabel(abs string) string {
+	slash := filepath.ToSlash(abs)
+	const prefix = "/mnt/"
+	if !strings.HasPrefix(slash, prefix) || len(slash) < 6 {
+		return ""
+	}
+	rest := slash[len(prefix):]
+	if rest[0] < 'a' || rest[0] > 'z' {
+		return ""
+	}
+	if len(rest) > 1 && rest[1] != '/' {
+		return ""
+	}
+	drive := strings.ToUpper(rest[:1]) + ":"
+	if len(rest) == 1 {
+		return drive + "\\"
+	}
+	return drive + strings.ReplaceAll(rest[1:], "/", "\\")
 }
 
 func handleFsList(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +149,8 @@ func handleFsList(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	out := fsList{Path: abs, Dirs: []fsEntry{}}
+	home, _ := os.UserHomeDir()
+	out := fsList{Path: abs, Label: winLabel(abs), Dirs: []fsEntry{}, Places: wslPlaces(home)}
 	parent := filepath.Dir(abs)
 	if parent != abs {
 		out.Parent = parent

@@ -1363,6 +1363,14 @@ body {
 .folder-field .btn { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .dlg-overlay-folder { z-index: 82; }
 .dlg-folder { z-index: 83; width: min(440px, calc(100vw - 32px)); }
+.folder-posix { font-size: 11px; color: var(--text-secondary); margin: -4px 0 8px; }
+.folder-places { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.folder-place {
+  height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 12px; cursor: pointer;
+}
+.folder-place:hover { background: var(--bg-hover); }
+.folder-place.on { border-color: var(--accent); color: var(--accent); }
 .folder-list {
   margin: 10px 0; max-height: 240px; overflow-y: auto;
   border: 1px solid var(--border); border-radius: 8px;
