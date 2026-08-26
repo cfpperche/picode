@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Conversation markdown tables (GFM), plus strikethrough and task lists.
 - Conversation source blocks: language label, copy, highlight.js tokens on PiCode colors.
 - **Run** on bash / python / javascript / go blocks — executes in the agent's folder.
 - Sidebar shows the pi braille spinner on an agent card while that agent is working.

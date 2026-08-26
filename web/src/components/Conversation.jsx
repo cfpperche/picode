@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
@@ -127,7 +128,7 @@ function Block({ it, railId, agentId }) {
     <div className={"block " + (it.cls || "")} data-rail={railId || undefined}>
       {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
       <div className={"block-content" + (md ? " md" : "")}>
-        {md ? <Markdown components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
+        {md ? <Markdown remarkPlugins={[remarkGfm]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
       </div>
     </div>
   );

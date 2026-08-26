@@ -836,6 +836,18 @@ body {
 .hljs-variable, .hljs-params, .hljs-template-variable { color: var(--text-primary); }
 .hljs-meta, .hljs-punctuation, .hljs-operator { color: var(--text-secondary); }
 .md a { color: var(--accent); }
+.md table {
+  width: 100%; margin: 0.75em 0; border-collapse: collapse;
+  font-size: 14px; line-height: 1.45;
+}
+.md th, .md td {
+  border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top;
+}
+.md th {
+  background: var(--bg-panel); font-weight: 550; color: var(--text-primary);
+}
+.md tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
+.md del { color: var(--text-secondary); }
 .actor .copy-btn { margin-left: auto; }
 .copy-btn {
   display: inline-flex; align-items: center; gap: 5px;
