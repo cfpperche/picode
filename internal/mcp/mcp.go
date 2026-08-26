@@ -184,6 +184,12 @@ func List(p Paths) (Report, error) {
 	order := []string{}
 	for _, layer := range rep.Layers {
 		raw, err := readFile(layer.Path)
+		if (err != nil || raw == nil) && strings.HasSuffix(layer.Path, ".toml") {
+			if srv := serversFromTomlFile(layer.Path); len(srv) > 0 {
+				raw = map[string]any{"mcpServers": toAnyServers(srv)}
+				err = nil
+			}
+		}
 		if err != nil {
 			if layer.Scope == "import" {
 				continue

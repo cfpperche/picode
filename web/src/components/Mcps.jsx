@@ -272,6 +272,7 @@ function hostLabel(id) {
     opencode: "OpenCode",
     windsurf: "Windsurf",
     vscode: "VS Code",
+    grok: "Grok",
   };
   return names[id] || id;
 }

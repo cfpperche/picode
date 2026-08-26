@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // HostKind is one adapter compatibility import (pi-mcp-adapter 2.28).
@@ -17,11 +18,12 @@ const (
 	HostOpenCode      HostKind = "opencode"
 	HostWindsurf      HostKind = "windsurf"
 	HostVSCode        HostKind = "vscode"
+	HostGrok          HostKind = "grok"
 )
 
-// HostKinds is adapter order. Do not invent extra names.
+// HostKinds is adapter order, plus grok (PiCode lists it; adapter ignores unknown imports).
 var HostKinds = []HostKind{
-	HostCursor, HostClaudeCode, HostClaudeDesktop, HostCodex, HostOpenCode, HostWindsurf, HostVSCode,
+	HostCursor, HostClaudeCode, HostClaudeDesktop, HostCodex, HostOpenCode, HostWindsurf, HostVSCode, HostGrok,
 }
 
 // ImportResult is POST /api/mcp/import.
@@ -56,6 +58,8 @@ func hostLabel(k HostKind) string {
 		return "Windsurf"
 	case HostVSCode:
 		return "VS Code"
+	case HostGrok:
+		return "Grok"
 	default:
 		return string(k)
 	}
@@ -91,6 +95,8 @@ func hostCandidates(k HostKind, home, cwd string) []string {
 			return nil
 		}
 		return []string{filepath.Join(cwd, ".vscode", "mcp.json")}
+	case HostGrok:
+		return []string{filepath.Join(home, ".grok", "config.toml"), filepath.Join(home, ".grok", "mcp.json")}
 	default:
 		return nil
 	}
@@ -156,6 +162,9 @@ func knownHost(k HostKind) bool {
 }
 
 func hostServerCount(path string) int {
+	if strings.HasSuffix(path, ".toml") {
+		return len(serversFromTomlFile(path))
+	}
 	raw, err := readFile(path)
 	if err != nil || raw == nil {
 		return 0

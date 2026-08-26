@@ -47,6 +47,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Known debts / open questions
 
+- Dogfood MCP entries `picode-dogfood-*` in `~/.claude/mcp.json`, `~/.codex/config.toml`, `~/.grok/config.toml` — remove after the Use-from check.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.

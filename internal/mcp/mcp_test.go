@@ -265,6 +265,14 @@ func TestImportHosts(t *testing.T) {
 	}
 }
 
+func TestServersFromToml(t *testing.T) {
+	s := "# x\n[mcp_servers.picode-dogfood]\nurl = \"https://mcp.context7.com/mcp\"\n"
+	got := serversFromToml(s)
+	if got["picode-dogfood"]["url"] != "https://mcp.context7.com/mcp" {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestFoundHostsSkipsEmptyFile(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{Home: home}
