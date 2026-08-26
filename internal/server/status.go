@@ -9,7 +9,7 @@ import (
 
 func handleWorkspaceStatus(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
