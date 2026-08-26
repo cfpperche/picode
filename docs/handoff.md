@@ -12,6 +12,7 @@
 
 **Phase:** ADE past M3. Slash TUI **24 ui · 0 missing**. Providers + vault.
 Public docs on Pages. llama.cpp manager is **docs + dialog**, not an installer.
+Local backup V1 in Preferences (ADR-0014).
 
 What exists:
 - Public `cfpperche/picode`, PolyForm Noncommercial + commercial, CI linux/macos/windows.
@@ -26,13 +27,13 @@ What exists:
 
 ## In flight
 
-Delete cleanup shipped (opt-in session/work purge). Backup/restore engine is next (local directory, interval + retention). llama.cpp depth is backlog.
+Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth is backlog.
 
 ## Next up
 
-1. Backup V1: local directory snapshots (`VACUUM INTO` + hardlink, interval/retention in Preferences).
-2. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
-3. MCP visual manager — **blocked** until adapter format is decided.
+1. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
+2. MCP visual manager — **blocked** until adapter format is decided.
+3. Backup V2 (remote bucket + encrypt) when asked.
 
 ## Backlog
 
@@ -51,6 +52,7 @@ Delete cleanup shipped (opt-in session/work purge). Backup/restore engine is nex
 
 ## Recent activity
 
+- **2026-08-26** — Backup V1: Preferences folder + interval/retention. `VACUUM INTO` + hardlink snapshots. Restore refuses newer schema.
 - **2026-08-26** — Decision table is a quality gate when conditions change the outcome (AGENTS.md).
 - **2026-08-26** — Delete agent/workspace: confirm may offer session + work-folder purge (last occupant only). All workspace agents stopped first.
 - **2026-08-26** — Pin V3 sketches (Excalidraw, lazy). Blank or annotate image.

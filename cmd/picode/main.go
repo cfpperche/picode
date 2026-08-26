@@ -28,16 +28,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/config"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/rpc"
-	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
+	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tlsutil"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/version"
 )
 
 func main() {
@@ -133,6 +135,11 @@ func serve() {
 	runtime := rpc.NewRuntime("pi", st, nil)
 	defer runtime.StopAll()
 
+	backupCtx, backupCancel := context.WithCancel(context.Background())
+	defer backupCancel()
+	bak := &backup.Engine{Store: st, DataDir: dataDir, Version: version.Version}
+	go bak.Loop(backupCtx)
+
 	rebindCh := make(chan struct{}, 1)
 	state := &serveState{}
 
@@ -142,6 +149,7 @@ func serve() {
 		Runtime:  runtime,
 		AgentCmd: "pi", // ADR-0003: user-installed pi
 		DataDir:  dataDir,
+		Backup:   bak,
 		Rebind: func() {
 			select {
 			case rebindCh <- struct{}{}:

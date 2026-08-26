@@ -709,6 +709,9 @@ body {
 .btn-sm { font-size: 12.5px; padding: 0 10px; }
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 .btn-primary:hover { filter: brightness(1.08); background: var(--accent); }
+.btn:disabled, .btn:disabled:hover {
+  opacity: 0.45; cursor: default; filter: none;
+}
 .btn-ghost { background: transparent; }
 .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
 .chip {
@@ -1551,6 +1554,12 @@ body {
 .settings-section:last-child { padding-bottom: 0; }
 .settings-section + .settings-section { border-top: 1px solid var(--border); }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
+.set-hint { font-size: 12px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.4; }
+.bak-snaps { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.bak-snap {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; color: var(--text-secondary);
+}
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
 .set-rows { display: flex; flex-direction: column; gap: 10px; }
 .set-row {

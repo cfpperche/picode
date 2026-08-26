@@ -24,7 +24,8 @@ var migrationsFS embed.FS
 // Store wraps the SQLite database. Safe for concurrent use (database/sql
 // pools connections; pragmas are set per connection via the DSN).
 type Store struct {
-	db *sql.DB
+	db   *sql.DB
+	path string
 }
 
 // Open creates/opens the database at path, applies pragmas and migrations,
@@ -33,16 +34,12 @@ func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("store: %w", err)
 	}
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)", path)
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sqlOpen(path)
 	if err != nil {
-		return nil, fmt.Errorf("store: open: %w", err)
+		return nil, err
 	}
-	// SQLite handles concurrent readers but one writer; a single connection
-	// serializes access cleanly and avoids SQLITE_BUSY storms.
-	db.SetMaxOpenConns(1)
 
-	s := &Store{db: db}
+	s := &Store{db: db, path: path}
 	if err := s.migrate(); err != nil {
 		_ = db.Close()
 		return nil, err

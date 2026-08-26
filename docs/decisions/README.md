@@ -18,3 +18,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
 | [0013](0013-provider-accounts.md) | Extra logins in `~/.picode/accounts.json`; `auth.json` is the active slot | accepted |
+| [0014](0014-local-backup.md) | Local directory snapshots of the PiCode environment | accepted |

@@ -17,6 +17,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Local backup in Preferences: folder, interval, retention, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks).
 - Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
 - Pin file cards: type badge (PDF/ZIP/…) + always-on remove. No artifact preview.
 - Pin body is a TipTap editor (saves markdown). Toolbar: bold, italic, heading, lists, code, quote.

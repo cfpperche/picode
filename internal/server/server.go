@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
@@ -44,6 +45,7 @@ type Deps struct {
 	DataDir      string
 	Insecure     bool
 	Presence     *presence.Registry
+	Backup       *backup.Engine
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -72,6 +74,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerPinFiles(mux, deps)
 	registerFolderRoutes(mux)
 	registerOAuthRoutes(mux)
+	registerBackupRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
 	mux.Handle("/ws/agent", agentWS(deps))
