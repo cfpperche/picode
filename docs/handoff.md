@@ -51,7 +51,7 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Recent activity
 
-- **2026-08-26** — Model errors (quota) were silent in chat; now toast + alert. web_search agent switched to Codex after Anthropic extra-usage 400.
+- **2026-08-26** — Codex DID reply; chat ignored `message_end` (no `text_delta`). Free-agent Sessions listed the wrong folder (0).
 - **2026-08-25** — Chose `npm:pi-web-search` (this machine). Chat search cards from tool sources. Full packages-cycle dogfood deferred.
 - **2026-08-25** — Packages **This agent** + optional isolate (skip machine/folder). `pi -e` every start / every session.
 - **2026-08-25** — llama GUI installer reverted. Setup stays in `www/guide/llama.md`; dialog is URL + link. Continuity → backlog.

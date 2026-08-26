@@ -20,6 +20,7 @@ import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import "./mobile.css";
 import { toastError } from "../lib/toast.js";
+import { mergeAssistant } from "../lib/assistantMsg.js";
 import { stuckToBottom } from "../lib/stickScroll.js";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -131,6 +132,11 @@ export default function MobileApp() {
         pendingPayload.current = "";
         setDraft("");
         break;
+      case "message_end": {
+        const m = ev.message || {};
+        if (m.role === "assistant") setItems((cur) => mergeAssistant(cur, m));
+        break;
+      }
       default:
         break;
     }

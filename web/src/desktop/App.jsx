@@ -28,6 +28,7 @@ import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import { alertFromPi } from "../lib/piError.js";
+import { mergeAssistant } from "../lib/assistantMsg.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
@@ -133,15 +134,16 @@ export default function App() {
     const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setSessions([]); setSessionCurrent(""); return; }
     try {
-      const data = await api("/api/workspaces/" + id + "/sessions");
+      const q = selectedId ? "?agent=" + encodeURIComponent(selectedId) : "";
+      const data = await api("/api/workspaces/" + id + "/sessions" + q);
       setSessions(data.sessions || []);
-      const cur = data.current || "";
+      const cur = data.current || ((data.sessions || [])[0] && (data.sessions || [])[0].path) || "";
       setSessionCurrent(cur);
       if (!cur) {
         setItems([]);
         return;
       }
-      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur));
+      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : ""));
       const ev = t.events || [];
       setItems(ev.length ? eventsToItems(ev) : []);
       scrollToEnd();
@@ -358,7 +360,23 @@ export default function App() {
       }
       case "task_delivered":
         break;
-      case "message_end":
+      case "message_end": {
+        const m = ev.message || {};
+        if (m.role === "assistant") {
+          setItems((cur) => mergeAssistant(cur, m));
+          queueMicrotask(scrollConv);
+        }
+        const a = alertFromPi(ev);
+        if (a) {
+          setItems((cur) => [...cur, { kind: "alert", level: a.level, text: a.text, ts: Date.now() }]);
+          if (a.level === "error") {
+            setStreaming(false);
+            toastError(a.text);
+          }
+          queueMicrotask(scrollConv);
+        }
+        break;
+      }
       case "turn_end":
       case "agent_end":
       case "auto_retry_start":

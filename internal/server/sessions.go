@@ -15,12 +15,12 @@ import (
 
 func handleListSessions(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
 		}
-		list, err := session.List(wk.Path)
+		list, err := session.List(store.AgentCwd(wk, agent))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -35,7 +35,7 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 
 func handleSessionTranscript(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
@@ -48,7 +48,7 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, map[string]any{"events": []any{}, "path": ""})
 			return
 		}
-		if !safeSessionPath(wk.Path, path) {
+		if !safeSessionPath(store.AgentCwd(wk, agent), path) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -66,7 +66,7 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 
 func handleNewSession(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
@@ -87,7 +87,7 @@ func handleNewSession(deps Deps) http.HandlerFunc {
 
 func handleResumeSession(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
@@ -99,7 +99,7 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "path required")
 			return
 		}
-		if !safeSessionPath(wk.Path, req.Path) {
+		if !safeSessionPath(store.AgentCwd(wk, agent), req.Path) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -118,7 +118,7 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 
 func handleRenameSession(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wk, agent, err := loadWS(deps, r.PathValue("id"))
+		wk, agent, err := loadWS(deps, r)
 		if err != nil {
 			writeStoreErr(w, err)
 			return
@@ -135,7 +135,7 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 		if path == "" && agent.SessionPath != nil {
 			path = *agent.SessionPath
 		}
-		if path == "" || !safeSessionPath(wk.Path, path) {
+		if path == "" || !safeSessionPath(store.AgentCwd(wk, agent), path) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -150,10 +150,21 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 	}
 }
 
-func loadWS(deps Deps, id string) (store.Workspace, store.Agent, error) {
+func loadWS(deps Deps, r *http.Request) (store.Workspace, store.Agent, error) {
+	id := r.PathValue("id")
 	wk, err := deps.Store.GetWorkspace(id)
 	if err != nil {
 		return store.Workspace{}, store.Agent{}, err
+	}
+	if aid := strings.TrimSpace(r.URL.Query().Get("agent")); aid != "" {
+		a, err := deps.Store.GetAgent(aid)
+		if err != nil {
+			return store.Workspace{}, store.Agent{}, err
+		}
+		if a.WorkspaceID != wk.ID {
+			return store.Workspace{}, store.Agent{}, store.ErrNotFound
+		}
+		return wk, a, nil
 	}
 	agent, err := deps.Store.DefaultAgent(wk.ID)
 	return wk, agent, err
