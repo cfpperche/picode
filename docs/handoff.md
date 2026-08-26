@@ -47,7 +47,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Known debts / open questions
 
-- Dogfood MCP entries `picode-dogfood-*` in `~/.claude/mcp.json`, `~/.codex/config.toml`, `~/.grok/config.toml` — remove after the Use-from check.
+- Dogfood MCP leftover in `~/.codex/config.toml` and `~/.grok/config.toml` (Claude copy removed).
 - MCP GET still returns env/header values from the file (plaintext). `bearerToken` is write-only and not listed.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
@@ -59,6 +59,8 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Remove on a Use-from overlay no longer unmasks the import (stays Off). Dogfood Claude servers deleted. List is A–Z. visual-review: PASS (mcp-list-az.png).
+- **2026-08-26** — MCP list is A–Z by name (live poll no longer reshuffles).
 - **2026-08-26** — Conversation source uses JetBrains Mono + Fira Code ligatures. visual-review: PASS (chat-code-font.png).
 - **2026-08-26** — MCP live status (Idle / Live / Failed / Sign in). visual-review: PASS (mcp-live-idle.png).
 - **2026-08-26** — MCP Add More: env / headers / Sign in / Token. visual-review: PASS (mcp-add-more-url.png, mcp-add-more-env.png, mcp-add-more-error.png).

@@ -354,6 +354,18 @@ func TestImportPickDisablesOther(t *testing.T) {
 	if by["keep"].Disabled || !by["drop"].Disabled {
 		t.Fatalf("%+v", rep.Servers)
 	}
+	if by["drop"].Owned || by["keep"].Owned {
+		t.Fatalf("import overlay must not be owned: %+v", rep.Servers)
+	}
+	if err := Remove(p, "user", "drop"); err == nil {
+		t.Fatal("remove overlay stub")
+	}
+	rep, _ = List(p)
+	for _, s := range rep.Servers {
+		if s.Name == "drop" && !s.Disabled {
+			t.Fatal("remove unmasked import")
+		}
+	}
 }
 
 func TestServersFromToml(t *testing.T) {
@@ -384,6 +396,32 @@ func TestAdapterConfigured(t *testing.T) {
 	}
 	if !AdapterConfigured([]string{"npm:pi-web-search", "npm:pi-mcp-adapter"}) {
 		t.Fatal("missed")
+	}
+}
+
+func TestListSortsByName(t *testing.T) {
+	home := t.TempDir()
+	p := Paths{Home: home}
+	if err := Add(p, "user", "zeta", Entry{URL: "https://z.example/mcp"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(p, "user", "Alpha", Entry{URL: "https://a.example/mcp"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(p, "user", "mid", Entry{URL: "https://m.example/mcp"}); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, s := range rep.Servers {
+		got = append(got, s.Name)
+	}
+	want := []string{"Alpha", "mid", "zeta"}
+	if len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+		t.Fatalf("order = %v want %v", got, want)
 	}
 }
 

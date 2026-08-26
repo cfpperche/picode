@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -216,7 +217,7 @@ func List(p Paths) (Report, error) {
 				prev.Disabled = boolOf(entry["disabled"])
 				prev.Layer = layer.ID
 				prev.Path = layer.Path
-				prev.Owned = layer.Writable
+				prev.Owned = false // stub only — Remove would unmask the import
 				prev.Scope = layer.Scope
 				seen[name] = prev
 				continue
@@ -228,6 +229,9 @@ func List(p Paths) (Report, error) {
 	for _, name := range order {
 		rep.Servers = append(rep.Servers, seen[name])
 	}
+	sort.Slice(rep.Servers, func(i, j int) bool {
+		return strings.ToLower(rep.Servers[i].Name) < strings.ToLower(rep.Servers[j].Name)
+	})
 	return rep, nil
 }
 
@@ -333,8 +337,12 @@ func Remove(p Paths, scope, name string) error {
 		return fmt.Errorf("no MCP config at %s", path)
 	}
 	servers := serversOf(raw)
-	if _, ok := servers[name]; !ok {
+	cur, ok := servers[name]
+	if !ok {
 		return fmt.Errorf("server %q is not in this file — disable it instead", name)
+	}
+	if overlayOnly(cur) {
+		return fmt.Errorf("this server is from another app — turn it Off")
 	}
 	delete(servers, name)
 	setServers(raw, servers)
