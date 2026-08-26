@@ -330,7 +330,6 @@ export default function PinStudio() {
                     {f.kind === "image" || f.kind === "sketch"
                       ? <img src={info.id ? fileURL(info.id, f) : ""} alt="" />
                       : <span className="pin-att-ext">{fileExt(f.name)}</span>}
-                    {f.kind === "sketch" ? <span className="pin-att-badge">SKETCH</span> : null}
                   </button>
                   <div className="pin-att-meta">
                     <span className="pin-att-name" title={f.name}>{f.name}</span>
