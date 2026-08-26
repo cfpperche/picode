@@ -22,6 +22,9 @@
   --chrome-h: 40px;
   --chat-col: 768px;
   --chat-gutter: 24px;
+  --motion-fast: 120ms;
+  --motion-med: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 :root[data-theme="light"] {
   --bg-base: #ffffff;
@@ -510,12 +513,23 @@ body {
   background: color-mix(in srgb, var(--bg-base) 42%, transparent);
   backdrop-filter: blur(8px);
   padding: 24px;
+  animation: fade-in var(--motion-med) var(--ease-out);
 }
 .pkg-job-card {
   width: min(440px, 100%);
   padding: 20px 20px 16px;
   background: var(--bg-base); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
+  animation: rise-in var(--motion-med) var(--ease-out);
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
 }
 .pkg-job-card h3 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
 .pkg-job-src {
@@ -526,7 +540,9 @@ body {
 .pkg-job-step {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 6px 0; font-size: 13px;
+  transition: color var(--motion-fast) var(--ease-out);
 }
+.pkg-job-step.done .pkg-job-mark { animation: pop-in var(--motion-fast) var(--ease-out); }
 .pkg-job-step code {
   font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word;
 }

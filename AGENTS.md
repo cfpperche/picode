@@ -57,6 +57,10 @@ When a change has **interacting conditions that change the outcome**
 Tests must cover every row, or the untested row is named as FAIL/debt in
 `docs/handoff.md`. Two happy-path clicks are not coverage. Skip the table
 for polish, copy, and single-path fixes.
+**Motion and optimistic UI** are the default for state that takes time
+(jobs, overlays, lists). Enter / step / exit must move. A static flash
+then “all done” is FAIL. Prefer showing the next state immediately and
+reconciling when the server answers.
 
 For any UI work, also run `/skill:uiux-review` and `/skill:visual-review`.
 Visual-review is a **gate**, not a courtesy: screenshot must be `read`,

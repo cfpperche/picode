@@ -25,6 +25,8 @@ passed gate reported falsely.
    - New code without tests? Add tests (table-driven) before finishing.
    - Interacting conditions (delete/restore/auth/cascade/mode)? A decision
      table exists and every row is tested or named as debt. Two clicks ≠ matrix.
+   - Timed UI (jobs, overlays, lists)? Motion on enter/step/exit. Optimistic
+     next state, not a static wait then a jump.
    - New non-stdlib dependency? It needs explicit justification in the
      commit/PR description (AGENTS.md rule #3). No justification = remove it.
 7. **Changelog check**: is anything in this diff user-visible?

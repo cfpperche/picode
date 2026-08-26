@@ -41,7 +41,32 @@ func runningWSL() bool {
 	return strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
-// Reveal opens path in the OS file manager (Explorer on Windows/WSL).
+func windowsExplorer() string {
+	if p, err := exec.LookPath("explorer.exe"); err == nil {
+		return p
+	}
+	for _, p := range []string{
+		"/mnt/c/Windows/explorer.exe",
+		"/mnt/c/WINDOWS/explorer.exe",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func wslUNC(linuxPath string) string {
+	distro := os.Getenv("WSL_DISTRO_NAME")
+	if distro == "" {
+		distro = "Ubuntu"
+	}
+	p := strings.TrimPrefix(filepath.ToSlash(linuxPath), "/")
+	return `\\wsl.localhost\` + distro + `\` + strings.ReplaceAll(p, "/", `\`)
+}
+
+// Reveal opens path in the host file manager:
+// WSL → Windows Explorer, macOS → Finder, Linux → xdg-open.
 func Reveal(path string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -55,9 +80,15 @@ func Reveal(path string) error {
 		path = filepath.Dir(path)
 	}
 	if runningWSL() {
-		if win, ok := WSLToWin(path); ok {
-			return exec.Command("explorer.exe", win).Start()
+		exe := windowsExplorer()
+		if exe == "" {
+			return fmt.Errorf("can't find Windows Explorer")
 		}
+		target, ok := WSLToWin(path)
+		if !ok {
+			target = wslUNC(path)
+		}
+		return exec.Command(exe, target).Start()
 	}
 	switch runtime.GOOS {
 	case "windows":

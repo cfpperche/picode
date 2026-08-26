@@ -242,6 +242,15 @@ func TestWSLToWin(t *testing.T) {
 	}
 }
 
+func TestWindowsExplorerPath(t *testing.T) {
+	if !runningWSL() {
+		t.Skip("not WSL")
+	}
+	if windowsExplorer() == "" {
+		t.Fatal("explorer.exe not found under /mnt/c/Windows")
+	}
+}
+
 func TestRemoveSnapshot(t *testing.T) {
 	e, _, _ := testEngine(t)
 	dest := t.TempDir()

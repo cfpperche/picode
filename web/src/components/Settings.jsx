@@ -7,6 +7,7 @@ import PageFrame from "./PageFrame.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
 import FolderField from "./FolderField.jsx";
+import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
 
@@ -192,16 +193,26 @@ function BackupSection({ hidden }) {
   async function runNow() {
     if (!cfg.dir || job) return;
     const steps = backupSteps(cfg);
-    setJob({ steps, dest: cfg.dir, step: 0, error: "" });
+    setJob({ steps, dest: cfg.dir, step: 0, error: "", done: false });
     setBusy(true);
+    const tick = setInterval(() => {
+      setJob((j) => {
+        if (!j || j.error || j.done) return j;
+        if (j.step < j.steps.length - 1) return { ...j, step: j.step + 1 };
+        return j;
+      });
+    }, 480);
     try {
       await api("/api/backup/now", { method: "POST" });
-      setJob((j) => j && { ...j, step: steps.length });
+      setJob((j) => j && { ...j, step: steps.length, done: true });
       await load();
-      setTimeout(() => setJob(null), 700);
+      setTimeout(() => setJob(null), 520);
     } catch (e) {
       setJob((j) => j && { ...j, error: e.message || String(e) });
-    } finally { setBusy(false); }
+    } finally {
+      clearInterval(tick);
+      setBusy(false);
+    }
   }
 
   async function reveal(id) {
@@ -352,7 +363,9 @@ function BackupJob({ job, onClose }) {
             else if (i === job.step) st = "run";
             return (
               <li key={s.id} className={"pkg-job-step " + st}>
-                <span className="pkg-job-mark" aria-hidden="true">{st === "done" ? "✓" : st === "run" ? "●" : st === "err" ? "!" : "○"}</span>
+                <span className="pkg-job-mark" aria-hidden="true">
+                  {st === "run" ? <PiSpinner title="Working" /> : st === "done" ? "✓" : st === "err" ? "!" : "○"}
+                </span>
                 <code>{s.label}</code>
               </li>
             );

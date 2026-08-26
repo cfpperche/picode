@@ -21,7 +21,8 @@ to the `[Unreleased]` section. The repository's official language is English
 - Local backup in Preferences: folder, interval, retention, explicit **Schedule**, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks). Choosing a folder does not start the schedule.
 - Preferences uses section tabs (Appearance / Notifications / Server / Backup).
 - Backup now shows a step overlay (same pattern as package install/remove).
-- Snapshot rows: Restore, Reveal in Explorer, Remove.
+- Snapshot rows: Restore, Reveal in Explorer, Remove. Reveal on WSL uses the Windows Explorer binary (not PATH).
+- Backup job card animates each step (spinner + check) instead of jumping to done.
 - Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
 - Pin file cards: type badge (PDF/ZIP/…) + always-on remove. No artifact preview.
 - Pin body is a TipTap editor (saves markdown). Toolbar: bold, italic, heading, lists, code, quote.
