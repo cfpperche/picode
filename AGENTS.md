@@ -24,8 +24,9 @@ moment of creation**. Read [README.md](README.md) and
    - Anything user-visible changed → add an entry to `[Unreleased]` in
      `CHANGELOG.md` (Keep a Changelog style).
    - **Every session that changes state MUST end by updating
-     `docs/handoff.md`** (current state, what's in flight, next steps, debts).
-     The handoff is how the next agent (or human) picks up the work.
+     `docs/handoff.md`** so it matches HEAD (current state, in flight, next
+     steps, debts). Listing shipped work under *Next up* is FAIL. Archive
+     old *Recent activity* to `docs/handoff-archive.md` past ~150 lines.
 2. **Never break the build.** Before ending work, run the quality gates
    (below). `make ci` must pass. If you can't finish something, leave the
    tree compiling and tests green, and record the gap in `docs/handoff.md`.
