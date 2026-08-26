@@ -40,6 +40,7 @@ type Server struct {
 	Auth      string            `json:"auth,omitempty"`
 	Disabled  bool              `json:"disabled"`
 	Owned     bool              `json:"owned"`
+	Live      string            `json:"live,omitempty"` // idle | live | failed | signin
 }
 
 // Preset is a known server from the adapter.

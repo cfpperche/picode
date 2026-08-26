@@ -29,6 +29,7 @@ What exists:
 - MCP / Packages / Settings name the selected agent (icon + name) as the first line in the card. Scope pills say **This agent**. Sidebar agent click from a pane goes to `#/`.
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
+- MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
 
 ## In flight
 
@@ -36,8 +37,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Next up
 
-1. MCP live status (connected vs file-only).
-2. Voice V1 dogfood (owner, Chrome Windows mic). Auth / llama / Radius after.
+1. Voice V1 dogfood (owner, Chrome Windows mic). Auth / llama / Radius after.
 
 ## Backlog
 
@@ -59,6 +59,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP live status (Idle / Live / Failed / Sign in). visual-review: PASS (mcp-live-idle.png).
 - **2026-08-26** — MCP Add More: env / headers / Sign in / Token. visual-review: PASS (mcp-add-more-url.png, mcp-add-more-env.png, mcp-add-more-error.png).
 - **2026-08-26** — MCP card: agent icon + name at top; scope pill is This agent again. visual-review: PASS (mcp-this-agent.png).
 - **2026-08-26** — Use from is a tree (app → servers). Pick per server; Off the rest. visual-review: PASS (mcp-use-from-tree.png).

@@ -159,7 +159,11 @@ Only when the agent has its own `workPath`. Writes `<workPath>/.pi/mcp.json`
 
 ### B4 — env / headers / auth — **shipped**
 
-Add **More** writes adapter `env` (command), `headers` + `auth`/`bearerToken` (URL). Token stays in the file the adapter reads. Next: live connected vs file-only.
+Add **More** writes adapter `env` (command), `headers` + `auth`/`bearerToken` (URL). Token stays in the file the adapter reads.
+
+### B5 — live status — **shipped**
+
+List shows Idle / Live / Failed / Sign in. File Off has no live word. Snapshot only when the GUI agent is running.
 
 ### Decision table (runtime)
 

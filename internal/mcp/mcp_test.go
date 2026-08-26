@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestAddToggleRemoveRoundTrip(t *testing.T) {
@@ -383,6 +384,57 @@ func TestAdapterConfigured(t *testing.T) {
 	}
 	if !AdapterConfigured([]string{"npm:pi-web-search", "npm:pi-mcp-adapter"}) {
 		t.Fatal("missed")
+	}
+}
+
+func TestApplyLive(t *testing.T) {
+	rep := Report{Servers: []Server{
+		{Name: "on", Disabled: false},
+		{Name: "off", Disabled: true},
+		{Name: "auth", Disabled: false},
+		{Name: "bad", Disabled: false},
+		{Name: "ok", Disabled: false},
+	}}
+	ApplyLive(&rep, nil, false)
+	if rep.Servers[0].Live != LiveIdle || rep.Servers[1].Live != "" {
+		t.Fatalf("stopped = %+v", rep.Servers)
+	}
+	ApplyLive(&rep, map[string]string{
+		"auth": "needs-auth",
+		"bad":  "failed",
+		"ok":   "connected",
+	}, true)
+	want := []string{LiveIdle, "", LiveAuth, LiveFailed, LiveOn}
+	for i, s := range rep.Servers {
+		if s.Live != want[i] {
+			t.Fatalf("%s live=%q want %q", s.Name, s.Live, want[i])
+		}
+	}
+}
+
+func TestReadLive(t *testing.T) {
+	dir := t.TempDir()
+	path := LivePath(dir, "agent-1")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if ReadLive(path, 0) != nil {
+		t.Fatal("missing file")
+	}
+	if err := os.WriteFile(path, []byte(`{"servers":[{"name":"docs","status":"connected"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := ReadLive(path, time.Hour)
+	if got["docs"] != "connected" {
+		t.Fatalf("got %#v", got)
+	}
+	args, env := AttachLive(dir, "agent-1")
+	if len(args) != 2 || args[0] != "-e" || len(env) != 1 {
+		t.Fatalf("attach %v %v", args, env)
+	}
+	ClearLive(dir, "agent-1")
+	if ReadLive(path, 0) != nil {
+		t.Fatal("cleared file remains")
 	}
 }
 

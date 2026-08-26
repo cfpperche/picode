@@ -133,6 +133,7 @@ func serve() {
 	defer st.Close()
 
 	runtime := rpc.NewRuntime("pi", st, nil)
+	runtime.DataDir = dataDir
 	defer runtime.StopAll()
 
 	backupCtx, backupCancel := context.WithCancel(context.Background())

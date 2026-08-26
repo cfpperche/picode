@@ -61,9 +61,12 @@ type Client struct {
 
 // Start launches the rpc process (command run with args, cwd) and begins
 // pumping stdout until the process exits or Close is called.
-func Start(command string, args []string, cwd string) (*Client, error) {
+func Start(command string, args []string, cwd string, extraEnv ...string) (*Client, error) {
 	cmd := exec.Command(command, args...)
 	cmd.Dir = cwd
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("rpc: stdin: %w", err)

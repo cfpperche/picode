@@ -54,6 +54,19 @@ func TestMCPMatrix(t *testing.T) {
 	if add.StatusCode != http.StatusOK {
 		t.Fatalf("add = %d", add.StatusCode)
 	}
+	var added map[string]any
+	if err := json.NewDecoder(add.Body).Decode(&added); err != nil {
+		t.Fatal(err)
+	}
+	_ = add.Body.Close()
+	srvs, _ := added["servers"].([]any)
+	if len(srvs) != 1 {
+		t.Fatalf("servers = %v", added["servers"])
+	}
+	row, _ := srvs[0].(map[string]any)
+	if row["live"] != "idle" {
+		t.Fatalf("live = %v", row["live"])
+	}
 
 	bad := postJSON(t, ts, "/api/mcp", map[string]any{"scope": "user", "name": "x"})
 	if bad.StatusCode != http.StatusBadRequest {

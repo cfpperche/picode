@@ -28,7 +28,12 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     catch { setData({ adapter: { installed: false }, servers: [], presets: [], layers: [] }); }
   }
 
-  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId]);
+  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId, agentRunning]);
+  useEffect(() => {
+    if (hidden || !agentRunning) return;
+    const t = setInterval(() => { load(); }, 2500);
+    return () => clearInterval(t);
+  }, [hidden, agentRunning, workspaceId, agentId]);
   useEffect(() => {
     if (!workspaceId && scope === "project") setScope("user");
     if (!agentWorkPath && scope === "agent") setScope("user");
@@ -215,6 +220,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                     <div className="mcp-row-main">
                       <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
                       <strong className="mcp-name">{s.name}</strong>
+                      {s.live ? <span className={"mcp-live " + s.live} title={liveTitle(s.live)}>{liveLabel(s.live)}</span> : null}
                       {s.auth ? <span className="pkg-scope-tag">{s.auth === "oauth" ? "sign-in" : "token"}</span> : null}
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>
@@ -490,6 +496,20 @@ function scopeLabel(s, workspaceName, agentName) {
   if (s.scope === "agent") return agentName || "agent";
   if (s.scope === "import") return "shared";
   return "machine";
+}
+
+function liveLabel(v) {
+  if (v === "live") return "Live";
+  if (v === "failed") return "Failed";
+  if (v === "signin") return "Sign in";
+  return "Idle";
+}
+
+function liveTitle(v) {
+  if (v === "live") return "Connected";
+  if (v === "failed") return "Last connect failed";
+  if (v === "signin") return "This agent will ask to sign in when it uses this server";
+  return "Not used yet";
 }
 
 function targetOf(s) {

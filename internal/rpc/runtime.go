@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -67,6 +68,7 @@ type ManagedAgent struct {
 // Runtime owns all managed agents.
 type Runtime struct {
 	AgentCmd string // "pi" (ADR-0003)
+	DataDir  string // ~/.picode — MCP live snapshots when set
 
 	mu     sync.Mutex
 	agents map[string]*ManagedAgent
@@ -101,7 +103,13 @@ func (r *Runtime) Start(agentID, path string) error {
 			args = append(args, a.CLIFlags()...)
 		}
 	}
-	client, err := Start(r.AgentCmd, args, path)
+	mcp.ClearLive(r.DataDir, agentID)
+	var extraEnv []string
+	if liveArgs, liveEnv := mcp.AttachLive(r.DataDir, agentID); len(liveArgs) > 0 {
+		args = append(args, liveArgs...)
+		extraEnv = liveEnv
+	}
+	client, err := Start(r.AgentCmd, args, path, extraEnv...)
 	if err != nil {
 		return err
 	}
@@ -136,6 +144,7 @@ func (r *Runtime) Stop(agentID string) bool {
 	if ma == nil {
 		return false
 	}
+	mcp.ClearLive(r.DataDir, agentID)
 	ma.cancel()
 	ma.client.Close()
 	<-ma.done

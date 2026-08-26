@@ -48,6 +48,7 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
+		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
@@ -110,7 +111,7 @@ func handleMCPAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeMCP(w, p, sources)
+		writeMCP(w, deps, p, sources, req.AgentID)
 	}
 }
 
@@ -138,7 +139,7 @@ func handleMCPToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeMCP(w, p, sources)
+		writeMCP(w, deps, p, sources, req.AgentID)
 	}
 }
 
@@ -175,18 +176,24 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeMCP(w, p, sources)
+		writeMCP(w, deps, p, sources, agentID)
 	}
 }
 
-func writeMCP(w http.ResponseWriter, p mcp.Paths, sources []string) {
+func writeMCP(w http.ResponseWriter, deps Deps, p mcp.Paths, sources []string, agentID string) {
 	rep, err := mcp.List(p)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 		return
 	}
 	rep.Adapter.Installed = mcp.AdapterConfigured(sources)
+	applyMCPLive(deps, agentID, &rep)
 	writeJSON(w, http.StatusOK, rep)
+}
+
+func applyMCPLive(deps Deps, agentID string, rep *mcp.Report) {
+	running := agentID != "" && deps.Runtime != nil && deps.Runtime.Get(agentID) != nil
+	mcp.ApplyLive(rep, mcp.ReadLive(mcp.LivePath(deps.DataDir, agentID), 0), running)
 }
 
 func mcpPaths(deps Deps, workspaceID, agentID string) (mcp.Paths, []string, error) {

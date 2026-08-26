@@ -7,7 +7,7 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
 2. `#/mcps` → Add a server (command or URL). **More** adds environment variables, headers, or sign-in (OAuth / token).
 3. **Use from…** is a tree of apps and their servers. Check the ones to use. It does not copy files.
-4. Restart the agent.
+4. Restart the agent. The list says **Idle** until that agent uses the server, then **Live** (or **Failed** / **Sign in**).
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
 
