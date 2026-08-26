@@ -51,7 +51,7 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Recent activity
 
-- **2026-08-26** — Conversation GFM tables.
+- **2026-08-26** — Conversation KaTeX math + GFM tables.
 - **2026-08-26** — Source **Run** (bash/python/js/go) in the agent cwd. Not a browser sandbox.
 - **2026-08-26** — Conversation source renderer (fenced code: lang + copy + highlight).
 - **2026-08-26** — Codex DID reply; chat ignored `message_end` (no `text_delta`). Free-agent Sessions listed the wrong folder (0).

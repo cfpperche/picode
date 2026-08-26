@@ -848,6 +848,8 @@ body {
 }
 .md tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
 .md del { color: var(--text-secondary); }
+.md .katex { color: inherit; font-size: 1.08em; }
+.md .katex-display { margin: 0.85em 0; overflow-x: auto; overflow-y: hidden; }
 .actor .copy-btn { margin-left: auto; }
 .copy-btn {
   display: inline-flex; align-items: center; gap: 5px;
