@@ -146,13 +146,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   function canSignIn(s) {
-    if (!agentRunning || !agentId || !s || s.disabled) return false;
+    if (!s || s.disabled) return false;
     if (s.live === "live") return false;
     return s.live === "signin" || s.auth === "oauth";
   }
 
   async function signIn(s) {
     if (!canSignIn(s) || job) return;
+    if (!agentRunning || !agentId) {
+      toast.info("Run this agent first.");
+      return;
+    }
     try {
       const res = await api("/api/mcp/auth", {
         method: "POST",
@@ -259,15 +263,15 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                     <div className="mcp-row-main">
                       <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
                       <strong className="mcp-name">{s.name}</strong>
-                      {canSignIn(s) ? (
-                        <button type="button" className="mcp-live signin" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
-                      ) : s.live ? (
+                      {s.live && s.live !== "signin" ? (
                         <span className={"mcp-live " + s.live} title={liveTitle(s.live)}>{liveLabel(s.live)}</span>
                       ) : null}
-                      {s.auth ? <span className="pkg-scope-tag">{s.auth === "oauth" ? "sign-in" : "token"}</span> : null}
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>
-                    <div className="mcp-row-actions">
+                    <div className="mcp-row-actions" data-align-row>
+                      {canSignIn(s) ? (
+                        <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
+                      ) : null}
                       <button
                         type="button"
                         role="switch"

@@ -463,6 +463,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   text-overflow: ellipsis; white-space: nowrap; max-width: 280px;
 }
 .mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.mcp-row-actions .btn,
+.mcp-row-actions .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .mcp-add { margin-top: 14px; }
 .mcp-add:first-child { margin-top: 0; }
 .mcp-add h3, .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }

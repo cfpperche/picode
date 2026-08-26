@@ -60,6 +60,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Sign in is a button next to On (not a SIGN-IN tag). Off has no Sign in. visual-review: PASS (mcp-signin-btn.png).
 - **2026-08-26** — MCP Sign in starts `/mcp-auth` (RPC + paste dialog). visual-review: PASS (mcp-signin.png).
 - **2026-08-26** — MCP GET redacts env/header values. Dogfood in Codex/Grok left for later.
 - **2026-08-26** — Diff cards in conversation use JetBrains Mono + Fira Code (same as source fences). visual-review: PASS (chat-diff-font.png).
