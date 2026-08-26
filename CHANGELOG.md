@@ -15,7 +15,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 - MCP server list is alphabetical by name (no more jumping while live status refreshes).
 - Remove on a shared server no longer turns it back On (it was only hiding the other app). Use Off.
-- Conversation source (fences, inline code, diffs) uses JetBrains Mono with Fira Code ligatures.
+- Conversation source (fences, inline code, **diff cards**) uses JetBrains Mono with Fira Code ligatures.
 - MCP / Packages card names the agent at the top (with an agent icon). Scope pills say **This agent** again.
 - MCP, Packages, and Settings name the selected agent as the first line inside the card (not under the title). Clicking an agent in the sidebar from a pane opens that agent (`#/`) instead of silently retargeting the form.
 - MCP page: no setup lecture. Missing adapter is one line + **Open packages**; Add is the empty state when the adapter is in. Unavailable scopes are hidden. Guide: [MCP](https://cfpperche.github.io/picode/guide/mcp).

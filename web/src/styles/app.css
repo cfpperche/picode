@@ -1103,7 +1103,12 @@ body {
 }
 .md blockquote p { margin: 0.4em 0; }
 .md li input[type="checkbox"] { margin-right: 8px; accent-color: var(--accent); }
-.source-diff { padding: 6px 0; max-height: 360px; overflow: auto; }
+.source-diff {
+  padding: 6px 0; max-height: 360px; overflow: auto;
+  font-family: var(--code); font-size: 13px; line-height: 1.55;
+  font-variant-ligatures: contextual;
+  font-feature-settings: "calt" 1, "liga" 1;
+}
 .md .katex { color: inherit; font-size: 1.08em; }
 .md .katex-display { margin: 0.85em 0; overflow-x: auto; overflow-y: hidden; }
 .md-img {
@@ -1177,8 +1182,13 @@ body {
 .diff-line.del { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .diff-line.meta, .diff-line.gap { color: var(--text-secondary); }
 .diff-line.ctx { color: var(--text-primary); }
-.diff-gutter { flex: none; width: 10px; opacity: .7; }
-.diff-text { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.diff-gutter { flex: none; width: 10px; opacity: .7; font-family: var(--code); }
+.diff-text {
+  flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word;
+  font-family: var(--code);
+  font-variant-ligatures: contextual;
+  font-feature-settings: "calt" 1, "liga" 1;
+}
 .diff-empty { padding: 8px 10px; color: var(--text-secondary); }
 .files-changed { margin: 8px 0; font-family: var(--mono); font-size: 11.5px; }
 .files-changed-head {
