@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast } from "../lib/toast.js";
@@ -11,6 +12,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [scope, setScope] = useState("user");
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
+  const [pickOpen, setPickOpen] = useState(false);
 
   function listURL() {
     const q = [];
@@ -95,29 +97,22 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     }));
   }
 
-  async function importHosts() {
+  function importHosts() {
     if (!installed) return;
     const found = (data && data.found) || [];
     if (!found.length) {
       toast.info("No other apps with servers.");
       return;
     }
-    const picked = await askConfirm({
-      title: "Use from other apps",
-      message: "Pi reads those configs. Turn off servers you do not want.",
-      confirmLabel: "Use",
-      choices: found.map((h) => ({
-        id: h.kind,
-        label: h.servers ? h.label + " (" + h.servers + ")" : h.label,
-        checked: !!h.on,
-      })),
-    });
-    if (!picked) return;
-    const kinds = found.map((h) => h.kind).filter((id) => picked[id]);
+    setPickOpen(true);
+  }
+
+  async function applyPicks(picks) {
+    setPickOpen(false);
     await runJob("import", "apps", () => api("/api/mcp/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body({ kinds })),
+      body: JSON.stringify(body({ picks })),
     }));
   }
 
@@ -258,8 +253,121 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         </>
       )}
 
+      {pickOpen ? (
+        <UseFromDialog found={(data && data.found) || []} onClose={() => setPickOpen(false)} onUse={applyPicks} />
+      ) : null}
       {job ? <JobOverlay job={job} running={agentRunning} onClose={() => setJob(null)} /> : null}
     </PageFrame>
+  );
+}
+
+function UseFromDialog({ found, onClose, onUse }) {
+  const [open, setOpen] = useState(() => {
+    const o = {};
+    (found || []).forEach((h) => { o[h.kind] = true; });
+    return o;
+  });
+  const [on, setOn] = useState(() => {
+    const o = {};
+    (found || []).forEach((h) => {
+      (h.servers || []).forEach((s) => { o[h.kind + ":" + s.name] = !!s.on; });
+    });
+    return o;
+  });
+
+  function key(kind, name) { return kind + ":" + name; }
+
+  function appStats(h) {
+    const names = (h.servers || []).map((s) => s.name);
+    const n = names.filter((name) => on[key(h.kind, name)]).length;
+    return { all: names.length > 0 && n === names.length, some: n > 0 && n < names.length, n };
+  }
+
+  function toggleApp(h, v) {
+    setOn((cur) => {
+      const next = { ...cur };
+      (h.servers || []).forEach((s) => { next[key(h.kind, s.name)] = v; });
+      return next;
+    });
+  }
+
+  function submit() {
+    const picks = (found || []).map((h) => ({
+      kind: h.kind,
+      servers: (h.servers || []).map((s) => s.name).filter((name) => on[key(h.kind, name)]),
+    })).filter((p) => p.servers.length);
+    onUse(picks);
+  }
+
+  return (
+    <Dialog.Root open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className="dlg dlg-use-from" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Title className="dlg-title">Use from other apps</Dialog.Title>
+          <Dialog.Description className="dlg-body">Check the servers to use. Pi reads those apps.</Dialog.Description>
+          <ul className="mcp-tree">
+            {(found || []).map((h) => {
+              const st = appStats(h);
+              return (
+                <li key={h.kind}>
+                  <div className="mcp-tree-row">
+                    <button
+                      type="button"
+                      className="mcp-tree-chev"
+                      aria-expanded={!!open[h.kind]}
+                      aria-label={open[h.kind] ? "Collapse" : "Expand"}
+                      onClick={() => setOpen((o) => ({ ...o, [h.kind]: !o[h.kind] }))}
+                    >{open[h.kind] ? "▾" : "▸"}</button>
+                    <TreeCheck checked={st.all} some={st.some} onChange={(v) => toggleApp(h, v)} label={h.label} />
+                    <span className="mcp-tree-label">{h.label}</span>
+                  </div>
+                  {open[h.kind] ? (
+                    <ul className="mcp-tree-kids">
+                      {(h.servers || []).length === 0 ? (
+                        <li className="mcp-tree-row mcp-tree-empty">No servers</li>
+                      ) : (h.servers || []).map((s) => (
+                        <li key={s.name} className="mcp-tree-row">
+                          <span className="mcp-tree-spc" aria-hidden="true" />
+                          <label className="mcp-tree-item">
+                            <input
+                              type="checkbox"
+                              checked={!!on[key(h.kind, s.name)]}
+                              onChange={(e) => setOn((cur) => ({ ...cur, [key(h.kind, s.name)]: e.target.checked }))}
+                            />
+                            <span>{s.name}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="dlg-actions">
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={submit}>Use</button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function TreeCheck({ checked, some, onChange, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = !!some && !checked;
+  }, [some, checked]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={!!checked}
+      aria-label={label}
+      onChange={(e) => onChange(e.target.checked)}
+    />
   );
 }
 

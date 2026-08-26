@@ -20,7 +20,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- MCP **Use from…** mirrors other apps’ configs (you pick which). It does not copy files. Turn a mirrored server Off to hide it. Apps with no servers are not offered. Codex/Grok TOML servers and Grok (`~/.grok`) are listed.
+- MCP **Use from…** is a tree: app → servers. You pick which servers. Unchecked ones stay Off. It does not copy files.
 - Local backup in Preferences: folder, interval, retention, explicit **Schedule**, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks). Choosing a folder does not start the schedule.
 - Preferences uses section tabs (Appearance / Notifications / Server / Backup).
 - Backup now shows a step overlay (same pattern as package install/remove).

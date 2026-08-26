@@ -158,7 +158,9 @@ func TestMCPImport(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"ext":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{"kinds": []string{"cursor"}})
+	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{
+		"picks": []any{map[string]any{"kind": "cursor", "servers": []any{"ext"}}},
+	})
 	if hit.StatusCode != http.StatusOK {
 		t.Fatalf("import = %d", hit.StatusCode)
 	}

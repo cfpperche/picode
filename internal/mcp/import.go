@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -34,12 +35,24 @@ type ImportResult struct {
 	Found   []string `json:"found"`
 }
 
+// HostServer is one named server inside a host app.
+type HostServer struct {
+	Name string `json:"name"`
+	On   bool   `json:"on"`
+}
+
 // HostInfo is one detected host app for the Use-from picker.
 type HostInfo struct {
-	Kind    string `json:"kind"`
-	Label   string `json:"label"`
-	On      bool   `json:"on"`
-	Servers int    `json:"servers"`
+	Kind    string       `json:"kind"`
+	Label   string       `json:"label"`
+	On      bool         `json:"on"`
+	Servers []HostServer `json:"servers"`
+}
+
+// ImportPick is the servers to keep on for one app.
+type ImportPick struct {
+	Kind    string   `json:"kind"`
+	Servers []string `json:"servers"`
 }
 
 func hostLabel(k HostKind) string {
@@ -161,25 +174,38 @@ func knownHost(k HostKind) bool {
 	return false
 }
 
-func hostServerCount(path string) int {
+func hostServerMap(path string) map[string]map[string]any {
 	if strings.HasSuffix(path, ".toml") {
-		return len(serversFromTomlFile(path))
+		return serversFromTomlFile(path)
 	}
 	raw, err := readFile(path)
 	if err != nil || raw == nil {
-		return 0
+		return nil
 	}
-	return len(serversOfHost(raw))
+	return serversOfHost(raw)
+}
+
+func overlayDisabled(raw map[string]any) map[string]bool {
+	out := map[string]bool{}
+	for name, e := range serversOf(raw) {
+		if boolOf(e["disabled"]) {
+			out[name] = true
+		}
+	}
+	return out
 }
 
 // FoundHosts is apps we can actually read servers from (or already mirrored).
 func FoundHosts(p Paths) []HostInfo {
 	on := map[string]bool{}
+	var piRaw map[string]any
 	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
+		piRaw = raw
 		for _, s := range importKindsOf(raw) {
 			on[s] = true
 		}
 	}
+	off := overlayDisabled(piRaw)
 	home := p.home()
 	var out []HostInfo
 	for _, k := range HostKinds {
@@ -187,19 +213,24 @@ func FoundHosts(p Paths) []HostInfo {
 		if path == "" {
 			continue
 		}
-		n := hostServerCount(path)
+		m := hostServerMap(path)
 		linked := on[string(k)]
-		if !linked && n == 0 {
+		if !linked && len(m) == 0 {
 			continue
 		}
-		out = append(out, HostInfo{Kind: string(k), Label: hostLabel(k), On: linked, Servers: n})
+		h := HostInfo{Kind: string(k), Label: hostLabel(k), On: linked}
+		for name := range m {
+			h.Servers = append(h.Servers, HostServer{Name: name, On: linked && !off[name]})
+		}
+		sort.Slice(h.Servers, func(i, j int) bool { return h.Servers[i].Name < h.Servers[j].Name })
+		out = append(out, h)
 	}
 	return out
 }
 
-// ImportHosts writes only the requested kinds into ~/.pi/agent/mcp.json.
-// kinds must be known and present on this machine. It does not copy files.
-func ImportHosts(p Paths, kinds []string) (ImportResult, error) {
+// ImportHosts writes the chosen apps into ~/.pi/agent/mcp.json and disables
+// host servers that were not picked. It does not copy files or credentials.
+func ImportHosts(p Paths, picks []ImportPick) (ImportResult, error) {
 	found := DetectHosts(p)
 	foundStr := make([]string, len(found))
 	foundSet := map[string]bool{}
@@ -207,21 +238,34 @@ func ImportHosts(p Paths, kinds []string) (ImportResult, error) {
 		foundStr[i] = string(k)
 		foundSet[string(k)] = true
 	}
+	home := p.home()
 	seen := map[string]bool{}
 	var want []string
-	for _, s := range kinds {
-		k := HostKind(s)
-		if !knownHost(k) {
-			return ImportResult{}, fmt.Errorf("unknown app %q", s)
-		}
-		if !foundSet[s] {
-			return ImportResult{}, fmt.Errorf("%s is not on this machine", hostLabel(k))
-		}
-		if seen[s] {
+	wantNames := map[string]map[string]bool{}
+	for _, pick := range picks {
+		if len(pick.Servers) == 0 {
 			continue
 		}
-		seen[s] = true
-		want = append(want, s)
+		k := HostKind(pick.Kind)
+		if !knownHost(k) {
+			return ImportResult{}, fmt.Errorf("unknown app %q", pick.Kind)
+		}
+		if !foundSet[pick.Kind] {
+			return ImportResult{}, fmt.Errorf("%s is not on this machine", hostLabel(k))
+		}
+		if seen[pick.Kind] {
+			continue
+		}
+		seen[pick.Kind] = true
+		want = append(want, pick.Kind)
+		set := map[string]bool{}
+		for _, n := range pick.Servers {
+			n = strings.TrimSpace(n)
+			if n != "" {
+				set[n] = true
+			}
+		}
+		wantNames[pick.Kind] = set
 	}
 	path := p.PiGlobal()
 	raw, err := readFileOrEmpty(path)
@@ -252,10 +296,6 @@ func ImportHosts(p Paths, kinds []string) (ImportResult, error) {
 			removed = append(removed, s)
 		}
 	}
-	res := ImportResult{Added: added, Removed: removed, Already: already, Found: foundStr}
-	if len(added) == 0 && len(removed) == 0 {
-		return res, nil
-	}
 	if len(next) == 0 {
 		delete(raw, "imports")
 	} else {
@@ -265,6 +305,33 @@ func ImportHosts(p Paths, kinds []string) (ImportResult, error) {
 		}
 		raw["imports"] = arr
 	}
+	owned := serversOf(raw)
+	for kind, keep := range wantNames {
+		hp := firstExisting(hostCandidates(HostKind(kind), home, p.Cwd))
+		for name := range hostServerMap(hp) {
+			cur := owned[name]
+			if cur == nil {
+				cur = map[string]any{}
+			}
+			if keep[name] {
+				delete(cur, "disabled")
+				if len(cur) == 0 {
+					delete(owned, name)
+				} else {
+					owned[name] = cur
+				}
+			} else {
+				if overlayOnly(cur) || len(cur) == 0 {
+					owned[name] = map[string]any{"disabled": true}
+				} else {
+					cur["disabled"] = true
+					owned[name] = cur
+				}
+			}
+		}
+	}
+	setServers(raw, owned)
+	res := ImportResult{Added: added, Removed: removed, Already: already, Found: foundStr}
 	if err := writeFile(path, raw); err != nil {
 		return ImportResult{}, err
 	}

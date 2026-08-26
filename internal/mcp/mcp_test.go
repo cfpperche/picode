@@ -225,10 +225,10 @@ func TestImportHosts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := ImportHosts(p, []string{"codex"}); err == nil {
+	if _, err := ImportHosts(p, []ImportPick{{Kind: "codex", Servers: []string{"x"}}}); err == nil {
 		t.Fatal("codex not on this machine")
 	}
-	res, err = ImportHosts(p, []string{"cursor"})
+	res, err = ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"from-cursor"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,26 +242,51 @@ func TestImportHosts(t *testing.T) {
 	if len(rep.Imports) != 1 || rep.Imports[0] != "cursor" {
 		t.Fatalf("imports = %v", rep.Imports)
 	}
-	if len(rep.Found) != 1 || !rep.Found[0].On || rep.Found[0].Servers != 1 {
+	if len(rep.Found) != 1 || !rep.Found[0].On || len(rep.Found[0].Servers) != 1 {
 		t.Fatalf("found = %+v", rep.Found)
 	}
 	if len(rep.Servers) != 1 || rep.Servers[0].Name != "from-cursor" || rep.Servers[0].Owned {
 		t.Fatalf("servers = %+v", rep.Servers)
 	}
 
-	again, err := ImportHosts(p, []string{"cursor"})
+	again, err := ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"from-cursor"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(again.Added) != 0 || len(again.Removed) != 0 {
 		t.Fatalf("second = %+v", again)
 	}
-	off, err := ImportHosts(p, []string{})
+	off, err := ImportHosts(p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(off.Removed) != 1 || off.Removed[0] != "cursor" {
 		t.Fatalf("remove = %+v", off)
+	}
+}
+
+func TestImportPickDisablesOther(t *testing.T) {
+	home := t.TempDir()
+	p := Paths{Home: home}
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"keep":{"url":"https://a.example/mcp"},"drop":{"url":"https://b.example/mcp"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"keep"}}}); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Server{}
+	for _, s := range rep.Servers {
+		by[s.Name] = s
+	}
+	if by["keep"].Disabled || !by["drop"].Disabled {
+		t.Fatalf("%+v", rep.Servers)
 	}
 }
 
