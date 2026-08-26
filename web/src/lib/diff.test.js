@@ -1,4 +1,4 @@
-import { fileChangeFromTool, normalizeEdits, parseOfficialDiff } from "./diff.js";
+import { fileChangeFromTool, normalizeEdits, parseOfficialDiff, hunksFromDiff } from "./diff.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -34,6 +34,13 @@ test("parseOfficialDiff ignores headers", () => {
   const p = parseOfficialDiff({ details: { diff: "+++ x\n--- y\n+ok\n-no\n ctx" } });
   assert.equal(p.add, 1);
   assert.equal(p.del, 1);
+});
+
+test("hunksFromDiff", () => {
+  const p = hunksFromDiff("--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n ctx\n");
+  assert.equal(p.add, 1);
+  assert.equal(p.del, 1);
+  assert.equal(p.hunks.filter((h) => h.kind === "ctx").length, 1);
 });
 
 test("non-file tools return null", () => {

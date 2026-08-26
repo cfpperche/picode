@@ -2,6 +2,7 @@ import { useState } from "react";
 import { IconCopy, IconPlay } from "./Icons.jsx";
 import { langOf, highlightSource } from "../lib/highlight.js";
 import { safeImgSrc } from "../lib/mdSafe.js";
+import { hunksFromDiff } from "../lib/diff.js";
 import MermaidBlock from "./MermaidBlock.jsx";
 
 const RUN = new Set(["bash", "sh", "shell", "python", "py", "javascript", "js", "go", "golang"]);
@@ -25,9 +26,33 @@ export function mdComponents({ CopyBtn, onRun }) {
       if (lang === "mermaid") {
         return <MermaidBlock text={text} CopyBtn={CopyBtn} />;
       }
+      if (lang === "diff" || lang === "patch") {
+        return <DiffFence text={text} CopyBtn={CopyBtn} />;
+      }
       return <SourceBlock lang={lang || "text"} text={text} CopyBtn={CopyBtn} onRun={onRun} />;
     },
   };
+}
+
+function DiffFence({ text, CopyBtn }) {
+  const { hunks, add, del } = hunksFromDiff(text);
+  return (
+    <div className="source-block">
+      <div className="source-head">
+        <span className="source-lang">diff</span>
+        <span className="tp-stat"><span className="add">{add ? "+" + add : ""}</span>{add && del ? " " : ""}<span className="del">{del ? "−" + del : ""}</span></span>
+        {CopyBtn ? <CopyBtn text={text} /> : null}
+      </div>
+      <div className="source-diff">
+        {hunks.length ? hunks.map((h, i) => (
+          <div key={i} className={"diff-line " + h.kind}>
+            <span className="diff-gutter">{h.kind === "add" ? "+" : h.kind === "del" ? "−" : h.kind === "gap" ? "·" : " "}</span>
+            <span className="diff-text">{h.text}</span>
+          </div>
+        )) : <div className="diff-empty">No diff</div>}
+      </div>
+    </div>
+  );
 }
 
 function SourceBlock({ lang, text, CopyBtn, onRun }) {

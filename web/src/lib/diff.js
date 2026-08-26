@@ -51,9 +51,14 @@ export function parseOfficialDiff(result) {
     ? details.patch
     : (typeof details.diff === "string" ? details.diff : "");
   if (!raw) return null;
+  return hunksFromDiff(raw);
+}
+
+// Unified diff text → hunks (conversation ```diff fences and tool patches).
+export function hunksFromDiff(raw) {
   const hunks = [];
   let add = 0, del = 0;
-  for (const line of raw.split("\n")) {
+  for (const line of String(raw || "").split("\n")) {
     if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ") || line.startsWith("index ")) {
       hunks.push({ kind: "meta", text: line });
       continue;

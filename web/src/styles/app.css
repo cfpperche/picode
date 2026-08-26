@@ -848,6 +848,13 @@ body {
 }
 .md tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
 .md del { color: var(--text-secondary); }
+.md blockquote {
+  margin: 0.75em 0; padding: 0.15em 0 0.15em 14px;
+  border-left: 3px solid var(--accent); color: var(--text-secondary);
+}
+.md blockquote p { margin: 0.4em 0; }
+.md li input[type="checkbox"] { margin-right: 8px; accent-color: var(--accent); }
+.source-diff { padding: 6px 0; max-height: 360px; overflow: auto; }
 .md .katex { color: inherit; font-size: 1.08em; }
 .md .katex-display { margin: 0.85em 0; overflow-x: auto; overflow-y: hidden; }
 .md-img {

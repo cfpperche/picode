@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Conversation blockquotes and ```diff``` fences (same hunks as tool diffs).
 - Conversation images (`![alt](https://…)`) and Mermaid fences.
 - Conversation math (KaTeX: `$…$` inline, `$$…$$` display).
 - Conversation markdown tables (GFM), plus strikethrough and task lists.
