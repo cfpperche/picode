@@ -1501,6 +1501,9 @@ body {
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: 10px; max-height: 240px; overflow-y: auto; z-index: 8;
 }
+.slash-empty {
+  padding: 8px 10px; font-size: 12.5px; color: var(--text-secondary);
+}
 .slash-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 7px 10px; border-radius: 6px;

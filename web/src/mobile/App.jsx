@@ -256,7 +256,8 @@ export default function MobileApp() {
                   }} hidden={stopped} agentId={agent && agent.id} />
                 <Composer kind={kind} onKind={setKind} value={draft} onChange={setDraft} onSend={sendTask}
                   status={status} streaming={streaming} stopped={stopped}
-                  onToggleDock={() => setTab("term")} onStop={() => stopAgent(selectedId)} />
+                  onToggleDock={() => setTab("term")} onStop={() => stopAgent(selectedId)}
+                  agentId={selectedId} />
               </>
             )}
           </section>

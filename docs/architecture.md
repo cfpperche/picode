@@ -35,6 +35,8 @@ stay on their own routes.
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
+Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
+
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History

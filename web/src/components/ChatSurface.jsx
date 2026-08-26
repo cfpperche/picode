@@ -51,7 +51,7 @@ export default function ChatSurface({
             </div>
           </div>
         ) : (
-          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} />
+          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} agentId={agent && agent.id} />
         )}
       </div>
     </section>

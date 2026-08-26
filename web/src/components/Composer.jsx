@@ -8,7 +8,9 @@ import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSp
 import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
+import { api } from "../lib/api.js";
 import { filterSlash } from "../lib/slash.js";
+import { atQuery, insertAtPath } from "../lib/atMention.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
 import {
@@ -20,7 +22,7 @@ import { toast } from "../lib/toast.js";
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra,
+  slashExtra, agentId,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -43,7 +45,15 @@ export default function Composer({
   const [muted, setMuted] = useState(false);
   const [dictate, setDictate] = useState(false);
   const [micStream, setMicStream] = useState(null);
+  const [caret, setCaret] = useState(0);
+  const [atHits, setAtHits] = useState(null);
+  const [atOk, setAtOk] = useState(false);
+  const [atIdx, setAtIdx] = useState(0);
+  const [atHide, setAtHide] = useState("");
   const hits = filterSlash(value, slashExtra);
+  const at = hits.length ? null : atQuery(value, caret);
+  const atKey = at ? "@" + at.query : "";
+  const showAt = !!(at && atOk && atHits && atHide !== atKey);
 
   useEffect(() => { valueRef.current = value; }, [value]);
   useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
@@ -58,6 +68,28 @@ export default function Composer({
   }, [value, expanded, voice]);
 
   useEffect(() => { setSlashIdx(0); }, [value]);
+  useEffect(() => { setAtIdx(0); }, [atKey]);
+
+  useEffect(() => {
+    if (!agentId || !atKey || hits.length) {
+      setAtHits(null);
+      setAtOk(false);
+      return;
+    }
+    const q = atKey.slice(1);
+    const t = setTimeout(async () => {
+      try {
+        const d = await api("/api/agents/" + encodeURIComponent(agentId) + "/files?q=" + encodeURIComponent(q));
+        if (!d.cwdOk) { setAtHits(null); setAtOk(false); return; }
+        setAtOk(true);
+        setAtHits(d.hits || []);
+      } catch {
+        setAtHits(null);
+        setAtOk(false);
+      }
+    }, 120);
+    return () => clearTimeout(t);
+  }, [agentId, atKey, hits.length]);
 
   useEffect(() => {
     return () => stopRec();
@@ -105,6 +137,25 @@ export default function Composer({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [voice, expanded, listening, caption, streaming, dictate]);
+
+  function markCaret(el) {
+    if (el && typeof el.selectionStart === "number") setCaret(el.selectionStart);
+  }
+
+  function pickAt(hit) {
+    if (!hit) return;
+    const next = insertAtPath(value, caret, hit.path);
+    onChange(next.text);
+    setAtHits(null);
+    setAtHide(atKey);
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(next.caret, next.caret);
+      setCaret(next.caret);
+    });
+  }
 
   function pickSlash(cmd) {
     if (!cmd) return;
@@ -295,6 +346,34 @@ export default function Composer({
         >
           {expanded ? <IconCollapse /> : <IconExpand />}
         </button>
+        {showAt && !voice && (
+          <Command
+            className="slash-menu"
+            shouldFilter={false}
+            loop
+            label="Files"
+            value={atHits[atIdx] ? atHits[atIdx].path : ""}
+            onValueChange={(id) => {
+              const i = atHits.findIndex((h) => h.path === id);
+              if (i >= 0) setAtIdx(i);
+            }}
+          >
+            <Command.List>
+              {atHits.length === 0 ? (
+                <div className="slash-empty">No files</div>
+              ) : atHits.map((h) => (
+                <Command.Item
+                  key={h.path}
+                  value={h.path}
+                  className={"slash-item" + (h.path === (atHits[atIdx] && atHits[atIdx].path) ? " active" : "")}
+                  onSelect={() => pickAt(h)}
+                >
+                  <span className="slash-label">@{h.path}</span>
+                </Command.Item>
+              ))}
+            </Command.List>
+          </Command>
+        )}
         {hits.length > 0 && !voice && (
           <Command
             className="slash-menu"
@@ -347,15 +426,28 @@ export default function Composer({
             id="task-input"
             ref={ta}
             rows={2}
-            placeholder="Message the agent, or / for commands"
+            placeholder="Message the agent, / for commands, or @ a file"
             value={value}
-            onChange={(e) => { histTyped(hist.current); onChange(e.target.value); }}
+            onChange={(e) => { histTyped(hist.current); onChange(e.target.value); markCaret(e.target); }}
+            onSelect={(e) => markCaret(e.target)}
+            onClick={(e) => markCaret(e.target)}
+            onKeyUp={(e) => markCaret(e.target)}
             onKeyDown={(e) => {
               if (hits.length) {
                 if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(hits.length - 1, i + 1)); return; }
                 if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(0, i - 1)); return; }
                 if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
                 if (e.key === "Escape") { e.preventDefault(); onChange(""); return; }
+              }
+              if (showAt) {
+                if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setAtIdx((i) => Math.max(0, i - 1)); return; }
+                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                  e.preventDefault();
+                  if (atHits[atIdx]) pickAt(atHits[atIdx]);
+                  return;
+                }
+                if (e.key === "Escape") { e.preventDefault(); setAtHide(atKey); return; }
               }
               if (e.key === "ArrowUp" && caretFirstLine(ta.current)) {
                 e.preventDefault();

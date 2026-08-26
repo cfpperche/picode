@@ -41,7 +41,7 @@ Do not start Radius, OpenRouter PKCE, or llama.cpp installer in this track.
 TUI editor features we owe. Scope is the **composer**, not Pin Studio
 (pins already paste/drop).
 
-### A1 — `@` file picker
+### A1 — `@` file picker — **shipped**
 
 Type `@` in the composer → fuzzy list of files under **this agent's cwd**.
 Pick → insert `@rel/path` (space after). Same token the TUI leaves for
