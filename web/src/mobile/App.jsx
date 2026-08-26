@@ -253,7 +253,7 @@ export default function MobileApp() {
                   onToggleFiles={() => {}} convRef={convRef} onScroll={() => {
                     const el = convRef.current;
                     if (el) nearBottom.current = stuckToBottom(el);
-                  }} hidden={stopped} />
+                  }} hidden={stopped} agentId={agent && agent.id} />
                 <Composer kind={kind} onKind={setKind} value={draft} onChange={setDraft} onSend={sendTask}
                   status={status} streaming={streaming} stopped={stopped}
                   onToggleDock={() => setTab("term")} onStop={() => stopAgent(selectedId)} />

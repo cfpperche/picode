@@ -5,8 +5,9 @@ import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, 
 import { IconCopy } from "./Icons.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 import { mdComponents } from "./SourceBlock.jsx";
+import { api } from "../lib/api.js";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId }) {
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
   return (
@@ -25,7 +26,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} />);
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} />);
           }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
@@ -57,7 +58,7 @@ function Loose({ it, items, onToggleFiles }) {
   return null;
 }
 
-function Turn({ turn, i, live, queued, onToggleTool }) {
+function Turn({ turn, i, live, queued, onToggleTool, agentId }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
@@ -102,7 +103,7 @@ function Turn({ turn, i, live, queued, onToggleTool }) {
       ) : null}
       {turn.replies.map((it, j) => it.kind === "alert"
         ? <Alert key={j} it={it} />
-        : <Block key={j} it={it} railId={j === 0 ? "turn-" + i + "-agent" : undefined} />)}
+        : <Block key={j} it={it} railId={j === 0 ? "turn-" + i + "-agent" : undefined} agentId={agentId} />)}
     </div>
   );
 }
@@ -111,14 +112,22 @@ function Alert({ it }) {
   return <div className={"chat-alert " + (it.level || "error")}>{it.text}</div>;
 }
 
-function Block({ it, railId }) {
+function Block({ it, railId, agentId }) {
   const user = it.cls === "user";
   const md = !user && it.cls !== "thinking";
+  async function onRun(lang, code) {
+    if (!agentId) throw new Error("Select an agent.");
+    return api("/api/agents/" + agentId + "/snippet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lang, code }),
+    });
+  }
   return (
     <div className={"block " + (it.cls || "")} data-rail={railId || undefined}>
       {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
       <div className={"block-content" + (md ? " md" : "")}>
-        {md ? <Markdown components={mdComponents({ CopyBtn })}>{it.text || ""}</Markdown> : it.text}
+        {md ? <Markdown components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
       </div>
     </div>
   );

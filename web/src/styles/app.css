@@ -820,6 +820,14 @@ body {
   white-space: pre;
 }
 .source-body code { font: inherit; background: none; border: 0; padding: 0; }
+.source-out {
+  margin: 0; padding: 10px 14px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto;
+  background: var(--bg-base); color: var(--text-secondary);
+}
+.source-out.ok { color: var(--text-primary); }
+.source-out.err { color: var(--danger); }
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: var(--accent); }
 .hljs-string, .hljs-attr, .hljs-attribute { color: var(--ok); }
 .hljs-number, .hljs-literal { color: var(--warn); }

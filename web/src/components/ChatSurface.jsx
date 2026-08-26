@@ -29,7 +29,7 @@ export default function ChatSurface({
             <p>Ask anything in this project, or type / for commands.</p>
           </div>
         ) : null}
-        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} />
+        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className="composer-wrap">
