@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import PageFrame from "./PageFrame.jsx";
+import PiSpinner from "./PiSpinner.jsx";
 
 export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName }) {
   const [data, setData] = useState(null);
@@ -57,20 +58,22 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
     if (!nextSrc || job) return;
     if (scope === "project" && !workspaceId) return;
     if (scope === "agent" && !agentId) return;
-    setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "" });
+    setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "", done: false });
+    const tick = startJobTick(setJob, 2);
     try {
       const next = await api("/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: nextSrc, scope, workspaceId: workspaceId || undefined, agentId: agentId || undefined }),
       });
-      setJob((j) => j && { ...j, step: 1 });
+      setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
       setSource("");
-      setJob((j) => j && { ...j, step: 2 });
-      setTimeout(() => setJob(null), 600);
+      setTimeout(() => setJob(null), 520);
     } catch (err) {
-      setJob((j) => j && { ...j, error: humanizeError(err.message || String(err)) });
+      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+    } finally {
+      clearInterval(tick);
     }
   }
 
@@ -83,18 +86,20 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
     });
     if (!ok || job) return;
     const sc = pkg.scope === "project" ? "project" : pkg.scope === "agent" ? "agent" : "user";
-    setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "" });
+    setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
+    const tick = startJobTick(setJob, 2);
     try {
       let url = "/api/packages?source=" + encodeURIComponent(pkg.source) + "&scope=" + sc;
       if (workspaceId) url += "&workspace=" + encodeURIComponent(workspaceId);
       if (agentId) url += "&agent=" + encodeURIComponent(agentId);
       const next = await api(url, { method: "DELETE" });
-      setJob((j) => j && { ...j, step: 1 });
+      setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
-      setJob((j) => j && { ...j, step: 2 });
-      setTimeout(() => setJob(null), 600);
+      setTimeout(() => setJob(null), 520);
     } catch (err) {
-      setJob((j) => j && { ...j, error: humanizeError(err.message || String(err)) });
+      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+    } finally {
+      clearInterval(tick);
     }
   }
 
@@ -243,6 +248,16 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   );
 }
 
+function startJobTick(setJob, stepCount) {
+  return setInterval(() => {
+    setJob((j) => {
+      if (!j || j.error || j.done) return j;
+      if (j.step < stepCount - 1) return { ...j, step: j.step + 1 };
+      return j;
+    });
+  }, 480);
+}
+
 function jobSteps(job) {
   const bin = job.action === "remove" ? "remove" : "install";
   if (job.scope === "agent") {
@@ -277,7 +292,9 @@ function JobOverlay({ job, onClose }) {
             else if (i === job.step) st = "run";
             return (
               <li key={s.id} className={"pkg-job-step " + st}>
-                <span className="pkg-job-mark" aria-hidden="true">{st === "done" ? "✓" : st === "run" ? "●" : st === "err" ? "!" : "○"}</span>
+                <span className="pkg-job-mark" aria-hidden="true">
+                  {st === "run" ? <PiSpinner title="Working" /> : st === "done" ? "✓" : st === "err" ? "!" : "○"}
+                </span>
                 <code>{s.label}</code>
               </li>
             );
