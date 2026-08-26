@@ -188,6 +188,15 @@ func TestMCPImport(t *testing.T) {
 	}
 }
 
+func TestMCPAuthNeedsAgent(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	res := postJSON(t, ts, "/api/mcp/auth", map[string]any{"name": "docs"})
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	_ = res.Body.Close()
+}
+
 func TestMCPAddSecrets(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

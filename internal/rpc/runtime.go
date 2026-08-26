@@ -357,6 +357,19 @@ func (ma *ManagedAgent) SendPrompt(message string) error {
 	return ma.SendTurn("prompt", message, nil)
 }
 
+// SendPromptCtx is SendPrompt with a caller deadline (slash commands that wait on UI).
+func (ma *ManagedAgent) SendPromptCtx(ctx context.Context, message string) error {
+	select {
+	case <-ma.settledChannel():
+	case <-ma.done:
+		return fmt.Errorf("agent stopped")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	_, err := ma.client.Send(ctx, Command{Type: "prompt", Body: map[string]any{"message": message}})
+	return err
+}
+
 // SendTurn sends prompt/steer/follow_up, optionally with images.
 // Images go on the live RPC call — they are not stored in the task table.
 func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) error {
@@ -380,6 +393,22 @@ func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) 
 	defer cancel()
 	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
 	return err
+}
+
+// WatchEvents listens to raw RPC events (extension UI, etc.).
+func (ma *ManagedAgent) WatchEvents(fn func(Event)) func() {
+	return ma.client.Subscribe(fn)
+}
+
+// ReplyUI answers an extension_ui_request.
+func (ma *ManagedAgent) ReplyUI(id, value string, cancelled bool) error {
+	body := map[string]any{"type": "extension_ui_response", "id": id}
+	if cancelled {
+		body["cancelled"] = true
+	} else {
+		body["value"] = value
+	}
+	return ma.client.SendRaw(body)
 }
 
 // Subscribe exposes the event hub (WS consumers).

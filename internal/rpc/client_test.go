@@ -41,6 +41,21 @@ func fakeMain() {
 				},
 			})
 		case "prompt", "steer", "follow_up":
+			msg, _ := req["message"].(string)
+			if typ == "prompt" && len(msg) >= 10 && msg[:10] == "/mcp-auth " {
+				_ = enc.Encode(map[string]any{
+					"type": "extension_ui_request", "id": "ui-auth",
+					"method": "input", "title": "Complete OAuth\nhttps://example.test/oauth\nPaste the URL",
+				})
+				var reply map[string]any
+				if err := dec.Decode(&reply); err != nil {
+					return
+				}
+				_ = enc.Encode(map[string]any{
+					"id": id, "type": "response", "command": typ, "success": true,
+				})
+				break
+			}
 			_ = enc.Encode(map[string]any{"type": "agent_start"})
 			_ = enc.Encode(map[string]any{"type": "message_update", "assistantMessageEvent": map[string]any{
 				"type": "text_delta", "contentIndex": 0, "delta": "hello from fake",
@@ -86,6 +101,43 @@ func startClient(t *testing.T) *Client {
 	}
 	t.Cleanup(c.Close)
 	return c
+}
+
+func TestMCPAuthUI(t *testing.T) {
+	c := startClient(t)
+	got := make(chan Event, 1)
+	unsub := c.Subscribe(func(e Event) {
+		if e.EventType() == "extension_ui_request" {
+			got <- e
+		}
+	})
+	defer unsub()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := c.Send(ctx, Command{Type: "prompt", Body: map[string]any{"message": "/mcp-auth docs"}})
+		errCh <- err
+	}()
+	select {
+	case ev := <-got:
+		var body map[string]any
+		if err := json.Unmarshal([]byte(ev), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body["method"] != "input" {
+			t.Fatalf("%v", body)
+		}
+		id, _ := body["id"].(string)
+		if err := c.SendRaw(map[string]any{"type": "extension_ui_response", "id": id, "value": "http://127.0.0.1/cb"}); err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("no ui request")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSendGetState(t *testing.T) {

@@ -452,6 +452,12 @@ body {
 .mcp-live.live { color: var(--ok); }
 .mcp-live.failed { color: var(--danger); }
 .mcp-live.signin { color: var(--accent); }
+button.mcp-live {
+  cursor: pointer; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 11px; letter-spacing: 0.02em;
+}
+button.mcp-live:hover { text-decoration: underline; }
+button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none; }
 .mcp-target {
   font-size: 11.5px; color: var(--text-secondary); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; max-width: 280px;

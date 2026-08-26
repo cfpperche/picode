@@ -399,6 +399,16 @@ func TestAdapterConfigured(t *testing.T) {
 	}
 }
 
+func TestAuthURLFromUI(t *testing.T) {
+	got := AuthURLFromUI("Complete x", "Open https://auth.example/oauth?x=1\nPaste")
+	if got != "https://auth.example/oauth?x=1" {
+		t.Fatalf("got %q", got)
+	}
+	if AuthURLFromUI("no url here") != "" {
+		t.Fatal("empty")
+	}
+}
+
 func TestListSortsByName(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{Home: home}

@@ -30,6 +30,7 @@ What exists:
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
+- MCP **Sign in** runs `/mcp-auth` in the running GUI agent and pastes the callback URL.
 
 ## In flight
 
@@ -59,6 +60,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP Sign in starts `/mcp-auth` (RPC + paste dialog). visual-review: PASS (mcp-signin.png).
 - **2026-08-26** — MCP GET redacts env/header values. Dogfood in Codex/Grok left for later.
 - **2026-08-26** — Diff cards in conversation use JetBrains Mono + Fira Code (same as source fences). visual-review: PASS (chat-diff-font.png).
 - **2026-08-26** — Remove on a Use-from overlay no longer unmasks the import (stays Off). Dogfood Claude servers deleted. List is A–Z. visual-review: PASS (mcp-list-az.png).

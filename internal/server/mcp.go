@@ -1,12 +1,15 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/pipkg"
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -14,6 +17,8 @@ func registerMCPRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/mcp", handleMCPGet(deps))
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
 	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))
+	mux.HandleFunc("POST /api/mcp/auth", handleMCPAuth(deps))
+	mux.HandleFunc("POST /api/mcp/auth/reply", handleMCPAuthReply(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
 }
@@ -33,6 +38,9 @@ type mcpMutateReq struct {
 	BearerToken string            `json:"bearerToken"`
 	Kinds       []string          `json:"kinds"`
 	Picks       []mcp.ImportPick  `json:"picks"`
+	ID          string            `json:"id"`
+	Value       string            `json:"value"`
+	Cancelled   bool              `json:"cancelled"`
 }
 
 func handleMCPGet(deps Deps) http.HandlerFunc {
@@ -177,6 +185,98 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeMCP(w, deps, p, sources, agentID)
+	}
+}
+
+func handleMCPAuth(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mcpMutateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := mcp.ValidName(req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if req.AgentID == "" || deps.Runtime == nil {
+			writeErr(w, http.StatusConflict, "run this agent first")
+			return
+		}
+		ma := deps.Runtime.Get(req.AgentID)
+		if ma == nil {
+			writeErr(w, http.StatusConflict, "run this agent in the app first")
+			return
+		}
+		uiCh := make(chan map[string]any, 1)
+		unsub := ma.WatchEvents(func(ev rpc.Event) {
+			if ev.EventType() != "extension_ui_request" {
+				return
+			}
+			var body map[string]any
+			if json.Unmarshal([]byte(ev), &body) != nil {
+				return
+			}
+			method, _ := body["method"].(string)
+			if method != "input" && method != "editor" {
+				return
+			}
+			select {
+			case uiCh <- body:
+			default:
+			}
+		})
+		defer unsub()
+		errCh := make(chan error, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			errCh <- ma.SendPromptCtx(ctx, "/mcp-auth "+req.Name)
+		}()
+		select {
+		case ui := <-uiCh:
+			id, _ := ui["id"].(string)
+			title, _ := ui["title"].(string)
+			msg, _ := ui["message"].(string)
+			ph, _ := ui["placeholder"].(string)
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id": id, "url": mcp.AuthURLFromUI(title, msg, ph),
+			})
+		case err := <-errCh:
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		case <-r.Context().Done():
+			writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
+		case <-time.After(25 * time.Second):
+			writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
+		}
+	}
+}
+
+func handleMCPAuthReply(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mcpMutateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.ID == "" || req.AgentID == "" || deps.Runtime == nil {
+			writeErr(w, http.StatusBadRequest, "id and agent are required")
+			return
+		}
+		ma := deps.Runtime.Get(req.AgentID)
+		if ma == nil {
+			writeErr(w, http.StatusConflict, "run this agent in the app first")
+			return
+		}
+		if err := ma.ReplyUI(req.ID, req.Value, req.Cancelled); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
 

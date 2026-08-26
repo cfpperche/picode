@@ -227,6 +227,18 @@ func (c *Client) Subscribe(fn func(Event)) func() {
 // Done is closed when the underlying process exits.
 func (c *Client) Done() <-chan struct{} { return c.done }
 
+// SendRaw writes one JSON line with no response waiter (extension UI replies).
+func (c *Client) SendRaw(v any) error {
+	line, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_, err = c.stdin.Write(append(line, '\n'))
+	return err
+}
+
 // Close kills the process and fails pending Send callers.
 func (c *Client) Close() {
 	_ = c.cmd.Process.Kill()

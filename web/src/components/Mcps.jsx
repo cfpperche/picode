@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
+import { askPrompt } from "../lib/prompt.js";
 import { mcpAddSchema, pairsToMap, parseForm } from "../lib/schemas.js";
 import { toast } from "../lib/toast.js";
 import { paneContext } from "../lib/tree.js";
@@ -144,6 +145,44 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     }));
   }
 
+  function canSignIn(s) {
+    if (!agentRunning || !agentId || !s || s.disabled) return false;
+    if (s.live === "live") return false;
+    return s.live === "signin" || s.auth === "oauth";
+  }
+
+  async function signIn(s) {
+    if (!canSignIn(s) || job) return;
+    try {
+      const res = await api("/api/mcp/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, name: s.name, workspaceId: workspaceId || undefined }),
+      });
+      if (res && res.ok && !res.id) {
+        toast.ok("Signed in to " + s.name + ".");
+        await load();
+        return;
+      }
+      if (res && res.url) window.open(res.url, "_blank", "noopener");
+      const pasted = await askPrompt({
+        title: "Sign in to " + s.name,
+        message: "Approve in the browser, then paste the address here.",
+        confirmLabel: "Continue",
+      });
+      await api("/api/mcp/auth/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, id: res.id, value: pasted || "", cancelled: !pasted }),
+      });
+      if (!pasted) return;
+      toast.ok("Signed in to " + s.name + ".");
+      await load();
+    } catch (err) {
+      toast.error(humanizeError(err.message || String(err)));
+    }
+  }
+
   async function remove(s) {
     if (!installed || !s.owned) return;
     const ok = await askConfirm({
@@ -220,7 +259,11 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                     <div className="mcp-row-main">
                       <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
                       <strong className="mcp-name">{s.name}</strong>
-                      {s.live ? <span className={"mcp-live " + s.live} title={liveTitle(s.live)}>{liveLabel(s.live)}</span> : null}
+                      {canSignIn(s) ? (
+                        <button type="button" className="mcp-live signin" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
+                      ) : s.live ? (
+                        <span className={"mcp-live " + s.live} title={liveTitle(s.live)}>{liveLabel(s.live)}</span>
+                      ) : null}
                       {s.auth ? <span className="pkg-scope-tag">{s.auth === "oauth" ? "sign-in" : "token"}</span> : null}
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>

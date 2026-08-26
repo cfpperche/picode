@@ -25,6 +25,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- MCP **Sign in** (agent running) opens the server's login and asks you to paste the address — same as TUI `/mcp-auth`.
 - MCP list shows live state: **Idle** / **Live** / **Failed** / **Sign in** (file Off stays Off).
 - MCP Add **More**: environment on command servers; headers and Sign in / Token on URL servers.
 - MCP **Use from…** is a tree: app → servers. You pick which servers. Unchecked ones stay Off. It does not copy files.
