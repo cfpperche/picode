@@ -86,35 +86,42 @@ func entryTS(raw map[string]any) int64 {
 }
 
 func appendAssistant(out []Event, msg map[string]any, pending map[string]int, ts int64) []Event {
+	start := len(out)
 	blocks, _ := msg["content"].([]any)
 	if blocks == nil {
 		if t := textOf(msg["content"]); t != "" {
 			out = append(out, Event{Kind: "assistant", Text: t, Timestamp: ts})
 		}
-		return out
+	} else {
+		for _, b := range blocks {
+			blk, _ := b.(map[string]any)
+			if blk == nil {
+				continue
+			}
+			switch blk["type"] {
+			case "text":
+				if t, _ := blk["text"].(string); strings.TrimSpace(t) != "" {
+					out = append(out, Event{Kind: "assistant", Text: t, Timestamp: ts})
+				}
+			case "thinking":
+				if t, _ := blk["thinking"].(string); strings.TrimSpace(t) != "" {
+					out = append(out, Event{Kind: "thinking", Text: t, Timestamp: ts})
+				}
+			case "toolCall":
+				id, _ := blk["id"].(string)
+				name, _ := blk["name"].(string)
+				args, _ := blk["arguments"].(map[string]any)
+				ev := Event{Kind: "tool", ID: id, Name: name, Args: summarize(args), Status: "···", ToolArgs: args, Timestamp: ts}
+				pending[id] = len(out)
+				out = append(out, ev)
+			}
+		}
 	}
-	for _, b := range blocks {
-		blk, _ := b.(map[string]any)
-		if blk == nil {
-			continue
-		}
-		switch blk["type"] {
-		case "text":
-			if t, _ := blk["text"].(string); strings.TrimSpace(t) != "" {
-				out = append(out, Event{Kind: "assistant", Text: t, Timestamp: ts})
-			}
-		case "thinking":
-			if t, _ := blk["thinking"].(string); strings.TrimSpace(t) != "" {
-				out = append(out, Event{Kind: "thinking", Text: t, Timestamp: ts})
-			}
-		case "toolCall":
-			id, _ := blk["id"].(string)
-			name, _ := blk["name"].(string)
-			args, _ := blk["arguments"].(map[string]any)
-			ev := Event{Kind: "tool", ID: id, Name: name, Args: summarize(args), Status: "···", ToolArgs: args, Timestamp: ts}
-			pending[id] = len(out)
-			out = append(out, ev)
-		}
+	errMsg, _ := msg["errorMessage"].(string)
+	if strings.TrimSpace(errMsg) != "" {
+		out = append(out, Event{Kind: "error", Text: errMsg, Timestamp: ts})
+	} else if stop, _ := msg["stopReason"].(string); stop == "error" && len(out) == start {
+		out = append(out, Event{Kind: "error", Text: "The model returned an error.", Timestamp: ts})
 	}
 	return out
 }

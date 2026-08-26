@@ -368,7 +368,10 @@ export default function App() {
         const a = alertFromPi(ev);
         if (a) {
           setItems((cur) => [...cur, { kind: "alert", level: a.level, text: a.text, ts: Date.now() }]);
-          if (a.level === "error" && ev.type !== "auto_retry_start") setStreaming(false);
+          if (a.level === "error") {
+            if (ev.type !== "auto_retry_start") setStreaming(false);
+            toastError(a.text);
+          }
           queueMicrotask(scrollConv);
         }
         break;

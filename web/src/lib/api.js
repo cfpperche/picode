@@ -25,7 +25,7 @@ export function humanizeError(msg) {
   if (/already compacted/i.test(msg)) {
     return "Nothing left to compact.";
   }
-  if (/CreditsError|Insufficient balance|out of credit/i.test(msg)) {
+  if (/CreditsError|Insufficient balance|out of credit|out of extra usage/i.test(msg)) {
     return "This provider is out of credit. Add billing or switch provider.";
   }
   if (/\b401\b|Unauthorized|invalid api key|authentication/i.test(msg)) {

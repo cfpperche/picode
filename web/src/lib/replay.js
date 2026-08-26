@@ -19,6 +19,9 @@ export function eventsToItems(events) {
     if (e.kind === "thinking") {
       return { kind: "block", cls: "thinking", actor: "thinking", text: e.text || "", ts: e.ts || 0 };
     }
+    if (e.kind === "error") {
+      return { kind: "alert", level: "error", text: e.text || "The model returned an error.", ts: e.ts || 0 };
+    }
     if (e.kind === "tool") {
       const args = e.toolArgs || {};
       return {

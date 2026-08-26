@@ -3,6 +3,7 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -89,6 +90,25 @@ func TestParseContextWindow(t *testing.T) {
 	}
 	if ParseContextWindow("1.0M") != 1_000_000 {
 		t.Fatal("1.0M")
+	}
+}
+
+func TestTranscriptAssistantError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "e.jsonl")
+	body := `{"type":"session"}
+{"type":"message","message":{"role":"user","content":[{"type":"text","text":"teste"}]}}
+{"type":"message","message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"You're out of extra usage."}}
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ev, err := Transcript(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ev) != 2 || ev[1].Kind != "error" || !strings.Contains(ev[1].Text, "extra usage") {
+		t.Fatalf("%+v", ev)
 	}
 }
 
