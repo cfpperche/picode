@@ -228,20 +228,32 @@ body {
 .pin-studio-form.pin-drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
 .pin-attach-bar { display: flex; align-items: center; gap: 10px; }
 .pin-attach-hint { font-size: 12px; color: var(--text-secondary); }
-.pin-gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.pin-gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
 .pin-att {
-  display: grid; grid-template-rows: 88px auto; grid-template-columns: 1fr auto;
-  gap: 4px 6px; padding: 6px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg-base); align-items: center;
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 6px; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--bg-base);
 }
-.pin-att-thumb, .pin-att-file {
-  grid-column: 1 / -1; height: 88px; width: 100%; padding: 0; border: 0;
-  border-radius: 6px; background: var(--bg-panel); cursor: pointer; overflow: hidden;
-  color: var(--text-secondary); font: inherit; font-size: 12px;
+.pin-att-face {
+  height: 88px; width: 100%; padding: 0; border: 0; border-radius: 6px;
+  background: var(--bg-panel); cursor: pointer; overflow: hidden;
+  display: grid; place-items: center;
 }
-.pin-att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pin-att-file { display: grid; place-items: center; padding: 8px; text-align: center; word-break: break-word; }
-.pin-att-meta { min-width: 0; }
+.pin-att-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pin-att-ext {
+  font-family: var(--mono); font-size: 13px; font-weight: 650; letter-spacing: .06em;
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  padding: 6px 8px; background: var(--bg-elevated);
+}
+.pin-att-x {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  display: grid; place-items: center; width: 22px; height: 22px;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg-elevated); color: var(--text-secondary); cursor: pointer;
+}
+.pin-att-x:hover { color: var(--danger); border-color: var(--danger); }
+.pin-att-meta { min-width: 0; padding: 0 2px 2px; }
 .pin-att-name { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-att-size { font-size: 10px; color: var(--text-secondary); }
 .pin-card-files { margin-top: 2px; font-size: 11px; color: var(--text-secondary); }

@@ -18,6 +18,11 @@ function fileURL(pinId, f) {
   return "/api/pins/" + encodeURIComponent(pinId) + "/files/" + encodeURIComponent(f.id);
 }
 
+function fileExt(name) {
+  const m = /\.([a-z0-9]{1,8})$/i.exec(String(name || ""));
+  return (m ? m[1] : "file").toUpperCase();
+}
+
 function prettySize(n) {
   if (n < 1024) return n + " B";
   if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
@@ -107,9 +112,8 @@ export default function PinStudio() {
       const ed = edRef.current;
       if (ed) {
         for (const f of added) {
-          const url = fileURL(id, f);
-          if (f.kind === "image") ed.chain().focus().setImage({ src: url, alt: f.name }).run();
-          else ed.chain().focus().insertContent('<p><a href="' + url + '">' + f.name + "</a></p>").run();
+          if (f.kind !== "image") continue;
+          ed.chain().focus().setImage({ src: fileURL(id, f), alt: f.name }).run();
         }
       }
       pingList();
@@ -227,16 +231,16 @@ export default function PinStudio() {
             <ul className="pin-gallery">
               {files.map((f) => (
                 <li key={f.id} className={"pin-att pin-att-" + f.kind}>
-                  {f.kind === "image" && info.id
-                    ? <button type="button" className="pin-att-thumb" title="Insert in text" onClick={() => insertRef(f)}>
-                        <img src={fileURL(info.id, f)} alt={f.name} />
-                      </button>
-                    : <button type="button" className="pin-att-file" title="Insert in text" onClick={() => insertRef(f)}>{f.name}</button>}
+                  <button type="button" className="pin-att-x" title="Remove file" onClick={() => dropFile(f)}><IconX size={12} /></button>
+                  <button type="button" className="pin-att-face" title="Insert in text" onClick={() => insertRef(f)}>
+                    {f.kind === "image" && info.id
+                      ? <img src={fileURL(info.id, f)} alt="" />
+                      : <span className="pin-att-ext">{fileExt(f.name)}</span>}
+                  </button>
                   <div className="pin-att-meta">
                     <span className="pin-att-name" title={f.name}>{f.name}</span>
                     <span className="pin-att-size">{prettySize(f.size)}</span>
                   </div>
-                  <button type="button" className="ws-icon-btn danger" title="Remove file" onClick={() => dropFile(f)}><IconX size={12} /></button>
                 </li>
               ))}
             </ul>
