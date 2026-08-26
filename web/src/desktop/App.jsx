@@ -764,6 +764,7 @@ export default function App() {
         onRemove={removeWorkspace}
         onRemoveAgent={removeAgent}
         freeAgents={freeAgents}
+        workingId={streaming ? selectedId : null}
         termView={termView}
         onChat={(id) => {
           openTab(id);

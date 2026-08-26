@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Sidebar shows the pi braille spinner on an agent card while that agent is working.
 - Chat expands `web_search` / `url_context` into source cards (title, url).
 
 ### Fixed

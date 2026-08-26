@@ -7,6 +7,7 @@ import { shortModel } from "../lib/chip.js";
 import { repoLine } from "../lib/repoLine.js";
 import { workspaceAgents } from "../lib/providerIcon.js";
 import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
+import PiSpinner from "./PiSpinner.jsx";
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -17,6 +18,7 @@ export default function Sidebar({
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent,
+  workingId,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -76,7 +78,7 @@ export default function Sidebar({
       >
         <div className="ws-row1 tree-row">
           <span className="tree-spc" aria-hidden="true" />
-          <ProviderFace agent={ag} />
+          {ag.id === workingId ? <PiSpinner /> : <ProviderFace agent={ag} />}
           <span className="ws-name" title={title}>{label}{model ? <span className="ws-model"> - {model}</span> : null}</span>
         </div>
         <div className="ws-row2 tree-row">
