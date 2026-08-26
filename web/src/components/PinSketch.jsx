@@ -86,9 +86,11 @@ export default function PinSketch({ open, title, initial, backgroundURL, onSave,
   return (
     <div className="pin-sketch">
       <header className="pin-sketch-head">
-        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClose}>Cancel</button>
         <h2>{title || "Sketch"}</h2>
-        <button type="button" className="btn btn-primary btn-sm" disabled={busy || !seed} onClick={save}>Save</button>
+        <div className="pin-sketch-actions">
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy || !seed} onClick={save}>Save</button>
+        </div>
       </header>
       <div className="pin-sketch-board">
         {seed ? (

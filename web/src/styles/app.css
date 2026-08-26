@@ -275,7 +275,8 @@ body {
   display: flex; align-items: center; gap: 12px; flex: none;
   height: var(--chrome-h); padding: 0 12px; border-bottom: 1px solid var(--border);
 }
-.pin-sketch-head h2 { flex: 1; margin: 0; font-size: 14px; font-weight: 650; }
+.pin-sketch-head h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.pin-sketch-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .pin-sketch-board { flex: 1; min-height: 0; position: relative; }
 .pin-sketch-board .excalidraw { height: 100% !important; }
 .pin-sketch-wait { padding: 24px; color: var(--text-secondary); }
