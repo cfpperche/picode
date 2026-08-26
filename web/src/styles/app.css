@@ -850,6 +850,12 @@ body {
 .md del { color: var(--text-secondary); }
 .md .katex { color: inherit; font-size: 1.08em; }
 .md .katex-display { margin: 0.85em 0; overflow-x: auto; overflow-y: hidden; }
+.md-img {
+  display: block; max-width: 100%; height: auto; margin: 0.75em 0;
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.mermaid-svg { padding: 12px 14px; overflow-x: auto; }
+.mermaid-svg svg { max-width: 100%; height: auto; }
 .actor .copy-btn { margin-left: auto; }
 .copy-btn {
   display: inline-flex; align-items: center; gap: 5px;

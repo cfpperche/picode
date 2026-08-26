@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Conversation images (`![alt](https://…)`) and Mermaid fences.
 - Conversation math (KaTeX: `$…$` inline, `$$…$$` display).
 - Conversation markdown tables (GFM), plus strikethrough and task lists.
 - Conversation source blocks: language label, copy, highlight.js tokens on PiCode colors.

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { IconCopy, IconPlay } from "./Icons.jsx";
 import { langOf, highlightSource } from "../lib/highlight.js";
+import { safeImgSrc } from "../lib/mdSafe.js";
+import MermaidBlock from "./MermaidBlock.jsx";
 
 const RUN = new Set(["bash", "sh", "shell", "python", "py", "javascript", "js", "go", "golang"]);
 
@@ -9,11 +11,19 @@ export function mdComponents({ CopyBtn, onRun }) {
     pre({ children }) {
       return <>{children}</>;
     },
+    img({ src, alt }) {
+      const url = safeImgSrc(src);
+      if (!url) return null;
+      return <img className="md-img" src={url} alt={alt || ""} loading="lazy" />;
+    },
     code({ className, children }) {
       const text = String(children).replace(/\n$/, "");
       const lang = langOf(className);
       if (!lang && !String(children).includes("\n")) {
         return <code className="md-inline">{children}</code>;
+      }
+      if (lang === "mermaid") {
+        return <MermaidBlock text={text} CopyBtn={CopyBtn} />;
       }
       return <SourceBlock lang={lang || "text"} text={text} CopyBtn={CopyBtn} onRun={onRun} />;
     },
