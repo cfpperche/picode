@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - Restore uses the same stepped overlay and asks to reload when done.
 - Roadmap for composer files (`@`, images, `!`) then MCP (`docs/design/composer-mcp-roadmap.md`).
 - Composer `@` fuzzy-picks a file in the agent folder and inserts `@path`.
+- Clip in the composer toolbar browses the workspace: images attach as chips, other files insert `@path`. Reads never leave the workspace folder.
 - Composer paste/drop sends images on the live RPC call (not stored in SQLite).
 - Composer image chips stay 64px. `@` file list has a filter field and hides dotfiles until you type them.
 - Click a composer or chat thumbnail to open the image full size. X, Escape, or click anywhere closes.

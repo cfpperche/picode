@@ -1272,6 +1272,7 @@ body {
   padding: 0 2px 8px; margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
+.composer-attach { flex: none; width: 28px; height: 28px; }
 #task-input {
   display: block; width: 100%; min-height: 52px; max-height: 160px;
   padding: 2px 4px 6px; border: none; outline: none; resize: none;

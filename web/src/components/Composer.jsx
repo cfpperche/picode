@@ -7,6 +7,8 @@ import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
+import WorkspaceAttach from "./WorkspaceAttach.jsx";
+import { IconClip } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
 import { api } from "../lib/api.js";
@@ -55,6 +57,7 @@ export default function Composer({
   const [pics, setPics] = useState([]);
   const [drag, setDrag] = useState(false);
   const [preview, setPreview] = useState("");
+  const [pick, setPick] = useState(false);
   const hits = filterSlash(value, slashExtra);
   const at = hits.length ? null : atQuery(value, caret);
   const atKey = at ? "@" + at.query : "";
@@ -190,6 +193,32 @@ export default function Composer({
       }
     }
     setPics(next);
+  }
+
+  async function attachHit(hit) {
+    setPick(false);
+    if (!hit || !hit.path) return;
+    if (/\.(png|jpe?g|gif|webp)$/i.test(hit.name || hit.path)) {
+      if (pics.length >= MAX_IMAGES) { setPick(false); toast.error("Up to 4 images."); return; }
+      try {
+        const d = await api("/api/agents/" + encodeURIComponent(agentId) + "/file?path=" + encodeURIComponent(hit.path));
+        setPics((cur) => cur.length >= MAX_IMAGES ? cur : cur.concat([{
+          id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+          mime: d.mime, name: d.name, data: d.data,
+          url: "data:" + d.mime + ";base64," + d.data,
+        }]));
+      } catch (e) {
+        toast.error(e.message || "Can't attach that image.");
+      }
+      return;
+    }
+    const next = insertAtPath(value, caret, hit.path);
+    onChange(next.text);
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (el) { el.focus(); el.setSelectionRange(next.caret, next.caret); }
+      setCaret(next.caret);
+    });
   }
 
   function dropPic(id) {
@@ -491,7 +520,17 @@ export default function Composer({
             </Command.List>
           </Command>
         )}
-        {sessionBar ? <div className="composer-tools">{sessionBar}</div> : null}
+        {(sessionBar || agentId) ? (
+          <div className="composer-tools">
+            {agentId ? (
+              <button type="button" className="icon-btn composer-attach" title="Attach from workspace" aria-label="Attach from workspace" onClick={() => setPick(true)}>
+                <IconClip />
+              </button>
+            ) : null}
+            {sessionBar}
+          </div>
+        ) : null}
+        <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
         {pics.length ? (
           <div className="composer-pics">
             {pics.map((p) => (

@@ -43,6 +43,12 @@ TUI editor features we owe. Scope is the **composer**, not Pin Studio
 
 ### A1 — `@` file picker — **shipped**
 
+**A1b — toolbar attach (out of plan, shipped):** clip button in the
+composer toolbar opens a workspace browser (dirs + files, filter,
+parent nav). Image → chip via `GET /api/agents/{id}/file` (base64,
+inside-cwd only); anything else inserts `@path`. API:
+`GET /api/agents/{id}/browse?dir=`.
+
 Type `@` in the composer → fuzzy list of files under **this agent's cwd**.
 Pick → insert `@rel/path` (space after). Same token the TUI leaves for
 the model; the agent `read`s it.
