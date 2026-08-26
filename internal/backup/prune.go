@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"os"
 	"time"
 )
@@ -34,4 +35,21 @@ func Prune(dest string, keepDays int, now time.Time) error {
 		}
 	}
 	return nil
+}
+
+// Remove deletes one complete snapshot by id.
+func Remove(dest, id string) error {
+	if id == "" {
+		return fmt.Errorf("backup: snapshot id required")
+	}
+	list, err := List(dest)
+	if err != nil {
+		return err
+	}
+	for _, s := range list {
+		if s.ID == id {
+			return os.RemoveAll(s.Path)
+		}
+	}
+	return fmt.Errorf("backup: snapshot not found")
 }

@@ -232,6 +232,34 @@ func TestRestoreOmitsLeaveLiveFiles(t *testing.T) {
 	}
 }
 
+func TestWSLToWin(t *testing.T) {
+	got, ok := WSLToWin("/mnt/e/picode-backups/x")
+	if !ok || got != `E:\picode-backups\x` {
+		t.Fatalf("got %q %v", got, ok)
+	}
+	if _, ok := WSLToWin("/home/goat"); ok {
+		t.Fatal("linux path")
+	}
+}
+
+func TestRemoveSnapshot(t *testing.T) {
+	e, _, _ := testEngine(t)
+	dest := t.TempDir()
+	snap, err := e.Snapshot(false, false, dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Remove(dest, snap.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(snap.Path); !os.IsNotExist(err) {
+		t.Fatal("still there")
+	}
+	if err := Remove(dest, snap.ID); err == nil {
+		t.Fatal("missing id should fail")
+	}
+}
+
 func TestVacuumInto(t *testing.T) {
 	s, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {

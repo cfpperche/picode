@@ -15,6 +15,8 @@ func registerBackupRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/backup/now", handleBackupNow(deps))
 	mux.HandleFunc("GET /api/backup/snapshots", handleBackupList(deps))
 	mux.HandleFunc("POST /api/backup/restore", handleBackupRestore(deps))
+	mux.HandleFunc("POST /api/backup/reveal", handleBackupReveal(deps))
+	mux.HandleFunc("DELETE /api/backup/snapshots/{id}", handleBackupDelete(deps))
 }
 
 func backupEngine(deps Deps) *backup.Engine {
@@ -127,5 +129,65 @@ func handleBackupRestore(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+func handleBackupReveal(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID   string `json:"id"`
+			Root bool   `json:"root"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		s, err := backup.LoadSettings(deps.Store, deps.DataDir)
+		if err != nil || s.Dir == "" {
+			writeErr(w, http.StatusBadRequest, "no backup folder")
+			return
+		}
+		path := backup.Root(s.Dir)
+		if !req.Root && strings.TrimSpace(req.ID) != "" {
+			list, err := backup.List(s.Dir)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			found := ""
+			for _, snap := range list {
+				if snap.ID == req.ID {
+					found = snap.Path
+					break
+				}
+			}
+			if found == "" {
+				writeErr(w, http.StatusNotFound, "snapshot not found")
+				return
+			}
+			path = found
+		}
+		if err := backup.Reveal(path); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+func handleBackupDelete(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		s, err := backup.LoadSettings(deps.Store, deps.DataDir)
+		if err != nil || s.Dir == "" {
+			writeErr(w, http.StatusBadRequest, "no backup folder")
+			return
+		}
+		if err := backup.Remove(s.Dir, id); err != nil {
+			code := http.StatusBadRequest
+			if strings.Contains(err.Error(), "not found") {
+				code = http.StatusNotFound
+			}
+			writeErr(w, code, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

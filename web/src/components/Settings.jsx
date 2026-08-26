@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import { api } from "../lib/api.js";
-import { IconSun, IconMonitor, IconMoon } from "./Icons.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconSun, IconMonitor, IconMoon, IconMore } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
@@ -203,6 +204,30 @@ function BackupSection({ hidden }) {
     } finally { setBusy(false); }
   }
 
+  async function reveal(id) {
+    try {
+      await api("/api/backup/reveal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(id ? { id } : { root: true }),
+      });
+    } catch (e) { toastError(e); }
+  }
+
+  async function removeSnap(id) {
+    const ok = await askConfirm({
+      title: "Remove snapshot",
+      message: "Delete this backup from disk? This cannot be undone.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/api/backup/snapshots/" + encodeURIComponent(id), { method: "DELETE" });
+      await load();
+    } catch (e) { toastError(e); }
+  }
+
   async function restore(id) {
     const ok = await askConfirm({
       title: "Restore backup",
@@ -234,7 +259,10 @@ function BackupSection({ hidden }) {
       <div className="set-rows">
         <div className="set-row set-row-stack">
           <label>Folder</label>
-          <FolderField placeholder="External drive or other folder" value={cfg.dir || ""} onChange={(dir) => save({ dir })} />
+          <div className="folder-field-wrap">
+            <FolderField placeholder="External drive or other folder" value={cfg.dir || ""} onChange={(dir) => save({ dir })} />
+            <button type="button" className="btn btn-ghost btn-sm" disabled={!cfg.dir} onClick={() => reveal("")} title="Show in file manager">Reveal</button>
+          </div>
         </div>
         <div className="set-row">
           <label htmlFor="bak-on">Schedule</label>
@@ -277,7 +305,20 @@ function BackupSection({ hidden }) {
           {snaps.map((s) => (
             <li key={s.id} className="bak-snap">
               <span>{s.created.replace("T", " ").replace("Z", " UTC")} · {fmtBytes(s.bytes)}</span>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => restore(s.id)}>Restore</button>
+              <div className="bak-snap-actions">
+                <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => restore(s.id)}>Restore</button>
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <button type="button" className="ws-icon-btn" aria-label="Snapshot actions"><IconMore size={14} /></button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content className="um-popover" side="bottom" align="end" sideOffset={4}>
+                      <DropdownMenu.Item className="um-item" onSelect={() => reveal(s.id)}>Reveal</DropdownMenu.Item>
+                      <DropdownMenu.Item className="um-item um-danger" onSelect={() => removeSnap(s.id)}>Remove</DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              </div>
             </li>
           ))}
         </ul>

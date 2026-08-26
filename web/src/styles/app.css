@@ -690,6 +690,7 @@ body {
   font-family: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none;
 }
 .um-item:hover, .um-item[data-highlighted] { background: var(--bg-panel); outline: none; }
+.um-item.um-danger { color: var(--danger); }
 .um-item svg { color: var(--text-secondary); }
 .um-version {
   display: flex; justify-content: space-between; padding: 6px 8px 3px;
@@ -1591,6 +1592,9 @@ body {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   font-size: 12px; color: var(--text-secondary);
 }
+.bak-snap-actions { display: flex; align-items: center; gap: 2px; }
+.folder-field-wrap { display: flex; gap: 6px; align-items: center; width: 100%; }
+.folder-field-wrap .folder-field { flex: 1; min-width: 0; }
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
 .set-rows { display: flex; flex-direction: column; gap: 10px; }
 .set-row {
