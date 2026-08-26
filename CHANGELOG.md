@@ -17,6 +17,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Closed agent tabs stay closed across reload (no longer reopen the first running agent).
 - Model errors (quota, 400) show in chat and as a toast; empty assistant replies are no longer silent.
 - Chat applies `message_end` / `turn_end` text (Codex often does not stream `text_delta`). Sending no longer reloads the transcript (that wiped the new message).
 - One assistant reply per turn — `agent_end` no longer replays every message into the chat.

@@ -35,6 +35,7 @@ import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
 import { locate, firstAgentId, displayAgentName } from "../lib/tree.js";
 import { extraSlash } from "../lib/slash.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs } from "../lib/openTabs.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
@@ -45,10 +46,11 @@ import Toasts from "../components/Toasts.jsx";
 export default function App() {
   const [workspaces, setWorkspaces] = useState([]);
   const [freeAgents, setFreeAgents] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => readOpenTabs().selected);
   const [formKind, setFormKind] = useState("workspace");
   const [formWs, setFormWs] = useState("");
-  const [tabs, setTabs] = useState([]);
+  const [tabs, setTabs] = useState(() => readOpenTabs().ids);
+  const [tabsReady, setTabsReady] = useState(false);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
   const [host, setHost] = useState("local");
@@ -206,15 +208,26 @@ export default function App() {
       try { setMcp(await api("/api/mcp")); } catch { /* ignore */ }
       try {
         const list = await loadWorkspaces();
-        const active = list.find((w) => w.agent && w.agent.mode !== "stopped") || list[0];
-        if (active) openTab(active.id, list);
+        let free = [];
+        try { free = await api("/api/agents?free=1"); } catch { free = []; }
+        const exists = (id) => !!locate(list, free, id);
+        const next = filterOpenTabs(readOpenTabs(), exists);
+        setTabs(next.ids);
+        if (next.selected) openTab(next.selected, list);
+        else setSelectedId(null);
+        setTabsReady(true);
       } catch (e) {
         console.error("boot:", e);
+        setTabsReady(true);
       }
     })();
   }, [loadWorkspaces]);
 
   useEffect(() => startPresence(), []);
+  useEffect(() => {
+    if (!tabsReady) return;
+    writeOpenTabs(tabs, selectedId);
+  }, [tabs, selectedId, tabsReady]);
 
   function openTab(id, list) {
     const loc = locate(list || workspaces, freeAgents, id);
