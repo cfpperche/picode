@@ -8,6 +8,7 @@ export const ROUTES = {
   mcps: "/mcps",
   packages: "/packages",
   devices: "/devices",
+  pins: "/pins",
 };
 
 export function parseRoute(hash) {
@@ -19,7 +20,16 @@ export function parseRoute(hash) {
   if (h === "/mcps") return "mcps";
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
+  if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   return "workspace";
+}
+
+export function pinRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  if (h === "/pins" || h === "/pins/new") return { mode: "new", id: "" };
+  const m = /^\/pins\/([^/]+)$/.exec(h);
+  if (m) return { mode: "edit", id: decodeURIComponent(m[1]) };
+  return { mode: "", id: "" };
 }
 
 export function providersNew(hash) {
@@ -39,6 +49,14 @@ export function go(name) {
   }
   if (name === "providers-llama") {
     location.hash = "#/providers/llama";
+    return;
+  }
+  if (name === "pins-new") {
+    location.hash = "#/pins/new";
+    return;
+  }
+  if (typeof name === "string" && name.startsWith("pin:")) {
+    location.hash = "#/pins/" + encodeURIComponent(name.slice(4));
     return;
   }
   const path = ROUTES[name] || "/";

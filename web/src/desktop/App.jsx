@@ -22,6 +22,7 @@ import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
 import { parseRoute, go, providersNew, providersLlama } from "../lib/routes.js";
+import PinStudio from "../components/PinStudio.jsx";
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -1028,6 +1029,7 @@ export default function App() {
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} />
         <Devices hidden={route !== "devices"} />
+        <PinStudio hidden={route !== "pins"} />
       </main>
 
       <Palette

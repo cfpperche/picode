@@ -170,6 +170,7 @@ body {
   padding: 8px 8px; border-radius: 8px; cursor: pointer;
 }
 .pin-card:hover { background: var(--bg-hover); }
+.pin-card.active { background: var(--bg-hover); box-shadow: inset 2px 0 0 var(--accent); }
 .pin-card-row { display: flex; align-items: center; gap: 6px; }
 .pin-card-title { flex: 1; min-width: 0; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-card-tags {
@@ -188,6 +189,7 @@ body {
   min-height: 160px; resize: vertical;
   font-family: var(--mono); font-size: 12px; line-height: 1.45;
 }
+.pin-studio-form .pin-body { min-height: 280px; }
 .pin-tags {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   min-height: var(--ctl-h);

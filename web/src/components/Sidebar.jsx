@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { parseRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
 import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin } from "./Icons.jsx";
@@ -36,6 +37,12 @@ export default function Sidebar({
     setTab(next);
     try { localStorage.setItem(TAB_KEY, next); } catch { /* ignore */ }
   }
+  useEffect(() => {
+    const sync = () => { if (parseRoute() === "pins") selectTab("pins"); };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   const [openWs, setOpenWs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("picode-ws-open") || "{}"); }
     catch { return {}; }

@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pin form is a route (`#/pins/new`, `#/pins/:id`). Sidebar Pins is the list only.
 - Console easter egg. Free-agent status no longer 404s (was using agent id as workspace).
 - Browser QA: `npm:pi-agent-browser-native` (project + machine). Skill shrunk to PiCode-only map.
 - Pins: flat list + form (title, tags, markdown body). `+` on the Pins title bar.

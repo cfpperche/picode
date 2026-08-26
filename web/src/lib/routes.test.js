@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -10,4 +10,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/providers/new"), "providers");
   assert.equal(providersNew("#/providers/new"), true);
   assert.equal(providersLlama("#/providers/llama"), true);
+  assert.equal(parseRoute("#/pins/new"), "pins");
+  assert.deepEqual(pinRoute("#/pins/new"), { mode: "new", id: "" });
+  assert.deepEqual(pinRoute("#/pins/hello-abc"), { mode: "edit", id: "hello-abc" });
 });

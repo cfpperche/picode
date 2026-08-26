@@ -8,6 +8,7 @@ import (
 
 func registerPins(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/pins", handleListPins(deps))
+	mux.HandleFunc("GET /api/pins/{id}", handleGetPin(deps))
 	mux.HandleFunc("POST /api/pins", handleCreatePin(deps))
 	mux.HandleFunc("PATCH /api/pins/{id}", handleUpdatePin(deps))
 	mux.HandleFunc("DELETE /api/pins/{id}", handleDeletePin(deps))
@@ -21,6 +22,17 @@ func handleListPins(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"pins": pins})
+	}
+}
+
+func handleGetPin(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, err := deps.Store.GetPin(r.PathValue("id"))
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, p)
 	}
 }
 
