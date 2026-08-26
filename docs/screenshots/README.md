@@ -17,4 +17,4 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
-Working captures stay in `var/screenshots/`. Curated: `mcp-blocked.png`, `mcp-card-ctx.png`, `mcp-import-pick.png`.
+Working captures stay in `var/screenshots/`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).

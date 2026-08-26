@@ -483,6 +483,9 @@ body {
 .mcp-form-row .pkg-scope { margin: 0; flex: none; }
 .mcp-form-row .pkg-scope-btn,
 .mcp-form-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.mcp-more { align-self: flex-start; height: var(--ctl-h); }
+.mcp-extra, .mcp-pairs { display: flex; flex-direction: column; gap: 8px; }
+.mcp-pairs > .btn { align-self: flex-start; height: var(--ctl-h); }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
   display: grid; grid-template-columns: 1fr; gap: 12px;

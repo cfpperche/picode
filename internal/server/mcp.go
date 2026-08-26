@@ -30,6 +30,7 @@ type mcpMutateReq struct {
 	Env         map[string]string `json:"env"`
 	Headers     map[string]string `json:"headers"`
 	Auth        string            `json:"auth"`
+	BearerToken string            `json:"bearerToken"`
 	Kinds       []string          `json:"kinds"`
 	Picks       []mcp.ImportPick  `json:"picks"`
 }
@@ -104,7 +105,7 @@ func handleMCPAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusConflict, "install pi-mcp-adapter first")
 			return
 		}
-		entry := mcp.Entry{Command: req.Command, Args: req.Args, URL: req.URL, Env: req.Env, Headers: req.Headers, Auth: req.Auth}
+		entry := mcp.Entry{Command: req.Command, Args: req.Args, URL: req.URL, Env: req.Env, Headers: req.Headers, Auth: req.Auth, BearerToken: req.BearerToken}
 		if err := mcp.Add(p, req.Scope, req.Name, entry); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

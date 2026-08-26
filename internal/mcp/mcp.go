@@ -37,6 +37,7 @@ type Server struct {
 	URL       string            `json:"url,omitempty"`
 	Env       map[string]string `json:"env,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
+	Auth      string            `json:"auth,omitempty"`
 	Disabled  bool              `json:"disabled"`
 	Owned     bool              `json:"owned"`
 }
@@ -51,13 +52,14 @@ type Preset struct {
 
 // Entry is the adapter ServerEntry subset we write.
 type Entry struct {
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	URL     string            `json:"url,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Auth    string            `json:"auth,omitempty"`
-	Cwd     string            `json:"cwd,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Args        []string          `json:"args,omitempty"`
+	URL         string            `json:"url,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	Auth        string            `json:"auth,omitempty"`
+	BearerToken string            `json:"bearerToken,omitempty"`
+	Cwd         string            `json:"cwd,omitempty"`
 }
 
 // Report is GET /api/mcp.
@@ -85,6 +87,8 @@ type Paths struct {
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+.^_` + "`" + `|~-]+$`)
 
 // Presets copied from pi-mcp-adapter 2.28 KNOWN_SERVER_PRESETS.
 func Presets() []Preset {
@@ -365,10 +369,44 @@ func validEntry(e Entry) error {
 				return fmt.Errorf("args must be a single line")
 			}
 		}
+		if err := validPairs("variable", envKeyRe, e.Env); err != nil {
+			return err
+		}
+		if e.Auth != "" || e.BearerToken != "" || len(e.Headers) > 0 {
+			return fmt.Errorf("headers and sign-in are for URL servers")
+		}
 		return nil
 	}
 	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
 		return fmt.Errorf("url must start with http:// or https://")
+	}
+	auth := strings.TrimSpace(e.Auth)
+	if auth != "" && auth != "oauth" && auth != "bearer" {
+		return fmt.Errorf("sign-in must be oauth or bearer")
+	}
+	if strings.ContainsAny(e.BearerToken, "\n\r") {
+		return fmt.Errorf("token must be a single line")
+	}
+	if auth == "bearer" && strings.TrimSpace(e.BearerToken) == "" && len(e.Headers) == 0 {
+		return fmt.Errorf("token is required")
+	}
+	if err := validPairs("header", headerNameRe, e.Headers); err != nil {
+		return err
+	}
+	if len(e.Env) > 0 {
+		return fmt.Errorf("environment is for command servers")
+	}
+	return nil
+}
+
+func validPairs(kind string, re *regexp.Regexp, m map[string]string) error {
+	for k, v := range m {
+		if !re.MatchString(k) {
+			return fmt.Errorf("%s name %q is invalid", kind, k)
+		}
+		if strings.ContainsAny(v, "\n\r") {
+			return fmt.Errorf("%s values must be a single line", kind)
+		}
 	}
 	return nil
 }
@@ -402,6 +440,7 @@ func serverFrom(name string, entry map[string]any, layer Layer) Server {
 		Args:     stringsOf(entry["args"]),
 		Env:      stringMap(entry["env"]),
 		Headers:  stringMap(entry["headers"]),
+		Auth:     strOf(entry["auth"]),
 	}
 	switch {
 	case s.URL != "":
@@ -460,6 +499,9 @@ func entryToMap(e Entry, prev map[string]any) map[string]any {
 		delete(out, "url")
 		delete(out, "headers")
 		delete(out, "auth")
+		delete(out, "bearerToken")
+		delete(out, "bearerTokenEnv")
+		delete(out, "bearerTokenStore")
 		delete(out, "socket")
 		out["command"] = strings.TrimSpace(e.Command)
 		if len(e.Args) > 0 {
@@ -484,9 +526,18 @@ func entryToMap(e Entry, prev map[string]any) map[string]any {
 		out["url"] = strings.TrimSpace(e.URL)
 		if len(e.Headers) > 0 {
 			out["headers"] = toAnyMap(e.Headers)
+		} else {
+			delete(out, "headers")
 		}
 		if e.Auth != "" {
 			out["auth"] = e.Auth
+		} else {
+			delete(out, "auth")
+		}
+		if tok := strings.TrimSpace(e.BearerToken); tok != "" {
+			out["bearerToken"] = tok
+		} else {
+			delete(out, "bearerToken")
 		}
 	}
 	return out

@@ -21,6 +21,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- MCP Add **More**: environment on command servers; headers and Sign in / Token on URL servers.
 - MCP **Use from…** is a tree: app → servers. You pick which servers. Unchecked ones stay Off. It does not copy files.
 - Local backup in Preferences: folder, interval, retention, explicit **Schedule**, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks). Choosing a folder does not start the schedule.
 - Preferences uses section tabs (Appearance / Notifications / Server / Backup).

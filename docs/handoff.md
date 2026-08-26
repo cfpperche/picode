@@ -26,8 +26,9 @@ What exists:
 - Voice **V1 shipped** (dictation + Grok composer + browser TTS). Owner dogfood pending (Chrome Windows mic).
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
 - `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
-- MCP / Packages / Settings name the selected agent as the first line in the card. Scope pills use that name. Sidebar agent click from a pane goes to `#/`.
+- MCP / Packages / Settings name the selected agent (icon + name) as the first line in the card. Scope pills say **This agent**. Sidebar agent click from a pane goes to `#/`.
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
+- MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
 
 ## In flight
 
@@ -35,9 +36,8 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Next up
 
-1. MCP Add: env / headers / auth (secrets). Plan: `docs/design/composer-mcp-roadmap.md`.
-2. MCP live status (connected vs file-only).
-3. Voice V1 dogfood (owner, Chrome Windows mic). Auth / llama / Radius after.
+1. MCP live status (connected vs file-only).
+2. Voice V1 dogfood (owner, Chrome Windows mic). Auth / llama / Radius after.
 
 ## Backlog
 
@@ -48,6 +48,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 ## Known debts / open questions
 
 - Dogfood MCP entries `picode-dogfood-*` in `~/.claude/mcp.json`, `~/.codex/config.toml`, `~/.grok/config.toml` — remove after the Use-from check.
+- MCP GET still returns env/header values from the file (plaintext). `bearerToken` is write-only and not listed.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.
@@ -58,6 +59,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP Add More: env / headers / Sign in / Token. visual-review: PASS (mcp-add-more-url.png, mcp-add-more-env.png, mcp-add-more-error.png).
 - **2026-08-26** — MCP card: agent icon + name at top; scope pill is This agent again. visual-review: PASS (mcp-this-agent.png).
 - **2026-08-26** — Use from is a tree (app → servers). Pick per server; Off the rest. visual-review: PASS (mcp-use-from-tree.png).
 - **2026-08-26** — Dogfood MCP in Claude/Codex/Grok globals (`picode-dogfood-*`). Use from lists counts. visual-review: PASS (mcp-use-from-dogfood.png).

@@ -155,7 +155,11 @@ Only when the agent has its own `workPath`. Writes `<workPath>/.pi/mcp.json`
 
 ### B3 — import — **shipped**
 
-**Use from…** mirrors host configs (`imports`). User picks apps; Off hides a server (no copy). Empty host files are not offered. Next: env/headers/auth; live connected vs file-only.
+**Use from…** mirrors host configs (`imports`). User picks apps; Off hides a server (no copy). Empty host files are not offered.
+
+### B4 — env / headers / auth — **shipped**
+
+Add **More** writes adapter `env` (command), `headers` + `auth`/`bearerToken` (URL). Token stays in the file the adapter reads. Next: live connected vs file-only.
 
 ### Decision table (runtime)
 

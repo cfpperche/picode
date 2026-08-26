@@ -175,6 +175,55 @@ func TestMCPImport(t *testing.T) {
 	}
 }
 
+func TestMCPAddSecrets(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ts := newTestServer(t, "cat")
+	settings := filepath.Join(home, ".pi", "agent", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte(`{"packages":["npm:pi-mcp-adapter"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ok := postJSON(t, ts, "/api/mcp", map[string]any{
+		"scope": "user", "name": "docs", "url": "https://mcp.example/mcp",
+		"auth": "bearer", "bearerToken": "tok",
+		"headers": map[string]string{"X-Trace": "1"},
+	})
+	if ok.StatusCode != http.StatusOK {
+		t.Fatalf("add bearer = %d", ok.StatusCode)
+	}
+	_ = ok.Body.Close()
+
+	bad := postJSON(t, ts, "/api/mcp", map[string]any{
+		"scope": "user", "name": "oops", "url": "https://mcp.example/mcp", "auth": "bearer",
+	})
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bearer without token = %d", bad.StatusCode)
+	}
+	_ = bad.Body.Close()
+
+	env := postJSON(t, ts, "/api/mcp", map[string]any{
+		"scope": "user", "name": "cli", "command": "npx", "args": []string{"-y", "x"},
+		"env": map[string]string{"API_KEY": "sekrit"},
+	})
+	if env.StatusCode != http.StatusOK {
+		t.Fatalf("add env = %d", env.StatusCode)
+	}
+	_ = env.Body.Close()
+
+	mixed := postJSON(t, ts, "/api/mcp", map[string]any{
+		"scope": "user", "name": "mix", "command": "npx", "auth": "oauth",
+	})
+	if mixed.StatusCode != http.StatusBadRequest {
+		t.Fatalf("auth on command = %d", mixed.StatusCode)
+	}
+	_ = mixed.Body.Close()
+}
+
 func mcpPatch(t *testing.T, ts *httptest.Server, body any) *http.Response {
 	t.Helper()
 	raw, _ := json.Marshal(body)

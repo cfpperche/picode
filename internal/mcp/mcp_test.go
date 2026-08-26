@@ -152,6 +152,71 @@ func TestValidNameAndEntry(t *testing.T) {
 	if err := validEntry(Entry{Command: "npx; rm -rf /"}); err == nil {
 		t.Fatal("metachar")
 	}
+	if err := validEntry(Entry{Command: "npx", Auth: "oauth"}); err == nil {
+		t.Fatal("auth on command")
+	}
+	if err := validEntry(Entry{URL: "https://x", Env: map[string]string{"A": "1"}}); err == nil {
+		t.Fatal("env on url")
+	}
+	if err := validEntry(Entry{Command: "npx", Env: map[string]string{"1BAD": "x"}}); err == nil {
+		t.Fatal("bad env key")
+	}
+	if err := validEntry(Entry{URL: "https://x", Auth: "basic"}); err == nil {
+		t.Fatal("bad auth")
+	}
+	if err := validEntry(Entry{URL: "https://x", Auth: "bearer"}); err == nil {
+		t.Fatal("bearer without token")
+	}
+}
+
+func TestAddEnvHeadersAuth(t *testing.T) {
+	home := t.TempDir()
+	p := Paths{Home: home}
+
+	if err := Add(p, "user", "local", Entry{Command: "npx", Args: []string{"-y", "x"}, Env: map[string]string{"API_KEY": "sekrit"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(p, "user", "remote", Entry{URL: "https://mcp.example/mcp", Auth: "bearer", BearerToken: "tok", Headers: map[string]string{"X-Trace": "1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(p, "user", "oauth", Entry{URL: "https://mcp.example/oauth", Auth: "oauth"}); err != nil {
+		t.Fatal(err)
+	}
+
+	rep, err := List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Server{}
+	for _, s := range rep.Servers {
+		by[s.Name] = s
+	}
+	if by["local"].Env["API_KEY"] != "sekrit" || by["local"].Auth != "" {
+		t.Fatalf("local = %+v", by["local"])
+	}
+	if by["remote"].Auth != "bearer" || by["remote"].Headers["X-Trace"] != "1" {
+		t.Fatalf("remote = %+v", by["remote"])
+	}
+	if by["oauth"].Auth != "oauth" {
+		t.Fatalf("oauth = %+v", by["oauth"])
+	}
+
+	raw, err := os.ReadFile(p.PiGlobal())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file map[string]any
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	servers := file["mcpServers"].(map[string]any)
+	remote := servers["remote"].(map[string]any)
+	if remote["bearerToken"] != "tok" {
+		t.Fatalf("file remote = %v", remote)
+	}
+	if _, ok := servers["local"].(map[string]any)["headers"]; ok {
+		t.Fatal("command kept headers")
+	}
 }
 
 func TestStripComments(t *testing.T) {

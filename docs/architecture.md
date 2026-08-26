@@ -39,7 +39,8 @@ Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
-(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). No native MCP.
+(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). Add accepts
+optional `env`, `headers`, `auth` (`oauth`|`bearer`) and `bearerToken`. No native MCP.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,

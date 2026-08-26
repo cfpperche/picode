@@ -5,8 +5,8 @@ Pi does not speak MCP itself. PiCode writes the files the **MCP adapter** packag
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
-2. `#/mcps` → Add a server (command or URL). The card shows which agent; the pills use that name.
-3. **Use from…** mirrors Cursor / Claude / Codex configs. You pick the app, then turn Off servers you do not want. It does not copy files.
+2. `#/mcps` → Add a server (command or URL). **More** adds environment variables, headers, or sign-in (OAuth / token).
+3. **Use from…** is a tree of apps and their servers. Check the ones to use. It does not copy files.
 4. Restart the agent.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
@@ -21,6 +21,6 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 |---|---|---|
 | Adapter | `pi install npm:pi-mcp-adapter` | Packages |
 | Servers | edit JSON | `#/mcps` |
-| Import Cursor/Claude/Codex | adapter CLI | later |
+| Import Cursor/Claude/Codex | adapter CLI | **Use from…** (mirror, pick servers) |
 
 No adapter → `#/mcps` is one line and **Open packages**. It does not write files.

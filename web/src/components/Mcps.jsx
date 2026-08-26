@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
+import { mcpAddSchema, pairsToMap, parseForm } from "../lib/schemas.js";
 import { toast } from "../lib/toast.js";
 import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
@@ -12,6 +13,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [scope, setScope] = useState("user");
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
+  const [formError, setFormError] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
 
   function listURL() {
@@ -72,17 +74,38 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   async function addServer(entry) {
-    const name = (entry.name || form.name).trim();
-    if (!name || !installed) return;
-    await runJob("add", name, () => api("/api/mcp", {
+    if (!installed) return;
+    if (entry && entry.name) {
+      await runJob("add", entry.name, () => api("/api/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body({
+          name: entry.name,
+          command: entry.command || "",
+          args: entry.args || [],
+          url: entry.url || "",
+          auth: entry.auth || "",
+        })),
+      }));
+      return;
+    }
+    const parsed = parseForm(mcpAddSchema, form);
+    if (!parsed.ok) { setFormError(parsed.error); return; }
+    const v = parsed.value;
+    const pairs = pairsToMap(v.pairs);
+    setFormError("");
+    await runJob("add", v.name, () => api("/api/mcp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body({
-        name,
-        command: entry.command || (form.kind === "stdio" ? form.command : ""),
-        args: entry.args || (form.kind === "stdio" ? splitArgs(form.args) : []),
-        url: entry.url || (form.kind === "url" ? form.url : ""),
-        auth: entry.auth || "",
+        name: v.name,
+        command: v.kind === "stdio" ? v.command : "",
+        args: v.kind === "stdio" ? splitArgs(v.args) : [],
+        url: v.kind === "url" ? v.url : "",
+        env: v.kind === "stdio" ? pairs : undefined,
+        headers: v.kind === "url" ? pairs : undefined,
+        auth: v.kind === "url" ? v.auth : "",
+        bearerToken: v.kind === "url" && v.auth === "bearer" ? v.token : "",
       })),
     }));
     setForm(emptyForm());
@@ -192,6 +215,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                     <div className="mcp-row-main">
                       <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
                       <strong className="mcp-name">{s.name}</strong>
+                      {s.auth ? <span className="pkg-scope-tag">{s.auth === "oauth" ? "sign-in" : "token"}</span> : null}
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions">
@@ -233,7 +257,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
               <div className="mcp-form-row" data-align-row>
                 <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
                 <div className="pkg-scope" role="radiogroup" aria-label="How it connects">
-                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio" })}>Command</button>
+                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio", auth: "", token: "" })}>Command</button>
                   <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
                 </div>
               </div>
@@ -248,6 +272,45 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                 )}
                 <button type="submit" className="btn btn-primary" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add</button>
               </div>
+              <button
+                type="button"
+                className="btn btn-ghost mcp-more"
+                aria-expanded={form.more}
+                disabled={!!job}
+                onClick={() => setForm({ ...form, more: !form.more, pairs: form.pairs.length ? form.pairs : [{ key: "", value: "" }] })}
+              >{form.more ? "Less" : "More"}</button>
+              {form.more ? (
+                <div className="mcp-extra">
+                  {form.kind === "url" ? (
+                    <div className="mcp-form-row" data-align-row>
+                      <div className="pkg-scope" role="radiogroup" aria-label="Sign-in">
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === ""} onClick={() => setForm({ ...form, auth: "", token: "" })}>None</button>
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "oauth"} title="Opens the server's sign-in page" onClick={() => setForm({ ...form, auth: "oauth", token: "" })}>Sign in</button>
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "bearer"} onClick={() => setForm({ ...form, auth: "bearer" })}>Token</button>
+                      </div>
+                      {form.auth === "bearer" ? (
+                        <input
+                          className="dlg-input"
+                          type="password"
+                          autoComplete="off"
+                          value={form.token}
+                          onChange={(e) => setForm({ ...form, token: e.target.value })}
+                          placeholder="Token"
+                          aria-label="Token"
+                          disabled={!!job}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <PairList
+                    kind={form.kind}
+                    pairs={form.pairs}
+                    disabled={!!job}
+                    onChange={(pairs) => setForm({ ...form, pairs })}
+                  />
+                </div>
+              ) : null}
+              {formError ? <p className="form-error">{formError}</p> : null}
             </form>
           </section>
         </>
@@ -386,7 +449,31 @@ function hostLabel(id) {
 }
 
 function emptyForm() {
-  return { name: "", kind: "url", command: "", args: "", url: "" };
+  return { name: "", kind: "url", command: "", args: "", url: "", auth: "", token: "", pairs: [], more: false };
+}
+
+function PairList({ kind, pairs, disabled, onChange }) {
+  const rows = pairs.length ? pairs : [{ key: "", value: "" }];
+  const keyLabel = kind === "stdio" ? "Variable" : "Header";
+  function setRow(i, patch) {
+    onChange(rows.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  }
+  function remove(i) {
+    const next = rows.filter((_, idx) => idx !== i);
+    onChange(next.length ? next : [{ key: "", value: "" }]);
+  }
+  return (
+    <div className="mcp-pairs">
+      {rows.map((row, i) => (
+        <div key={i} className="mcp-form-row" data-align-row>
+          <input className="dlg-input" value={row.key} onChange={(e) => setRow(i, { key: e.target.value })} placeholder={keyLabel} aria-label={keyLabel} disabled={disabled} />
+          <input className="dlg-input" value={row.value} onChange={(e) => setRow(i, { value: e.target.value })} placeholder="Value" aria-label={keyLabel + " value"} disabled={disabled} />
+          <button type="button" className="btn btn-ghost" disabled={disabled} aria-label={"Remove " + keyLabel.toLowerCase()} onClick={() => remove(i)}>×</button>
+        </div>
+      ))}
+      <button type="button" className="btn btn-ghost" disabled={disabled} onClick={() => onChange(rows.concat({ key: "", value: "" }))}>Add {keyLabel.toLowerCase()}</button>
+    </div>
+  );
 }
 
 function splitArgs(s) {
