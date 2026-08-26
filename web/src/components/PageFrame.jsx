@@ -1,4 +1,4 @@
-import { IconBack } from "./Icons.jsx";
+import { IconAgent, IconBack } from "./Icons.jsx";
 
 export default function PageFrame({ id, title, context, children, hidden, wide }) {
   return (
@@ -12,7 +12,12 @@ export default function PageFrame({ id, title, context, children, hidden, wide }
           <h2>{title}</h2>
         </header>
         <div className="settings-card">
-          {context ? <p className="settings-ctx" title={context}>{context}</p> : null}
+          {context ? (
+            <p className="settings-ctx" title={context}>
+              <IconAgent />
+              <span>{context}</span>
+            </p>
+          ) : null}
           {children}
         </div>
       </div>

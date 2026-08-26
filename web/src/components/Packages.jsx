@@ -140,7 +140,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
             aria-checked={scope === "agent"}
             title={"Only " + (agentName || "this agent") + ", every session"}
             onClick={() => setScope("agent")}
-          >{agentName || "This agent"}</button>
+          >This agent</button>
         ) : null}
       </div>
       {agentId ? (

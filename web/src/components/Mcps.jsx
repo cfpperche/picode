@@ -178,7 +178,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                   aria-checked={scope === "agent"}
                   title={"Saves with " + (agentName || "this agent")}
                   onClick={() => setScope("agent")}
-                >{agentName || "This agent"}</button>
+                >This agent</button>
               ) : null}
             </div>
           ) : null}
