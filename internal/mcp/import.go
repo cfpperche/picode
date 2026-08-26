@@ -32,11 +32,12 @@ type ImportResult struct {
 	Found   []string `json:"found"`
 }
 
-// HostInfo is one detected host app for the Import picker.
+// HostInfo is one detected host app for the Use-from picker.
 type HostInfo struct {
-	Kind  string `json:"kind"`
-	Label string `json:"label"`
-	On    bool   `json:"on"`
+	Kind    string `json:"kind"`
+	Label   string `json:"label"`
+	On      bool   `json:"on"`
+	Servers int    `json:"servers"`
 }
 
 func hostLabel(k HostKind) string {
@@ -154,7 +155,15 @@ func knownHost(k HostKind) bool {
 	return false
 }
 
-// FoundHosts is detected apps plus whether they are already imported.
+func hostServerCount(path string) int {
+	raw, err := readFile(path)
+	if err != nil || raw == nil {
+		return 0
+	}
+	return len(serversOfHost(raw))
+}
+
+// FoundHosts is apps we can actually read servers from (or already mirrored).
 func FoundHosts(p Paths) []HostInfo {
 	on := map[string]bool{}
 	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
@@ -162,9 +171,19 @@ func FoundHosts(p Paths) []HostInfo {
 			on[s] = true
 		}
 	}
+	home := p.home()
 	var out []HostInfo
-	for _, k := range DetectHosts(p) {
-		out = append(out, HostInfo{Kind: string(k), Label: hostLabel(k), On: on[string(k)]})
+	for _, k := range HostKinds {
+		path := firstExisting(hostCandidates(k, home, p.Cwd))
+		if path == "" {
+			continue
+		}
+		n := hostServerCount(path)
+		linked := on[string(k)]
+		if !linked && n == 0 {
+			continue
+		}
+		out = append(out, HostInfo{Kind: string(k), Label: hostLabel(k), On: linked, Servers: n})
 	}
 	return out
 }

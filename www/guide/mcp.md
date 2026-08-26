@@ -6,7 +6,7 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
 2. `#/mcps` → Add a server (command or URL). The card shows which agent; the pills use that name.
-3. **Import** lists apps it finds (Cursor, Claude, Codex, …). You pick which ones. It does not copy those files.
+3. **Use from…** mirrors Cursor / Claude / Codex configs. You pick the app, then turn Off servers you do not want. It does not copy files.
 4. Restart the agent.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.

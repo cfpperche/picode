@@ -35,6 +35,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
   const imported = (data && data.imports) || [];
+  const mirrored = servers.filter((s) => s.scope === "import");
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   const showScopes = canProject || canAgent;
@@ -98,14 +99,18 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     if (!installed) return;
     const found = (data && data.found) || [];
     if (!found.length) {
-      toast.info("No other apps found.");
+      toast.info("No other apps with servers.");
       return;
     }
     const picked = await askConfirm({
-      title: "Import",
-      message: "Choose which apps. This does not copy their files.",
-      confirmLabel: "Import",
-      choices: found.map((h) => ({ id: h.kind, label: h.label, checked: !!h.on })),
+      title: "Use from other apps",
+      message: "Pi reads those configs. Turn off servers you do not want.",
+      confirmLabel: "Use",
+      choices: found.map((h) => ({
+        id: h.kind,
+        label: h.servers ? h.label + " (" + h.servers + ")" : h.label,
+        checked: !!h.on,
+      })),
     });
     if (!picked) return;
     const kinds = found.map((h) => h.kind).filter((id) => picked[id]);
@@ -149,10 +154,13 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       ) : (
         <>
           <div className="mcp-toolbar" data-align-row>
-            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={importHosts}>Import</button>
+            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={importHosts}>Use from…</button>
           </div>
           {imported.length ? (
-            <p className="pkg-fine">{imported.map(hostLabel).join(" · ")}</p>
+            <p className="pkg-fine">Using {imported.map(hostLabel).join(" · ")}</p>
+          ) : null}
+          {imported.length && !mirrored.length ? (
+            <p className="pkg-fine">No servers in those apps.</p>
           ) : null}
           {showScopes ? (
             <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
@@ -306,7 +314,7 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose }) {
   const steps = [
-    { id: "write", label: job.action === "import" ? "Import from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "write", label: job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
     { id: "reload", label: running ? "Reload this agent" : "Applies on next start" },
   ];
   return (

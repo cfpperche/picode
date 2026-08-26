@@ -27,7 +27,7 @@ What exists:
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
 - `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
 - MCP / Packages / Settings name the selected agent as the first line in the card. Scope pills use that name. Sidebar agent click from a pane goes to `#/`.
-- MCP **Import** lists found apps; user picks. Writes adapter `imports` only.
+- MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 
 ## In flight
 
@@ -57,6 +57,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Import renamed **Use from…** (mirror, not copy). Empty hosts hidden. visual-review: PASS (mcp-use-from.png).
 - **2026-08-26** — MCP Import is a picker, not import-all. visual-review: PASS (mcp-import-pick.png).
 - **2026-08-26** — MCP B3 Import (adapter `imports` only). visual-review: PASS (mcp-import.png).
 - **2026-08-26** — Agent context is the first line in the MCP/Packages card, not under the title. visual-review: PASS (mcp-card-ctx.png).
