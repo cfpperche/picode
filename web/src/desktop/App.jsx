@@ -34,6 +34,14 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
 import { locate, firstAgentId, displayAgentName } from "../lib/tree.js";
+
+function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
+  const loc = locate(workspaces, freeAgents, selectedId);
+  const id = (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : "");
+  if (!id) return "";
+  const q = selectedId ? "?agent=" + encodeURIComponent(selectedId) : "";
+  return "/api/workspaces/" + id + suffix + q;
+}
 import { extraSlash } from "../lib/slash.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs } from "../lib/openTabs.js";
 import Hotkeys from "../components/Hotkeys.jsx";
@@ -189,10 +197,10 @@ export default function App() {
     catch { setStatusBar(null); }
   }, [selectedId, workspaces, freeAgents]);
 
-  useEffect(() => { loadStatus(selectedId); }, [selectedId, sessionCurrent, loadStatus]);
+  useEffect(() => { loadStatus(); }, [selectedId, sessionCurrent, loadStatus]);
   useEffect(() => {
     if (!agent || agent.mode !== "managed") return;
-    const t = setInterval(() => loadStatus(selectedId), 15000);
+    const t = setInterval(() => loadStatus(), 15000);
     return () => clearInterval(t);
   }, [agent && agent.mode, selectedId, loadStatus]);
 
@@ -333,7 +341,7 @@ export default function App() {
         if (paths.length) {
           setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
         }
-        if (selectedId) loadStatus(selectedId);
+        if (selectedId) loadStatus();
         pinNewestSession();
         break;
       }
@@ -593,7 +601,7 @@ export default function App() {
   async function newSession() {
     if (!selectedId) return;
     try {
-      await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+      await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });
       await loadWorkspaces();
       await loadSessions();
     } catch (e) { toastError(e); }
@@ -605,13 +613,13 @@ export default function App() {
     const name = await askPrompt({ title: "Rename session", defaultValue: cur.name || "", confirmLabel: "Save" });
     if (!name) return;
     try {
-      await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+      await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/rename"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: cur.path, name }),
       });
       await loadSessions();
-      await loadStatus(selectedId);
+      await loadStatus();
     } catch (e) { toastError(e); }
   }
 
@@ -629,7 +637,7 @@ export default function App() {
       toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
       await loadWorkspaces();
       await loadSessions(selectedId);
-      await loadStatus(selectedId);
+      await loadStatus();
     } catch (e) { toastError(e); }
   }
 
@@ -944,14 +952,14 @@ export default function App() {
                   current={sessionCurrent}
                   onNew={async () => {
                     try {
-                      await api("/api/workspaces/" + selectedId + "/sessions/new", { method: "POST" });
+                      await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });
                       await loadWorkspaces();
                       await loadSessions();
                     } catch (e) { toastError(e); }
                   }}
                   onResume={async (path) => {
                     try {
-                      await api("/api/workspaces/" + selectedId + "/sessions/resume", {
+                      await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/resume"), {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ path }),
@@ -968,13 +976,13 @@ export default function App() {
                     });
                     if (!name) return;
                     try {
-                      await api("/api/workspaces/" + selectedId + "/sessions/rename", {
+                      await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/rename"), {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ path: s.path, name }),
                       });
                       await loadSessions();
-                      await loadStatus(selectedId);
+                      await loadStatus();
                     } catch (e) { toastError(e); }
                   }}
                 />
