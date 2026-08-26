@@ -151,7 +151,25 @@ export default function App() {
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId, workspaces, freeAgents]);
 
-  useEffect(() => { loadSessions(); }, [selectedId, loadSessions]);
+  const pinNewestSession = useCallback(async () => {
+    const loc = locate(workspaces, freeAgents, selectedId);
+    const id = (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
+    if (!id || !selectedId) return;
+    try {
+      const data = await api("/api/workspaces/" + id + "/sessions?agent=" + encodeURIComponent(selectedId));
+      setSessions(data.sessions || []);
+      const newest = (data.sessions || [])[0] && (data.sessions || [])[0].path;
+      if (!newest) return;
+      setSessionCurrent(newest);
+      await api("/api/agents/" + selectedId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionPath: newest }),
+      });
+    } catch { /* live chat stays */ }
+  }, [selectedId, workspaces, freeAgents]);
+
+  useEffect(() => { loadSessions(); }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
     if (!selectedId) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
@@ -302,7 +320,7 @@ export default function App() {
           setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
         }
         if (selectedId) loadStatus(selectedId);
-        loadSessions(undefined, { preferNewest: true });
+        pinNewestSession();
         break;
       }
       case "message_update": {
@@ -615,6 +633,13 @@ export default function App() {
     const payload = (typeof text === "string" ? text : draft).trim();
     if (!payload || !agent) return;
     try {
+      try {
+        await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
+      } catch { /* already running or start failed; enqueue still */ }
+      if (!panelRef.current || panelRef.current.agentId !== agent.id || (panelRef.current.sock && panelRef.current.sock.readyState !== 1)) {
+        const loc = locate(workspaces, freeAgents, agent.id);
+        if (loc) connectPanel(loc);
+      }
       await api("/api/agents/" + agent.id + "/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -626,9 +651,6 @@ export default function App() {
       scrollToEnd();
       if (agent.mode === "interactive") {
         setTermWanted((s) => { const n = new Set(s); n.delete(agent.id); return n; });
-      }
-      if (agent.mode !== "managed") {
-        await startManaged(agent.id);
       }
     } catch (e) { toastError(e); }
   }

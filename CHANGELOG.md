@@ -18,7 +18,7 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Fixed
 
 - Model errors (quota, 400) show in chat and as a toast; empty assistant replies are no longer silent.
-- Chat applies `message_end` / `turn_end` text (Codex often does not stream `text_delta`). Reloads the session when the turn settles.
+- Chat applies `message_end` / `turn_end` text (Codex often does not stream `text_delta`). Sending no longer reloads the transcript (that wiped the new message).
 - Packages **This agent**: only that agent, every session (`pi -e` on start). Optional isolate skips machine and folder extras.
 - `/llama` dialog: URL, load/unload/download. Setup is docs, not an in-app installer.
 - `/share` creates a secret GitHub gist (`gh`). Not the phone QR.
