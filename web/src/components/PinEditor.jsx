@@ -5,11 +5,13 @@ import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
+import { pinFileFromDrop, pinFileURL } from "../lib/pinFileDrop.js";
 import { IconBold, IconItalic, IconHeading, IconList, IconListOl, IconCode, IconQuote } from "./Icons.jsx";
 
 export default function PinEditor({ pinId, markdown, onMarkdown, onFiles, onReady }) {
   const filesFn = useRef(onFiles);
   const mdFn = useRef(onMarkdown);
+  const edRef = useRef(null);
   filesFn.current = onFiles;
   mdFn.current = onMarkdown;
   const editor = useEditor({
@@ -31,9 +33,18 @@ export default function PinEditor({ pinId, markdown, onMarkdown, onFiles, onRead
         return true;
       },
       handleDrop(_view, event) {
+        const existing = pinFileFromDrop(event);
+        if (existing) {
+          event.preventDefault();
+          event.stopPropagation();
+          const url = pinFileURL(existing);
+          if (url && edRef.current) edRef.current.chain().focus().setImage({ src: url, alt: existing.name || "" }).run();
+          return true;
+        }
         const files = [...(event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files : [])];
         if (!files.length) return false;
         event.preventDefault();
+        event.stopPropagation();
         if (filesFn.current) filesFn.current(files);
         return true;
       },
@@ -50,8 +61,9 @@ export default function PinEditor({ pinId, markdown, onMarkdown, onFiles, onRead
   }, [editor, pinId]);
 
   useEffect(() => {
+    edRef.current = editor;
     if (onReady) onReady(editor);
-    return () => { if (onReady) onReady(null); };
+    return () => { edRef.current = null; if (onReady) onReady(null); };
   }, [editor, onReady]);
 
   if (!editor) return <div className="pin-tiptap pin-tiptap-empty" />;

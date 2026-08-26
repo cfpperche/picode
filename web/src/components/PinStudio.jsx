@@ -6,6 +6,7 @@ import PinEditor from "./PinEditor.jsx";
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
+import { pinFileFromDrop, pinFileURL } from "../lib/pinFileDrop.js";
 import { toast, toastError } from "../lib/toast.js";
 
 function blank() {
@@ -256,6 +257,13 @@ export default function PinStudio() {
           onDrop={(e) => {
             e.preventDefault();
             setDrag(false);
+            const existing = pinFileFromDrop(e);
+            if (existing) {
+              const url = pinFileURL(existing);
+              const ed = edRef.current;
+              if (ed && url) ed.chain().focus().setImage({ src: url, alt: existing.name || "" }).run();
+              return;
+            }
             addFiles(e.dataTransfer && e.dataTransfer.files);
           }}
         >
@@ -310,6 +318,13 @@ export default function PinStudio() {
                     type="button"
                     className="pin-att-face"
                     title={f.kind === "sketch" ? "Edit sketch" : "Insert in text"}
+                    draggable
+                    onDragStart={(e) => {
+                      const ref = { pinId: info.id, fileId: f.id, name: f.name, kind: f.kind };
+                      e.dataTransfer.setData("application/x-picode-pin-file", JSON.stringify(ref));
+                      e.dataTransfer.setData("text/uri-list", fileURL(info.id, f));
+                      e.dataTransfer.effectAllowed = "copy";
+                    }}
                     onClick={() => f.kind === "sketch" ? startSketch({ id: f.id }) : insertRef(f)}
                   >
                     {f.kind === "image" || f.kind === "sketch"
