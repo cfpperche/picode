@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api } from "../lib/api.js";
-import { IconFolder, IconPlus } from "./Icons.jsx";
+import { IconDrive, IconFolder, IconHome, IconPlus } from "./Icons.jsx";
 
 export default function FolderPicker({ open, start, onPick, onClose }) {
   const [cur, setCur] = useState("");
@@ -55,12 +55,20 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
         <Dialog.Overlay className="dlg-overlay dlg-overlay-folder" />
         <Dialog.Content className="dlg dlg-folder" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Choose folder</Dialog.Title>
-          <Dialog.Description className="dlg-body">{label || cur || "—"}</Dialog.Description>
-          {label && cur ? <p className="folder-posix">{cur}</p> : null}
+          <Dialog.Description className="folder-here">
+            <span className="folder-here-icon" aria-hidden="true">{placeIcon(label || cur)}</span>
+            <span className="folder-here-text">
+              <span className="folder-here-name">{label || cur || "—"}</span>
+              {label && cur ? <span className="folder-here-posix">{cur}</span> : null}
+            </span>
+          </Dialog.Description>
           {places.length ? (
             <div className="folder-places">
               {places.map((p) => (
-                <button type="button" key={p.path} className={"folder-place" + (cur === p.path ? " on" : "")} onClick={() => load(p.path)}>{p.name}</button>
+                <button type="button" key={p.path} className={"folder-place" + (cur === p.path || cur.startsWith(p.path + "/") ? " on" : "")} onClick={() => load(p.path)}>
+                  {placeIcon(p.name)}
+                  {p.name}
+                </button>
               ))}
             </div>
           ) : null}
@@ -95,4 +103,11 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+function placeIcon(name) {
+  const n = String(name || "");
+  if (n === "Home" || n.startsWith("/home/")) return <IconHome size={13} />;
+  if (/^[A-Za-z]:/.test(n) || n.startsWith("/mnt/")) return <IconDrive size={13} />;
+  return <IconFolder size={13} />;
 }

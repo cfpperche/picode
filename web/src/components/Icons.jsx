@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Folder,
   GitBranch,
+  HardDrive,
+  Home,
   Heading2,
   Italic,
   Layers,
@@ -70,6 +72,8 @@ export const IconMode = lucide(SlidersHorizontal, 13);
 export const IconCopy = lucide(Copy, 13);
 export const IconGit = lucide(GitBranch, 12);
 export const IconFolder = lucide(Folder, 13);
+export const IconHome = lucide(Home, 13);
+export const IconDrive = lucide(HardDrive, 13);
 export const IconAgent = lucide(Bot, 13);
 export const IconSession = lucide(List, 13);
 export const IconPlus = lucide(Plus, 13);
