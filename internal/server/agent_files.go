@@ -79,6 +79,9 @@ func searchAgentFiles(cwd, q string) ([]fileHit, bool) {
 		if rel == ".." || strings.HasPrefix(rel, "../") {
 			return nil
 		}
+		if q == "" && hiddenFile(rel) {
+			return nil
+		}
 		if q != "" {
 			base := strings.ToLower(d.Name())
 			low := strings.ToLower(rel)
@@ -110,6 +113,20 @@ func searchAgentFiles(cwd, q string) ([]fileHit, bool) {
 		hits = []fileHit{}
 	}
 	return hits, true
+}
+
+func hiddenFile(rel string) bool {
+	for _, part := range strings.Split(rel, "/") {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	switch strings.ToLower(filepath.Base(rel)) {
+	case "go.sum", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "cargo.lock":
+		return true
+	default:
+		return false
+	}
 }
 
 func fileScore(h fileHit, q string) int {

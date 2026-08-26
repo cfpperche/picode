@@ -28,6 +28,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - Roadmap for composer files (`@`, images, `!`) then MCP (`docs/design/composer-mcp-roadmap.md`).
 - Composer `@` fuzzy-picks a file in the agent folder and inserts `@path`.
 - Composer paste/drop sends images on the live RPC call (not stored in SQLite).
+- Composer image chips stay 64px. `@` file list has a filter field and hides dotfiles until you type them.
 - Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
 - Pin file cards: type badge (PDF/ZIP/…) + always-on remove. No artifact preview.
 - Pin body is a TipTap editor (saves markdown). Toolbar: bold, italic, heading, lists, code, quote.

@@ -1146,7 +1146,20 @@ body {
 .composer-pics {
   display: flex; gap: 8px; flex-wrap: wrap; padding: 0 2px 8px;
 }
-.composer-pic { animation: pop-in var(--motion-fast) var(--ease-out); }
+.composer-pic {
+  width: 64px; flex: none;
+  animation: pop-in var(--motion-fast) var(--ease-out);
+}
+.composer-pic .pin-att-face { width: 52px; height: 52px; }
+.composer-pic .pin-att-x { top: 4px; right: 4px; width: 18px; height: 18px; }
+.slash-filter {
+  display: block; width: 100%; box-sizing: border-box;
+  margin: 0 0 4px; padding: 7px 10px;
+  border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--text-primary);
+  font: inherit; font-size: 12.5px; outline: none;
+}
+.slash-filter::placeholder { color: var(--text-secondary); }
 .block-pics {
   display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 8px;
 }

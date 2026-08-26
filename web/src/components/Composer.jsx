@@ -145,6 +145,19 @@ export default function Composer({
     if (el && typeof el.selectionStart === "number") setCaret(el.selectionStart);
   }
 
+  function setAtQuery(q) {
+    const tok = atQuery(value, caret);
+    if (!tok) return;
+    const next = (value || "").slice(0, tok.start) + "@" + q + (value || "").slice(caret);
+    onChange(next);
+    const pos = tok.start + 1 + q.length;
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (el) { el.setSelectionRange(pos, pos); }
+      setCaret(pos);
+    });
+  }
+
   function pickAt(hit) {
     if (!hit) return;
     const next = insertAtPath(value, caret, hit.path);
@@ -404,6 +417,22 @@ export default function Composer({
               if (i >= 0) setAtIdx(i);
             }}
           >
+            <input
+              className="slash-filter"
+              placeholder="Filter files"
+              value={at ? at.query : ""}
+              onChange={(e) => setAtQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setAtIdx((i) => Math.max(0, i - 1)); return; }
+                if (e.key === "Tab" || e.key === "Enter") {
+                  e.preventDefault();
+                  if (atHits[atIdx]) pickAt(atHits[atIdx]);
+                  return;
+                }
+                if (e.key === "Escape") { e.preventDefault(); setAtHide(atKey); ta.current?.focus(); }
+              }}
+            />
             <Command.List>
               {atHits.length === 0 ? (
                 <div className="slash-empty">No files</div>

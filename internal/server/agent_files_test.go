@@ -21,6 +21,7 @@ func TestSearchAgentFilesTable(t *testing.T) {
 		}
 	}
 	mustWrite("README.md", "hi")
+	mustWrite(".gitignore", "*")
 	mustWrite("src/app.go", "pkg")
 	mustWrite("src/util.go", "pkg")
 	mustWrite("node_modules/left-pad/index.js", "nope")
@@ -36,7 +37,8 @@ func TestSearchAgentFilesTable(t *testing.T) {
 	}
 	rows := []row{
 		{name: "1 missing cwd", cwd: filepath.Join(root, "nope"), q: "", ok: false},
-		{name: "2 empty query top", cwd: root, q: "", ok: true, want: []string{"README.md"}, forbid: []string{"node_modules/left-pad/index.js", ".git/HEAD"}},
+		{name: "2 empty query top", cwd: root, q: "", ok: true, want: []string{"README.md"}, forbid: []string{"node_modules/left-pad/index.js", ".gitignore"}},
+		{name: "2b query shows hidden", cwd: root, q: ".gitignore", ok: true, want: []string{".gitignore"}},
 		{name: "3 match", cwd: root, q: "app", ok: true, want: []string{"src/app.go"}, forbid: []string{"README.md"}},
 		{name: "4 zero hits", cwd: root, q: "zzzz-nope", ok: true, want: []string{}},
 	}
