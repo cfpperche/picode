@@ -6,6 +6,7 @@ import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
+import ImageLightbox from "./ImageLightbox.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
 import { api } from "../lib/api.js";
@@ -53,6 +54,7 @@ export default function Composer({
   const [atHide, setAtHide] = useState("");
   const [pics, setPics] = useState([]);
   const [drag, setDrag] = useState(false);
+  const [preview, setPreview] = useState("");
   const hits = filterSlash(value, slashExtra);
   const at = hits.length ? null : atQuery(value, caret);
   const atKey = at ? "@" + at.query : "";
@@ -494,7 +496,9 @@ export default function Composer({
           <div className="composer-pics">
             {pics.map((p) => (
               <span key={p.id} className="pin-att composer-pic">
-                <span className="pin-att-face"><img src={p.url} alt="" /></span>
+                <button type="button" className="pin-att-face" title="View image" onClick={() => setPreview(p.url)}>
+                  <img src={p.url} alt="" />
+                </button>
                 <button type="button" className="pin-att-x" title="Remove image" onClick={() => dropPic(p.id)}><IconX size={12} /></button>
               </span>
             ))}
@@ -646,6 +650,7 @@ export default function Composer({
         </div>
         <ComposerStatus bar={statusBar} onCompact={onCompact} />
       </div>
+      <ImageLightbox src={preview} onClose={() => setPreview("")} />
     </div>
   );
 }

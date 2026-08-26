@@ -10,8 +10,10 @@ import { IconCopy } from "./Icons.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
+import ImageLightbox from "./ImageLightbox.jsx";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId }) {
+  const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
   return (
@@ -30,11 +32,12 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} />);
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} />);
           }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
       </div>
+      <ImageLightbox src={preview} onClose={() => setPreview("")} />
     </div>
   );
 }
@@ -62,7 +65,7 @@ function Loose({ it, items, onToggleFiles }) {
   return null;
 }
 
-function Turn({ turn, i, live, queued, onToggleTool, agentId }) {
+function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
@@ -85,7 +88,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId }) {
   const showWork = turn.work.length > 0 || live || queued;
   return (
     <div className="turn" id={"turn-" + i}>
-      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} /> : null}
+      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} /> : null}
       {showWork ? (
         <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
           <button type="button" className="work-head" onClick={() => !live && setUserOpen((v) => !v)}>
@@ -116,7 +119,7 @@ function Alert({ it }) {
   return <div className={"chat-alert " + (it.level || "error")}>{it.text}</div>;
 }
 
-function Block({ it, railId, agentId }) {
+function Block({ it, railId, agentId, onPreview }) {
   const user = it.cls === "user";
   const md = !user && it.cls !== "thinking";
   async function onRun(lang, code) {
@@ -133,7 +136,11 @@ function Block({ it, railId, agentId }) {
       <div className={"block-content" + (md ? " md" : "")}>
         {it.images && it.images.length ? (
           <div className="block-pics">
-            {it.images.map((src, i) => <img key={i} src={src} alt="" />)}
+            {it.images.map((src, i) => (
+              <button key={i} type="button" className="block-pic" onClick={() => onPreview && onPreview(src)} title="View image">
+                <img src={src} alt="" />
+              </button>
+            ))}
           </div>
         ) : null}
         {md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}

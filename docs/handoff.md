@@ -53,6 +53,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Composer image chip 64px; `@` list has a filter and hides dotfiles until typed.
 - **2026-08-26** — Composer paste/drop images (RPC `images[]`). Next: `!`.
 - **2026-08-26** — Composer `@` file picker (agent cwd). Next: images, then `!`.
 - **2026-08-26** — Roadmap: composer files then MCP (`docs/design/composer-mcp-roadmap.md`). Auth/llama parked.

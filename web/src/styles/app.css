@@ -1163,10 +1163,36 @@ body {
 .block-pics {
   display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 8px;
 }
-.block-pics img {
-  max-width: 180px; max-height: 140px; border-radius: 8px;
-  border: 1px solid var(--border); object-fit: cover;
+.block-pic {
+  padding: 0; border: 0; background: none; cursor: zoom-in;
 }
+.block-pics img, .block-pic img {
+  max-width: 180px; max-height: 140px; border-radius: 8px;
+  border: 1px solid var(--border); object-fit: cover; display: block;
+}
+.img-lite {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center;
+  padding: 28px;
+  background: color-mix(in srgb, #000 50%, transparent);
+  animation: fade-in var(--motion-fast) var(--ease-out);
+}
+.img-lite-card {
+  position: relative; max-width: min(92vw, 960px); max-height: 88vh;
+  animation: pop-in var(--motion-fast) var(--ease-out);
+}
+.img-lite-card img {
+  display: block; max-width: min(92vw, 960px); max-height: 88vh;
+  border-radius: 10px; box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+}
+.img-lite-x {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
+}
+.img-lite-x:hover { color: var(--danger); border-color: var(--danger); }
+.composer-pic .pin-att-face { cursor: zoom-in; }
 .composer {
   width: 100%; max-width: var(--chat-col); margin: 0 auto; position: relative;
   background: var(--bg-panel); border: 1px solid var(--border-strong);
