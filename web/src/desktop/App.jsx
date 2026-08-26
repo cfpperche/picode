@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "../lib/api.js";
+import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
@@ -391,6 +392,14 @@ export default function App() {
           };
         }));
         break;
+      case "bash_execution_update": {
+        const chunk = ev.delta || "";
+        if (!chunk) break;
+        setItems((cur) => cur.map((it) =>
+          it.kind === "bash" && it.status === "run" ? { ...it, output: (it.output || "") + chunk } : it));
+        queueMicrotask(scrollConv);
+        break;
+      }
       case "enqueue_accepted": {
         const text = pendingPayload.current;
         pendingPayload.current = "";
@@ -668,6 +677,45 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
+  async function runBash(command) {
+    if (!agent) return;
+    const itemId = "bash-" + Date.now();
+    try {
+      try {
+        await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
+      } catch { /* already running or start failed; the bash call will say */ }
+      if (!panelRef.current || panelRef.current.agentId !== agent.id || (panelRef.current.sock && panelRef.current.sock.readyState !== 1)) {
+        const loc = locate(workspaces, freeAgents, agent.id);
+        if (loc) connectPanel(loc);
+      }
+      setItems((cur) => [...cur, { kind: "bash", id: itemId, command, output: "", status: "run", ts: Date.now() }]);
+      setDraft("");
+      pendingPayload.current = "";
+      scrollToEnd();
+      const res = await api("/api/agents/" + agent.id + "/bash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+      setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId ? {
+        ...it,
+        output: res.output || it.output,
+        exit: res.exitCode,
+        status: res.cancelled ? "cancelled" : (res.exitCode === 0 ? "ok" : "err"),
+      } : it));
+    } catch (e) {
+      setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId
+        ? { ...it, status: "err", output: it.output || humanizeError(e.message || String(e)) } : it));
+    }
+  }
+
+  async function abortBash() {
+    if (!agent) return;
+    try {
+      await api("/api/agents/" + agent.id + "/bash/abort", { method: "POST" });
+    } catch { /* nothing running or already done */ }
+  }
+
   async function abortTurn() {
     if (!agent) return;
     try {
@@ -679,6 +727,15 @@ export default function App() {
     const payload = (typeof text === "string" ? text : draft).trim();
     const pics = images || [];
     if ((!payload && !pics.length) || !agent) return;
+    const bash = bashLine(payload);
+    if (bash && bash.refused) {
+      toast.info("!! runs without sending output — use the terminal for that.");
+      return;
+    }
+    if (bash && !pics.length) {
+      await runBash(bash.command);
+      return;
+    }
     try {
       try {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
@@ -865,6 +922,7 @@ export default function App() {
             }}
             statusBar={statusBar}
             onCompact={compactSession}
+            onAbortBash={abortBash}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

@@ -17,6 +17,17 @@ test("groups user / work / reply", () => {
   assert.equal(fmtElapsed(4000), "4s");
 });
 
+test("bash is a top-level loose item", () => {
+  const t = groupTurns([
+    { kind: "block", cls: "user", text: "hi", ts: 1000 },
+    { kind: "bash", id: "b1", command: "ls", output: "", status: "run" },
+    { kind: "block", cls: "", text: "done", ts: 2000 },
+  ]);
+  assert.equal(t.length, 3);
+  assert.equal(t[1].kind, "loose");
+  assert.equal(t[1].item.kind, "bash");
+});
+
 test("workingIndex ignores queued follow-up", () => {
   const turns = groupTurns([
     { kind: "block", cls: "user", text: "a" },

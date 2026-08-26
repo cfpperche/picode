@@ -89,7 +89,13 @@ Motion: chip + send stay on the composer (no job overlay).
 `deliver()` today sends `{message: payload}` only
 (`internal/rpc/runtime.go`). Images skip the task table.
 
-### A3 — `!` shell
+### A3 — `!` shell — **shipped**
+
+Presented as an inline conversation block (spinner → exit code, Stop
+→ RPC `abort_bash`) instead of a modal overlay: the output **is**
+conversation context, an overlay would hide it. `POST
+/api/agents/{id}/bash` + `/bash/abort`; fake rpc double covers it in
+tests.
 
 Line is `!cmd` or starts with `! ` → RPC `bash` in the agent cwd.
 Show output in the conversation (stream `bash_execution_update`).

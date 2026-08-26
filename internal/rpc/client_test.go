@@ -53,6 +53,17 @@ func fakeMain() {
 			_ = enc.Encode(map[string]any{
 				"id": id, "type": "response", "command": typ, "success": false, "error": "as requested",
 			})
+		case "bash":
+			cmd, _ := req["command"].(string)
+			_ = enc.Encode(map[string]any{"type": "bash_execution_update", "id": id, "delta": "fake: " + cmd + "\n"})
+			_ = enc.Encode(map[string]any{
+				"id": id, "type": "response", "command": "bash", "success": true,
+				"data": map[string]any{"output": "fake: " + cmd + "\n", "exitCode": 0, "cancelled": false, "truncated": false},
+			})
+		case "abort_bash":
+			_ = enc.Encode(map[string]any{
+				"id": id, "type": "response", "command": "abort_bash", "success": true,
+			})
 		case "die":
 			_ = enc.Encode(map[string]any{
 				"id": id, "type": "response", "command": typ, "success": true,

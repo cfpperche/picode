@@ -9,7 +9,7 @@ import ComposerStatus from "./ComposerStatus.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
-  composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact,
+  composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, onAbortBash,
 }) {
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert");
   const empty = !hasChat;
@@ -29,7 +29,7 @@ export default function ChatSurface({
             <p>Ask anything in this project, or type / for commands.</p>
           </div>
         ) : null}
-        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} />
+        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} onAbortBash={onAbortBash} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className="composer-wrap">

@@ -7,12 +7,13 @@ import "katex/dist/katex.min.css";
 import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
+import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -21,7 +22,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
       <div className="conv-col">
         {turns.reduce((acc, t, i) => {
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} />);
           } else {
             const n = acc.n++;
             const live = i === busy;
@@ -32,8 +33,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} />);
-          }
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} />);          }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
       </div>
@@ -42,9 +42,12 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
   );
 }
 
-function Loose({ it, items, onToggleFiles }) {
+function Loose({ it, items, onToggleFiles, onAbortBash }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
+  }
+  if (it.kind === "bash") {
+    return <BashBlock it={it} onAbort={onAbortBash} />;
   }
   if (it.kind === "files") {
     const i = items.indexOf(it);
@@ -63,6 +66,27 @@ function Loose({ it, items, onToggleFiles }) {
     );
   }
   return null;
+}
+
+function BashBlock({ it, onAbort }) {
+  const running = it.status === "run";
+  return (
+    <div className={"bash-block " + (it.status || "")}>
+      <div className="bash-head">
+        <span className="bash-mark" aria-hidden="true">
+          {running ? <PiSpinner title="Running" /> : it.status === "ok" ? "✓" : it.status === "cancelled" ? "⊘" : "✗"}
+        </span>
+        <code className="bash-cmd">$ {it.command}</code>
+        {it.exit != null && !running ? <span className="bash-exit">exit {it.exit}</span> : null}
+        {running && onAbort ? (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onAbort}>Stop</button>
+        ) : it.output ? (
+          <CopyBtn text={it.output} />
+        ) : null}
+      </div>
+      {it.output ? <pre className="bash-out">{it.output}</pre> : running ? <pre className="bash-out bash-pending">…</pre> : null}
+    </div>
+  );
 }
 
 function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview }) {

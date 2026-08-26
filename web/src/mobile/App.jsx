@@ -7,6 +7,7 @@ import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
 import Conversation from "../components/Conversation.jsx";
 import Composer from "../components/Composer.jsx";
+import { bashLine } from "../lib/bashLine.js";
 import TerminalDock from "../components/TerminalDock.jsx";
 import { closeTerm } from "../components/TerminalDock.jsx";
 import ShareDrawer from "../components/ShareDrawer.jsx";
@@ -192,6 +193,32 @@ export default function MobileApp() {
     const payload = (typeof text === "string" ? text : draft).trim();
     const pics = images || [];
     if ((!payload && !pics.length) || !selected?.agent) return;
+    const bash = bashLine(payload);
+    if (bash && bash.refused) {
+      toast.info("!! runs without sending output — use the terminal for that.");
+      return;
+    }
+    if (bash && !pics.length) {
+      const itemId = "bash-" + Date.now();
+      try {
+        try { await api("/api/agents/" + selected.agent.id + "/managed/start", { method: "POST" }); } catch { /* already */ }
+        setItems((cur) => [...cur, { kind: "bash", id: itemId, command: bash.command, output: "", status: "run" }]);
+        setDraft("");
+        const res = await api("/api/agents/" + selected.agent.id + "/bash", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command: bash.command }),
+        });
+        setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId ? {
+          ...it, output: res.output || it.output, exit: res.exitCode,
+          status: res.cancelled ? "cancelled" : (res.exitCode === 0 ? "ok" : "err"),
+        } : it));
+      } catch (e) {
+        toastError(e);
+        setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId ? { ...it, status: "err" } : it));
+      }
+      return;
+    }
     try {
       try { await api("/api/agents/" + selected.agent.id + "/managed/start", { method: "POST" }); } catch { /* already */ }
       if (pics.length) {

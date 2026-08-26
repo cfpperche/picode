@@ -330,6 +330,19 @@ func (ma *ManagedAgent) GetState(ctx context.Context) (Response, error) {
 	return ma.client.Send(ctx, Command{Type: "get_state"})
 }
 
+// SendBash runs a shell command in the agent cwd (RPC bash). Output
+// streams as bash_execution_update events; the response carries the
+// final result. The next prompt folds it into context (pi behavior).
+func (ma *ManagedAgent) SendBash(ctx context.Context, command string) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "bash", Body: map[string]any{"command": command}})
+}
+
+// AbortBash stops a running direct bash command (RPC abort_bash).
+func (ma *ManagedAgent) AbortBash(ctx context.Context) error {
+	_, err := ma.client.Send(ctx, Command{Type: "abort_bash"})
+	return err
+}
+
 // SendPrompt delivers a one-off prompt outside the queue (UI "send now").
 func (ma *ManagedAgent) SendPrompt(message string) error {
 	return ma.SendTurn("prompt", message, nil)

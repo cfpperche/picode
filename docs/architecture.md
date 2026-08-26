@@ -37,6 +37,7 @@ stay on their own routes.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
+`!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,

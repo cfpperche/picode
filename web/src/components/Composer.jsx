@@ -549,7 +549,7 @@ export default function Composer({
             id="task-input"
             ref={ta}
             rows={2}
-            placeholder="Message the agent, / for commands, or @ a file"
+            placeholder="Message the agent — / commands, @ files, ! shell"
             value={value}
             onChange={(e) => { histTyped(hist.current); onChange(e.target.value); markCaret(e.target); }}
             onSelect={(e) => markCaret(e.target)}

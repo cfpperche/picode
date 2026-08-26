@@ -31,10 +31,9 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Next up
 
-1. Composer A3 `!` shell. A1 `@`, A2 images, and the toolbar attach picker shipped. Plan: `docs/design/composer-mcp-roadmap.md`.
-2. MCP manager after A **and** adapter write-format is decided (same doc, track B).
-3. Voice V1 dogfood (owner, Chrome Windows mic).
-4. Auth / llama.cpp / Radius — discuss after A+B. Backup V2 when asked.
+1. MCP manager (track B): gate on the installed adapter's write format. Track A (`@`, images, attach picker, `!`) shipped. Plan: `docs/design/composer-mcp-roadmap.md`.
+2. Voice V1 dogfood (owner, Chrome Windows mic).
+3. Auth / llama.cpp / Radius — discuss after B. Backup V2 when asked.
 
 ## Backlog
 
@@ -53,6 +52,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Composer `!cmd`: RPC bash in the agent folder, inline block + Stop. Track A done.
 - **2026-08-26** — Toolbar clip attaches workspace files (image → chip, else `@path`); reads stay inside the folder.
 - **2026-08-26** — Click a composer/chat thumbnail to preview the image.
 - **2026-08-26** — Composer image chip 64px; `@` list has a filter and hides dotfiles until typed.
