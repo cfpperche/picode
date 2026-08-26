@@ -28,6 +28,8 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 		cur := ""
 		if agent.SessionPath != nil {
 			cur = *agent.SessionPath
+		} else if len(list) > 0 {
+			cur = list[0].Path
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"sessions": list, "current": cur})
 	}

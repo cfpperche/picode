@@ -129,7 +129,7 @@ export default function App() {
     return list;
   }, []);
 
-  const loadSessions = useCallback(async (wsId) => {
+  const loadSessions = useCallback(async (wsId, opts) => {
     const loc = locate(workspaces, freeAgents, selectedId);
     const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setSessions([]); setSessionCurrent(""); return; }
@@ -137,7 +137,8 @@ export default function App() {
       const q = selectedId ? "?agent=" + encodeURIComponent(selectedId) : "";
       const data = await api("/api/workspaces/" + id + "/sessions" + q);
       setSessions(data.sessions || []);
-      const cur = data.current || ((data.sessions || [])[0] && (data.sessions || [])[0].path) || "";
+      const newest = (data.sessions || [])[0] && (data.sessions || [])[0].path;
+      const cur = (opts && opts.preferNewest && newest) ? newest : (data.current || "");
       setSessionCurrent(cur);
       if (!cur) {
         setItems([]);
@@ -301,6 +302,7 @@ export default function App() {
           setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
         }
         if (selectedId) loadStatus(selectedId);
+        loadSessions(undefined, { preferNewest: true });
         break;
       }
       case "message_update": {
@@ -362,7 +364,7 @@ export default function App() {
         break;
       case "message_end": {
         const m = ev.message || {};
-        if (m.role === "assistant") {
+        if (m.role === "assistant" || Array.isArray(m.content)) {
           setItems((cur) => mergeAssistant(cur, m));
           queueMicrotask(scrollConv);
         }
@@ -377,8 +379,33 @@ export default function App() {
         }
         break;
       }
-      case "turn_end":
-      case "agent_end":
+      case "turn_end": {
+        const m = ev.message || {};
+        if (m.role === "assistant" || Array.isArray(m.content)) {
+          setItems((cur) => mergeAssistant(cur, m));
+          queueMicrotask(scrollConv);
+        }
+        const te = alertFromPi(ev);
+        if (te) {
+          setItems((cur) => [...cur, { kind: "alert", level: te.level, text: te.text, ts: Date.now() }]);
+          if (te.level === "error") { setStreaming(false); toastError(te.text); }
+        }
+        break;
+      }
+      case "agent_end": {
+        for (const m of ev.messages || []) {
+          if (m && (m.role === "assistant" || Array.isArray(m.content))) {
+            setItems((cur) => mergeAssistant(cur, m));
+          }
+        }
+        const ae = alertFromPi(ev);
+        if (ae) {
+          setItems((cur) => [...cur, { kind: "alert", level: ae.level, text: ae.text, ts: Date.now() }]);
+          if (ae.level === "error" && !ev.willRetry) { setStreaming(false); toastError(ae.text); }
+        }
+        queueMicrotask(scrollConv);
+        break;
+      }
       case "auto_retry_start":
       case "auto_retry_end":
       case "compaction_end":
