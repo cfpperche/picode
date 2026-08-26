@@ -95,16 +95,28 @@ body {
   background: var(--accent); opacity: .45;
 }
 .brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 0 14px; min-height: 44px;
+  border-bottom: 1px solid var(--border);
 }
-.brand-qr {
-  margin-left: auto; border: none; background: transparent;
-  color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 6px;
+.brand-title {
+  display: flex; align-items: baseline; gap: 8px; min-width: 0;
 }
-.brand-qr:hover { color: var(--text-primary); background: var(--bg-hover); }
-.brand-name { font-weight: 650; letter-spacing: .2px; }
-.brand-ver { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
+.brand-name { font-weight: 650; letter-spacing: .2px; white-space: nowrap; }
+.brand-ver { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); flex: none; }
+.brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
+.brand-tab {
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 550;
+  color: var(--text-secondary);
+  padding: 0 10px; height: 100%;
+  border-bottom: 2px solid transparent;
+}
+.brand-tab:hover { color: var(--text-primary); }
+.brand-tab[aria-selected="true"] {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
 
 .side-section { flex: 1; overflow-y: auto; padding: 10px 8px; }
 .tree-row {

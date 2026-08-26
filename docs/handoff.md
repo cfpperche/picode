@@ -26,7 +26,7 @@ What exists:
 
 ## In flight
 
-Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
+Sidebar chrome: Agents / Pins tabs shipped. Pin editor (Tachyon-inspired rich form) is **next**. llama.cpp depth is backlog.
 
 ## Next up
 
@@ -51,6 +51,7 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Recent activity
 
+- **2026-08-26** — Sidebar tabs Agents / Pins. QR → user menu. Pin form next.
 - **2026-08-26** — Conversation polish: blockquotes + ```diff``` hunks. Images + Mermaid + KaTeX + tables.
 - **2026-08-26** — Source **Run** (bash/python/js/go) in the agent cwd. Not a browser sandbox.
 - **2026-08-26** — Conversation source renderer (fenced code: lang + copy + highlight).

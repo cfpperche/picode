@@ -1,7 +1,7 @@
 import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconQR, IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin } from "./Icons.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine } from "../lib/repoLine.js";
@@ -12,6 +12,7 @@ import PiSpinner from "./PiSpinner.jsx";
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
 const SIDE_KEY = "picode-sidebar-w";
+const TAB_KEY = "picode-side-tab";
 
 export default function Sidebar({
   version, workspaces, selectedId,
@@ -26,6 +27,14 @@ export default function Sidebar({
   });
   const [resizing, setResizing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [tab, setTab] = useState(() => {
+    try { return localStorage.getItem(TAB_KEY) === "pins" ? "pins" : "agents"; }
+    catch { return "agents"; }
+  });
+  function selectTab(next) {
+    setTab(next);
+    try { localStorage.setItem(TAB_KEY, next); } catch { /* ignore */ }
+  }
   const [openWs, setOpenWs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("picode-ws-open") || "{}"); }
     catch { return {}; }
@@ -101,13 +110,26 @@ export default function Sidebar({
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
-        <span className="brand-name">PiCode</span>
-        <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
-        <button type="button" id="btn-share" className="brand-qr" title="Open on phone" onClick={() => setShareOpen(true)}>
-          <IconQR />
-        </button>
+        <span className="brand-title">
+          <span className="brand-name">PiCode</span>
+          <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
+        </span>
+        <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} onClick={() => selectTab("agents")}>Agents</button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} onClick={() => selectTab("pins")}>Pins</button>
+        </nav>
       </header>
 
+      {tab === "pins" ? (
+        <div className="side-section">
+          <div className="side-head tree-row">
+            <span className="tree-spc" aria-hidden="true" />
+            <span className="tree-icon"><IconPin size={16} /></span>
+            <span className="side-title">Pins</span>
+          </div>
+          <p className="side-empty">No pins</p>
+        </div>
+      ) : (
       <div className="side-section">
         <div className="side-head tree-row" onClick={() => toggleWs("sec-agents")}>
           <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
@@ -158,9 +180,10 @@ export default function Sidebar({
         )
         ) : null}
       </div>
+      )}
 
       <footer className="side-foot">
-        <UserMenu {...userMenu} />
+        <UserMenu {...userMenu} onShare={() => setShareOpen(true)} />
       </footer>
       <div id="sidebar-sizer" className="sidebar-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />

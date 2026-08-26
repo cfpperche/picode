@@ -21,6 +21,7 @@ import {
   Minimize2,
   Monitor,
   Moon,
+  Pin,
   Play,
   Plus,
   QrCode,
@@ -78,3 +79,4 @@ export const IconExpand = lucide(Maximize2, 14);
 export const IconCollapse = lucide(Minimize2, 14);
 export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
+export const IconPin = lucide(Pin, 13);
