@@ -9,6 +9,7 @@ import VoiceMeter from "./VoiceMeter.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
 import { api } from "../lib/api.js";
+import { sniffImage, readImage, MAX_IMAGES } from "../lib/composerImage.js";
 import { filterSlash } from "../lib/slash.js";
 import { atQuery, insertAtPath } from "../lib/atMention.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
@@ -50,6 +51,8 @@ export default function Composer({
   const [atOk, setAtOk] = useState(false);
   const [atIdx, setAtIdx] = useState(0);
   const [atHide, setAtHide] = useState("");
+  const [pics, setPics] = useState([]);
+  const [drag, setDrag] = useState(false);
   const hits = filterSlash(value, slashExtra);
   const at = hits.length ? null : atQuery(value, caret);
   const atKey = at ? "@" + at.query : "";
@@ -157,6 +160,34 @@ export default function Composer({
     });
   }
 
+  async function addPics(files) {
+    const incoming = [...(files || [])].filter(Boolean);
+    if (!incoming.length) return;
+    const next = pics.slice();
+    for (const f of incoming) {
+      if (!sniffImage(f)) continue;
+      if (next.length >= MAX_IMAGES) { toast.error("Up to 4 images."); break; }
+      try {
+        const im = await readImage(f);
+        next.push({ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + next.length, ...im });
+      } catch (err) {
+        if (err && err.message === "too-large") toast.error("Each image must be under 4 MB.");
+      }
+    }
+    setPics(next);
+  }
+
+  function dropPic(id) {
+    setPics((cur) => cur.filter((p) => p.id !== id));
+  }
+
+  function fireSend(text) {
+    const body = text == null ? value : text;
+    histPush(hist.current, body || "");
+    if (onSend) onSend(body, pics);
+    setPics([]);
+  }
+
   function pickSlash(cmd) {
     if (!cmd) return;
     if (cmd.run === "insert") {
@@ -254,8 +285,7 @@ export default function Composer({
             const text = finals.current.trim();
             finals.current = "";
             setCaption("");
-            histPush(hist.current, text);
-            onSend(text);
+            fireSend(text);
           }
           if (wantListen.current && rec.current && my === gen.current) {
             try { rec.current.start(); setListening(true); } catch { /* restart race */ }
@@ -335,8 +365,24 @@ export default function Composer({
 
 
   return (
-    <div className={"composer-wrap" + (expanded ? " expanded" : "") + (voice ? " voice" : "")}>
-      <div className="composer" onClick={(e) => { if (e.target === e.currentTarget) ta.current?.focus(); }}>
+    <div className={"composer-wrap" + (expanded ? " expanded" : "") + (voice ? " voice" : "") + (drag ? " drop" : "")}>
+      <div
+        className="composer"
+        onClick={(e) => { if (e.target === e.currentTarget) ta.current?.focus(); }}
+        onPaste={(e) => {
+          const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+          if (!files.some(sniffImage)) return;
+          e.preventDefault();
+          addPics(files);
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          addPics([...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]);
+        }}
+      >
         <button
           type="button"
           className="composer-expand"
@@ -415,6 +461,16 @@ export default function Composer({
           </Command>
         )}
         {sessionBar ? <div className="composer-tools">{sessionBar}</div> : null}
+        {pics.length ? (
+          <div className="composer-pics">
+            {pics.map((p) => (
+              <span key={p.id} className="pin-att composer-pic">
+                <span className="pin-att-face"><img src={p.url} alt="" /></span>
+                <button type="button" className="pin-att-x" title="Remove image" onClick={() => dropPic(p.id)}><IconX size={12} /></button>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {voice ? (
           <div className="composer-voice-body">
             <p className={"composer-voice-caption" + (caption ? "" : " placeholder")}>
@@ -463,8 +519,7 @@ export default function Composer({
               }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                histPush(hist.current, value);
-                onSend();
+                fireSend();
               }
             }}
           />
@@ -552,7 +607,7 @@ export default function Composer({
                     <IconStop size={16} />
                   </button>
                 ) : (
-                  <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!value || !value.trim()} onClick={() => { histPush(hist.current, value); onSend(); }}>
+                  <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!(value && value.trim()) && !pics.length} onClick={() => fireSend()}>
                     <IconSend size={16} />
                   </button>
                 )}

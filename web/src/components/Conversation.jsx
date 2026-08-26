@@ -131,6 +131,11 @@ function Block({ it, railId, agentId }) {
     <div className={"block " + (it.cls || "")} data-rail={railId || undefined}>
       {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
       <div className={"block-content" + (md ? " md" : "")}>
+        {it.images && it.images.length ? (
+          <div className="block-pics">
+            {it.images.map((src, i) => <img key={i} src={src} alt="" />)}
+          </div>
+        ) : null}
         {md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
       </div>
     </div>

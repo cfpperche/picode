@@ -63,7 +63,7 @@ the model; the agent `read`s it.
 **UI:** cmdk popover above the textarea (same family as `/`). Not a
 full-page picker.
 
-### A2 — Images on send
+### A2 — Images on send — **shipped**
 
 Paste or drop an image on the composer. Chip under the textarea.
 Send → RPC `prompt` / `steer` / `follow_up` with `images: [{type, data, mimeType}]`

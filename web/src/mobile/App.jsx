@@ -188,18 +188,27 @@ export default function MobileApp() {
     } catch (e) { toastError(e); }
   }
 
-  async function sendTask() {
-    const payload = draft.trim();
-    if (!payload || !selected?.agent) return;
+  async function sendTask(text, images) {
+    const payload = (typeof text === "string" ? text : draft).trim();
+    const pics = images || [];
+    if ((!payload && !pics.length) || !selected?.agent) return;
     try {
-      await api("/api/agents/" + selected.agent.id + "/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, payload, source: "user" }),
-      });
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload }]);
+      try { await api("/api/agents/" + selected.agent.id + "/managed/start", { method: "POST" }); } catch { /* already */ }
+      if (pics.length) {
+        await api("/api/agents/" + selected.agent.id + "/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, message: payload, images: pics.map((p) => ({ mimeType: p.mime, data: p.data })) }),
+        });
+      } else {
+        await api("/api/agents/" + selected.agent.id + "/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, payload, source: "user" }),
+        });
+      }
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, images: pics.map((p) => p.url) }]);
       setDraft("");
-      if (selected.agent.mode !== "managed") await startManaged(selected.id);
     } catch (e) { toastError(e); }
   }
 

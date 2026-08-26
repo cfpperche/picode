@@ -332,9 +332,31 @@ func (ma *ManagedAgent) GetState(ctx context.Context) (Response, error) {
 
 // SendPrompt delivers a one-off prompt outside the queue (UI "send now").
 func (ma *ManagedAgent) SendPrompt(message string) error {
+	return ma.SendTurn("prompt", message, nil)
+}
+
+// SendTurn sends prompt/steer/follow_up, optionally with images.
+// Images go on the live RPC call — they are not stored in the task table.
+func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) error {
+	switch kind {
+	case store.TaskSteer, store.TaskFollowUp:
+	default:
+		kind = store.TaskPrompt
+	}
+	select {
+	case <-ma.settledChannel():
+	case <-ma.done:
+		return fmt.Errorf("agent stopped")
+	case <-time.After(10 * time.Minute):
+		return fmt.Errorf("timed out waiting for agent to settle")
+	}
+	body := map[string]any{"message": message}
+	if len(images) > 0 {
+		body["images"] = images
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	_, err := ma.client.Send(ctx, Command{Type: "prompt", Body: map[string]any{"message": message}})
+	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
 	return err
 }
 

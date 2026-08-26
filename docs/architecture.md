@@ -36,6 +36,7 @@ stay on their own routes.
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
+Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,

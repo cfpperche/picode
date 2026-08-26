@@ -675,9 +675,10 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
-  async function sendTask(text) {
+  async function sendTask(text, images) {
     const payload = (typeof text === "string" ? text : draft).trim();
-    if (!payload || !agent) return;
+    const pics = images || [];
+    if ((!payload && !pics.length) || !agent) return;
     try {
       try {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
@@ -686,12 +687,24 @@ export default function App() {
         const loc = locate(workspaces, freeAgents, agent.id);
         if (loc) connectPanel(loc);
       }
-      await api("/api/agents/" + agent.id + "/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, payload, source: "user" }),
-      });
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, ts: Date.now() }]);
+      if (pics.length) {
+        await api("/api/agents/" + agent.id + "/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind,
+            message: payload,
+            images: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
+          }),
+        });
+      } else {
+        await api("/api/agents/" + agent.id + "/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, payload, source: "user" }),
+        });
+      }
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, images: pics.map((p) => p.url), ts: Date.now() }]);
       setDraft("");
       pendingPayload.current = "";
       scrollToEnd();

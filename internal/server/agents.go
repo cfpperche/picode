@@ -27,6 +27,7 @@ func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/command", handleAgentCommand(deps))
 	mux.HandleFunc("POST /api/agents/{id}/compact", handleAgentCompact(deps))
 	mux.HandleFunc("POST /api/agents/{id}/abort", handleAgentAbort(deps))
+	mux.HandleFunc("POST /api/agents/{id}/prompt", handleAgentPrompt(deps))
 }
 
 // agentRunMode reports how an agent is currently running.
