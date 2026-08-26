@@ -229,6 +229,184 @@ func TestCleanupRejectsFreeWorkspaceDelete(t *testing.T) {
 	}
 }
 
+func decodeAgent(t *testing.T, res *http.Response) agentView {
+	t.Helper()
+	var a agentView
+	if err := json.NewDecoder(res.Body).Decode(&a); err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+func decodeWorkspace(t *testing.T, res *http.Response) workspaceView {
+	t.Helper()
+	var w workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&w); err != nil {
+		t.Fatal(err)
+	}
+	return w
+}
+
+func getCleanup(t *testing.T, ts *httptest.Server, path string) cleanupPreview {
+	t.Helper()
+	res := do(t, ts.Client(), mustGet(t, ts.URL+path))
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("GET %s = %d %s", path, res.StatusCode, body)
+	}
+	var p cleanupPreview
+	if err := json.NewDecoder(res.Body).Decode(&p); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func del(t *testing.T, ts *httptest.Server, path string) {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+path, nil)
+	res := do(t, ts.Client(), req)
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("DELETE %s = %d %s", path, res.StatusCode, body)
+	}
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func TestCleanupMatrix(t *testing.T) {
+	ts, dataDir, _ := cleanupServer(t)
+
+	t.Run("sibling workspace agent is not last occupant", func(t *testing.T) {
+		proj := t.TempDir()
+		wk := decodeWorkspace(t, postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Sibs", "path": proj}))
+		sib := decodeAgent(t, postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"name": "review"}))
+		sess := writeSession(t, proj)
+		p := getCleanup(t, ts, "/api/agents/"+sib.ID+"/cleanup")
+		if p.LastOccupant || p.CanPurgeWork {
+			t.Fatalf("preview = %+v", p)
+		}
+		del(t, ts, "/api/agents/"+sib.ID+"?sessions=1&work=1")
+		if !exists(sess) {
+			t.Fatal("sibling delete purged shared sessions")
+		}
+		if !exists(proj) {
+			t.Fatal("project folder gone")
+		}
+		del(t, ts, "/api/workspaces/"+wk.ID)
+	})
+
+	t.Run("last workspace agent offers sessions not work", func(t *testing.T) {
+		proj := t.TempDir()
+		wk := decodeWorkspace(t, postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Solo", "path": proj}))
+		sess := writeSession(t, proj)
+		p := getCleanup(t, ts, "/api/agents/"+wk.Agent.ID+"/cleanup")
+		if !p.LastOccupant || p.CanPurgeWork || p.Sessions != 1 {
+			t.Fatalf("preview = %+v", p)
+		}
+		del(t, ts, "/api/agents/"+wk.Agent.ID+"?sessions=1&work=1")
+		if exists(sess) {
+			t.Fatal("sessions should be gone")
+		}
+		if !exists(proj) {
+			t.Fatal("project folder deleted via work=1")
+		}
+		del(t, ts, "/api/workspaces/"+wk.ID)
+	})
+
+	t.Run("workspace with two agents is last occupant together", func(t *testing.T) {
+		proj := t.TempDir()
+		wk := decodeWorkspace(t, postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Both", "path": proj}))
+		_ = decodeAgent(t, postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"name": "review"}))
+		writeSession(t, proj)
+		p := getCleanup(t, ts, "/api/workspaces/"+wk.ID+"/cleanup")
+		if !p.LastOccupant || p.CanPurgeWork || p.Sessions != 1 {
+			t.Fatalf("preview = %+v", p)
+		}
+		del(t, ts, "/api/workspaces/"+wk.ID+"?sessions=1&work=1")
+		if exists(session.Dir(proj)) {
+			t.Fatal("sessions should be gone")
+		}
+		if !exists(proj) {
+			t.Fatal("project folder deleted")
+		}
+	})
+
+	t.Run("free agent sessions=1 keeps work folder", func(t *testing.T) {
+		ag := decodeAgent(t, postJSON(t, ts, "/api/agents", map[string]string{"name": "keep-work"}))
+		work := *ag.WorkPath
+		if !ownedByWork(filepath.Join(dataDir, "work"), work) {
+			t.Fatalf("work = %s", work)
+		}
+		sess := writeSession(t, work)
+		del(t, ts, "/api/agents/"+ag.ID+"?sessions=1")
+		if exists(sess) {
+			t.Fatal("sessions should be gone")
+		}
+		if !exists(work) {
+			t.Fatal("work folder deleted without work=1")
+		}
+	})
+
+	t.Run("free agent work=1 keeps sessions", func(t *testing.T) {
+		ag := decodeAgent(t, postJSON(t, ts, "/api/agents", map[string]string{"name": "keep-sess"}))
+		work := *ag.WorkPath
+		sess := writeSession(t, work)
+		del(t, ts, "/api/agents/"+ag.ID+"?work=1")
+		if exists(work) {
+			t.Fatal("work folder should be gone")
+		}
+		if !exists(sess) {
+			t.Fatal("sessions deleted without sessions=1")
+		}
+	})
+
+	t.Run("free agent no flags keeps both", func(t *testing.T) {
+		ag := decodeAgent(t, postJSON(t, ts, "/api/agents", map[string]string{"name": "keep-both"}))
+		work := *ag.WorkPath
+		sess := writeSession(t, work)
+		del(t, ts, "/api/agents/"+ag.ID)
+		if !exists(work) || !exists(sess) {
+			t.Fatal("default delete must not purge")
+		}
+	})
+
+	t.Run("no sessions preview is empty", func(t *testing.T) {
+		ag := decodeAgent(t, postJSON(t, ts, "/api/agents", map[string]string{"name": "empty"}))
+		p := getCleanup(t, ts, "/api/agents/"+ag.ID+"/cleanup")
+		if p.Sessions != 0 || !p.LastOccupant || !p.CanPurgeWork {
+			t.Fatalf("preview = %+v", p)
+		}
+		del(t, ts, "/api/agents/"+ag.ID)
+	})
+}
+
+func TestPinDeleteRemovesDir(t *testing.T) {
+	ts, dataDir, _ := cleanupServer(t)
+	res := postJSON(t, ts, "/api/pins", map[string]any{"title": "Tmp", "tags": []string{}, "body": ""})
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("create pin = %d %s", res.StatusCode, body)
+	}
+	var pin store.Pin
+	if err := json.NewDecoder(res.Body).Decode(&pin); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(dataDir, "pins", pin.ID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	del(t, ts, "/api/pins/"+pin.ID)
+	if exists(dir) {
+		t.Fatal("pin dir left behind")
+	}
+}
+
 func TestOwnedByWork(t *testing.T) {
 	root := t.TempDir()
 	child := filepath.Join(root, "a")
