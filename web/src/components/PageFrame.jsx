@@ -9,12 +9,12 @@ export default function PageFrame({ id, title, context, children, hidden, wide }
             <IconBack />
             Back
           </a>
-          <div className="settings-head-text">
-            <h2>{title}</h2>
-            {context ? <p className="settings-head-ctx" title={context}>{context}</p> : null}
-          </div>
+          <h2>{title}</h2>
         </header>
-        <div className="settings-card">{children}</div>
+        <div className="settings-card">
+          {context ? <p className="settings-ctx" title={context}>{context}</p> : null}
+          {children}
+        </div>
       </div>
     </section>
   );

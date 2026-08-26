@@ -5,7 +5,7 @@ Pi does not speak MCP itself. PiCode writes the files the **MCP adapter** packag
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
-2. `#/mcps` → Add a server (command or URL). The title shows which agent; the pills use that name.
+2. `#/mcps` → Add a server (command or URL). The card shows which agent; the pills use that name.
 3. Restart the agent.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
