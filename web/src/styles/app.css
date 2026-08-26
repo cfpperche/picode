@@ -106,10 +106,10 @@ body {
 .brand-ver { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); flex: none; }
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tab {
+  display: grid; place-items: center;
+  width: 36px; height: 100%; padding: 0;
   border: 0; background: none; cursor: pointer;
-  font: inherit; font-size: 12px; font-weight: 550;
   color: var(--text-secondary);
-  padding: 0 10px; height: 100%;
   border-bottom: 2px solid transparent;
 }
 .brand-tab:hover { color: var(--text-primary); }

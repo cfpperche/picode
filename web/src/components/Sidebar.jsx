@@ -115,8 +115,8 @@ export default function Sidebar({
           <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
         </span>
         <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} onClick={() => selectTab("agents")}>Agents</button>
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} onClick={() => selectTab("pins")}>Pins</button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
       </header>
 
