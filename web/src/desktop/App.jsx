@@ -411,11 +411,6 @@ export default function App() {
         break;
       }
       case "agent_end": {
-        for (const m of ev.messages || []) {
-          if (m && (m.role === "assistant" || Array.isArray(m.content))) {
-            setItems((cur) => mergeAssistant(cur, m));
-          }
-        }
         const ae = alertFromPi(ev);
         if (ae) {
           setItems((cur) => [...cur, { kind: "alert", level: ae.level, text: ae.text, ts: Date.now() }]);

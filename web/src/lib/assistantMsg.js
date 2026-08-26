@@ -14,27 +14,41 @@ export function blocksFromMessage(m) {
   return out;
 }
 
+function lastUserIndex(items) {
+  for (let k = (items || []).length - 1; k >= 0; k--) {
+    if (items[k] && items[k].kind === "block" && items[k].cls === "user") return k;
+  }
+  return -1;
+}
+
+function findInTurn(items, userAt, cls, actor) {
+  for (let k = items.length - 1; k > userAt; k--) {
+    const x = items[k];
+    if (x && x.kind === "block" && x.cls === cls && x.actor === actor) return k;
+  }
+  return -1;
+}
+
+function preferText(have, next) {
+  if (!have) return next;
+  if (!next) return have;
+  if (have === next) return have;
+  if (next.startsWith(have) || have.startsWith(next)) return next.length >= have.length ? next : have;
+  return next;
+}
+
 export function mergeAssistant(cur, m) {
   const blocks = blocksFromMessage(m);
   if (!blocks.length) return cur || [];
   const next = (cur || []).slice();
+  const userAt = lastUserIndex(next);
   for (const b of blocks) {
-    let i = -1;
-    for (let k = next.length - 1; k >= 0; k--) {
-      const x = next[k];
-      if (x && x.kind === "block" && x.cls === b.cls && x.actor === b.actor) {
-        i = k;
-        break;
-      }
-      if (x && x.kind === "block" && x.cls === "user") break;
-    }
+    const i = findInTurn(next, userAt, b.cls, b.actor);
     if (i >= 0) {
       const have = String(next[i].text || "");
-      if (have === b.text) continue;
-      if (b.text.startsWith(have)) {
-        next[i] = { ...next[i], text: b.text };
-        continue;
-      }
+      const text = preferText(have, b.text);
+      if (text !== have) next[i] = { ...next[i], text };
+      continue;
     }
     next.push({ ...b, ts: Date.now() });
   }
