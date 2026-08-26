@@ -19,6 +19,7 @@
   --radius-ctl: 8px;
   --radius-panel: 12px;
   --ctl-h: 36px;
+  --chrome-h: 40px;
   --chat-col: 768px;
   --chat-gutter: 24px;
 }
@@ -96,7 +97,8 @@ body {
 }
 .brand {
   display: flex; align-items: center; gap: 8px;
-  padding: 0 8px 0 14px; min-height: 44px;
+  padding: 0 8px 0 14px;
+  height: var(--chrome-h); min-height: var(--chrome-h);
   border-bottom: 1px solid var(--border);
 }
 .brand-title {
@@ -579,7 +581,8 @@ body {
 
 /* ============ agent tabs (IDE-style, top of main) ============ */
 .main-tabs {
-  display: flex; flex: none; min-height: 34px;
+  display: flex; flex: none;
+  height: var(--chrome-h); min-height: var(--chrome-h);
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
 }
 .tab-strip { display: flex; align-items: stretch; padding: 0 4px; overflow-x: auto; flex: 1; min-width: 0; }
