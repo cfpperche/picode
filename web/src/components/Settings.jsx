@@ -193,15 +193,9 @@ function BackupSection({ hidden }) {
   async function runNow() {
     if (!cfg.dir || job) return;
     const steps = backupSteps(cfg);
-    setJob({ steps, dest: cfg.dir, step: 0, error: "", done: false });
+    setJob({ kind: "backup", steps, dest: cfg.dir, step: 0, error: "", done: false });
     setBusy(true);
-    const tick = setInterval(() => {
-      setJob((j) => {
-        if (!j || j.error || j.done) return j;
-        if (j.step < j.steps.length - 1) return { ...j, step: j.step + 1 };
-        return j;
-      });
-    }, 480);
+    const tick = startJobTick(setJob);
     try {
       await api("/api/backup/now", { method: "POST" });
       setJob((j) => j && { ...j, step: steps.length, done: true });
@@ -246,17 +240,24 @@ function BackupSection({ hidden }) {
       confirmLabel: "Restore",
       danger: true,
     });
-    if (!ok) return;
+    if (!ok || job) return;
+    const steps = restoreSteps();
+    setJob({ kind: "restore", steps, dest: id, step: 0, error: "", done: false });
     setBusy(true);
+    const tick = startJobTick(setJob);
     try {
       await api("/api/backup/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      toast.ok("Restored. Reload the page.");
-    } catch (e) { toastError(e); }
-    finally { setBusy(false); }
+      setJob((j) => j && { ...j, step: steps.length, done: true });
+    } catch (e) {
+      setJob((j) => j && { ...j, error: e.message || String(e) });
+    } finally {
+      clearInterval(tick);
+      setBusy(false);
+    }
   }
 
   const status = cfg.lastError
@@ -339,6 +340,16 @@ function BackupSection({ hidden }) {
   );
 }
 
+function startJobTick(setJob) {
+  return setInterval(() => {
+    setJob((j) => {
+      if (!j || j.error || j.done) return j;
+      if (j.step < j.steps.length - 1) return { ...j, step: j.step + 1 };
+      return j;
+    });
+  }, 480);
+}
+
 function backupSteps(cfg) {
   return [
     { id: "db", label: "VACUUM INTO picode.db" },
@@ -348,12 +359,23 @@ function backupSteps(cfg) {
   ];
 }
 
+function restoreSteps() {
+  return [
+    { id: "stop", label: "Stop running agents" },
+    { id: "db", label: "Replace picode.db" },
+    { id: "pins", label: "Restore pins" },
+    { id: "rest", label: "Restore secrets and sessions if present" },
+  ];
+}
+
 function BackupJob({ job, onClose }) {
   const steps = job.steps || [];
+  const restore = job.kind === "restore";
+  const title = restore ? "Restoring" : "Backing up";
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="bak-job-title">
       <div className="pkg-job-card">
-        <h3 id="bak-job-title">Backing up</h3>
+        <h3 id="bak-job-title">{title}</h3>
         <p className="pkg-job-src">{job.dest}</p>
         <ol className="pkg-job-steps">
           {steps.map((s, i) => {
@@ -376,8 +398,13 @@ function BackupJob({ job, onClose }) {
             <p className="pkg-job-err">{job.error}</p>
             <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
           </>
+        ) : job.done && restore ? (
+          <>
+            <p className="pkg-fine">Restored. Reload to use this snapshot.</p>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => location.reload()}>Reload</button>
+          </>
         ) : (
-          <p className="pkg-fine">Stays here until the snapshot is on disk.</p>
+          <p className="pkg-fine">{restore ? "Agents stop first. Project folders stay." : "Stays here until the snapshot is on disk."}</p>
         )}
       </div>
     </div>

@@ -52,6 +52,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Restore walks the same job overlay (stop agents → db → pins → sessions) and asks to reload.
 - **2026-08-26** — Reveal uses host Explorer on WSL. Backup job steps animate. Motion + optimistic UI is a gate.
 - **2026-08-26** — Backup schedule is explicit (off until Schedule). Preferences split into tabs.
 - **2026-08-26** — Folder picker on WSL: Home / C: / E: chips; accepts `C:\\` paths.
