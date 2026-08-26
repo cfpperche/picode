@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- MCP list API keeps env/header **keys** and hides values (token was already write-only).
 - MCP server list is alphabetical by name (no more jumping while live status refreshes).
 - Remove on a shared server no longer turns it back On (it was only hiding the other app). Use Off.
 - Conversation source (fences, inline code, **diff cards**) uses JetBrains Mono with Fira Code ligatures.

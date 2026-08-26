@@ -48,7 +48,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 ## Known debts / open questions
 
 - Dogfood MCP leftover in `~/.codex/config.toml` and `~/.grok/config.toml` (Claude copy removed).
-- MCP GET still returns env/header values from the file (plaintext). `bearerToken` is write-only and not listed.
+- MCP GET redacts env/header values (keys only). `bearerToken` stays write-only.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.
@@ -59,6 +59,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP GET redacts env/header values. Dogfood in Codex/Grok left for later.
 - **2026-08-26** — Diff cards in conversation use JetBrains Mono + Fira Code (same as source fences). visual-review: PASS (chat-diff-font.png).
 - **2026-08-26** — Remove on a Use-from overlay no longer unmasks the import (stays Off). Dogfood Claude servers deleted. List is A–Z. visual-review: PASS (mcp-list-az.png).
 - **2026-08-26** — MCP list is A–Z by name (live poll no longer reshuffles).

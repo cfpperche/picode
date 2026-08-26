@@ -447,8 +447,8 @@ func serverFrom(name string, entry map[string]any, layer Layer) Server {
 		Command:  strOf(entry["command"]),
 		URL:      strOf(entry["url"]),
 		Args:     stringsOf(entry["args"]),
-		Env:      stringMap(entry["env"]),
-		Headers:  stringMap(entry["headers"]),
+		Env:      redactMap(stringMap(entry["env"])),
+		Headers:  redactMap(stringMap(entry["headers"])),
 		Auth:     strOf(entry["auth"]),
 	}
 	switch {
@@ -656,6 +656,18 @@ func stringMap(v any) map[string]string {
 	}
 	if len(out) == 0 {
 		return nil
+	}
+	return out
+}
+
+// redactMap keeps keys, drops values. GET must not echo secrets.
+func redactMap(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for k := range m {
+		out[k] = ""
 	}
 	return out
 }

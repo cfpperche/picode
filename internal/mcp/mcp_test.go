@@ -192,10 +192,10 @@ func TestAddEnvHeadersAuth(t *testing.T) {
 	for _, s := range rep.Servers {
 		by[s.Name] = s
 	}
-	if by["local"].Env["API_KEY"] != "sekrit" || by["local"].Auth != "" {
+	if _, ok := by["local"].Env["API_KEY"]; !ok || by["local"].Env["API_KEY"] != "" || by["local"].Auth != "" {
 		t.Fatalf("local = %+v", by["local"])
 	}
-	if by["remote"].Auth != "bearer" || by["remote"].Headers["X-Trace"] != "1" {
+	if by["remote"].Auth != "bearer" || by["remote"].Headers["X-Trace"] != "" {
 		t.Fatalf("remote = %+v", by["remote"])
 	}
 	if by["oauth"].Auth != "oauth" {
