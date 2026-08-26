@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { IconX, IconClip } from "./Icons.jsx";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { IconX, IconClip, IconSketch } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import PinEditor from "./PinEditor.jsx";
+
+const PinSketch = lazy(() => import("./PinSketch.jsx"));
 import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -50,6 +52,7 @@ export default function PinStudio() {
   const [drag, setDrag] = useState(false);
   const pick = useRef(null);
   const edRef = useRef(null);
+  const [sketch, setSketch] = useState(null);
 
   useEffect(() => {
     if (info.mode === "new") {
@@ -66,6 +69,15 @@ export default function PinStudio() {
       setDraft({ title: p.title || "", tags: p.tags || [], body: p.body || "", tagDraft: "" });
       setFiles(p.files || []);
       setLoaded(true);
+      const pending = sessionStorage.getItem("picode-sketch");
+      if (pending) {
+        sessionStorage.removeItem("picode-sketch");
+        try {
+          const opt = JSON.parse(pending);
+          if (opt && opt.baseFileId) setSketch({ source: "annotate", baseFileId: opt.baseFileId, backgroundURL: fileURL(p.id, { id: opt.baseFileId }) });
+          else setSketch({ source: "blank" });
+        } catch { /* ignore */ }
+      }
     }).catch((e) => {
       toastError(e);
       go();
@@ -91,6 +103,62 @@ export default function PinStudio() {
       body: JSON.stringify({ title, tags: draft.tags, body: draft.body }),
     });
     return p.id;
+  }
+
+  async function startSketch(opt) {
+    const intent = opt || { source: "blank" };
+    if (!info.id) {
+      setBusy(true);
+      try {
+        const id = await ensurePin();
+        sessionStorage.setItem("picode-sketch", JSON.stringify(intent));
+        pingList();
+        go("pin:" + id);
+      } catch (e) { toastError(e); }
+      finally { setBusy(false); }
+      return;
+    }
+    if (intent.id) {
+      try {
+        const scene = await fetch("/api/pins/" + encodeURIComponent(info.id) + "/files/" + encodeURIComponent(intent.id) + "/scene").then((r) => {
+          if (!r.ok) throw new Error("Could not open sketch");
+          return r.json();
+        });
+        setSketch({ id: intent.id, source: "blank", scene });
+      } catch (e) { toastError(e); }
+      return;
+    }
+    if (intent.baseFileId) {
+      setSketch({ source: "annotate", baseFileId: intent.baseFileId, backgroundURL: fileURL(info.id, { id: intent.baseFileId }) });
+      return;
+    }
+    setSketch({ source: "blank" });
+  }
+
+  async function saveSketch({ scene, preview }) {
+    if (!info.id) return;
+    const fd = new FormData();
+    fd.append("scene", new Blob([JSON.stringify(scene)], { type: "application/json" }));
+    fd.append("preview", preview, "preview.png");
+    fd.append("source", sketch && sketch.source === "annotate" ? "annotate" : "blank");
+    fd.append("name", "Sketch");
+    if (sketch && sketch.id) fd.append("id", sketch.id);
+    if (sketch && sketch.baseFileId) fd.append("baseFileId", sketch.baseFileId);
+    const res = await fetch("/api/pins/" + encodeURIComponent(info.id) + "/sketches", { method: "POST", body: fd });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { msg = (await res.json()).error || msg; } catch { /* keep */ }
+      throw new Error(msg);
+    }
+    const meta = await res.json();
+    setFiles((cur) => {
+      const rest = cur.filter((x) => x.id !== meta.id);
+      return rest.concat([meta]);
+    });
+    const ed = edRef.current;
+    if (ed) ed.chain().focus().setImage({ src: fileURL(info.id, meta), alt: meta.name }).run();
+    pingList();
+    setSketch(null);
   }
 
   async function addFiles(list) {
@@ -125,7 +193,7 @@ export default function PinStudio() {
     if (!info.id) return;
     const url = fileURL(info.id, f);
     const ed = edRef.current;
-    if (ed && f.kind === "image") { ed.chain().focus().setImage({ src: url, alt: f.name }).run(); return; }
+    if (ed && (f.kind === "image" || f.kind === "sketch")) { ed.chain().focus().setImage({ src: url, alt: f.name }).run(); return; }
     if (ed) { ed.chain().focus().insertContent('<p><a href="' + url + '">' + f.name + "</a></p>").run(); return; }
   }
 
@@ -224,7 +292,10 @@ export default function PinStudio() {
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => pick.current && pick.current.click()}>
               <IconClip /> Attach
             </button>
-            <span className="pin-attach-hint">Paste or drop images and files</span>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => startSketch({ source: "blank" })}>
+              <IconSketch /> Sketch
+            </button>
+            <span className="pin-attach-hint">Paste, drop, or draw</span>
           </div>
 
           {files.length ? (
@@ -232,10 +303,19 @@ export default function PinStudio() {
               {files.map((f) => (
                 <li key={f.id} className={"pin-att pin-att-" + f.kind}>
                   <button type="button" className="pin-att-x" title="Remove file" onClick={() => dropFile(f)}><IconX size={12} /></button>
-                  <button type="button" className="pin-att-face" title="Insert in text" onClick={() => insertRef(f)}>
-                    {f.kind === "image" && info.id
-                      ? <img src={fileURL(info.id, f)} alt="" />
+                  {f.kind === "image"
+                    ? <button type="button" className="pin-att-draw" title="Annotate" onClick={() => startSketch({ baseFileId: f.id })}><IconSketch size={12} /></button>
+                    : null}
+                  <button
+                    type="button"
+                    className="pin-att-face"
+                    title={f.kind === "sketch" ? "Edit sketch" : "Insert in text"}
+                    onClick={() => f.kind === "sketch" ? startSketch({ id: f.id }) : insertRef(f)}
+                  >
+                    {f.kind === "image" || f.kind === "sketch"
+                      ? <img src={info.id ? fileURL(info.id, f) : ""} alt="" />
                       : <span className="pin-att-ext">{fileExt(f.name)}</span>}
+                    {f.kind === "sketch" ? <span className="pin-att-badge">SKETCH</span> : null}
                   </button>
                   <div className="pin-att-meta">
                     <span className="pin-att-name" title={f.name}>{f.name}</span>
@@ -260,6 +340,18 @@ export default function PinStudio() {
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
           </div>
         </form>
+      ) : null}
+      {sketch ? (
+        <Suspense fallback={null}>
+          <PinSketch
+            open
+            title={sketch.id ? "Edit sketch" : (sketch.source === "annotate" ? "Annotate" : "New sketch")}
+            initial={sketch.scene || null}
+            backgroundURL={sketch.backgroundURL || ""}
+            onSave={saveSketch}
+            onClose={() => setSketch(null)}
+          />
+        </Suspense>
       ) : null}
     </PageFrame>
   );

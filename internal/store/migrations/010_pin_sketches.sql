@@ -1,0 +1,2 @@
+ALTER TABLE pin_files ADD COLUMN source TEXT NOT NULL DEFAULT '';
+ALTER TABLE pin_files ADD COLUMN base_file_id TEXT NOT NULL DEFAULT '';

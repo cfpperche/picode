@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
 - Pin file cards: type badge (PDF/ZIP/…) + always-on remove. No artifact preview.
 - Pin body is a TipTap editor (saves markdown). Toolbar: bold, italic, heading, lists, code, quote.
 - Pin attachments V2: paste/drop/import images and files. Bytes on disk, not in the list.

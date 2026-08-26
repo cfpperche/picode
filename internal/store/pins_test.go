@@ -66,4 +66,8 @@ func TestPinFiles(t *testing.T) {
 	if err := s.DeletePinFile(p.ID, f.ID); err != nil {
 		t.Fatal(err)
 	}
+	sk, err := s.AddPinSketch(p.ID, "Board", "blank", "", 200)
+	if err != nil || sk.Kind != "sketch" {
+		t.Fatalf("sketch = %+v %v", sk, err)
+	}
 }

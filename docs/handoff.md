@@ -51,7 +51,8 @@ Pins V1 shipped (title / tags / markdown body, SQLite). Richer editor later. lla
 
 ## Recent activity
 
-- **2026-08-26** — Pin V2.1 TipTap editor (markdown on disk). Sketch still V3.
+- **2026-08-26** — Pin V3 sketches (Excalidraw, lazy). Blank or annotate image.
+- **2026-08-26** — Pin V2.1 TipTap editor (markdown on disk).
 - **2026-08-26** — Pin attachments V2 (image + file). Sketch/Excalidraw is V3.
 - **2026-08-26** — Pin studio is a route (`#/pins/new` / `#/pins/:id`). List stays in the sidebar.
 - **2026-08-26** — `npm:pi-agent-browser-native` + skill shrunk. Fix: IconPin crash (blank app).
