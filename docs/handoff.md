@@ -51,6 +51,7 @@ Pins V1 shipped (title / tags / markdown body, SQLite). Richer editor later. lla
 
 ## Recent activity
 
+- **2026-08-26** — `npm:pi-agent-browser-native` + skill shrunk. Fix: IconPin crash (blank app).
 - **2026-08-26** — Pins V1: title, tags, markdown body. Flat list, `+` on title bar.
 - **2026-08-26** — Sidebar tabs Agents / Pins. QR → user menu.
 - **2026-08-26** — Conversation polish: blockquotes + ```diff``` hunks. Images + Mermaid + KaTeX + tables.

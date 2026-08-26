@@ -1,3 +1,6 @@
 {
-	"$schema": "https://pi.dev/schemas/settings.json"
+  "$schema": "https://pi.dev/schemas/settings.json",
+  "packages": [
+    "npm:pi-agent-browser-native"
+  ]
 }
