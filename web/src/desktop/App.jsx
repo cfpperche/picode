@@ -29,6 +29,7 @@ import { askConfirm } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import { alertFromPi } from "../lib/piError.js";
 import { mergeAssistant } from "../lib/assistantMsg.js";
+import { isSearchTool, hitsFromResult } from "../lib/searchCards.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
@@ -357,11 +358,13 @@ export default function App() {
           if (it.kind !== "tool" || it.id !== ev.toolCallId) return it;
           const change = fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change;
           if (change) turnFiles.current.add(change.path);
+          const searchHits = isSearchTool(ev.toolName || it.name) ? hitsFromResult(ev.result) : [];
           return {
             ...it,
             status: ev.isError ? "error" : "ok",
             detail: JSON.stringify(ev.result || {}, null, 2),
             result: ev.result,
+            expanded: it.expanded || searchHits.length > 0,
             change,
           };
         }));
@@ -382,7 +385,7 @@ export default function App() {
         break;
       case "message_end": {
         const m = ev.message || {};
-        if (m.role === "assistant" || Array.isArray(m.content)) {
+        if (m.role === "assistant") {
           setItems((cur) => mergeAssistant(cur, m));
           queueMicrotask(scrollConv);
         }
@@ -399,7 +402,7 @@ export default function App() {
       }
       case "turn_end": {
         const m = ev.message || {};
-        if (m.role === "assistant" || Array.isArray(m.content)) {
+        if (m.role === "assistant") {
           setItems((cur) => mergeAssistant(cur, m));
           queueMicrotask(scrollConv);
         }

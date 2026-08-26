@@ -21,6 +21,7 @@ import Packages from "../components/Packages.jsx";
 import "./mobile.css";
 import { toastError } from "../lib/toast.js";
 import { mergeAssistant } from "../lib/assistantMsg.js";
+import { isSearchTool, hitsFromResult } from "../lib/searchCards.js";
 import { stuckToBottom } from "../lib/stickScroll.js";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -124,6 +125,7 @@ export default function MobileApp() {
         setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === ev.toolCallId
           ? { ...it, status: ev.isError ? "error" : "ok", detail: JSON.stringify(ev.result || {}, null, 2),
               result: ev.result,
+              expanded: it.expanded || (isSearchTool(ev.toolName || it.name) && hitsFromResult(ev.result).length > 0),
               change: fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change }
           : it));
         break;
