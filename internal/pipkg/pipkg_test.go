@@ -63,6 +63,14 @@ func TestListParsesSettings(t *testing.T) {
 	}
 }
 
+func TestWithAgent(t *testing.T) {
+	rep := Report{Packages: []Pkg{{Source: "npm:user", Scope: "user"}}}
+	rep = WithAgent(rep, []string{"npm:pi-web-search", ""})
+	if len(rep.Packages) != 2 || rep.Packages[1].Scope != "agent" || !rep.Capabilities.WebSearch {
+		t.Fatalf("%+v", rep)
+	}
+}
+
 func TestListMissingIsEmpty(t *testing.T) {
 	rep, err := List(t.TempDir(), "")
 	if err != nil || len(rep.Packages) != 0 || rep.Capabilities.WebSearch {

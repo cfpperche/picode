@@ -16,7 +16,7 @@ Public docs on Pages. llama.cpp manager is **docs + dialog**, not an installer.
 What exists:
 - Public `cfpperche/picode`, PolyForm Noncommercial + commercial, CI linux/macos/windows.
 - HTTPS default `:8445` (ADR-0007). SW caches **only hashed `/assets/`**; HTML/API network.
-- Workspaces + many agents per folder (ADR-0011). Settings vs Preferences (ADR-0012). Packages via pi CLI (ADR-0010).
+- Workspaces + many agents per folder (ADR-0011). Settings vs Preferences (ADR-0012). Packages: machine / workspace / **this agent** (ADR-0010).
 - Providers: API key + OAuth. Claude/Codex loopback `53692`/`1455`. Copilot/Kimi/xAI **device-code**. Radius stays TUI (gateway URL).
 - **ADR-0013** vault `~/.picode/accounts.json`; `auth.json` is the one slot pi reads. Add account / Use / Sign out; OAuth re-login updates the same account.
 - Composer `/` opens **PiCode UI** (never the dock). Skills/templates = picker insert; pi RPC expands. `/share` = secret gist (`gh`).
@@ -52,6 +52,7 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Recent activity
 
+- **2026-08-25** — Packages **This agent** (remembered on the agent, `pi -e` every start / every session). Machine and workspace unchanged.
 - **2026-08-25** — llama GUI installer reverted. Setup stays in `www/guide/llama.md`; dialog is URL + link. Continuity → backlog.
 - **2026-08-25** — `/llama` dialog on the agent (not Providers redirect). HF download, wait-for-load, default `127.0.0.1:8080`.
 - **2026-08-25** — Slash TUI 24 all **ui**. Skills/templates picker. `/export` `/import` `/share` (gist) `/hotkeys` `/changelog`.

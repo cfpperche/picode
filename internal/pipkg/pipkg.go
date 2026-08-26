@@ -1,5 +1,6 @@
 // Package pipkg reads and mutates pi packages (ADR-0010).
-// Settings stay in ~/.pi/agent/settings.json — never copied into SQLite.
+// User/project stay in pi settings.json. Agent extras are on the agent row
+// and passed as `pi -e` (not copied into settings.json).
 package pipkg
 
 import (
@@ -18,7 +19,7 @@ const Gallery = "https://pi.dev/packages"
 // Pkg is one configured package from pi settings.
 type Pkg struct {
 	Source        string `json:"source"`
-	Scope         string `json:"scope"` // user | project
+	Scope         string `json:"scope"` // user | project | agent
 	Kind          string `json:"kind"`  // npm | git | path
 	Filtered      bool   `json:"filtered,omitempty"`
 	InstalledPath string `json:"installedPath,omitempty"`
@@ -92,6 +93,19 @@ func DetectWebSearch(pkgs []Pkg) bool {
 		}
 	}
 	return false
+}
+
+// WithAgent appends packages remembered on one PiCode agent (pi -e).
+func WithAgent(rep Report, sources []string) Report {
+	for _, s := range sources {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		rep.Packages = append(rep.Packages, Pkg{Source: s, Scope: "agent", Kind: KindOf(s)})
+	}
+	rep.Capabilities.WebSearch = DetectWebSearch(rep.Packages)
+	return rep
 }
 
 // List reads user (and optional project) settings. Missing files are empty.

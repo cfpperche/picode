@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,29 +12,57 @@ func stringsTrimSpace(s string) string { return strings.TrimSpace(s) }
 
 // Agent is a configured pi instance in a workspace.
 type Agent struct {
-	ID            string  `json:"id"`
-	WorkspaceID   string  `json:"workspaceId"`
-	Name          string  `json:"name"`
-	CreatedAt     string  `json:"createdAt"`
-	Provider      *string `json:"provider"`
-	Model         *string `json:"model"`
-	Thinking      *string `json:"thinking"`
-	OpMode        *string `json:"opMode"`
-	SessionPath   *string `json:"sessionPath"`
-	ExtraPrompt   *string `json:"extraPrompt"`
-	LastStartedAt *string `json:"lastStartedAt"`
-	LastStatus    string  `json:"lastStatus"`
-	LastStatusAt  *string `json:"lastStatusAt"`
-	WorkPath      *string `json:"workPath"`
+	ID            string   `json:"id"`
+	WorkspaceID   string   `json:"workspaceId"`
+	Name          string   `json:"name"`
+	CreatedAt     string   `json:"createdAt"`
+	Provider      *string  `json:"provider"`
+	Model         *string  `json:"model"`
+	Thinking      *string  `json:"thinking"`
+	OpMode        *string  `json:"opMode"`
+	SessionPath   *string  `json:"sessionPath"`
+	ExtraPrompt   *string  `json:"extraPrompt"`
+	LastStartedAt *string  `json:"lastStartedAt"`
+	LastStatus    string   `json:"lastStatus"`
+	LastStatusAt  *string  `json:"lastStatusAt"`
+	WorkPath      *string  `json:"workPath"`
+	Packages      []string `json:"packages"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages`
 
-func scanAgent(row interface{ Scan(...any) error }) (Agent, error) {
-	var a Agent
+func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
+	var pkgs string
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
-	return a, err
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs)
+	if err != nil {
+		return err
+	}
+	a.Packages = decodePackages(pkgs)
+	return nil
+}
+
+func decodePackages(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "null" {
+		return []string{}
+	}
+	var out []string
+	if json.Unmarshal([]byte(raw), &out) != nil || out == nil {
+		return []string{}
+	}
+	return out
+}
+
+func encodePackages(src []string) string {
+	if src == nil {
+		src = []string{}
+	}
+	b, err := json.Marshal(src)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 // ensureDefaultAgentTx creates the workspace's default agent if missing.
@@ -46,10 +75,8 @@ func ensureDefaultAgentTx(tx txRunner, workspaceID, wsName, createdAt string) (A
 	}
 	if count > 0 {
 		var a Agent
-		err := tx.QueryRow(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at LIMIT 1`, workspaceID).
-			Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-				&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
-		if err != nil {
+		row := tx.QueryRow(`SELECT `+agentCols+` FROM agents WHERE workspace_id = ? ORDER BY created_at LIMIT 1`, workspaceID)
+		if err := scanAgent(row, &a); err != nil {
 			return Agent{}, fmt.Errorf("store: default agent: %w", err)
 		}
 		return a, nil
@@ -125,8 +152,7 @@ func (s *Store) SetAgentRuntime(id, status string) error {
 }
 
 func scanAgentInto(row *sql.Row, a *Agent) error {
-	return row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
+	return scanAgent(row, a)
 }
 
 // AgentPatch is a partial update. Empty string clears a nullable column
@@ -205,7 +231,38 @@ func (a Agent) CLIFlags() []string {
 	if a.ExtraPrompt != nil && *a.ExtraPrompt != "" {
 		args = append(args, "--append-system-prompt", *a.ExtraPrompt)
 	}
+	for _, src := range a.Packages {
+		src = strings.TrimSpace(src)
+		if src != "" {
+			args = append(args, "-e", src)
+		}
+	}
 	return args
+}
+
+// SetAgentPackages replaces the agent's extra packages (pi -e on every start).
+func (s *Store) SetAgentPackages(id string, srcs []string) (Agent, error) {
+	if _, err := s.GetAgent(id); err != nil {
+		return Agent{}, err
+	}
+	out := make([]string, 0, len(srcs))
+	seen := map[string]bool{}
+	for _, raw := range srcs {
+		s := strings.TrimSpace(raw)
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	if len(out) > 32 {
+		return Agent{}, fmt.Errorf("store: too many packages")
+	}
+	_, err := s.db.Exec(`UPDATE agents SET packages=? WHERE id=?`, encodePackages(out), id)
+	if err != nil {
+		return Agent{}, fmt.Errorf("store: agent packages: %w", err)
+	}
+	return s.GetAgent(id)
 }
 
 const (
@@ -284,8 +341,7 @@ func (s *Store) ListAgents(workspaceID string) ([]Agent, error) {
 }
 
 func scanAgentIntoRows(a *Agent, rows *sql.Rows) error {
-	return rows.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath)
+	return scanAgent(rows, a)
 }
 
 // DeleteAgent removes one agent. Workspace is kept.

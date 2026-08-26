@@ -3,7 +3,7 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import PageFrame from "./PageFrame.jsx";
 
-export default function Packages({ hidden, workspaceId, workspaceName, workspacePath }) {
+export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName }) {
   const [data, setData] = useState(null);
   const [source, setSource] = useState("");
   const [scope, setScope] = useState("user");
@@ -13,7 +13,10 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const [job, setJob] = useState(null);
 
   function listURL() {
-    return "/api/packages" + (workspaceId ? "?workspace=" + encodeURIComponent(workspaceId) : "");
+    const q = [];
+    if (workspaceId) q.push("workspace=" + encodeURIComponent(workspaceId));
+    if (agentId) q.push("agent=" + encodeURIComponent(agentId));
+    return "/api/packages" + (q.length ? "?" + q.join("&") : "");
   }
 
   async function load() {
@@ -21,10 +24,11 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
     catch { setData({ packages: [], capabilities: {}, gallery: "https://pi.dev/packages" }); }
   }
 
-  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId]);
+  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId]);
   useEffect(() => {
     if (!workspaceId && scope === "project") setScope("user");
-  }, [workspaceId, scope]);
+    if (!agentId && scope === "agent") setScope("user");
+  }, [workspaceId, agentId, scope]);
 
   useEffect(() => {
     if (hidden) return;
@@ -41,7 +45,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
 
   const installed = useMemo(() => {
     const s = new Set();
-    const want = scope === "project" ? "project" : "user";
+    const want = scope === "project" ? "project" : scope === "agent" ? "agent" : "user";
     for (const p of (data && data.packages) || []) {
       if (p.scope === want) s.add(p.source);
     }
@@ -52,12 +56,13 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
     const nextSrc = (src || "").trim();
     if (!nextSrc || job) return;
     if (scope === "project" && !workspaceId) return;
+    if (scope === "agent" && !agentId) return;
     setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "" });
     try {
       const next = await api("/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: nextSrc, scope, workspaceId: workspaceId || undefined }),
+        body: JSON.stringify({ source: nextSrc, scope, workspaceId: workspaceId || undefined, agentId: agentId || undefined }),
       });
       setJob((j) => j && { ...j, step: 1 });
       setData(next);
@@ -77,11 +82,12 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       danger: true,
     });
     if (!ok || job) return;
-    const sc = pkg.scope === "project" ? "project" : "user";
+    const sc = pkg.scope === "project" ? "project" : pkg.scope === "agent" ? "agent" : "user";
     setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "" });
     try {
       let url = "/api/packages?source=" + encodeURIComponent(pkg.source) + "&scope=" + sc;
       if (workspaceId) url += "&workspace=" + encodeURIComponent(workspaceId);
+      if (agentId) url += "&agent=" + encodeURIComponent(agentId);
       const next = await api(url, { method: "DELETE" });
       setJob((j) => j && { ...j, step: 1 });
       setData(next);
@@ -106,7 +112,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
           disabled={!!job}
           aria-label="Package source"
         />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId)}>Install</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
       </form>
       <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Install scope">
         <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
@@ -119,8 +125,17 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
           title={workspaceId ? "Writes .pi/settings.json in this workspace" : "Select an agent first"}
           onClick={() => workspaceId && setScope("project")}
         >This workspace</button>
+        <button
+          type="button"
+          role="radio"
+          className="pkg-scope-btn"
+          aria-checked={scope === "agent"}
+          disabled={!agentId}
+          title={agentId ? "Only this agent, every session" : "Select an agent first"}
+          onClick={() => agentId && setScope("agent")}
+        >This agent</button>
       </div>
-      <p className="pkg-fine">Packages run with full access. Only install what you review.{scope === "project" && workspaceName ? " Target: " + workspaceName + "/.pi" : ""}</p>
+      <p className="pkg-fine">Packages run with full access. Only install what you review.{scope === "project" && workspaceName ? " Target: " + workspaceName + "/.pi" : ""}{scope === "agent" && agentName ? " Target: " + agentName + " (next start)" : ""}</p>
 
       <section className="pkg-toolbar" data-align-row>
         <input
@@ -140,7 +155,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
           <ul className="pkg-chips">
             {list.map((p) => (
               <li key={p.scope + ":" + p.source} className="pkg-chip">
-                <span className="pkg-scope-tag">{p.scope === "project" ? (workspaceName || "workspace") : "machine"}</span>
+                <span className="pkg-scope-tag">{p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine"}</span>
                 <span className="pkg-src">{p.source}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
               </li>
@@ -209,6 +224,12 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
 
 function jobSteps(job) {
   const bin = job.action === "remove" ? "remove" : "install";
+  if (job.scope === "agent") {
+    return [
+      { id: "run", label: (bin === "remove" ? "Drop from this agent: " : "Attach to this agent: ") + job.source },
+      { id: "list", label: "Reload. Takes effect the next time this agent starts." },
+    ];
+  }
   const local = job.scope === "project";
   const cmd = local
     ? "pi " + bin + " -l " + job.source + " --no-approve"

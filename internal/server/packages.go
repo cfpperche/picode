@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/pipkg"
@@ -28,24 +29,39 @@ func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
 
 func handleListPackages(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		dir, err := packageProjectDir(deps, r.URL.Query().Get("workspace"))
+		rep, err := loadPackageReport(deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
-			return
-		}
-		rep, err := pipkg.List(pipkg.UserDir(), dir)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
 
+func loadPackageReport(deps Deps, workspaceID, agentID string) (pipkg.Report, error) {
+	dir, err := packageProjectDir(deps, workspaceID)
+	if err != nil {
+		return pipkg.Report{}, err
+	}
+	rep, err := pipkg.List(pipkg.UserDir(), dir)
+	if err != nil {
+		return pipkg.Report{}, err
+	}
+	if agentID == "" || deps.Store == nil {
+		return rep, nil
+	}
+	a, err := deps.Store.GetAgent(agentID)
+	if err != nil {
+		return pipkg.Report{}, err
+	}
+	return pipkg.WithAgent(rep, a.Packages), nil
+}
+
 type packageMutateReq struct {
 	Source      string `json:"source"`
 	Scope       string `json:"scope"`
 	WorkspaceID string `json:"workspaceId"`
+	AgentID     string `json:"agentId"`
 }
 
 func handleInstallPackage(deps Deps) http.HandlerFunc {
@@ -53,6 +69,15 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 		var req packageMutateReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Scope == "agent" {
+			rep, err := mutateAgentPackage(deps, req.AgentID, req.Source, true)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, rep)
 			return
 		}
 		opts, dir, err := packageMutate(deps, req.Scope, req.WorkspaceID)
@@ -66,11 +91,12 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := pipkg.List(pipkg.UserDir(), dir)
+		rep, err := loadPackageReport(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 			return
 		}
+		_ = dir
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
@@ -80,6 +106,7 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 		source := r.URL.Query().Get("source")
 		scope := r.URL.Query().Get("scope")
 		wsID := r.URL.Query().Get("workspace")
+		agentID := r.URL.Query().Get("agent")
 		if source == "" {
 			var req packageMutateReq
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -90,8 +117,20 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			if wsID == "" {
 				wsID = req.WorkspaceID
 			}
+			if agentID == "" {
+				agentID = req.AgentID
+			}
 		}
-		opts, dir, err := packageMutate(deps, scope, wsID)
+		if scope == "agent" {
+			rep, err := mutateAgentPackage(deps, agentID, source, false)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, rep)
+			return
+		}
+		opts, _, err := packageMutate(deps, scope, wsID)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -102,13 +141,42 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		rep, err := pipkg.List(pipkg.UserDir(), dir)
+		rep, err := loadPackageReport(deps, wsID, agentID)
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 			return
 		}
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+func mutateAgentPackage(deps Deps, agentID, source string, add bool) (pipkg.Report, error) {
+	if deps.Store == nil || strings.TrimSpace(agentID) == "" {
+		return pipkg.Report{}, errNeedAgent
+	}
+	if err := pipkg.ValidSource(source); err != nil {
+		return pipkg.Report{}, err
+	}
+	a, err := deps.Store.GetAgent(agentID)
+	if err != nil {
+		return pipkg.Report{}, err
+	}
+	next := []string{}
+	if add {
+		next = append(append([]string{}, a.Packages...), source)
+	} else {
+		for _, s := range a.Packages {
+			if s != source {
+				next = append(next, s)
+			}
+		}
+	}
+	a, err = deps.Store.SetAgentPackages(agentID, next)
+	if err != nil {
+		return pipkg.Report{}, err
+	}
+	wsID := a.WorkspaceID
+	return loadPackageReport(deps, wsID, agentID)
 }
 
 func packageProjectDir(deps Deps, id string) (string, error) {
@@ -158,7 +226,8 @@ type pkgErr string
 func (e pkgErr) Error() string { return string(e) }
 
 const (
-	errBadScope      pkgErr = "scope must be user or project"
+	errBadScope      pkgErr = "scope must be user, project, or agent"
 	errNeedWorkspace pkgErr = "select an agent to install into a workspace"
+	errNeedAgent     pkgErr = "select an agent"
 	errNoWorkspace   pkgErr = "select an agent first"
 )

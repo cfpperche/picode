@@ -48,3 +48,11 @@ copy package state into SQLite (ADR-0005).
 The UI now offers **This machine** (`pi install`) and **This workspace**
 (`pi install -l`, cwd = selected agent folder). Session-only (`pi -e`,
 This run) is still deferred.
+
+## Amendment 2026-08-25 (this agent)
+
+**This agent** is a PiCode list on the agent row, not `settings.json`.
+Each start of that agent (RPC and TUI) passes `pi -e <source>` for every
+entry, so every session of that agent loads it and siblings in the same
+folder do not. Remove drops the flag on the next start. pi still has no
+native per-agent package scope.

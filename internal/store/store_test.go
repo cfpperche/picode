@@ -312,6 +312,35 @@ func TestOpModeCLIFlags(t *testing.T) {
 	}
 }
 
+func TestAgentPackagesCLIFlags(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := s.AddWorkspace("Pkg", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.SetAgentPackages(agent.ID, []string{"npm:pi-web-search", " npm:pi-web-search ", "git:github.com/x/y"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Packages) != 2 {
+		t.Fatalf("%v", got.Packages)
+	}
+	flags := got.CLIFlags()
+	want := []string{"-e", "npm:pi-web-search", "-e", "git:github.com/x/y"}
+	if len(flags) != len(want) {
+		t.Fatalf("%v", flags)
+	}
+	for i := range want {
+		if flags[i] != want[i] {
+			t.Fatalf("%v", flags)
+		}
+	}
+	got, err = s.SetAgentPackages(agent.ID, nil)
+	if err != nil || len(got.Packages) != 0 || len(got.CLIFlags()) != 0 {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
 func TestSessionPathFlag(t *testing.T) {
 	s := openTest(t)
 	_, agent, err := s.AddWorkspace("Sess", t.TempDir())

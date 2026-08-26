@@ -32,7 +32,7 @@ stay on their own routes.
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
-| `#/packages` | Pi packages | `pi install` / `pi remove` / list (ADR-0010) |
+| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 

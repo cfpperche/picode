@@ -31,7 +31,7 @@ import { alertFromPi } from "../lib/piError.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
-import { locate, firstAgentId } from "../lib/tree.js";
+import { locate, firstAgentId, displayAgentName } from "../lib/tree.js";
 import { extraSlash } from "../lib/slash.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
@@ -934,7 +934,7 @@ export default function App() {
           }}
         />
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
-        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} />
+        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} />
         <Devices hidden={route !== "devices"} />
       </main>
 
