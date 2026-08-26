@@ -795,13 +795,38 @@ body {
 .md h3 { font-size: 1.05em; font-weight: 650; margin: 0.85em 0 0.3em; }
 .md ul, .md ol { margin: 0 0 0.7em; padding-left: 1.35em; }
 .md li { margin: 0.28em 0; }
-.md pre {
-  margin: 0.7em 0; padding: 12px 14px; overflow-x: auto;
-  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
-  font-family: var(--mono); font-size: 13.5px;
+.md code, .md-inline {
+  font-family: var(--mono); font-size: 0.88em;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 5px;
+  padding: 0.1em 0.35em;
 }
-.md code { font-family: var(--mono); font-size: 0.9em; }
-.md pre code { font-size: 13.5px; }
+.source-block {
+  margin: 0.75em 0; overflow: hidden;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px;
+}
+.source-head {
+  display: flex; align-items: center; gap: 8px;
+  height: 32px; padding: 0 10px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.source-lang {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  text-transform: lowercase; color: var(--text-secondary); flex: 1;
+}
+.source-head .copy-btn { opacity: 1; }
+.source-body {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  font-family: var(--mono); font-size: 13px; line-height: 1.55;
+  white-space: pre;
+}
+.source-body code { font: inherit; background: none; border: 0; padding: 0; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: var(--accent); }
+.hljs-string, .hljs-attr, .hljs-attribute { color: var(--ok); }
+.hljs-number, .hljs-literal { color: var(--warn); }
+.hljs-comment, .hljs-quote { color: var(--text-secondary); font-style: italic; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--text-primary); font-weight: 550; }
+.hljs-variable, .hljs-params, .hljs-template-variable { color: var(--text-primary); }
+.hljs-meta, .hljs-punctuation, .hljs-operator { color: var(--text-secondary); }
 .md a { color: var(--accent); }
 .actor .copy-btn { margin-left: auto; }
 .copy-btn {

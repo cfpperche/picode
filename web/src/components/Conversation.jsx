@@ -4,6 +4,7 @@ import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
+import { mdComponents } from "./SourceBlock.jsx";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming }) {
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
@@ -117,7 +118,7 @@ function Block({ it, railId }) {
     <div className={"block " + (it.cls || "")} data-rail={railId || undefined}>
       {md && it.text ? <div className="block-tools"><CopyBtn text={it.text} /></div> : null}
       <div className={"block-content" + (md ? " md" : "")}>
-        {md ? <Markdown>{it.text || ""}</Markdown> : it.text}
+        {md ? <Markdown components={mdComponents({ CopyBtn })}>{it.text || ""}</Markdown> : it.text}
       </div>
     </div>
   );
