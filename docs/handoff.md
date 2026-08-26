@@ -51,6 +51,7 @@ Delete cleanup shipped (opt-in session/work purge). Backup/restore engine is nex
 
 ## Recent activity
 
+- **2026-08-26** — Decision table is a quality gate when conditions change the outcome (AGENTS.md).
 - **2026-08-26** — Delete agent/workspace: confirm may offer session + work-folder purge (last occupant only). All workspace agents stopped first.
 - **2026-08-26** — Pin V3 sketches (Excalidraw, lazy). Blank or annotate image.
 - **2026-08-26** — Pin V2.1 TipTap editor (markdown on disk).

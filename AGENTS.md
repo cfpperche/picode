@@ -51,6 +51,13 @@ make build        # UI (npm) + binary builds
 ```
 
 Use the skill: `/skill:quality-gate` (interactive checklist).
+When a change has **interacting conditions that change the outcome**
+(delete, restore, auth, cascade, run mode, permissions), write a
+**decision table** before claiming done: each row is conditions → action.
+Tests must cover every row, or the untested row is named as FAIL/debt in
+`docs/handoff.md`. Two happy-path clicks are not coverage. Skip the table
+for polish, copy, and single-path fixes.
+
 For any UI work, also run `/skill:uiux-review` and `/skill:visual-review`.
 Visual-review is a **gate**, not a courtesy: screenshot must be `read`,
 `window.__picodeOverlayAudit()` must be `ok` after overlays, and the

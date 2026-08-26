@@ -23,6 +23,8 @@ passed gate reported falsely.
 6. **Diff review**: `git diff --stat` —
    - One logical change? If not, propose splitting the commit.
    - New code without tests? Add tests (table-driven) before finishing.
+   - Interacting conditions (delete/restore/auth/cascade/mode)? A decision
+     table exists and every row is tested or named as debt. Two clicks ≠ matrix.
    - New non-stdlib dependency? It needs explicit justification in the
      commit/PR description (AGENTS.md rule #3). No justification = remove it.
 7. **Changelog check**: is anything in this diff user-visible?
