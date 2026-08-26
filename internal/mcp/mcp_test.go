@@ -210,7 +210,7 @@ func TestImportHosts(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{Home: home}
 
-	res, err := ImportHosts(p)
+	res, err := ImportHosts(p, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,10 @@ func TestImportHosts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = ImportHosts(p)
+	if _, err := ImportHosts(p, []string{"codex"}); err == nil {
+		t.Fatal("codex not on this machine")
+	}
+	res, err = ImportHosts(p, []string{"cursor"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,16 +242,26 @@ func TestImportHosts(t *testing.T) {
 	if len(rep.Imports) != 1 || rep.Imports[0] != "cursor" {
 		t.Fatalf("imports = %v", rep.Imports)
 	}
+	if len(rep.Found) != 1 || !rep.Found[0].On {
+		t.Fatalf("found = %+v", rep.Found)
+	}
 	if len(rep.Servers) != 1 || rep.Servers[0].Name != "from-cursor" || rep.Servers[0].Owned {
 		t.Fatalf("servers = %+v", rep.Servers)
 	}
 
-	again, err := ImportHosts(p)
+	again, err := ImportHosts(p, []string{"cursor"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Added) != 0 || len(again.Already) != 1 {
+	if len(again.Added) != 0 || len(again.Removed) != 0 {
 		t.Fatalf("second = %+v", again)
+	}
+	off, err := ImportHosts(p, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(off.Removed) != 1 || off.Removed[0] != "cursor" {
+		t.Fatalf("remove = %+v", off)
 	}
 }
 

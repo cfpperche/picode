@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -26,8 +27,16 @@ var HostKinds = []HostKind{
 // ImportResult is POST /api/mcp/import.
 type ImportResult struct {
 	Added   []string `json:"added"`
+	Removed []string `json:"removed"`
 	Already []string `json:"already"`
 	Found   []string `json:"found"`
+}
+
+// HostInfo is one detected host app for the Import picker.
+type HostInfo struct {
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	On    bool   `json:"on"`
 }
 
 func hostLabel(k HostKind) string {
@@ -145,13 +154,46 @@ func knownHost(k HostKind) bool {
 	return false
 }
 
-// ImportHosts writes missing adapter imports into ~/.pi/agent/mcp.json.
-// It does not copy host files or credentials.
-func ImportHosts(p Paths) (ImportResult, error) {
+// FoundHosts is detected apps plus whether they are already imported.
+func FoundHosts(p Paths) []HostInfo {
+	on := map[string]bool{}
+	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
+		for _, s := range importKindsOf(raw) {
+			on[s] = true
+		}
+	}
+	var out []HostInfo
+	for _, k := range DetectHosts(p) {
+		out = append(out, HostInfo{Kind: string(k), Label: hostLabel(k), On: on[string(k)]})
+	}
+	return out
+}
+
+// ImportHosts writes only the requested kinds into ~/.pi/agent/mcp.json.
+// kinds must be known and present on this machine. It does not copy files.
+func ImportHosts(p Paths, kinds []string) (ImportResult, error) {
 	found := DetectHosts(p)
 	foundStr := make([]string, len(found))
+	foundSet := map[string]bool{}
 	for i, k := range found {
 		foundStr[i] = string(k)
+		foundSet[string(k)] = true
+	}
+	seen := map[string]bool{}
+	var want []string
+	for _, s := range kinds {
+		k := HostKind(s)
+		if !knownHost(k) {
+			return ImportResult{}, fmt.Errorf("unknown app %q", s)
+		}
+		if !foundSet[s] {
+			return ImportResult{}, fmt.Errorf("%s is not on this machine", hostLabel(k))
+		}
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		want = append(want, s)
 	}
 	path := p.PiGlobal()
 	raw, err := readFileOrEmpty(path)
@@ -163,24 +205,38 @@ func ImportHosts(p Paths) (ImportResult, error) {
 	for _, s := range already {
 		have[s] = true
 	}
-	var added []string
-	next := append([]string{}, already...)
-	for _, k := range found {
-		if have[string(k)] {
-			continue
+	var next []string
+	for _, s := range already {
+		if !foundSet[s] {
+			next = append(next, s)
 		}
-		added = append(added, string(k))
-		next = append(next, string(k))
 	}
-	res := ImportResult{Added: added, Already: already, Found: foundStr}
-	if len(added) == 0 {
+	var added []string
+	for _, s := range want {
+		next = append(next, s)
+		if !have[s] {
+			added = append(added, s)
+		}
+	}
+	var removed []string
+	for _, s := range already {
+		if foundSet[s] && !seen[s] {
+			removed = append(removed, s)
+		}
+	}
+	res := ImportResult{Added: added, Removed: removed, Already: already, Found: foundStr}
+	if len(added) == 0 && len(removed) == 0 {
 		return res, nil
 	}
-	arr := make([]any, len(next))
-	for i, s := range next {
-		arr[i] = s
+	if len(next) == 0 {
+		delete(raw, "imports")
+	} else {
+		arr := make([]any, len(next))
+		for i, s := range next {
+			arr[i] = s
+		}
+		raw["imports"] = arr
 	}
-	raw["imports"] = arr
 	if err := writeFile(path, raw); err != nil {
 		return ImportResult{}, err
 	}

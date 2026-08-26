@@ -147,9 +147,9 @@ func TestMCPImport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	empty := postJSON(t, ts, "/api/mcp/import", map[string]any{})
-	if empty.StatusCode != http.StatusOK {
-		t.Fatalf("empty import = %d", empty.StatusCode)
+	missing := postJSON(t, ts, "/api/mcp/import", map[string]any{})
+	if missing.StatusCode != http.StatusBadRequest {
+		t.Fatalf("no kinds = %d", missing.StatusCode)
 	}
 
 	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
@@ -158,7 +158,7 @@ func TestMCPImport(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"ext":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{})
+	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{"kinds": []string{"cursor"}})
 	if hit.StatusCode != http.StatusOK {
 		t.Fatalf("import = %d", hit.StatusCode)
 	}

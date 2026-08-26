@@ -31,7 +31,7 @@ stay on their own routes.
 | `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
-| `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / import. Import writes adapter `imports` (no host-file copy). |
+| `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / import. Import: user picks hosts; writes adapter `imports` only. |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
+import { toast } from "../lib/toast.js";
 import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
@@ -95,10 +96,23 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 
   async function importHosts() {
     if (!installed) return;
-    await runJob("import", "other apps", () => api("/api/mcp/import", {
+    const found = (data && data.found) || [];
+    if (!found.length) {
+      toast.info("No other apps found.");
+      return;
+    }
+    const picked = await askConfirm({
+      title: "Import",
+      message: "Choose which apps. This does not copy their files.",
+      confirmLabel: "Import",
+      choices: found.map((h) => ({ id: h.kind, label: h.label, checked: !!h.on })),
+    });
+    if (!picked) return;
+    const kinds = found.map((h) => h.kind).filter((id) => picked[id]);
+    await runJob("import", "apps", () => api("/api/mcp/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body({})),
+      body: JSON.stringify(body({ kinds })),
     }));
   }
 

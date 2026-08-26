@@ -155,7 +155,7 @@ Only when the agent has its own `workPath`. Writes `<workPath>/.pi/mcp.json`
 
 ### B3 — import — **shipped**
 
-One button writes adapter `imports` (Cursor / Claude / Codex / …). Does not copy host files or credentials. Next: env/headers/auth on Add; live connected vs file-only.
+Import lists detected hosts; the user picks which `imports` to write. Does not copy host files or credentials. Next: env/headers/auth on Add; live connected vs file-only.
 
 ### Decision table (runtime)
 

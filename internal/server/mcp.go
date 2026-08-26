@@ -30,6 +30,7 @@ type mcpMutateReq struct {
 	Env         map[string]string `json:"env"`
 	Headers     map[string]string `json:"headers"`
 	Auth        string            `json:"auth"`
+	Kinds       []string          `json:"kinds"`
 }
 
 func handleMCPGet(deps Deps) http.HandlerFunc {
@@ -62,7 +63,11 @@ func handleMCPImport(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusConflict, "install pi-mcp-adapter first")
 			return
 		}
-		res, err := mcp.ImportHosts(p)
+		if req.Kinds == nil {
+			writeErr(w, http.StatusBadRequest, "choose which apps to import")
+			return
+		}
+		res, err := mcp.ImportHosts(p, req.Kinds)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -73,7 +78,7 @@ func handleMCPImport(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
-		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports})
+		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports, "found": rep.Found})
 	}
 }
 

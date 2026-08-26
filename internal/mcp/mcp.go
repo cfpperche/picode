@@ -62,12 +62,13 @@ type Entry struct {
 
 // Report is GET /api/mcp.
 type Report struct {
-	Adapter  Adapter  `json:"adapter"`
-	Layers   []Layer  `json:"layers"`
-	Servers  []Server `json:"servers"`
-	Presets  []Preset `json:"presets"`
-	Imports  []string `json:"imports"`
-	WriteDir string   `json:"writeDir,omitempty"`
+	Adapter  Adapter    `json:"adapter"`
+	Layers   []Layer    `json:"layers"`
+	Servers  []Server   `json:"servers"`
+	Presets  []Preset   `json:"presets"`
+	Imports  []string   `json:"imports"`
+	Found    []HostInfo `json:"found"`
+	WriteDir string     `json:"writeDir,omitempty"`
 }
 
 // Adapter reports whether pi-mcp-adapter is a configured package.
@@ -178,6 +179,7 @@ func List(p Paths) (Report, error) {
 	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
 		rep.Imports = importKindsOf(raw)
 	}
+	rep.Found = FoundHosts(p)
 	seen := map[string]Server{}
 	order := []string{}
 	for _, layer := range rep.Layers {
