@@ -1171,23 +1171,22 @@ body {
   border: 1px solid var(--border); object-fit: cover; display: block;
 }
 .img-lite {
-  position: fixed; inset: 0; z-index: 80;
+  position: fixed; inset: 0; z-index: 200;
   display: grid; place-items: center;
-  padding: 28px;
+  padding: 40px 28px;
+  pointer-events: auto; cursor: zoom-out;
   background: color-mix(in srgb, #000 50%, transparent);
   animation: fade-in var(--motion-fast) var(--ease-out);
 }
-.img-lite-card {
-  position: relative; max-width: min(92vw, 960px); max-height: 88vh;
+.img-lite img {
+  display: block; max-width: min(88vw, 960px); max-height: 82vh;
+  border-radius: 10px; box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+  pointer-events: none;
   animation: pop-in var(--motion-fast) var(--ease-out);
 }
-.img-lite-card img {
-  display: block; max-width: min(92vw, 960px); max-height: 88vh;
-  border-radius: 10px; box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
-}
 .img-lite-x {
-  position: absolute; top: 8px; right: 8px; z-index: 1;
-  display: grid; place-items: center; width: 28px; height: 28px;
+  position: fixed; top: 16px; right: 16px; z-index: 201;
+  display: grid; place-items: center; width: 32px; height: 32px;
   border: 1px solid var(--border-strong); border-radius: 8px;
   background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
 }
