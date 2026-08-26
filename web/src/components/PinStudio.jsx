@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconX, IconClip } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
+import PinEditor from "./PinEditor.jsx";
 import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -35,17 +36,17 @@ async function postFile(pinId, file) {
   return res.json();
 }
 
-export default function PinStudio({ hidden }) {
-  const info = hidden ? { mode: "", id: "" } : pinRoute();
+export default function PinStudio() {
+  const info = pinRoute();
   const [draft, setDraft] = useState(blank);
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [drag, setDrag] = useState(false);
   const pick = useRef(null);
+  const edRef = useRef(null);
 
   useEffect(() => {
-    if (hidden) return;
     if (info.mode === "new") {
       setDraft(blank());
       setFiles([]);
@@ -65,7 +66,7 @@ export default function PinStudio({ hidden }) {
       go();
     });
     return () => { stop = true; };
-  }, [hidden, info.mode, info.id]);
+  }, [info.mode, info.id]);
 
   function addTag() {
     const t = draft.tagDraft.trim().replace(/^#/, "").toLowerCase().replace(/\s+/g, "-");
@@ -103,6 +104,14 @@ export default function PinStudio({ hidden }) {
         return;
       }
       setFiles((cur) => cur.concat(added));
+      const ed = edRef.current;
+      if (ed) {
+        for (const f of added) {
+          const url = fileURL(id, f);
+          if (f.kind === "image") ed.chain().focus().setImage({ src: url, alt: f.name }).run();
+          else ed.chain().focus().insertContent('<p><a href="' + url + '">' + f.name + "</a></p>").run();
+        }
+      }
       pingList();
     } catch (e) { toastError(e); }
     finally { setBusy(false); }
@@ -111,10 +120,9 @@ export default function PinStudio({ hidden }) {
   function insertRef(f) {
     if (!info.id) return;
     const url = fileURL(info.id, f);
-    const md = f.kind === "image" ? "![" + f.name + "](" + url + ")" : "[" + f.name + "](" + url + ")";
-    const body = draft.body || "";
-    const sep = !body || body.endsWith("\n") ? "" : "\n";
-    setDraft({ ...draft, body: body + sep + md + "\n" });
+    const ed = edRef.current;
+    if (ed && f.kind === "image") { ed.chain().focus().setImage({ src: url, alt: f.name }).run(); return; }
+    if (ed) { ed.chain().focus().insertContent('<p><a href="' + url + '">' + f.name + "</a></p>").run(); return; }
   }
 
   async function dropFile(f) {
@@ -160,8 +168,8 @@ export default function PinStudio({ hidden }) {
   }
 
   return (
-    <PageFrame id="pin-studio" title={info.mode === "edit" ? "Edit pin" : "New pin"} hidden={hidden}>
-      {!hidden && loaded ? (
+    <PageFrame id="pin-studio" title={info.mode === "edit" ? "Edit pin" : "New pin"}>
+      {loaded ? (
         <form
           className={"pin-form pin-studio-form" + (drag ? " pin-drop" : "")}
           onSubmit={(e) => { e.preventDefault(); save(); }}
@@ -234,12 +242,12 @@ export default function PinStudio({ hidden }) {
             </ul>
           ) : null}
 
-          <textarea
-            className="pin-body"
-            value={draft.body}
-            onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-            placeholder="Write in markdown…"
-            aria-label="Pin body"
+          <PinEditor
+            pinId={info.id || "new"}
+            markdown={draft.body}
+            onMarkdown={(md) => setDraft((d) => ({ ...d, body: md }))}
+            onFiles={addFiles}
+            onReady={(ed) => { edRef.current = ed; }}
           />
           <div className="pin-form-actions">
             {info.mode === "edit" ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={remove}>Delete</button> : null}

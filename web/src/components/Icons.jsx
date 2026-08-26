@@ -2,8 +2,10 @@ import {
   Activity,
   ArrowUp,
   AudioLines,
+  Bold,
   Book,
   Bot,
+  Code,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -13,8 +15,11 @@ import {
   ExternalLink,
   Folder,
   GitBranch,
+  Heading2,
+  Italic,
   Layers,
   List,
+  ListOrdered,
   Maximize2,
   MessageSquare,
   Mic,
@@ -26,6 +31,7 @@ import {
   Play,
   Plus,
   QrCode,
+  Quote,
   SlidersHorizontal,
   Smartphone,
   Square,
@@ -82,3 +88,10 @@ export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
 export const IconPin = lucide(Pin, 13);
 export const IconClip = lucide(Paperclip, 13);
+export const IconBold = lucide(Bold, 14);
+export const IconItalic = lucide(Italic, 14);
+export const IconHeading = lucide(Heading2, 14);
+export const IconList = lucide(List, 14);
+export const IconListOl = lucide(ListOrdered, 14);
+export const IconCode = lucide(Code, 14);
+export const IconQuote = lucide(Quote, 14);

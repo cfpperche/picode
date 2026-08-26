@@ -190,6 +190,41 @@ body {
   font-family: var(--mono); font-size: 12px; line-height: 1.45;
 }
 .pin-studio-form .pin-body { min-height: 280px; }
+.pin-editor {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); overflow: hidden;
+}
+.pin-editor-bar {
+  display: flex; align-items: center; gap: 2px;
+  height: 36px; padding: 0 6px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.pin-mark {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 0; background: none; color: var(--text-secondary); cursor: pointer; border-radius: 6px;
+}
+.pin-mark:hover { color: var(--text-primary); background: var(--bg-hover); }
+.pin-mark.on { color: var(--accent); background: var(--accent-soft); }
+.pin-tiptap {
+  min-height: 280px; padding: 12px 14px; outline: none;
+  font-size: 14px; line-height: 1.55;
+}
+.pin-tiptap p { margin: 0.4em 0; }
+.pin-tiptap h2 { font-size: 1.2em; margin: 0.8em 0 0.35em; }
+.pin-tiptap h3 { font-size: 1.05em; margin: 0.7em 0 0.3em; }
+.pin-tiptap ul, .pin-tiptap ol { padding-left: 1.3em; margin: 0.4em 0; }
+.pin-tiptap blockquote {
+  margin: 0.6em 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--text-secondary);
+}
+.pin-tiptap pre {
+  margin: 0.6em 0; padding: 10px 12px; overflow-x: auto;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px;
+  font-family: var(--mono); font-size: 12.5px;
+}
+.pin-tiptap img { max-width: 100%; height: auto; border-radius: 6px; }
+.pin-tiptap a { color: var(--accent); }
+.pin-tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--text-secondary);
+}
 .pin-studio-form.pin-drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 10px; }
 .pin-attach-bar { display: flex; align-items: center; gap: 10px; }
 .pin-attach-hint { font-size: 12px; color: var(--text-secondary); }

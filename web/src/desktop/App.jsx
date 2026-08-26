@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
@@ -22,7 +22,7 @@ import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
 import { parseRoute, go, providersNew, providersLlama } from "../lib/routes.js";
-import PinStudio from "../components/PinStudio.jsx";
+const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -1029,7 +1029,7 @@ export default function App() {
         <Mcps hidden={route !== "mcps"} mcp={mcp} />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} />
         <Devices hidden={route !== "devices"} />
-        <PinStudio hidden={route !== "pins"} />
+        {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
 
       <Palette
