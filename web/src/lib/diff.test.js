@@ -40,7 +40,7 @@ test("hunksFromDiff", () => {
   const p = hunksFromDiff("--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n ctx\n");
   assert.equal(p.add, 1);
   assert.equal(p.del, 1);
-  assert.equal(p.hunks.filter((h) => h.kind === "ctx").length, 1);
+  assert.equal(p.hunks.filter((h) => h.kind === "ctx" && h.text === "ctx").length, 1);
 });
 
 test("non-file tools return null", () => {
