@@ -520,13 +520,8 @@ export default function Composer({
             </Command.List>
           </Command>
         )}
-        {(sessionBar || agentId) ? (
+        {(sessionBar) ? (
           <div className="composer-tools">
-            {agentId ? (
-              <button type="button" className="icon-btn composer-attach" title="Attach from workspace" aria-label="Attach from workspace" onClick={() => setPick(true)}>
-                <IconClip />
-              </button>
-            ) : null}
             {sessionBar}
           </div>
         ) : null}
@@ -656,6 +651,17 @@ export default function Composer({
               </div>
             ) : (
               <>
+                {agentId ? (
+                  <button
+                    type="button"
+                    className="icon-btn composer-attach"
+                    title="Attach from workspace"
+                    aria-label="Attach from workspace"
+                    onClick={() => setPick(true)}
+                  >
+                    <IconClip />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="icon-btn icon-btn-mic"
