@@ -72,7 +72,6 @@ export default function App() {
   const [treeMode, setTreeMode] = useState("tree");
   const [treeData, setTreeData] = useState({ tree: [], leafId: "" });
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
-  const [mcp, setMcp] = useState({ configured: false, path: "" });
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
@@ -215,7 +214,6 @@ export default function App() {
         setHost((sys.host && sys.host.name) || "local");
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
-      try { setMcp(await api("/api/mcp")); } catch { /* ignore */ }
       try {
         const list = await loadWorkspaces();
         let free = [];
@@ -1123,7 +1121,23 @@ export default function App() {
             } catch (e) { toastError(e); }
           }}
         />
-        <Mcps hidden={route !== "mcps"} mcp={mcp} />
+        <Mcps
+          hidden={route !== "mcps"}
+          workspaceId={selected ? selected.id : ""}
+          workspaceName={selected ? selected.name : ""}
+          workspacePath={selected ? selected.path : ""}
+          agentId={selectedId || ""}
+          agentName={displayAgentName(agent, selected)}
+          agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
+          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
+          onReload={async () => {
+            if (!agent || agent.mode === "stopped") return;
+            const was = agent.mode;
+            await stopAgent(selectedId);
+            if (was === "interactive") await openInteractive(selectedId);
+            else await startManaged(selectedId);
+          }}
+        />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} />
         <Devices hidden={route !== "devices"} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}

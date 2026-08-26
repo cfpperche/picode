@@ -434,6 +434,25 @@ body {
   color: var(--accent); border-color: var(--border-strong); background: var(--bg-base);
 }
 .pkg-scope-btn:disabled { opacity: 0.45; cursor: default; }
+.mcp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.mcp-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  background: var(--bg-panel);
+}
+.mcp-row.off { opacity: 0.6; }
+.mcp-row-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mcp-name { font-size: 13px; }
+.mcp-target {
+  font-size: 11.5px; color: var(--text-secondary); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; max-width: 280px;
+}
+.mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.mcp-add { margin-top: 18px; }
+.mcp-add h3, .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
+.mcp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mcp-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mcp-form .dlg-input { min-width: 140px; flex: 1; }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
   display: grid; grid-template-columns: 1fr; gap: 12px;

@@ -29,6 +29,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - Composer `@` fuzzy-picks a file in the agent folder and inserts `@path`.
 - Clip in the composer toolbar browses the workspace: images attach as chips, other files insert `@path`. Reads never leave the workspace folder. The clip lives in the bottom action row (next to mic and send).
 - Composer `!cmd` runs in the agent folder (RPC bash): output streams into the chat, Stop cancels, the next prompt includes it. `!!` stays TUI.
+- MCP page is a manager: list / add / toggle / remove against the adapter's own files (machine, this folder, this agent). No adapter → install CTA. No SQLite.
 - Composer paste/drop sends images on the live RPC call (not stored in SQLite).
 - Composer image chips stay 64px. `@` file list has a filter field and hides dotfiles until you type them.
 - Click a composer or chat thumbnail to open the image full size. X, Escape, or click anywhere closes.

@@ -31,13 +31,15 @@ stay on their own routes.
 | `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
-| `#/mcps` | Pi MCP | adapter/config status (no manager yet) |
+| `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove (machine, folder, this agent) |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
+MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
+(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). No native MCP.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,

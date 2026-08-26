@@ -130,38 +130,28 @@ Out of A: `/compact [prompt]`, `/tree` in-place, external editor.
 
 ## Track B — MCP visual manager
 
-**Blocked** until the write format is a fact, not a guess.
+Gate answered from **pi-mcp-adapter 2.28** (not a guess).
 
-Pi has no native MCP. The community package is `npm:pi-mcp-adapter`.
-ADR-0009: `#/mcps` is not the create wizard. Today `GET /api/mcp` only
-reports the first existing candidate path.
+| Question | Answer |
+|---|---|
+| Which file? | `~/.pi/agent/mcp.json` (machine), `<cwd>/.mcp.json` (folder), `<agent cwd>/.pi/mcp.json` (this agent, unique work path only) |
+| Layers? | adapter merge order. No SQLite. Workspace agents share the folder file. |
+| Shape? | `{ mcpServers: { name: { command\|url, args, env, headers, auth, disabled } } }` |
+| Import? | adapter already imports Cursor/Claude/Codex — **B3**, not a PiCode parser |
 
-### Gate (must answer before B1 code)
+ADR-0009: `#/mcps` is not the create wizard. No adapter → Install CTA, no writes.
 
-Read the **installed** adapter (README + schema). Then fill:
+### B1 — list — **shipped**
 
-| Question | Allowed answers | Forbidden |
-|---|---|---|
-| Which file do we write? | the path the adapter documents | a new `~/.picode/mcp.json` |
-| Layers? | same as packages if the adapter has them; else **machine only** | invent per-agent MCP in SQLite |
-| Shape? | adapter's JSON (stdio / url / env) | our own keys |
-| Import? | only if the adapter already imports Cursor/Claude/Codex | re-encode foreign configs ourselves |
+### B2 — add / toggle / remove — **shipped**
 
-If the package is not installed: page says **Install `pi-mcp-adapter`**
-(link to `#/packages`). Do not write configs for an absent adapter.
+Presets from the adapter. Toggle of an import writes a `{disabled:true}` stub
+(no credentials copied). Job overlay on write + reload.
 
-### B1 — list
+### B2b — This agent — **shipped**
 
-Replace the path-only page. Show servers from the file we chose.
-Empty: “No MCP servers” + Install adapter / Add.
-
-### B2 — add / toggle / remove
-
-Add stdio or URL. Toggle enabled. Remove. Write **that** file,
-read-modify-write, unknown keys stay. Reload the agent so the
-extension picks it up (`/reload` already restarts).
-
-Motion: same job overlay on write+reload.
+Only when the agent has its own `workPath`. Writes `<workPath>/.pi/mcp.json`
+(adapter project-pi layer). Shared-folder agents keep This agent disabled.
 
 ### B3 — import (only if gate says yes)
 
