@@ -1,14 +1,12 @@
 package llama
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const Releases = "https://github.com/ggml-org/llama.cpp/releases"
@@ -35,9 +33,6 @@ func modelsDir() string {
 }
 
 func findBinary() string {
-	if p := bundledBinary(); p != "" {
-		return p
-	}
 	for _, n := range []string{"llama-server", "llama-server.exe"} {
 		if p, err := exec.LookPath(n); err == nil {
 			return p
@@ -104,34 +99,4 @@ func quote(args []string) []string {
 		}
 	}
 	return out
-}
-
-// StartRouter launches llama-server in the background if the binary is on PATH.
-func StartRouter(serverURL string) error {
-	bin := findBinary()
-	if bin == "" {
-		return fmt.Errorf("llama-server not on PATH")
-	}
-	dir := modelsDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	args := startArgs(bin, dir, serverURL)[1:]
-	cmd := exec.Command(bin, args...)
-	logPath := filepath.Join(filepath.Dir(dir), "llama-server.log")
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		return err
-	}
-	cmd.Stdout, cmd.Stderr = f, f
-	if err := cmd.Start(); err != nil {
-		_ = f.Close()
-		return err
-	}
-	go func() {
-		_ = cmd.Wait()
-		_ = f.Close()
-	}()
-	time.Sleep(400 * time.Millisecond)
-	return nil
 }
