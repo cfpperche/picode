@@ -114,7 +114,7 @@ export default function MobileApp() {
       case "tool_execution_start":
         setItems((cur) => [...cur, {
           kind: "tool", id: ev.toolCallId, name: ev.toolName || "tool",
-          args: summarizeArgs(ev.args), status: "···",
+          args: summarizeArgs(ev.args), toolArgs: ev.args || {}, status: "···",
           detail: JSON.stringify(ev.args || {}, null, 2), expanded: false,
           change: fileChangeFromTool(ev.toolName, ev.args, null),
         }]);
@@ -122,6 +122,7 @@ export default function MobileApp() {
       case "tool_execution_end":
         setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === ev.toolCallId
           ? { ...it, status: ev.isError ? "error" : "ok", detail: JSON.stringify(ev.result || {}, null, 2),
+              result: ev.result,
               change: fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change }
           : it));
         break;

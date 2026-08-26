@@ -320,6 +320,7 @@ export default function App() {
           id: ev.toolCallId,
           name: ev.toolName || "tool",
           args: summarizeArgs(ev.args),
+          toolArgs: ev.args || {},
           status: "···",
           detail: JSON.stringify(ev.args || {}, null, 2),
           expanded: false,
@@ -338,6 +339,7 @@ export default function App() {
             ...it,
             status: ev.isError ? "error" : "ok",
             detail: JSON.stringify(ev.result || {}, null, 2),
+            result: ev.result,
             change,
           };
         }));

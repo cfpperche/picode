@@ -30,10 +30,9 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Next up
 
-1. Pick first search package (`npm:pi-web-search` vs `brave-search`) — opt-in install only (ADR-0010).
-2. Pretty search cards in chat, gated on `capabilities.webSearch`.
-3. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
-4. MCP visual manager — **blocked** until adapter format is decided.
+1. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
+2. MCP visual manager — **blocked** until adapter format is decided.
+3. Packages cycle dogfood (owner; deferred).
 
 ## Backlog
 
@@ -52,6 +51,7 @@ Nothing half-done in tree. llama.cpp depth is **backlog** (owner studying).
 
 ## Recent activity
 
+- **2026-08-25** — Chose `npm:pi-web-search` (this machine). Chat search cards from tool sources. Full packages-cycle dogfood deferred.
 - **2026-08-25** — Packages **This agent** + optional isolate (skip machine/folder). `pi -e` every start / every session.
 - **2026-08-25** — llama GUI installer reverted. Setup stays in `www/guide/llama.md`; dialog is URL + link. Continuity → backlog.
 - **2026-08-25** — `/llama` dialog on the agent (not Providers redirect). HF download, wait-for-load, default `127.0.0.1:8080`.

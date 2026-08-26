@@ -2,6 +2,7 @@ import { fileChangeFromTool } from "./diff.js";
 
 function summarizeArgs(args) {
   if (!args) return "";
+  if (typeof args.query === "string") return args.query;
   if (typeof args.command === "string") return args.command;
   if (typeof args.path === "string") return args.path;
   try {
@@ -25,8 +26,10 @@ export function eventsToItems(events) {
         id: e.id || ("tool-" + i),
         name: e.name || "tool",
         args: e.args || summarizeArgs(args),
+        toolArgs: args,
         status: e.status === "···" ? "ok" : (e.status || "ok"),
         detail: e.detail || "",
+        result: e.result,
         expanded: false,
         change: fileChangeFromTool(e.name, args, e.result),
         ts: e.ts || 0,

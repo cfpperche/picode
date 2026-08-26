@@ -20,3 +20,5 @@ This agent is PiCode-only. pi has no per-agent install. Restart the agent after 
 |---|---|---|
 | Machine / project | `pi install` / `-l` | same |
 | One agent | — | **This agent** |
+
+Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` into source cards. Needs a model that supports native search (Gemini / OpenAI / Anthropic).

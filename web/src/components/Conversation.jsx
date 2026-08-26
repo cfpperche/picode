@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import { basename, statLabel } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
+import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 
 export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming }) {
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
@@ -124,19 +125,39 @@ function Block({ it, railId }) {
 
 function Tool({ it, onToggle }) {
   const ch = it.change;
+  const search = isSearchTool(it.name);
+  const hits = search ? hitsFromTool(it) : [];
+  const q = search ? (searchQuery(it.toolArgs) || it.args) : "";
   return (
-    <div className={"tool-pill" + (it.status === "ok" ? " ok" : "") + (it.status === "error" ? " err" : "") + (it.expanded ? " expanded" : "")}>
+    <div className={"tool-pill" + (it.status === "ok" ? " ok" : "") + (it.status === "error" ? " err" : "") + (it.expanded ? " expanded" : "") + (search ? " search" : "")}>
       <div className="tool-pill-head" onClick={() => onToggle(it.id)}>
         <span className="tp-chevron">›</span>
-        <span className="tp-name">{it.name}</span>
-        <span className="tp-args">{ch ? basename(ch.path) || it.args : it.args}</span>
+        <span className="tp-name">{search ? "search" : it.name}</span>
+        <span className="tp-args">{ch ? basename(ch.path) || it.args : (q || it.args)}</span>
         {ch ? <span className="tp-stat"><span className="add">{ch.add ? "+" + ch.add : ""}</span>{ch.add && ch.del ? " " : ""}<span className="del">{ch.del ? "−" + ch.del : ""}</span></span> : null}
-        <span className="tp-status">{it.status || "···"}</span>
+        <span className="tp-status">{hits.length ? hits.length : (it.status || "···")}</span>
       </div>
-      <div className={"tp-detail" + (ch ? " tp-diff" : "")}>
-        {ch ? <DiffHunks hunks={ch.hunks} /> : it.detail}
+      <div className={"tp-detail" + (ch ? " tp-diff" : "") + (hits.length ? " tp-search" : "")}>
+        {ch ? <DiffHunks hunks={ch.hunks} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
       </div>
     </div>
+  );
+}
+
+function SearchHits({ hits }) {
+  if (!hits.length) return <p className="side-empty">No sources.</p>;
+  return (
+    <ul className="search-hits">
+      {hits.map((h) => (
+        <li key={h.url}>
+          <a href={h.url} target="_blank" rel="noreferrer">
+            <span className="search-hit-title">{h.title}</span>
+            <span className="search-hit-url">{h.url}</span>
+            {h.snippet ? <span className="search-hit-snip">{h.snippet}</span> : null}
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -177,6 +198,7 @@ function DiffHunks({ hunks }) {
 
 export function summarizeArgs(args) {
   if (!args) return "";
+  if (typeof args.query === "string") return args.query;
   if (typeof args.command === "string") return args.command;
   if (typeof args.path === "string") return args.path;
   const s = JSON.stringify(args);
