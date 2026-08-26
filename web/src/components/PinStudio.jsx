@@ -8,6 +8,7 @@ import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { pinFileFromDrop, pinFileURL } from "../lib/pinFileDrop.js";
 import { toast, toastError } from "../lib/toast.js";
+import { askConfirm } from "../lib/confirm.js";
 
 function blank() {
   return { title: "", tags: [], body: "", tagDraft: "" };
@@ -231,6 +232,13 @@ export default function PinStudio() {
 
   async function remove() {
     if (!info.id) return;
+    const ok = await askConfirm({
+      title: "Delete pin",
+      message: "Delete \"" + (draft.title || "this pin") + "\"? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await api("/api/pins/" + encodeURIComponent(info.id), { method: "DELETE" });

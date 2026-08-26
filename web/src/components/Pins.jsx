@@ -3,6 +3,7 @@ import { IconPlus, IconX } from "./Icons.jsx";
 import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { toastError } from "../lib/toast.js";
+import { askConfirm } from "../lib/confirm.js";
 
 export default function Pins() {
   const [pins, setPins] = useState([]);
@@ -26,11 +27,18 @@ export default function Pins() {
     };
   }, []);
 
-  async function remove(id, e) {
+  async function remove(p, e) {
     e.stopPropagation();
+    const ok = await askConfirm({
+      title: "Delete pin",
+      message: "Delete \"" + (p.title || "this pin") + "\"? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await api("/api/pins/" + encodeURIComponent(id), { method: "DELETE" });
-      if (pinRoute().id === id) go();
+      await api("/api/pins/" + encodeURIComponent(p.id), { method: "DELETE" });
+      if (pinRoute().id === p.id) go();
       await load();
     } catch (err) { toastError(err); }
   }
@@ -49,7 +57,7 @@ export default function Pins() {
             <li key={p.id} className={"pin-card" + (openId === p.id ? " active" : "")} onClick={() => go("pin:" + p.id)}>
               <div className="pin-card-row">
                 <span className="pin-card-title">{p.title}</span>
-                <button type="button" className="ws-icon-btn danger" title="Delete pin" onClick={(e) => remove(p.id, e)}><IconX size={12} /></button>
+                <button type="button" className="ws-icon-btn danger" title="Delete pin" onClick={(e) => remove(p, e)}><IconX size={12} /></button>
               </div>
               {p.tags && p.tags.length ? <div className="pin-card-tags">{p.tags.map((t) => "#" + t).join(" ")}</div> : null}
               {p.fileCount ? <div className="pin-card-files">{p.fileCount} {p.fileCount === 1 ? "file" : "files"}</div> : null}
