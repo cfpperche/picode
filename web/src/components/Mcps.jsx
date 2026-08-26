@@ -33,6 +33,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
+  const imported = (data && data.imports) || [];
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   const showScopes = canProject || canAgent;
@@ -92,6 +93,15 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     }));
   }
 
+  async function importHosts() {
+    if (!installed) return;
+    await runJob("import", "other apps", () => api("/api/mcp/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body({})),
+    }));
+  }
+
   async function remove(s) {
     if (!installed || !s.owned) return;
     const ok = await askConfirm({
@@ -124,6 +134,12 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         </div>
       ) : (
         <>
+          <div className="mcp-toolbar" data-align-row>
+            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={importHosts}>Import</button>
+          </div>
+          {imported.length ? (
+            <p className="pkg-fine">{imported.map(hostLabel).join(" · ")}</p>
+          ) : null}
           {showScopes ? (
             <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
               <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
@@ -225,6 +241,19 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   );
 }
 
+function hostLabel(id) {
+  const names = {
+    cursor: "Cursor",
+    "claude-code": "Claude Code",
+    "claude-desktop": "Claude Desktop",
+    codex: "Codex",
+    opencode: "OpenCode",
+    windsurf: "Windsurf",
+    vscode: "VS Code",
+  };
+  return names[id] || id;
+}
+
 function emptyForm() {
   return { name: "", kind: "url", command: "", args: "", url: "" };
 }
@@ -263,7 +292,7 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose }) {
   const steps = [
-    { id: "write", label: (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "write", label: job.action === "import" ? "Import from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
     { id: "reload", label: running ? "Reload this agent" : "Applies on next start" },
   ];
   return (

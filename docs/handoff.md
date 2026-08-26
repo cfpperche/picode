@@ -27,6 +27,7 @@ What exists:
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
 - `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
 - MCP / Packages / Settings name the selected agent as the first line in the card. Scope pills use that name. Sidebar agent click from a pane goes to `#/`.
+- MCP **Import** writes adapter `imports` (Cursor / Claude / Codex / …). No host-file copy.
 
 ## In flight
 
@@ -34,9 +35,9 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Next up
 
-1. MCP B3 import (adapter CLI / `imports` key). B1/B2/B2b shipped. Plan: `docs/design/composer-mcp-roadmap.md`.
-2. Voice V1 dogfood (owner, Chrome Windows mic).
-3. Auth / llama.cpp / Radius — discuss after B. Backup V2 when asked.
+1. MCP Add: env / headers / auth (secrets). Plan: `docs/design/composer-mcp-roadmap.md`.
+2. MCP live status (connected vs file-only).
+3. Voice V1 dogfood (owner, Chrome Windows mic). Auth / llama / Radius after.
 
 ## Backlog
 
@@ -56,6 +57,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP B3 Import (adapter `imports` only). visual-review: PASS (mcp-import.png).
 - **2026-08-26** — Agent context is the first line in the MCP/Packages card, not under the title. visual-review: PASS (mcp-card-ctx.png).
 - **2026-08-26** — MCP/Packages name the agent (title + pills). Sidebar click from a pane opens that agent. visual-review: PASS (mcp-named.png).
 - **2026-08-26** — MCP empty redesigned (one line + Open packages). UI skills now load-before-JSX; visual skip = quality-gate FAIL. visual-review: PASS (mcp-blocked.png).

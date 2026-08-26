@@ -128,6 +128,51 @@ func TestMCPProjectAndAgent(t *testing.T) {
 	}
 }
 
+func TestMCPImport(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ts := newTestServer(t, "cat")
+
+	no := postJSON(t, ts, "/api/mcp/import", map[string]any{})
+	if no.StatusCode != http.StatusConflict {
+		t.Fatalf("no adapter = %d", no.StatusCode)
+	}
+
+	settings := filepath.Join(home, ".pi", "agent", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte(`{"packages":["npm:pi-mcp-adapter"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	empty := postJSON(t, ts, "/api/mcp/import", map[string]any{})
+	if empty.StatusCode != http.StatusOK {
+		t.Fatalf("empty import = %d", empty.StatusCode)
+	}
+
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"ext":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{})
+	if hit.StatusCode != http.StatusOK {
+		t.Fatalf("import = %d", hit.StatusCode)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(hit.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	imp, _ := body["import"].(map[string]any)
+	added, _ := imp["added"].([]any)
+	if len(added) != 1 || added[0] != "cursor" {
+		t.Fatalf("import body = %v", body["import"])
+	}
+}
+
 func mcpPatch(t *testing.T, ts *httptest.Server, body any) *http.Response {
 	t.Helper()
 	raw, _ := json.Marshal(body)

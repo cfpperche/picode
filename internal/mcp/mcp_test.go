@@ -206,6 +206,52 @@ func TestToggleStubDoesNotCopyURL(t *testing.T) {
 	}
 }
 
+func TestImportHosts(t *testing.T) {
+	home := t.TempDir()
+	p := Paths{Home: home}
+
+	res, err := ImportHosts(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Added) != 0 || len(res.Found) != 0 {
+		t.Fatalf("empty home: %+v", res)
+	}
+
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"from-cursor":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = ImportHosts(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Added) != 1 || res.Added[0] != "cursor" {
+		t.Fatalf("added = %+v", res)
+	}
+	rep, err := List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Imports) != 1 || rep.Imports[0] != "cursor" {
+		t.Fatalf("imports = %v", rep.Imports)
+	}
+	if len(rep.Servers) != 1 || rep.Servers[0].Name != "from-cursor" || rep.Servers[0].Owned {
+		t.Fatalf("servers = %+v", rep.Servers)
+	}
+
+	again, err := ImportHosts(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again.Added) != 0 || len(again.Already) != 1 {
+		t.Fatalf("second = %+v", again)
+	}
+}
+
 func TestAdapterConfigured(t *testing.T) {
 	if AdapterConfigured(nil) {
 		t.Fatal("empty")

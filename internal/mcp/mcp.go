@@ -66,6 +66,7 @@ type Report struct {
 	Layers   []Layer  `json:"layers"`
 	Servers  []Server `json:"servers"`
 	Presets  []Preset `json:"presets"`
+	Imports  []string `json:"imports"`
 	WriteDir string   `json:"writeDir,omitempty"`
 }
 
@@ -141,17 +142,19 @@ func (p Paths) AgentProject() string {
 }
 
 // Layers lists adapter files in merge order (last wins).
+// Host imports (from mcp.json imports) are lowest precedence.
 func (p Paths) Layers() []Layer {
 	home := p.home()
 	if home == "" {
 		return nil
 	}
-	out := []Layer{
+	out := hostLayers(p)
+	out = append(out, []Layer{
 		{ID: "shared-global", Label: "Shared (~/.config/mcp)", Path: p.SharedGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-global", Label: "Shared (~/.agents)", Path: p.AgentsGlobal(), Scope: "import", Writable: false},
 		{ID: "agents-nested", Label: "Shared (~/.agents/mcp)", Path: p.AgentsNested(), Scope: "import", Writable: false},
 		{ID: "pi-global", Label: "This machine", Path: p.PiGlobal(), Scope: "user", Writable: true},
-	}
+	}...)
 	if path := p.SharedProject(); path != "" {
 		out = append(out, Layer{ID: "shared-project", Label: "This folder", Path: path, Scope: "project", Writable: true})
 	}
@@ -172,17 +175,27 @@ func (p Paths) Layers() []Layer {
 // List merges servers. Missing files are empty.
 func List(p Paths) (Report, error) {
 	rep := Report{Adapter: Adapter{Source: AdapterSource}, Presets: Presets(), Layers: p.Layers()}
+	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
+		rep.Imports = importKindsOf(raw)
+	}
 	seen := map[string]Server{}
 	order := []string{}
 	for _, layer := range rep.Layers {
 		raw, err := readFile(layer.Path)
 		if err != nil {
+			if layer.Scope == "import" {
+				continue
+			}
 			return rep, err
 		}
 		if raw == nil {
 			continue
 		}
-		for name, entry := range serversOf(raw) {
+		entries := serversOf(raw)
+		if layer.Scope == "import" {
+			entries = serversOfHost(raw)
+		}
+		for name, entry := range entries {
 			if _, ok := seen[name]; !ok {
 				order = append(order, name)
 			}

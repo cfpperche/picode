@@ -13,6 +13,7 @@ import (
 func registerMCPRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/mcp", handleMCPGet(deps))
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
+	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
 }
@@ -45,6 +46,34 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
 		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+func handleMCPImport(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mcpMutateReq
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		if !mcp.AdapterConfigured(sources) {
+			writeErr(w, http.StatusConflict, "install pi-mcp-adapter first")
+			return
+		}
+		res, err := mcp.ImportHosts(p)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		rep, err := mcp.List(p)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
+		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports})
 	}
 }
 

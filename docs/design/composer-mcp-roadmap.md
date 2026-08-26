@@ -153,9 +153,9 @@ Presets from the adapter. Toggle of an import writes a `{disabled:true}` stub
 Only when the agent has its own `workPath`. Writes `<workPath>/.pi/mcp.json`
 (adapter project-pi layer). Shared-folder agents keep This agent disabled.
 
-### B3 — import (only if gate says yes)
+### B3 — import — **shipped**
 
-One button: import host configs **via the adapter**, not a PiCode parser.
+One button writes adapter `imports` (Cursor / Claude / Codex / …). Does not copy host files or credentials. Next: env/headers/auth on Add; live connected vs file-only.
 
 ### Decision table (runtime)
 

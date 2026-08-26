@@ -6,7 +6,8 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
 2. `#/mcps` → Add a server (command or URL). The card shows which agent; the pills use that name.
-3. Restart the agent.
+3. **Import** turns on Cursor / Claude / Codex / VS Code configs the adapter already knows. It does not copy those files.
+4. Restart the agent.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
 

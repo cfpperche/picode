@@ -20,6 +20,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- MCP **Import** turns on Cursor / Claude / Codex / VS Code configs the adapter already knows. It does not copy those files or secrets.
 - Local backup in Preferences: folder, interval, retention, explicit **Schedule**, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks). Choosing a folder does not start the schedule.
 - Preferences uses section tabs (Appearance / Notifications / Server / Backup).
 - Backup now shows a step overlay (same pattern as package install/remove).
