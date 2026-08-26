@@ -1,5 +1,4 @@
 import { useEffect, useId, useState } from "react";
-import mermaid from "mermaid";
 
 export default function MermaidBlock({ text, CopyBtn }) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -12,10 +11,17 @@ export default function MermaidBlock({ text, CopyBtn }) {
 
   useEffect(() => {
     let stop = false;
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme });
-    mermaid.render(id, String(text || "").trim() || "graph TD; A[empty]")
-      .then(({ svg: out }) => { if (!stop) { setSvg(out); setErr(""); } })
-      .catch((e) => { if (!stop) { setSvg(""); setErr((e && e.message) || "Invalid diagram"); } });
+    import("mermaid").then(({ default: mermaid }) => {
+      if (stop) return;
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme });
+      return mermaid.render(id, String(text || "").trim() || "graph TD; A[empty]");
+    }).then((out) => {
+      if (stop || !out) return;
+      setSvg(out.svg);
+      setErr("");
+    }).catch((e) => {
+      if (!stop) { setSvg(""); setErr((e && e.message) || "Invalid diagram"); }
+    });
     return () => { stop = true; };
   }, [text, theme, id]);
 
