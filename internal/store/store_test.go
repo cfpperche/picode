@@ -339,6 +339,15 @@ func TestAgentPackagesCLIFlags(t *testing.T) {
 	if err != nil || len(got.Packages) != 0 || len(got.CLIFlags()) != 0 {
 		t.Fatalf("%+v %v", got, err)
 	}
+	on := true
+	got, err = s.UpdateAgent(agent.ID, AgentPatch{PackagesIsolated: &on})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags = got.CLIFlags()
+	if len(flags) < 4 || flags[0] != "--no-extensions" || flags[3] != "--no-themes" {
+		t.Fatalf("isolated flags = %v", flags)
+	}
 }
 
 func TestSessionPathFlag(t *testing.T) {

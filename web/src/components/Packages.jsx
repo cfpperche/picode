@@ -135,6 +135,27 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
           onClick={() => agentId && setScope("agent")}
         >This agent</button>
       </div>
+      {agentId ? (
+        <label className="pkg-fine" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={!!(data && data.isolated)}
+            disabled={!!job}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              try {
+                await api("/api/agents/" + agentId, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ packagesIsolated: on }),
+                });
+                await load();
+              } catch (err) { /* keep checkbox from lying */ await load(); }
+            }}
+          />
+          Only this agent's packages (skip machine and folder). Restart to apply.
+        </label>
+      ) : null}
       <p className="pkg-fine">Packages run with full access. Only install what you review.{scope === "project" && workspaceName ? " Target: " + workspaceName + "/.pi" : ""}{scope === "agent" && agentName ? " Target: " + agentName + " (next start)" : ""}</p>
 
       <section className="pkg-toolbar" data-align-row>

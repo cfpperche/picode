@@ -14,6 +14,8 @@ In PiCode (`#/packages`) pick a target, then Install.
 
 This agent is PiCode-only. pi has no per-agent install. Restart the agent after adding or removing.
 
+**Only this agent's packages** (checkbox): skip machine and folder packages. The agent starts with its own list, or none. Also skips skills/themes discovered from those places. Restart to apply.
+
 | | pi TUI | PiCode |
 |---|---|---|
 | Machine / project | `pi install` / `-l` | same |

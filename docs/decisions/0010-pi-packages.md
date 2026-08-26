@@ -56,3 +56,7 @@ Each start of that agent (RPC and TUI) passes `pi -e <source>` for every
 entry, so every session of that agent loads it and siblings in the same
 folder do not. Remove drops the flag on the next start. pi still has no
 native per-agent package scope.
+
+**Only this agent's packages** sets `--no-extensions --no-skills
+--no-prompt-templates --no-themes` on start, then `-e` for the agent list.
+Default remains inherit (machine + folder + agent).

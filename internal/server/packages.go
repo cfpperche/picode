@@ -54,7 +54,9 @@ func loadPackageReport(deps Deps, workspaceID, agentID string) (pipkg.Report, er
 	if err != nil {
 		return pipkg.Report{}, err
 	}
-	return pipkg.WithAgent(rep, a.Packages), nil
+	rep = pipkg.WithAgent(rep, a.Packages)
+	rep.Isolated = a.PackagesIsolated
+	return rep, nil
 }
 
 type packageMutateReq struct {

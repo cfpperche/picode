@@ -233,13 +233,14 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		var req struct {
-			Name        *string `json:"name"`
-			Provider    *string `json:"provider"`
-			Model       *string `json:"model"`
-			Thinking    *string `json:"thinking"`
-			OpMode      *string `json:"opMode"`
-			SessionPath *string `json:"sessionPath"`
-			ExtraPrompt *string `json:"extraPrompt"`
+			Name             *string `json:"name"`
+			Provider         *string `json:"provider"`
+			Model            *string `json:"model"`
+			Thinking         *string `json:"thinking"`
+			OpMode           *string `json:"opMode"`
+			SessionPath      *string `json:"sessionPath"`
+			ExtraPrompt      *string `json:"extraPrompt"`
+			PackagesIsolated *bool   `json:"packagesIsolated"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -248,6 +249,7 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 		agent, err := deps.Store.UpdateAgent(id, store.AgentPatch{
 			Name: req.Name, Provider: req.Provider, Model: req.Model,
 			Thinking: req.Thinking, OpMode: req.OpMode, SessionPath: req.SessionPath, ExtraPrompt: req.ExtraPrompt,
+			PackagesIsolated: req.PackagesIsolated,
 		})
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")

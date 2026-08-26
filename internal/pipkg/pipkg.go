@@ -35,6 +35,7 @@ type Report struct {
 	Packages     []Pkg        `json:"packages"`
 	Capabilities Capabilities `json:"capabilities"`
 	Gallery      string       `json:"gallery"`
+	Isolated     bool         `json:"isolated,omitempty"`
 }
 
 // UserDir is ~/.pi/agent.

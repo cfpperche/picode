@@ -12,33 +12,36 @@ func stringsTrimSpace(s string) string { return strings.TrimSpace(s) }
 
 // Agent is a configured pi instance in a workspace.
 type Agent struct {
-	ID            string   `json:"id"`
-	WorkspaceID   string   `json:"workspaceId"`
-	Name          string   `json:"name"`
-	CreatedAt     string   `json:"createdAt"`
-	Provider      *string  `json:"provider"`
-	Model         *string  `json:"model"`
-	Thinking      *string  `json:"thinking"`
-	OpMode        *string  `json:"opMode"`
-	SessionPath   *string  `json:"sessionPath"`
-	ExtraPrompt   *string  `json:"extraPrompt"`
-	LastStartedAt *string  `json:"lastStartedAt"`
-	LastStatus    string   `json:"lastStatus"`
-	LastStatusAt  *string  `json:"lastStatusAt"`
-	WorkPath      *string  `json:"workPath"`
-	Packages      []string `json:"packages"`
+	ID               string   `json:"id"`
+	WorkspaceID      string   `json:"workspaceId"`
+	Name             string   `json:"name"`
+	CreatedAt        string   `json:"createdAt"`
+	Provider         *string  `json:"provider"`
+	Model            *string  `json:"model"`
+	Thinking         *string  `json:"thinking"`
+	OpMode           *string  `json:"opMode"`
+	SessionPath      *string  `json:"sessionPath"`
+	ExtraPrompt      *string  `json:"extraPrompt"`
+	LastStartedAt    *string  `json:"lastStartedAt"`
+	LastStatus       string   `json:"lastStatus"`
+	LastStatusAt     *string  `json:"lastStatusAt"`
+	WorkPath         *string  `json:"workPath"`
+	Packages         []string `json:"packages"`
+	PackagesIsolated bool     `json:"packagesIsolated"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	var pkgs string
+	var isolated int
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated)
 	if err != nil {
 		return err
 	}
 	a.Packages = decodePackages(pkgs)
+	a.PackagesIsolated = isolated != 0
 	return nil
 }
 
@@ -158,13 +161,14 @@ func scanAgentInto(row *sql.Row, a *Agent) error {
 // AgentPatch is a partial update. Empty string clears a nullable column
 // (inherit pi defaults). Nil pointer means leave unchanged.
 type AgentPatch struct {
-	Name        *string
-	Provider    *string
-	Model       *string
-	Thinking    *string
-	OpMode      *string
-	SessionPath *string
-	ExtraPrompt *string
+	Name             *string
+	Provider         *string
+	Model            *string
+	Thinking         *string
+	OpMode           *string
+	SessionPath      *string
+	ExtraPrompt      *string
+	PackagesIsolated *bool
 }
 
 // UpdateAgent applies a patch. Returns the row after the write.
@@ -202,8 +206,15 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if p.ExtraPrompt != nil {
 		a.ExtraPrompt = emptyToNil(*p.ExtraPrompt)
 	}
-	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=? WHERE id=?`,
-		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, id)
+	if p.PackagesIsolated != nil {
+		a.PackagesIsolated = *p.PackagesIsolated
+	}
+	iso := 0
+	if a.PackagesIsolated {
+		iso = 1
+	}
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, id)
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
@@ -230,6 +241,9 @@ func (a Agent) CLIFlags() []string {
 	}
 	if a.ExtraPrompt != nil && *a.ExtraPrompt != "" {
 		args = append(args, "--append-system-prompt", *a.ExtraPrompt)
+	}
+	if a.PackagesIsolated {
+		args = append(args, "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes")
 	}
 	for _, src := range a.Packages {
 		src = strings.TrimSpace(src)

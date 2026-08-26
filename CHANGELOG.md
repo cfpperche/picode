@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Packages **This agent**: only that agent, every session (`pi -e` on start). Machine and workspace unchanged.
+- Packages **This agent**: only that agent, every session (`pi -e` on start). Optional isolate skips machine and folder extras.
 - `/llama` dialog: URL, load/unload/download. Setup is docs, not an in-app installer.
 - `/share` creates a secret GitHub gist (`gh`). Not the phone QR.
 - Composer `/` lists skills and prompt templates (insert; pi expands on send).
