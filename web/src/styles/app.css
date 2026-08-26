@@ -15,6 +15,7 @@
   --warn: #e5c07b;
   --danger: #f7768e;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --code: "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Code", Menlo, monospace;
   --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
   --radius-ctl: 8px;
   --radius-panel: 12px;
@@ -1040,7 +1041,9 @@ body {
 .md ul, .md ol { margin: 0 0 0.7em; padding-left: 1.35em; }
 .md li { margin: 0.28em 0; }
 .md code, .md-inline {
-  font-family: var(--mono); font-size: 0.88em;
+  font-family: var(--code); font-size: 0.88em;
+  font-variant-ligatures: contextual;
+  font-feature-settings: "calt" 1, "liga" 1;
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: 5px;
   padding: 0.1em 0.35em;
 }
@@ -1060,13 +1063,15 @@ body {
 .source-head .copy-btn { opacity: 1; }
 .source-body {
   margin: 0; padding: 12px 14px; overflow-x: auto;
-  font-family: var(--mono); font-size: 13px; line-height: 1.55;
+  font-family: var(--code); font-size: 13px; line-height: 1.55;
+  font-variant-ligatures: contextual;
+  font-feature-settings: "calt" 1, "liga" 1;
   white-space: pre;
 }
 .source-body code { font: inherit; background: none; border: 0; padding: 0; }
 .source-out {
   margin: 0; padding: 10px 14px; border-top: 1px solid var(--border);
-  font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  font-family: var(--code); font-size: 12px; line-height: 1.5;
   white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto;
   background: var(--bg-base); color: var(--text-secondary);
 }
@@ -1162,7 +1167,11 @@ body {
 .tp-stat .add { color: var(--ok); }
 .tp-stat .del { color: var(--danger); }
 .tp-detail.tp-diff { padding: 0; max-height: 320px; white-space: normal; }
-.diff { font-family: var(--mono); font-size: 11px; line-height: 1.45; }
+.diff {
+  font-family: var(--code); font-size: 11px; line-height: 1.45;
+  font-variant-ligatures: contextual;
+  font-feature-settings: "calt" 1, "liga" 1;
+}
 .diff-line { display: flex; gap: 8px; padding: 0 10px; }
 .diff-line.add { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
 .diff-line.del { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
