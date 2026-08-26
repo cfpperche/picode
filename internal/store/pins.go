@@ -12,17 +12,28 @@ const maxPinBody = 100_000
 
 // Pin is a flat machine-scoped note (no folder tree).
 type Pin struct {
-	ID        string   `json:"id"`
-	Title     string   `json:"title"`
-	Tags      []string `json:"tags"`
-	Body      string   `json:"body"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Tags      []string  `json:"tags"`
+	Body      string    `json:"body"`
+	CreatedAt string    `json:"createdAt"`
+	UpdatedAt string    `json:"updatedAt"`
+	FileCount int       `json:"fileCount"`
+	Files     []PinFile `json:"files,omitempty"`
 }
 
 func scanPin(row interface{ Scan(...any) error }, p *Pin) error {
 	var tags string
 	if err := row.Scan(&p.ID, &p.Title, &tags, &p.Body, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		return err
+	}
+	p.Tags = decodePackages(tags)
+	return nil
+}
+
+func scanPinList(row interface{ Scan(...any) error }, p *Pin) error {
+	var tags string
+	if err := row.Scan(&p.ID, &p.Title, &tags, &p.Body, &p.CreatedAt, &p.UpdatedAt, &p.FileCount); err != nil {
 		return err
 	}
 	p.Tags = decodePackages(tags)
@@ -58,7 +69,8 @@ func normalizePin(title string, tags []string, body string) (string, []string, s
 }
 
 func (s *Store) ListPins() ([]Pin, error) {
-	rows, err := s.db.Query(`SELECT id, title, tags, body, created_at, updated_at FROM pins ORDER BY updated_at DESC`)
+	rows, err := s.db.Query(`SELECT id, title, tags, body, created_at, updated_at,
+		(SELECT COUNT(1) FROM pin_files f WHERE f.pin_id = pins.id) FROM pins ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list pins: %w", err)
 	}
@@ -66,7 +78,7 @@ func (s *Store) ListPins() ([]Pin, error) {
 	out := []Pin{}
 	for rows.Next() {
 		var p Pin
-		if err := scanPin(rows, &p); err != nil {
+		if err := scanPinList(rows, &p); err != nil {
 			return nil, fmt.Errorf("store: scan pin: %w", err)
 		}
 		out = append(out, p)
@@ -83,6 +95,12 @@ func (s *Store) GetPin(id string) (Pin, error) {
 	if err != nil {
 		return Pin{}, fmt.Errorf("store: get pin: %w", err)
 	}
+	files, err := s.ListPinFiles(p.ID)
+	if err != nil {
+		return Pin{}, err
+	}
+	p.Files = files
+	p.FileCount = len(files)
 	return p, nil
 }
 

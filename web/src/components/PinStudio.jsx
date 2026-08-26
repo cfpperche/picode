@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { IconX } from "./Icons.jsx";
+import { useEffect, useRef, useState } from "react";
+import { IconX, IconClip } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import { api } from "../lib/api.js";
 import { go, pinRoute } from "../lib/routes.js";
@@ -13,16 +13,42 @@ function pingList() {
   try { window.dispatchEvent(new Event("picode-pins")); } catch { /* ignore */ }
 }
 
+function fileURL(pinId, f) {
+  return "/api/pins/" + encodeURIComponent(pinId) + "/files/" + encodeURIComponent(f.id);
+}
+
+function prettySize(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+async function postFile(pinId, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/pins/" + encodeURIComponent(pinId) + "/files", { method: "POST", body: fd });
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch { /* keep */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 export default function PinStudio({ hidden }) {
   const info = hidden ? { mode: "", id: "" } : pinRoute();
   const [draft, setDraft] = useState(blank);
+  const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const pick = useRef(null);
 
   useEffect(() => {
     if (hidden) return;
     if (info.mode === "new") {
       setDraft(blank());
+      setFiles([]);
       setLoaded(true);
       return;
     }
@@ -32,6 +58,7 @@ export default function PinStudio({ hidden }) {
     api("/api/pins/" + encodeURIComponent(info.id)).then((p) => {
       if (stop) return;
       setDraft({ title: p.title || "", tags: p.tags || [], body: p.body || "", tagDraft: "" });
+      setFiles(p.files || []);
       setLoaded(true);
     }).catch((e) => {
       toastError(e);
@@ -47,6 +74,56 @@ export default function PinStudio({ hidden }) {
       return;
     }
     setDraft({ ...draft, tags: [...draft.tags, t], tagDraft: "" });
+  }
+
+  async function ensurePin() {
+    if (info.id) return info.id;
+    const title = draft.title.trim() || "Untitled";
+    const p = await api("/api/pins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, tags: draft.tags, body: draft.body }),
+    });
+    return p.id;
+  }
+
+  async function addFiles(list) {
+    const incoming = [...(list || [])].filter(Boolean);
+    if (!incoming.length) return;
+    setBusy(true);
+    try {
+      const id = await ensurePin();
+      const added = [];
+      for (const file of incoming) {
+        added.push(await postFile(id, file));
+      }
+      if (!info.id) {
+        pingList();
+        go("pin:" + id);
+        return;
+      }
+      setFiles((cur) => cur.concat(added));
+      pingList();
+    } catch (e) { toastError(e); }
+    finally { setBusy(false); }
+  }
+
+  function insertRef(f) {
+    if (!info.id) return;
+    const url = fileURL(info.id, f);
+    const md = f.kind === "image" ? "![" + f.name + "](" + url + ")" : "[" + f.name + "](" + url + ")";
+    const body = draft.body || "";
+    const sep = !body || body.endsWith("\n") ? "" : "\n";
+    setDraft({ ...draft, body: body + sep + md + "\n" });
+  }
+
+  async function dropFile(f) {
+    if (!info.id) return;
+    try {
+      await api("/api/pins/" + encodeURIComponent(info.id) + "/files/" + encodeURIComponent(f.id), { method: "DELETE" });
+      setFiles((cur) => cur.filter((x) => x.id !== f.id));
+      pingList();
+    } catch (e) { toastError(e); }
   }
 
   async function save() {
@@ -85,7 +162,23 @@ export default function PinStudio({ hidden }) {
   return (
     <PageFrame id="pin-studio" title={info.mode === "edit" ? "Edit pin" : "New pin"} hidden={hidden}>
       {!hidden && loaded ? (
-        <form className="pin-form pin-studio-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <form
+          className={"pin-form pin-studio-form" + (drag ? " pin-drop" : "")}
+          onSubmit={(e) => { e.preventDefault(); save(); }}
+          onPaste={(e) => {
+            const items = [...(e.clipboardData && e.clipboardData.files ? e.clipboardData.files : [])];
+            if (!items.length) return;
+            e.preventDefault();
+            addFiles(items);
+          }}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDrag(false);
+            addFiles(e.dataTransfer && e.dataTransfer.files);
+          }}
+        >
           <input
             className="pin-input"
             value={draft.title}
@@ -113,6 +206,34 @@ export default function PinStudio({ hidden }) {
               aria-label="Add pin tag"
             />
           </div>
+
+          <div className="pin-attach-bar">
+            <input ref={pick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => pick.current && pick.current.click()}>
+              <IconClip /> Attach
+            </button>
+            <span className="pin-attach-hint">Paste or drop images and files</span>
+          </div>
+
+          {files.length ? (
+            <ul className="pin-gallery">
+              {files.map((f) => (
+                <li key={f.id} className={"pin-att pin-att-" + f.kind}>
+                  {f.kind === "image" && info.id
+                    ? <button type="button" className="pin-att-thumb" title="Insert in text" onClick={() => insertRef(f)}>
+                        <img src={fileURL(info.id, f)} alt={f.name} />
+                      </button>
+                    : <button type="button" className="pin-att-file" title="Insert in text" onClick={() => insertRef(f)}>{f.name}</button>}
+                  <div className="pin-att-meta">
+                    <span className="pin-att-name" title={f.name}>{f.name}</span>
+                    <span className="pin-att-size">{prettySize(f.size)}</span>
+                  </div>
+                  <button type="button" className="ws-icon-btn danger" title="Remove file" onClick={() => dropFile(f)}><IconX size={12} /></button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           <textarea
             className="pin-body"
             value={draft.body}

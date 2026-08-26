@@ -80,10 +80,12 @@ func handleUpdatePin(deps Deps) http.HandlerFunc {
 
 func handleDeletePin(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := deps.Store.DeletePin(r.PathValue("id")); err != nil {
+		id := r.PathValue("id")
+		if err := deps.Store.DeletePin(id); err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
+		removePinDir(deps.DataDir, id)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

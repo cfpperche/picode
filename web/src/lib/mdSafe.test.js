@@ -5,6 +5,8 @@ import { safeImgSrc } from "./mdSafe.js";
 test("safeImgSrc", () => {
   assert.ok(safeImgSrc("https://example.com/a.png"));
   assert.ok(safeImgSrc("data:image/png;base64,xxx"));
+  assert.ok(safeImgSrc("/api/pins/hello-abc/files/file-def"));
+  assert.equal(safeImgSrc("/api/pins/../etc/passwd"), "");
   assert.equal(safeImgSrc("javascript:alert(1)"), "");
   assert.equal(safeImgSrc("file:///etc/passwd"), "");
 });

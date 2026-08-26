@@ -21,6 +21,7 @@ import {
   Minimize2,
   Monitor,
   Moon,
+  Paperclip,
   Pin,
   Play,
   Plus,
@@ -80,3 +81,4 @@ export const IconCollapse = lucide(Minimize2, 14);
 export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
 export const IconPin = lucide(Pin, 13);
+export const IconClip = lucide(Paperclip, 13);

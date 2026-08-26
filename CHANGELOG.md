@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pin attachments V2: paste/drop/import images and files. Bytes on disk, not in the list.
 - Pin form is a route (`#/pins/new`, `#/pins/:id`). Sidebar Pins is the list only.
 - Console easter egg. Free-agent status no longer 404s (was using agent id as workspace).
 - Browser QA: `npm:pi-agent-browser-native` (project + machine). Skill shrunk to PiCode-only map.

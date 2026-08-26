@@ -52,6 +52,7 @@ export default function Pins() {
                 <button type="button" className="ws-icon-btn danger" title="Delete pin" onClick={(e) => remove(p.id, e)}><IconX size={12} /></button>
               </div>
               {p.tags && p.tags.length ? <div className="pin-card-tags">{p.tags.map((t) => "#" + t).join(" ")}</div> : null}
+              {p.fileCount ? <div className="pin-card-files">{p.fileCount} {p.fileCount === 1 ? "file" : "files"}</div> : null}
             </li>
           ))}
         </ul>

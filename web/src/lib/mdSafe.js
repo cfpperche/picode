@@ -4,5 +4,6 @@ export function safeImgSrc(src) {
   const low = s.toLowerCase();
   if (low.startsWith("https://") || low.startsWith("http://")) return s;
   if (low.startsWith("data:image/")) return s;
+  if (low.startsWith("/api/pins/") && !low.includes("..")) return s;
   return "";
 }

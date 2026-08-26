@@ -41,3 +41,29 @@ func TestPinsCRUD(t *testing.T) {
 		t.Fatalf("deleted get = %v", err)
 	}
 }
+
+func TestPinFiles(t *testing.T) {
+	s := openTest(t)
+	p, err := s.CreatePin("Shot", nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddPinFile(p.ID, "x.exe", "application/octet-stream", 10); err == nil {
+		t.Fatal("exe allowed")
+	}
+	f, err := s.AddPinFile(p.ID, "shot.png", "image/png", 120)
+	if err != nil || f.Kind != "image" {
+		t.Fatalf("image = %+v %v", f, err)
+	}
+	got, err := s.GetPin(p.ID)
+	if err != nil || got.FileCount != 1 || len(got.Files) != 1 {
+		t.Fatalf("get files = %+v %v", got, err)
+	}
+	list, _ := s.ListPins()
+	if list[0].FileCount != 1 {
+		t.Fatalf("list count = %d", list[0].FileCount)
+	}
+	if err := s.DeletePinFile(p.ID, f.ID); err != nil {
+		t.Fatal(err)
+	}
+}
