@@ -106,7 +106,13 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add
-- `DELETE /api/workspaces/{id}` — remove (stops the agent first)
+- `DELETE /api/workspaces/{id}` — remove (stops **all** agents first).
+  Optional `?sessions=1` deletes the pi session dir when this workspace is
+  the last occupant of that cwd. Project folders are never deleted.
+- `GET /api/workspaces/{id}/cleanup` / `GET /api/agents/{id}/cleanup` —
+  preview for the delete dialog (session count, last occupant, owned work folder).
+- `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
+  (work only if cwd is under `~/.picode/work/` and nobody else uses it).
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
 - `GET /ws/term?session=<name>` — xterm.js bridge

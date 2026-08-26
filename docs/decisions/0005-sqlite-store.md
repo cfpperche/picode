@@ -53,6 +53,8 @@ is orchestration audit (started/stopped/task events) — **not** a chat log.
   embedded sequential migrations).
 - **Deletion semantics (v1)**: hard delete + `ON DELETE CASCADE`, documented.
   Soft-archive is a future migration if the lifecycle moat demands it.
+  Session JSONL and project folders stay unless the UI opt-in purge runs
+  (last occupant of that cwd; work folder only under `~/.picode/work/`).
 - **If wrong**: the store package is the only SQL consumer; swapping the
   engine later touches one package.
 

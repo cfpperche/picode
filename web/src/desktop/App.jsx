@@ -26,7 +26,7 @@ const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
-import { askConfirm } from "../lib/confirm.js";
+import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import { alertFromPi } from "../lib/piError.js";
 import { mergeAssistant } from "../lib/assistantMsg.js";
@@ -518,16 +518,39 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
+  async function confirmCleanup({ title, message, path }) {
+    let preview = { lastOccupant: false, sessions: 0, sessionBytes: 0, canPurgeWork: false };
+    try { preview = await api(path); } catch { /* unregister still allowed */ }
+    const choices = [];
+    if (preview.lastOccupant && preview.sessions > 0) {
+      const n = preview.sessions;
+      choices.push({
+        id: "sessions",
+        label: `Also delete ${n} session${n === 1 ? "" : "s"} (${fmtBytes(preview.sessionBytes)}) for this folder`,
+      });
+    }
+    if (preview.canPurgeWork) {
+      choices.push({ id: "work", label: "Also delete the work folder" });
+    }
+    const ok = await askConfirm({ title, message, confirmLabel: "Remove", danger: true, choices });
+    if (!ok) return null;
+    const picked = ok === true ? {} : ok;
+    const q = new URLSearchParams();
+    if (picked.sessions) q.set("sessions", "1");
+    if (picked.work) q.set("work", "1");
+    const qs = q.toString();
+    return { query: qs ? "?" + qs : "" };
+  }
+
   async function removeAgent(ag) {
-    const ok = await askConfirm({
+    const choice = await confirmCleanup({
       title: "Remove agent",
       message: `Remove "${ag.name}"? The project folder is not deleted.`,
-      confirmLabel: "Remove",
-      danger: true,
+      path: "/api/agents/" + ag.id + "/cleanup",
     });
-    if (!ok) return;
+    if (!choice) return;
     try {
-      await api("/api/agents/" + ag.id, { method: "DELETE" });
+      await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
       closeTerm(ag.id);
       setTabs((t) => t.filter((x) => x !== ag.id));
       if (selectedId === ag.id) setSelectedId(null);
@@ -536,19 +559,22 @@ export default function App() {
   }
 
   async function removeWorkspace(ws) {
-    const ok = await askConfirm({
+    const choice = await confirmCleanup({
       title: "Remove workspace",
       message: `Remove "${ws.name}"? The project folder is not deleted.`,
-      confirmLabel: "Remove",
-      danger: true,
+      path: "/api/workspaces/" + ws.id + "/cleanup",
     });
-    if (!ok) return;
+    if (!choice) return;
     try {
-      await api(`/api/workspaces/${ws.id}`, { method: "DELETE" });
-      if (ws.agent) closeTerm(ws.agent.id);
-      if (panelRef.current && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
-      setTabs((t) => t.filter((x) => x !== ws.id));
-      if (selectedId === ws.id) setSelectedId(null);
+      await api("/api/workspaces/" + ws.id + choice.query, { method: "DELETE" });
+      const ids = (ws.agents || []).map((a) => a.id);
+      if (ws.agent) ids.push(ws.agent.id);
+      for (const id of [...new Set(ids)]) {
+        closeTerm(id);
+        if (panelRef.current && panelRef.current.agentId === id) closePanel();
+      }
+      setTabs((t) => t.filter((x) => x !== ws.id && !ids.includes(x)));
+      if (selectedId === ws.id || ids.includes(selectedId)) setSelectedId(null);
       await loadWorkspaces();
     } catch (err) { toastError(err); }
   }

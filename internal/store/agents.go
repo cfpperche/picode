@@ -358,6 +358,27 @@ func scanAgentIntoRows(a *Agent, rows *sql.Rows) error {
 	return scanAgent(rows, a)
 }
 
+// ListAllAgents returns every agent, including free ones.
+func (s *Store) ListAllAgents() ([]Agent, error) {
+	rows, err := s.db.Query(`SELECT ` + agentCols + ` FROM agents ORDER BY created_at`)
+	if err != nil {
+		return nil, fmt.Errorf("store: list all agents: %w", err)
+	}
+	defer rows.Close()
+	var out []Agent
+	for rows.Next() {
+		var a Agent
+		if err := scanAgentIntoRows(&a, rows); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if out == nil {
+		out = []Agent{}
+	}
+	return out, rows.Err()
+}
+
 // DeleteAgent removes one agent. Workspace is kept.
 func (s *Store) DeleteAgent(id string) error {
 	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)

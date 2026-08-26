@@ -26,13 +26,13 @@ What exists:
 
 ## In flight
 
-Pins V1 shipped (title / tags / markdown body, SQLite). Richer editor later. llama.cpp depth is backlog.
+Delete cleanup shipped (opt-in session/work purge). Backup/restore engine is next (local directory, interval + retention). llama.cpp depth is backlog.
 
 ## Next up
 
-1. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
-2. MCP visual manager — **blocked** until adapter format is decided.
-3. Packages cycle dogfood (owner; deferred).
+1. Backup V1: local directory snapshots (`VACUUM INTO` + hardlink, interval/retention in Preferences).
+2. Voice V1 dogfood (owner, Chrome Windows mic). V1.1 cloud STT only after that (`docs/design/voice-mode.md` §4).
+3. MCP visual manager — **blocked** until adapter format is decided.
 
 ## Backlog
 
@@ -51,6 +51,7 @@ Pins V1 shipped (title / tags / markdown body, SQLite). Richer editor later. lla
 
 ## Recent activity
 
+- **2026-08-26** — Delete agent/workspace: confirm may offer session + work-folder purge (last occupant only). All workspace agents stopped first.
 - **2026-08-26** — Pin V3 sketches (Excalidraw, lazy). Blank or annotate image.
 - **2026-08-26** — Pin V2.1 TipTap editor (markdown on disk).
 - **2026-08-26** — Pin attachments V2 (image + file). Sketch/Excalidraw is V3.

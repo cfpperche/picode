@@ -543,21 +543,26 @@ func patchNewAgent(deps Deps, agent store.Agent, provider, model, thinking strin
 func handleDeleteAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		if _, err := deps.Store.GetAgent(id); errors.Is(err, store.ErrNotFound) {
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")
 			return
 		} else if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		deps.Runtime.Stop(id)
-		if deps.Tmux.Available() {
-			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
+		_, cwd, err := deps.agentCwd(agent)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
 		}
+		preview := deps.previewCleanup(cwd, map[string]bool{agent.ID: true})
+		deps.stopAgent(r.Context(), id)
 		if err := deps.Store.DeleteAgent(id); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		deps.applyCleanup(preview, queryFlag(r, "sessions"), queryFlag(r, "work"))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

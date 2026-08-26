@@ -34,6 +34,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces", handleList(deps))
 	mux.HandleFunc("POST /api/workspaces", handleAdd(deps))
 	mux.HandleFunc("DELETE /api/workspaces/{id}", handleRemove(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/cleanup", handleWorkspaceCleanup(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/open", handleOpen(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/close", handleClose(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/status", handleWorkspaceStatus(deps))
@@ -48,6 +49,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents", handleListFreeAgents(deps))
 	mux.HandleFunc("POST /api/agents", handleAddFreeAgent(deps))
 	mux.HandleFunc("DELETE /api/agents/{id}", handleDeleteAgent(deps))
+	mux.HandleFunc("GET /api/agents/{id}/cleanup", handleAgentCleanup(deps))
 	mux.HandleFunc("POST /api/agents/{id}/open", handleAgentOpen(deps))
 	mux.HandleFunc("POST /api/agents/{id}/close", handleAgentClose(deps))
 	registerAgentRoutes(mux, deps)
@@ -124,6 +126,10 @@ func handleAdd(deps Deps) http.HandlerFunc {
 func handleRemove(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		if id == store.FreeWorkspaceID {
+			writeErr(w, http.StatusBadRequest, "cannot remove the free workspace")
+			return
+		}
 		wk, err := deps.Store.GetWorkspace(id)
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "workspace not found")
@@ -133,23 +139,23 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		agent, err := deps.Store.DefaultAgent(wk.ID)
+		agents, err := deps.Store.ListAgents(wk.ID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		// Stop the agent first (best effort), then unregister (cascades).
-		if deps.Tmux.Available() {
-			if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(agent.ID)); err != nil {
-				writeErr(w, http.StatusInternalServerError, "stop agent: "+err.Error())
-				return
-			}
+		dying := map[string]bool{}
+		for _, a := range agents {
+			dying[a.ID] = true
+			deps.stopAgent(r.Context(), a.ID)
 		}
+		preview := deps.previewCleanup(wk.Path, dying)
 		removed, err := deps.Store.RemoveWorkspace(wk.ID)
 		if err != nil || !removed {
 			writeErr(w, http.StatusInternalServerError, "remove failed")
 			return
 		}
+		deps.applyCleanup(preview, queryFlag(r, "sessions"), queryFlag(r, "work"))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

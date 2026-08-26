@@ -11,6 +11,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- Removing an agent or workspace now offers to delete that folder's pi sessions (and a free-agent work folder) when nobody else uses it. Project folders stay. All agents in a workspace are stopped first.
+
 ### Added
 
 - Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
