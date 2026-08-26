@@ -26,6 +26,7 @@ What exists:
 - Voice **V1 shipped** (dictation + Grok composer + browser TTS). Owner dogfood pending (Chrome Windows mic).
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
 - `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
+- MCP / Packages / Settings title names the selected agent. Scope pills use that name. Sidebar agent click from a pane goes to `#/`.
 
 ## In flight
 
@@ -45,7 +46,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Known debts / open questions
 
-- MCP **installed + zero servers** (Add form) not live-captured — dogfood machine has no adapter. Blocked state is `docs/screenshots/mcp-blocked.png`.
+- MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.
 - `internal/proclock` leftover `picode.lock` after a Windows crash.
@@ -55,6 +56,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP/Packages name the agent (title + pills). Sidebar click from a pane opens that agent. visual-review: PASS (mcp-named.png).
 - **2026-08-26** — MCP empty redesigned (one line + Open packages). UI skills now load-before-JSX; visual skip = quality-gate FAIL. visual-review: PASS (mcp-blocked.png).
 - **2026-08-26** — MCP manager: list/add/toggle/remove on adapter files (machine / folder / this agent). B3 import next.
 - **2026-08-26** — Composer `!cmd`: RPC bash in the agent folder, inline block + Stop. Track A done.

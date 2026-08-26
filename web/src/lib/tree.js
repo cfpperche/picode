@@ -35,3 +35,10 @@ export function displayAgentName(agent, workspace) {
   if (agent.name && agent.name !== "default") return agent.name;
   return (workspace && workspace.name) || agent.name || "Agent";
 }
+
+export function paneContext(agentName, workspaceName) {
+  const a = String(agentName || "").trim();
+  const w = String(workspaceName || "").trim();
+  if (a && w && a !== w) return a + " · " + w;
+  return a || w;
+}

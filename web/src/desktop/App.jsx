@@ -245,6 +245,11 @@ export default function App() {
     if (loc) prepareSurface(loc.agent);
   }
 
+  function revealAgent(id, list) {
+    openTab(id, list);
+    if (parseRoute() !== "workspace") go("workspace");
+  }
+
   function prepareSurface(a) {
     if (!a || a.mode === "stopped") {
       setStatus("stopped");
@@ -861,7 +866,7 @@ export default function App() {
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
         onNewFree={() => { setFormKind("free"); setShowForm(true); }}
         onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
-        onSelect={(id) => openTab(id)}
+        onSelect={(id) => revealAgent(id)}
         onRun={startManaged}
         onStop={stopAgent}
         onRemove={removeWorkspace}
@@ -870,11 +875,11 @@ export default function App() {
         workingId={streaming ? selectedId : null}
         termView={termView}
         onChat={(id) => {
-          openTab(id);
+          revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
         }}
         onTerm={(id) => {
-          openTab(id);
+          revealAgent(id);
           setTermWanted((s) => new Set(s).add(id));
           const loc = locate(workspaces, freeAgents, id);
           if (loc && loc.agent && loc.agent.mode !== "interactive") openInteractive(id);
@@ -1149,7 +1154,7 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
-          if (a.kind === "open") openTab(a.wsId);
+          if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);
           if (a.kind === "stop") stopAgent(a.wsId);

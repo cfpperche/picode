@@ -48,7 +48,7 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
   const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
-    <PageFrame id="pi-settings-view" title="Settings" hidden={hidden} wide>
+    <PageFrame id="pi-settings-view" title="Settings" context={agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
       {!agent ? (
         <p className="settings-desc">Select an agent to edit pi settings.</p>
       ) : (

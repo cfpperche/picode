@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
+import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 
@@ -107,7 +108,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
-    <PageFrame id="packages-view" title="Packages" hidden={hidden} wide>
+    <PageFrame id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
       <form className="pkg-by-source" noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
         <input
           className="dlg-input"
@@ -121,24 +122,26 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       </form>
       <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Install scope">
         <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-        <button
-          type="button"
-          role="radio"
-          className="pkg-scope-btn"
-          aria-checked={scope === "project"}
-          disabled={!workspaceId}
-          title={workspaceId ? "Writes .pi/settings.json in this workspace" : "Select an agent first"}
-          onClick={() => workspaceId && setScope("project")}
-        >This workspace</button>
-        <button
-          type="button"
-          role="radio"
-          className="pkg-scope-btn"
-          aria-checked={scope === "agent"}
-          disabled={!agentId}
-          title={agentId ? "Only this agent, every session" : "Select an agent first"}
-          onClick={() => agentId && setScope("agent")}
-        >This agent</button>
+        {workspaceId ? (
+          <button
+            type="button"
+            role="radio"
+            className="pkg-scope-btn"
+            aria-checked={scope === "project"}
+            title={"Installs in " + (workspaceName || "this folder")}
+            onClick={() => setScope("project")}
+          >{workspaceName || "This workspace"}</button>
+        ) : null}
+        {agentId ? (
+          <button
+            type="button"
+            role="radio"
+            className="pkg-scope-btn"
+            aria-checked={scope === "agent"}
+            title={"Only " + (agentName || "this agent") + ", every session"}
+            onClick={() => setScope("agent")}
+          >{agentName || "This agent"}</button>
+        ) : null}
       </div>
       {agentId ? (
         <label className="pkg-fine" style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -161,7 +164,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
           Only this agent's packages (skip machine and folder). Restart to apply.
         </label>
       ) : null}
-      <p className="pkg-fine">Packages run with full access. Only install what you review.{scope === "project" && workspaceName ? " Target: " + workspaceName + "/.pi" : ""}{scope === "agent" && agentName ? " Target: " + agentName + " (next start)" : ""}</p>
+      <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
 
       <section className="pkg-toolbar" data-align-row>
         <input

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { locate, firstAgentId, displayAgentName, agentsOf } from "./tree.js";
+import { locate, firstAgentId, displayAgentName, agentsOf, paneContext } from "./tree.js";
 
 const ws = { id: "w1", name: "Repo", agents: [{ id: "a1", name: "default" }, { id: "a2", name: "review" }] };
 
@@ -15,4 +15,11 @@ test("firstAgentId and display name", () => {
   assert.equal(displayAgentName({ name: "default" }, ws), "Repo");
   assert.equal(displayAgentName({ name: "review" }, ws), "review");
   assert.equal(agentsOf(ws).length, 2);
+});
+
+test("paneContext names agent and folder once", () => {
+  assert.equal(paneContext("web_search", ""), "web_search");
+  assert.equal(paneContext("review", "Repo"), "review · Repo");
+  assert.equal(paneContext("Repo", "Repo"), "Repo");
+  assert.equal(paneContext("", ""), "");
 });

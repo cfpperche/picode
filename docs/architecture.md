@@ -31,8 +31,8 @@ stay on their own routes.
 | `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
-| `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove. No adapter → Open packages. Setup copy lives in `www/guide/mcp.md`. |
-| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010) |
+| `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove. Title names the selected agent; scope pills use that name. Sidebar agent click leaves the pane (`#/`). |
+| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).

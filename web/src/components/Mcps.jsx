@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
+import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 
@@ -110,7 +111,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   return (
-    <PageFrame id="mcps-view" title="MCPs" hidden={hidden}>
+    <PageFrame id="mcps-view" title="MCPs" context={paneContext(agentName, workspaceName)} hidden={hidden}>
       {loading ? (
         <div className="mcp-skel" aria-hidden="true">
           <div className="skel-line w-70" />
@@ -134,7 +135,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                   aria-checked={scope === "project"}
                   title={"Saves in " + (workspaceName || "this folder")}
                   onClick={() => setScope("project")}
-                >This workspace</button>
+                >{workspaceName || "This workspace"}</button>
               ) : null}
               {canAgent ? (
                 <button
@@ -144,7 +145,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                   aria-checked={scope === "agent"}
                   title={"Saves with " + (agentName || "this agent")}
                   onClick={() => setScope("agent")}
-                >This agent</button>
+                >{agentName || "This agent"}</button>
               ) : null}
             </div>
           ) : null}
