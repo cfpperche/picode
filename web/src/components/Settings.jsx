@@ -154,6 +154,7 @@ function BackupSection({ hidden }) {
   });
   const [snaps, setSnaps] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [job, setJob] = useState(null);
 
   async function load() {
     try {
@@ -188,13 +189,18 @@ function BackupSection({ hidden }) {
   }
 
   async function runNow() {
+    if (!cfg.dir || job) return;
+    const steps = backupSteps(cfg);
+    setJob({ steps, dest: cfg.dir, step: 0, error: "" });
     setBusy(true);
     try {
       await api("/api/backup/now", { method: "POST" });
-      toast.ok("Backup saved.");
+      setJob((j) => j && { ...j, step: steps.length });
       await load();
-    } catch (e) { toastError(e); }
-    finally { setBusy(false); }
+      setTimeout(() => setJob(null), 700);
+    } catch (e) {
+      setJob((j) => j && { ...j, error: e.message || String(e) });
+    } finally { setBusy(false); }
   }
 
   async function restore(id) {
@@ -276,7 +282,51 @@ function BackupSection({ hidden }) {
           ))}
         </ul>
       ) : null}
+      {job ? <BackupJob job={job} onClose={() => setJob(null)} /> : null}
     </section>
+  );
+}
+
+function backupSteps(cfg) {
+  return [
+    { id: "db", label: "VACUUM INTO picode.db" },
+    { id: "pins", label: "Copy pins" + (cfg.secrets ? " and secrets" : "") },
+    { id: "sess", label: cfg.sessions ? "Copy pi sessions" : "Skip sessions" },
+    { id: "manifest", label: "Write manifest" },
+  ];
+}
+
+function BackupJob({ job, onClose }) {
+  const steps = job.steps || [];
+  return (
+    <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="bak-job-title">
+      <div className="pkg-job-card">
+        <h3 id="bak-job-title">Backing up</h3>
+        <p className="pkg-job-src">{job.dest}</p>
+        <ol className="pkg-job-steps">
+          {steps.map((s, i) => {
+            let st = "todo";
+            if (job.error && i === job.step) st = "err";
+            else if (i < job.step) st = "done";
+            else if (i === job.step) st = "run";
+            return (
+              <li key={s.id} className={"pkg-job-step " + st}>
+                <span className="pkg-job-mark" aria-hidden="true">{st === "done" ? "✓" : st === "run" ? "●" : st === "err" ? "!" : "○"}</span>
+                <code>{s.label}</code>
+              </li>
+            );
+          })}
+        </ol>
+        {job.error ? (
+          <>
+            <p className="pkg-job-err">{job.error}</p>
+            <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
+          </>
+        ) : (
+          <p className="pkg-fine">Stays here until the snapshot is on disk.</p>
+        )}
+      </div>
+    </div>
   );
 }
 
