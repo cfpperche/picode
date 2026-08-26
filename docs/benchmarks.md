@@ -108,6 +108,9 @@ state = one line + one action; statusbar = live state, not hints).
 
 - Homemade widgets when Radix/cmdk/native already cover it (AGENTS.md Style).
 - Empty list with no placeholder, or a "0" count on a collapsed empty group.
+- Setup essays, architecture, or npm specs in chrome (those live in `www/`).
+- Disabled segmented controls with only a `title` tooltip; hide or explain.
+- Tall empty `settings-card` (hug content).
 - AI-slop UI: generic dashboard shells, 12-card grids of nothing, gradients
   for depth, spinner-only loading states, **blank wells while fetching**.
 - Hiding the terminal to "protect" users (see philosophy: door, not cage).

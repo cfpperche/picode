@@ -1,14 +1,27 @@
 ---
 name: uiux-review
-description: Review UI/UX work against PiCode's design benchmarks (Linear-speed, Stripe-clarity, dark-first, terminal-averse friendly). Use when touching internal/web/public, web/, or any user-facing copy.
+description: Load with read BEFORE the first JSX/CSS edit. Empty = one line + one action. Docs, npm specs, or architecture in chrome = FAIL. Disabled pills with only a tooltip = FAIL. Memory PASS without this file = FAIL.
 ---
 
 # UI/UX review
 
+**When:** `read` this file before writing or changing JSX/CSS. Filling the
+verdict from memory, or after `make ci`, is FAIL.
+
 Checklist against `docs/benchmarks.md` (UI/UX section) and, for new
-surfaces, `docs/benchmarks/` (Cursor / t3code / paseo). Use whenever this
-session touched anything the user sees: pages, components, copy, terminal
-styling, error messages.
+surfaces, `docs/benchmarks/` (Cursor / t3code / paseo).
+
+## Copy and empty states (instant FAIL)
+
+- Chrome carries **state + the next action**. Setup essays, architecture
+  ("Pi has no native X"), npm specs, and file-path lectures belong in
+  `www/`, not in the view.
+- Zero items or a missing dependency: **one line + one action** on that
+  surface. "No X." in a tall well, with Add hidden, is FAIL.
+- Unavailable choices are **hidden**, or the reason is visible text — not
+  a disabled pill whose only hint is `title`.
+- `settings-card` hugs content (`height: fit-content`). A sparse dashboard
+  panel is FAIL.
 
 ## Checklist
 
@@ -78,6 +91,8 @@ milestone); apply tokens and density from day one.
 ### Anti-benchmarks (instant FAIL)
 - Generic dashboard slop: card grids of nothing, gradient depth,
   spinner-only loading, unexplained jargon.
+- Docs / npm / architecture copy in chrome; tall empty `settings-card`.
+- Disabled segmented controls whose only hint is a `title` tooltip.
 - **Clipped overlays** (menus cut by the viewport). Geometry +
   screenshot required — see `/skill:visual-review`.
 

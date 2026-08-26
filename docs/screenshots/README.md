@@ -17,4 +17,4 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
-M0 placeholder only — first real captures land with M1 (terminal grid).
+Working captures stay in `var/screenshots/`. Curated: `mcp-blocked.png` (MCP, no adapter).

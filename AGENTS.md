@@ -62,11 +62,15 @@ for polish, copy, and single-path fixes.
 then “all done” is FAIL. Prefer showing the next state immediately and
 reconciling when the server answers.
 
-For any UI work, also run `/skill:uiux-review` and `/skill:visual-review`.
-Visual-review is a **gate**, not a courtesy: screenshot must be `read`,
-`window.__picodeOverlayAudit()` must be `ok` after overlays, and the
-5-question visual-card must be answered in the reply. Any clip/occlusion
-is FAIL — do not commit. See `.pi/skills/visual-review/SKILL.md`.
+For any UI work:
+1. `read` `.pi/skills/uiux-review/SKILL.md` **before** the first JSX/CSS edit.
+2. Empty / blocked / error states are first-class: one line + one action.
+   A lecture, npm spec, or blank well is FAIL.
+3. Before done, `read` `.pi/skills/visual-review/SKILL.md`. Screenshot of
+   those states must be `read`. After overlays, `window.__picodeOverlayAudit()`
+   must be `ok`. Answer the 5-question visual-card in the reply.
+4. Skip or FAIL on visual-review → do not commit, do not say shipped.
+   `eval` / DOM JSON is not a visual verdict.
 At session end, run `/skill:handoff-update`.
 
 ## Commands

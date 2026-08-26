@@ -24,6 +24,7 @@ export default defineConfig({
           { text: "Getting started", link: "/guide/getting-started" },
           { text: "Providers", link: "/guide/providers" },
           { text: "Packages", link: "/guide/packages" },
+          { text: "MCP", link: "/guide/mcp" },
           { text: "llama.cpp", link: "/guide/llama" },
         ],
       },

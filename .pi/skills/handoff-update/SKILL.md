@@ -29,6 +29,7 @@ say so — don't perform empty ritual updates.
    context ("needs owner action on GitHub settings").
 
 6. **Prepend to "Recent activity"** — one line: date + what changed.
+   UI sessions include the `visual-review:` verdict (PASS/FAIL/UNVERIFIED).
 
 7. **Housekeeping**: if the file exceeds ~150 lines, move the oldest
    "Recent activity" blocks to `docs/handoff-archive.md` (create if missing).

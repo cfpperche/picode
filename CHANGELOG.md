@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- MCP page: no setup lecture. Missing adapter is one line + **Open packages**; Add is the empty state when the adapter is in. Unavailable scopes are hidden. Guide: [MCP](https://cfpperche.github.io/picode/guide/mcp).
 - Folder picker on WSL lists Windows drives (`C:`, `D:`) and accepts `C:\\…` paths. Place chips use home/drive icons; current path is a labeled card.
 - Removing an agent or workspace now offers to delete that folder's pi sessions (and a free-agent work folder) when nobody else uses it. Project folders stay. All agents in a workspace are stopped first.
 

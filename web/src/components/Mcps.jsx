@@ -28,9 +28,13 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     if (!agentWorkPath && scope === "agent") setScope("user");
   }, [workspaceId, agentWorkPath, scope]);
 
+  const loading = !hidden && data === null;
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
+  const canProject = !!workspaceId;
+  const canAgent = !!agentWorkPath;
+  const showScopes = canProject || canAgent;
 
   async function runJob(action, label, fn) {
     if (job) return;
@@ -107,106 +111,113 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 
   return (
     <PageFrame id="mcps-view" title="MCPs" hidden={hidden}>
-      {!installed ? (
-        <p className="pkg-fine">
-          Pi has no native MCP. Install <code>npm:pi-mcp-adapter</code> first.
-          {" "}<a className="settings-link" href="#/packages">Open packages</a>
-        </p>
+      {loading ? (
+        <div className="mcp-skel" aria-hidden="true">
+          <div className="skel-line w-70" />
+          <div className="skel-line w-40" />
+        </div>
+      ) : !installed ? (
+        <div className="mcp-empty">
+          <p>Install the MCP adapter to add servers.</p>
+          <a className="btn btn-primary" href="#/packages">Open packages</a>
+        </div>
       ) : (
-        <p className="pkg-fine">Writes the adapter&apos;s own files. Restart picks them up.</p>
-      )}
-
-      <div className="pkg-scope" data-align-row role="radiogroup" aria-label="MCP scope">
-        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-        <button
-          type="button"
-          role="radio"
-          className="pkg-scope-btn"
-          aria-checked={scope === "project"}
-          disabled={!workspaceId}
-          title={workspaceId ? "Writes .mcp.json in " + (workspaceName || "this folder") : "Select an agent first"}
-          onClick={() => workspaceId && setScope("project")}
-        >This workspace</button>
-        <button
-          type="button"
-          role="radio"
-          className="pkg-scope-btn"
-          aria-checked={scope === "agent"}
-          disabled={!agentWorkPath}
-          title={agentWorkPath ? "Writes .pi/mcp.json in this agent folder" : "This agent shares its folder — use This workspace"}
-          onClick={() => agentWorkPath && setScope("agent")}
-        >This agent</button>
-      </div>
-      {scope === "project" && workspacePath ? <p className="pkg-fine">Target: {workspacePath}/.mcp.json</p> : null}
-      {scope === "agent" && agentWorkPath ? <p className="pkg-fine">Target: {agentWorkPath}/.pi/mcp.json</p> : null}
-
-      <section className="pkg-installed">
-        <h3>Servers</h3>
-        {servers.length === 0 ? (
-          <p className="pkg-fine">No MCP servers.</p>
-        ) : (
-          <ul className="mcp-list">
-            {servers.map((s) => (
-              <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
-                <div className="mcp-row-main">
-                  <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
-                  <strong className="mcp-name">{s.name}</strong>
-                  <code className="mcp-target">{targetOf(s)}</code>
-                </div>
-                <div className="mcp-row-actions">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={!s.disabled}
-                    className="pkg-scope-btn"
-                    disabled={!installed || !!job}
-                    onClick={() => toggle(s)}
-                  >{s.disabled ? "Off" : "On"}</button>
-                  {s.owned ? (
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={!installed || !!job} onClick={() => remove(s)}>Remove</button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {installed ? (
-        <section className="mcp-add">
-          <h3>Add</h3>
-          {presets.length ? (
-            <div className="mcp-presets" data-align-row>
-              {presets.map((p) => (
+        <>
+          {showScopes ? (
+            <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
+              <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+              {canProject ? (
                 <button
-                  key={p.id}
                   type="button"
+                  role="radio"
                   className="pkg-scope-btn"
-                  disabled={!!job}
-                  title={p.summary}
-                  onClick={() => addServer({ name: p.id, ...p.entry })}
-                >{p.name}</button>
-              ))}
+                  aria-checked={scope === "project"}
+                  title={"Saves in " + (workspaceName || "this folder")}
+                  onClick={() => setScope("project")}
+                >This workspace</button>
+              ) : null}
+              {canAgent ? (
+                <button
+                  type="button"
+                  role="radio"
+                  className="pkg-scope-btn"
+                  aria-checked={scope === "agent"}
+                  title={"Saves with " + (agentName || "this agent")}
+                  onClick={() => setScope("agent")}
+                >This agent</button>
+              ) : null}
             </div>
           ) : null}
-          <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
-            <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="name" aria-label="Server name" disabled={!!job} />
-            <div className="pkg-scope" role="radiogroup" aria-label="Transport">
-              <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio" })}>Command</button>
-              <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
-            </div>
-            {form.kind === "stdio" ? (
-              <>
-                <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="npx" aria-label="Command" disabled={!!job} />
-                <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="-y package" aria-label="Args" disabled={!!job} />
-              </>
-            ) : (
-              <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" aria-label="Server URL" disabled={!!job} />
-            )}
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add</button>
-          </form>
-        </section>
-      ) : null}
+
+          {servers.length > 0 ? (
+            <section className="pkg-installed">
+              <h3>Servers</h3>
+              <ul className="mcp-list">
+                {servers.map((s) => (
+                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
+                    <div className="mcp-row-main">
+                      <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
+                      <strong className="mcp-name">{s.name}</strong>
+                      <code className="mcp-target">{targetOf(s)}</code>
+                    </div>
+                    <div className="mcp-row-actions">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!s.disabled}
+                        className="pkg-scope-btn"
+                        disabled={!!job}
+                        onClick={() => toggle(s)}
+                      >{s.disabled ? "Off" : "On"}</button>
+                      {s.owned ? (
+                        <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} onClick={() => remove(s)}>Remove</button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="mcp-add">
+            <h3>Add</h3>
+            {presets.length ? (
+              <div className="mcp-presets" data-align-row>
+                {presets.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="pkg-scope-btn"
+                    disabled={!!job}
+                    title={p.summary}
+                    onClick={() => addServer({ name: p.id, ...p.entry })}
+                  >{p.name}</button>
+                ))}
+              </div>
+            ) : null}
+            <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
+              <div className="mcp-form-row" data-align-row>
+                <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
+                <div className="pkg-scope" role="radiogroup" aria-label="How it connects">
+                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio" })}>Command</button>
+                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
+                </div>
+              </div>
+              <div className="mcp-form-row" data-align-row>
+                {form.kind === "stdio" ? (
+                  <>
+                    <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="Command" aria-label="Command" disabled={!!job} />
+                    <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="Arguments" aria-label="Arguments" disabled={!!job} />
+                  </>
+                ) : (
+                  <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://\u2026" aria-label="Server URL" disabled={!!job} />
+                )}
+                <button type="submit" className="btn btn-primary" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add</button>
+              </div>
+            </form>
+          </section>
+        </>
+      )}
 
       {job ? <JobOverlay job={job} running={agentRunning} onClose={() => setJob(null)} /> : null}
     </PageFrame>
@@ -251,8 +262,8 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose }) {
   const steps = [
-    { id: "write", label: (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Write ") + job.label },
-    { id: "reload", label: running ? "Reload this agent" : "Next start picks this up" },
+    { id: "write", label: (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "reload", label: running ? "Reload this agent" : "Applies on next start" },
   ];
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="mcp-job-title">
@@ -277,10 +288,10 @@ function JobOverlay({ job, running, onClose }) {
         {job.error ? (
           <>
             <p className="pkg-job-err">{job.error}</p>
-            <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
+            <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
           </>
         ) : (
-          <p className="pkg-fine">Writing the adapter file.</p>
+          <p className="pkg-fine">Saving…</p>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 ---
 name: quality-gate
-description: Run PiCode's code quality gates before declaring work done — formatting, vet, tests, build, changelog check. Use when finishing any code change in this repo.
+description: Run PiCode's code quality gates before declaring work done — fmt, vet, tests, build, changelog. UI work without visual-review PASS (screenshot read) is this gate FAIL.
 ---
 
 # Quality gate
@@ -36,8 +36,9 @@ passed gate reported falsely.
    - Yes → `docs/architecture.md` (and an ADR if architectural) must
      change in the same commit.
 9. **Visual gate** (if `web/` or any user-facing surface changed):
-   `/skill:visual-review` must be PASS (screenshot **read**, overlayAudit
-   ok, visual-card answered). Skipped or FAIL → this quality-gate is FAIL.
+   `read` `/skill:visual-review` and `/skill:uiux-review`. Must be PASS
+   (empty/blocked/error screenshots **read**, overlayAudit ok, visual-card
+   in the reply). Skipped or FAIL → this quality-gate is FAIL.
    `eval` JSON is not a visual pass.
 10. **Handoff**: run `/skill:handoff-update` to close the session state.
 

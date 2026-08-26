@@ -139,7 +139,7 @@ Gate answered from **pi-mcp-adapter 2.28** (not a guess).
 | Shape? | `{ mcpServers: { name: { command\|url, args, env, headers, auth, disabled } } }` |
 | Import? | adapter already imports Cursor/Claude/Codex — **B3**, not a PiCode parser |
 
-ADR-0009: `#/mcps` is not the create wizard. No adapter → Install CTA, no writes.
+ADR-0009: `#/mcps` is not the create wizard. No adapter → one line + Open packages, no writes. Setup copy is `www/guide/mcp.md`, not the view.
 
 ### B1 — list — **shipped**
 

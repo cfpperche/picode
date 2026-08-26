@@ -1,6 +1,6 @@
 ---
 name: visual-review
-description: Capture and visually judge UI screenshots. NEVER claim a visual verdict from code or eval alone. A clipped overlay is an instant FAIL.
+description: Gate, not courtesy. Capture empty, blocked, and error — not only the happy overlay. Screenshot must be read. eval JSON is not a PASS. Clip = FAIL. Skip on UI work = quality-gate FAIL.
 ---
 
 # Visual review
@@ -24,6 +24,14 @@ Any one of these on a captured screenshot or geometry audit:
 
 If you **noticed** a defect in reasoning and still said done, that is a
 contract violation (AGENTS.md honesty). Fix it or emit FAIL. Never ship it.
+
+## States (list / manager pages)
+
+Happy-path-only is FAIL. Capture and `read` at least:
+
+- **empty** (zero items)
+- **blocked** (missing dependency / cannot act)
+- **one overlay** if the flow has one
 
 ## The loop
 

@@ -20,8 +20,9 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
 ## For Pi agents
 
 1. Read `AGENTS.md` (auto-loaded) and `docs/handoff.md` **before** starting.
-2. Use the skills: `/skill:quality-gate` before declaring done,
-   `/skill:handoff-update` before ending.
+2. Use the skills: `read` `/skill:uiux-review` **before** the first UI edit,
+   `/skill:visual-review` before calling UI done, `/skill:quality-gate`
+   before declaring done, `/skill:handoff-update` before ending.
 3. Never break the build. Architectural change → ADR
    (`docs/decisions/template.md`).
 

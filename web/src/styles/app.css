@@ -448,11 +448,25 @@ body {
   text-overflow: ellipsis; white-space: nowrap; max-width: 280px;
 }
 .mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.mcp-add { margin-top: 18px; }
+.mcp-add { margin-top: 14px; }
+.mcp-add:first-child { margin-top: 0; }
 .mcp-add h3, .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
 .mcp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.mcp-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.mcp-form .dlg-input { min-width: 140px; flex: 1; }
+.mcp-empty {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+}
+.mcp-empty p {
+  margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.4;
+}
+.mcp-skel { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.mcp-form { display: flex; flex-direction: column; gap: 8px; }
+.mcp-form-row { display: flex; gap: 8px; align-items: center; }
+.mcp-form-row .dlg-input {
+  width: auto; min-width: 0; flex: 1; margin: 0; height: var(--ctl-h);
+}
+.mcp-form-row .pkg-scope { margin: 0; flex: none; }
+.mcp-form-row .pkg-scope-btn,
+.mcp-form-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .pkg-grid {
   list-style: none; padding: 0; margin: 0;
   display: grid; grid-template-columns: 1fr; gap: 12px;
@@ -1682,7 +1696,7 @@ body {
 .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .settings-head h2 { font-size: 16px; font-weight: 650; }
 .settings-head .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; color: var(--text-secondary); }
-.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 16px 24px 20px; }
+.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 16px 24px 20px; height: fit-content; }
 .pref-tabs {
   display: flex; flex-wrap: wrap; gap: 2px;
   margin: 0 -8px 16px; padding: 0 8px;
