@@ -56,9 +56,12 @@ func TestDue(t *testing.T) {
 	if Due(Settings{}, now) {
 		t.Fatal("disabled")
 	}
-	s := Settings{Dir: "/tmp/x", Enabled: true, IntervalMin: 60}
+	if Due(Settings{Dir: "/tmp/x", IntervalMin: 60}, now) {
+		t.Fatal("dest without start")
+	}
+	s := Settings{Dir: "/tmp/x", Scheduled: true, Enabled: true, IntervalMin: 60}
 	if !Due(s, now) {
-		t.Fatal("first run")
+		t.Fatal("first run after start")
 	}
 	s.LastOK = now.Add(-30 * time.Minute).Format(time.RFC3339)
 	if Due(s, now) {

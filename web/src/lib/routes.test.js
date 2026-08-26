@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
+  assert.equal(parseRoute("#/preferences/backup"), "preferences");
+  assert.equal(prefSection("#/preferences"), "appearance");
+  assert.equal(prefSection("#/preferences/backup"), "backup");
   assert.equal(parseRoute("#/settings"), "settings");
   assert.equal(ROUTES.preferences, "/preferences");
   assert.equal(ROUTES.settings, "/settings");

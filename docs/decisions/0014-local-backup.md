@@ -20,8 +20,9 @@ PiCode writes **inspectable snapshot directories** under
 
 - The live DB is copied with `VACUUM INTO` (never a raw copy of WAL).
 - Unchanged files hardlink to the previous snapshot.
-- Interval and retention live in Preferences (defaults 1 hour / 10 days)
-  and stay **off until a destination is set**.
+- Interval and retention live in Preferences (defaults 1 hour / 10 days).
+  A destination alone does not start the schedule — **Schedule** must be on.
+  **Backup now** is a one-shot and does not enable the schedule.
 - Sessions and secrets are included by default and can be toggled.
 - Project folders, `work/`, GGUF, npm cache, and TLS certs stay out.
 - Restore stops agents, refuses a newer schema, and leaves omitted

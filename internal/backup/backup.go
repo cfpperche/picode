@@ -24,6 +24,7 @@ const (
 	ManifestName  = "manifest.json"
 
 	KeyDir        = "backup.dir"
+	KeyEnabled    = "backup.enabled"
 	KeyInterval   = "backup.interval_min"
 	KeyKeep       = "backup.keep_days"
 	KeySessions   = "backup.sessions"
@@ -71,6 +72,7 @@ type Settings struct {
 	KeepDays    int    `json:"keepDays"`
 	Sessions    bool   `json:"sessions"`
 	Secrets     bool   `json:"secrets"`
+	Scheduled   bool   `json:"scheduled"`
 	Enabled     bool   `json:"enabled"`
 	LastOK      string `json:"lastOk"`
 	LastError   string `json:"lastError"`
@@ -162,8 +164,11 @@ func LoadSettings(st *store.Store, dataDir string) (Settings, error) {
 		s.KeepDays = 1
 	}
 	s.Dir = strings.TrimSpace(s.Dir)
-	s.Enabled = s.Dir != ""
-	if s.Enabled {
+	if v, ok, _ := st.GetSetting(KeyEnabled); ok {
+		s.Scheduled = v == "1" || v == "true"
+	}
+	s.Enabled = s.Dir != "" && s.Scheduled
+	if s.Dir != "" {
 		root := Root(s.Dir)
 		if err := ValidateDest(s.Dir, dataDir, defaultPiHome()); err == nil {
 			if st, err := os.Stat(root); err == nil && st.IsDir() {
@@ -193,8 +198,11 @@ func SaveSettings(st *store.Store, in Settings) error {
 		}
 		return "0"
 	}
+	dir := strings.TrimSpace(in.Dir)
+	scheduled := in.Scheduled && dir != ""
 	pairs := [][2]string{
-		{KeyDir, strings.TrimSpace(in.Dir)},
+		{KeyDir, dir},
+		{KeyEnabled, bool01(scheduled)},
 		{KeyInterval, fmt.Sprintf("%d", in.IntervalMin)},
 		{KeyKeep, fmt.Sprintf("%d", in.KeepDays)},
 		{KeySessions, bool01(in.Sessions)},

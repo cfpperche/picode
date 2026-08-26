@@ -13,7 +13,7 @@ export const ROUTES = {
 
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  if (h === "/preferences") return "preferences";
+  if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (h === "/settings") return "settings";
   if (h === "/system") return "system";
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
@@ -32,6 +32,15 @@ export function pinRoute(hash) {
   return { mode: "", id: "" };
 }
 
+const PREF_SECTIONS = ["appearance", "notifications", "server", "backup"];
+
+export function prefSection(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/preferences\/([a-z]+)$/.exec(h);
+  if (m && PREF_SECTIONS.includes(m[1])) return m[1];
+  return "appearance";
+}
+
 export function providersNew(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
   return h === "/providers/new";
@@ -43,6 +52,11 @@ export function providersLlama(hash) {
 }
 
 export function go(name) {
+  if (typeof name === "string" && name.startsWith("preferences")) {
+    const sec = name === "preferences" ? "" : name.slice("preferences-".length);
+    location.hash = sec ? "#/preferences/" + sec : "#/preferences";
+    return;
+  }
   if (name === "providers-new") {
     location.hash = "#/providers/new";
     return;

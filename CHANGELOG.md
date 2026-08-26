@@ -13,12 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
-- Folder picker on WSL lists Windows drives (`C:`, `D:`) and accepts `C:\\…` paths.
+- Folder picker on WSL lists Windows drives (`C:`, `D:`) and accepts `C:\\…` paths. Place chips use home/drive icons; current path is a labeled card.
 - Removing an agent or workspace now offers to delete that folder's pi sessions (and a free-agent work folder) when nobody else uses it. Project folders stay. All agents in a workspace are stopped first.
 
 ### Added
 
-- Local backup in Preferences: folder, interval, retention, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks).
+- Local backup in Preferences: folder, interval, retention, explicit **Schedule**, Backup now, Restore. Snapshots are inspectable directories (`VACUUM INTO` + hardlinks). Choosing a folder does not start the schedule.
+- Preferences uses section tabs (Appearance / Notifications / Server / Backup).
 - Pin sketches V3: Excalidraw (blank or annotate an image). Scene + preview on disk.
 - Pin file cards: type badge (PDF/ZIP/…) + always-on remove. No artifact preview.
 - Pin body is a TipTap editor (saves markdown). Toolbar: bold, italic, heading, lists, code, quote.

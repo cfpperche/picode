@@ -1567,12 +1567,24 @@ body {
 .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .settings-head h2 { font-size: 16px; font-weight: 650; }
 .settings-head .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; color: var(--text-secondary); }
-.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 20px 24px; }
-.settings-section { padding: 20px 0; }
-.settings-section:first-child { padding-top: 0; }
-.settings-section:last-child { padding-bottom: 0; }
-.settings-section + .settings-section { border-top: 1px solid var(--border); }
+.settings-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 16px 24px 20px; }
+.pref-tabs {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  margin: 0 -8px 16px; padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+.pref-tab {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 12px;
+  border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: none; color: var(--text-secondary); text-decoration: none;
+  font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+}
+.pref-tab:hover { color: var(--text-primary); }
+.pref-tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
+.settings-section { padding: 0; border: 0; }
+.settings-section[hidden] { display: none; }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
+.set-row-stack .folder-field { width: 100%; }
 .set-hint { font-size: 12px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.4; }
 .bak-snaps { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .bak-snap {
@@ -1593,7 +1605,7 @@ body {
   box-sizing: border-box;
 }
 .set-row input[type="number"] { width: 7rem; }
-.set-row-stack { align-items: flex-start; }
+.set-row-stack { flex-direction: column; align-items: stretch; gap: 6px; }
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
 .set-pats { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }

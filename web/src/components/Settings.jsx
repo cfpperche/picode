@@ -7,6 +7,7 @@ import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
 import FolderField from "./FolderField.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
+import { prefSection } from "../lib/routes.js";
 
 export default function Settings({ hidden, themeMode, onTheme }) {
   const [port, setPort] = useState("");
@@ -49,10 +50,28 @@ export default function Settings({ hidden, themeMode, onTheme }) {
     }
   }
 
+  const [sec, setSec] = useState(() => prefSection());
+  useEffect(() => {
+    function onHash() { setSec(prefSection()); }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
-      <section className="settings-section">
-        <h3>Appearance</h3>
+      <nav className="pref-tabs" role="tablist" aria-label="Preferences">
+        {[["appearance", "Appearance"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+          <a
+            key={id}
+            href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
+            className="pref-tab"
+            role="tab"
+            aria-selected={sec === id}
+          >{label}</a>
+        ))}
+      </nav>
+
+      <section className="settings-section" hidden={sec !== "appearance"}>
         <div className="theme-cards" role="radiogroup" aria-label="Theme">
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
@@ -60,8 +79,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         </div>
       </section>
 
-      <section className="settings-section">
-        <h3>Notifications</h3>
+      <section className="settings-section" hidden={sec !== "notifications"}>
+        <h3 className="sr-only">Notifications</h3>
         <div className="set-rows">
           <div className="set-row">
             <label htmlFor="toast-pos">Position</label>
@@ -105,8 +124,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => toast.ok("Sample notification")}>Preview</button>
       </section>
 
-      <section className="settings-section">
-        <h3>Server</h3>
+      <section className="settings-section" hidden={sec !== "server"}>
+        <h3 className="sr-only">Server</h3>
         <div className="port-row">
           <input id="port-input" type="text" inputMode="numeric" placeholder="e.g. 8446" autoComplete="off" value={port} onChange={(e) => setPort(e.target.value)} />
           <button id="port-save" className="btn btn-primary btn-sm" onClick={applyPort}>Apply</button>
@@ -115,7 +134,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         <p id="port-note" className={"port-note" + (moving ? " moving" : "")}>{note}</p>
       </section>
 
-      <BackupSection hidden={hidden} />
+      <BackupSection hidden={hidden || sec !== "backup"} />
     </PageFrame>
   );
 }
@@ -130,7 +149,7 @@ const KEEP = [3, 7, 10, 30, 90];
 
 function BackupSection({ hidden }) {
   const [cfg, setCfg] = useState({
-    dir: "", intervalMin: 60, keepDays: 10, sessions: true, secrets: true,
+    dir: "", scheduled: false, intervalMin: 60, keepDays: 10, sessions: true, secrets: true,
     enabled: false, lastOk: "", lastError: "", lastBytes: 0, sameFs: false, destOk: false,
   });
   const [snaps, setSnaps] = useState([]);
@@ -156,7 +175,7 @@ function BackupSection({ hidden }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dir: next.dir, intervalMin: next.intervalMin, keepDays: next.keepDays,
+          dir: next.dir, scheduled: next.scheduled, intervalMin: next.intervalMin, keepDays: next.keepDays,
           sessions: next.sessions, secrets: next.secrets,
         }),
       });
@@ -205,13 +224,17 @@ function BackupSection({ hidden }) {
       : "No backup yet.";
 
   return (
-    <section className="settings-section">
-      <h3>Backup</h3>
-      <p className="set-hint">Local snapshots of PiCode and pi sessions. Project folders stay out.</p>
+    <section className="settings-section" hidden={hidden}>
       <div className="set-rows">
         <div className="set-row set-row-stack">
           <label>Folder</label>
           <FolderField placeholder="External drive or other folder" value={cfg.dir || ""} onChange={(dir) => save({ dir })} />
+        </div>
+        <div className="set-row">
+          <label htmlFor="bak-on">Schedule</label>
+          <Switch.Root id="bak-on" className="rx-switch" checked={!!cfg.scheduled} disabled={!cfg.dir} onCheckedChange={(v) => save({ scheduled: v })}>
+            <Switch.Thumb className="rx-switch-thumb" />
+          </Switch.Root>
         </div>
         <div className="set-row">
           <label htmlFor="bak-int">Interval</label>
@@ -239,7 +262,7 @@ function BackupSection({ hidden }) {
         </div>
       </div>
       {cfg.sameFs ? <p className="port-note">This folder is on the same disk as PiCode. It will not survive a dead drive.</p> : null}
-      <p className="port-note">{status}</p>
+      {!snaps.length ? <p className="port-note">{status}</p> : null}
       <div className="port-row" style={{ marginTop: 10 }}>
         <button type="button" className="btn btn-primary btn-sm" disabled={!cfg.dir || busy} onClick={runNow}>Backup now</button>
       </div>

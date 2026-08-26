@@ -28,7 +28,7 @@ stay on their own routes.
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal, per-agent provider/model/thinking |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) |
-| `#/preferences` | PiCode chrome | theme, server port, **backup** (ADR-0014) |
+| `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter/config status (no manager yet) |

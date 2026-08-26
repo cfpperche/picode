@@ -52,6 +52,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — Backup schedule is explicit (off until Schedule). Preferences split into tabs.
 - **2026-08-26** — Folder picker on WSL: Home / C: / E: chips; accepts `C:\\` paths.
 - **2026-08-26** — Backup V1: Preferences folder + interval/retention. `VACUUM INTO` + hardlink snapshots. Restore refuses newer schema.
 - **2026-08-26** — Decision table is a quality gate when conditions change the outcome (AGENTS.md).
