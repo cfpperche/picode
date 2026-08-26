@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Pins: flat list + form (title, tags, markdown body). `+` on the Pins title bar.
 - Sidebar tabs: Agents / Pins (title left, tabs right). QR moved to user menu → Open on phone.
 - Conversation blockquotes and ```diff``` fences (same hunks as tool diffs).
 - Conversation images (`![alt](https://…)`) and Mermaid fences.

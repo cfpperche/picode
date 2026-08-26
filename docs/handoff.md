@@ -26,7 +26,7 @@ What exists:
 
 ## In flight
 
-Sidebar chrome: Agents / Pins tabs shipped. Pin editor (Tachyon-inspired rich form) is **next**. llama.cpp depth is backlog.
+Pins V1 shipped (title / tags / markdown body, SQLite). Richer editor later. llama.cpp depth is backlog.
 
 ## Next up
 
@@ -51,7 +51,8 @@ Sidebar chrome: Agents / Pins tabs shipped. Pin editor (Tachyon-inspired rich fo
 
 ## Recent activity
 
-- **2026-08-26** — Sidebar tabs Agents / Pins. QR → user menu. Pin form next.
+- **2026-08-26** — Pins V1: title, tags, markdown body. Flat list, `+` on title bar.
+- **2026-08-26** — Sidebar tabs Agents / Pins. QR → user menu.
 - **2026-08-26** — Conversation polish: blockquotes + ```diff``` hunks. Images + Mermaid + KaTeX + tables.
 - **2026-08-26** — Source **Run** (bash/python/js/go) in the agent cwd. Not a browser sandbox.
 - **2026-08-26** — Conversation source renderer (fenced code: lang + copy + highlight).

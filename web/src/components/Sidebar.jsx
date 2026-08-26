@@ -1,7 +1,8 @@
 import { useState } from "react";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight } from "./Icons.jsx";
+import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine } from "../lib/repoLine.js";
@@ -121,14 +122,7 @@ export default function Sidebar({
       </header>
 
       {tab === "pins" ? (
-        <div className="side-section">
-          <div className="side-head tree-row">
-            <span className="tree-spc" aria-hidden="true" />
-            <span className="tree-icon"><IconPin size={16} /></span>
-            <span className="side-title">Pins</span>
-          </div>
-          <p className="side-empty">No pins</p>
-        </div>
+        <Pins />
       ) : (
       <div className="side-section">
         <div className="side-head tree-row" onClick={() => toggleWs("sec-agents")}>
