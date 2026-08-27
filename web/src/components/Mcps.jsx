@@ -183,7 +183,6 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         return;
       }
       signCtl.current.id = res.id;
-      if (res && res.url) window.open(res.url, "_blank", "noopener");
       setJob({ action: "signin", label: s.name, step: 1, error: "", done: false, allowPaste: false });
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
