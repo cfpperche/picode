@@ -125,7 +125,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       if (!next) return;
       setForm(emptyForm());
     }
-    if (auth === "oauth") await signIn({ name, auth: "oauth", disabled: false });
+    if (auth === "oauth") await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
   }
 
   async function toggle(s) {
@@ -137,7 +137,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       body: JSON.stringify(body({ name: s.name, scope: writeScope(s, scope), disabled: !s.disabled })),
     }));
     if (!next) return;
-    if (turningOn) await signIn({ ...s, disabled: false });
+    if (turningOn) await signIn({ ...s, disabled: false }, { quiet: true });
   }
 
   function importHosts() {
@@ -166,8 +166,9 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     return s.auth === "oauth" && !s.signedIn;
   }
 
-  async function signIn(s) {
+  async function signIn(s, opts) {
     if (!canSignIn(s)) return;
+    const quiet = !!(opts && opts.quiet);
     signCtl.current = { id: "", stop: false };
     setJob({ action: "signin", label: s.name, step: 0, error: "", done: false });
     try {
@@ -214,6 +215,11 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       throw new Error("sign-in timed out");
     } catch (err) {
       const msg = humanizeError(err.message || String(err));
+      if (quiet) {
+        setJob(null);
+        toast.error(msg);
+        return;
+      }
       setJob((j) => (j && j.action === "signin" ? { ...j, error: msg } : j));
       toast.error(msg);
     }

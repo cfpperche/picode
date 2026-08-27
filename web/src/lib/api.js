@@ -37,6 +37,9 @@ export function humanizeError(msg) {
   if (/rate.?limit|\b429\b/i.test(msg)) {
     return "Rate limited. Wait and retry.";
   }
+  if (/dynamic client (auth(?:orization)? )?registration/i.test(msg)) {
+    return "This server cannot Sign in from PiCode. It needs its own app login.";
+  }
   const compact = msg.match(/^rpc: compact failed:\s*(.*)/i);
   if (compact) return compact[1];
   return msg;
