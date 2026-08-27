@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Unsent composer text (and Prompt / Steer / Follow-up) comes back after reload or switching agents. Images in the composer do not.
 - Send still works while the agent is busy or waiting. The message shows as **Follow-up** or **Steer** in the chat (Queued) until the turn takes it. Follow-up stays on this machine until the turn ends — **Edit** or **Remove** it. Stop drops a queued Steer. Prompt while busy becomes follow-up.
 - When the agent asks a question (confirm / pick / type), the chat shows a **waiting** card. Yes, No, Cancel, or type an answer — no need to open the terminal. Notify messages are toasts. The sidebar row says Waiting.
 

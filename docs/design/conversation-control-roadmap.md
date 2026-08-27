@@ -19,7 +19,7 @@ Canonical pi: [RPC](https://github.com/earendil-works/pi/blob/main/packages/codi
 |---|---|---|
 | 1 | **C1 — waiting** | **shipped** |
 | 2 | **C3 — visible queue** | **shipped** |
-| 3 | **C2 — draft persistence** | C3 done |
+| 3 | **C2 — draft persistence** | **shipped** |
 
 Do not start the [next-roadmap](#next-roadmap-not-this-track) list, Radius,
 OpenRouter PKCE, or llama.cpp installer in this track.
@@ -112,7 +112,7 @@ slot.
 | 4 | Send succeeds | * | clear slot |
 | 5 | empty composer | leftover | delete slot |
 
-C2 done: F5 does not eat an unsent prompt.
+C2 **shipped** (2026-08-27). localStorage `picode-drafts` per agent (text + kind).
 
 ## Next roadmap (not this track)
 

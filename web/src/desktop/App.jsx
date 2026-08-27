@@ -28,6 +28,7 @@ import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
+import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import { alertFromPi } from "../lib/piError.js";
@@ -79,6 +80,7 @@ export default function App() {
   const [termWanted, setTermWanted] = useState(() => new Set());
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
+  const draftAgentRef = useRef(null);
   const [status, setStatus] = useState("idle");
   const [streaming, setStreaming] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -244,6 +246,21 @@ export default function App() {
     if (!tabsReady) return;
     writeOpenTabs(tabs, selectedId);
   }, [tabs, selectedId, tabsReady]);
+  useEffect(() => {
+    const prev = draftAgentRef.current;
+    if (prev && prev !== selectedId) writeDraft(prev, draft, kind);
+    draftAgentRef.current = selectedId || null;
+    const d = readDraft(selectedId);
+    setDraft(d.text);
+    setKind(d.kind);
+    // Only when the selected agent changes — not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+  useEffect(() => {
+    if (!selectedId) return;
+    const t = setTimeout(() => writeDraft(selectedId, draft, kind), 200);
+    return () => clearTimeout(t);
+  }, [draft, kind, selectedId]);
 
   function openTab(id, list) {
     const loc = locate(list || workspaces, freeAgents, id);
@@ -454,6 +471,7 @@ export default function App() {
         const text = pendingPayload.current;
         pendingPayload.current = "";
         setDraft("");
+        if (selectedRef.current) clearDraft(selectedRef.current);
         if (text) {
           setItems((cur) => [...cur, {
             kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt", text, ts: Date.now(),
@@ -761,6 +779,7 @@ export default function App() {
       }
       setItems((cur) => [...cur, { kind: "bash", id: itemId, command, output: "", status: "run", ts: Date.now() }]);
       setDraft("");
+      clearDraft(agent.id);
       pendingPayload.current = "";
       scrollToEnd();
       const res = await api("/api/agents/" + agent.id + "/bash", {
@@ -867,6 +886,7 @@ export default function App() {
           ts: Date.now(),
         }]);
         setDraft("");
+        clearDraft(agent.id);
         pendingPayload.current = "";
         scrollToEnd();
         return;
@@ -897,6 +917,7 @@ export default function App() {
       }
       setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: payload, images: pics.map((p) => p.url), ts: Date.now() }]);
       setDraft("");
+      clearDraft(agent.id);
       pendingPayload.current = "";
       scrollToEnd();
       if (agent.mode === "interactive") {

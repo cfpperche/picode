@@ -35,15 +35,16 @@ What exists:
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
 - Track **C1 waiting**: confirm/select/input/editor is a chat card; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast. Mobile has no waiting card.
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
+- Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
 
 ## In flight
 
-Track C: C1+C3 shipped. C2 draft persistence not started.
+Track C: C1+C2+C3 shipped.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. Track **C2** draft persistence. Plan: `docs/design/conversation-control-roadmap.md`.
+1. Next roadmap (rewind, cost, `#/agent/<id>`, extra `@`) when asked. Plan leftover: `docs/design/conversation-control-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -68,6 +69,7 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Track C2 draft persistence (text + kind per agent). visual-review: PASS (chat-draft-reload.png, overlayAudit ok).
 - **2026-08-27** — Follow-up queue: Edit / Remove on the bubble (held until idle). visual-review: PASS (chat-queue-edit.png, overlayAudit ok).
 - **2026-08-27** — Track C3 visible queue: Send while busy/waiting; prompt→follow-up; abort drops Steer. visual-review: PASS (chat-queued.png, overlayAudit ok).
 - **2026-08-27** — Track C1 waiting: extension dialogs in the conversation (`POST /api/agents/{id}/ui`). Notify is a toast. visual-review: PASS (chat-waiting.png, chat-ask-cancel.png, overlayAudit ok).
