@@ -11,8 +11,7 @@
 screenshots must be `read`. overlayAudit + visual-card. Clip = FAIL.
 Skip = quality-gate FAIL.
 
-**Phase:** ADE past M3. Composer **A** + MCP **B** shipped. Next is Track C
-(conversation control). Slash TUI **24 ui · 0 missing**. Providers + vault.
+**Phase:** ADE past M3. Composer **A** + MCP **B** + Track **C** (waiting, queue, draft) shipped. Slash TUI **24 ui · 0 missing**. Providers + vault.
 Public docs on Pages. llama.cpp manager is **docs + dialog**, not an installer.
 Local backup V1 in Preferences (ADR-0014).
 
@@ -39,12 +38,11 @@ What exists:
 
 ## In flight
 
-Track C: C1+C2+C3 shipped.
-Backup V1 shipped (local directory). Remote S3/Drive is later.
+Nothing coding. Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. Next roadmap (rewind, cost, `#/agent/<id>`, extra `@`) when asked. Plan leftover: `docs/design/conversation-control-roadmap.md`.
+1. Next roadmap when asked: rewind, cost in the session chip, `#/agent/<id>`, extra `@` (mentions — not agents talking). Plan: `docs/design/conversation-control-roadmap.md`. Agent-to-agent chat is the later broker item, not `@agent`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -69,6 +67,7 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Plan: `@agent` / `@skill` are mentions (context in this prompt). Agents talking to each other is the broker item, later.
 - **2026-08-27** — Track C2 draft persistence (text + kind per agent). visual-review: PASS (chat-draft-reload.png, overlayAudit ok).
 - **2026-08-27** — Follow-up queue: Edit / Remove on the bubble (held until idle). visual-review: PASS (chat-queue-edit.png, overlayAudit ok).
 - **2026-08-27** — Track C3 visible queue: Send while busy/waiting; prompt→follow-up; abort drops Steer. visual-review: PASS (chat-queued.png, overlayAudit ok).

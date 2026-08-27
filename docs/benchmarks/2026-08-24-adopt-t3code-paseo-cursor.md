@@ -88,7 +88,7 @@ Priority: P0 dogfood · P1 leverage · P2 later.
 | G2 | Composer **draft persistence** across tab/reload | P0 — **Track C2** | t3code `composerDraftStore` |
 | G3 | Make queueing visible (steer/follow_up already on the wire; busy should not feel like a dead Send) | P0 — **Track C3** | pi RPC + paseo queue |
 | G4 | Reload-safe agent URL (`#/agent/<id>` or similar) | P1 — next roadmap | t3code thread routes |
-| G5 | `@file` shipped; `@skill` / `@agent` later | P1 — next roadmap | Cursor + t3code |
+| G5 | `@file` shipped; `@skill` / `@agent` later (mentions, not agent-to-agent chat) | P1 — next roadmap | Cursor + t3code |
 | G6 | Streaming markdown in the transcript | **shipped** | Cursor bar #10 |
 | G7 | Checkpoints / rewind via pi session tree | P2 — next roadmap | Cursor; deferred (not an editor) |
 | G8 | Task graph / multi-agent | P2 — next roadmap | paseo; M4 broker |
