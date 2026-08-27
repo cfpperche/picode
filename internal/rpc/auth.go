@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,24 +13,38 @@ import (
 )
 
 type mcpAuthJob struct {
-	mu     sync.Mutex
-	client *Client
-	owned  bool
-	errCh  chan error
-	cancel context.CancelFunc
-	doneCh chan struct{}
-	err    error
+	mu       sync.Mutex
+	client   *Client
+	owned    bool
+	errCh    chan error
+	cancel   context.CancelFunc
+	unsub    func()
+	doneCh   chan struct{}
+	err      error
+	finished sync.Once
+}
+
+func (j *mcpAuthJob) finish(err error, kill bool) {
+	j.finished.Do(func() {
+		j.err = err
+		close(j.doneCh)
+		if kill {
+			j.closeOwned()
+		}
+	})
 }
 
 func (j *mcpAuthJob) watch() {
-	j.err = <-j.errCh
-	close(j.doneCh)
-	j.closeOwned()
+	j.finish(<-j.errCh, true)
 }
 
 func (j *mcpAuthJob) closeOwned() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	if j.unsub != nil {
+		j.unsub()
+		j.unsub = nil
+	}
 	if j.owned {
 		j.client.Close()
 		j.owned = false
@@ -52,6 +67,7 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name string) (
 			return ma.SendPromptCtx(c, "/mcp-auth "+name)
 		})
 	}
+	r.CloseMCPAuth()
 	if cwd == "" {
 		cwd, _ = os.UserHomeDir()
 	}
@@ -95,12 +111,12 @@ func (r *Runtime) beginAuthOn(waitCtx, sendCtx context.Context, sendCancel conte
 	go func() { errCh <- send(sendCtx) }()
 	select {
 	case ui := <-uiCh:
-		unsub()
 		id, _ := ui["id"].(string)
 		title, _ := ui["title"].(string)
 		msg, _ := ui["message"].(string)
 		ph, _ := ui["placeholder"].(string)
 		if id == "" {
+			unsub()
 			sendCancel()
 			if owned {
 				client.Close()
@@ -108,6 +124,26 @@ func (r *Runtime) beginAuthOn(waitCtx, sendCtx context.Context, sendCancel conte
 			return "", "", fmt.Errorf("sign-in had no prompt")
 		}
 		job := &mcpAuthJob{client: client, owned: owned, errCh: errCh, cancel: sendCancel, doneCh: make(chan struct{})}
+		job.unsub = client.Subscribe(func(ev Event) {
+			if ev.EventType() != "extension_ui_request" {
+				return
+			}
+			var body map[string]any
+			if json.Unmarshal([]byte(ev), &body) != nil {
+				return
+			}
+			if body["method"] != "notify" {
+				return
+			}
+			text, _ := body["message"].(string)
+			low := strings.ToLower(text)
+			if !strings.Contains(low, "successful") && !strings.Contains(low, "authenticated") {
+				return
+			}
+			job.finish(nil, false)
+			_ = client.SendRaw(map[string]any{"type": "extension_ui_response", "id": id, "cancelled": true})
+		})
+		unsub()
 		r.putAuthJob(id, job)
 		go job.watch()
 		go r.expireAuthJob(id, 5*time.Minute)

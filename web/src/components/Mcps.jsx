@@ -183,7 +183,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         return;
       }
       signCtl.current.id = res.id;
-      setJob({ action: "signin", label: s.name, step: 1, error: "", done: false, allowPaste: false });
+      setJob({ action: "signin", label: s.name, step: 1, error: "", done: false, allowPaste: true });
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
         if (signCtl.current.stop) {
@@ -198,7 +198,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         if (signCtl.current.paste) {
           const pasted = await askPrompt({
             title: "Sign in to " + s.name,
-            message: "Paste the address the browser opened after you approved.",
+            message: "Paste the address from the tab that says Authorization Successful.",
             confirmLabel: "Continue",
           });
           await api("/api/mcp/auth/reply", {
@@ -211,9 +211,6 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           toast.ok("Signed in to " + s.name + ".");
           await load();
           return;
-        }
-        if (Date.now() - t0 > 8000) {
-          setJob((j) => (j && j.action === "signin" && !j.allowPaste ? { ...j, allowPaste: true } : j));
         }
         const st = await api("/api/mcp/auth/status?id=" + encodeURIComponent(res.id));
         if (st && st.ok) {
