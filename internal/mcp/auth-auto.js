@@ -1,7 +1,10 @@
-// Headless MCP OAuth: callback only. Replaces adapter HTML with PiCode's
-// provider success page (close + return to #/mcps).
+// Headless MCP OAuth: callback only. Pi does not open a tab (WSL PowerShell
+// would). The GUI opens it so window.close() works. Success HTML is PiCode's.
+import { EventEmitter } from "node:events";
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -43,6 +46,66 @@ http.ServerResponse.prototype.end = function (chunk, enc, cb) {
   return origEnd.call(this, chunk, enc, cb);
 };
 
+function fakeChild() {
+  const ee = new EventEmitter();
+  ee.unref = () => {};
+  ee.ref = () => {};
+  ee.kill = () => true;
+  ee.pid = 0;
+  queueMicrotask(() => ee.emit("close", 0));
+  return ee;
+}
+
+function urlFromSpawn(command, args) {
+  const parts = [command, ...(args || [])];
+  for (const a of parts) {
+    if (typeof a === "string" && /^https?:\/\//i.test(a)) return a;
+  }
+  const i = parts.findIndex((a) => String(a).toLowerCase() === "-encodedcommand");
+  if (i >= 0 && parts[i + 1]) {
+    const decoded = Buffer.from(String(parts[i + 1]), "base64").toString("utf16le");
+    const m = decoded.match(/https?:\/\/\S+/);
+    if (m) return m[0].replace(/"+$/, "");
+  }
+  return "";
+}
+
+function stealOpen(dest) {
+  if (!dest) return;
+  const orig = childProcess.spawn;
+  childProcess.spawn = function (command, args, opts) {
+    const url = urlFromSpawn(command, args);
+    if (url) {
+      fs.writeFileSync(dest, url);
+      return fakeChild();
+    }
+    return orig.apply(this, arguments);
+  };
+  const stub = dest + ".mjs";
+  fs.writeFileSync(
+    stub,
+    "export default async function open(target) {\n" +
+      "  if (typeof target === 'string' && /^https?:\\/\\//i.test(target)) {\n" +
+      "    const fs = await import('node:fs');\n" +
+      "    fs.writeFileSync(" + JSON.stringify(dest) + ", target);\n" +
+      "  }\n" +
+      "  return { unref() {} };\n" +
+      "}\n",
+  );
+  try {
+    registerHooks({
+      resolve(specifier, context, nextResolve) {
+        if (specifier === "open") {
+          return { url: pathToFileURL(stub).href, shortCircuit: true };
+        }
+        return nextResolve(specifier, context);
+      },
+    });
+  } catch {
+    // spawn intercept still holds
+  }
+}
+
 export default function () {
   const name = process.env.PICODE_MCP_AUTH;
   const url = process.env.PICODE_MCP_AUTH_URL;
@@ -61,6 +124,7 @@ export default function () {
 
   (async () => {
     try {
+      stealOpen(process.env.PICODE_MCP_OPEN);
       const candidates = [
         path.join(adapter, "mcp-auth-flow.ts"),
         path.join(adapter, "dist", "mcp-auth-flow.js"),

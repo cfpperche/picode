@@ -183,6 +183,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       }
       signCtl.current.id = res.id;
       setJob({ action: "signin", label: s.name, step: 1, error: "", done: false });
+      let opened = false;
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
         if (signCtl.current.stop) {
@@ -195,6 +196,10 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           return;
         }
         const st = await api("/api/mcp/auth/status?id=" + encodeURIComponent(res.id));
+        if (st && st.url && !opened) {
+          opened = true;
+          window.open(st.url, "picode-mcp-auth");
+        }
         if (st && st.ok) {
           setJob(null);
           toast.ok("Signed in to " + s.name + ".");

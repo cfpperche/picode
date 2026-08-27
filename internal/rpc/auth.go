@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,10 +18,26 @@ type mcpAuthJob struct {
 	client   *Client
 	owned    bool
 	out      string
+	open     string
 	cancel   context.CancelFunc
 	doneCh   chan struct{}
 	err      error
 	finished sync.Once
+}
+
+func (j *mcpAuthJob) openURL() string {
+	if j == nil || j.open == "" {
+		return ""
+	}
+	b, err := os.ReadFile(j.open)
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(b))
+	if !strings.HasPrefix(s, "https://") && !strings.HasPrefix(s, "http://") {
+		return ""
+	}
+	return s
 }
 
 func (j *mcpAuthJob) finish(err error) {
@@ -102,12 +119,14 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverUR
 	}
 	id := newID()
 	out := mcp.AuthOutPath(dataDir, id)
+	openPath := out + ".url"
 	if err := os.MkdirAll(filepath.Dir(out), 0o700); err != nil {
 		return "", err
 	}
 	_ = os.Remove(out)
+	_ = os.Remove(openPath)
 	if AuthTestInstant {
-		job := &mcpAuthJob{out: out, doneCh: make(chan struct{})}
+		job := &mcpAuthJob{out: out, open: openPath, doneCh: make(chan struct{})}
 		r.putAuthJob(id, job)
 		_ = os.WriteFile(out, []byte(`{"ok":true}`), 0o600)
 		go job.watchFile()
@@ -125,13 +144,14 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverUR
 		"PICODE_MCP_AUTH_OUT=" + out,
 		"PICODE_MCP_ADAPTER=" + adapter,
 		"PICODE_MCP_RETURN=" + returnTo,
+		"PICODE_MCP_OPEN=" + openPath,
 	}
 	client, err := Start(r.AgentCmd, args, cwd, env...)
 	if err != nil {
 		return "", err
 	}
 	_, cancel := context.WithCancel(context.Background())
-	job := &mcpAuthJob{client: client, owned: true, out: out, cancel: cancel, doneCh: make(chan struct{})}
+	job := &mcpAuthJob{client: client, owned: true, out: out, open: openPath, cancel: cancel, doneCh: make(chan struct{})}
 	r.putAuthJob(id, job)
 	go job.watchFile()
 	go r.expireAuthJob(id, 5*time.Minute)
@@ -158,17 +178,18 @@ func (r *Runtime) ReplyMCPAuth(id, _ string, cancelled bool) error {
 	return nil
 }
 
-// MCPAuthStatus is pending, finished, or gone.
-func (r *Runtime) MCPAuthStatus(id string) (done bool, err error, found bool) {
+// MCPAuthStatus is pending, finished, or gone. openURL is the authorize page for the GUI to open.
+func (r *Runtime) MCPAuthStatus(id string) (done bool, err error, openURL string, found bool) {
 	job := r.peekAuthJob(id)
 	if job == nil {
-		return false, nil, false
+		return false, nil, "", false
 	}
+	openURL = job.openURL()
 	select {
 	case <-job.doneCh:
-		return true, job.err, true
+		return true, job.err, openURL, true
 	default:
-		return false, nil, true
+		return false, nil, openURL, true
 	}
 }
 

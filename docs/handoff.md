@@ -30,7 +30,7 @@ What exists:
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
-- MCP **Sign in** is automatic like providers: one browser tab (Pi's open() suppressed), approve, adapter callback auto-closes, GUI overlay finishes on notify. No paste. Short `pi --mode rpc --no-session` if no agent is running.
+- MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser (WSL PowerShell would). Status returns the authorize URL; the GUI `window.open`s it once so the callback can close. Success page is PiCode's (logo + return to `#/mcps`). Overlay ends on the result file.
 
 ## In flight
 
@@ -61,6 +61,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-27** — MCP Sign in: GUI opens the authorize tab (Pi/PowerShell does not) so the PiCode callback can `window.close()` like Claude/Codex. visual-review: PASS (mcp-signin-auto.png, overlayAudit ok).
 - **2026-08-27** — MCP callback page is the same PiCode success HTML as providers (close + return to `#/mcps`), not the adapter's "return to pi".
 - **2026-08-27** — MCP Sign in no longer uses `/mcp-auth` paste UI. Headless `authenticate()` (callback only) writes a result file; overlay ends when that file is ok. visual-review: PASS (mcp-signin-auto.png).
 - **2026-08-27** — MCP Sign in opened two Notion tabs (GUI window.open + Pi open on WSL). GUI no longer opens a tab. visual-review: PASS (mcp-signin-auto.png, overlay unchanged).

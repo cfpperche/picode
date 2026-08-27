@@ -23,7 +23,7 @@ func TestBeginMCPAuthShort(t *testing.T) {
 	}
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		done, e, found := r.MCPAuthStatus(id)
+		done, e, _, found := r.MCPAuthStatus(id)
 		if found && done {
 			if e != nil {
 				t.Fatal(e)

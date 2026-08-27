@@ -243,13 +243,17 @@ func handleMCPAuthStatus(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "id is required")
 			return
 		}
-		done, err, found := deps.Runtime.MCPAuthStatus(id)
+		done, err, openURL, found := deps.Runtime.MCPAuthStatus(id)
 		if !found {
 			writeJSON(w, http.StatusOK, map[string]any{"pending": false})
 			return
 		}
 		if !done {
-			writeJSON(w, http.StatusOK, map[string]any{"pending": true})
+			body := map[string]any{"pending": true}
+			if openURL != "" {
+				body["url"] = openURL
+			}
+			writeJSON(w, http.StatusOK, body)
 			return
 		}
 		if err != nil {
