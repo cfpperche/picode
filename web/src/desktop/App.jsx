@@ -1271,6 +1271,7 @@ export default function App() {
                   inline
                   sessions={sessions}
                   current={sessionCurrent}
+                  cost={statusBar && statusBar.cost}
                   onNew={async () => {
                     try {
                       await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });

@@ -30,13 +30,17 @@ export function statusSegments(bar) {
   if (bar.cacheHit != null && bar.cacheRead) {
     out.push({ key: "ch", text: bar.cacheHit.toFixed(0) + "% cached" });
   }
-  if (bar.cost > 0) {
-    out.push({ key: "cost", text: "$" + bar.cost.toFixed(2) });
-  }
+  const cost = formatSessionCost(bar.cost);
+  if (cost) out.push({ key: "cost", text: cost });
   if (bar.sessionName) {
     out.push({ key: "name", text: bar.sessionName });
   }
   return out;
+}
+
+export function formatSessionCost(n) {
+  if (n == null || !(Number(n) > 0)) return "";
+  return "$" + Number(n).toFixed(2);
 }
 
 function formatTokens(n) {

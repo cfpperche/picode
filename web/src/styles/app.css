@@ -846,6 +846,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .session-count {
   min-width: 1.1em; font-size: 10.5px; color: var(--text-secondary);
 }
+.session-cost {
+  flex: none; font-size: 11px; color: var(--text-secondary);
+}
 .session-pop {
   min-width: 360px; max-width: min(440px, calc(100vw - 24px));
   max-height: min(320px, calc(100vh - 120px));

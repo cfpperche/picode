@@ -36,15 +36,16 @@ What exists:
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
 - Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
 - Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
+- Track **D2** session chip shows `$0.05` when the session has spent money.
 
 ## In flight
 
-Track D: D1 shipped. D2 cost chip next.
+Track D: D1+D2 shipped. D3 `@` mentions next.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. D2 cost on the session chip, then D3 `@skill`/`@agent`, D4 rewind. Plan: `docs/design/session-surface-roadmap.md`.
+1. D3 `@skill`/`@agent`, then D4 rewind, then **D5** package updates (badge + Update on `#/packages`). Plan: `docs/design/session-surface-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -69,6 +70,8 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — D5 parked: package update check (TUI already banners; GUI Installed is mute). Badge + Update later.
+- **2026-08-27** — Track D2 cost on the session chip. visual-review: PASS (session-cost.png, overlayAudit ok).
 - **2026-08-27** — D1 loop: hash apply no longer depends on selectedId (tabs vs URL freeze). visual-review: PASS (agent-url-switch.png, overlayAudit ok).
 - **2026-08-27** — Track D1 `#/agent/<id>`. visual-review: PASS (agent-url.png, agent-url-gone.png, overlayAudit ok).
 - **2026-08-27** — Plan: `@agent` / `@skill` are mentions (context in this prompt). Agents talking to each other is the broker item, later.

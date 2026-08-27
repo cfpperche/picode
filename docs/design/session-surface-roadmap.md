@@ -14,11 +14,12 @@ t3code thread routes · Cursor @-mentions and checkpoints.
 | Order | Track | Start when |
 |---|---|---|
 | 1 | **D1 — `#/agent/<id>`** | **shipped** |
-| 2 | **D2 — cost on the session chip** | D1 done |
+| 2 | **D2 — cost on the session chip** | **shipped** |
 | 3 | **D3 — `@skill` / `@agent` mentions** | D1 done |
 | 4 | **D4 — rewind / checkpoints** | after D1; in-place leaf still pi#8645 |
+| 5 | **D5 — package updates** | after D2–D4. Do not start in this session. |
 
-Do not start llama installer, mobile parity, hunk accept, broker, ACP, or IDE chrome.
+Do not start llama installer, mobile parity, hunk accept, broker, ACP, IDE chrome, or D5 while D2–D4 are open.
 
 ## Refuse
 
@@ -28,6 +29,8 @@ Do not start llama installer, mobile parity, hunk accept, broker, ACP, or IDE ch
 | Cloud-synced URLs / accounts | this machine; hash is enough |
 | Cost as a new page | it belongs on the session chip the user already clicks |
 | `/tree` in-place jump | needs pi `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)) |
+| Auto-update packages | user clicks **Update**. A badge is enough to notice. |
+| System crontab | poll on Packages open + a slow interval. Not a machine cron. |
 
 ## D1 — `#/agent/<id>`
 
@@ -62,10 +65,25 @@ chip in the composer does not.
 **Ship:** when cost > 0, the chip shows `$0.12` next to the name.
 Zero cost: no extra word (not `$0.00`).
 
+D2 **shipped** (2026-08-27). visual-review: PASS (`session-cost.png`).
+
 ## D3 — `@skill` / `@agent`
 
 `@` today lists files. Same token, extra rows: skills and other agents.
 Inserts text into **this** prompt (like `@file`). Not a message to that agent.
+
+## D5 — package updates
+
+The TUI already banners **Package Updates Available** (`pi update --extensions`).
+`#/packages` still shows **Installed** with no way to update (2026-08-27:
+`pi-mcp-adapter` was behind; the GUI did not say so).
+
+**Ship:** periodic check (open Packages + background interval). User menu
+badge when any installed package has an update. That row shows **Update**
+(not a second Installed). Click runs the update. No badge when none.
+
+**Not:** silent auto-update. npm/architecture copy in chrome. macOS/Windows
+crontab.
 
 ## D4 — rewind
 
@@ -82,3 +100,4 @@ for in-place leaf jump.
 | Workspace shell | `web/src/desktop/App.jsx` |
 | Session chip | `web/src/components/SessionBar.jsx` |
 | `@` picker | `web/src/lib/atMention.js`, `Composer.jsx` |
+| Package updates (D5) | `web/src/components/Packages.jsx`, `UserMenu.jsx` |
