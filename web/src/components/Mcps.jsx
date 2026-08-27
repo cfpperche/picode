@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
-import { askPrompt } from "../lib/prompt.js";
 import { mcpAddSchema, pairsToMap, parseForm } from "../lib/schemas.js";
 import { toast } from "../lib/toast.js";
 import { paneContext } from "../lib/tree.js";
@@ -16,7 +15,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
-  const signCtl = useRef({ id: "", stop: false, paste: false });
+  const signCtl = useRef({ id: "", stop: false });
 
   function listURL() {
     const q = [];
@@ -168,7 +167,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 
   async function signIn(s) {
     if (!canSignIn(s)) return;
-    signCtl.current = { id: "", stop: false, paste: false };
+    signCtl.current = { id: "", stop: false };
     setJob({ action: "signin", label: s.name, step: 0, error: "", done: false });
     try {
       const res = await api("/api/mcp/auth", {
@@ -183,7 +182,8 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         return;
       }
       signCtl.current.id = res.id;
-      setJob({ action: "signin", label: s.name, step: 1, error: "", done: false, allowPaste: true });
+      if (res && res.url) window.open(res.url, "_blank");
+      setJob({ action: "signin", label: s.name, step: 1, error: "", done: false });
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
         if (signCtl.current.stop) {
@@ -193,23 +193,6 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
             body: JSON.stringify({ id: res.id, cancelled: true }),
           }).catch(() => {});
           setJob(null);
-          return;
-        }
-        if (signCtl.current.paste) {
-          const pasted = await askPrompt({
-            title: "Sign in to " + s.name,
-            message: "Paste the address from the tab that says Authorization Successful.",
-            confirmLabel: "Continue",
-          });
-          await api("/api/mcp/auth/reply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: res.id, value: pasted || "", cancelled: !pasted }),
-          });
-          setJob(null);
-          if (!pasted) return;
-          toast.ok("Signed in to " + s.name + ".");
-          await load();
           return;
         }
         const st = await api("/api/mcp/auth/status?id=" + encodeURIComponent(res.id));
@@ -422,7 +405,6 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           running={agentRunning}
           onClose={() => setJob(null)}
           onCancel={() => { signCtl.current.stop = true; }}
-          onPaste={() => { signCtl.current.paste = true; }}
         />
       ) : null}
     </PageFrame>
@@ -627,10 +609,10 @@ function startJobTick(setJob, stepCount) {
   }, 420);
 }
 
-function JobOverlay({ job, running, onClose, onCancel, onPaste }) {
+function JobOverlay({ job, running, onClose, onCancel }) {
   const steps = [
     { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
-    { id: "reload", label: job.action === "signin" ? "Approve in the browser" : (running ? "Reload this agent" : "Applies on next start") },
+    { id: "reload", label: job.action === "signin" ? "Finish in the browser tab" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="mcp-job-title">
@@ -660,9 +642,6 @@ function JobOverlay({ job, running, onClose, onCancel, onPaste }) {
         ) : job.action === "signin" ? (
           <div className="pkg-job-actions" data-align-row>
             <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-            {job.allowPaste ? (
-              <button type="button" className="btn btn-ghost" onClick={onPaste}>Paste address</button>
-            ) : null}
           </div>
         ) : (
           <p className="pkg-fine">Saving…</p>

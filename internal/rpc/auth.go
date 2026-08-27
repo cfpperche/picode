@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -77,7 +78,7 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name string) (
 			args = append(args, a.CLIFlags()...)
 		}
 	}
-	client, err := Start(r.AgentCmd, args, cwd)
+	client, err := Start(r.AgentCmd, args, cwd, suppressBrowserEnv()...)
 	if err != nil {
 		sendCancel()
 		return "", "", err
@@ -242,6 +243,14 @@ func (r *Runtime) expireAuthJob(id string, d time.Duration) {
 		return
 	}
 	job.closeOwned()
+}
+
+// suppressBrowserEnv stops the adapter from opening a second tab (PiCode opens one).
+func suppressBrowserEnv() []string {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return []string{"BROWSER=/bin/true"}
 }
 
 // CloseMCPAuth kills short-lived auth processes. Borrowed agents stay.
