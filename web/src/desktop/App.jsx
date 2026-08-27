@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
@@ -37,7 +37,7 @@ import { isSearchTool, hitsFromResult } from "../lib/searchCards.js";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
-import { locate, firstAgentId, displayAgentName } from "../lib/tree.js";
+import { locate, firstAgentId, displayAgentName, mentionAgents } from "../lib/tree.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   const loc = locate(workspaces, freeAgents, selectedId);
@@ -116,6 +116,10 @@ export default function App() {
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selectedId && termWanted.has(selectedId));
+  const atAgents = useMemo(
+    () => mentionAgents(workspaces, freeAgents, selectedId),
+    [workspaces, freeAgents, selectedId],
+  );
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => {
@@ -1262,7 +1266,7 @@ export default function App() {
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
-              slashExtra,
+              slashExtra, atAgents,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
               lastReply: lastAssistantText(items),

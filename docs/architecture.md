@@ -36,7 +36,7 @@ stay on their own routes.
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
-Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`).
+Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files

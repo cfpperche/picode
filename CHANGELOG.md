@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- `@` in the composer also lists other agents and skills (as `@agent:…` / `@skill:…`). Files still work. This is a mention, not a message to that agent.
 - Session chip shows `$0.12` when the session has spent money. Zero stays quiet.
 - The address bar keeps the open agent (`#/agent/…`). Reload or a shared link opens that agent. A missing id says the agent is gone.
 - Unsent composer text (and Prompt / Steer / Follow-up) comes back after reload or switching agents. Images in the composer do not.

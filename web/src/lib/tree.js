@@ -36,6 +36,21 @@ export function displayAgentName(agent, workspace) {
   return (workspace && workspace.name) || agent.name || "Agent";
 }
 
+export function mentionAgents(workspaces, freeAgents, currentId) {
+  const out = [];
+  const seen = new Set();
+  function add(agent, workspace) {
+    if (!agent || agent.id === currentId || seen.has(agent.id)) return;
+    seen.add(agent.id);
+    out.push({ id: agent.id, name: displayAgentName(agent, workspace) });
+  }
+  for (const ws of workspaces || []) {
+    for (const a of agentsOf(ws)) add(a, ws);
+  }
+  for (const a of freeAgents || []) add(a, null);
+  return out;
+}
+
 export function paneContext(agentName, workspaceName) {
   const a = String(agentName || "").trim();
   const w = String(workspaceName || "").trim();

@@ -14,7 +14,7 @@ import { Command } from "cmdk";
 import { api } from "../lib/api.js";
 import { sniffImage, readImage, MAX_IMAGES } from "../lib/composerImage.js";
 import { filterSlash } from "../lib/slash.js";
-import { atQuery, insertAtPath } from "../lib/atMention.js";
+import { atQuery, insertAtPath, mergeAtHits, skillsFromSlash } from "../lib/atMention.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "../lib/composerHist.js";
 import {
@@ -26,7 +26,7 @@ import { toast } from "../lib/toast.js";
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, agentId,
+  slashExtra, atAgents, agentId,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -86,18 +86,20 @@ export default function Composer({
     }
     const q = atKey.slice(1);
     const t = setTimeout(async () => {
+      let files = [];
       try {
         const d = await api("/api/agents/" + encodeURIComponent(agentId) + "/files?q=" + encodeURIComponent(q));
-        if (!d.cwdOk) { setAtHits(null); setAtOk(false); return; }
-        setAtOk(true);
-        setAtHits(d.hits || []);
-      } catch {
-        setAtHits(null);
-        setAtOk(false);
-      }
+        if (d.cwdOk) files = d.hits || [];
+      } catch { /* skills and agents still list */ }
+      setAtOk(true);
+      setAtHits(mergeAtHits(q, {
+        files,
+        skills: skillsFromSlash(slashExtra),
+        agents: atAgents,
+      }));
     }, 120);
     return () => clearTimeout(t);
-  }, [agentId, atKey, hits.length]);
+  }, [agentId, atKey, hits.length, slashExtra, atAgents]);
 
   useEffect(() => {
     return () => stopRec();
@@ -441,7 +443,7 @@ export default function Composer({
             className="slash-menu"
             shouldFilter={false}
             loop
-            label="Files"
+            label="Mentions"
             value={atHits[atIdx] ? atHits[atIdx].path : ""}
             onValueChange={(id) => {
               const i = atHits.findIndex((h) => h.path === id);
@@ -450,7 +452,7 @@ export default function Composer({
           >
             <input
               className="slash-filter"
-              placeholder="Filter files"
+              placeholder="Filter"
               value={at ? at.query : ""}
               onChange={(e) => setAtQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -466,15 +468,16 @@ export default function Composer({
             />
             <Command.List>
               {atHits.length === 0 ? (
-                <div className="slash-empty">No files</div>
+                <div className="slash-empty">No matches</div>
               ) : atHits.map((h) => (
                 <Command.Item
-                  key={h.path}
+                  key={h.kind + ":" + h.path}
                   value={h.path}
                   className={"slash-item" + (h.path === (atHits[atIdx] && atHits[atIdx].path) ? " active" : "")}
                   onSelect={() => pickAt(h)}
                 >
                   <span className="slash-label">@{h.path}</span>
+                  <span className="combo-hint">{h.kind === "skill" ? "Skill" : h.kind === "agent" ? "Agent" : "File"}</span>
                 </Command.Item>
               ))}
             </Command.List>

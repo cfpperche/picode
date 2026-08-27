@@ -15,7 +15,7 @@ t3code thread routes · Cursor @-mentions and checkpoints.
 |---|---|---|
 | 1 | **D1 — `#/agent/<id>`** | **shipped** |
 | 2 | **D2 — cost on the session chip** | **shipped** |
-| 3 | **D3 — `@skill` / `@agent` mentions** | D1 done |
+| 3 | **D3 — `@skill` / `@agent` mentions** | **shipped** |
 | 4 | **D4 — rewind / checkpoints** | after D1; in-place leaf still pi#8645 |
 | 5 | **D5 — package updates** | after D2–D4. Do not start in this session. |
 
@@ -71,6 +71,8 @@ D2 **shipped** (2026-08-27). visual-review: PASS (`session-cost.png`).
 
 `@` today lists files. Same token, extra rows: skills and other agents.
 Inserts text into **this** prompt (like `@file`). Not a message to that agent.
+
+D3 **shipped** (2026-08-27). `@` lists Agent / Skill / File. Inserts `@agent:Name` or `@skill:name`. The open agent is omitted.
 
 ## D5 — package updates
 
