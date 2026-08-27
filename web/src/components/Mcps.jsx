@@ -167,6 +167,11 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     return s.auth === "oauth" && !s.signedIn && !justSigned[s.name];
   }
 
+  function canSignOut(s) {
+    if (!s || s.disabled) return false;
+    return !!(s.signedIn || justSigned[s.name]);
+  }
+
   function markSigned(name) {
     setJustSigned((m) => ({ ...m, [name]: true }));
     void (async () => {
@@ -239,6 +244,26 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       setJob((j) => (j && j.action === "signin" ? { ...j, error: msg } : j));
       toast.error(msg);
     }
+  }
+
+  async function signOut(s) {
+    if (!canSignOut(s)) return;
+    const ok = await askConfirm({
+      title: "Sign out " + s.name,
+      message: "Forget this login on this machine. Every agent will need to Sign in again.",
+      confirmLabel: "Sign out",
+    });
+    if (!ok) return;
+    await runJob("signout", s.name, () => api("/api/mcp/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: s.name, agentId: agentId || undefined, workspaceId: workspaceId || undefined }),
+    }));
+    setJustSigned((m) => {
+      const next = { ...m };
+      delete next[s.name];
+      return next;
+    });
   }
 
   async function remove(s) {
@@ -325,7 +350,9 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions" data-align-row>
-                      {canSignIn(s) ? (
+                      {canSignOut(s) ? (
+                        <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signOut(s)}>Sign out</button>
+                      ) : canSignIn(s) ? (
                         <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
                       ) : null}
                       <button
@@ -660,7 +687,7 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose, onCancel }) {
   const steps = [
-    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "signout" ? "Sign out " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
     { id: "reload", label: job.action === "signin" ? "Finish in the browser tab" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (

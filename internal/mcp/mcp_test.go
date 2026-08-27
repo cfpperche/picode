@@ -499,6 +499,12 @@ func containsAny(s string, parts ...string) bool {
 	return false
 }
 
+func TestClearOAuthTokensEmpty(t *testing.T) {
+	if err := ClearOAuthTokens(""); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestOAuthAccount(t *testing.T) {
 	got := oauthAccount("picode-dogfood-notion")
 	want := "sha256-ab6c3d84aafe85f969bd4a309dfcadb4b20797e7073f5e08f8bb88dd6d7ef486"

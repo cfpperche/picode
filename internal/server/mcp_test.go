@@ -201,6 +201,15 @@ func TestMCPAuthNeedsName(t *testing.T) {
 	_ = res.Body.Close()
 }
 
+func TestMCPAuthLogoutNeedsName(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	res := postJSON(t, ts, "/api/mcp/auth/logout", map[string]any{})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	_ = res.Body.Close()
+}
+
 func TestMCPAuthShortPi(t *testing.T) {
 	rpc.AuthTestInstant = true
 	t.Cleanup(func() { rpc.AuthTestInstant = false })

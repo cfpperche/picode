@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -43,6 +44,20 @@ func HasOAuthTokens(name string) bool {
 		return false
 	}
 	return bytes.Contains(out, []byte(`"accessToken"`))
+}
+
+// ClearOAuthTokens forgets the adapter keyring login for name. Presence only — the secret is never logged.
+func ClearOAuthTokens(name string) error {
+	if name == "" {
+		return fmt.Errorf("name is required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "secret-tool", "clear", "service", "pi-mcp-adapter.oauth", "username", oauthAccount(name))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("could not forget this login")
+	}
+	return nil
 }
 
 // ApplySigned marks OAuth servers that already have a login on this machine.

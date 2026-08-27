@@ -27,6 +27,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- MCP **Sign out** on a signed-in server forgets that login on this machine.
 - MCP **Sign in** is a real button next to On (OAuth servers that are On). Same as TUI `/mcp-auth`.
 - MCP list shows live state: **Idle** / **Live** / **Failed** / **Sign in** (file Off stays Off).
 - MCP Add **More**: environment on command servers; headers and Sign in / Token on URL servers.

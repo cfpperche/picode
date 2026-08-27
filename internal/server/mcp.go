@@ -17,6 +17,7 @@ func registerMCPRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/mcp/auth", handleMCPAuth(deps))
 	mux.HandleFunc("GET /api/mcp/auth/status", handleMCPAuthStatus(deps))
 	mux.HandleFunc("POST /api/mcp/auth/reply", handleMCPAuthReply(deps))
+	mux.HandleFunc("POST /api/mcp/auth/logout", handleMCPAuthLogout(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
 }
@@ -281,6 +282,30 @@ func handleMCPAuthReply(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mcpMutateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := mcp.ValidName(req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := mcp.ClearOAuthTokens(req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		writeMCP(w, deps, p, sources, req.AgentID)
 	}
 }
 
