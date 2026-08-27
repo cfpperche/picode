@@ -1,7 +1,7 @@
 # Composer files → MCP — implementation roadmap
 
-- **Date:** 2026-08-26
-- **Status:** plan. Auth / llama.cpp / Radius stay out until this track is done.
+- **Date:** 2026-08-26 (closed 2026-08-27)
+- **Status:** A+B **shipped**. Successor: [conversation-control-roadmap.md](conversation-control-roadmap.md).
 - **Why:** TUI can `@` files, paste images, and run `!cmd`. PiCode cannot.
   MCP is a status path. We close those gaps in this order.
 
@@ -16,11 +16,11 @@ Canonical pi: [Usage](https://github.com/earendil-works/pi/blob/main/packages/co
 
 | Order | Track | Start when |
 |---|---|---|
-| 1 | **A — Composer files** | now |
-| 2 | **B — MCP manager** | A done **and** adapter write-format decided (table below) |
-| 3 | Auth / local models | asked, after A+B |
+| 1 | **A — Composer files** | **shipped** |
+| 2 | **B — MCP manager** | **shipped** |
+| 3 | **C — Conversation control** | [conversation-control-roadmap.md](conversation-control-roadmap.md) |
 
-Do not start Radius, OpenRouter PKCE, or llama.cpp installer in this track.
+Radius, OpenRouter PKCE, and llama.cpp installer stayed out of A/B and stay parked.
 
 ## Refuse (all tracks)
 
@@ -177,13 +177,15 @@ List shows Idle / Live / Failed / Sign in. File Off has no live word. Snapshot o
 
 ---
 
-## Track C — parked (discuss after A+B)
+## Parked (not Track C)
+
+Track C is conversation control, not this list.
 
 - Radius gateway login
 - OpenRouter PKCE (GUI is API key)
 - llama.cpp install / start / delete `.gguf`
 - `/tree` `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645))
-- `/compact [prompt]`
+- `/compact [prompt]` extra (slash already has compact UI)
 
 ---
 

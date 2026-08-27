@@ -84,15 +84,17 @@ Priority: P0 dogfood · P1 leverage · P2 later.
 
 | # | Gap | Priority | From |
 |---|---|---|---|
-| G1 | Agent **waiting** state (permission / question) — today only stopped / interactive / managed | P0 | t3code `waiting` |
-| G2 | Composer **draft persistence** across tab/reload | P0 | t3code `composerDraftStore` |
-| G3 | Make queueing visible (steer/follow_up already on the wire; busy should not feel like a dead Send) | P0 | pi RPC + paseo queue |
-| G4 | Reload-safe agent URL (`#/agent/<id>` or similar) | P1 | t3code thread routes |
-| G5 | `@file` / `@skill` in the composer | P1 | Cursor + t3code |
-| G6 | Streaming markdown in the transcript | P1 | Cursor bar #10 |
-| G7 | Checkpoints / rewind via pi session tree | P2 | Cursor; deferred (not an editor) |
-| G8 | Task graph / multi-agent | P2 | paseo; M4 broker |
-| G9 | ACP / extra SDKs | P2 | t3code; conflicts with ADR-0003 unless pi itself speaks ACP |
+| G1 | Agent **waiting** state (permission / question) — today only stopped / interactive / managed | P0 — **Track C1** | t3code `waiting` |
+| G2 | Composer **draft persistence** across tab/reload | P0 — **Track C2** | t3code `composerDraftStore` |
+| G3 | Make queueing visible (steer/follow_up already on the wire; busy should not feel like a dead Send) | P0 — **Track C3** | pi RPC + paseo queue |
+| G4 | Reload-safe agent URL (`#/agent/<id>` or similar) | P1 — next roadmap | t3code thread routes |
+| G5 | `@file` shipped; `@skill` / `@agent` later | P1 — next roadmap | Cursor + t3code |
+| G6 | Streaming markdown in the transcript | **shipped** | Cursor bar #10 |
+| G7 | Checkpoints / rewind via pi session tree | P2 — next roadmap | Cursor; deferred (not an editor) |
+| G8 | Task graph / multi-agent | P2 — next roadmap | paseo; M4 broker |
+| G9 | ACP / extra SDKs | P2 — next roadmap | t3code; conflicts with ADR-0003 unless pi itself speaks ACP |
+
+Track C plan: [conversation-control-roadmap.md](../design/conversation-control-roadmap.md).
 
 ## What we keep (not worth copying)
 

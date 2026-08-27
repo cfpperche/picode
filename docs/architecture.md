@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-24.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-27.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -155,7 +155,9 @@ claiming from the store (`prompt`/`steer`/`follow_up` → rpc commands,
 gated on `agent_settled`, finished delivered/failed with audit), per-agent
 event hub feeding `GET /ws/agent?agent=<id>` (events + `enqueue` input).
 Extension dialogs (`select`/`confirm`/`input`) surface as RPC requests —
-UI mapping is still an open M3 item (auto-approve policy undecided).
+Go can `ReplyUI`; the GUI mapping is **Track C**
+([conversation-control-roadmap.md](design/conversation-control-roadmap.md)).
+Auto-approve policy stays undecided (not C1).
 
 ### Broker (M4)
 A Pi extension (`picode-extension`, TypeScript, installed per workspace)
