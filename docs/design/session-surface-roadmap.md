@@ -52,6 +52,7 @@ replaced (not pushed) to `#/agent/<id>`. Other hashes (`#/mcps`, …) unchanged.
 | 8 | F5 on `#/agent/x` | yes | x, even if tabs said y |
 
 D1 **shipped** (2026-08-27). visual-review: PASS (`agent-url.png`, `agent-url-gone.png`).
+Hash apply is hash-driven only — do not depend on `selectedId` or the tab strip fights the URL.
 
 ## D2 — cost on the session chip
 

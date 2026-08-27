@@ -258,17 +258,24 @@ export default function App() {
     if (parseRoute(hash) !== "workspace") return;
     const id = agentRoute(hash);
     if (!id) {
-      if (goneId) setGoneId("");
+      setGoneId((g) => (g ? "" : g));
       return;
     }
     if (locate(workspaces, freeAgents, id)) {
-      if (goneId) setGoneId("");
-      if (selectedId !== id) openTab(id);
+      setGoneId((g) => (g ? "" : g));
+      if (selectedRef.current !== id) openTab(id);
     } else {
-      if (goneId !== id) setGoneId(id);
-      if (selectedId) setSelectedId(null);
+      setGoneId((g) => (g === id ? g : id));
+      if (selectedRef.current) setSelectedId(null);
     }
-  }, [hash, tabsReady, workspaces, freeAgents, selectedId, goneId]);
+    // Hash is the only input. Putting selectedId here fights the write effect
+    // and loops the tab strip (URL says A, tab says B).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash, tabsReady]);
+  useEffect(() => {
+    if (!goneId) return;
+    if (locate(workspaces, freeAgents, goneId)) openTab(goneId);
+  }, [goneId, workspaces, freeAgents]);
   useEffect(() => {
     if (!tabsReady) return;
     if (route !== "workspace") return;

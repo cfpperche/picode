@@ -11,6 +11,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching agents no longer loops the tabs against the address bar (Chrome freeze).
+
 ### Added
 
 - The address bar keeps the open agent (`#/agent/…`). Reload or a shared link opens that agent. A missing id says the agent is gone.
