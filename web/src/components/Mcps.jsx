@@ -45,8 +45,6 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
-  const imported = (data && data.imports) || [];
-  const mirrored = servers.filter((s) => s.scope === "import");
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   const showScopes = canProject || canAgent;
@@ -298,44 +296,9 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         </div>
       ) : (
         <>
-          <div className="mcp-toolbar" data-align-row>
-            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={importHosts}>Use from…</button>
-          </div>
-          {imported.length ? (
-            <p className="pkg-fine">Using {imported.map(hostLabel).join(" · ")}</p>
-          ) : null}
-          {imported.length && !mirrored.length ? (
-            <p className="pkg-fine">No servers in those apps.</p>
-          ) : null}
-          {showScopes ? (
-            <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
-              <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-              {canProject ? (
-                <button
-                  type="button"
-                  role="radio"
-                  className="pkg-scope-btn"
-                  aria-checked={scope === "project"}
-                  title={"Saves in " + (workspaceName || "this folder")}
-                  onClick={() => setScope("project")}
-                >{workspaceName || "This workspace"}</button>
-              ) : null}
-              {canAgent ? (
-                <button
-                  type="button"
-                  role="radio"
-                  className="pkg-scope-btn"
-                  aria-checked={scope === "agent"}
-                  title={"Saves with " + (agentName || "this agent")}
-                  onClick={() => setScope("agent")}
-                >This agent</button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {servers.length > 0 ? (
-            <section className="pkg-installed">
-              <h3>Servers</h3>
+          <section className="pkg-installed">
+            <h3>Servers</h3>
+            {servers.length ? (
               <ul className="mcp-list">
                 {servers.map((s) => {
                   const word = rowLive(s);
@@ -371,25 +334,51 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                   );
                 })}
               </ul>
-            </section>
-          ) : null}
+            ) : (
+              <p className="pkg-fine">No servers yet.</p>
+            )}
+          </section>
 
           <section className="mcp-add">
             <h3>Add</h3>
-            {presets.length ? (
-              <div className="mcp-presets" data-align-row>
-                {presets.map((p) => (
+            {showScopes ? (
+              <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
+                <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+                {canProject ? (
                   <button
-                    key={p.id}
                     type="button"
+                    role="radio"
                     className="pkg-scope-btn"
-                    disabled={!!job}
-                    title={p.summary}
-                    onClick={() => addServer({ name: p.id, ...p.entry })}
-                  >{p.name}</button>
-                ))}
+                    aria-checked={scope === "project"}
+                    title={"Saves in " + (workspaceName || "this folder")}
+                    onClick={() => setScope("project")}
+                  >{workspaceName || "This workspace"}</button>
+                ) : null}
+                {canAgent ? (
+                  <button
+                    type="button"
+                    role="radio"
+                    className="pkg-scope-btn"
+                    aria-checked={scope === "agent"}
+                    title={"Saves with " + (agentName || "this agent")}
+                    onClick={() => setScope("agent")}
+                  >This agent</button>
+                ) : null}
               </div>
             ) : null}
+            <div className="mcp-presets" data-align-row>
+              <button type="button" className="pkg-scope-btn" disabled={!!job} onClick={importHosts}>Use from…</button>
+              {presets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="pkg-scope-btn"
+                  disabled={!!job}
+                  title={p.summary}
+                  onClick={() => addServer({ name: p.id, ...p.entry })}
+                >{p.name}</button>
+              ))}
+            </div>
             <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
               <div className="mcp-form-row" data-align-row>
                 <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
@@ -576,20 +565,6 @@ function TreeCheck({ checked, some, onChange, label }) {
       onChange={(e) => onChange(e.target.checked)}
     />
   );
-}
-
-function hostLabel(id) {
-  const names = {
-    cursor: "Cursor",
-    "claude-code": "Claude Code",
-    "claude-desktop": "Claude Desktop",
-    codex: "Codex",
-    opencode: "OpenCode",
-    windsurf: "Windsurf",
-    vscode: "VS Code",
-    grok: "Grok",
-  };
-  return names[id] || id;
 }
 
 function emptyForm() {
