@@ -55,6 +55,7 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
 		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
+		mcp.ApplySigned(&rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
@@ -291,6 +292,7 @@ func writeMCP(w http.ResponseWriter, deps Deps, p mcp.Paths, sources []string, a
 	}
 	rep.Adapter.Installed = mcp.AdapterConfigured(sources)
 	applyMCPLive(deps, agentID, &rep)
+	mcp.ApplySigned(&rep)
 	writeJSON(w, http.StatusOK, rep)
 }
 

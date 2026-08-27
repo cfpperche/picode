@@ -42,6 +42,7 @@ type Server struct {
 	Disabled  bool              `json:"disabled"`
 	Owned     bool              `json:"owned"`
 	Live      string            `json:"live,omitempty"` // idle | live | failed | signin
+	SignedIn  bool              `json:"signedIn,omitempty"`
 }
 
 // Preset is a known server from the adapter.

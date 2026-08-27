@@ -24,12 +24,25 @@ function picodePage(ok, back) {
 </main>${script}</body></html>`;
 }
 
+function writeOut(obj) {
+  const out = process.env.PICODE_MCP_AUTH_OUT;
+  if (!out) return;
+  try {
+    fs.mkdirSync(path.dirname(out), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(out, JSON.stringify(obj), { mode: 0o600 });
+  } catch {
+    // GUI times out
+  }
+}
+
 function rewrite(chunk) {
   if (typeof chunk !== "string") return chunk;
   if (chunk.includes("Authorization Successful") || chunk.includes("Authorization Received")) {
+    writeOut({ ok: true });
     return picodePage(true, process.env.PICODE_MCP_RETURN || "");
   }
   if (chunk.includes("Authorization Failed")) {
+    writeOut({ ok: false, error: "authorization failed" });
     return picodePage(false, "");
   }
   return chunk;
@@ -113,15 +126,6 @@ export default function () {
   const adapter = process.env.PICODE_MCP_ADAPTER;
   if (!name || !url || !out || !adapter) return;
 
-  const write = (obj) => {
-    try {
-      fs.mkdirSync(path.dirname(out), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(out, JSON.stringify(obj), { mode: 0o600 });
-    } catch {
-      // GUI times out
-    }
-  };
-
   (async () => {
     try {
       stealOpen(process.env.PICODE_MCP_OPEN);
@@ -145,9 +149,9 @@ export default function () {
       }
       if (!authenticate) throw lastErr || new Error("authenticate not found");
       const status = await authenticate(name, url, { url, auth: "oauth" }, {});
-      write({ ok: status === "authenticated" });
+      writeOut({ ok: status === "authenticated" });
     } catch (e) {
-      write({ ok: false, error: String(e && e.message ? e.message : e) });
+      writeOut({ ok: false, error: String(e && e.message ? e.message : e) });
     }
   })();
 }

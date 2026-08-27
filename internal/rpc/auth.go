@@ -44,7 +44,9 @@ func (j *mcpAuthJob) finish(err error) {
 	j.finished.Do(func() {
 		j.err = err
 		close(j.doneCh)
-		j.closeOwned()
+		if err != nil {
+			j.closeOwned()
+		}
 	})
 }
 
@@ -62,7 +64,7 @@ func (j *mcpAuthJob) closeOwned() {
 }
 
 func (j *mcpAuthJob) watchFile() {
-	t := time.NewTicker(400 * time.Millisecond)
+	t := time.NewTicker(150 * time.Millisecond)
 	defer t.Stop()
 	for {
 		select {
@@ -157,7 +159,10 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverUR
 	go r.expireAuthJob(id, 5*time.Minute)
 	go func() {
 		<-client.Done()
-		if _, err := os.Stat(out); err != nil {
+		select {
+		case <-job.doneCh:
+			job.closeOwned()
+		default:
 			job.finish(fmt.Errorf("sign-in stopped"))
 		}
 	}()

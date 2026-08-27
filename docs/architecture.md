@@ -42,7 +42,8 @@ MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). Add accepts
 optional `env`, `headers`, `auth` (`oauth`|`bearer`) and `bearerToken`.
 Live status (`idle`/`live`/`failed`/`signin`) comes from the adapter snapshot when
-the GUI agent is running (`-e` silent bridge). **Sign in** always uses a short
+the GUI agent is running (`-e` silent bridge). OAuth rows with tokens in the OS
+keyring show **Signed in** and hide Sign in. **Sign in** always uses a short
 `pi --mode rpc --no-session -e` (not a second agent — no session file, ADR-0006)
 running headless adapter `authenticate()` (callback only, no paste). Pi does not
 open the browser (WSL would spawn a second tab). Status returns the authorize URL;

@@ -162,7 +162,8 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   function canSignIn(s) {
     if (!s || s.disabled) return false;
     if (s.live === "live") return false;
-    return s.live === "signin" || s.auth === "oauth";
+    if (s.live === "signin") return true;
+    return s.auth === "oauth" && !s.signedIn;
   }
 
   async function signIn(s) {
@@ -208,7 +209,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         }
         if (st && st.error) throw new Error(st.error);
         if (st && !st.pending && !st.ok) throw new Error("Sign-in expired.");
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 250));
       }
       throw new Error("sign-in timed out");
     } catch (err) {
@@ -289,13 +290,15 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
             <section className="pkg-installed">
               <h3>Servers</h3>
               <ul className="mcp-list">
-                {servers.map((s) => (
+                {servers.map((s) => {
+                  const word = rowLive(s);
+                  return (
                   <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
                     <div className="mcp-row-main">
                       <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
                       <strong className="mcp-name">{s.name}</strong>
-                      {s.live && s.live !== "signin" ? (
-                        <span className={"mcp-live " + s.live} title={liveTitle(s.live)}>{liveLabel(s.live)}</span>
+                      {word && word !== "signin" ? (
+                        <span className={"mcp-live " + word} title={liveTitle(word)}>{liveLabel(word)}</span>
                       ) : null}
                       <code className="mcp-target">{targetOf(s)}</code>
                     </div>
@@ -316,7 +319,8 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                       ) : null}
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </section>
           ) : null}
@@ -583,9 +587,16 @@ function scopeLabel(s, workspaceName, agentName) {
   return "machine";
 }
 
+function rowLive(s) {
+  if (s.live === "live" || s.live === "failed") return s.live;
+  if (s.signedIn) return "signed";
+  return s.live || "";
+}
+
 function liveLabel(v) {
   if (v === "live") return "Live";
   if (v === "failed") return "Failed";
+  if (v === "signed") return "Signed in";
   if (v === "signin") return "Sign in";
   return "Idle";
 }
@@ -593,6 +604,7 @@ function liveLabel(v) {
 function liveTitle(v) {
   if (v === "live") return "Connected";
   if (v === "failed") return "Last connect failed";
+  if (v === "signed") return "This machine has a login";
   if (v === "signin") return "Needs sign-in";
   return "Not used yet";
 }
