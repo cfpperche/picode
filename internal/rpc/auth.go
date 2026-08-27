@@ -77,7 +77,7 @@ func (j *mcpAuthJob) watchFile() {
 var AuthTestInstant bool
 
 // BeginMCPAuth starts headless adapter OAuth (callback only, no paste UI).
-func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverURL string) (string, error) {
+func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverURL, returnTo string) (string, error) {
 	if r == nil || r.AgentCmd == "" {
 		return "", fmt.Errorf("pi is not configured")
 	}
@@ -124,6 +124,7 @@ func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverUR
 		"PICODE_MCP_AUTH_URL=" + serverURL,
 		"PICODE_MCP_AUTH_OUT=" + out,
 		"PICODE_MCP_ADAPTER=" + adapter,
+		"PICODE_MCP_RETURN=" + returnTo,
 	}
 	client, err := Start(r.AgentCmd, args, cwd, env...)
 	if err != nil {

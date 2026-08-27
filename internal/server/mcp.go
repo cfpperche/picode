@@ -226,7 +226,8 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "turn the server On first")
 			return
 		}
-		id, err := deps.Runtime.BeginMCPAuth(r.Context(), req.AgentID, cwd, req.Name, serverURL)
+		returnTo := "https://" + r.Host + "/#/mcps"
+		id, err := deps.Runtime.BeginMCPAuth(r.Context(), req.AgentID, cwd, req.Name, serverURL, returnTo)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

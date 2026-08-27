@@ -14,7 +14,7 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Changed
 
 - MCP **Sign in** no longer needs the agent running. Add or On on an OAuth server starts Sign in. One login is shared by every agent on this machine.
-- MCP **Sign in** is automatic like Claude/Codex: one browser tab, approve, the tab closes, PiCode finishes. No paste.
+- MCP **Sign in** is automatic like Claude/Codex: one browser tab, approve, PiCode success page, tab returns to MCPs. No paste.
 - MCP list API keeps env/header **keys** and hides values (token was already write-only).
 - MCP server list is alphabetical by name (no more jumping while live status refreshes).
 - Remove on a shared server no longer turns it back On (it was only hiding the other app). Use Off.

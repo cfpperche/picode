@@ -14,7 +14,7 @@ func TestBeginMCPAuthShort(t *testing.T) {
 	t.Cleanup(r.CloseMCPAuth)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, err := r.BeginMCPAuth(ctx, "", t.TempDir(), "docs", "https://example.test/mcp")
+	id, err := r.BeginMCPAuth(ctx, "", t.TempDir(), "docs", "https://example.test/mcp", "")
 	if err != nil {
 		t.Fatal(err)
 	}

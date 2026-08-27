@@ -1,7 +1,47 @@
-// Headless MCP OAuth: callback only, no paste UI. pi -e
+// Headless MCP OAuth: callback only. Replaces adapter HTML with PiCode's
+// provider success page (close + return to #/mcps).
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+function picodePage(ok, back) {
+  const heading = ok ? "Authentication complete" : "Authentication did not complete";
+  const msg = ok ? "Returning to PiCode…" : "You can close this tab.";
+  let script = "";
+  if (ok) {
+    const go = back ? "location.replace(" + JSON.stringify(back) + ")" : "";
+    script = `<script>(function(){var n=3,el=document.getElementById("n");function tick(){if(el)el.textContent=n;if(n<=0){try{if(window.opener)window.opener.focus()}catch(e){}window.close();setTimeout(function(){${go}},200);return}n--;setTimeout(tick,1000)}setTimeout(tick,400)})()</script>`;
+  }
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>PiCode</title>
+<style>:root{--text:#fafafa;--dim:#a1a1aa;--bg:#09090b}*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,sans-serif;text-align:center}main{max-width:480px}.logo{width:72px;height:72px;margin:0 auto 24px}h1{margin:0 0 10px;font-size:28px;font-weight:650}p{margin:0;color:var(--dim);font-size:15px;line-height:1.6}</style></head>
+<body><main>
+<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true"><path fill="#fff" fill-rule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z"/><path fill="#fff" d="M517.36 400H634.72V634.72H517.36Z"/></svg>
+<h1>${heading}</h1><p>${msg} <span id="n"></span></p>
+</main>${script}</body></html>`;
+}
+
+function rewrite(chunk) {
+  if (typeof chunk !== "string") return chunk;
+  if (chunk.includes("Authorization Successful") || chunk.includes("Authorization Received")) {
+    return picodePage(true, process.env.PICODE_MCP_RETURN || "");
+  }
+  if (chunk.includes("Authorization Failed")) {
+    return picodePage(false, "");
+  }
+  return chunk;
+}
+
+const origEnd = http.ServerResponse.prototype.end;
+http.ServerResponse.prototype.end = function (chunk, enc, cb) {
+  if (typeof chunk === "string") chunk = rewrite(chunk);
+  else if (Buffer.isBuffer(chunk)) {
+    const s = chunk.toString("utf8");
+    const n = rewrite(s);
+    if (n !== s) chunk = Buffer.from(n);
+  }
+  return origEnd.call(this, chunk, enc, cb);
+};
 
 export default function () {
   const name = process.env.PICODE_MCP_AUTH;
