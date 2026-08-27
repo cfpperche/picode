@@ -15,6 +15,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
+  const [justSigned, setJustSigned] = useState({});
   const signCtl = useRef({ id: "", stop: false });
 
   function listURL() {
@@ -163,7 +164,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     if (!s || s.disabled) return false;
     if (s.live === "live") return false;
     if (s.live === "signin") return true;
-    return s.auth === "oauth" && !s.signedIn;
+    return s.auth === "oauth" && !s.signedIn && !justSigned[s.name];
+  }
+
+  function markSigned(name) {
+    setJustSigned((m) => ({ ...m, [name]: true }));
+    void (async () => {
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 400));
+        await load();
+      }
+    })();
   }
 
   async function signIn(s, opts) {
@@ -180,6 +191,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       if (res && res.ok && !res.id) {
         setJob(null);
         toast.ok("Signed in to " + s.name + ".");
+        markSigned(s.name);
         await load();
         return;
       }
@@ -208,6 +220,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         if (st && st.ok) {
           setJob(null);
           toast.ok("Signed in to " + s.name + ".");
+          markSigned(s.name);
           await load();
           return;
         }
@@ -300,7 +313,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
               <h3>Servers</h3>
               <ul className="mcp-list">
                 {servers.map((s) => {
-                  const word = rowLive(s);
+                  const word = rowLive(s, justSigned[s.name]);
                   return (
                   <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
                     <div className="mcp-row-main">
@@ -607,9 +620,9 @@ function loopbackRedirect(authUrl) {
   }
 }
 
-function rowLive(s) {
+function rowLive(s, extra) {
   if (s.live === "live" || s.live === "failed") return s.live;
-  if (s.signedIn) return "signed";
+  if (s.signedIn || extra) return "signed";
   return s.live || "";
 }
 
