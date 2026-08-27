@@ -74,6 +74,9 @@ type Runtime struct {
 	agents map[string]*ManagedAgent
 	store  *store.Store
 	onExit func(agentID string)
+
+	authMu   sync.Mutex
+	authJobs map[string]*mcpAuthJob
 }
 
 // NewRuntime builds a runtime. onExit (optional) fires when a managed
@@ -84,6 +87,7 @@ func NewRuntime(agentCmd string, st *store.Store, onExit func(string)) *Runtime 
 		agents:   map[string]*ManagedAgent{},
 		store:    st,
 		onExit:   onExit,
+		authJobs: map[string]*mcpAuthJob{},
 	}
 }
 
@@ -160,6 +164,7 @@ func (r *Runtime) Get(agentID string) *ManagedAgent {
 
 // StopAll terminates every managed agent (server shutdown).
 func (r *Runtime) StopAll() {
+	r.CloseMCPAuth()
 	r.mu.Lock()
 	ids := make([]string, 0, len(r.agents))
 	for id := range r.agents {

@@ -43,6 +43,12 @@ func fakeMain() {
 		case "prompt", "steer", "follow_up":
 			msg, _ := req["message"].(string)
 			if typ == "prompt" && len(msg) >= 10 && msg[:10] == "/mcp-auth " {
+				if msg == "/mcp-auth already" {
+					_ = enc.Encode(map[string]any{
+						"id": id, "type": "response", "command": typ, "success": true,
+					})
+					break
+				}
 				_ = enc.Encode(map[string]any{
 					"type": "extension_ui_request", "id": "ui-auth",
 					"method": "input", "title": "Complete OAuth\nhttps://example.test/oauth\nPaste the URL",

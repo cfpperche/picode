@@ -41,6 +41,25 @@ func fakeBashRPCMain() {
 				"id": id, "type": "response", "command": "get_state", "success": true,
 				"data": map[string]any{"model": map[string]any{"id": "fake"}, "isStreaming": false},
 			})
+		case "prompt":
+			msg, _ := req["message"].(string)
+			if len(msg) >= 10 && msg[:10] == "/mcp-auth " {
+				_ = enc.Encode(map[string]any{
+					"type": "extension_ui_request", "id": "ui-auth",
+					"method": "input", "title": "Complete OAuth\nhttps://example.test/oauth\nPaste",
+				})
+				var reply map[string]any
+				if err := dec.Decode(&reply); err != nil {
+					return
+				}
+				_ = enc.Encode(map[string]any{
+					"id": id, "type": "response", "command": typ, "success": true,
+				})
+				break
+			}
+			_ = enc.Encode(map[string]any{
+				"id": id, "type": "response", "command": typ, "success": true,
+			})
 		case "bash":
 			cmd, _ := req["command"].(string)
 			_ = enc.Encode(map[string]any{"type": "bash_execution_update", "id": id, "delta": "fake: " + cmd + "\n"})

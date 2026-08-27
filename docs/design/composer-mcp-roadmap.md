@@ -163,7 +163,7 @@ Add **More** writes adapter `env` (command), `headers` + `auth`/`bearerToken` (U
 
 ### B5 — live status — **shipped**
 
-List shows Idle / Live / Failed / Sign in. File Off has no live word. Snapshot only when the GUI agent is running. **Sign in** is `/mcp-auth` over RPC.
+List shows Idle / Live / Failed / Sign in. File Off has no live word. Snapshot only when the GUI agent is running. **Sign in** is `/mcp-auth` on the live agent, or a short `pi --mode rpc --no-session` if none is running. Add/On on OAuth starts Sign in.
 
 ### Decision table (runtime)
 

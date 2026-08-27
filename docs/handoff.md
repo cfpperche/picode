@@ -30,7 +30,7 @@ What exists:
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
-- MCP **Sign in** runs `/mcp-auth` in the running GUI agent and pastes the callback URL.
+- MCP **Sign in** runs `/mcp-auth` on the live GUI agent, or a short `pi --mode rpc --no-session` if none is running. Add or On on an OAuth server starts Sign in. Tokens are per server name on this machine, not per agent.
 
 ## In flight
 
@@ -51,6 +51,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 - Dogfood MCP leftover in `~/.codex/config.toml` and `~/.grok/config.toml` (Claude copy removed).
 - MCP GET redacts env/header values (keys only). `bearerToken` stays write-only.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
+- MCP Sign in auto-start after Add/On is UI-only (no unit test). Reuse of a running agent shares `beginAuthOn` with the short-pi tests.
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.
 - `internal/proclock` leftover `picode.lock` after a Windows crash.
@@ -60,6 +61,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP Sign in uses a short pi when no agent is running. Add/On on OAuth starts Sign in. visual-review: PASS (mcp-signin-short.png). Dogfood: Notion login opened with no agent.
 - **2026-08-26** — Sign in is a button next to On (not a SIGN-IN tag). Off has no Sign in. visual-review: PASS (mcp-signin-btn.png).
 - **2026-08-26** — MCP Sign in starts `/mcp-auth` (RPC + paste dialog). visual-review: PASS (mcp-signin.png).
 - **2026-08-26** — MCP GET redacts env/header values. Dogfood in Codex/Grok left for later.

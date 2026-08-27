@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -188,13 +189,41 @@ func TestMCPImport(t *testing.T) {
 	}
 }
 
-func TestMCPAuthNeedsAgent(t *testing.T) {
+func TestMCPAuthNeedsName(t *testing.T) {
 	ts := newTestServer(t, "cat")
-	res := postJSON(t, ts, "/api/mcp/auth", map[string]any{"name": "docs"})
-	if res.StatusCode != http.StatusConflict {
+	res := postJSON(t, ts, "/api/mcp/auth", map[string]any{})
+	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status %d", res.StatusCode)
 	}
 	_ = res.Body.Close()
+}
+
+func TestMCPAuthShortPi(t *testing.T) {
+	ts := bashTestServer(t)
+	res := postJSON(t, ts, "/api/mcp/auth", map[string]any{"name": "docs"})
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		t.Fatalf("status %d body %s", res.StatusCode, body)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if body["id"] != "ui-auth" {
+		t.Fatalf("body = %v", body)
+	}
+	url, _ := body["url"].(string)
+	if url != "https://example.test/oauth" {
+		t.Fatalf("url = %q", url)
+	}
+	reply := postJSON(t, ts, "/api/mcp/auth/reply", map[string]any{
+		"id": "ui-auth", "value": "http://127.0.0.1/cb",
+	})
+	if reply.StatusCode != http.StatusOK {
+		t.Fatalf("reply %d", reply.StatusCode)
+	}
+	_ = reply.Body.Close()
 }
 
 func TestMCPAddSecrets(t *testing.T) {

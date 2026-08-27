@@ -9,7 +9,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/pipkg"
-	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -199,60 +198,35 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if req.AgentID == "" || deps.Runtime == nil {
-			writeErr(w, http.StatusConflict, "run this agent first")
+		if deps.Runtime == nil {
+			writeErr(w, http.StatusConflict, "pi is not configured")
 			return
 		}
-		ma := deps.Runtime.Get(req.AgentID)
-		if ma == nil {
-			writeErr(w, http.StatusConflict, "run this agent in the app first")
+		p, _, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
-		uiCh := make(chan map[string]any, 1)
-		unsub := ma.WatchEvents(func(ev rpc.Event) {
-			if ev.EventType() != "extension_ui_request" {
+		cwd := p.AgentCwd
+		if cwd == "" {
+			cwd = p.Cwd
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		defer cancel()
+		id, url, err := deps.Runtime.BeginMCPAuth(ctx, req.AgentID, cwd, req.Name)
+		if err != nil {
+			if ctx.Err() != nil {
+				writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
 				return
 			}
-			var body map[string]any
-			if json.Unmarshal([]byte(ev), &body) != nil {
-				return
-			}
-			method, _ := body["method"].(string)
-			if method != "input" && method != "editor" {
-				return
-			}
-			select {
-			case uiCh <- body:
-			default:
-			}
-		})
-		defer unsub()
-		errCh := make(chan error, 1)
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			errCh <- ma.SendPromptCtx(ctx, "/mcp-auth "+req.Name)
-		}()
-		select {
-		case ui := <-uiCh:
-			id, _ := ui["id"].(string)
-			title, _ := ui["title"].(string)
-			msg, _ := ui["message"].(string)
-			ph, _ := ui["placeholder"].(string)
-			writeJSON(w, http.StatusOK, map[string]any{
-				"id": id, "url": mcp.AuthURLFromUI(title, msg, ph),
-			})
-		case err := <-errCh:
-			if err != nil {
-				writeErr(w, http.StatusBadRequest, err.Error())
-				return
-			}
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if id == "" {
 			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-		case <-r.Context().Done():
-			writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
-		case <-time.After(25 * time.Second):
-			writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
+			return
 		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id, "url": url})
 	}
 }
 
@@ -263,16 +237,11 @@ func handleMCPAuthReply(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		if req.ID == "" || req.AgentID == "" || deps.Runtime == nil {
-			writeErr(w, http.StatusBadRequest, "id and agent are required")
+		if req.ID == "" || deps.Runtime == nil {
+			writeErr(w, http.StatusBadRequest, "id is required")
 			return
 		}
-		ma := deps.Runtime.Get(req.AgentID)
-		if ma == nil {
-			writeErr(w, http.StatusConflict, "run this agent in the app first")
-			return
-		}
-		if err := ma.ReplyUI(req.ID, req.Value, req.Cancelled); err != nil {
+		if err := deps.Runtime.ReplyMCPAuth(req.ID, req.Value, req.Cancelled); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}

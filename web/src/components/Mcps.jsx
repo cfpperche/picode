@@ -51,9 +51,9 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const showScopes = canProject || canAgent;
 
   async function runJob(action, label, fn) {
-    if (job) return;
+    if (job) return null;
     setJob({ action, label, step: 0, error: "", done: false });
-    const tick = startJobTick(setJob, agentRunning ? 2 : 2);
+    const tick = startJobTick(setJob, 2);
     try {
       const next = await fn();
       setJob((j) => j && { ...j, step: 1 });
@@ -63,8 +63,10 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
       setTimeout(() => setJob(null), 480);
+      return next;
     } catch (err) {
       setJob((j) => j && { ...j, error: humanizeError(err.message || String(err)) });
+      return null;
     } finally {
       clearInterval(tick);
     }
@@ -81,8 +83,12 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 
   async function addServer(entry) {
     if (!installed) return;
+    let name = "";
+    let auth = "";
     if (entry && entry.name) {
-      await runJob("add", entry.name, () => api("/api/mcp", {
+      name = entry.name;
+      auth = entry.auth || "";
+      const next = await runJob("add", entry.name, () => api("/api/mcp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body({
@@ -93,37 +99,45 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           auth: entry.auth || "",
         })),
       }));
-      return;
+      if (!next) return;
+    } else {
+      const parsed = parseForm(mcpAddSchema, form);
+      if (!parsed.ok) { setFormError(parsed.error); return; }
+      const v = parsed.value;
+      const pairs = pairsToMap(v.pairs);
+      setFormError("");
+      name = v.name;
+      auth = v.kind === "url" ? v.auth : "";
+      const next = await runJob("add", v.name, () => api("/api/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body({
+          name: v.name,
+          command: v.kind === "stdio" ? v.command : "",
+          args: v.kind === "stdio" ? splitArgs(v.args) : [],
+          url: v.kind === "url" ? v.url : "",
+          env: v.kind === "stdio" ? pairs : undefined,
+          headers: v.kind === "url" ? pairs : undefined,
+          auth: v.kind === "url" ? v.auth : "",
+          bearerToken: v.kind === "url" && v.auth === "bearer" ? v.token : "",
+        })),
+      }));
+      if (!next) return;
+      setForm(emptyForm());
     }
-    const parsed = parseForm(mcpAddSchema, form);
-    if (!parsed.ok) { setFormError(parsed.error); return; }
-    const v = parsed.value;
-    const pairs = pairsToMap(v.pairs);
-    setFormError("");
-    await runJob("add", v.name, () => api("/api/mcp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body({
-        name: v.name,
-        command: v.kind === "stdio" ? v.command : "",
-        args: v.kind === "stdio" ? splitArgs(v.args) : [],
-        url: v.kind === "url" ? v.url : "",
-        env: v.kind === "stdio" ? pairs : undefined,
-        headers: v.kind === "url" ? pairs : undefined,
-        auth: v.kind === "url" ? v.auth : "",
-        bearerToken: v.kind === "url" && v.auth === "bearer" ? v.token : "",
-      })),
-    }));
-    setForm(emptyForm());
+    if (auth === "oauth") await signIn({ name, auth: "oauth", disabled: false });
   }
 
   async function toggle(s) {
     if (!installed) return;
-    await runJob("toggle", s.name, () => api("/api/mcp", {
+    const turningOn = !!s.disabled;
+    const next = await runJob("toggle", s.name, () => api("/api/mcp", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body({ name: s.name, scope: writeScope(s, scope), disabled: !s.disabled })),
     }));
+    if (!next) return;
+    if (turningOn) await signIn({ ...s, disabled: false });
   }
 
   function importHosts() {
@@ -152,17 +166,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   async function signIn(s) {
-    if (!canSignIn(s) || job) return;
-    if (!agentRunning || !agentId) {
-      toast.info("Run this agent first.");
-      return;
-    }
+    if (!canSignIn(s)) return;
+    setJob({ action: "signin", label: s.name, step: 0, error: "", done: false });
+    const tick = startJobTick(setJob, 2);
     try {
       const res = await api("/api/mcp/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, name: s.name, workspaceId: workspaceId || undefined }),
+        body: JSON.stringify({ agentId: agentId || undefined, name: s.name, workspaceId: workspaceId || undefined }),
       });
+      clearInterval(tick);
+      setJob(null);
       if (res && res.ok && !res.id) {
         toast.ok("Signed in to " + s.name + ".");
         await load();
@@ -177,13 +191,16 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       await api("/api/mcp/auth/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId, id: res.id, value: pasted || "", cancelled: !pasted }),
+        body: JSON.stringify({ id: res.id, value: pasted || "", cancelled: !pasted }),
       });
       if (!pasted) return;
       toast.ok("Signed in to " + s.name + ".");
       await load();
     } catch (err) {
-      toast.error(humanizeError(err.message || String(err)));
+      clearInterval(tick);
+      const msg = humanizeError(err.message || String(err));
+      setJob((j) => j && j.action === "signin" ? { ...j, error: msg } : j);
+      toast.error(msg);
     }
   }
 
@@ -555,7 +572,7 @@ function liveLabel(v) {
 function liveTitle(v) {
   if (v === "live") return "Connected";
   if (v === "failed") return "Last connect failed";
-  if (v === "signin") return "This agent will ask to sign in when it uses this server";
+  if (v === "signin") return "Needs sign-in";
   return "Not used yet";
 }
 
@@ -577,8 +594,8 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose }) {
   const steps = [
-    { id: "write", label: job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
-    { id: "reload", label: running ? "Reload this agent" : "Applies on next start" },
+    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "reload", label: job.action === "signin" ? "Open the login page" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="mcp-job-title">
