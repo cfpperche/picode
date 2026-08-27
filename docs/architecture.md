@@ -48,6 +48,7 @@ keyring show **Signed in** and hide Sign in. **Sign in** always uses a short
 running headless adapter `authenticate()` (callback only, no paste). Pi does not
 open the browser (WSL would spawn a second tab). Status returns the authorize URL;
 the GUI `window.open`s it once so the callback can `window.close()` like Claude/Codex.
+If the authorize URL's `redirect_uri` is not localhost, Sign in fails immediately (Linear's hosted callback would never reach PiCode). Authenticate registers `http://127.0.0.1:<port>/callback`.
 Success HTML is PiCode's (logo + return to `#/mcps`). Add or On on an OAuth server
 starts Sign in immediately. Tokens live in the OS keyring, keyed by server name on
 this machine — not per agent. No native MCP.

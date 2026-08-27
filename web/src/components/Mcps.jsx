@@ -199,6 +199,9 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         }
         const st = await api("/api/mcp/auth/status?id=" + encodeURIComponent(res.id));
         if (st && st.url && !opened) {
+          if (!loopbackRedirect(st.url)) {
+            throw new Error("This server cannot Sign in from PiCode. It sends you back to its own site.");
+          }
           opened = true;
           window.open(st.url, "picode-mcp-auth");
         }
@@ -591,6 +594,17 @@ function scopeLabel(s, workspaceName, agentName) {
   if (s.scope === "agent") return agentName || "agent";
   if (s.scope === "import") return "shared";
   return "machine";
+}
+
+function loopbackRedirect(authUrl) {
+  try {
+    const redir = new URL(authUrl).searchParams.get("redirect_uri");
+    if (!redir) return true;
+    const h = new URL(redir).hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+  } catch {
+    return false;
+  }
 }
 
 function rowLive(s) {

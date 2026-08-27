@@ -4,9 +4,13 @@ import { EventEmitter } from "node:events";
 import childProcess from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+const AWAY =
+  "This server cannot Sign in from PiCode. It sends you back to its own site.";
 
 function picodePage(ok, back) {
   const heading = ok ? "Authentication complete" : "Authentication did not complete";
@@ -69,6 +73,37 @@ function fakeChild() {
   return ee;
 }
 
+function loopbackRedirect(authUrl) {
+  try {
+    const redir = new URL(authUrl).searchParams.get("redirect_uri");
+    if (!redir) return true;
+    const h = new URL(redir).hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function takeBrowserUrl(authUrl, dest) {
+  if (!loopbackRedirect(authUrl)) {
+    writeOut({ ok: false, error: AWAY });
+    return false;
+  }
+  fs.writeFileSync(dest, authUrl);
+  return true;
+}
+
+function freeLoopbackPort() {
+  return new Promise((resolve, reject) => {
+    const s = net.createServer();
+    s.listen(0, "127.0.0.1", () => {
+      const port = s.address().port;
+      s.close((err) => (err ? reject(err) : resolve(port)));
+    });
+    s.on("error", reject);
+  });
+}
+
 function urlFromSpawn(command, args) {
   const parts = [command, ...(args || [])];
   for (const a of parts) {
@@ -89,7 +124,7 @@ function stealOpen(dest) {
   childProcess.spawn = function (command, args, opts) {
     const url = urlFromSpawn(command, args);
     if (url) {
-      fs.writeFileSync(dest, url);
+      takeBrowserUrl(url, dest);
       return fakeChild();
     }
     return orig.apply(this, arguments);
@@ -100,6 +135,10 @@ function stealOpen(dest) {
     "export default async function open(target) {\n" +
       "  if (typeof target === 'string' && /^https?:\\/\\//i.test(target)) {\n" +
       "    const fs = await import('node:fs');\n" +
+      "    const redir = (() => { try { return new URL(target).searchParams.get('redirect_uri') || ''; } catch { return ''; } })();\n" +
+      "    let loop = true;\n" +
+      "    if (redir) { try { const h = new URL(redir).hostname.toLowerCase(); loop = h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1'; } catch { loop = false; } }\n" +
+      "    if (!loop) { fs.writeFileSync(" + JSON.stringify(process.env.PICODE_MCP_AUTH_OUT) + ", JSON.stringify({ok:false,error:" + JSON.stringify(AWAY) + "})); return { unref() {} }; }\n" +
       "    fs.writeFileSync(" + JSON.stringify(dest) + ", target);\n" +
       "  }\n" +
       "  return { unref() {} };\n" +
@@ -148,7 +187,14 @@ export default function () {
         }
       }
       if (!authenticate) throw lastErr || new Error("authenticate not found");
-      const status = await authenticate(name, url, { url, auth: "oauth" }, {});
+      let definition = { url, auth: "oauth" };
+      try {
+        const port = await freeLoopbackPort();
+        definition = { url, auth: "oauth", oauth: { redirectUri: "http://127.0.0.1:" + port + "/callback" } };
+      } catch {
+        // adapter picks a port
+      }
+      const status = await authenticate(name, url, definition, {});
       writeOut({ ok: status === "authenticated" });
     } catch (e) {
       writeOut({ ok: false, error: String(e && e.message ? e.message : e) });

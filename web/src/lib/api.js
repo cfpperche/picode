@@ -40,6 +40,9 @@ export function humanizeError(msg) {
   if (/dynamic client (auth(?:orization)? )?registration/i.test(msg)) {
     return "This server cannot Sign in from PiCode. It needs its own app login.";
   }
+  if (/sends you back to its own site/i.test(msg)) {
+    return "This server cannot Sign in from PiCode. It sends you back to its own site.";
+  }
   const compact = msg.match(/^rpc: compact failed:\s*(.*)/i);
   if (compact) return compact[1];
   return msg;
