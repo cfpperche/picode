@@ -27,6 +27,7 @@ const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
+import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
 import { alertFromPi } from "../lib/piError.js";
@@ -84,7 +85,10 @@ export default function App() {
   const streamingRef = useRef(false);
   const waitingRef = useRef(false);
   waitingRef.current = waiting;
+  const flushingRef = useRef(false);
   const [items, setItems] = useState([]);
+  const itemsRef = useRef([]);
+  itemsRef.current = items;
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
   const [slashExtra, setSlashExtra] = useState([]);
@@ -390,6 +394,7 @@ export default function App() {
         }
         if (selectedId) loadStatus();
         pinNewestSession();
+        queueMicrotask(() => flushFollowUp());
         break;
       }
       case "message_update": {
@@ -805,7 +810,9 @@ export default function App() {
       ? { ...it, status: cancelled ? "cancelled" : "answered", answer }
       : it)));
     setWaiting(false);
+    waitingRef.current = false;
     setStatus(streamingRef.current ? "streaming" : "idle");
+    queueMicrotask(() => flushFollowUp());
     try {
       await api("/api/agents/" + agent.id + "/ui", {
         method: "POST",
@@ -815,6 +822,23 @@ export default function App() {
     } catch (e) {
       toastError(e);
     }
+  }
+
+  function flushFollowUp() {
+    if (streamingRef.current || waitingRef.current || flushingRef.current) return;
+    const next = pendingFollowUps(itemsRef.current)[0];
+    const id = selectedRef.current;
+    if (!next || !id) return;
+    flushingRef.current = true;
+    const body = { kind: "prompt", message: next.text || "" };
+    if (next.queueImages && next.queueImages.length) body.images = next.queueImages;
+    api("/api/agents/" + id + "/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(() => {
+      setItems((cur) => cur.map((it) => (it.qid === next.qid ? { ...it, pending: false, chip: "prompt" } : it)));
+    }).catch((e) => toastError(e)).finally(() => { flushingRef.current = false; });
   }
 
   async function sendTask(text, images) {
@@ -834,6 +858,19 @@ export default function App() {
       return;
     }
     try {
+      if (busy && sendKind === "follow_up") {
+        setItems((cur) => [...cur, {
+          kind: "block", cls: "user", actor: "You", chip: "follow_up",
+          pending: true, qid: "q-" + Date.now(),
+          text: payload, images: pics.map((p) => p.url),
+          queueImages: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
+          ts: Date.now(),
+        }]);
+        setDraft("");
+        pendingPayload.current = "";
+        scrollToEnd();
+        return;
+      }
       try {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
       } catch { /* already running or start failed; enqueue still */ }
@@ -1022,6 +1059,10 @@ export default function App() {
             onCompact={compactSession}
             onAbortBash={abortBash}
             onReplyAsk={replyAsk}
+            onQueueRemove={(qid) => setItems((cur) => dropQueued(cur, qid))}
+            onQueueEdit={(qid) => setItems((cur) => startEditQueued(cur, qid))}
+            onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}
+            onQueueCancelEdit={(qid) => setItems((cur) => cancelEditQueued(cur, qid))}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

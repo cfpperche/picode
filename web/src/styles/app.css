@@ -1051,6 +1051,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-secondary); text-transform: uppercase;
 }
 .msg-kind.dropped { color: var(--danger); }
+.block.user .ask-actions { justify-content: flex-end; }
 .md p { margin: 0 0 0.7em; }
 .md p:empty { display: none; }
 .md p:last-child { margin-bottom: 0; }

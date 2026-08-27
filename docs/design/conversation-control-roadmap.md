@@ -91,7 +91,8 @@ with the turn — name the row in the table and test it).
 | 7 | streaming | empty | * | no-op (today) |
 
 C3 **shipped** (2026-08-27). Busy Send stays enabled (prompt → follow-up).
-Abort drops queued **Steer**; **Follow-up** stays.
+Follow-up is held in PiCode until the agent is idle (**Edit** / **Remove**).
+Abort drops queued **Steer** (already on the wire).
 
 ## C2 — draft persistence
 

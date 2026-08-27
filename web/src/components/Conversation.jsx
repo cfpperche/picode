@@ -13,7 +13,7 @@ import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -27,14 +27,14 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
             const n = acc.n++;
             const live = i === busy;
             const chip = t.user && t.user.chip;
-            const queued = !live && !!t.user && !t.user.dropped && t.replies.length === 0 && t.work.length === 0 && (chip === "steer" || chip === "follow_up");
+            const queued = !live && !!t.user && !t.user.dropped && t.replies.length === 0 && t.work.length === 0 && (chip === "steer" || (chip === "follow_up" && t.user.pending));
             const ts = firstTs(t);
             const day = dayKey(ts);
             if (day && day !== acc.day) {
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} />);          }
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} />);          }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
       </div>
@@ -162,7 +162,7 @@ function BashBlock({ it, onAbort }) {
   );
 }
 
-function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview }) {
+function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
@@ -185,7 +185,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview }) {
   const showWork = turn.work.length > 0 || live || queued;
   return (
     <div className="turn" id={"turn-" + i}>
-      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} /> : null}
+      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} /> : null}
       {showWork ? (
         <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
           <button type="button" className="work-head" onClick={() => !live && setUserOpen((v) => !v)}>
@@ -216,9 +216,12 @@ function Alert({ it }) {
   return <div className={"chat-alert " + (it.level || "error")}>{it.text}</div>;
 }
 
-function Block({ it, railId, agentId, onPreview }) {
+function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
   const user = it.cls === "user";
   const md = !user && it.cls !== "thinking";
+  const pendingFu = user && it.pending && it.chip === "follow_up" && !it.dropped;
+  const [edit, setEdit] = useState(it.text || "");
+  useEffect(() => { if (it.editing) setEdit(it.text || ""); }, [it.editing, it.text]);
   async function onRun(lang, code) {
     if (!agentId) throw new Error("Select an agent.");
     return api("/api/agents/" + agentId + "/snippet", {
@@ -245,7 +248,21 @@ function Block({ it, railId, agentId, onPreview }) {
             {it.dropped ? "Dropped" : it.chip === "steer" ? "Steer" : "Follow-up"}
           </span>
         ) : null}
-        {md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
+        {pendingFu && it.editing ? (
+          <>
+            <textarea className="ask-input ask-area" rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} autoFocus />
+            <div className="ask-actions" data-align-row>
+              <button type="button" className="btn btn-primary btn-sm" disabled={!edit.trim()} onClick={() => onQueueSave && onQueueSave(it.qid, edit)}>Save</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onQueueCancelEdit && onQueueCancelEdit(it.qid)}>Cancel</button>
+            </div>
+          </>
+        ) : md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
+        {pendingFu && !it.editing ? (
+          <div className="ask-actions" data-align-row>
+            <button type="button" className="btn btn-sm" onClick={() => onQueueEdit && onQueueEdit(it.qid)}>Edit</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onQueueRemove && onQueueRemove(it.qid)}>Remove</button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
