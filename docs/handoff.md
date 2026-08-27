@@ -35,14 +35,16 @@ What exists:
 - Track **C1 waiting**: confirm/select/input/editor is a chat card; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast. Mobile has no waiting card.
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
 - Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
+- Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
 
 ## In flight
 
-Nothing coding. Backup V1 shipped (local directory). Remote S3/Drive is later.
+Track D: D1 shipped. D2 cost chip next.
+Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. Next roadmap when asked: rewind, cost in the session chip, `#/agent/<id>`, extra `@` (mentions — not agents talking). Plan: `docs/design/conversation-control-roadmap.md`. Agent-to-agent chat is the later broker item, not `@agent`.
+1. D2 cost on the session chip, then D3 `@skill`/`@agent`, D4 rewind. Plan: `docs/design/session-surface-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -67,6 +69,7 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Track D1 `#/agent/<id>`. visual-review: PASS (agent-url.png, agent-url-gone.png, overlayAudit ok).
 - **2026-08-27** — Plan: `@agent` / `@skill` are mentions (context in this prompt). Agents talking to each other is the broker item, later.
 - **2026-08-27** — Track C2 draft persistence (text + kind per agent). visual-review: PASS (chat-draft-reload.png, overlayAudit ok).
 - **2026-08-27** — Follow-up queue: Edit / Remove on the bubble (held until idle). visual-review: PASS (chat-queue-edit.png, overlayAudit ok).

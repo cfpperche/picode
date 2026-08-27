@@ -22,7 +22,7 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash } from "../lib/routes.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -68,6 +68,8 @@ export default function App() {
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
+  const [hash, setHash] = useState(() => (typeof location !== "undefined" ? location.hash : "#/"));
+  const [goneId, setGoneId] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
@@ -126,6 +128,7 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
+      setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -231,7 +234,11 @@ export default function App() {
         const exists = (id) => !!locate(list, free, id);
         const next = filterOpenTabs(readOpenTabs(), exists);
         setTabs(next.ids);
-        if (next.selected) openTab(next.selected, list);
+        const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
+        if (fromHash) {
+          if (exists(fromHash)) openTab(fromHash, list);
+          else { setGoneId(fromHash); setSelectedId(null); }
+        } else if (next.selected) openTab(next.selected, list);
         else setSelectedId(null);
         setTabsReady(true);
       } catch (e) {
@@ -246,6 +253,35 @@ export default function App() {
     if (!tabsReady) return;
     writeOpenTabs(tabs, selectedId);
   }, [tabs, selectedId, tabsReady]);
+  useEffect(() => {
+    if (!tabsReady) return;
+    if (parseRoute(hash) !== "workspace") return;
+    const id = agentRoute(hash);
+    if (!id) {
+      if (goneId) setGoneId("");
+      return;
+    }
+    if (locate(workspaces, freeAgents, id)) {
+      if (goneId) setGoneId("");
+      if (selectedId !== id) openTab(id);
+    } else {
+      if (goneId !== id) setGoneId(id);
+      if (selectedId) setSelectedId(null);
+    }
+  }, [hash, tabsReady, workspaces, freeAgents, selectedId, goneId]);
+  useEffect(() => {
+    if (!tabsReady) return;
+    if (route !== "workspace") return;
+    if (goneId) return;
+    const want = workspaceHash(selectedId);
+    if (location.hash === want) return;
+    if (!agentRoute(location.hash) && selectedId) {
+      history.replaceState(null, "", want);
+      setHash(want);
+      return;
+    }
+    location.hash = want;
+  }, [selectedId, tabsReady, goneId, route]);
   useEffect(() => {
     const prev = draftAgentRef.current;
     if (prev && prev !== selectedId) writeDraft(prev, draft, kind);
@@ -264,15 +300,17 @@ export default function App() {
 
   function openTab(id, list) {
     const loc = locate(list || workspaces, freeAgents, id);
-    const aid = loc && loc.agent ? loc.agent.id : id;
+    if (!loc || !loc.agent) return;
+    const aid = loc.agent.id;
+    setGoneId("");
     setSelectedId(aid);
     setTabs((t) => t.includes(aid) ? t : [...t, aid]);
-    if (loc) prepareSurface(loc.agent);
+    prepareSurface(loc.agent);
   }
 
   function revealAgent(id, list) {
     openTab(id, list);
-    if (parseRoute() !== "workspace") go("workspace");
+    go("workspace", id);
   }
 
   function prepareSurface(a) {
@@ -1007,7 +1045,8 @@ export default function App() {
   }
 
   const onPane = route !== "workspace";
-  const noTabs = tabs.length === 0;
+  const missing = !!goneId;
+  const noTabs = tabs.length === 0 && !missing;
 
   return (
     <div id="app">
@@ -1057,16 +1096,32 @@ export default function App() {
             onClose={closeTab}
           />
 
-          <div id="empty" className="empty" hidden={!noTabs}>
+          <div id="empty" className="empty" hidden={!noTabs && !missing}>
             <div className="empty-card">
-              <h2>No agents yet</h2>
-              <p>Add a project folder to create your first agent.</p>
-              <button id="btn-new-empty" className="btn btn-primary" onClick={() => setShowForm(true)}>Add workspace</button>
+              {missing ? (
+                <>
+                  <h2>That agent is gone.</h2>
+                  {(workspaces.length + freeAgents.length) > 0 ? (
+                    <p>Pick another from the sidebar.</p>
+                  ) : (
+                    <>
+                      <p>Add a project folder to create your first agent.</p>
+                      <button id="btn-new-empty" className="btn btn-primary" onClick={() => setShowForm(true)}>Add workspace</button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2>No agents yet</h2>
+                  <p>Add a project folder to create your first agent.</p>
+                  <button id="btn-new-empty" className="btn btn-primary" onClick={() => setShowForm(true)}>Add workspace</button>
+                </>
+              )}
             </div>
           </div>
 
           <ChatSurface
-            hidden={noTabs || termView}
+            hidden={noTabs || missing || termView}
             stopped={stopped}
             items={items}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}

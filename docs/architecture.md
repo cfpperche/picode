@@ -26,7 +26,8 @@ stay on their own routes.
 
 | Hash | Surface | Owns |
 |---|---|---|
-| `#/` | Agent workspace | tabs, chat, terminal, per-agent provider/model/thinking |
+| `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. |
+| `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load) |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) |
 | `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |

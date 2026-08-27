@@ -24,6 +24,17 @@ export function parseRoute(hash) {
   return "workspace";
 }
 
+export function agentRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/agent\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function workspaceHash(agentId) {
+  return agentId ? "#/agent/" + encodeURIComponent(agentId) : "#/";
+}
+
 export function pinRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
   if (h === "/pins" || h === "/pins/new") return { mode: "new", id: "" };
@@ -51,7 +62,7 @@ export function providersLlama(hash) {
   return h === "/providers/llama";
 }
 
-export function go(name) {
+export function go(name, agentId) {
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";
@@ -71,6 +82,10 @@ export function go(name) {
   }
   if (typeof name === "string" && name.startsWith("pin:")) {
     location.hash = "#/pins/" + encodeURIComponent(name.slice(4));
+    return;
+  }
+  if (!name || name === "workspace") {
+    location.hash = workspaceHash(agentId);
     return;
   }
   const path = ROUTES[name] || "/";

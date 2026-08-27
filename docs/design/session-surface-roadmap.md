@@ -1,0 +1,83 @@
+# Session surface — next roadmap
+
+- **Date:** 2026-08-27
+- **Status:** plan. Track C (waiting, queue, draft) shipped.
+- **Why:** the address bar, session chip, `@` picker, and session tree still
+  hide the agent you are in. Recorded in
+  [conversation-control-roadmap](conversation-control-roadmap.md)
+  (next-roadmap) and [study G4–G7](../benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
+
+t3code thread routes · Cursor @-mentions and checkpoints.
+
+## Sequence
+
+| Order | Track | Start when |
+|---|---|---|
+| 1 | **D1 — `#/agent/<id>`** | **shipped** |
+| 2 | **D2 — cost on the session chip** | D1 done |
+| 3 | **D3 — `@skill` / `@agent` mentions** | D1 done |
+| 4 | **D4 — rewind / checkpoints** | after D1; in-place leaf still pi#8645 |
+
+Do not start llama installer, mobile parity, hunk accept, broker, ACP, or IDE chrome.
+
+## Refuse
+
+| Temptation | Why not |
+|---|---|
+| Agents talking to each other via `@agent` | mention = context in **this** prompt. Broker is later. |
+| Cloud-synced URLs / accounts | this machine; hash is enough |
+| Cost as a new page | it belongs on the session chip the user already clicks |
+| `/tree` in-place jump | needs pi `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)) |
+
+## D1 — `#/agent/<id>`
+
+Today `#/` is the workspace. The open agent lives in `localStorage` tabs.
+Reload usually restores it; a shared or bookmarked link does not.
+
+**Ship:** workspace hash is `#/agent/<id>` while an agent is open.
+The URL wins over tabs on load. `#/` still means “last agent” and is
+replaced (not pushed) to `#/agent/<id>`. Other hashes (`#/mcps`, …) unchanged.
+
+**Not:** query `?agent=`. Path like pins (`#/pins/<id>`).
+
+| # | hash | agent exists | action |
+|---|---|---|---|
+| 1 | `#/agent/x` | yes | select x, open tab |
+| 2 | `#/agent/gone` | no | one line “That agent is gone.” + pick another (sidebar) or Add workspace |
+| 3 | `#/` | last tab | keep last; replace hash to `#/agent/<id>` |
+| 4 | user picks y | yes | write `#/agent/y` (history push — Back works) |
+| 5 | `#/mcps` (or other pane) | keep selected | do not rewrite |
+| 6 | pane → Chat | yes | `#/agent/<id>` |
+| 7 | close last tab | none | `#/` |
+| 8 | F5 on `#/agent/x` | yes | x, even if tabs said y |
+
+D1 **shipped** (2026-08-27). visual-review: PASS (`agent-url.png`, `agent-url-gone.png`).
+
+## D2 — cost on the session chip
+
+`/session` and the footer already know tokens and dollars. The session
+chip in the composer does not.
+
+**Ship:** when cost > 0, the chip shows `$0.12` next to the name.
+Zero cost: no extra word (not `$0.00`).
+
+## D3 — `@skill` / `@agent`
+
+`@` today lists files. Same token, extra rows: skills and other agents.
+Inserts text into **this** prompt (like `@file`). Not a message to that agent.
+
+## D4 — rewind
+
+Session JSONL is already a tree (`id` / `parentId`). `/tree` shows it;
+click still forks. Checkpoints as restore points wait on view + pi#8645
+for in-place leaf jump.
+
+## Where it lives
+
+| Thing | Path |
+|---|---|
+| This plan | `docs/design/session-surface-roadmap.md` |
+| Hash routes | `web/src/lib/routes.js` |
+| Workspace shell | `web/src/desktop/App.jsx` |
+| Session chip | `web/src/components/SessionBar.jsx` |
+| `@` picker | `web/src/lib/atMention.js`, `Composer.jsx` |

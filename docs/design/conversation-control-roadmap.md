@@ -122,7 +122,7 @@ Recorded so the next plan does not rediscover them. **Do not start here.**
 |---|---|
 | Session rewind / checkpoints (pi JSONL `id` / `parentId`) | Cursor #2; study G7 P2; needs waiting stable |
 | Cost / tokens in the session chip | Cursor #8; M4 |
-| Reload-safe `#/agent/<id>` | study G4 P1; does not unblock waiting |
+| Reload-safe `#/agent/<id>` | **Track D1** — `docs/design/session-surface-roadmap.md` |
 | `@agent` / `@skill` (`@file` already ships) | Cursor #6 remainder. Same as `@file`: tag context into **this** prompt. Not agents talking to each other. |
 | Diff per-hunk accept/reject | we review, we do not author; still not an editor |
 | Task graph / multi-agent broker UI | paseo; M4. **This** is agents talking to each other. Separate from `@agent`. |
