@@ -28,6 +28,7 @@ func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/compact", handleAgentCompact(deps))
 	mux.HandleFunc("POST /api/agents/{id}/abort", handleAgentAbort(deps))
 	mux.HandleFunc("POST /api/agents/{id}/prompt", handleAgentPrompt(deps))
+	mux.HandleFunc("POST /api/agents/{id}/ui", handleAgentUI(deps))
 }
 
 // agentRunMode reports how an agent is currently running.
@@ -172,9 +173,15 @@ func agentWS(deps Deps) http.Handler {
 		defer ws.Close()
 
 		// Snapshot first.
-		writeWSJSON(ws, map[string]any{"event": map[string]any{
-			"type": "snapshot", "mode": "managed", "streaming": ma.Snapshot().Streaming,
-		}})
+		snap := ma.Snapshot()
+		ev := map[string]any{
+			"type": "snapshot", "mode": "managed",
+			"streaming": snap.Streaming, "waiting": snap.Waiting,
+		}
+		if snap.Dialog != nil {
+			ev["dialog"] = snap.Dialog
+		}
+		writeWSJSON(ws, map[string]any{"event": ev})
 
 		events, unsub := ma.Subscribe()
 		defer unsub()

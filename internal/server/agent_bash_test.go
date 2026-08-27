@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -43,6 +44,10 @@ func fakeBashRPCMain() {
 			})
 		case "prompt":
 			msg, _ := req["message"].(string)
+			if strings.HasPrefix(msg, "ASK:") {
+				fakeAskPrompt(enc, dec, id, typ, msg)
+				break
+			}
 			if len(msg) >= 10 && msg[:10] == "/mcp-auth " {
 				_ = enc.Encode(map[string]any{
 					"type": "extension_ui_request", "id": "ui-auth",
@@ -73,6 +78,42 @@ func fakeBashRPCMain() {
 			_ = enc.Encode(map[string]any{"id": id, "type": "response", "command": typ, "success": true})
 		}
 	}
+}
+
+func fakeAskPrompt(enc *json.Encoder, dec *json.Decoder, id, typ, msg string) {
+	switch msg {
+	case "ASK:notify":
+		_ = enc.Encode(map[string]any{
+			"type": "extension_ui_request", "id": "ui-note", "method": "notify",
+			"message": "Heads up", "notifyType": "info",
+		})
+		_ = enc.Encode(map[string]any{
+			"id": id, "type": "response", "command": typ, "success": true,
+		})
+		return
+	case "ASK:timeout":
+		_ = enc.Encode(map[string]any{
+			"type": "extension_ui_request", "id": "ui-to", "method": "confirm",
+			"title": "Allow this?", "message": "Times out", "timeout": 40,
+		})
+	case "ASK:select":
+		_ = enc.Encode(map[string]any{
+			"type": "extension_ui_request", "id": "ui-sel", "method": "select",
+			"title": "Pick one", "options": []string{"Allow", "Block"},
+		})
+	default:
+		_ = enc.Encode(map[string]any{
+			"type": "extension_ui_request", "id": "ui-ask", "method": "confirm",
+			"title": "Allow this?", "message": "The agent needs a yes or no.",
+		})
+	}
+	var reply map[string]any
+	if err := dec.Decode(&reply); err != nil {
+		return
+	}
+	_ = enc.Encode(map[string]any{
+		"id": id, "type": "response", "command": typ, "success": true,
+	})
 }
 
 // bashTestServer builds a server whose agent command is this test binary

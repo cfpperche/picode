@@ -13,7 +13,7 @@ import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -22,7 +22,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
       <div className="conv-col">
         {turns.reduce((acc, t, i) => {
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} />);
           } else {
             const n = acc.n++;
             const live = i === busy;
@@ -42,9 +42,12 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
   );
 }
 
-function Loose({ it, items, onToggleFiles, onAbortBash }) {
+function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
+  }
+  if (it.kind === "ask") {
+    return <AskCard it={it} onReply={onReplyAsk} />;
   }
   if (it.kind === "bash") {
     return <BashBlock it={it} onAbort={onAbortBash} />;
@@ -66,6 +69,75 @@ function Loose({ it, items, onToggleFiles, onAbortBash }) {
     );
   }
   return null;
+}
+
+function AskCard({ it, onReply }) {
+  const [text, setText] = useState(it.prefill || "");
+  const open = it.status === "open";
+  const lines = String(it.title || "The agent is asking something").split("\n");
+  const title = lines[0] || "The agent is asking something";
+  const extra = it.message || lines.slice(1).join("\n");
+  const done = it.status === "cancelled" ? "Cancelled"
+    : it.status === "timeout" ? "Timed out"
+    : it.status === "answered" ? (it.answer || "Answered")
+    : "";
+
+  function send(body) {
+    if (!open || !onReply) return;
+    onReply(it.id, body);
+  }
+
+  function onKey(e) {
+    if (!open) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      send({ cancelled: true });
+    }
+    if (e.key === "Enter" && (it.method === "input" || it.method === "editor") && !e.shiftKey) {
+      e.preventDefault();
+      send({ value: text });
+    }
+  }
+
+  return (
+    <div className={"ask-card" + (open ? " open" : " done")} onKeyDown={onKey}>
+      <p className="ask-kicker">The agent is asking something</p>
+      <p className="ask-title">{title}</p>
+      {extra ? <p className="ask-msg">{extra}</p> : null}
+      {open && it.method === "select" ? (
+        <div className="ask-actions">
+          {(it.options || []).map((opt) => (
+            <button key={opt} type="button" className="btn btn-sm" onClick={() => send({ value: opt })}>{opt}</button>
+          ))}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+        </div>
+      ) : null}
+      {open && it.method === "confirm" ? (
+        <div className="ask-actions" data-align-row>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ confirmed: true })}>Yes</button>
+          <button type="button" className="btn btn-sm" onClick={() => send({ confirmed: false })}>No</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+        </div>
+      ) : null}
+      {open && it.method === "input" ? (
+        <div className="ask-input-row" data-align-row>
+          <input className="ask-input" value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+        </div>
+      ) : null}
+      {open && it.method === "editor" ? (
+        <>
+          <textarea className="ask-input ask-area" rows={4} value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
+          <div className="ask-actions" data-align-row>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+          </div>
+        </>
+      ) : null}
+      {!open && done ? <p className="ask-done">{done}</p> : null}
+    </div>
+  );
 }
 
 function BashBlock({ it, onAbort }) {

@@ -104,6 +104,117 @@ func TestManagedDeliveryEngine(t *testing.T) {
 	}
 }
 
+func waitHub(t *testing.T, ch <-chan []byte, typ string, d time.Duration) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		select {
+		case msg := <-ch:
+			var env struct {
+				Event map[string]any `json:"event"`
+			}
+			if err := json.Unmarshal(msg, &env); err != nil {
+				continue
+			}
+			got, _ := env.Event["type"].(string)
+			if got == typ {
+				return env.Event
+			}
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	t.Fatalf("hub never saw %s", typ)
+	return nil
+}
+
+func TestWaitingDialog(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := st.AddWorkspace("Ask", t.TempDir())
+	if err != nil {
+		t.Fatalf("AddWorkspace: %v", err)
+	}
+	rt := startRuntime(t, st)
+	if err := rt.Start(agent.ID, w.Path); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	ma := rt.Get(agent.ID)
+	if ma == nil {
+		t.Fatal("managed agent not registered")
+	}
+	hubCh, unsub := ma.hub.Subscribe()
+	defer unsub()
+
+	// Row 1: managed, no dialog → not waiting.
+	if ma.Snapshot().Waiting {
+		t.Fatal("idle snapshot waiting")
+	}
+
+	// Row 6: notify is not waiting.
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:notify", "user"); err != nil {
+		t.Fatalf("enqueue notify: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	time.Sleep(30 * time.Millisecond)
+	if ma.Snapshot().Waiting {
+		t.Fatal("notify set waiting")
+	}
+
+	// Row 2: confirm → waiting.
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:confirm", "user"); err != nil {
+		t.Fatalf("enqueue confirm: %v", err)
+	}
+	ev := waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	snap := ma.Snapshot()
+	if !snap.Waiting || snap.Dialog == nil || snap.Dialog.Method != "confirm" {
+		t.Fatalf("confirm snapshot = %+v event=%v", snap, ev)
+	}
+
+	// Row 3: answer ends waiting.
+	yes := true
+	if err := ma.ReplyUI("ui-ask", "", &yes, false); err != nil {
+		t.Fatalf("ReplyUI yes: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if ma.Snapshot().Waiting {
+		t.Fatal("still waiting after yes")
+	}
+
+	// Row 4: cancel.
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:confirm", "user"); err != nil {
+		t.Fatalf("enqueue confirm2: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	if err := ma.ReplyUI("ui-ask", "", nil, true); err != nil {
+		t.Fatalf("ReplyUI cancel: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if ma.Snapshot().Waiting {
+		t.Fatal("still waiting after cancel")
+	}
+
+	// Row 5: timeout clears waiting; reply is rejected.
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:timeout", "user"); err != nil {
+		t.Fatalf("enqueue timeout: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	if !ma.Snapshot().Waiting {
+		t.Fatal("timeout dialog not waiting")
+	}
+	_ = waitHub(t, hubCh, "extension_ui_timeout", 2*time.Second)
+	if ma.Snapshot().Waiting {
+		t.Fatal("still waiting after timeout")
+	}
+	if err := ma.ReplyUI("ui-to", "", nil, true); err == nil {
+		t.Fatal("ReplyUI after timeout succeeded")
+	}
+	// Unblock the fake process.
+	_ = ma.client.SendRaw(map[string]any{"type": "extension_ui_response", "id": "ui-to", "cancelled": true})
+}
+
 func TestDoubleStartRejected(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {

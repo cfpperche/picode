@@ -24,7 +24,7 @@ import {
 import { toast } from "../lib/toast.js";
 
 export default function Composer({
-  kind, onKind, value, onChange, onSend, status, streaming,
+  kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
   slashExtra, agentId,
 }) {
@@ -634,7 +634,7 @@ export default function Composer({
             </div>
           )}
           <div className="composer-right" data-align-row>
-            <span id="chat-status-text" className="sr-only">{status}{streaming ? " streaming" : ""}</span>
+            <span id="chat-status-text" className="sr-only">{waiting ? "waiting" : status}{streaming ? " streaming" : ""}</span>
             {voice ? (
               <button type="button" className="btn-voice-interrupt" id="btn-voice-interrupt" onClick={interrupt}>
                 Interrupt

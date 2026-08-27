@@ -134,6 +134,9 @@ body {
 .ws-row1.tree-row, .ws-row2.tree-row {
   grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr);
 }
+.ws-row1.tree-row {
+  grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr) auto;
+}
 .tree-children { padding-left: var(--tree-indent); }
 .tree-spc { display: block; width: var(--tree-chev); height: var(--tree-chev); }
 .tree-icon {
@@ -1386,6 +1389,38 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-primary); white-space: pre-wrap; word-break: break-word;
 }
 .bash-pending { color: var(--text-secondary); }
+.ask-card {
+  margin: 8px 0 12px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-panel);
+  background: var(--bg-panel); height: fit-content;
+  animation: pop-in var(--motion-fast) var(--ease-out);
+}
+.ask-card.open { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.ask-kicker {
+  margin: 0 0 4px; font-size: 11px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-secondary);
+}
+.ask-title { margin: 0; font-size: 13px; font-weight: 600; }
+.ask-msg {
+  margin: 6px 0 0; font-size: 13px; color: var(--text-secondary);
+  white-space: pre-wrap; word-break: break-word;
+}
+.ask-actions, .ask-input-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px;
+}
+.ask-input {
+  flex: 1; min-width: 120px; height: var(--ctl-h);
+  padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary); font: inherit;
+}
+.ask-area {
+  display: block; width: 100%; height: auto; min-height: 72px; padding: 8px 10px;
+  margin-top: 10px; resize: vertical; line-height: 1.45;
+}
+.ask-done { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.ws-wait {
+  flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
+}
 #task-input {
   display: block; width: 100%; min-height: 52px; max-height: 160px;
   padding: 2px 4px 6px; border: none; outline: none; resize: none;

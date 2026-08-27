@@ -33,17 +33,16 @@ What exists:
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
 - MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser. GUI `window.open`s the URL once. Overlay ends when the callback HTML is served (keyring write continues). OAuth rows with tokens show **Sign out** (forgets the keyring login on this machine). No extra “Signed in” label.
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
+- Track **C1 waiting**: confirm/select/input/editor is a chat card; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast. Mobile has no waiting card.
 
 ## In flight
 
-Track C planned (`docs/design/conversation-control-roadmap.md`). C1 not started.
-`ReplyUI` exists in Go; the GUI does not map `extension_ui_request`.
+Track C: C1 waiting shipped. C3/C2 not started.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. Track **C1 waiting** — extension dialogs in the conversation (`select` / `confirm` / `input`). Plan: `docs/design/conversation-control-roadmap.md`.
-2. C3 visible queue, then C2 draft persistence.
+1. Track **C3** visible queue, then **C2** draft persistence. Plan: `docs/design/conversation-control-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -64,9 +63,11 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 - Vendored xterm.js 5.5.0 — manual upgrade (ADR-0004).
 - Branch protection + CODEOWNERS — owner action on GitHub.
 - tmux-gated tests skip on windows/macos CI (accepted).
+- Mobile shell has no waiting card (C1 is desktop).
 
 ## Recent activity
 
+- **2026-08-27** — Track C1 waiting: extension dialogs in the conversation (`POST /api/agents/{id}/ui`). Notify is a toast. visual-review: PASS (chat-waiting.png, chat-ask-cancel.png, overlayAudit ok).
 - **2026-08-27** — Track C roadmap: waiting → queue → draft (`docs/design/conversation-control-roadmap.md`). Next-roadmap gaps recorded there (rewind, cost, `#/agent/<id>`, extra `@`, hunk accept, broker, ACP, IDE). Backlog unchanged.
 - **2026-08-27** — Cleared MCP dogfood: `picode-dogfood-*` out of Claude/Codex/Grok; Notion/Linear tokens out of the keyring; `~/.picode/mcp-auth` job files gone. Claude keeps `context7`.
 - **2026-08-27** — MCP layout: Servers (list or “No servers yet.”) then Add with **Use from…** as first chip. Dropped “Using Claude Code”. visual-review: PASS (mcp-named.png, mcp-use-from.png, overlayAudit ok).

@@ -63,6 +63,7 @@ type ManagedAgent struct {
 	streaming bool
 	lastErr   error
 	settledCh chan struct{} // closed+replaced when agent_settled arrives
+	waiting   *UIDialog     // blocking extension_ui_request, if any
 }
 
 // Runtime owns all managed agents.
@@ -211,6 +212,8 @@ func (ma *ManagedAgent) pumpEvents() {
 			ma.mu.Unlock()
 		case "agent_settled":
 			ma.markSettled()
+		case "extension_ui_request":
+			ma.noteUIRequest(ev)
 		}
 		// Envelope for WS consumers: {"agentId":..., "event":{...}}
 		env, _ := json.Marshal(map[string]any{"agentId": ma.AgentID, "event": json.RawMessage(ev)})
@@ -221,6 +224,7 @@ func (ma *ManagedAgent) pumpEvents() {
 
 	ma.mu.Lock()
 	ma.streaming = false
+	ma.waiting = nil
 	ma.lastErr = fmt.Errorf("process exited")
 	ma.mu.Unlock()
 
@@ -405,11 +409,85 @@ func (ma *ManagedAgent) WatchEvents(fn func(Event)) func() {
 	return ma.client.Subscribe(fn)
 }
 
-// ReplyUI answers an extension_ui_request.
-func (ma *ManagedAgent) ReplyUI(id, value string, cancelled bool) error {
+// UIDialog is a blocking extension_ui_request (select/confirm/input/editor).
+type UIDialog struct {
+	ID          string   `json:"id"`
+	Method      string   `json:"method"`
+	Title       string   `json:"title,omitempty"`
+	Message     string   `json:"message,omitempty"`
+	Options     []string `json:"options,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
+	Prefill     string   `json:"prefill,omitempty"`
+	Timeout     int      `json:"timeout,omitempty"`
+}
+
+func isDialogMethod(m string) bool {
+	switch m {
+	case "select", "confirm", "input", "editor":
+		return true
+	}
+	return false
+}
+
+func (ma *ManagedAgent) noteUIRequest(ev Event) {
+	var raw struct {
+		ID          string          `json:"id"`
+		Method      string          `json:"method"`
+		Title       string          `json:"title"`
+		Message     string          `json:"message"`
+		Placeholder string          `json:"placeholder"`
+		Prefill     string          `json:"prefill"`
+		Timeout     int             `json:"timeout"`
+		Options     json.RawMessage `json:"options"`
+	}
+	if err := json.Unmarshal(ev, &raw); err != nil || raw.ID == "" || !isDialogMethod(raw.Method) {
+		return
+	}
+	d := &UIDialog{
+		ID: raw.ID, Method: raw.Method, Title: raw.Title, Message: raw.Message,
+		Placeholder: raw.Placeholder, Prefill: raw.Prefill, Timeout: raw.Timeout,
+	}
+	if len(raw.Options) > 0 {
+		_ = json.Unmarshal(raw.Options, &d.Options)
+	}
+	ma.mu.Lock()
+	ma.waiting = d
+	ma.mu.Unlock()
+	ma.armTimeout(d.ID, d.Timeout)
+}
+
+func (ma *ManagedAgent) armTimeout(id string, ms int) {
+	if ms <= 0 {
+		return
+	}
+	time.AfterFunc(time.Duration(ms)*time.Millisecond, func() {
+		ma.mu.Lock()
+		if ma.waiting == nil || ma.waiting.ID != id {
+			ma.mu.Unlock()
+			return
+		}
+		ma.waiting = nil
+		ma.mu.Unlock()
+		ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
+			"type": "extension_ui_timeout", "id": id,
+		}))
+	})
+}
+
+// ReplyUI answers an extension_ui_request. confirmed is used for method=confirm.
+func (ma *ManagedAgent) ReplyUI(id, value string, confirmed *bool, cancelled bool) error {
+	ma.mu.Lock()
+	if ma.waiting == nil || ma.waiting.ID != id {
+		ma.mu.Unlock()
+		return fmt.Errorf("the agent is not asking that")
+	}
+	ma.waiting = nil
+	ma.mu.Unlock()
 	body := map[string]any{"type": "extension_ui_response", "id": id}
 	if cancelled {
 		body["cancelled"] = true
+	} else if confirmed != nil {
+		body["confirmed"] = *confirmed
 	} else {
 		body["value"] = value
 	}
@@ -423,15 +501,25 @@ func (ma *ManagedAgent) Subscribe() (<-chan []byte, func()) {
 
 // Snapshot describes the managed agent for UIs.
 type Snapshot struct {
-	AgentID   string `json:"agentId"`
-	Streaming bool   `json:"streaming"`
+	AgentID   string    `json:"agentId"`
+	Streaming bool      `json:"streaming"`
+	Waiting   bool      `json:"waiting"`
+	Dialog    *UIDialog `json:"dialog,omitempty"`
 }
 
-// Snapshot returns the current streaming state.
+// Snapshot returns streaming + waiting state.
 func (ma *ManagedAgent) Snapshot() Snapshot {
 	ma.mu.Lock()
 	defer ma.mu.Unlock()
-	return Snapshot{AgentID: ma.AgentID, Streaming: ma.streaming}
+	s := Snapshot{AgentID: ma.AgentID, Streaming: ma.streaming, Waiting: ma.waiting != nil}
+	if ma.waiting != nil {
+		d := *ma.waiting
+		if len(d.Options) > 0 {
+			d.Options = append([]string(nil), d.Options...)
+		}
+		s.Dialog = &d
+	}
+	return s
 }
 
 func mustEnvelope(agentID string, payload map[string]any) []byte {

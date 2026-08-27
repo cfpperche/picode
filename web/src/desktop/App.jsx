@@ -80,6 +80,8 @@ export default function App() {
   const [kind, setKind] = useState("prompt");
   const [status, setStatus] = useState("idle");
   const [streaming, setStreaming] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const streamingRef = useRef(false);
   const [items, setItems] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
@@ -254,11 +256,15 @@ export default function App() {
     if (!a || a.mode === "stopped") {
       setStatus("stopped");
       setStreaming(false);
+      streamingRef.current = false;
+      setWaiting(false);
       return;
     }
     if (a.mode === "interactive") {
       setStatus("interactive");
       setStreaming(false);
+      streamingRef.current = false;
+      setWaiting(false);
     }
   }
 
@@ -306,10 +312,37 @@ export default function App() {
     scrollConv();
   }
 
+  function putAskItem(d, status) {
+    const item = {
+      kind: "ask",
+      id: d.id,
+      method: d.method,
+      title: d.title || "",
+      message: d.message || "",
+      options: d.options || [],
+      placeholder: d.placeholder || "",
+      prefill: d.prefill || "",
+      timeout: d.timeout || 0,
+      status: status || "open",
+      ts: Date.now(),
+    };
+    setItems((cur) => {
+      const i = cur.findIndex((it) => it.kind === "ask" && it.id === item.id);
+      if (i >= 0) {
+        const next = cur.slice();
+        next[i] = { ...cur[i], ...item };
+        return next;
+      }
+      return [...cur, item];
+    });
+  }
+
   function connectPanel(ws) {
     closePanel();
     setStatus("idle");
     setStreaming(false);
+    streamingRef.current = false;
+    setWaiting(false);
     const sock = new WebSocket(wsURL(`/ws/agent?agent=${ws.agent.id}`));
     const panel = { agentId: ws.agent.id, sock, stopped: false };
     panelRef.current = panel;
@@ -320,6 +353,8 @@ export default function App() {
       if (panelRef.current === panel && !panel.stopped) {
         setStatus("disconnected");
         setStreaming(false);
+        streamingRef.current = false;
+        setWaiting(false);
         setItems((cur) => [...cur, { kind: "sys", text: "— panel disconnected —", err: true }]);
       }
     };
@@ -329,18 +364,23 @@ export default function App() {
     const ev = env.event || {};
     switch (ev.type) {
       case "snapshot":
-        setStatus(ev.streaming ? "streaming" : "idle");
         setStreaming(!!ev.streaming);
+        streamingRef.current = !!ev.streaming;
+        setWaiting(!!ev.waiting);
+        setStatus(ev.waiting ? "waiting" : ev.streaming ? "streaming" : "idle");
+        if (ev.waiting && ev.dialog) putAskItem(ev.dialog, "open");
         break;
       case "agent_start":
-        setStatus("streaming");
         setStreaming(true);
+        streamingRef.current = true;
+        setStatus((s) => (s === "waiting" ? "waiting" : "streaming"));
         turnFiles.current = new Set();
         scrollToEnd();
         break;
       case "agent_settled": {
-        setStatus("idle");
         setStreaming(false);
+        streamingRef.current = false;
+        setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
         const paths = [...turnFiles.current];
         turnFiles.current = new Set();
         if (paths.length) {
@@ -478,6 +518,25 @@ export default function App() {
       case "enqueue_rejected":
         toastError(ev.error);
         break;
+      case "extension_ui_request": {
+        const method = ev.method || "";
+        if (method === "select" || method === "confirm" || method === "input" || method === "editor") {
+          setWaiting(true);
+          setStatus("waiting");
+          putAskItem(ev, "open");
+        } else if (method === "notify") {
+          const msg = ev.message || "Notice";
+          if (ev.notifyType === "error") toastError(msg);
+          else toast.info(msg);
+        }
+        queueMicrotask(scrollConv);
+        break;
+      }
+      case "extension_ui_timeout":
+        setWaiting(false);
+        setStatus(streamingRef.current ? "streaming" : "idle");
+        setItems((cur) => cur.map((it) => (it.kind === "ask" && it.id === ev.id && it.status === "open" ? { ...it, status: "timeout" } : it)));
+        break;
       default:
         break;
     }
@@ -525,6 +584,8 @@ export default function App() {
       closeTerm(loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
       setStreaming(false);
+      streamingRef.current = false;
+      setWaiting(false);
       setStatus("stopped");
       await loadWorkspaces();
     } catch (err) { toastError(err); }
@@ -726,6 +787,29 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
+  async function replyAsk(askId, body) {
+    if (!agent || !askId) return;
+    const cancelled = !!body.cancelled;
+    const answer = cancelled ? "Cancelled"
+      : body.confirmed === true ? "Yes"
+      : body.confirmed === false ? "No"
+      : (body.value || "Answered");
+    setItems((cur) => cur.map((it) => (it.kind === "ask" && it.id === askId && it.status === "open"
+      ? { ...it, status: cancelled ? "cancelled" : "answered", answer }
+      : it)));
+    setWaiting(false);
+    setStatus(streamingRef.current ? "streaming" : "idle");
+    try {
+      await api("/api/agents/" + agent.id + "/ui", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: askId, ...body }),
+      });
+    } catch (e) {
+      toastError(e);
+    }
+  }
+
   async function sendTask(text, images) {
     const payload = (typeof text === "string" ? text : draft).trim();
     const pics = images || [];
@@ -872,7 +956,8 @@ export default function App() {
         onRemove={removeWorkspace}
         onRemoveAgent={removeAgent}
         freeAgents={freeAgents}
-        workingId={streaming ? selectedId : null}
+        workingId={(streaming || waiting) ? selectedId : null}
+        waitingId={waiting ? selectedId : null}
         termView={termView}
         onChat={(id) => {
           revealAgent(id);
@@ -926,6 +1011,7 @@ export default function App() {
             statusBar={statusBar}
             onCompact={compactSession}
             onAbortBash={abortBash}
+            onReplyAsk={replyAsk}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}
@@ -1043,7 +1129,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               slashExtra,
-              status, streaming, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
+              status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
               lastReply: lastAssistantText(items),
               sessionBar: selectedId ? (

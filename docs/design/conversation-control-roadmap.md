@@ -17,7 +17,7 @@ Canonical pi: [RPC](https://github.com/earendil-works/pi/blob/main/packages/codi
 
 | Order | Track | Start when |
 |---|---|---|
-| 1 | **C1 — waiting** | now |
+| 1 | **C1 — waiting** | **shipped** |
 | 2 | **C3 — visible queue** | C1 done |
 | 3 | **C2 — draft persistence** | C3 done |
 
@@ -63,9 +63,8 @@ Auto-approve. TUI interactive mode (the dock already is the UI).
 | 7 | interactive (tmux) | * | TUI; no RPC dialog UI |
 | 8 | stopped | * | no card |
 
-C1 done: an extension `confirm` appears in the GUI, the agent unblocks
-without opening the dock, and a screenshot of waiting + cancelled is
-`read` (visual-review).
+C1 **shipped** (2026-08-27). visual-review: PASS (`chat-waiting.png`,
+`chat-ask-cancel.png`).
 
 ## C3 — visible queue
 

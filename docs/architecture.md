@@ -154,10 +154,13 @@ propagation) plus the **managed runtime** (ADR-0006): task delivery engine
 claiming from the store (`prompt`/`steer`/`follow_up` → rpc commands,
 gated on `agent_settled`, finished delivered/failed with audit), per-agent
 event hub feeding `GET /ws/agent?agent=<id>` (events + `enqueue` input).
-Extension dialogs (`select`/`confirm`/`input`) surface as RPC requests —
-Go can `ReplyUI`; the GUI mapping is **Track C**
-([conversation-control-roadmap.md](design/conversation-control-roadmap.md)).
-Auto-approve policy stays undecided (not C1).
+Extension dialogs (`select`/`confirm`/`input`/`editor`) surface as RPC
+`extension_ui_request`. Managed snapshot includes `waiting` + `dialog`.
+The GUI shows a conversation card; **Yes / No / Cancel / type** POST
+`/api/agents/{id}/ui` (`ReplyUI`). Notify is a toast, not waiting.
+Timeout on the request dismisses the card (pi auto-resolves).
+Auto-approve policy stays undecided. Track C:
+[conversation-control-roadmap.md](design/conversation-control-roadmap.md).
 
 ### Broker (M4)
 A Pi extension (`picode-extension`, TypeScript, installed per workspace)

@@ -11,6 +11,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- When the agent asks a question (confirm / pick / type), the chat shows a **waiting** card. Yes, No, Cancel, or type an answer — no need to open the terminal. Notify messages are toasts. The sidebar row says Waiting.
+
 ### Changed
 
 - MCP **Sign in** no longer needs the agent running. Add or On on an OAuth server starts Sign in. One login is shared by every agent on this machine.
