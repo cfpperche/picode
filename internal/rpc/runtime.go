@@ -275,27 +275,46 @@ func (ma *ManagedAgent) deliverLoop() {
 }
 
 // deliver maps a task kind to its rpc command and waits for acceptance.
-// Delivery of the *response* means accepted — completion arrives via
-// agent_settled, which gates the next claim.
+// prompt waits until settled (rpc rejects a concurrent prompt). steer and
+// follow_up are live-queue commands — send them while the turn is running.
 func (ma *ManagedAgent) deliver(task store.Task) error {
-	// Wait until the agent is settled (not streaming) so prompt never
-	// collides with an in-flight run (rpc rejects concurrent prompts
-	// unless streamingBehavior is set; we queue instead — truer to
-	// task semantics).
-	select {
-	case <-ma.settledChannel():
-	case <-ma.done:
-		return fmt.Errorf("agent stopped")
-	case <-time.After(10 * time.Minute):
-		return fmt.Errorf("timed out waiting for agent to settle")
+	kind := EffectiveTurnKind(task.Kind, ma.isBusy())
+	if kind == store.TaskPrompt {
+		select {
+		case <-ma.settledChannel():
+		case <-ma.done:
+			return fmt.Errorf("agent stopped")
+		case <-time.After(10 * time.Minute):
+			return fmt.Errorf("timed out waiting for agent to settle")
+		}
 	}
 
 	body := map[string]any{"message": task.Payload}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	_, err := ma.client.Send(ctx, Command{Type: task.Kind, Body: body})
+	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
 	return err
+}
+
+func (ma *ManagedAgent) isBusy() bool {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	return ma.streaming || ma.waiting != nil
+}
+
+// EffectiveTurnKind maps a composer kind onto the rpc command to send.
+// A prompt while the agent is busy becomes follow_up (do not error).
+func EffectiveTurnKind(kind string, busy bool) string {
+	switch kind {
+	case store.TaskSteer, store.TaskFollowUp:
+		return kind
+	default:
+		if busy {
+			return store.TaskFollowUp
+		}
+		return store.TaskPrompt
+	}
 }
 
 // SetSessionName sets the display name of the live session.
@@ -381,18 +400,17 @@ func (ma *ManagedAgent) SendPromptCtx(ctx context.Context, message string) error
 
 // SendTurn sends prompt/steer/follow_up, optionally with images.
 // Images go on the live RPC call — they are not stored in the task table.
+// steer / follow_up (and a prompt while busy) do not wait for settled.
 func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) error {
-	switch kind {
-	case store.TaskSteer, store.TaskFollowUp:
-	default:
-		kind = store.TaskPrompt
-	}
-	select {
-	case <-ma.settledChannel():
-	case <-ma.done:
-		return fmt.Errorf("agent stopped")
-	case <-time.After(10 * time.Minute):
-		return fmt.Errorf("timed out waiting for agent to settle")
+	kind = EffectiveTurnKind(kind, ma.isBusy())
+	if kind == store.TaskPrompt {
+		select {
+		case <-ma.settledChannel():
+		case <-ma.done:
+			return fmt.Errorf("agent stopped")
+		case <-time.After(10 * time.Minute):
+			return fmt.Errorf("timed out waiting for agent to settle")
+		}
 	}
 	body := map[string]any{"message": message}
 	if len(images) > 0 {

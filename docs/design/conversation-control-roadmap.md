@@ -18,7 +18,7 @@ Canonical pi: [RPC](https://github.com/earendil-works/pi/blob/main/packages/codi
 | Order | Track | Start when |
 |---|---|---|
 | 1 | **C1 — waiting** | **shipped** |
-| 2 | **C3 — visible queue** | C1 done |
+| 2 | **C3 — visible queue** | **shipped** |
 | 3 | **C2 — draft persistence** | C3 done |
 
 Do not start the [next-roadmap](#next-roadmap-not-this-track) list, Radius,
@@ -90,8 +90,8 @@ with the turn — name the row in the table and test it).
 | 6 | stopped | * | now | start, then `prompt` (today) |
 | 7 | streaming | empty | * | no-op (today) |
 
-C3 done: Send while streaming shows a queued row; the agent picks it up;
-busy is not a dead button.
+C3 **shipped** (2026-08-27). Busy Send stays enabled (prompt → follow-up).
+Abort drops queued **Steer**; **Follow-up** stays.
 
 ## C2 — draft persistence
 

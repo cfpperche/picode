@@ -26,7 +26,8 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
           } else {
             const n = acc.n++;
             const live = i === busy;
-            const queued = !!streaming && !live && t.replies.length === 0 && t.work.length === 0 && !!t.user;
+            const chip = t.user && t.user.chip;
+            const queued = !live && !!t.user && !t.user.dropped && t.replies.length === 0 && t.work.length === 0 && (chip === "steer" || chip === "follow_up");
             const ts = firstTs(t);
             const day = dayKey(ts);
             if (day && day !== acc.day) {
@@ -238,6 +239,11 @@ function Block({ it, railId, agentId, onPreview }) {
               </button>
             ))}
           </div>
+        ) : null}
+        {user && it.chip && it.chip !== "prompt" ? (
+          <span className={"msg-kind" + (it.dropped ? " dropped" : "")}>
+            {it.dropped ? "Dropped" : it.chip === "steer" ? "Steer" : "Follow-up"}
+          </span>
         ) : null}
         {md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
       </div>

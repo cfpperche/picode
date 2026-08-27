@@ -34,15 +34,16 @@ What exists:
 - MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser. GUI `window.open`s the URL once. Overlay ends when the callback HTML is served (keyring write continues). OAuth rows with tokens show **Sign out** (forgets the keyring login on this machine). No extra “Signed in” label.
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
 - Track **C1 waiting**: confirm/select/input/editor is a chat card; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast. Mobile has no waiting card.
+- Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Queued user row until the turn takes it. Abort drops Steer, keeps Follow-up.
 
 ## In flight
 
-Track C: C1 waiting shipped. C3/C2 not started.
+Track C: C1+C3 shipped. C2 draft persistence not started.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. Track **C3** visible queue, then **C2** draft persistence. Plan: `docs/design/conversation-control-roadmap.md`.
+1. Track **C2** draft persistence. Plan: `docs/design/conversation-control-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -67,6 +68,7 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Track C3 visible queue: Send while busy/waiting; prompt→follow-up; abort drops Steer. visual-review: PASS (chat-queued.png, overlayAudit ok).
 - **2026-08-27** — Track C1 waiting: extension dialogs in the conversation (`POST /api/agents/{id}/ui`). Notify is a toast. visual-review: PASS (chat-waiting.png, chat-ask-cancel.png, overlayAudit ok).
 - **2026-08-27** — Track C roadmap: waiting → queue → draft (`docs/design/conversation-control-roadmap.md`). Next-roadmap gaps recorded there (rewind, cost, `#/agent/<id>`, extra `@`, hunk accept, broker, ACP, IDE). Backlog unchanged.
 - **2026-08-27** — Cleared MCP dogfood: `picode-dogfood-*` out of Claude/Codex/Grok; Notion/Linear tokens out of the keyring; `~/.picode/mcp-auth` job files gone. Claude keeps `context7`.

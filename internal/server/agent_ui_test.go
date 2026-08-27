@@ -105,6 +105,46 @@ func TestAgentUIDecisionTable(t *testing.T) {
 	}
 }
 
+func TestAgentQueueWhileWaiting(t *testing.T) {
+	ts := bashTestServer(t)
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Queue", "path": t.TempDir()})
+	var wk workspaceView
+	_ = json.NewDecoder(res.Body).Decode(&wk)
+	id := wk.Agent.ID
+	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
+	if start.StatusCode != http.StatusCreated && start.StatusCode != http.StatusOK {
+		t.Fatalf("start = %d", start.StatusCode)
+	}
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/agent?agent=" + id
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("ws: %v", err)
+	}
+	defer ws.Close()
+	_ = readWSEvent(t, ws)
+
+	enq := postJSON(t, ts, "/api/agents/"+id+"/tasks", map[string]string{"kind": "prompt", "payload": "ASK:confirm", "source": "user"})
+	if enq.StatusCode != http.StatusCreated {
+		t.Fatalf("confirm enqueue = %d", enq.StatusCode)
+	}
+	_ = waitWSType(t, ws, "extension_ui_request", 5*time.Second)
+
+	// follow_up while waiting — HTTP returns now.
+	fu := postJSON(t, ts, "/api/agents/"+id+"/prompt", map[string]any{"kind": "follow_up", "message": "later"})
+	if fu.StatusCode != http.StatusOK {
+		t.Fatalf("follow_up = %d", fu.StatusCode)
+	}
+	// prompt while waiting becomes follow_up, does not 409.
+	pr := postJSON(t, ts, "/api/agents/"+id+"/prompt", map[string]any{"kind": "prompt", "message": "also"})
+	if pr.StatusCode != http.StatusOK {
+		t.Fatalf("busy prompt = %d", pr.StatusCode)
+	}
+	cancel := postJSON(t, ts, "/api/agents/"+id+"/ui", map[string]any{"id": "ui-ask", "cancelled": true})
+	if cancel.StatusCode != http.StatusOK {
+		t.Fatalf("cancel = %d", cancel.StatusCode)
+	}
+}
+
 func readWSEvent(t *testing.T, ws *websocket.Conn) map[string]any {
 	t.Helper()
 	_, raw, err := ws.ReadMessage()

@@ -684,11 +684,10 @@ export default function Composer({
                   <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
                     <IconStop size={16} />
                   </button>
-                ) : (
-                  <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!(value && value.trim()) && !pics.length} onClick={() => fireSend()}>
-                    <IconSend size={16} />
-                  </button>
-                )}
+                ) : null}
+                <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!(value && value.trim()) && !pics.length} onClick={() => fireSend()}>
+                  <IconSend size={16} />
+                </button>
               </>
             )}
           </div>

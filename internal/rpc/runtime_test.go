@@ -215,6 +215,84 @@ func TestWaitingDialog(t *testing.T) {
 	_ = ma.client.SendRaw(map[string]any{"type": "extension_ui_response", "id": "ui-to", "cancelled": true})
 }
 
+func TestEffectiveTurnKind(t *testing.T) {
+	rows := []struct {
+		kind string
+		busy bool
+		want string
+	}{
+		{store.TaskPrompt, false, store.TaskPrompt},
+		{store.TaskPrompt, true, store.TaskFollowUp},
+		{"", true, store.TaskFollowUp},
+		{store.TaskSteer, true, store.TaskSteer},
+		{store.TaskFollowUp, true, store.TaskFollowUp},
+		{store.TaskSteer, false, store.TaskSteer},
+	}
+	for _, r := range rows {
+		got := EffectiveTurnKind(r.kind, r.busy)
+		if got != r.want {
+			t.Errorf("kind=%q busy=%v → %q, want %q", r.kind, r.busy, got, r.want)
+		}
+	}
+}
+
+func TestQueueWhileWaiting(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := st.AddWorkspace("Queue", t.TempDir())
+	if err != nil {
+		t.Fatalf("AddWorkspace: %v", err)
+	}
+	rt := startRuntime(t, st)
+	if err := rt.Start(agent.ID, w.Path); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	ma := rt.Get(agent.ID)
+	hubCh, unsub := ma.hub.Subscribe()
+	defer unsub()
+
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:confirm", "user"); err != nil {
+		t.Fatalf("enqueue confirm: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	if !ma.Snapshot().Waiting {
+		t.Fatal("not waiting")
+	}
+
+	// Row 4: follow_up while waiting returns now; dialog stays.
+	done := make(chan error, 1)
+	go func() { done <- ma.SendTurn(store.TaskFollowUp, "later", nil) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("follow_up: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("follow_up blocked on waiting")
+	}
+	if !ma.Snapshot().Waiting {
+		t.Fatal("follow_up cleared waiting")
+	}
+
+	// Row 5: prompt while waiting becomes follow_up and does not error.
+	go func() { done <- ma.SendTurn(store.TaskPrompt, "also", nil) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("busy prompt: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("busy prompt blocked on waiting")
+	}
+
+	if err := ma.ReplyUI("ui-ask", "", nil, true); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+}
+
 func TestDoubleStartRejected(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {

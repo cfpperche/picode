@@ -151,8 +151,8 @@ recommendation) so modifiers like `Shift+Enter` survive the hop;
 `internal/rpc`: JSONL client for `pi --mode rpc` (strict `\n` framing via
 bufio.Scanner, command/response correlation by id, event fan-out, exit
 propagation) plus the **managed runtime** (ADR-0006): task delivery engine
-claiming from the store (`prompt`/`steer`/`follow_up` → rpc commands,
-gated on `agent_settled`, finished delivered/failed with audit), per-agent
+claiming from the store (`prompt` waits for `agent_settled`; `steer` /
+`follow_up` send while the turn is running), finished delivered/failed with audit), per-agent
 event hub feeding `GET /ws/agent?agent=<id>` (events + `enqueue` input).
 Extension dialogs (`select`/`confirm`/`input`/`editor`) surface as RPC
 `extension_ui_request`. Managed snapshot includes `waiting` + `dialog`.

@@ -82,6 +82,8 @@ export default function App() {
   const [streaming, setStreaming] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const streamingRef = useRef(false);
+  const waitingRef = useRef(false);
+  waitingRef.current = waiting;
   const [items, setItems] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
@@ -782,6 +784,11 @@ export default function App() {
 
   async function abortTurn() {
     if (!agent) return;
+    setItems((cur) => cur.map((it) => (
+      it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped
+        ? { ...it, dropped: true }
+        : it
+    )));
     try {
       await api("/api/agents/" + agent.id + "/abort", { method: "POST" });
     } catch (e) { toastError(e); }
@@ -814,6 +821,9 @@ export default function App() {
     const payload = (typeof text === "string" ? text : draft).trim();
     const pics = images || [];
     if ((!payload && !pics.length) || !agent) return;
+    const busy = streamingRef.current || waitingRef.current;
+    let sendKind = kind;
+    if (busy && sendKind !== "steer" && sendKind !== "follow_up") sendKind = "follow_up";
     const bash = bashLine(payload);
     if (bash && bash.refused) {
       toast.info("!! runs without sending output — use the terminal for that.");
@@ -831,12 +841,12 @@ export default function App() {
         const loc = locate(workspaces, freeAgents, agent.id);
         if (loc) connectPanel(loc);
       }
-      if (pics.length) {
+      if (pics.length || busy || sendKind === "steer" || sendKind === "follow_up") {
         await api("/api/agents/" + agent.id + "/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            kind,
+            kind: sendKind,
             message: payload,
             images: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
           }),
@@ -845,10 +855,10 @@ export default function App() {
         await api("/api/agents/" + agent.id + "/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind, payload, source: "user" }),
+          body: JSON.stringify({ kind: sendKind, payload, source: "user" }),
         });
       }
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, images: pics.map((p) => p.url), ts: Date.now() }]);
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: payload, images: pics.map((p) => p.url), ts: Date.now() }]);
       setDraft("");
       pendingPayload.current = "";
       scrollToEnd();

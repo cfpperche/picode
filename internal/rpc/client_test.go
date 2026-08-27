@@ -131,13 +131,23 @@ func fakeAsk(enc *json.Encoder, dec *json.Decoder, id, typ, msg string) {
 			"title": "Allow this?", "message": "The agent needs a yes or no.",
 		})
 	}
-	var reply map[string]any
-	if err := dec.Decode(&reply); err != nil {
-		return
+	for {
+		var reply map[string]any
+		if err := dec.Decode(&reply); err != nil {
+			return
+		}
+		rtype, _ := reply["type"].(string)
+		if rtype == "extension_ui_response" {
+			_ = enc.Encode(map[string]any{
+				"id": id, "type": "response", "command": typ, "success": true,
+			})
+			return
+		}
+		rid, _ := reply["id"].(string)
+		_ = enc.Encode(map[string]any{
+			"id": rid, "type": "response", "command": rtype, "success": true,
+		})
 	}
-	_ = enc.Encode(map[string]any{
-		"id": id, "type": "response", "command": typ, "success": true,
-	})
 }
 
 func startClient(t *testing.T) *Client {
