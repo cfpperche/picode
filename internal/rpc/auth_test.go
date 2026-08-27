@@ -2,47 +2,37 @@ package rpc
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 )
 
 func TestBeginMCPAuthShort(t *testing.T) {
-	t.Setenv("PICODE_FAKE_RPC", "1")
-	r := NewRuntime(os.Args[0], nil, nil)
+	AuthTestInstant = true
+	t.Cleanup(func() { AuthTestInstant = false })
+	r := NewRuntime("pi", nil, nil)
+	r.DataDir = t.TempDir()
 	t.Cleanup(r.CloseMCPAuth)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, url, err := r.BeginMCPAuth(ctx, "", t.TempDir(), "docs")
+	id, err := r.BeginMCPAuth(ctx, "", t.TempDir(), "docs", "https://example.test/mcp")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id != "ui-auth" {
-		t.Fatalf("id = %q", id)
+	if id == "" {
+		t.Fatal("empty id")
 	}
-	if url != "https://example.test/oauth" {
-		t.Fatalf("url = %q", url)
-	}
-	done, _, found := r.MCPAuthStatus(id)
-	if !found || done {
-		t.Fatalf("status pending got done=%v found=%v", done, found)
-	}
-	if err := r.ReplyMCPAuth(id, "http://127.0.0.1/cb", false); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestBeginMCPAuthAlreadyDone(t *testing.T) {
-	t.Setenv("PICODE_FAKE_RPC", "1")
-	r := NewRuntime(os.Args[0], nil, nil)
-	t.Cleanup(r.CloseMCPAuth)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	id, url, err := r.BeginMCPAuth(ctx, "", t.TempDir(), "already")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "" || url != "" {
-		t.Fatalf("id=%q url=%q (want already-signed-in)", id, url)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		done, e, found := r.MCPAuthStatus(id)
+		if found && done {
+			if e != nil {
+				t.Fatal(e)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("status done=%v found=%v err=%v", done, found, e)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }

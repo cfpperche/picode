@@ -1,11 +1,9 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/pipkg"
@@ -212,22 +210,28 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 		if cwd == "" {
 			cwd = p.Cwd
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
-		defer cancel()
-		id, url, err := deps.Runtime.BeginMCPAuth(ctx, req.AgentID, cwd, req.Name)
+		rep, err := mcp.List(p)
 		if err != nil {
-			if ctx.Err() != nil {
-				writeErr(w, http.StatusGatewayTimeout, "sign-in timed out")
-				return
-			}
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if id == "" {
-			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		var serverURL string
+		for _, s := range rep.Servers {
+			if s.Name == req.Name && !s.Disabled {
+				serverURL = s.URL
+				break
+			}
+		}
+		if serverURL == "" {
+			writeErr(w, http.StatusBadRequest, "turn the server On first")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"id": id, "url": url})
+		id, err := deps.Runtime.BeginMCPAuth(r.Context(), req.AgentID, cwd, req.Name, serverURL)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"id": id})
 	}
 }
 

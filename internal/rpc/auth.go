@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"runtime"
-	"strings"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -17,36 +16,25 @@ type mcpAuthJob struct {
 	mu       sync.Mutex
 	client   *Client
 	owned    bool
-	errCh    chan error
+	out      string
 	cancel   context.CancelFunc
-	unsub    func()
 	doneCh   chan struct{}
 	err      error
 	finished sync.Once
 }
 
-func (j *mcpAuthJob) finish(err error, kill bool) {
+func (j *mcpAuthJob) finish(err error) {
 	j.finished.Do(func() {
 		j.err = err
 		close(j.doneCh)
-		if kill {
-			j.closeOwned()
-		}
+		j.closeOwned()
 	})
-}
-
-func (j *mcpAuthJob) watch() {
-	j.finish(<-j.errCh, true)
 }
 
 func (j *mcpAuthJob) closeOwned() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if j.unsub != nil {
-		j.unsub()
-		j.unsub = nil
-	}
-	if j.owned {
+	if j.owned && j.client != nil {
 		j.client.Close()
 		j.owned = false
 	}
@@ -56,141 +44,117 @@ func (j *mcpAuthJob) closeOwned() {
 	}
 }
 
-// BeginMCPAuth runs `/mcp-auth name`. Reuses a live managed agent when
-// agentID is running; otherwise a short `pi --mode rpc --no-session`.
-func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name string) (string, string, error) {
-	if r == nil || r.AgentCmd == "" {
-		return "", "", fmt.Errorf("pi is not configured")
+func (j *mcpAuthJob) watchFile() {
+	t := time.NewTicker(400 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-j.doneCh:
+			return
+		case <-t.C:
+			b, err := os.ReadFile(j.out)
+			if err != nil {
+				continue
+			}
+			var res struct {
+				OK    bool   `json:"ok"`
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(b, &res) != nil {
+				continue
+			}
+			if !res.OK {
+				j.finish(fmt.Errorf("%s", res.Error))
+				return
+			}
+			j.finish(nil)
+			return
+		}
 	}
-	sendCtx, sendCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	if ma := r.Get(agentID); ma != nil {
-		return r.beginAuthOn(ctx, sendCtx, sendCancel, ma.client, false, func(c context.Context) error {
-			return ma.SendPromptCtx(c, "/mcp-auth "+name)
-		})
+}
+
+// AuthTestInstant writes a successful result without spawning pi (tests only).
+var AuthTestInstant bool
+
+// BeginMCPAuth starts headless adapter OAuth (callback only, no paste UI).
+func (r *Runtime) BeginMCPAuth(ctx context.Context, agentID, cwd, name, serverURL string) (string, error) {
+	if r == nil || r.AgentCmd == "" {
+		return "", fmt.Errorf("pi is not configured")
+	}
+	if serverURL == "" {
+		return "", fmt.Errorf("server has no URL")
 	}
 	r.CloseMCPAuth()
 	if cwd == "" {
 		cwd, _ = os.UserHomeDir()
 	}
-	args := []string{"--mode", "rpc", "--no-session"}
+	dataDir := r.DataDir
+	if dataDir == "" {
+		dataDir = os.TempDir()
+	}
+	ext, err := mcp.EnsureAuthExt(dataDir)
+	if err != nil {
+		return "", err
+	}
+	adapter := mcp.AdapterDir()
+	if adapter == "" {
+		return "", fmt.Errorf("install the MCP adapter first")
+	}
+	id := newID()
+	out := mcp.AuthOutPath(dataDir, id)
+	if err := os.MkdirAll(filepath.Dir(out), 0o700); err != nil {
+		return "", err
+	}
+	_ = os.Remove(out)
+	if AuthTestInstant {
+		job := &mcpAuthJob{out: out, doneCh: make(chan struct{})}
+		r.putAuthJob(id, job)
+		_ = os.WriteFile(out, []byte(`{"ok":true}`), 0o600)
+		go job.watchFile()
+		return id, nil
+	}
+	args := []string{"--mode", "rpc", "--no-session", "-e", ext}
 	if agentID != "" && r.store != nil {
 		if a, err := r.store.GetAgent(agentID); err == nil {
 			args = append(args, a.CLIFlags()...)
 		}
 	}
-	client, err := Start(r.AgentCmd, args, cwd, suppressBrowserEnv()...)
+	env := []string{
+		"PICODE_MCP_AUTH=" + name,
+		"PICODE_MCP_AUTH_URL=" + serverURL,
+		"PICODE_MCP_AUTH_OUT=" + out,
+		"PICODE_MCP_ADAPTER=" + adapter,
+	}
+	client, err := Start(r.AgentCmd, args, cwd, env...)
 	if err != nil {
-		sendCancel()
-		return "", "", err
+		return "", err
 	}
-	return r.beginAuthOn(ctx, sendCtx, sendCancel, client, true, func(c context.Context) error {
-		_, err := client.Send(c, Command{Type: "prompt", Body: map[string]any{"message": "/mcp-auth " + name}})
-		return err
-	})
+	_, cancel := context.WithCancel(context.Background())
+	job := &mcpAuthJob{client: client, owned: true, out: out, cancel: cancel, doneCh: make(chan struct{})}
+	r.putAuthJob(id, job)
+	go job.watchFile()
+	go r.expireAuthJob(id, 5*time.Minute)
+	go func() {
+		<-client.Done()
+		if _, err := os.Stat(out); err != nil {
+			job.finish(fmt.Errorf("sign-in stopped"))
+		}
+	}()
+	return id, nil
 }
 
-func (r *Runtime) beginAuthOn(waitCtx, sendCtx context.Context, sendCancel context.CancelFunc, client *Client, owned bool, send func(context.Context) error) (string, string, error) {
-	uiCh := make(chan map[string]any, 1)
-	unsub := client.Subscribe(func(ev Event) {
-		if ev.EventType() != "extension_ui_request" {
-			return
-		}
-		var body map[string]any
-		if json.Unmarshal([]byte(ev), &body) != nil {
-			return
-		}
-		method, _ := body["method"].(string)
-		if method != "input" && method != "editor" {
-			return
-		}
-		select {
-		case uiCh <- body:
-		default:
-		}
-	})
-	errCh := make(chan error, 1)
-	go func() { errCh <- send(sendCtx) }()
-	select {
-	case ui := <-uiCh:
-		id, _ := ui["id"].(string)
-		title, _ := ui["title"].(string)
-		msg, _ := ui["message"].(string)
-		ph, _ := ui["placeholder"].(string)
-		if id == "" {
-			unsub()
-			sendCancel()
-			if owned {
-				client.Close()
-			}
-			return "", "", fmt.Errorf("sign-in had no prompt")
-		}
-		job := &mcpAuthJob{client: client, owned: owned, errCh: errCh, cancel: sendCancel, doneCh: make(chan struct{})}
-		job.unsub = client.Subscribe(func(ev Event) {
-			if ev.EventType() != "extension_ui_request" {
-				return
-			}
-			var body map[string]any
-			if json.Unmarshal([]byte(ev), &body) != nil {
-				return
-			}
-			if body["method"] != "notify" {
-				return
-			}
-			text, _ := body["message"].(string)
-			low := strings.ToLower(text)
-			if !strings.Contains(low, "successful") && !strings.Contains(low, "authenticated") {
-				return
-			}
-			job.finish(nil, false)
-			_ = client.SendRaw(map[string]any{"type": "extension_ui_response", "id": id, "cancelled": true})
-		})
-		unsub()
-		r.putAuthJob(id, job)
-		go job.watch()
-		go r.expireAuthJob(id, 5*time.Minute)
-		return id, mcp.AuthURLFromUI(title, msg, ph), nil
-	case err := <-errCh:
-		unsub()
-		sendCancel()
-		if owned {
-			client.Close()
-		}
-		if err != nil {
-			return "", "", err
-		}
-		return "", "", nil
-	case <-waitCtx.Done():
-		unsub()
-		sendCancel()
-		if owned {
-			client.Close()
-		}
-		return "", "", waitCtx.Err()
-	}
-}
-
-// ReplyMCPAuth answers the extension UI prompt from BeginMCPAuth.
-func (r *Runtime) ReplyMCPAuth(id, value string, cancelled bool) error {
-	job := r.peekAuthJob(id)
+// ReplyMCPAuth cancels a headless sign-in (value is ignored).
+func (r *Runtime) ReplyMCPAuth(id, _ string, cancelled bool) error {
+	job := r.takeAuthJob(id)
 	if job == nil {
 		return fmt.Errorf("sign-in expired")
 	}
-	body := map[string]any{"type": "extension_ui_response", "id": id}
 	if cancelled {
-		body["cancelled"] = true
-	} else {
-		body["value"] = value
+		job.finish(fmt.Errorf("cancelled"))
+		return nil
 	}
-	err := job.client.SendRaw(body)
-	select {
-	case <-job.doneCh:
-	case <-time.After(30 * time.Second):
-	}
-	r.takeAuthJob(id)
-	if err != nil {
-		return err
-	}
-	return job.err
+	job.finish(nil)
+	return nil
 }
 
 // MCPAuthStatus is pending, finished, or gone.
@@ -242,18 +206,10 @@ func (r *Runtime) expireAuthJob(id string, d time.Duration) {
 	if job == nil {
 		return
 	}
-	job.closeOwned()
+	job.finish(fmt.Errorf("sign-in timed out"))
 }
 
-// suppressBrowserEnv stops the adapter from opening a second tab (PiCode opens one).
-func suppressBrowserEnv() []string {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	return []string{"BROWSER=/bin/true"}
-}
-
-// CloseMCPAuth kills short-lived auth processes. Borrowed agents stay.
+// CloseMCPAuth kills short-lived auth processes.
 func (r *Runtime) CloseMCPAuth() {
 	r.authMu.Lock()
 	jobs := r.authJobs
@@ -264,7 +220,7 @@ func (r *Runtime) CloseMCPAuth() {
 		wg.Add(1)
 		go func(j *mcpAuthJob) {
 			defer wg.Done()
-			j.closeOwned()
+			j.finish(fmt.Errorf("cancelled"))
 		}(job)
 	}
 	wg.Wait()

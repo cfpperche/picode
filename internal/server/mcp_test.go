@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/cfpperche/picode/internal/rpc"
 )
 
 func TestMCPMatrix(t *testing.T) {
@@ -199,7 +202,17 @@ func TestMCPAuthNeedsName(t *testing.T) {
 }
 
 func TestMCPAuthShortPi(t *testing.T) {
+	rpc.AuthTestInstant = true
+	t.Cleanup(func() { rpc.AuthTestInstant = false })
 	ts := bashTestServer(t)
+	home := os.Getenv("HOME")
+	dir := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "mcp.json"), []byte(`{"mcpServers":{"docs":{"url":"https://example.test/mcp","auth":"oauth"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	res := postJSON(t, ts, "/api/mcp/auth", map[string]any{"name": "docs"})
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
@@ -210,35 +223,29 @@ func TestMCPAuthShortPi(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = res.Body.Close()
-	if body["id"] != "ui-auth" {
+	id, _ := body["id"].(string)
+	if id == "" {
 		t.Fatalf("body = %v", body)
 	}
-	url, _ := body["url"].(string)
-	if url != "https://example.test/oauth" {
-		t.Fatalf("url = %q", url)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		st, err := ts.Client().Get(ts.URL + "/api/mcp/auth/status?id=" + id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got map[string]any
+		if err := json.NewDecoder(st.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		_ = st.Body.Close()
+		if got["ok"] == true {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("status = %v", got)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	st, err := ts.Client().Get(ts.URL + "/api/mcp/auth/status?id=ui-auth")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st.StatusCode != http.StatusOK {
-		t.Fatalf("status %d", st.StatusCode)
-	}
-	var pending map[string]any
-	if err := json.NewDecoder(st.Body).Decode(&pending); err != nil {
-		t.Fatal(err)
-	}
-	_ = st.Body.Close()
-	if pending["pending"] != true {
-		t.Fatalf("pending = %v", pending)
-	}
-	reply := postJSON(t, ts, "/api/mcp/auth/reply", map[string]any{
-		"id": "ui-auth", "value": "http://127.0.0.1/cb",
-	})
-	if reply.StatusCode != http.StatusOK {
-		t.Fatalf("reply %d", reply.StatusCode)
-	}
-	_ = reply.Body.Close()
 }
 
 func TestMCPAddSecrets(t *testing.T) {
