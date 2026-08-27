@@ -45,7 +45,7 @@ Live status (`idle`/`live`/`failed`/`signin`) comes from the adapter snapshot wh
 the GUI agent is running (`-e` silent bridge). **Sign in** runs `/mcp-auth` on that
 agent when it is live, otherwise a short `pi --mode rpc --no-session` in the same
 folder (not a second agent — no session file, ADR-0006). Add or On on an OAuth
-server starts Sign in immediately. The GUI opens one browser tab and waits for the adapter localhost callback
+server starts Sign in immediately. Pi opens one browser tab; the GUI waits for the adapter localhost callback
 (same shape as provider OAuth). Tokens live in the OS keyring, keyed by server
 name on this machine — not per agent. No native MCP.
 
