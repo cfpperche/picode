@@ -7,7 +7,7 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 1. `#/packages` → This machine → install `npm:pi-mcp-adapter`.
 2. `#/mcps` → Add a server (command or URL). **More** adds environment variables, headers, or sign-in (OAuth / token).
 3. **Use from…** is a tree of apps and their servers. Check the ones to use. It does not copy files.
-4. The list says **Idle** until an agent uses the server, then **Live** (or **Failed**). An OAuth login already on this machine says **Signed in**.
+4. The list says **Idle** until an agent uses the server, then **Live** (or **Failed**). A login on this machine has **Sign out** instead of Sign in.
 5. **Sign in** opens the server's login page as soon as you Add or turn it On (hidden once you are signed in). Approve there — the tab returns to PiCode on its own, same as Claude/Codex. You do not need to run an agent first. One login is reused by every agent on this machine. **Sign out** forgets that login on this machine.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.

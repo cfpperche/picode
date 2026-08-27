@@ -14,7 +14,7 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Changed
 
 - MCP **Sign in** no longer needs the agent running. Add or On on an OAuth server starts Sign in. One login is shared by every agent on this machine.
-- MCP **Sign in** is automatic like Claude/Codex: PiCode opens one tab, approve, overlay ends when the callback lands (token save continues in the background). The row says **Signed in** right away (token save can lag; no agent needs to be running). No paste. Add still saves the server if that login cannot run (GitHub Copilot has no dynamic client registration). Sign in forces a localhost callback so Linear does not dump you on linear.app.
+- MCP **Sign in** is automatic like Claude/Codex: PiCode opens one tab, approve, overlay ends when the callback lands (token save continues in the background). The row swaps Sign in for **Sign out** (no extra “Signed in” label). No paste. Add still saves the server if that login cannot run (GitHub Copilot has no dynamic client registration). Sign in forces a localhost callback so Linear does not dump you on linear.app.
 - MCP list API keeps env/header **keys** and hides values (token was already write-only).
 - MCP server list is alphabetical by name (no more jumping while live status refreshes).
 - Remove on a shared server no longer turns it back On (it was only hiding the other app). Use Off.

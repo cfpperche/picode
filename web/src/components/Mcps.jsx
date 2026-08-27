@@ -338,7 +338,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
               <h3>Servers</h3>
               <ul className="mcp-list">
                 {servers.map((s) => {
-                  const word = rowLive(s, justSigned[s.name]);
+                  const word = rowLive(s);
                   return (
                   <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
                     <div className="mcp-row-main">
@@ -647,16 +647,14 @@ function loopbackRedirect(authUrl) {
   }
 }
 
-function rowLive(s, extra) {
+function rowLive(s) {
   if (s.live === "live" || s.live === "failed") return s.live;
-  if (s.signedIn || extra) return "signed";
   return s.live || "";
 }
 
 function liveLabel(v) {
   if (v === "live") return "Live";
   if (v === "failed") return "Failed";
-  if (v === "signed") return "Signed in";
   if (v === "signin") return "Sign in";
   return "Idle";
 }
@@ -664,7 +662,6 @@ function liveLabel(v) {
 function liveTitle(v) {
   if (v === "live") return "Connected";
   if (v === "failed") return "Last connect failed";
-  if (v === "signed") return "This machine has a login";
   if (v === "signin") return "Needs sign-in";
   return "Not used yet";
 }

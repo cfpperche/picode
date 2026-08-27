@@ -449,7 +449,7 @@ body {
   flex: none; font-size: 11px; color: var(--text-secondary);
   letter-spacing: 0.02em;
 }
-.mcp-live.live, .mcp-live.signed { color: var(--ok); }
+.mcp-live.live { color: var(--ok); }
 .mcp-live.failed { color: var(--danger); }
 .mcp-live.signin { color: var(--accent); }
 button.mcp-live {
