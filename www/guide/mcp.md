@@ -8,7 +8,7 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 2. `#/mcps` → Add a server (command or URL). **More** adds environment variables, headers, or sign-in (OAuth / token).
 3. **Use from…** is a tree of apps and their servers. Check the ones to use. It does not copy files.
 4. The list says **Idle** until an agent uses the server, then **Live** (or **Failed** / **Sign in**).
-5. **Sign in** opens the server's login page as soon as you Add or turn it On. Paste the address after you approve. You do not need to run an agent first. One login is reused by every agent on this machine.
+5. **Sign in** opens the server's login page as soon as you Add or turn it On. Approve there — the app waits, same as Claude/Codex. If the browser does not come back, **Paste address** and copy the `http://127.0.0.1…` page it opened. You do not need to run an agent first. One login is reused by every agent on this machine.
 
 Clicking an agent in the sidebar leaves this page and opens that agent.
 

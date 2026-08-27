@@ -30,7 +30,7 @@ What exists:
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
-- MCP **Sign in** runs `/mcp-auth` on the live GUI agent, or a short `pi --mode rpc --no-session` if none is running. Add or On on an OAuth server starts Sign in. Tokens are per server name on this machine, not per agent.
+- MCP **Sign in** runs `/mcp-auth` on the live GUI agent, or a short `pi --mode rpc --no-session` if none is running. Add or On on an OAuth server starts Sign in. The GUI waits for the localhost callback (Claude/Codex-style); **Paste address** is fallback. Tokens are per server name on this machine, not per agent.
 
 ## In flight
 
@@ -61,6 +61,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later. llama.cpp depth i
 
 ## Recent activity
 
+- **2026-08-26** — MCP Sign in waits for the browser callback (no paste by default). Paste address is fallback. visual-review: PASS (mcp-signin-wait.png).
 - **2026-08-26** — MCP Sign in uses a short pi when no agent is running. Add/On on OAuth starts Sign in. visual-review: PASS (mcp-signin-short.png). Dogfood: Notion login opened with no agent.
 - **2026-08-26** — Sign in is a button next to On (not a SIGN-IN tag). Off has no Sign in. visual-review: PASS (mcp-signin-btn.png).
 - **2026-08-26** — MCP Sign in starts `/mcp-auth` (RPC + paste dialog). visual-review: PASS (mcp-signin.png).

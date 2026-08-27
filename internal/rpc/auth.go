@@ -12,10 +12,32 @@ import (
 )
 
 type mcpAuthJob struct {
+	mu     sync.Mutex
 	client *Client
 	owned  bool
 	errCh  chan error
 	cancel context.CancelFunc
+	doneCh chan struct{}
+	err    error
+}
+
+func (j *mcpAuthJob) watch() {
+	j.err = <-j.errCh
+	close(j.doneCh)
+	j.closeOwned()
+}
+
+func (j *mcpAuthJob) closeOwned() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.owned {
+		j.client.Close()
+		j.owned = false
+	}
+	if j.cancel != nil {
+		j.cancel()
+		j.cancel = nil
+	}
 }
 
 // BeginMCPAuth runs `/mcp-auth name`. Reuses a live managed agent when
@@ -85,7 +107,9 @@ func (r *Runtime) beginAuthOn(waitCtx, sendCtx context.Context, sendCancel conte
 			}
 			return "", "", fmt.Errorf("sign-in had no prompt")
 		}
-		r.putAuthJob(id, &mcpAuthJob{client: client, owned: owned, errCh: errCh, cancel: sendCancel})
+		job := &mcpAuthJob{client: client, owned: owned, errCh: errCh, cancel: sendCancel, doneCh: make(chan struct{})}
+		r.putAuthJob(id, job)
+		go job.watch()
 		go r.expireAuthJob(id, 5*time.Minute)
 		return id, mcp.AuthURLFromUI(title, msg, ph), nil
 	case err := <-errCh:
@@ -110,7 +134,7 @@ func (r *Runtime) beginAuthOn(waitCtx, sendCtx context.Context, sendCancel conte
 
 // ReplyMCPAuth answers the extension UI prompt from BeginMCPAuth.
 func (r *Runtime) ReplyMCPAuth(id, value string, cancelled bool) error {
-	job := r.takeAuthJob(id)
+	job := r.peekAuthJob(id)
 	if job == nil {
 		return fmt.Errorf("sign-in expired")
 	}
@@ -121,17 +145,29 @@ func (r *Runtime) ReplyMCPAuth(id, value string, cancelled bool) error {
 		body["value"] = value
 	}
 	err := job.client.SendRaw(body)
-	if job.owned {
-		select {
-		case <-job.errCh:
-		case <-time.After(30 * time.Second):
-		}
-		job.client.Close()
+	select {
+	case <-job.doneCh:
+	case <-time.After(30 * time.Second):
 	}
-	if job.cancel != nil {
-		job.cancel()
+	r.takeAuthJob(id)
+	if err != nil {
+		return err
 	}
-	return err
+	return job.err
+}
+
+// MCPAuthStatus is pending, finished, or gone.
+func (r *Runtime) MCPAuthStatus(id string) (done bool, err error, found bool) {
+	job := r.peekAuthJob(id)
+	if job == nil {
+		return false, nil, false
+	}
+	select {
+	case <-job.doneCh:
+		return true, job.err, true
+	default:
+		return false, nil, true
+	}
 }
 
 func (r *Runtime) putAuthJob(id string, job *mcpAuthJob) {
@@ -141,6 +177,15 @@ func (r *Runtime) putAuthJob(id string, job *mcpAuthJob) {
 	}
 	r.authJobs[id] = job
 	r.authMu.Unlock()
+}
+
+func (r *Runtime) peekAuthJob(id string) *mcpAuthJob {
+	r.authMu.Lock()
+	defer r.authMu.Unlock()
+	if r.authJobs == nil {
+		return nil
+	}
+	return r.authJobs[id]
 }
 
 func (r *Runtime) takeAuthJob(id string) *mcpAuthJob {
@@ -160,12 +205,7 @@ func (r *Runtime) expireAuthJob(id string, d time.Duration) {
 	if job == nil {
 		return
 	}
-	if job.cancel != nil {
-		job.cancel()
-	}
-	if job.owned {
-		job.client.Close()
-	}
+	job.closeOwned()
 }
 
 // CloseMCPAuth kills short-lived auth processes. Borrowed agents stay.
@@ -176,16 +216,10 @@ func (r *Runtime) CloseMCPAuth() {
 	r.authMu.Unlock()
 	var wg sync.WaitGroup
 	for _, job := range jobs {
-		if job.cancel != nil {
-			job.cancel()
-		}
-		if !job.owned {
-			continue
-		}
 		wg.Add(1)
 		go func(j *mcpAuthJob) {
 			defer wg.Done()
-			j.client.Close()
+			j.closeOwned()
 		}(job)
 	}
 	wg.Wait()

@@ -17,6 +17,7 @@ func registerMCPRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
 	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))
 	mux.HandleFunc("POST /api/mcp/auth", handleMCPAuth(deps))
+	mux.HandleFunc("GET /api/mcp/auth/status", handleMCPAuthStatus(deps))
 	mux.HandleFunc("POST /api/mcp/auth/reply", handleMCPAuthReply(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
@@ -227,6 +228,30 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"id": id, "url": url})
+	}
+}
+
+func handleMCPAuthStatus(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSpace(r.URL.Query().Get("id"))
+		if id == "" || deps.Runtime == nil {
+			writeErr(w, http.StatusBadRequest, "id is required")
+			return
+		}
+		done, err, found := deps.Runtime.MCPAuthStatus(id)
+		if !found {
+			writeJSON(w, http.StatusOK, map[string]any{"pending": false})
+			return
+		}
+		if !done {
+			writeJSON(w, http.StatusOK, map[string]any{"pending": true})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
 

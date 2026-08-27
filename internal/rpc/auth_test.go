@@ -23,6 +23,10 @@ func TestBeginMCPAuthShort(t *testing.T) {
 	if url != "https://example.test/oauth" {
 		t.Fatalf("url = %q", url)
 	}
+	done, _, found := r.MCPAuthStatus(id)
+	if !found || done {
+		t.Fatalf("status pending got done=%v found=%v", done, found)
+	}
 	if err := r.ReplyMCPAuth(id, "http://127.0.0.1/cb", false); err != nil {
 		t.Fatal(err)
 	}

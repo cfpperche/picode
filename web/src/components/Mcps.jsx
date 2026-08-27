@@ -16,6 +16,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
+  const signCtl = useRef({ id: "", stop: false, paste: false });
 
   function listURL() {
     const q = [];
@@ -167,39 +168,69 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 
   async function signIn(s) {
     if (!canSignIn(s)) return;
+    signCtl.current = { id: "", stop: false, paste: false };
     setJob({ action: "signin", label: s.name, step: 0, error: "", done: false });
-    const tick = startJobTick(setJob, 2);
     try {
       const res = await api("/api/mcp/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId: agentId || undefined, name: s.name, workspaceId: workspaceId || undefined }),
       });
-      clearInterval(tick);
-      setJob(null);
       if (res && res.ok && !res.id) {
+        setJob(null);
         toast.ok("Signed in to " + s.name + ".");
         await load();
         return;
       }
+      signCtl.current.id = res.id;
       if (res && res.url) window.open(res.url, "_blank", "noopener");
-      const pasted = await askPrompt({
-        title: "Sign in to " + s.name,
-        message: "Approve in the browser, then paste the address here.",
-        confirmLabel: "Continue",
-      });
-      await api("/api/mcp/auth/reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: res.id, value: pasted || "", cancelled: !pasted }),
-      });
-      if (!pasted) return;
-      toast.ok("Signed in to " + s.name + ".");
-      await load();
+      setJob({ action: "signin", label: s.name, step: 1, error: "", done: false, allowPaste: false });
+      const t0 = Date.now();
+      while (Date.now() - t0 < 5 * 60 * 1000) {
+        if (signCtl.current.stop) {
+          await api("/api/mcp/auth/reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: res.id, cancelled: true }),
+          }).catch(() => {});
+          setJob(null);
+          return;
+        }
+        if (signCtl.current.paste) {
+          const pasted = await askPrompt({
+            title: "Sign in to " + s.name,
+            message: "Paste the address the browser opened after you approved.",
+            confirmLabel: "Continue",
+          });
+          await api("/api/mcp/auth/reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: res.id, value: pasted || "", cancelled: !pasted }),
+          });
+          setJob(null);
+          if (!pasted) return;
+          toast.ok("Signed in to " + s.name + ".");
+          await load();
+          return;
+        }
+        if (Date.now() - t0 > 8000) {
+          setJob((j) => (j && j.action === "signin" && !j.allowPaste ? { ...j, allowPaste: true } : j));
+        }
+        const st = await api("/api/mcp/auth/status?id=" + encodeURIComponent(res.id));
+        if (st && st.ok) {
+          setJob(null);
+          toast.ok("Signed in to " + s.name + ".");
+          await load();
+          return;
+        }
+        if (st && st.error) throw new Error(st.error);
+        if (st && !st.pending && !st.ok) throw new Error("Sign-in expired.");
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      throw new Error("sign-in timed out");
     } catch (err) {
-      clearInterval(tick);
       const msg = humanizeError(err.message || String(err));
-      setJob((j) => j && j.action === "signin" ? { ...j, error: msg } : j);
+      setJob((j) => (j && j.action === "signin" ? { ...j, error: msg } : j));
       toast.error(msg);
     }
   }
@@ -389,7 +420,15 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       {pickOpen ? (
         <UseFromDialog found={(data && data.found) || []} onClose={() => setPickOpen(false)} onUse={applyPicks} />
       ) : null}
-      {job ? <JobOverlay job={job} running={agentRunning} onClose={() => setJob(null)} /> : null}
+      {job ? (
+        <JobOverlay
+          job={job}
+          running={agentRunning}
+          onClose={() => setJob(null)}
+          onCancel={() => { signCtl.current.stop = true; }}
+          onPaste={() => { signCtl.current.paste = true; }}
+        />
+      ) : null}
     </PageFrame>
   );
 }
@@ -592,10 +631,10 @@ function startJobTick(setJob, stepCount) {
   }, 420);
 }
 
-function JobOverlay({ job, running, onClose }) {
+function JobOverlay({ job, running, onClose, onCancel, onPaste }) {
   const steps = [
     { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
-    { id: "reload", label: job.action === "signin" ? "Open the login page" : (running ? "Reload this agent" : "Applies on next start") },
+    { id: "reload", label: job.action === "signin" ? "Approve in the browser" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="mcp-job-title">
@@ -622,6 +661,13 @@ function JobOverlay({ job, running, onClose }) {
             <p className="pkg-job-err">{job.error}</p>
             <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
           </>
+        ) : job.action === "signin" ? (
+          <div className="pkg-job-actions" data-align-row>
+            <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+            {job.allowPaste ? (
+              <button type="button" className="btn btn-ghost" onClick={onPaste}>Paste address</button>
+            ) : null}
+          </div>
         ) : (
           <p className="pkg-fine">Saving…</p>
         )}

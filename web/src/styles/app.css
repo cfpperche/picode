@@ -620,6 +620,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .pkg-job-step.err { color: var(--danger); }
 .pkg-job-mark { flex: none; width: 1.1em; text-align: center; }
 .pkg-job-err { font-size: 13px; color: var(--danger); line-height: 1.45; margin: 0 0 12px; }
+.pkg-job-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.pkg-job-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .pkg-by-source .dlg-input { margin-top: 0; flex: 1; }
 .pkg-by-source .btn { height: var(--ctl-h); }
 .pkg-fine { margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); }

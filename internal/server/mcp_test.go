@@ -217,6 +217,21 @@ func TestMCPAuthShortPi(t *testing.T) {
 	if url != "https://example.test/oauth" {
 		t.Fatalf("url = %q", url)
 	}
+	st, err := ts.Client().Get(ts.URL + "/api/mcp/auth/status?id=ui-auth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", st.StatusCode)
+	}
+	var pending map[string]any
+	if err := json.NewDecoder(st.Body).Decode(&pending); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Body.Close()
+	if pending["pending"] != true {
+		t.Fatalf("pending = %v", pending)
+	}
 	reply := postJSON(t, ts, "/api/mcp/auth/reply", map[string]any{
 		"id": "ui-auth", "value": "http://127.0.0.1/cb",
 	})
