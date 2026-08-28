@@ -170,6 +170,7 @@ export default function FilePane({ agentId, path, onClose }) {
         {canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
         ) : null}
+        <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>
         <button
           type="button"
           className="file-pane-expand"
@@ -179,7 +180,6 @@ export default function FilePane({ agentId, path, onClose }) {
         >
           {expanded ? <IconCollapse /> : <IconExpand />}
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>
       </header>
       <div className="file-pane-body">
         {view.kind === "load" ? (
