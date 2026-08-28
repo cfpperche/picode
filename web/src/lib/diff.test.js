@@ -1,4 +1,4 @@
-import { fileChangeFromTool, normalizeEdits, parseOfficialDiff, hunksFromDiff } from "./diff.js";
+import { fileChangeFromTool, normalizeEdits, parseOfficialDiff, hunksFromDiff, groupHunks, undoHunkInText } from "./diff.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -45,4 +45,36 @@ test("hunksFromDiff", () => {
 
 test("non-file tools return null", () => {
   assert.equal(fileChangeFromTool("bash", { command: "ls" }, null), null);
+});
+
+test("groupHunks splits on gap and meta", () => {
+  const g = groupHunks([
+    { kind: "del", text: "old" },
+    { kind: "add", text: "new" },
+    { kind: "gap", text: "" },
+    { kind: "del", text: "a" },
+    { kind: "add", text: "b" },
+  ]);
+  assert.equal(g.length, 2);
+  assert.deepEqual(g[0].dels, ["old"]);
+  assert.deepEqual(g[0].adds, ["new"]);
+});
+
+test("undoHunkInText replaces new with old", () => {
+  const g = { dels: ["bar"], adds: ["baz"], ctxBefore: ["foo"], ctxAfter: [] };
+  const r = undoHunkInText("foo\nbaz\n", g);
+  assert.equal(r.ok, true);
+  assert.equal(r.text, "foo\nbar\n");
+});
+
+test("undoHunkInText missing new side fails", () => {
+  const g = { dels: ["a"], adds: ["zzz"], ctxBefore: [], ctxAfter: [] };
+  assert.equal(undoHunkInText("hello\n", g).ok, false);
+});
+
+test("undoHunkInText whole write is not applied", () => {
+  const g = { dels: [], adds: ["one", "two"], ctxBefore: [], ctxAfter: [] };
+  const r = undoHunkInText("one\ntwo", g);
+  assert.equal(r.ok, false);
+  assert.equal(r.whole, true);
 });

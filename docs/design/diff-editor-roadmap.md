@@ -16,7 +16,7 @@ them in this track.
 |---|---|---|
 | 1 | **E1 — open the file** | **shipped** |
 | 2 | **E2 — edit and Save** | **shipped** |
-| 3 | **E3 — hunk Keep / Undo** | after E2 (needs the write path) |
+| 3 | **E3 — hunk Keep / Undo** | **shipped** |
 | 4 | **E4 — this turn's files** | after E3 |
 
 Do not start llama installer, mobile parity, worktrees, broker, ACP,
@@ -94,7 +94,9 @@ If the file no longer contains the new side: "File changed." + **Open**.
 | 3 | Undo | no | "File changed." + Open |
 | 4 | whole-file `write` | yes | Undo = delete or restore previous; if unknown, Open |
 
-Do not invent git checkout. Disk is the source. Git is later (Orca).
+E3 **shipped** (2026-08-28). Keep marks the hunk. Undo rewrites the cwd file
+from the old side. Miss → File changed + Open. Whole-file write → Can't undo
+this write + Open. No git checkout.
 
 ## E4 — this turn's files
 

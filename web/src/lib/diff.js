@@ -82,6 +82,79 @@ export function hunksFromDiff(raw) {
   return { add, del, hunks };
 }
 
+export function groupHunks(hunks) {
+  const groups = [];
+  let cur = emptyGroup();
+  function flush() {
+    if (cur.dels.length || cur.adds.length) groups.push(cur);
+    cur = emptyGroup();
+  }
+  for (const h of hunks || []) {
+    if (h.kind === "gap" || h.kind === "meta") {
+      flush();
+      continue;
+    }
+    if (h.kind === "del") {
+      if (cur.adds.length || cur.ctxAfter.length) flush();
+      cur.dels.push(h.text);
+      continue;
+    }
+    if (h.kind === "add") {
+      cur.adds.push(h.text);
+      continue;
+    }
+    if (h.kind === "ctx") {
+      if (cur.dels.length || cur.adds.length) cur.ctxAfter.push(h.text);
+      else cur.ctxBefore.push(h.text);
+    }
+  }
+  flush();
+  return groups;
+}
+
+function emptyGroup() {
+  return { dels: [], adds: [], ctxBefore: [], ctxAfter: [] };
+}
+
+export function undoHunkInText(fileText, g) {
+  const file = String(fileText ?? "").replace(/\r\n/g, "\n");
+  if (!g) return { ok: false };
+  const whole = !g.dels.length && !g.ctxBefore.length && !g.ctxAfter.length && g.adds.length;
+  if (whole) return { ok: false, whole: true };
+  const adds = g.adds.join("\n");
+  const dels = g.dels.join("\n");
+  const before = g.ctxBefore.join("\n");
+  const after = g.ctxAfter.join("\n");
+  if (g.adds.length) {
+    let needle = adds;
+    let put = dels;
+    if (before) {
+      needle = before + "\n" + needle;
+      put = before + (put ? "\n" + put : "");
+    }
+    if (after) {
+      needle = needle + "\n" + after;
+      put = put + "\n" + after;
+    }
+    const i = file.indexOf(needle);
+    if (i < 0) return { ok: false };
+    return { ok: true, text: file.slice(0, i) + put + file.slice(i + needle.length) };
+  }
+  if (before && after) {
+    const mid = before + "\n" + after;
+    const i = file.indexOf(mid);
+    if (i < 0) return { ok: false };
+    const put = before + "\n" + dels + "\n" + after;
+    return { ok: true, text: file.slice(0, i) + put + file.slice(i + mid.length) };
+  }
+  if (before) {
+    const i = file.indexOf(before);
+    if (i < 0) return { ok: false };
+    return { ok: true, text: file.slice(0, i) + before + "\n" + dels + file.slice(i + before.length) };
+  }
+  return { ok: false };
+}
+
 export function basename(path) {
   if (!path) return "";
   const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));

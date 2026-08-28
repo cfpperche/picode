@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { basename, statLabel } from "../lib/diff.js";
+import { basename, statLabel, groupHunks, undoHunkInText } from "../lib/diff.js";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 import PiSpinner from "./PiSpinner.jsx";
@@ -204,7 +204,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
               {turn.work.map((it, j) => (
                 <li key={it.id || j} className={"work-step" + (live && j === turn.work.length - 1 ? " current" : "")}>
                   <span className="work-step-lab">{stepLabel(it)}</span>
-                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={onOpenFile} /> : null}
+                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={onOpenFile} agentId={agentId} /> : null}
                 </li>
               ))}
             </ol>
@@ -274,7 +274,7 @@ function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQ
   );
 }
 
-function Tool({ it, onToggle, onOpenFile }) {
+function Tool({ it, onToggle, onOpenFile, agentId }) {
   const ch = it.change;
   const search = isSearchTool(it.name);
   const hits = search ? hitsFromTool(it) : [];
@@ -293,7 +293,7 @@ function Tool({ it, onToggle, onOpenFile }) {
         <span className="tp-status">{hits.length ? hits.length : (it.status || "···")}</span>
       </div>
       <div className={"tp-detail" + (ch ? " tp-diff" : "") + (hits.length ? " tp-search" : "")}>
-        {ch ? <DiffHunks hunks={ch.hunks} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
+        {ch ? <DiffHunks hunks={ch.hunks} path={ch.path} agentId={agentId} onOpenFile={onOpenFile} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
       </div>
     </div>
   );
@@ -337,16 +337,84 @@ function CopyBtn({ text }) {
   );
 }
 
-function DiffHunks({ hunks }) {
+function DiffHunks({ hunks, path, agentId, onOpenFile }) {
+  const groups = groupHunks(hunks);
+  const [mark, setMark] = useState({});
+  const [busy, setBusy] = useState(-1);
   if (!hunks || !hunks.length) return <div className="diff-empty">No diff</div>;
+  async function undo(i, g) {
+    if (!agentId || !path || busy >= 0) return;
+    if (!g.dels.length && !g.ctxBefore.length && !g.ctxAfter.length) {
+      setMark((m) => ({ ...m, [i]: "nowrite" }));
+      return;
+    }
+    setBusy(i);
+    try {
+      const page = await api("/api/agents/" + agentId + "/text?path=" + encodeURIComponent(path));
+      const next = undoHunkInText(page.text, g);
+      if (!next.ok) {
+        setMark((m) => ({ ...m, [i]: "err" }));
+        return;
+      }
+      await api("/api/agents/" + agentId + "/text", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: page.path || path, text: next.text, mtime: page.mtime }),
+      });
+      setMark((m) => ({ ...m, [i]: "undone" }));
+    } catch {
+      setMark((m) => ({ ...m, [i]: "err" }));
+    } finally {
+      setBusy(-1);
+    }
+  }
+  if (!groups.length) {
+    return (
+      <div className="diff">
+        {hunks.map((h, i) => <DiffLine key={i} h={h} />)}
+      </div>
+    );
+  }
   return (
     <div className="diff">
-      {hunks.map((h, i) => (
-        <div key={i} className={"diff-line " + h.kind}>
-          <span className="diff-gutter">{h.kind === "add" ? "+" : h.kind === "del" ? "−" : h.kind === "gap" ? "·" : " "}</span>
-          <span className="diff-text">{h.text}</span>
-        </div>
-      ))}
+      {groups.map((g, i) => {
+        const st = mark[i];
+        const lines = [];
+        g.ctxBefore.forEach((text) => lines.push({ kind: "ctx", text }));
+        g.dels.forEach((text) => lines.push({ kind: "del", text }));
+        g.adds.forEach((text) => lines.push({ kind: "add", text }));
+        g.ctxAfter.forEach((text) => lines.push({ kind: "ctx", text }));
+        return (
+          <div key={i} className="diff-hunk">
+            <div className="diff-hunk-bar">
+              {st === "kept" ? <span className="diff-hunk-note">Kept</span> : null}
+              {st === "undone" ? <span className="diff-hunk-note">Undone</span> : null}
+              {st === "err" || st === "nowrite" ? (
+                <>
+                  <span className="diff-hunk-note">{st === "nowrite" ? "Can't undo this write." : "File changed."}</span>
+                  {onOpenFile ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenFile(path)}>Open</button> : null}
+                </>
+              ) : null}
+              {!st ? (
+                <>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMark((m) => ({ ...m, [i]: "kept" }))} disabled={busy >= 0}>Keep</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => undo(i, g)} disabled={busy >= 0}>{busy === i ? "Undo…" : "Undo"}</button>
+                </>
+              ) : null}
+            </div>
+            {lines.map((h, j) => <DiffLine key={j} h={h} />)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DiffLine({ h }) {
+  return (
+    <div className={"diff-line " + h.kind}>
+      <span className="diff-gutter">{h.kind === "add" ? "+" : h.kind === "del" ? "−" : h.kind === "gap" ? "·" : " "}</span>
+      <span className="diff-text">{h.text}</span>
     </div>
   );
 }
