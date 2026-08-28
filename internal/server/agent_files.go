@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,13 +11,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/store"
 )
 
 const (
-	fileScanCap = 200
-	fileHitCap  = 20
+	fileScanCap  = 200
+	fileHitCap   = 20
+	maxAgentText = 1 << 20
 )
 
 var skipFileDir = map[string]bool{
@@ -35,6 +38,7 @@ func registerAgentFileRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/files", handleAgentFiles(deps))
 	mux.HandleFunc("GET /api/agents/{id}/browse", handleAgentBrowse(deps))
 	mux.HandleFunc("GET /api/agents/{id}/file", handleAgentFile(deps))
+	mux.HandleFunc("GET /api/agents/{id}/text", handleAgentText(deps))
 }
 
 func handleAgentFiles(deps Deps) http.HandlerFunc {
@@ -103,21 +107,43 @@ func handleAgentFile(deps Deps) http.HandlerFunc {
 	}
 }
 
+func handleAgentText(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		out, code, err := readAgentText(cwd, r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
 func relUnderCwd(cwd, rel string) (abs, outRel string, err error) {
 	cwdAbs, err := filepath.Abs(cwd)
 	if err != nil {
 		return "", "", err
 	}
-	rel = filepath.ToSlash(strings.TrimSpace(rel))
-	rel = strings.TrimPrefix(rel, "/")
-	if rel == "." {
-		rel = ""
+	rel = strings.TrimSpace(rel)
+	var cand string
+	if filepath.IsAbs(rel) {
+		cand = filepath.Clean(rel)
+	} else {
+		rel = filepath.ToSlash(rel)
+		rel = strings.TrimPrefix(rel, "/")
+		if rel == "." {
+			rel = ""
+		}
+		cand = cwdAbs
+		if rel != "" {
+			cand = filepath.Join(cwdAbs, filepath.FromSlash(rel))
+		}
 	}
-	abs = cwdAbs
-	if rel != "" {
-		abs = filepath.Join(cwdAbs, filepath.FromSlash(rel))
-	}
-	abs, err = filepath.Abs(abs)
+	abs, err = filepath.Abs(cand)
 	if err != nil {
 		return "", "", err
 	}
@@ -133,6 +159,45 @@ func relUnderCwd(cwd, rel string) (abs, outRel string, err error) {
 		outRel = ""
 	}
 	return abs, outRel, nil
+}
+
+func readAgentText(cwd, rel string) (map[string]any, int, error) {
+	if strings.TrimSpace(rel) == "" {
+		return nil, http.StatusBadRequest, fmt.Errorf("path is required")
+	}
+	abs, outRel, err := relUnderCwd(cwd, rel)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, http.StatusNotFound, fmt.Errorf("that file is gone")
+		}
+		return nil, http.StatusBadRequest, err
+	}
+	if st.IsDir() {
+		return nil, http.StatusBadRequest, fmt.Errorf("that's a folder")
+	}
+	if st.Size() > maxAgentText {
+		return nil, http.StatusRequestEntityTooLarge, fmt.Errorf("this file is too large")
+	}
+	b, err := os.ReadFile(abs)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	if len(b) > maxAgentText {
+		return nil, http.StatusRequestEntityTooLarge, fmt.Errorf("this file is too large")
+	}
+	if bytes.IndexByte(b, 0) >= 0 || !utf8.Valid(b) {
+		return nil, http.StatusUnsupportedMediaType, fmt.Errorf("can't show this file")
+	}
+	return map[string]any{
+		"path":  outRel,
+		"name":  filepath.Base(outRel),
+		"text":  string(b),
+		"bytes": len(b),
+	}, http.StatusOK, nil
 }
 
 type browseHit struct {

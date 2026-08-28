@@ -14,7 +14,7 @@ them in this track.
 
 | Order | Track | Start when |
 |---|---|---|
-| 1 | **E1 — open the file** | now |
+| 1 | **E1 — open the file** | **shipped** |
 | 2 | **E2 — edit and Save** | after E1 |
 | 3 | **E3 — hunk Keep / Undo** | after E2 (needs the write path) |
 | 4 | **E4 — this turn's files** | after E3 |
@@ -50,8 +50,9 @@ LSP, or a file explorer as home.
 Click the path on an `edit` / `write` card. A pane in the workspace
 shows the file (read). Empty: "No file open." Click a diff.
 
-`GET /api/agents/{id}/text?path=` (name TBD) reads under cwd. Binary or
-too large: one line, no editor. Path escape: 400 as today.
+E1 **shipped** (2026-08-27). `GET /api/agents/{id}/text?path=` reads under
+cwd (absolute paths that stay inside cwd work). Binary or too large: one
+line, no editor. Path escape: 400. Pane is absent until you click.
 
 | # | from | file | action |
 |---|---|---|---|

@@ -104,6 +104,7 @@ export default function App() {
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
   const [pkgUpdates, setPkgUpdates] = useState([]);
+  const [fileByAgent, setFileByAgent] = useState({});
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -122,6 +123,17 @@ export default function App() {
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
   );
+
+  useEffect(() => {
+    function onOpen(ev) {
+      const p = ev && ev.detail;
+      const id = selectedRef.current;
+      if (!id || !p) return;
+      setFileByAgent((s) => ({ ...s, [id]: String(p) }));
+    }
+    window.addEventListener("picode-open-file", onOpen);
+    return () => window.removeEventListener("picode-open-file", onOpen);
+  }, []);
 
   const pkgWs = selected ? selected.id : "";
   useEffect(() => {
@@ -1180,6 +1192,9 @@ export default function App() {
             onQueueEdit={(qid) => setItems((cur) => startEditQueued(cur, qid))}
             onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}
             onQueueCancelEdit={(qid) => setItems((cur) => cancelEditQueued(cur, qid))}
+            filePath={selectedId ? fileByAgent[selectedId] : ""}
+            onOpenFile={(p) => { if (selectedId && p) setFileByAgent((s) => ({ ...s, [selectedId]: p })); }}
+            onCloseFile={() => { if (selectedId) setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; }); }}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

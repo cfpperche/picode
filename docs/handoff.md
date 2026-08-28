@@ -40,16 +40,16 @@ What exists:
 - Track **D3** `@` lists files, other agents, and skills (`@agent:…` / `@skill:…`). Mentions only.
 - Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
-- **ADR-0015** + Track **E** plan: file pane in the agent cwd, then hunk Keep/Undo. Not an IDE. Worktrees later.
+- **ADR-0015** + Track **E**: E1 shipped (open file from a diff path). E2 Save next. Not an IDE. Worktrees later.
 
 ## In flight
 
-Track D shipped. Track E planned (not started): `docs/design/diff-editor-roadmap.md`.
+Track E: E1 shipped. E2 edit/Save next.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. **E1** open the file from a diff (read pane). Plan: `docs/design/diff-editor-roadmap.md`.
+1. **E2** edit and Save (CodeMirror). Plan: `docs/design/diff-editor-roadmap.md`.
 
 ## Backlog
 
@@ -73,6 +73,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Recent activity
 
+- **2026-08-27** — Track E1 open file beside chat. visual-review: PASS (file-open.png, file-gone.png, file-binary.png, overlayAudit ok).
 - **2026-08-27** — ADR-0015 + Track E plan (file pane, Save, hunk Keep/Undo). Herdr study: runtime peer, not the editor bar.
 - **2026-08-27** — Voice V1 owner dogfood: Chrome Windows mic works. No V1.1 unless a quality gap shows up.
 - **2026-08-27** — Track D5 package updates (badge + Update). npm only. visual-review: PASS (pkg-update.png, pkg-update-menu.png, overlayAudit ok).

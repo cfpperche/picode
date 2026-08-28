@@ -13,7 +13,7 @@ import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -22,7 +22,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
       <div className="conv-col">
         {turns.reduce((acc, t, i) => {
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onOpenFile={onOpenFile} />);
           } else {
             const n = acc.n++;
             const live = i === busy;
@@ -34,7 +34,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} />);          }
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenFile={onOpenFile} />);          }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
       </div>
@@ -43,7 +43,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
   );
 }
 
-function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk }) {
+function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onOpenFile }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
   }
@@ -63,7 +63,13 @@ function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk }) {
         </button>
         {it.expanded ? (
           <ul className="files-changed-list">
-            {it.paths.map((p) => <li key={p}>{p}</li>)}
+            {it.paths.map((p) => (
+              <li key={p}>
+                {onOpenFile ? (
+                  <button type="button" className="files-changed-open" onClick={() => onOpenFile(p)}>{p}</button>
+                ) : p}
+              </li>
+            ))}
           </ul>
         ) : null}
       </div>
@@ -162,7 +168,7 @@ function BashBlock({ it, onAbort }) {
   );
 }
 
-function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
+function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const liveFrom = useRef(0);
@@ -198,7 +204,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
               {turn.work.map((it, j) => (
                 <li key={it.id || j} className={"work-step" + (live && j === turn.work.length - 1 ? " current" : "")}>
                   <span className="work-step-lab">{stepLabel(it)}</span>
-                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} /> : null}
+                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={onOpenFile} /> : null}
                 </li>
               ))}
             </ol>
@@ -268,7 +274,7 @@ function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQ
   );
 }
 
-function Tool({ it, onToggle }) {
+function Tool({ it, onToggle, onOpenFile }) {
   const ch = it.change;
   const search = isSearchTool(it.name);
   const hits = search ? hitsFromTool(it) : [];
@@ -278,7 +284,11 @@ function Tool({ it, onToggle }) {
       <div className="tool-pill-head" onClick={() => onToggle(it.id)}>
         <span className="tp-chevron">›</span>
         <span className="tp-name">{search ? "search" : it.name}</span>
-        <span className="tp-args">{ch ? basename(ch.path) || it.args : (q || it.args)}</span>
+        {ch && onOpenFile ? (
+          <button type="button" className="tp-file" onClick={(e) => { e.stopPropagation(); onOpenFile(ch.path); }}>{basename(ch.path) || it.args}</button>
+        ) : (
+          <span className="tp-args">{ch ? basename(ch.path) || it.args : (q || it.args)}</span>
+        )}
         {ch ? <span className="tp-stat"><span className="add">{ch.add ? "+" + ch.add : ""}</span>{ch.add && ch.del ? " " : ""}<span className="del">{ch.del ? "−" + ch.del : ""}</span></span> : null}
         <span className="tp-status">{hits.length ? hits.length : (it.status || "···")}</span>
       </div>

@@ -1,5 +1,5 @@
-// View-only file-change extraction from pi edit/write tool events.
-// Accept/reject is out of scope (PiCode is not an editor).
+// File-change extraction from pi edit/write tool events.
+// E1 opens the path; Keep/Undo is Track E3.
 
 export function fileChangeFromTool(name, args, result) {
   if (!args || (name !== "edit" && name !== "write")) return null;

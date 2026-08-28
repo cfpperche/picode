@@ -23,6 +23,10 @@ func TestRelUnderCwd(t *testing.T) {
 	if _, _, err := relUnderCwd(root, "src/../../etc"); err == nil {
 		t.Fatal("nested escape")
 	}
+	abs2, rel2, err := relUnderCwd(root, filepath.Join(root, "src"))
+	if err != nil || rel2 != "src" || abs2 != abs {
+		t.Fatalf("abs in cwd %s %s %v", abs2, rel2, err)
+	}
 }
 
 func TestBrowseAndReadImage(t *testing.T) {

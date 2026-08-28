@@ -1,6 +1,7 @@
 import Conversation from "./Conversation.jsx";
 import ConversationRail from "./ConversationRail.jsx";
 import Composer from "./Composer.jsx";
+import FilePane from "./FilePane.jsx";
 import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
@@ -11,6 +12,7 @@ export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, onAbortBash, onReplyAsk,
   onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit,
+  filePath, onOpenFile, onCloseFile,
 }) {
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert" || it.kind === "ask");
   const empty = !hasChat;
@@ -24,13 +26,14 @@ export default function ChatSurface({
   return (
     <section id="chat-surface" className="chat-surface" hidden={hidden}>
       <div className="chat-body">
+        <div className="chat-main">
         {empty && !hidden ? (
           <div className="chat-hello">
             <h2>What should we work on?</h2>
             <p>Ask anything in this project, or type / for commands.</p>
           </div>
         ) : null}
-        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} />
+        <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenFile={onOpenFile} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className="composer-wrap">
@@ -54,6 +57,8 @@ export default function ChatSurface({
         ) : (
           <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} agentId={agent && agent.id} />
         )}
+        </div>
+        {filePath && agent && agent.id ? <FilePane agentId={agent.id} path={filePath} onClose={onCloseFile} /> : null}
       </div>
     </section>
   );
