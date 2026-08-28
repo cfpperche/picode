@@ -38,15 +38,16 @@ What exists:
 - Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
 - Track **D2** session chip shows `$0.05` when the session has spent money.
 - Track **D3** `@` lists files, other agents, and skills (`@agent:…` / `@skill:…`). Mentions only.
+- Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
 
 ## In flight
 
-Track D: D1+D2+D3 shipped. D4 rewind next.
+Track D: D1–D4 shipped. D5 package updates next.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. D4 rewind, then **D5** package updates (badge + Update on `#/packages`). Plan: `docs/design/session-surface-roadmap.md`.
+1. **D5** package updates (badge + Update on `#/packages`). Plan: `docs/design/session-surface-roadmap.md`.
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -71,6 +72,7 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Track D4 Prompts timeline (Now + continue in a new session). visual-review: PASS (prompts-tree.png, prompts-continue.png, overlayAudit ok).
 - **2026-08-27** — Track D3 `@` mentions (agent / skill / file). visual-review: PASS (at-mention.png, at-mention-empty.png, overlayAudit ok).
 - **2026-08-27** — D5 parked: package update check (TUI already banners; GUI Installed is mute). Badge + Update later.
 - **2026-08-27** — Track D2 cost on the session chip. visual-review: PASS (session-cost.png, overlayAudit ok).

@@ -8,21 +8,21 @@ Canonical pi reference: [Sessions](https://github.com/earendil-works/pi/blob/mai
 
 ## /tree {#tree}
 
-Session tree. Each card is a user prompt; replies and tools sit on the card.
+Prompts on a timeline. Each card is a user prompt.
 
-Click a card to **fork** (new session file from that prompt). Clone copies this branch.
+The current prompt says **Now**. Pick another to continue from there (new session; this one stays). Duplicate copies the timeline.
 
 | | pi TUI | PiCode |
 |---|---|---|
 | View | tree of this JSONL | same (cards) |
-| Click a prompt | in-place leaf jump (`navigateTree`) | **fork** (new file) |
-| `/clone` | new file | new file (RPC) |
+| Click a prompt | in-place leaf jump (`navigateTree`) | **new session** from that prompt |
+| Duplicate | new file | new file |
 
 RPC has `get_tree` / `fork` / `clone`, not `navigate_tree`. Asked upstream: [pi#8645](https://github.com/earendil-works/pi/issues/8645). PiCode will not write a private leaf into pi's JSONL.
 
 ## /fork {#fork}
 
-New session from a previous user prompt. Opens the tree; pick a card. RPC `fork`.
+Same timeline as `/tree`, then pick a prompt to continue from.
 
 | | pi TUI | PiCode |
 |---|---|---|
@@ -30,7 +30,7 @@ New session from a previous user prompt. Opens the tree; pick a card. RPC `fork`
 
 ## /clone {#clone}
 
-Duplicate the current branch into a new session file. RPC `clone`.
+Duplicate this timeline into a new session. This one stays.
 
 | | pi TUI | PiCode |
 |---|---|---|

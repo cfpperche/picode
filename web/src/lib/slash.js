@@ -18,7 +18,7 @@ export const SLASH = [
   { id: "session", label: "/session", hint: "File, tokens, and cost", run: "session-info" },
   { id: "tree", label: "/tree", hint: "Prompts on a timeline", run: "session-tree" },
   { id: "fork", label: "/fork", hint: "New session from a prompt", run: "session-fork" },
-  { id: "clone", label: "/clone", hint: "Copy this branch", run: "session-clone" },
+  { id: "clone", label: "/clone", hint: "Duplicate this timeline", run: "session-clone" },
   { id: "reload", label: "/reload", hint: "Reload skills and config", run: "reload" },
   { id: "export", label: "/export", hint: "Download this session", run: "export" },
   { id: "import", label: "/import", hint: "Resume from a JSONL file", run: "import" },

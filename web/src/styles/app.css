@@ -1638,7 +1638,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   max-height: min(72vh, 560px);
   display: flex; flex-direction: column;
 }
-.tree-list { overflow-y: auto; margin: 10px 0 0; min-height: 80px; }
+.tree-list { overflow-y: auto; flex: 1; min-height: 80px; margin: 10px 0 0; padding-bottom: 8px; }
 .tree-card {
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;
   width: 100%; text-align: left; cursor: pointer;
@@ -1647,6 +1647,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .tree-card:hover { border-color: var(--border-strong); background: var(--bg-hover); }
 .tree-card.leaf { border-color: var(--accent); }
+.tree-card.now { cursor: default; }
+.tree-card.now:hover { background: var(--bg-panel); border-color: var(--accent); }
+.tree-card-now { font-size: 11px; font-weight: 600; color: var(--accent); }
 .tree-card-prompt { font-size: 13px; font-weight: 550; }
 .tree-card-reply {
   font-size: 12px; color: var(--text-secondary); line-height: 1.4;

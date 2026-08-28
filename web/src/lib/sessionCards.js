@@ -8,6 +8,24 @@ export function infoLine(n) {
   return { kind: "meta", text: k || "note" };
 }
 
+export function leafUserId(nodes, leafId) {
+  if (!leafId) return "";
+  const byId = new Map();
+  function walk(list) {
+    for (const n of list || []) {
+      byId.set(n.id, n);
+      walk(n.children);
+    }
+  }
+  walk(nodes);
+  let n = byId.get(leafId);
+  while (n) {
+    if (n.role === "user") return n.id;
+    n = n.parentId ? byId.get(n.parentId) : null;
+  }
+  return "";
+}
+
 export function cardsFrom(nodes) {
   const out = [];
   for (const n of nodes || []) {

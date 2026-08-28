@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cardsFrom } from "./sessionCards.js";
+import { cardsFrom, leafUserId } from "./sessionCards.js";
 
 test("user cards swallow tools and replies", () => {
   const cards = cardsFrom([
@@ -20,4 +20,14 @@ test("user cards swallow tools and replies", () => {
   assert.equal(cards[0].info.some((i) => i.kind === "tool" && i.text === "tool"), true);
   assert.equal(cards[0].children.length, 1);
   assert.equal(cards[0].children[0].text, "again");
+});
+
+test("leafUserId walks up to the user prompt", () => {
+  const tree = [{
+    id: "u1", role: "user", text: "hi",
+    children: [{ id: "a1", parentId: "u1", role: "assistant", text: "yo", children: [] }],
+  }];
+  assert.equal(leafUserId(tree, "a1"), "u1");
+  assert.equal(leafUserId(tree, "u1"), "u1");
+  assert.equal(leafUserId(tree, "gone"), "");
 });

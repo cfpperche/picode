@@ -16,7 +16,7 @@ t3code thread routes · Cursor @-mentions and checkpoints.
 | 1 | **D1 — `#/agent/<id>`** | **shipped** |
 | 2 | **D2 — cost on the session chip** | **shipped** |
 | 3 | **D3 — `@skill` / `@agent` mentions** | **shipped** |
-| 4 | **D4 — rewind / checkpoints** | after D1; in-place leaf still pi#8645 |
+| 4 | **D4 — rewind / checkpoints** | **shipped** (new session from a prompt; in-place leaf still pi#8645) |
 | 5 | **D5 — package updates** | after D2–D4. Do not start in this session. |
 
 Do not start llama installer, mobile parity, hunk accept, broker, ACP, IDE chrome, or D5 while D2–D4 are open.
@@ -89,9 +89,11 @@ crontab.
 
 ## D4 — rewind
 
-Session JSONL is already a tree (`id` / `parentId`). `/tree` shows it;
-click still forks. Checkpoints as restore points wait on view + pi#8645
-for in-place leaf jump.
+Session JSONL is already a tree (`id` / `parentId`). `/tree` shows it.
+
+D4 **shipped** (2026-08-27): current card says **Now** (not clickable). Other
+cards confirm then start a **new session** from that prompt. This one stays.
+In-place leaf jump still needs pi `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)).
 
 ## Where it lives
 

@@ -38,6 +38,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import PromptDialog from "../components/PromptDialog.jsx";
 import { askPrompt } from "../lib/prompt.js";
 import { locate, firstAgentId, displayAgentName, mentionAgents } from "../lib/tree.js";
+import { leafUserId } from "../lib/sessionCards.js";
 
 function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   const loc = locate(workspaces, freeAgents, selectedId);
@@ -1001,7 +1002,14 @@ export default function App() {
   }
 
   async function forkFrom(entryId) {
-    if (!agent) return;
+    if (!agent || !entryId) return;
+    if (treeData && leafUserId(treeData.tree, treeData.leafId) === entryId) return;
+    const ok = await askConfirm({
+      title: "Continue from here",
+      message: "Starts a new session from this prompt. This one stays.",
+      confirmLabel: "Continue",
+    });
+    if (!ok) return;
     try {
       const res = await api("/api/agents/" + agent.id + "/fork", {
         method: "POST",
@@ -1009,8 +1017,8 @@ export default function App() {
         body: JSON.stringify({ entryId }),
       });
       setTreeOpen(false);
-      if (res && res.cancelled) { toast.info("Fork cancelled."); return; }
-      toast.ok("New session from that prompt.");
+      if (res && res.cancelled) { toast.info("Cancelled."); return; }
+      toast.ok("Continued from that prompt.");
       await loadWorkspaces();
       await loadSessions(selectedId);
     } catch (e) { toastError(e); }
@@ -1019,16 +1027,16 @@ export default function App() {
   async function cloneSession() {
     if (!agent) return;
     const ok = await askConfirm({
-      title: "Clone session",
-      message: "Duplicate this branch into a new session file.",
-      confirmLabel: "Clone",
+      title: "Duplicate session",
+      message: "Copy this timeline into a new session. This one stays.",
+      confirmLabel: "Duplicate",
     });
     if (!ok) return;
     try {
       const res = await api("/api/agents/" + agent.id + "/clone", { method: "POST" });
       setTreeOpen(false);
-      if (res && res.cancelled) { toast.info("Clone cancelled."); return; }
-      toast.ok("Branch duplicated.");
+      if (res && res.cancelled) { toast.info("Cancelled."); return; }
+      toast.ok("Duplicated.");
       await loadWorkspaces();
       await loadSessions(selectedId);
     } catch (e) { toastError(e); }
