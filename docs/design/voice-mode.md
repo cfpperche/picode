@@ -1,7 +1,7 @@
 # Voice in PiCode
 
-- **Date:** 2026-08-25 (updated same day after V1 ship)
-- **Status:** V1 shipped. Owner dogfooding. Later phases below.
+- **Date:** 2026-08-25 (updated 2026-08-27 after owner dogfood)
+- **Status:** V1 shipped. Owner dogfood done (Chrome Windows mic). Later phases below.
 - **Brief:** ChatGPT idle (mic + waveform) + **Grok x.ai voice composer**.
   Owner screenshots `122712` / `122725` (ChatGPT) and `123411` / `123433`
   (Grok: voice replaces the composer, chat stays).

@@ -134,7 +134,7 @@ parity, `/tree` `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/
 Parked with A/B: Radius gateway, OpenRouter PKCE, MCP Sign out on
 macOS/Windows.
 
-Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
+Owner Voice V1 dogfood: done (Chrome Windows mic).
 
 ## Where it lives
 
