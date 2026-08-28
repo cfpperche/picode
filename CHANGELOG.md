@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- After a turn that edited files, the names sit under the work row. Click one to open it.
 - On an edit in the chat, **Keep** or **Undo** each change. Undo puts the old lines back; if the file moved on, **Open** it. A whole-file write cannot restore the previous file.
 - Click the file name on an edit in the chat to open it beside the conversation. You can edit and **Save** (Ctrl/Cmd+S). If the file changed on disk, Open again instead of overwriting. Binary or huge files say so in one line.
 - Packages that are behind show **Update**. The user menu marks Packages when any are. Nothing updates until you click.

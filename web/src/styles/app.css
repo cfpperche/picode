@@ -1285,6 +1285,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-secondary);
 }
 .files-changed-list li { padding: 1px 0; }
+.turn-files {
+  list-style: none; margin: 4px 0 10px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+}
+.turn-files-open {
+  font: inherit; font-family: var(--mono); font-size: 12px;
+  color: var(--accent); background: none; border: 0; padding: 0;
+  cursor: pointer;
+}
+.turn-files-open:hover { text-decoration: underline; }
 
 .sys-line { padding: 2px 0; font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
 .sys-line.err { color: var(--danger); }

@@ -37,7 +37,7 @@ stay on their own routes.
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
-Click a path on an `edit`/`write` card opens that file beside the chat (`GET/PUT /api/agents/{id}/text`, cwd only). Save writes the file. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
+Click a path on an `edit`/`write` card (or the turn's file names) opens that file beside the chat (`GET/PUT /api/agents/{id}/text`, cwd only). Save writes the file. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files

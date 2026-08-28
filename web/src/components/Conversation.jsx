@@ -5,7 +5,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { basename, statLabel, groupHunks, undoHunkInText } from "../lib/diff.js";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex } from "../lib/turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex, pathsFromTurn } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
@@ -189,6 +189,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
       ? "Queued"
       : fmtWorked(turnDurationMs(turn));
   const showWork = turn.work.length > 0 || live || queued;
+  const files = onOpenFile ? pathsFromTurn(turn) : [];
   return (
     <div className="turn" id={"turn-" + i}>
       {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} /> : null}
@@ -210,6 +211,15 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
             </ol>
           ) : null}
         </div>
+      ) : null}
+      {files.length ? (
+        <ul className="turn-files">
+          {files.map((p) => (
+            <li key={p}>
+              <button type="button" className="turn-files-open" title={p} onClick={() => onOpenFile(p)}>{basename(p)}</button>
+            </li>
+          ))}
+        </ul>
       ) : null}
       {turn.replies.map((it, j) => it.kind === "alert"
         ? <Alert key={j} it={it} />

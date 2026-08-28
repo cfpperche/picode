@@ -49,6 +49,18 @@ export function workingIndex(turns, streaming) {
   return lastBusy >= 0 ? lastBusy : lastPending;
 }
 
+export function pathsFromTurn(turn) {
+  const out = [];
+  const seen = new Set();
+  for (const it of (turn && turn.work) || []) {
+    const p = it.change && it.change.path;
+    if (!p || seen.has(p)) continue;
+    seen.add(p);
+    out.push(p);
+  }
+  return out;
+}
+
 function emptyTurn() {
   return { kind: "turn", user: null, work: [], replies: [], loose: [] };
 }

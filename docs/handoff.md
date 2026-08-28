@@ -40,16 +40,16 @@ What exists:
 - Track **D3** `@` lists files, other agents, and skills (`@agent:…` / `@skill:…`). Mentions only.
 - Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
-- **ADR-0015** + Track **E**: E1–E3 shipped (open, Save, Keep/Undo). E4 this-turn files next.
+- **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
 
 ## In flight
 
-Track E: E1–E3 shipped. E4 this-turn files next.
+Track E (E1–E4) shipped. Diff/editor roadmap complete.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. **E4** this turn's files. Plan: `docs/design/diff-editor-roadmap.md`.
+No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
 
 ## Backlog
 
@@ -73,6 +73,7 @@ Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Recent activity
 
+- **2026-08-28** — Track E4 turn file names. visual-review: PASS (turn-files.png, turn-files-open.png, overlayAudit ok).
 - **2026-08-28** — Track E3 Keep/Undo on edit diffs. visual-review: PASS (hunk-keep.png, hunk-kept.png, hunk-undo.png, overlayAudit ok).
 - **2026-08-28** — Track E2 CodeMirror Save. visual-review: PASS (file-edit.png, file-discard.png, overlayAudit ok).
 - **2026-08-27** — Track E1 open file beside chat. visual-review: PASS (file-open.png, file-gone.png, file-binary.png, overlayAudit ok).

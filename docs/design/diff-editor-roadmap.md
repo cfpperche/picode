@@ -17,7 +17,7 @@ them in this track.
 | 1 | **E1 — open the file** | **shipped** |
 | 2 | **E2 — edit and Save** | **shipped** |
 | 3 | **E3 — hunk Keep / Undo** | **shipped** |
-| 4 | **E4 — this turn's files** | after E3 |
+| 4 | **E4 — this turn's files** | **shipped** |
 
 Do not start llama installer, mobile parity, worktrees, broker, ACP,
 LSP, or a file explorer as home.
@@ -100,8 +100,8 @@ this write + Open. No git checkout.
 
 ## E4 — this turn's files
 
-A short list of paths the current turn edited. Click opens E1. Empty:
-no extra well (the chat already has the cards). No "0 files" badge.
+E4 **shipped** (2026-08-28). Basenames under the turn (not a count). Click
+opens the file pane. No list when nothing was edited. No "0" badge.
 
 ## Primitive
 

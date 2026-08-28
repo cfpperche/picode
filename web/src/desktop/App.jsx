@@ -109,7 +109,7 @@ export default function App() {
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
   const pendingPayload = useRef("");
-  const turnFiles = useRef(new Set());
+
   const selectedRef = useRef(null);
   selectedRef.current = selectedId;
 
@@ -480,18 +480,12 @@ export default function App() {
         setStreaming(true);
         streamingRef.current = true;
         setStatus((s) => (s === "waiting" ? "waiting" : "streaming"));
-        turnFiles.current = new Set();
         scrollToEnd();
         break;
       case "agent_settled": {
         setStreaming(false);
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
-        const paths = [...turnFiles.current];
-        turnFiles.current = new Set();
-        if (paths.length) {
-          setItems((cur) => [...cur, { kind: "files", paths, expanded: false }]);
-        }
         if (selectedId) loadStatus();
         pinNewestSession();
         queueMicrotask(() => flushFollowUp());
@@ -510,7 +504,6 @@ export default function App() {
       }
       case "tool_execution_start": {
         const change = fileChangeFromTool(ev.toolName, ev.args, null);
-        if (change) turnFiles.current.add(change.path);
         setItems((cur) => [...cur, {
           kind: "tool",
           id: ev.toolCallId,
@@ -530,7 +523,6 @@ export default function App() {
         setItems((cur) => cur.map((it) => {
           if (it.kind !== "tool" || it.id !== ev.toolCallId) return it;
           const change = fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change;
-          if (change) turnFiles.current.add(change.path);
           const searchHits = isSearchTool(ev.toolName || it.name) ? hitsFromResult(ev.result) : [];
           return {
             ...it,

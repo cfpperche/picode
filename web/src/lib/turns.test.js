@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, dayKey, fmtDayMark, workingIndex } from "./turns.js";
+import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, dayKey, fmtDayMark, workingIndex, pathsFromTurn } from "./turns.js";
+
+test("pathsFromTurn unique edit paths", () => {
+  const t = {
+    work: [
+      { kind: "tool", name: "read" },
+      { kind: "tool", name: "write", change: { path: "a.py" } },
+      { kind: "tool", name: "edit", change: { path: "a.py" } },
+      { kind: "tool", name: "edit", change: { path: "b.py" } },
+    ],
+  };
+  assert.deepEqual(pathsFromTurn(t), ["a.py", "b.py"]);
+  assert.deepEqual(pathsFromTurn({ work: [] }), []);
+});
 
 test("groups user / work / reply", () => {
   const t = groupTurns([
