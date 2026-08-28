@@ -3,12 +3,13 @@ import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, Ico
 import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
-export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare }) {
+export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, pkgUpdates }) {
+  const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="um-trigger" id="um-trigger">
-          <span className="um-avatar" aria-hidden="true"><IconUser /></span>
+        <button className="um-trigger" id="um-trigger" aria-label={hasPkgUp ? host + ", package updates" : undefined}>
+          <span className="um-avatar" aria-hidden="true"><IconUser />{hasPkgUp ? <span className="um-dot" /> : null}</span>
           <span className="um-meta">
             <span className="um-name" id="um-name">{host}</span>
             <span className="um-sub" id="um-sub">this machine</span>
@@ -75,7 +76,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-packages" onSelect={() => onNavigate("packages")}>
-            <span>Packages</span>
+            <span className="um-item-label">Packages{hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-devices" onSelect={() => onNavigate("devices")}>

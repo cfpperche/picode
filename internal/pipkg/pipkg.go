@@ -38,8 +38,10 @@ type Report struct {
 	Isolated     bool         `json:"isolated,omitempty"`
 }
 
-// UserDir is ~/.pi/agent.
-func UserDir() string {
+// UserDir is ~/.pi/agent. Tests may replace it.
+var UserDir = defaultUserDir
+
+func defaultUserDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""

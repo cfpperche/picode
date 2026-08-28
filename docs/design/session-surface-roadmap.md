@@ -17,7 +17,7 @@ t3code thread routes · Cursor @-mentions and checkpoints.
 | 2 | **D2 — cost on the session chip** | **shipped** |
 | 3 | **D3 — `@skill` / `@agent` mentions** | **shipped** |
 | 4 | **D4 — rewind / checkpoints** | **shipped** (new session from a prompt; in-place leaf still pi#8645) |
-| 5 | **D5 — package updates** | after D2–D4. Do not start in this session. |
+| 5 | **D5 — package updates** | **shipped** |
 
 Do not start llama installer, mobile parity, hunk accept, broker, ACP, IDE chrome, or D5 while D2–D4 are open.
 
@@ -86,6 +86,9 @@ badge when any installed package has an update. That row shows **Update**
 
 **Not:** silent auto-update. npm/architecture copy in chrome. macOS/Windows
 crontab.
+
+D5 **shipped** (2026-08-27). npm packages only (git / path / pinned skipped).
+Check: `GET /api/packages/updates`. Click: `POST /api/packages/update`.
 
 ## D4 — rewind
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -94,6 +95,9 @@ func TestVersionEndpoint(t *testing.T) {
 }
 
 func TestPackagesEndpoint(t *testing.T) {
+	old := pipkg.UserDir
+	pipkg.UserDir = func() string { return t.TempDir() }
+	t.Cleanup(func() { pipkg.UserDir = old })
 	ts := newTestServer(t, "cat")
 
 	res, err := ts.Client().Get(ts.URL + "/api/packages")
@@ -130,6 +134,42 @@ func TestPackagesEndpoint(t *testing.T) {
 	defer pres2.Body.Close()
 	if pres2.StatusCode != http.StatusBadRequest {
 		t.Fatalf("project without workspace status = %d", pres2.StatusCode)
+	}
+
+	ures, err := ts.Client().Get(ts.URL + "/api/packages/updates")
+	if err != nil {
+		t.Fatalf("GET /api/packages/updates: %v", err)
+	}
+	defer ures.Body.Close()
+	if ures.StatusCode != http.StatusOK {
+		t.Fatalf("updates status = %d", ures.StatusCode)
+	}
+	var ubody map[string]any
+	if err := json.NewDecoder(ures.Body).Decode(&ubody); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ubody["updates"]; !ok {
+		t.Fatalf("missing updates: %+v", ubody)
+	}
+
+	agentUp, _ := json.Marshal(map[string]string{"source": "npm:foo", "scope": "agent"})
+	up, err := ts.Client().Post(ts.URL+"/api/packages/update", "application/json", bytes.NewReader(agentUp))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer up.Body.Close()
+	if up.StatusCode != http.StatusBadRequest {
+		t.Fatalf("agent update status = %d", up.StatusCode)
+	}
+
+	badUp, _ := json.Marshal(map[string]string{"source": "npm:foo; rm", "scope": "user"})
+	up2, err := ts.Client().Post(ts.URL+"/api/packages/update", "application/json", bytes.NewReader(badUp))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer up2.Body.Close()
+	if up2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("inject update status = %d", up2.StatusCode)
 	}
 }
 

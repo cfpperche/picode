@@ -103,6 +103,7 @@ export default function App() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
+  const [pkgUpdates, setPkgUpdates] = useState([]);
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -121,6 +122,26 @@ export default function App() {
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
   );
+
+  const pkgWs = selected ? selected.id : "";
+  useEffect(() => {
+    let stop = false;
+    async function load() {
+      try {
+        const q = pkgWs ? "?workspace=" + encodeURIComponent(pkgWs) : "";
+        const page = await api("/api/packages/updates" + q);
+        if (!stop) setPkgUpdates(page.updates || []);
+      } catch { /* keep last */ }
+    }
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => { stop = true; clearInterval(t); };
+  }, [pkgWs]);
+  useEffect(() => {
+    if (route !== "packages") return;
+    const q = pkgWs ? "?workspace=" + encodeURIComponent(pkgWs) : "";
+    api("/api/packages/updates" + q).then((p) => setPkgUpdates(p.updates || [])).catch(() => {});
+  }, [route, pkgWs]);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => {
@@ -1101,6 +1122,7 @@ export default function App() {
           themeMode,
           onTheme: setTheme,
           onNavigate: go,
+          pkgUpdates,
         }}
       />
 
@@ -1376,7 +1398,7 @@ export default function App() {
             else await startManaged(selectedId);
           }}
         />
-        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} />
+        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>

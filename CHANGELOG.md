@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Packages that are behind show **Update**. The user menu marks Packages when any are. Nothing updates until you click.
 - `/tree` is **Prompts**. The current one says Now. Pick another to continue from there (new session; this one stays).
 - `@` in the composer also lists other agents and skills (as `@agent:…` / `@skill:…`). Files still work. This is a mention, not a message to that agent.
 - Session chip shows `$0.12` when the session has spent money. Zero stays quiet.

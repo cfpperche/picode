@@ -736,10 +736,19 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .um-trigger:hover, .um-trigger[aria-expanded="true"] { background: var(--bg-hover); }
 .um-avatar {
-  display: grid; place-items: center; flex: none;
+  display: grid; place-items: center; flex: none; position: relative;
   width: 22px; height: 22px; border-radius: 50%;
   background: var(--accent-soft); color: var(--accent);
 }
+.um-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); flex: none;
+}
+.um-avatar .um-dot {
+  position: absolute; top: -2px; right: -2px;
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+.um-item-label { display: inline-flex; align-items: center; gap: 8px; }
 .um-meta { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; line-height: 1.25; }
 .um-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .um-sub { font-size: 11px; color: var(--text-secondary); }
@@ -747,6 +756,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .um-popover {
   z-index: 40;
   width: 236px; padding: 6px;
+  max-height: calc(100vh - 80px); overflow-y: auto;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);

@@ -14,8 +14,28 @@ import (
 func registerPackageRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/packages", handleListPackages(deps))
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
+	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
+	mux.HandleFunc("POST /api/packages/update", handleUpdatePackage(deps))
 	mux.HandleFunc("DELETE /api/packages", handleRemovePackage(deps))
+}
+
+func handlePackageUpdates(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		dir, err := packageProjectDir(deps, r.URL.Query().Get("workspace"))
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		rep, err := pipkg.CheckUpdates(ctx, pipkg.UserDir(), dir)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, rep)
+	}
 }
 
 func handlePackageGallery(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +110,38 @@ func handleInstallPackage(deps Deps) http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
 		if err := pipkg.Install(ctx, deps.AgentCmd, req.Source, opts); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		rep, err := loadPackageReport(deps, req.WorkspaceID, req.AgentID)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+			return
+		}
+		_ = dir
+		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+func handleUpdatePackage(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req packageMutateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Scope == "agent" {
+			writeErr(w, http.StatusBadRequest, "this-agent packages update on the next start")
+			return
+		}
+		opts, dir, err := packageMutate(deps, req.Scope, req.WorkspaceID)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+		defer cancel()
+		if err := pipkg.Update(ctx, deps.AgentCmd, req.Source, opts); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}

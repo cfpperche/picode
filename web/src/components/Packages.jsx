@@ -5,7 +5,7 @@ import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 
-export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName }) {
+export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates }) {
   const [data, setData] = useState(null);
   const [source, setSource] = useState("");
   const [scope, setScope] = useState("user");
@@ -13,6 +13,8 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
   const [job, setJob] = useState(null);
+  const [ownUpdates, setOwnUpdates] = useState([]);
+  const behind = updates || ownUpdates;
 
   function listURL() {
     const q = [];
@@ -21,9 +23,23 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
     return "/api/packages" + (q.length ? "?" + q.join("&") : "");
   }
 
+  function updatesURL() {
+    return workspaceId ? "/api/packages/updates?workspace=" + encodeURIComponent(workspaceId) : "/api/packages/updates";
+  }
+
+  async function pullUpdates() {
+    try {
+      const page = await api(updatesURL());
+      const next = page.updates || [];
+      setOwnUpdates(next);
+      if (onUpdates) onUpdates(next);
+    } catch { /* keep last */ }
+  }
+
   async function load() {
     try { setData(await api(listURL())); }
     catch { setData({ packages: [], capabilities: {}, gallery: "https://pi.dev/packages" }); }
+    await pullUpdates();
   }
 
   useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId]);
@@ -70,6 +86,33 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
       setSource("");
+      await pullUpdates();
+      setTimeout(() => setJob(null), 520);
+    } catch (err) {
+      setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
+    } finally {
+      clearInterval(tick);
+    }
+  }
+
+  function behindOf(p) {
+    return behind.find((u) => u.source === p.source && u.scope === p.scope);
+  }
+
+  async function updatePkg(pkg) {
+    if (!pkg || job || pkg.scope === "agent") return;
+    const sc = pkg.scope === "project" ? "project" : "user";
+    setJob({ action: "update", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
+    const tick = startJobTick(setJob, 2);
+    try {
+      const next = await api("/api/packages/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: pkg.source, scope: sc, workspaceId: workspaceId || undefined, agentId: agentId || undefined }),
+      });
+      setJob((j) => j && { ...j, step: 2, done: true });
+      setData(next);
+      await pullUpdates();
       setTimeout(() => setJob(null), 520);
     } catch (err) {
       setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
@@ -96,6 +139,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       const next = await api(url, { method: "DELETE" });
       setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
+      await pullUpdates();
       setTimeout(() => setJob(null), 520);
     } catch (err) {
       setJob((j) => j && { ...j, step: 0, error: humanizeError(err.message || String(err)) });
@@ -182,13 +226,19 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
         <section className="pkg-installed">
           <h3>Installed</h3>
           <ul className="pkg-chips">
-            {list.map((p) => (
+            {list.map((p) => {
+              const u = behindOf(p);
+              return (
               <li key={p.scope + ":" + p.source} className="pkg-chip">
                 <span className="pkg-scope-tag">{p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine"}</span>
                 <span className="pkg-src">{p.source}</span>
+                {u ? (
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
+                ) : null}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ) : null}
@@ -262,6 +312,12 @@ function startJobTick(setJob, stepCount) {
 }
 
 function jobSteps(job) {
+  if (job.action === "update") {
+    return [
+      { id: "run", label: "Update " + job.source },
+      { id: "list", label: "Reload installed packages" },
+    ];
+  }
   const bin = job.action === "remove" ? "remove" : "install";
   if (job.scope === "agent") {
     return [
@@ -281,7 +337,7 @@ function jobSteps(job) {
 
 function JobOverlay({ job, onClose }) {
   const steps = jobSteps(job);
-  const title = job.action === "remove" ? "Removing package" : "Installing package";
+  const title = job.action === "remove" ? "Removing package" : job.action === "update" ? "Updating package" : "Installing package";
   return (
     <div className="pkg-job" role="alertdialog" aria-modal="true" aria-labelledby="pkg-job-title">
       <div className="pkg-job-card">

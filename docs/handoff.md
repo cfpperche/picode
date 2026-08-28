@@ -39,15 +39,16 @@ What exists:
 - Track **D2** session chip shows `$0.05` when the session has spent money.
 - Track **D3** `@` lists files, other agents, and skills (`@agent:…` / `@skill:…`). Mentions only.
 - Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
+- Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 
 ## In flight
 
-Track D: D1–D4 shipped. D5 package updates next.
+Track D (D1–D5) shipped. Session-surface roadmap complete.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-1. **D5** package updates (badge + Update on `#/packages`). Plan: `docs/design/session-surface-roadmap.md`.
+No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-place (pi#8645).
 
 Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
@@ -72,9 +73,9 @@ Owner (not a coding track): Voice V1 dogfood, Chrome Windows mic.
 
 ## Recent activity
 
+- **2026-08-27** — Track D5 package updates (badge + Update). npm only. visual-review: PASS (pkg-update.png, pkg-update-menu.png, overlayAudit ok).
 - **2026-08-27** — Track D4 Prompts timeline (Now + continue in a new session). visual-review: PASS (prompts-tree.png, prompts-continue.png, overlayAudit ok).
 - **2026-08-27** — Track D3 `@` mentions (agent / skill / file). visual-review: PASS (at-mention.png, at-mention-empty.png, overlayAudit ok).
-- **2026-08-27** — D5 parked: package update check (TUI already banners; GUI Installed is mute). Badge + Update later.
 - **2026-08-27** — Track D2 cost on the session chip. visual-review: PASS (session-cost.png, overlayAudit ok).
 - **2026-08-27** — D1 loop: hash apply no longer depends on selectedId (tabs vs URL freeze). visual-review: PASS (agent-url-switch.png, overlayAudit ok).
 - **2026-08-27** — Track D1 `#/agent/<id>`. visual-review: PASS (agent-url.png, agent-url-gone.png, overlayAudit ok).
