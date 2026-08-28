@@ -5,6 +5,7 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
+import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 const FILE_MIN = 240;
 const FILE_MAX = 800;
@@ -19,6 +20,7 @@ export default function FilePane({ agentId, path, onClose }) {
     return Number.isFinite(n) ? Math.min(FILE_MAX, Math.max(FILE_MIN, n)) : 420;
   });
   const [resizing, setResizing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const hostRef = useRef(null);
   const cmRef = useRef(null);
   const mtimeRef = useRef(0);
@@ -148,17 +150,35 @@ export default function FilePane({ agentId, path, onClose }) {
     window.addEventListener("pointerup", up);
   }
 
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); setExpanded(false); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
   const title = view.name || view.path || path || "File";
   const canSave = view.kind === "text";
   return (
-    <section className={"file-pane" + (resizing ? " resizing" : "")} aria-label={title} style={{ width }}>
-      <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
+    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "")} aria-label={title} style={expanded ? undefined : { width }}>
+      {expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
       <header className="file-pane-bar">
         <span className="file-pane-name" title={view.path || path}>{title}</span>
         {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
         {canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
         ) : null}
+        <button
+          type="button"
+          className="file-pane-expand"
+          title={expanded ? "Collapse" : "Expand"}
+          aria-label={expanded ? "Collapse file pane" : "Expand file pane"}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? <IconCollapse /> : <IconExpand />}
+        </button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>
       </header>
       <div className="file-pane-body">

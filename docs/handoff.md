@@ -73,6 +73,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
+- **2026-08-28** — File pane header compact (24px) + Expand fills chat area. visual-review: PASS (file-header.png, file-expanded.png, overlayAudit ok).
 - **2026-08-28** — File pane left edge resizes (persists). visual-review: PASS (file-resize.png).
 - **2026-08-28** — File pane syntax colors follow GUI light/dark. visual-review: PASS (file-theme-light.png, file-theme-dark.png, overlayAudit ok).
 - **2026-08-28** — Track E4 turn file names. visual-review: PASS (turn-files.png, turn-files-open.png, overlayAudit ok).
