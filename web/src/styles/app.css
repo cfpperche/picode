@@ -924,9 +924,37 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-family: var(--code); font-size: 12.5px; line-height: 1.5;
   white-space: pre; tab-size: 2;
 }
-.file-cm { flex: 1; min-height: 0; overflow: hidden; }
+.file-cm { flex: 1; min-height: 0; overflow: hidden; background: var(--bg-base); }
 .file-cm .cm-editor { height: 100%; font-size: 12.5px; }
 .file-cm .cm-scroller { font-family: var(--code); }
+.file-cm .tok-comment,
+.file-cm .tok-meta { color: var(--text-secondary); font-style: italic; }
+.file-cm .tok-keyword,
+.file-cm .tok-modifier,
+.file-cm .tok-operatorKeyword { color: var(--accent); }
+.file-cm .tok-string,
+.file-cm .tok-string2 { color: var(--ok); }
+.file-cm .tok-number,
+.file-cm .tok-bool,
+.file-cm .tok-atom,
+.file-cm .tok-literal { color: var(--warn); }
+.file-cm .tok-variableName,
+.file-cm .tok-name { color: var(--text-primary); }
+.file-cm .tok-typeName,
+.file-cm .tok-className,
+.file-cm .tok-namespace { color: var(--accent); }
+.file-cm .tok-propertyName,
+.file-cm .tok-attributeName,
+.file-cm .tok-labelName { color: var(--warn); }
+.file-cm .tok-function,
+.file-cm .tok-macroName { color: var(--accent); }
+.file-cm .tok-operator,
+.file-cm .tok-punctuation,
+.file-cm .tok-separator { color: var(--text-secondary); }
+.file-cm .tok-tagName { color: var(--danger); }
+.file-cm .tok-invalid { color: var(--danger); }
+.file-cm .tok-regexp,
+.file-cm .tok-escape { color: var(--ok); }
 .file-dirty {
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
 }

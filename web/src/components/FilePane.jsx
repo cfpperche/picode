@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
+import { fileEditorExtensions } from "../lib/fileEditor.js";
 
 export default function FilePane({ agentId, path, onClose }) {
   const [view, setView] = useState({ kind: "load" });
@@ -42,28 +41,14 @@ export default function FilePane({ agentId, path, onClose }) {
     if (view.kind !== "text" || !hostRef.current) return;
     const lang = languageFor(view.path || path);
     const dark = document.documentElement.dataset.theme !== "light";
-    const onChange = EditorView.updateListener.of((u) => {
-      if (!u.docChanged) return;
-      dirtyRef.current = true;
-      setDirty(true);
-    });
-    const saveKey = keymap.of([{
-      key: "Mod-s",
-      run: () => { saveRef.current(); return true; },
-    }]);
     const state = EditorState.create({
       doc: view.text,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        history(),
-        saveKey,
-        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-        onChange,
-        EditorView.lineWrapping,
-        ...(lang ? [lang] : []),
-        ...(dark ? [oneDark] : []),
-      ],
+      extensions: fileEditorExtensions({
+        lang,
+        dark,
+        onDoc: () => { dirtyRef.current = true; setDirty(true); },
+        onSave: () => { saveRef.current(); },
+      }),
     });
     const cm = new EditorView({ state, parent: hostRef.current });
     cmRef.current = cm;
