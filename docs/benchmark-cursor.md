@@ -20,7 +20,7 @@ taken from Cursor:
 
 > "Does this make agent *control* better — or does it make us a worse Cursor?"
 
-If the latter, reject it. We are not building a code editor.
+If the latter, reject it. We are not building an IDE. A file in the agent cwd (ADR-0015) is agent control; LSP is not.
 
 ## Product patterns we adopt
 
@@ -28,7 +28,7 @@ If the latter, reject it. We are not building a code editor.
 |---|---|---|---|
 | 1 | Agent activity feed | Collapsible rows per tool call (`read`/`edit`/`bash`) with status, duration, expandable output — never walls of text | M2 |
 | 2 | Checkpoints | Pi's session tree (branching via `id`/`parentId`) surfaced as checkpoints: every turn is a restore point; scrub and branch from any point | M2 (view), M3 (branch) |
-| 3 | Diff review | Inline diffs for agent edits with per-hunk accept/reject; cross-agent change view | M2 |
+| 3 | Diff review | Inline diffs for agent edits with per-hunk Keep/Undo; file pane in the cwd (ADR-0015). Cross-agent view later | Track E |
 | 4 | Per-chat model picker | Provider/model/thinking selector per agent, reachable in ≤2 clicks from any agent view | M2–M3 |
 | 5 | Background agents | Agents as first-class **cards with status** (running / idle / blocked / waiting-input), not chat tabs | M1 (cards) → M4 (fleet) |
 | 6 | @-mentions | Prompt composer: `@file`, `@agent`, `@session`, `@skill` to inject context into the prompt | M3 |
@@ -78,9 +78,9 @@ Motion
 
 ## What we deliberately reject
 
-- **Building an editor.** No file tree, no code tabs, no LSP. The agent's
-  workspace lives in Pi and the terminal; diffs exist for *review*, not
-  authoring.
+- **Building an IDE.** No LSP, no explorer as home, no replacing the Pi TUI.
+  Files in the agent cwd do open in the browser (ADR-0015, Track E). Diffs
+  Keep / Undo write those same files. Worktrees are later.
 - **Hiding the harness.** Cursor abstracts the agent away; PiCode exposes
   it — the real Pi TUI stays one tab away. Every Cursor-inspired
   convenience keeps its terminal escape hatch (philosophy: door, not cage).

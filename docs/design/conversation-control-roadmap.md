@@ -124,10 +124,11 @@ Recorded so the next plan does not rediscover them. **Do not start here.**
 | Cost / tokens in the session chip | Cursor #8; M4 |
 | Reload-safe `#/agent/<id>` | **Track D1** — `docs/design/session-surface-roadmap.md` |
 | `@agent` / `@skill` (`@file` already ships) | Cursor #6 remainder. Same as `@file`: tag context into **this** prompt. Not agents talking to each other. |
-| Diff per-hunk accept/reject | we review, we do not author; still not an editor |
+| Diff per-hunk Keep/Undo + file pane | **Track E** — `docs/design/diff-editor-roadmap.md` (ADR-0015) |
 | Task graph / multi-agent broker UI | paseo; M4. **This** is agents talking to each other. Separate from `@agent`. |
 | ACP / extra SDKs | conflicts with ADR-0003 unless pi speaks ACP |
-| IDE chrome (explorer, tabs, LSP) | refused |
+| IDE chrome (LSP, explorer-as-home) | still refused. A cwd file editor is Track E, not this. |
+| Worktrees / parallel isolated agents | later (Orca + Herdr `worktree.*`) |
 
 Handoff **Backlog** is unchanged: llama.cpp installer/router, mobile
 parity, `/tree` `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)).

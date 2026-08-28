@@ -9,13 +9,14 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 | [architecture.md](architecture.md) | Components, protocols, security model |
 | [philosophy.md](philosophy.md) | Moat, values, the "door not cage" principle |
 | [benchmarks.md](benchmarks.md) | Engineering + UI/UX *bars* (enforced by skills) |
-| [benchmarks/](benchmarks/) | **Who we study**: Cursor, t3code, paseo — dated notes |
+| [benchmarks/](benchmarks/) | **Who we study**: Cursor, t3code, paseo, Herdr — dated notes |
 | [benchmark-cursor.md](benchmark-cursor.md) | Cursor product patterns + aesthetic/density north star |
 | [handoff.md](handoff.md) | **Project state right now** — start here |
 | [design/composer-mcp-roadmap.md](design/composer-mcp-roadmap.md) | `@` / images / `!` then MCP; auth parked |
 | [design/voice-mode.md](design/voice-mode.md) | Dictation + voice composer: V1 shipped, V1.1–V3 phases |
 | [design/slash-parity.md](design/slash-parity.md) | TUI `/` vs PiCode composer — 12/24 UI, rest planned |
 | [design/pi-settings.md](design/pi-settings.md) | Plan: `#/settings` = pi GUI; `#/preferences` = PiCode |
+| [design/diff-editor-roadmap.md](design/diff-editor-roadmap.md) | Track E: open file, Save, hunk Keep/Undo (ADR-0015) |
 | [decisions/](decisions/) | ADRs — architectural decision records (0011: workspaces vs agents) |
 | [handoff-archive.md](handoff-archive.md) | Archived handoff activity (created when needed) |
 

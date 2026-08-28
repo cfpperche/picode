@@ -19,7 +19,7 @@ t3code thread routes · Cursor @-mentions and checkpoints.
 | 4 | **D4 — rewind / checkpoints** | **shipped** (new session from a prompt; in-place leaf still pi#8645) |
 | 5 | **D5 — package updates** | **shipped** |
 
-Do not start llama installer, mobile parity, hunk accept, broker, ACP, IDE chrome, or D5 while D2–D4 are open.
+Do not start llama installer, mobile parity, worktrees, broker, ACP, or IDE chrome (LSP) while Track E is open. D1–D5 shipped.
 
 ## Refuse
 

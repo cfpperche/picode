@@ -40,21 +40,23 @@ What exists:
 - Track **D3** `@` lists files, other agents, and skills (`@agent:…` / `@skill:…`). Mentions only.
 - Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
+- **ADR-0015** + Track **E** plan: file pane in the agent cwd, then hunk Keep/Undo. Not an IDE. Worktrees later.
 
 ## In flight
 
-Track D (D1–D5) shipped. Session-surface roadmap complete.
+Track D shipped. Track E planned (not started): `docs/design/diff-editor-roadmap.md`.
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-place (pi#8645).
+1. **E1** open the file from a diff (read pane). Plan: `docs/design/diff-editor-roadmap.md`.
 
 ## Backlog
 
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
 - Mobile parity (shell exists; not feature-complete).
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
+- Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
 
 ## Known debts / open questions
 
@@ -71,6 +73,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
+- **2026-08-27** — ADR-0015 + Track E plan (file pane, Save, hunk Keep/Undo). Herdr study: runtime peer, not the editor bar.
 - **2026-08-27** — Voice V1 owner dogfood: Chrome Windows mic works. No V1.1 unless a quality gap shows up.
 - **2026-08-27** — Track D5 package updates (badge + Update). npm only. visual-review: PASS (pkg-update.png, pkg-update-menu.png, overlayAudit ok).
 - **2026-08-27** — Track D4 Prompts timeline (Now + continue in a new session). visual-review: PASS (prompts-tree.png, prompts-continue.png, overlayAudit ok).
