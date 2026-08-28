@@ -6,10 +6,19 @@ import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
 
+const FILE_MIN = 240;
+const FILE_MAX = 800;
+const FILE_KEY = "picode-file-w";
+
 export default function FilePane({ agentId, path, onClose }) {
   const [view, setView] = useState({ kind: "load" });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [width, setWidth] = useState(() => {
+    const n = parseInt(localStorage.getItem(FILE_KEY) || "", 10);
+    return Number.isFinite(n) ? Math.min(FILE_MAX, Math.max(FILE_MIN, n)) : 420;
+  });
+  const [resizing, setResizing] = useState(false);
   const hostRef = useRef(null);
   const cmRef = useRef(null);
   const mtimeRef = useRef(0);
@@ -119,10 +128,31 @@ export default function FilePane({ agentId, path, onClose }) {
     onClose();
   }
 
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    let latest = startW;
+    setResizing(true);
+    const move = (ev) => {
+      latest = Math.min(FILE_MAX, Math.max(FILE_MIN, Math.round(startW - (ev.clientX - startX))));
+      setWidth(latest);
+    };
+    const up = () => {
+      setResizing(false);
+      try { localStorage.setItem(FILE_KEY, String(latest)); } catch { /* ignore */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   const title = view.name || view.path || path || "File";
   const canSave = view.kind === "text";
   return (
-    <section className="file-pane" aria-label={title}>
+    <section className={"file-pane" + (resizing ? " resizing" : "")} aria-label={title} style={{ width }}>
+      <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
       <header className="file-pane-bar">
         <span className="file-pane-name" title={view.path || path}>{title}</span>
         {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
