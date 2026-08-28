@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -39,6 +40,7 @@ func registerAgentFileRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/browse", handleAgentBrowse(deps))
 	mux.HandleFunc("GET /api/agents/{id}/file", handleAgentFile(deps))
 	mux.HandleFunc("GET /api/agents/{id}/text", handleAgentText(deps))
+	mux.HandleFunc("PUT /api/agents/{id}/text", handlePutAgentText(deps))
 }
 
 func handleAgentFiles(deps Deps) http.HandlerFunc {
@@ -123,6 +125,36 @@ func handleAgentText(deps Deps) http.HandlerFunc {
 	}
 }
 
+type agentTextPut struct {
+	Path  string `json:"path"`
+	Text  string `json:"text"`
+	Mtime int64  `json:"mtime"`
+}
+
+func handlePutAgentText(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		var req agentTextPut
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Path == "" {
+			req.Path = r.URL.Query().Get("path")
+		}
+		out, code, err := writeAgentText(cwd, req.Path, req.Text, req.Mtime)
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
 func relUnderCwd(cwd, rel string) (abs, outRel string, err error) {
 	cwdAbs, err := filepath.Abs(cwd)
 	if err != nil {
@@ -197,7 +229,44 @@ func readAgentText(cwd, rel string) (map[string]any, int, error) {
 		"name":  filepath.Base(outRel),
 		"text":  string(b),
 		"bytes": len(b),
+		"mtime": st.ModTime().UnixMilli(),
 	}, http.StatusOK, nil
+}
+
+func writeAgentText(cwd, rel, text string, mtime int64) (map[string]any, int, error) {
+	if strings.TrimSpace(rel) == "" {
+		return nil, http.StatusBadRequest, fmt.Errorf("path is required")
+	}
+	if mtime == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("mtime is required")
+	}
+	if len(text) > maxAgentText {
+		return nil, http.StatusRequestEntityTooLarge, fmt.Errorf("this file is too large")
+	}
+	if strings.ContainsRune(text, 0) {
+		return nil, http.StatusBadRequest, fmt.Errorf("can't write this file")
+	}
+	abs, outRel, err := relUnderCwd(cwd, rel)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, http.StatusNotFound, fmt.Errorf("that file is gone")
+		}
+		return nil, http.StatusBadRequest, err
+	}
+	if st.IsDir() {
+		return nil, http.StatusBadRequest, fmt.Errorf("that's a folder")
+	}
+	if st.ModTime().UnixMilli() != mtime {
+		return nil, http.StatusConflict, fmt.Errorf("file changed on disk")
+	}
+	if err := os.WriteFile(abs, []byte(text), st.Mode().Perm()); err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	return readAgentText(cwd, outRel)
 }
 
 type browseHit struct {

@@ -918,11 +918,17 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--mono); font-size: 12.5px;
 }
-.file-pane-body { flex: 1; min-height: 0; overflow: auto; }
+.file-pane-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .file-pre {
   margin: 0; padding: 10px 12px;
   font-family: var(--code); font-size: 12.5px; line-height: 1.5;
   white-space: pre; tab-size: 2;
+}
+.file-cm { flex: 1; min-height: 0; overflow: hidden; }
+.file-cm .cm-editor { height: 100%; font-size: 12.5px; }
+.file-cm .cm-scroller { font-family: var(--code); }
+.file-dirty {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
 }
 .file-pane-msg { margin: 0; padding: 12px; color: var(--text-secondary); font-size: 13px; }
 .file-skel { padding: 12px; display: flex; flex-direction: column; gap: 8px; }

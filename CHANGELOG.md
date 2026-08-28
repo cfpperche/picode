@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Click the file name on an edit in the chat to open it beside the conversation. Close hides the pane. Binary or huge files say so in one line.
+- Click the file name on an edit in the chat to open it beside the conversation. You can edit and **Save** (Ctrl/Cmd+S). If the file changed on disk, Open again instead of overwriting. Binary or huge files say so in one line.
 - Packages that are behind show **Update**. The user menu marks Packages when any are. Nothing updates until you click.
 - `/tree` is **Prompts**. The current one says Now. Pick another to continue from there (new session; this one stays).
 - `@` in the composer also lists other agents and skills (as `@agent:…` / `@skill:…`). Files still work. This is a mention, not a message to that agent.

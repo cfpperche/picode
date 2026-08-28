@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSearchAgentFilesTable(t *testing.T) {
@@ -206,8 +208,73 @@ func TestAgentTextHTTP(t *testing.T) {
 	if body["text"] != "pkg main\n" || body["path"] != "main.go" {
 		t.Fatalf("%+v", body)
 	}
+	if _, ok := body["mtime"].(float64); !ok || body["mtime"].(float64) == 0 {
+		t.Fatalf("mtime %+v", body["mtime"])
+	}
 	miss := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=nope.go"))
 	if miss.StatusCode != http.StatusNotFound {
 		t.Fatalf("gone = %d", miss.StatusCode)
+	}
+}
+
+func TestWriteAgentText(t *testing.T) {
+	root := t.TempDir()
+	p := filepath.Join(root, "a.txt")
+	if err := os.WriteFile(p, []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, code, err := readAgentText(root, "a.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mt := out["mtime"].(int64)
+	got, code, err := writeAgentText(root, "a.txt", "two\n", mt)
+	if err != nil || code != http.StatusOK || got["text"] != "two\n" {
+		t.Fatalf("write %d %v %+v", code, err, got)
+	}
+	past := time.Now().Add(-2 * time.Second)
+	if err := os.Chtimes(p, past, past); err != nil {
+		t.Fatal(err)
+	}
+	_, code, err = writeAgentText(root, "a.txt", "three\n", got["mtime"].(int64))
+	if code != http.StatusConflict || err == nil {
+		t.Fatalf("stale %d %v", code, err)
+	}
+	_, code, err = writeAgentText(root, "a.txt", "x", 0)
+	if code != http.StatusBadRequest || err == nil {
+		t.Fatalf("mtime %d %v", code, err)
+	}
+	_, code, err = writeAgentText(root, "gone.txt", "x", 1)
+	if code != http.StatusNotFound || err == nil {
+		t.Fatalf("gone %d %v", code, err)
+	}
+}
+
+func TestAgentTextPutHTTP(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	proj := t.TempDir()
+	if err := os.WriteFile(filepath.Join(proj, "a.txt"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	var wk workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
+		t.Fatal(err)
+	}
+	id := wk.Agent.ID
+	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=a.txt"))
+	var page map[string]any
+	_ = json.NewDecoder(got.Body).Decode(&page)
+	mt := int64(page["mtime"].(float64))
+	put, _ := json.Marshal(map[string]any{"path": "a.txt", "text": "two\n", "mtime": mt})
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/agents/"+id+"/text", bytes.NewReader(put))
+	req.Header.Set("Content-Type", "application/json")
+	resp := do(t, ts.Client(), req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("put = %d", resp.StatusCode)
+	}
+	b, _ := os.ReadFile(filepath.Join(proj, "a.txt"))
+	if string(b) != "two\n" {
+		t.Fatalf("disk %q", b)
 	}
 }

@@ -15,7 +15,7 @@ them in this track.
 | Order | Track | Start when |
 |---|---|---|
 | 1 | **E1 — open the file** | **shipped** |
-| 2 | **E2 — edit and Save** | after E1 |
+| 2 | **E2 — edit and Save** | **shipped** |
 | 3 | **E3 — hunk Keep / Undo** | after E2 (needs the write path) |
 | 4 | **E4 — this turn's files** | after E3 |
 
@@ -68,8 +68,9 @@ Same pane becomes CodeMirror 6. **Save** writes the cwd file (`PUT`).
 Dirty state on the pane. Conflict if mtime changed since open: confirm
 or **Open** again.
 
-Keyboard: Save is a real control (and a shortcut). No format-on-save
-as a hidden IDE.
+E2 **shipped** (2026-08-28). CodeMirror 6. **Save** and Ctrl/Cmd+S. Dirty
+dot on the name. Stale disk → confirm **Open**. Close with dirty → Discard.
+No format-on-save.
 
 | # | dirty | mtime | action |
 |---|---|---|---|
