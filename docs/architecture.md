@@ -28,6 +28,22 @@ work (`wsl.conf`, linger) and user work (unit, cert) are separate scopes, so
 the two can be applied by different runs. On WSL that caller is PiCode
 Desktop, the Windows tray binary that owns the logon task.
 
+`picode-desktop` (`cmd/picode-desktop`, `internal/desktop`) is that binary: a
+single `.exe` cross-compiled from WSL with `CGO_ENABLED=0` (`make desktop`).
+`doctor` reports, `install` applies and registers the logon task, and the
+default mode sits in the notification area. It drives the distro through
+**two** `picode provision --json` calls — `-u root` for `wsl.conf` and
+lingering, then `-u <owner>` for the unit, certificate and data dir, because
+installing those as root would put PiCode in `/root`. The merged view keeps
+whichever pass resolved each step. Windows-side it owns only what cannot live
+in the distro: trusting the mkcert CA (already elevated at install, so no UAC
+dance), the `onlogon` scheduled task (`/rl limited` — an elevated tray cannot
+reach Explorer's notification area), and a `sleep infinity` child that stops
+WSL's idle timeout from reclaiming the VM. It learns the address from
+`server.json` once, then polls `/api/health` over HTTP rather than spawning
+`wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
+output is decoded by inspecting the bytes.
+
 ## Application routes
 
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),

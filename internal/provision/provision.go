@@ -161,6 +161,41 @@ func Run(env Env, steps []Step, dryRun bool) []Result {
 	return out
 }
 
+// Report is exactly what `picode provision --json` prints. It is the typed
+// contract between the two halves of ADR-0020: PiCode Desktop parses this
+// rather than scraping the human output.
+type Report struct {
+	User      string   `json:"user"`
+	WSL       bool     `json:"wsl"`
+	Root      bool     `json:"root"`
+	DryRun    bool     `json:"dryRun"`
+	Converged bool     `json:"converged"`
+	Steps     []Result `json:"steps"`
+}
+
+// NewReport packages one run.
+func NewReport(env Env, results []Result, dryRun bool) Report {
+	return Report{
+		User:      env.User,
+		WSL:       env.InWSL,
+		Root:      env.IsRoot,
+		DryRun:    dryRun,
+		Converged: Converged(results),
+		Steps:     results,
+	}
+}
+
+// Pending lists the steps that still need attention.
+func (r Report) Pending() []Result {
+	var out []Result
+	for _, s := range r.Steps {
+		if s.Action != ActionNone && s.Action != ActionFixed {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // Converged reports whether nothing is left to do.
 func Converged(results []Result) bool {
 	for _, r := range results {

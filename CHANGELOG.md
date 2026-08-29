@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **PiCode Desktop** (`picode-desktop.exe`): a Windows tray app that starts WSL at logon, sets the distro up, and keeps PiCode reachable in the browser. `doctor` reports what it would change without touching anything; `install` applies it and registers the logon task. The tray shows whether PiCode is up and offers Open, Restart and View logs. It holds WSL open so the idle timeout does not shut PiCode down mid-session, and trusts the certificate so the browser stops warning. One binary, no installer, no runtime.
 - Sidebar Terminals stay A–Z by name (opening a tab no longer shuffles the list).
 - Switching terminal tabs keeps the other pane (no blank until you click an agent first).
 - Ctrl+click in a terminal uses the shell's current folder (`cd` then a relative path opens the right file).

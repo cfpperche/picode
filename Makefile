@@ -27,6 +27,10 @@ deploy: build ## Rebuild UI+binary and restart the installed service
 build: web ## Build UI + bin/picode
 	go build -o bin/picode ./cmd/picode
 
+desktop: ## Cross-compile the Windows tray binary (ADR-0020) — no C compiler needed
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+		go build -ldflags "-H=windowsgui -s -w" -o bin/picode-desktop.exe ./cmd/picode-desktop
+
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 
 test: ## Run all Go tests

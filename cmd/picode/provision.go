@@ -31,14 +31,7 @@ func runProvision(args []string) {
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(map[string]any{
-			"user":      env.User,
-			"wsl":       env.InWSL,
-			"root":      env.IsRoot,
-			"dryRun":    *dryRun,
-			"converged": provision.Converged(results),
-			"steps":     results,
-		}); err != nil {
+		if err := enc.Encode(provision.NewReport(env, results, *dryRun)); err != nil {
 			log.Fatalf("provision: %v", err)
 		}
 	} else {
