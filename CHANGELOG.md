@@ -17,6 +17,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - Switching terminal tabs keeps the other pane (no blank until you click an agent first).
 - Ctrl+click in a terminal uses the shell's current folder (`cd` then a relative path opens the right file).
 - Chat file cards open under the turn's file names (one card per click), not over the composer.
+- `picode provision` sets a machine up in one command: systemd in `/etc/wsl.conf`, lingering so PiCode starts without a login, the TLS certificate, the systemd user unit, and a health check to prove it came up. `--dry-run` shows the plan without touching anything, `--json` prints it for a caller. It never rewrites what is already correct: a `wsl.conf` that already enables systemd is left byte for byte identical, and `~/.picode` is never written.
 - Terminal: Shift+drag selects, Ctrl+C copies if selected (else interrupt), Ctrl+V pastes. tmux mouse still handles click/scroll without Shift.
 - Sidebar Terminals list is flush like Pins (no tree indent).
 - Click a path in chat opens a closable card in the thread. **Open in tab** is the same file tab as the terminal. The old split pane is gone.

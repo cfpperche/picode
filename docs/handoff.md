@@ -42,7 +42,7 @@ What exists:
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 - **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
 - **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
-- **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **Decision only — no code yet.**
+- **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **M2 shipped** (`picode provision`, 6 steps, `--dry-run` / `--json`); M3 (the `.exe`) not started.
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 
 ## In flight
@@ -51,7 +51,7 @@ Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 
 ## Next up
 
-Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf line-merge, linger, `install.Install()`, cert, `/api/health` verify. The gating test is that a `/etc/wsl.conf` already carrying `systemd=true` comes back byte-identical.
+Desktop **M3** (ADR-0020): `cmd/picode-desktop` — tray, logon task, keepalive child, and the two `wsl.exe` calls that drive `picode provision` (root scope, then user scope). The distro is `Ubuntu` (single, default, WSL 2 — `wsl -l -v` via interop; `WSL_DISTRO_NAME` is empty in this shell, so read it from `wsl.exe`, whose output is UTF-16LE).
 
 ## Backlog
 
@@ -59,7 +59,7 @@ Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf 
 - Mobile parity (shell exists; not feature-complete).
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
-- Desktop **M3** `cmd/picode-desktop` (tray, logon task, keepalive), **M4** clean-machine path (`wsl --install` + resume after reboot), **M5** release (`go-winres` icon, `.exe` asset, auto-update). ADR-0020.
+- Desktop **M4** clean-machine path (`wsl --install` + resume after reboot), **M5** release (`go-winres` icon, `.exe` asset, auto-update). ADR-0020.
 
 ## Known debts / open questions
 
@@ -74,12 +74,12 @@ Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf 
 - tmux-gated tests skip on windows/macos CI (accepted).
 - Mobile shell has no waiting card (C1 is desktop).
 - Terminal **ligatures** not offered: `@xterm/addon-ligatures` needs Node `font-finder`; browser xterm is canvas-only.
-- ADR-0020 M3 needs the owner's exact WSL distro name — `WSL_DISTRO_NAME` is empty in the inspected shell, so `wsl -l -v` has to answer it. M4 detects it; M3 does not.
-- ADR-0020 makes `scripts/setup-cert.sh` a debt: release users have no repo, so it must be ported into `picode provision` (Go) to stop being repo-only.
+- `picode provision`'s cert step issues for loopback + local IPv4 (`tlsutil.LocalNames`) and falls back to self-signed without mkcert. It does **not** yet cover what `scripts/setup-cert.sh` still owns: installing mkcert, `mkcert -install` into the Linux trust store, and the Windows CA import (that one moves to `picode-desktop.exe`, which is already elevated).
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
 
+- **2026-08-29** — Desktop **M2**: `picode provision` (ADR-0020) converges six steps — wsl.conf, systemd, linger, cert, unit, health — with `--dry-run` and `--json`, and root vs user scopes so the Windows side can drive it in two calls. `EnsureKey` merges `/etc/wsl.conf` by line: the owner's real file (comment, key order, `generateResolvConf = false` spacing) is a test fixture asserted byte-identical, and the fix writes no backup when nothing changed. Writing the `Run` decision table caught a real bug: blocked steps were reported as "planned" in a dry run, promising a fix no run could deliver. Extracted `tlsutil.LocalNames` so the self-signed and mkcert paths issue for the same hosts. Dry run on the owner's machine: 4 ok, 2 to fix (linger, unit) — matching the plan, with `/etc/wsl.conf` verified unchanged (same md5, no `.picode.bak`).
 - **2026-08-29** — Track 3 live cwd: Ctrl+click asks tmux `#{pane_current_path}`. File-preview roadmap closed. Tests: PaneCwd + GET `/api/terminals/{id}/cwd` after `cd`.
 - **2026-08-29** — Chat file cards sit under the turn file names (one per click). visual-review: PASS (file-chat-cards-inline.png).
 - **2026-08-29** — Terminal: Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. visual-review: PASS (pref-term-copy.png).

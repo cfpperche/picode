@@ -52,6 +52,9 @@ func main() {
 		case "install":
 			runInstall()
 			return
+		case "provision":
+			runProvision(os.Args[2:])
+			return
 		case "update":
 			runUpdate()
 			return
@@ -75,6 +78,10 @@ func usage() {
 Usage:
   picode [flags]              start the server
   picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
+  picode provision [flags]    converge this machine on what PiCode needs (ADR-0020)
+    --dry-run       report what would change, touch nothing
+    --json          emit results as JSON
+    --user string   provision for this account (default: the current user)
   picode update               check GitHub for a newer release (and install it if there is one)
   picode deploy               replace the installed binary with this one and restart (repo)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode

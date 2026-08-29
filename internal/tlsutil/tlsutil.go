@@ -38,21 +38,15 @@ func Ensure(dataDir string) (tls.Certificate, error) {
 	return generate(certPath, keyPath)
 }
 
-func generate(certPath, keyPath string) (tls.Certificate, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(time.Now().UnixNano()),
-		Subject:      pkix.Name{CommonName: "picode"},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	}
-	tmpl.IPAddresses = append(tmpl.IPAddresses, net.ParseIP("127.0.0.1"), net.ParseIP("::1"))
-	tmpl.DNSNames = []string{"localhost", "picode.local"}
+// LocalNames is the set of names this machine can be reached by on a personal
+// network: loopback plus every routable local IPv4 (the tailnet address
+// included). Link-local addresses are skipped — they are not user-facing
+// routes. Both the self-signed pair and the mkcert one are issued for these,
+// so a certificate covers the same hosts however it was made.
+func LocalNames() ([]string, []net.IP) {
+	dns := []string{"localhost", "picode.local"}
+	ips := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+
 	seen := map[string]bool{}
 	ifaces, _ := net.Interfaces()
 	for _, ifc := range ifaces {
@@ -68,14 +62,30 @@ func generate(certPath, keyPath string) (tls.Certificate, error) {
 			if ip == nil || ip.To4() == nil || seen[ip.String()] {
 				continue
 			}
-			// Skip link-local and docker bridges — not user-facing routes.
 			if ip.IsLinkLocalUnicast() {
 				continue
 			}
 			seen[ip.String()] = true
-			tmpl.IPAddresses = append(tmpl.IPAddresses, ip)
+			ips = append(ips, ip)
 		}
 	}
+	return dns, ips
+}
+
+func generate(certPath, keyPath string) (tls.Certificate, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject:      pkix.Name{CommonName: "picode"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().AddDate(10, 0, 0),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	tmpl.DNSNames, tmpl.IPAddresses = LocalNames()
 
 	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
 	if err != nil {

@@ -15,7 +15,18 @@ extension, so agents talk to each other using Pi's own tool-calling protocol.
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). `picode deploy` / `make deploy` copies a
 repo build and restarts that unit. `picode update` checks GitHub for a newer
-release. No Windows logon task.
+release.
+
+`picode provision` (ADR-0020) converges a machine on all of that at once:
+`[boot] systemd=true` in `/etc/wsl.conf`, lingering so the unit starts
+without a login, a valid certificate, the unit itself, and `/api/health` as
+proof. Every step is check → fix → verify, and a step that finds nothing to
+do changes nothing at all — `/etc/wsl.conf` is merged line by line after a
+backup, so a file that already satisfies the check comes back byte for byte
+identical. `--dry-run` reports the plan; `--json` feeds it to a caller. Root
+work (`wsl.conf`, linger) and user work (unit, cert) are separate scopes, so
+the two can be applied by different runs. On WSL that caller is PiCode
+Desktop, the Windows tray binary that owns the logon task.
 
 ## Application routes
 
