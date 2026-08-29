@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
+import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wsURL } from "../lib/api.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 
@@ -23,7 +24,7 @@ export default function TerminalDock({
         hostRef.current.appendChild(entry.paneEl);
       }
       entry.paneEl.classList.add("active");
-      requestAnimationFrame(() => entry.fit && entry.fit.fit());
+      scheduleTermFit(entry);
       return;
     }
     const paneEl = document.createElement("div");
@@ -35,10 +36,11 @@ export default function TerminalDock({
     term.loadAddon(fit);
     term.open(paneEl);
 
-    const entry = { term, fit, paneEl, sock: null, onWinResize: null, closedByUser: false };
+    const entry = { term, fit, paneEl, sock: null, closedByUser: false };
     wireTermWheel(term, (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    });
+    }, paneEl);
+    wireTermFit(entry);
     const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
@@ -46,15 +48,7 @@ export default function TerminalDock({
     sock.onopen = () => {
       term.reset();
       setDot(true);
-      const sendResize = () => {
-        sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-        const dims = document.getElementById("sb-dims");
-        if (dims) dims.textContent = `${term.cols}×${term.rows}`;
-      };
-      fit.fit();
-      sendResize();
-      entry.onWinResize = () => { if (paneEl.classList.contains("active")) { fit.fit(); sendResize(); } };
-      window.addEventListener("resize", entry.onWinResize);
+      scheduleTermFit(entry);
       term.onData((data) => {
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
       });
@@ -78,7 +72,7 @@ export default function TerminalDock({
       term.write(new Uint8Array(ev.data));
     };
     sock.onclose = () => {
-      if (entry.onWinResize) window.removeEventListener("resize", entry.onWinResize);
+      if (entry.unwireFit) entry.unwireFit();
       setDot(false);
       if (!entry.closedByUser) term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
     };
@@ -91,7 +85,7 @@ export default function TerminalDock({
   useEffect(() => {
     if (!open || !agent) return;
     const entry = terms.get(agent.id);
-    if (entry && entry.fit) requestAnimationFrame(() => entry.fit.fit());
+    scheduleTermFit(entry);
   }, [open, agent]);
 
   useEffect(() => {
@@ -101,7 +95,7 @@ export default function TerminalDock({
       const entry = terms.get(id);
       if (!entry || !entry.term) return;
       applyXtermOptions(entry.term);
-      requestAnimationFrame(() => entry.fit && entry.fit.fit());
+      scheduleTermFit(entry);
     }
     window.addEventListener("picode-term-theme", apply);
     return () => window.removeEventListener("picode-term-theme", apply);

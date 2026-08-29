@@ -1,33 +1,55 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { altScreenWheelBytes } from "./termWheel.js";
+import { applyTermWheel, pageBytesFor, wheelLineCount } from "./termWheel.js";
 
-function term(type, mouse) {
+function fakeTerm(viewportY, maxY) {
+  const cap = maxY == null ? 1000 : maxY;
+  const buf = { viewportY };
   return {
-    buffer: { active: { type } },
-    modes: { mouseTrackingMode: mouse },
+    buffer: { active: buf },
+    scrollLines(n) {
+      buf.viewportY = Math.max(0, Math.min(cap, buf.viewportY + n));
+    },
   };
 }
 
-test("normal buffer: xterm keeps the wheel", () => {
-  assert.equal(altScreenWheelBytes(term("normal", "none"), { deltaY: 120 }), null);
+test("wheelLineCount: pixels become lines, up is negative", () => {
+  assert.equal(wheelLineCount({ deltaY: -120 }), -3);
+  assert.equal(wheelLineCount({ deltaY: 40 }), 1);
+  assert.equal(wheelLineCount({ deltaY: 0 }), 0);
+  assert.equal(wheelLineCount({ deltaY: -2, deltaMode: 1 }), -2);
 });
 
-test("shift+wheel: xterm keeps the wheel", () => {
-  assert.equal(altScreenWheelBytes(term("alternate", "none"), { deltaY: 120, shiftKey: true }), null);
+test("xterm scrollback: wheel moves viewport, no PageUp", () => {
+  const sent = [];
+  const t = fakeTerm(20);
+  assert.equal(applyTermWheel(t, { deltaY: -120 }, (b) => sent.push(b)), "xterm");
+  assert.equal(t.buffer.active.viewportY, 17);
+  assert.equal(sent.length, 0);
 });
 
-test("alt-screen: PageUp / PageDown after threshold (mouse on or off)", () => {
-  const t = term("alternate", "none");
-  assert.equal(altScreenWheelBytes(t, { deltaY: 20 }).length, 0);
-  const down = altScreenWheelBytes(t, { deltaY: 120 });
-  assert.deepEqual(down, new TextEncoder().encode("\x1b[6~"));
-  const t2 = term("alternate", "vt200");
-  const up = altScreenWheelBytes(t2, { deltaY: -120 });
-  assert.deepEqual(up, new TextEncoder().encode("\x1b[5~"));
+test("no scrollback: PageUp / PageDown after threshold", () => {
+  const sent = [];
+  const t = fakeTerm(0, 0);
+  assert.equal(applyTermWheel(t, { deltaY: -20 }, (b) => sent.push(b)), "hold");
+  assert.equal(sent.length, 0);
+  assert.equal(applyTermWheel(t, { deltaY: -120 }, (b) => sent.push(b)), "page");
+  assert.deepEqual(sent[0], new TextEncoder().encode("\x1b[5~"));
+  const t2 = fakeTerm(0, 0);
+  applyTermWheel(t2, { deltaY: 120 }, (b) => sent.push(b));
+  assert.deepEqual(sent[1], new TextEncoder().encode("\x1b[6~"));
 });
 
-test("missing term or event is a no-op", () => {
-  assert.equal(altScreenWheelBytes(null, { deltaY: 120 }), null);
-  assert.equal(altScreenWheelBytes(term("alternate", "none"), null), null);
+test("shift+wheel and empty event are skipped", () => {
+  const t = fakeTerm(8);
+  assert.equal(applyTermWheel(t, { deltaY: -120, shiftKey: true }), "skip");
+  assert.equal(t.buffer.active.viewportY, 8);
+  assert.equal(applyTermWheel(t, null), "skip");
+  assert.equal(applyTermWheel(null, { deltaY: -120 }), "skip");
+});
+
+test("pageBytesFor accumulates small deltas", () => {
+  const t = {};
+  assert.equal(pageBytesFor(t, -10).length, 0);
+  assert.deepEqual(pageBytesFor(t, -40), new TextEncoder().encode("\x1b[5~"));
 });

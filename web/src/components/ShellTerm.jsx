@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
+import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
@@ -28,10 +29,8 @@ export default function ShellTerm({ agentId, session, active }) {
       if (live) {
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
         entry.paneEl.classList.add("active");
-        requestAnimationFrame(() => {
-          if (entry.fit) entry.fit.fit();
-          if (active && entry.term) entry.term.focus();
-        });
+        scheduleTermFit(entry);
+        if (active && entry.term) entry.term.focus();
         return undefined;
       }
       closeTerm(id);
@@ -43,22 +42,16 @@ export default function ShellTerm({ agentId, session, active }) {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(paneEl);
-    const entry = { term, fit, paneEl, sock: null, onWinResize: null, closedByUser: false };
+    const entry = { term, fit, paneEl, sock: null, closedByUser: false };
     wireTermWheel(term, (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    });
+    }, paneEl);
+    wireTermFit(entry);
     const sock = new WebSocket(wsURL("/ws/term?session=" + encodeURIComponent(session)));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
     sock.onopen = () => {
-      const sendResize = () => {
-        if (sock.readyState === WebSocket.OPEN && term.cols > 1 && term.rows > 1) {
-          sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-        }
-      };
-      requestAnimationFrame(() => { fit.fit(); sendResize(); });
-      entry.onWinResize = () => { if (paneEl.isConnected) { fit.fit(); sendResize(); } };
-      window.addEventListener("resize", entry.onWinResize);
+      scheduleTermFit(entry);
       term.onData((data) => {
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
       });
@@ -80,7 +73,7 @@ export default function ShellTerm({ agentId, session, active }) {
       term.write(new Uint8Array(ev.data));
     };
     sock.onclose = () => {
-      if (entry.onWinResize) window.removeEventListener("resize", entry.onWinResize);
+      if (entry.unwireFit) entry.unwireFit();
       if (!entry.closedByUser) term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
       if (terms.get(id) === entry) terms.delete(id);
     };
@@ -93,7 +86,7 @@ export default function ShellTerm({ agentId, session, active }) {
       const entry = terms.get(shellKey(agentId));
       if (!entry || !entry.term) return;
       applyXtermOptions(entry.term);
-      requestAnimationFrame(() => entry.fit && entry.fit.fit());
+      scheduleTermFit(entry);
     }
     window.addEventListener("picode-term-theme", apply);
     return () => window.removeEventListener("picode-term-theme", apply);
