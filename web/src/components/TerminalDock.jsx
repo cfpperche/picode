@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wsURL } from "../lib/api.js";
-import { readTermTheme, xtermTheme } from "../lib/termTheme.js";
+import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -29,13 +29,7 @@ export default function TerminalDock({
     paneEl.className = "term-pane active";
     if (hostRef.current) hostRef.current.appendChild(paneEl);
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 12,
-      fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
-      theme: xtermTheme(readTermTheme()),
-      scrollback: 10000,
-    });
+    const term = new Terminal(xtermOptions());
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(paneEl);
@@ -101,7 +95,9 @@ export default function TerminalDock({
       const id = agent && agent.id;
       if (!id) return;
       const entry = terms.get(id);
-      if (entry && entry.term) entry.term.options.theme = xtermTheme(readTermTheme());
+      if (!entry || !entry.term) return;
+      applyXtermOptions(entry.term);
+      requestAnimationFrame(() => entry.fit && entry.fit.fit());
     }
     window.addEventListener("picode-term-theme", apply);
     return () => window.removeEventListener("picode-term-theme", apply);

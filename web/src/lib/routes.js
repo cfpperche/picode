@@ -67,7 +67,7 @@ export function pinRoute(hash) {
   return { mode: "", id: "" };
 }
 
-const PREF_SECTIONS = ["appearance", "notifications", "server", "backup"];
+const PREF_SECTIONS = ["appearance", "terminal", "notifications", "server", "backup"];
 
 export function prefSection(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");

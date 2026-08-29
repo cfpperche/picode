@@ -42,6 +42,7 @@ What exists:
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 - **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
 - **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
+- Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 
 ## In flight
 
@@ -71,10 +72,11 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 - Branch protection + CODEOWNERS — owner action on GitHub.
 - tmux-gated tests skip on windows/macos CI (accepted).
 - Mobile shell has no waiting card (C1 is desktop).
+- Terminal **ligatures** not offered: `@xterm/addon-ligatures` needs Node `font-finder`; browser xterm is canvas-only.
 
 ## Recent activity
 
-- **2026-08-29** — Terminal tab fills the view + padding. visual-review: PASS (term-fill.png). Attach sets TERM; reconnect if the socket died.
+- **2026-08-29** — Preferences → Terminal (colors, font, size, line height, spacing, cursor, blink, scrollback, padding). Ligatures omitted (browser xterm). visual-review: PASS (pref-terminal.png, term-prefs.png).
 - **2026-08-29** — `make deploy` / `picode deploy` = repo → systemd. `picode update` = GitHub release for a normal user.
 - **2026-08-29** — `picode install` / `uninstall` (systemd --user, ADR-0018). No Windows task.
 - **2026-08-28** — Rename terminals (pencil / double-click). visual-review: PASS (term-rename.png, term-renamed.png). Terminal Light/Dark in Preferences (pref-term-theme.png), independent of the app theme.

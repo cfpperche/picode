@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
-import { applyTermTheme, readTermTheme } from "../lib/termTheme.js";
+import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
@@ -177,7 +177,7 @@ export default function App() {
   }, [route, pkgWs]);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
-  useEffect(() => { applyTermTheme(readTermTheme()); }, []);
+  useEffect(() => { applyTermChrome(); }, []);
   useEffect(() => {
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => { if (themeMode === "system") applyTheme("system"); };

@@ -6,14 +6,16 @@
 ## The one-paragraph version
 
 PiCode is a **single Go binary that serves a browser UI** and manages **real
-`pi` processes** on the machine where it runs. `picode install` (ADR-0018)
-enables a systemd **user** unit so it starts with this Linux session (WSL
-included). `picode deploy` / `make deploy` copies a repo build and restarts that unit.
-`picode update` checks GitHub for a newer release. It does not install a Windows logon task. Each agent gets a dual channel:
+`pi` processes** on the machine where it runs. Each agent gets a dual channel:
 a tmux-backed PTY that renders the genuine Pi TUI inside a browser terminal,
 and an RPC bridge (`pi --mode rpc`, JSONL over stdio) that feeds the rich UI
 with structured events. A broker routes messages between agents through a Pi
 extension, so agents talk to each other using Pi's own tool-calling protocol.
+
+`picode install` (ADR-0018) enables a systemd **user** unit so it starts with
+this Linux session (WSL included). `picode deploy` / `make deploy` copies a
+repo build and restarts that unit. `picode update` checks GitHub for a newer
+release. No Windows logon task.
 
 ## Application routes
 
@@ -32,7 +34,7 @@ stay on their own routes.
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load) |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) |
-| `#/preferences` | PiCode chrome | theme, notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
+| `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |

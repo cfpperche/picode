@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
-import { readTermTheme, xtermTheme } from "../lib/termTheme.js";
+import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
 
 function shellKey(agentId) {
@@ -38,13 +38,7 @@ export default function ShellTerm({ agentId, session, active }) {
     const paneEl = document.createElement("div");
     paneEl.className = "term-pane active";
     hostRef.current.appendChild(paneEl);
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 12.5,
-      fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
-      theme: xtermTheme(readTermTheme()),
-      scrollback: 10000,
-    });
+    const term = new Terminal(xtermOptions());
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(paneEl);
@@ -93,7 +87,9 @@ export default function ShellTerm({ agentId, session, active }) {
   useEffect(() => {
     function apply() {
       const entry = terms.get(shellKey(agentId));
-      if (entry && entry.term) entry.term.options.theme = xtermTheme(readTermTheme());
+      if (!entry || !entry.term) return;
+      applyXtermOptions(entry.term);
+      requestAnimationFrame(() => entry.fit && entry.fit.fit());
     }
     window.addEventListener("picode-term-theme", apply);
     return () => window.removeEventListener("picode-term-theme", apply);

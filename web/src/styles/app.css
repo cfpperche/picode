@@ -925,7 +925,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .term-surface {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   position: relative; background: #0e0e11;
-  padding: 8px 12px;
+  padding: var(--term-pad, 8px);
 }
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
 .workspace-view.term-on #empty,
@@ -2015,6 +2015,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   box-sizing: border-box;
 }
 .set-row input[type="number"] { width: 7rem; }
+.set-row select.set-wide { min-width: 12rem; width: auto; }
 .set-row-stack { flex-direction: column; align-items: stretch; gap: 6px; }
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
