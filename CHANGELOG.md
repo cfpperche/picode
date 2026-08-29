@@ -47,6 +47,7 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Fixed
 
 - Terminal wheel scrolls the terminal. If xterm has no scrollback (Pi TUI), the wheel is sent as mouse-wheel to the TUI transcript (not the composer). Stretching the xterm canvas to 100% height had also broken hit-testing.
+- Terminal scrollbar is clickable (screen no longer covers it) and tmux mouse is on so the TUI gets wheel events.
 - Terminal resizes as soon as its pane changes (sidebar, split, window) — not only on a browser window resize. Sidebar drag is debounced (one SIGWINCH after you stop).
 - Terminal **New line** key (Preferences → Terminal): Shift+Enter by default, or Ctrl+Enter / Alt+Enter. Ctrl+Shift+C/V copy and paste.
 - Agent tabs start flush (no extra left pad). Drag a tab to reorder.

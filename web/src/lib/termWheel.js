@@ -1,18 +1,10 @@
-// Wheel on a PiCode terminal must move the view. xterm.js otherwise
-// forwards it as Up/Down, which Pi's composer eats. Order: scroll xterm's
-// own buffer; if that did not move (TUI / no scrollback), send SGR wheel
-// at the top of the screen so Pi's transcript ScrollView moves — not PageUp
-// (tmux often swallows it) and not Up/Down (composer). Shift+wheel is xterm.
+// xterm.js #3184/#802: alt-screen has no scrollback, so the viewport
+// scrollbar has nothing to move. #1310 then turns the wheel into Up/Down
+// (Pi's composer). #426: when mouse tracking is on, xterm sends SGR to the
+// app — that is what should scroll a TUI. We only inject SGR if tracking is
+// off. Do not capture/preventDefault on the pane (that blocked #426).
 
 const acc = new WeakMap();
-
-export function wheelLineCount(ev) {
-  const dy = Number(ev && ev.deltaY) || 0;
-  if (dy === 0) return 0;
-  if (ev.deltaMode === 1) return Math.trunc(dy) || (dy < 0 ? -1 : 1);
-  const n = Math.min(12, Math.max(1, Math.round(Math.abs(dy) / 40)));
-  return dy < 0 ? -n : n;
-}
 
 export function sgrWheelBytes(dy) {
   const n = Number(dy) || 0;
@@ -27,10 +19,12 @@ export function applyTermWheel(term, ev, send) {
   if (!term || !ev || ev.shiftKey) return "skip";
   const dy = Number(ev.deltaY) || 0;
   if (dy === 0) return "skip";
-  const before = term.buffer && term.buffer.active ? term.buffer.active.viewportY : 0;
-  if (typeof term.scrollLines === "function") term.scrollLines(wheelLineCount(ev));
-  const after = term.buffer && term.buffer.active ? term.buffer.active.viewportY : before;
-  if (after !== before) return "xterm";
+  const mouse = term.modes && term.modes.mouseTrackingMode;
+  if (mouse && mouse !== "none") return "skip";
+  const buf = term.buffer && term.buffer.active;
+  const rows = term.rows || 0;
+  const canXterm = buf && buf.type !== "alternate" && ((buf.baseY || 0) > 0 || (buf.length || 0) > rows);
+  if (canXterm) return "skip";
   const next = (acc.get(term) || 0) + dy;
   if (Math.abs(next) < 24) {
     acc.set(term, next);
@@ -42,18 +36,12 @@ export function applyTermWheel(term, ev, send) {
   return bytes.length ? "sgr" : "hold";
 }
 
-export function wireTermWheel(term, send, el) {
-  if (!term) return;
-  const target = el || term.element;
-  if (!target || typeof target.addEventListener !== "function") return;
-  const onWheel = (ev) => {
+export function wireTermWheel(term, send) {
+  if (!term || typeof term.attachCustomWheelEventHandler !== "function") return;
+  term.attachCustomWheelEventHandler((ev) => {
     const action = applyTermWheel(term, ev, send);
-    if (action === "skip") return;
-    if (typeof ev.preventDefault === "function") ev.preventDefault();
-    if (typeof ev.stopPropagation === "function") ev.stopPropagation();
-  };
-  target.addEventListener("wheel", onWheel, { capture: true, passive: false });
-  if (typeof term.attachCustomWheelEventHandler === "function") {
-    term.attachCustomWheelEventHandler((ev) => !!(ev && ev.shiftKey));
-  }
+    if (action === "skip") return true;
+    if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+    return false;
+  });
 }

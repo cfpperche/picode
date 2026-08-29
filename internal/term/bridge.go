@@ -68,6 +68,10 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		}
 		defer ws.Close()
 
+		// xterm.js#426: the outer tty must be in mouse mode or the wheel
+		// becomes Up/Down (#1310) and never reaches the TUI.
+		_ = tm.SetOption(r.Context(), name, "mouse", "on")
+
 		// Initial size; the client sends a resize right after attach.
 		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)
 		cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")

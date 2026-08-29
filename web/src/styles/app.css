@@ -979,6 +979,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
+/* xterm.js#1751: .xterm-screen sits on top of the viewport and eats clicks
+   on the native scrollbar. Leave a gutter; always show the track. */
+.term-surface .xterm-viewport {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+.term-surface .xterm-screen { margin-right: 10px; }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 .file-pane-bar {
   display: flex; align-items: center; gap: 6px;
