@@ -156,12 +156,20 @@ func runDoctor(distroFlag, userFlag string) error {
 	}
 	merged := desktop.Merge(reports)
 	printSteps(merged)
-	printWindowsSteps(a)
+	windowsReady := printWindowsSteps(a)
 
-	if desktop.Converged(merged) {
-		fmt.Println("\nThe distro is ready. Run `picode-desktop install` to start with Windows.")
-	} else {
-		fmt.Printf("\n%d step(s) would change. Run `picode-desktop install` to apply.\n", len(pending(merged)))
+	// The summary has to account for both halves. Reporting only the distro's
+	// state told a fully set-up machine to run install again.
+	fmt.Println()
+	switch {
+	case !desktop.Converged(merged):
+		fmt.Printf("%d step(s) would change. Run `picode-desktop install` to apply.\n", len(pending(merged)))
+	case runtime.GOOS != "windows":
+		fmt.Println("The distro is ready. Run `picode-desktop install` on Windows to finish.")
+	case !windowsReady:
+		fmt.Println("The distro is ready. Run `picode-desktop install` to start with Windows.")
+	default:
+		fmt.Println("Everything is set up — PiCode starts with Windows.")
 	}
 	return nil
 }
@@ -267,23 +275,30 @@ func trustCA(a app) error {
 	return a.runner.Run("powershell", desktop.CAImportArgs(path)...)
 }
 
-func printWindowsSteps(a app) {
+// printWindowsSteps reports the half that lives outside the distro, and says
+// whether it is finished.
+func printWindowsSteps(a app) (ready bool) {
 	if runtime.GOOS != "windows" {
 		fmt.Printf("  %-6s %-44s %s\n", "skip", "Windows setup", "not running on Windows")
-		return
+		return false
 	}
+
 	out, err := a.runner.Output("powershell", desktop.CACountArgs()...)
-	switch {
-	case err == nil && desktop.CATrusted(out):
-		fmt.Printf("  %-6s %-44s %s\n", "ok", "certificate authority trusted by Windows", "")
-	default:
+	caTrusted := err == nil && desktop.CATrusted(out)
+	if caTrusted {
+		fmt.Printf("  %-6s %-44s %s\n", "ok", "certificate authority trusted by Windows", `mkcert root in LocalMachine\Root`)
+	} else {
 		fmt.Printf("  %-6s %-44s %s\n", "todo", "certificate authority trusted by Windows", "not imported yet")
 	}
-	if err := a.runner.Run("schtasks", desktop.TaskQueryArgs()...); err == nil {
+
+	taskExists := a.runner.Run("schtasks", desktop.TaskQueryArgs()...) == nil
+	if taskExists {
 		fmt.Printf("  %-6s %-44s %s\n", "ok", "starts with Windows", desktop.TaskName)
 	} else {
 		fmt.Printf("  %-6s %-44s %s\n", "todo", "starts with Windows", "logon task not registered")
 	}
+
+	return caTrusted && taskExists
 }
 
 func printSteps(steps []provision.Result) {

@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- `picode-desktop doctor` no longer tells you to run the installer on a machine that is already fully set up.
 - Setting PiCode up no longer reports the service as "present but not enabled" when it is running fine. Part of the setup runs as another account, and from there the answer was about the wrong account entirely; it now says it cannot tell, and the part that can tell reports it.
 - `picode <typo>` now says so instead of starting a second server. Any unrecognised word used to fall through and launch PiCode again — under a different account it would come up with its own data directory and its own port, with nothing to say it had happened.
 - PiCode Desktop finds `picode` inside the distro even when running as root, which it does for part of the setup. It looked the name up on a PATH that never had it.
