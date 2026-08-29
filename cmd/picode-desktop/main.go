@@ -124,6 +124,19 @@ func resolve(distroFlag, userFlag string) (app, error) {
 }
 
 func runDoctor(distroFlag, userFlag string) error {
+	// On a machine without WSL there is no distro to resolve, so the state of
+	// the machine itself is the report.
+	if stage := desktop.NextStage(desktop.Detect(osRunner{}, distroFlag)); stage != desktop.StageProvision {
+		fmt.Println("This machine is not set up for PiCode yet.")
+		fmt.Println()
+		fmt.Printf("  %-6s %s\n", "todo", desktop.Describe(stage, distroFlag))
+		if stage == desktop.StageInstallWSL {
+			fmt.Printf("  %-6s %s\n", "", "Windows restarts once; setup resumes when you sign back in")
+		}
+		fmt.Println("\nRun `picode-desktop install` to do it.")
+		return nil
+	}
+
 	a, err := resolve(distroFlag, userFlag)
 	if err != nil {
 		return err
@@ -150,11 +163,22 @@ func runInstall(distroFlag, userFlag string) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("install runs on Windows — from inside the distro use `picode provision`")
 	}
+	// A clean machine has no distro to resolve yet, so the bootstrap runs
+	// first and only then is there something to name.
+	pre := app{runner: osRunner{}}
+	ready, err := bootstrap(&pre, distroFlag)
+	if err != nil {
+		return err
+	}
+	if !ready {
+		return nil // a restart is pending; setup resumes at the next logon
+	}
+
 	a, err := resolve(distroFlag, userFlag)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Setting PiCode up on %s for %s\n\n", a.distro, a.user)
+	fmt.Printf("\nSetting PiCode up on %s for %s\n\n", a.distro, a.user)
 
 	reports, err := desktop.Provision(a.runner, a.distro, a.user, false)
 	if err != nil {

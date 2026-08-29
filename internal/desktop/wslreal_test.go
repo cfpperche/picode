@@ -55,6 +55,29 @@ func TestListDistrosAgainstRealWSL(t *testing.T) {
 	t.Logf("picked %q (state %s, WSL %d)", picked.Name, picked.State, picked.Version)
 }
 
+// A machine that already has WSL, a WSL 2 distro and a real account must be
+// recognised as needing none of the clean-machine stages. Getting this wrong
+// would make the installer try to reinstall WSL on a working setup.
+func TestDetectAgainstRealWSL(t *testing.T) {
+	r := realWSL(t)
+
+	state := Detect(r, "")
+	if !state.WSLPresent {
+		t.Fatal("WSL not detected on a machine that is running it")
+	}
+	if len(state.Distros) == 0 {
+		t.Fatal("no distros detected")
+	}
+	if state.DefaultUser == "" || state.DefaultUser == "root" {
+		t.Fatalf("DefaultUser = %q, want a real account", state.DefaultUser)
+	}
+	if got := NextStage(state); got != StageProvision {
+		t.Errorf("NextStage = %q, want %q — a ready machine must skip every setup stage",
+			got, StageProvision)
+	}
+	t.Logf("ready: WSL present, %d distro(s), account %q", len(state.Distros), state.DefaultUser)
+}
+
 func TestDefaultUserAgainstRealWSL(t *testing.T) {
 	r := realWSL(t)
 

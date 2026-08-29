@@ -44,6 +44,18 @@ WSL's idle timeout from reclaiming the VM. It learns the address from
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
 
+On a machine without WSL, `install` first walks a stage machine derived from
+what it observes — never from saved progress, so an interrupted run resumes
+and a finished one is a no-op: install WSL (`--no-distribution`), restart,
+install the distro (`--no-launch`), create the account, then provision. Both
+flags exist to dodge the interactive account setup that plain `wsl --install`
+opens. Exit code **3010** means the step succeeded and Windows wants a
+restart, not that it failed; a `RunOnce` key resumes setup at the next logon
+and deletes itself. The Linux account is named after the Windows one and its
+password is left **locked** — provisioning reaches root through `wsl -u root`
+and never needs sudo, so setting a password or granting passwordless sudo
+would be a security decision the installer has no standing to make.
+
 ## Application routes
 
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
