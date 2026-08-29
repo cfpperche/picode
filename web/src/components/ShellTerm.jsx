@@ -4,21 +4,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
+import { readTermTheme, xtermTheme } from "../lib/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
 
 function shellKey(agentId) {
   return "sh:" + agentId;
-}
-
-function termTheme() {
-  const s = getComputedStyle(document.documentElement);
-  const v = (n, fb) => (s.getPropertyValue(n) || "").trim() || fb;
-  return {
-    background: v("--bg-base", "#0e0e11"),
-    foreground: v("--text-primary", "#ececf1"),
-    cursor: v("--accent", "#7c8cf8"),
-    selectionBackground: v("--accent-soft", "#33467c"),
-  };
 }
 
 export function closeShellTerm(agentId) {
@@ -39,7 +29,7 @@ export default function ShellTerm({ agentId, session, active }) {
       cursorBlink: true,
       fontSize: 12.5,
       fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
-      theme: termTheme(),
+      theme: xtermTheme(readTermTheme()),
       scrollback: 10000,
     });
     const fit = new FitAddon();
@@ -92,6 +82,15 @@ export default function ShellTerm({ agentId, session, active }) {
       });
     }
   }, [active, agentId]);
+
+  useEffect(() => {
+    function apply() {
+      const entry = terms.get(shellKey(agentId));
+      if (entry && entry.term) entry.term.options.theme = xtermTheme(readTermTheme());
+    }
+    window.addEventListener("picode-term-theme", apply);
+    return () => window.removeEventListener("picode-term-theme", apply);
+  }, [agentId]);
 
   return <div className="file-shell" ref={hostRef} />;
 }

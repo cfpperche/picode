@@ -44,6 +44,24 @@ func TestTerminalsCRUD(t *testing.T) {
 	}
 }
 
+func TestRenameTerminal(t *testing.T) {
+	s := openTest(t)
+	a, err := s.CreateTerminal("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.RenameTerminal(a.ID, "  build  ")
+	if err != nil || got.Name != "build" {
+		t.Fatalf("rename = %+v %v", got, err)
+	}
+	if _, err := s.RenameTerminal(a.ID, "   "); err == nil {
+		t.Fatal("empty name")
+	}
+	if _, err := s.RenameTerminal("nope", "x"); err != ErrNotFound {
+		t.Fatalf("missing: %v", err)
+	}
+}
+
 func TestCreateTerminalBadCwd(t *testing.T) {
 	s := openTest(t)
 	if _, err := s.CreateTerminal("x", "/no/such/picode-term-cwd"); err == nil {

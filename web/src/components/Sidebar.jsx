@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { parseRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconPencil } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
@@ -23,7 +23,7 @@ export default function Sidebar({
   freeAgents, onNewFree, onNewAgent, onRemoveAgent,
   workingId,
   waitingId,
-  terminals, onNewTerm, onSelectTerm, onRemoveTerm,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -159,13 +159,14 @@ export default function Sidebar({
                 <div className="ws-row1 tree-row">
                   <span className="tree-spc" aria-hidden="true" />
                   <span className="tree-icon"><IconTerminal size={14} /></span>
-                  <span className="ws-name" title={t.cwd}>{t.name}</span>
+                  <span className="ws-name" title={t.cwd} onDoubleClick={(e) => { e.stopPropagation(); onRenameTerm && onRenameTerm(t); }}>{t.name}</span>
                 </div>
                 <div className="ws-row2 tree-row">
                   <span className="tree-spc" aria-hidden="true" />
                   <span className="ws-path" title={t.cwd}>{t.cwd}</span>
                 </div>
                 <span className="ws-actions">
+                  <button type="button" className="ws-icon-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}><IconPencil /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
                 </span>
               </li>

@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Rename a terminal from the sidebar (pencil or double-click). New ones still start as **Terminal**.
+- Preferences → Appearance: terminal Light or Dark, separate from the app theme (default Dark).
 - Sidebar **Terminals** (icon next to Agents). **+** opens a shell as a main tab, like an agent. Closing the tab leaves tmux running; Remove stops it. Ctrl/Cmd+` also creates one. The GUI chrome uses JetBrains Mono; the conversation stays as it was.
 - File pane header is shorter. Save, Close, then Expand (fills the chat area; Escape or the button to leave).
 - Drag the left edge of the file pane to resize it.

@@ -74,7 +74,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
-- **2026-08-28** — First-class terminals (sidebar icon, main tabs, ADR-0017). visual-review: PASS (terms-empty.png, terms-open.png, overlayAudit ok). GUI chrome JetBrains Mono; conversation stays sans.
+- **2026-08-28** — Rename terminals (pencil / double-click). visual-review: PASS (term-rename.png, term-renamed.png). Terminal Light/Dark in Preferences (pref-term-theme.png), independent of the app theme.
 - **2026-08-28** — File pane header compact (24px); Save, Close, Expand last. visual-review: PASS (file-header.png, file-expanded.png, overlayAudit ok).
 - **2026-08-28** — File pane left edge resizes (persists). visual-review: PASS (file-resize.png).
 - **2026-08-28** — File pane syntax colors follow GUI light/dark. visual-review: PASS (file-theme-light.png, file-theme-dark.png, overlayAudit ok).

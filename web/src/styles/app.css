@@ -924,8 +924,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .term-surface {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  position: relative; background: var(--bg-base);
+  position: relative; background: #0e0e11;
 }
+:root[data-term-theme="light"] .term-surface { background: #ffffff; }
+.settings-h {
+  margin: 16px 0 8px; font-size: 11px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary);
+}
+.settings-section > .settings-h:first-child { margin-top: 0; }
+.theme-cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 360px; }
 .term-surface .file-shell { flex: 1; min-height: 0; }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 .file-pane-bar {

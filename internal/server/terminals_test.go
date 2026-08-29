@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -36,6 +37,18 @@ func TestTerminalsNeedTmuxOrCRUD(t *testing.T) {
 	again := postJSON(t, ts, "/api/terminals/"+id+"/open", map[string]any{})
 	if again.StatusCode != http.StatusOK {
 		t.Fatalf("open = %d", again.StatusCode)
+	}
+	raw, _ := json.Marshal(map[string]string{"name": "build"})
+	preq, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/terminals/"+id, bytes.NewReader(raw))
+	preq.Header.Set("Content-Type", "application/json")
+	renamed := do(t, ts.Client(), preq)
+	if renamed.StatusCode != http.StatusOK {
+		t.Fatalf("rename = %d", renamed.StatusCode)
+	}
+	var renamedPage map[string]any
+	_ = json.NewDecoder(renamed.Body).Decode(&renamedPage)
+	if renamedPage["name"] != "build" {
+		t.Fatalf("name=%v", renamedPage["name"])
 	}
 
 	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/terminals/"+id, nil)

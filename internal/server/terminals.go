@@ -15,6 +15,7 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/terminals", handleListTerminals(deps))
 	mux.HandleFunc("POST /api/terminals", handleCreateTerminal(deps))
 	mux.HandleFunc("DELETE /api/terminals/{id}", handleDeleteTerminal(deps))
+	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
 }
 
@@ -112,6 +113,37 @@ func handleOpenTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, termView(t, name, true))
+	}
+}
+
+func handleRenameTerminal(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		t, err := deps.Store.RenameTerminal(r.PathValue("id"), req.Name)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "That terminal is gone.")
+			return
+		}
+		if err != nil {
+			if strings.Contains(err.Error(), "name is required") {
+				writeErr(w, http.StatusBadRequest, "Give it a name.")
+				return
+			}
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		name := tmux.ShellSessionName(t.ID)
+		live := false
+		if deps.Tmux != nil && deps.Tmux.Available() {
+			live, _ = deps.Tmux.HasSession(r.Context(), name)
+		}
+		writeJSON(w, http.StatusOK, termView(t, name, live))
 	}
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import { api } from "../lib/api.js";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconSun, IconMonitor, IconMoon, IconMore } from "./Icons.jsx";
+import { IconSun, IconMonitor, IconMoon, IconMore, IconTerminal } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
@@ -10,6 +10,7 @@ import FolderField from "./FolderField.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
+import { readTermTheme, persistTermTheme } from "../lib/termTheme.js";
 
 export default function Settings({ hidden, themeMode, onTheme }) {
   const [port, setPort] = useState("");
@@ -17,6 +18,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   const [moving, setMoving] = useState(false);
   const [err, setErr] = useState("");
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
+  const [termTheme, setTermTheme] = useState(readTermTheme);
 
   useEffect(() => {
     if (hidden) return;
@@ -74,10 +76,16 @@ export default function Settings({ hidden, themeMode, onTheme }) {
       </nav>
 
       <section className="settings-section" hidden={sec !== "appearance"}>
-        <div className="theme-cards" role="radiogroup" aria-label="Theme">
+        <h3 className="settings-h">App</h3>
+        <div className="theme-cards" role="radiogroup" aria-label="App theme">
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
           <ThemeCard option="dark" label="Dark" desc="Low light" active={themeMode === "dark"} onPick={onTheme} icon={<IconMoon size={15} />} />
+        </div>
+        <h3 className="settings-h">Terminal</h3>
+        <div className="theme-cards two" role="radiogroup" aria-label="Terminal theme">
+          <ThemeCard option="light" label="Light" desc="Bright glass" active={termTheme === "light"} onPick={(m) => setTermTheme(persistTermTheme(m))} icon={<IconSun size={15} />} />
+          <ThemeCard option="dark" label="Dark" desc="Classic terminal" active={termTheme === "dark"} onPick={(m) => setTermTheme(persistTermTheme(m))} icon={<IconTerminal size={15} />} />
         </div>
       </section>
 

@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wsURL } from "../lib/api.js";
+import { readTermTheme, xtermTheme } from "../lib/termTheme.js";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -32,12 +33,7 @@ export default function TerminalDock({
       cursorBlink: true,
       fontSize: 12,
       fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
-      theme: {
-        background: "#0e0e11",
-        foreground: "#ececf1",
-        cursor: "#7c8cf8",
-        selectionBackground: "#33467c",
-      },
+      theme: xtermTheme(readTermTheme()),
       scrollback: 10000,
     });
     const fit = new FitAddon();
@@ -99,6 +95,17 @@ export default function TerminalDock({
     const entry = terms.get(agent.id);
     if (entry && entry.fit) requestAnimationFrame(() => entry.fit.fit());
   }, [open, agent]);
+
+  useEffect(() => {
+    function apply() {
+      const id = agent && agent.id;
+      if (!id) return;
+      const entry = terms.get(id);
+      if (entry && entry.term) entry.term.options.theme = xtermTheme(readTermTheme());
+    }
+    window.addEventListener("picode-term-theme", apply);
+    return () => window.removeEventListener("picode-term-theme", apply);
+  }, [agent]);
 
   function setDot(connected) {
     const dot = document.getElementById("sb-dot");

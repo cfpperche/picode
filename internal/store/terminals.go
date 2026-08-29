@@ -89,6 +89,25 @@ func (s *Store) CountTerminals() (int, error) {
 	return n, nil
 }
 
+func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Terminal{}, fmt.Errorf("name is required")
+	}
+	if len(name) > 80 {
+		name = name[:80]
+	}
+	res, err := s.db.Exec(`UPDATE terminals SET name = ? WHERE id = ?`, name, id)
+	if err != nil {
+		return Terminal{}, fmt.Errorf("store: rename terminal: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return Terminal{}, ErrNotFound
+	}
+	return s.GetTerminal(id)
+}
+
 func (s *Store) DeleteTerminal(id string) error {
 	res, err := s.db.Exec(`DELETE FROM terminals WHERE id = ?`, id)
 	if err != nil {

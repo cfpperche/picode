@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
+import { applyTermTheme, readTermTheme } from "../lib/termTheme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -175,6 +176,7 @@ export default function App() {
   }, [route, pkgWs]);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
+  useEffect(() => { applyTermTheme(readTermTheme()); }, []);
   useEffect(() => {
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => { if (themeMode === "system") applyTheme("system"); };
@@ -733,6 +735,24 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
+  async function renameTerminal(t) {
+    if (!t) return;
+    const name = await askPrompt({
+      title: "Rename terminal",
+      defaultValue: t.name || "Terminal",
+      confirmLabel: "Save",
+    });
+    if (!name) return;
+    try {
+      const page = await api("/api/terminals/" + t.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setTerminals((cur) => cur.map((x) => (x.id === t.id ? { ...x, ...page } : x)));
+    } catch (err) { toastError(err); }
+  }
+
   async function removeTerminal(t) {
     if (!t) return;
     const ok = await askConfirm({
@@ -1200,6 +1220,7 @@ export default function App() {
         onNewTerm={createTerminal}
         onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
         onRemoveTerm={removeTerminal}
+        onRenameTerm={renameTerminal}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
