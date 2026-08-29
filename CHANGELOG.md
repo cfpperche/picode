@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- Composer top-right: Settings, MCPs, Packages, and Expand in one button group.
+- Composer chips (session, New, provider, model, thinking, mode) use the same light fill as the page-icon group.
 - Settings without an open agent still shows this machine’s pi config (same idea as Packages).
 - Preferences → **Terminal** is two columns: controls on the left, a live xterm preview on the right.
 - Preferences → **Terminal**: colors, font, size, line height, letter spacing, cursor, blink, scrollback, padding. Ctrl/Cmd + + / − / 0 still change size in the tab. Ligatures are not offered (xterm in the browser cannot join glyphs).

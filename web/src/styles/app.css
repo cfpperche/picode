@@ -1661,10 +1661,10 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .cockpit-chip {
   display: inline-flex; align-items: center; gap: 4px;
   max-width: 220px; height: 28px; padding: 0 8px;
-  background: transparent; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer;
 }
-.cockpit-chip:hover { background: var(--bg-base); }
+.cockpit-chip:hover { background: var(--bg-hover); }
 .cockpit-chip:focus-visible,
 .icon-btn:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
