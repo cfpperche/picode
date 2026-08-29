@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Settings **Keys** edits Pi's keybindings (this machine). Search, Add (press a key), Reset. Same file as `/keybindings`.
 - If the server drops (restart, deploy), the UI shows **Reconnecting** with a spinner, then reloads when `/api/health` is back. Fast restarts (shorter than the poll) are caught by a `bootId` comparison, and dead WebSockets trigger an immediate check — the tab reloads itself.
 - Composer **Sketch** opens Excalidraw. Insert puts a PNG on the message (same as paste). Empty board does not insert.
 - Sketch Cancel / Insert are 28px, not the full header height.
@@ -56,7 +57,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
-- Terminal Shift+Enter (and Ctrl/Alt+Enter) match the VS Code integrated terminal: xterm `modifyOtherKeys` (`ESC [27;2;13~`) through tmux attach, with `extended-keys` + `format xterm` set on attach (probed: tmux answers only DA1 to Kitty, so pi's fallback expects this format). Ctrl+C interrupts by default (VS Code parity); **Copy if selected** (Warp-style) is now opt-in in Preferences → Terminal → Keys.
+- Terminal Shift+Enter (and Ctrl/Alt+Enter) match the VS Code integrated terminal: xterm `modifyOtherKeys` (`ESC [27;2;13~`) through tmux attach, with `extended-keys` + `format xterm` set on attach (probed: tmux answers only DA1 to Kitty, so pi's fallback expects this format). Three defense layers in `termKeys.js`: keydown send, keypress block, and an `onData` filter that swaps any stray `\r` within 120ms of a modified Enter (Windows Chrome emits it after a canceled keydown). Ctrl+C interrupts by default (VS Code parity); **Copy if selected** (Warp-style) is opt-in in Preferences → Terminal → Keys.
 - Terminal **Ctrl+C** copies the selection when there is one (Warp / Windows Terminal); nothing selected still interrupts. Toggle in Preferences → Terminal → Keys. `/hotkeys` lists terminal shortcuts.
 - MCP **Sign in** no longer needs the agent running. Add or On on an OAuth server starts Sign in. One login is shared by every agent on this machine.
 - MCP **Use from…** sits with Add (first chip). The card no longer says which app is mirrored — each row already has SHARED. An empty server list is one line: No servers yet.

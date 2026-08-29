@@ -4,7 +4,7 @@ Two different screens. Do not mix them.
 
 | Hash | What | Writes |
 |---|---|---|
-| `#/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (global) and `<cwd>/.pi/settings.json` (workspace, if trusted) |
+| `#/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (global), `<cwd>/.pi/settings.json` (workspace, if trusted), and **Keys** (`~/.pi/agent/keybindings.json`) |
 | `#/preferences` | **PiCode** chrome | theme, server port |
 
 Composer `/settings` opens `#/settings`. Depth is like skills: workspace beats global, agent beats both.

@@ -8,6 +8,7 @@ import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { catalogBase, PI_TOOLS, resolveLayer } from "../lib/resolveLayer.js";
 import { IconX } from "./Icons.jsx";
+import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
@@ -99,6 +100,7 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
           </div>
         </section>
       ) : null}
+      <PiKeys />
     </PageFrame>
   );
 }

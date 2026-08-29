@@ -68,6 +68,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerWorkspaceRoutes(mux, deps)
 	registerServerRoutes(mux, deps)
 	registerPiSettingsRoutes(mux, deps)
+	registerPiKeysRoutes(mux)
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
 	registerSlashRes(mux, deps)

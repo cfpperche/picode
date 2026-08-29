@@ -2093,6 +2093,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .pref-tab:hover { color: var(--text-primary); }
 .pref-tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
 .settings-section { padding: 0; border: 0; }
+.settings-section + .settings-section {
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border);
+}
 .settings-section[hidden] { display: none; }
 .settings-section h3 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
 .set-row-stack .folder-field { width: 100%; }
@@ -2106,6 +2109,38 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .folder-field-wrap { display: flex; gap: 6px; align-items: center; width: 100%; }
 .folder-field-wrap .folder-field { flex: 1; min-width: 0; }
 .settings-desc { color: var(--text-secondary); font-size: 12.5px; margin-bottom: 14px; }
+.key-filter { margin: 0 0 12px; }
+.key-filter input {
+  width: 100%; max-width: 28rem; height: var(--ctl-h); box-sizing: border-box;
+  padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 12.5px;
+}
+.key-group { margin-top: 8px; }
+.key-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 4px 0;
+}
+.key-label { font-size: 13px; padding-top: 8px; min-width: 8rem; flex: 0 1 12rem; }
+.key-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.key-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: var(--ctl-h); padding: 0 4px 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); font-size: 12px; white-space: nowrap;
+}
+.key-x {
+  display: grid; place-items: center; width: 20px; height: 20px; flex: none;
+  border: 0; background: none; color: var(--text-secondary); border-radius: 4px; cursor: pointer;
+}
+.key-x:hover { color: var(--danger); background: var(--bg-hover); }
+.key-none, .key-listen {
+  display: inline-flex; align-items: center; height: var(--ctl-h);
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.key-skel {
+  height: var(--ctl-h); margin: 6px 0; border-radius: var(--radius-ctl);
+  background: var(--bg-hover);
+}
 .set-rows { display: flex; flex-direction: column; gap: 10px; }
 .set-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

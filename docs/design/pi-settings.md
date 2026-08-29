@@ -76,6 +76,7 @@ override at that layer.
 | Scoped models | global / workspace | `enabledModels` | next start |
 | Default project trust | **global only** | `defaultProjectTrust` | — |
 | Agent provider / model / thinking / Full\|Read-only | **agent** | SQLite | already PATCH + restart |
+| Keys | **global** | `keybindings.json` | `/reload` or next run |
 
 **Do not reimplement** (TUI chrome, stay in the dock): theme of the TUI,
 editor/output padding, hardware cursor, OSC progress, `tuiMode`,
