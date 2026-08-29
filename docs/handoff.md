@@ -46,11 +46,11 @@ What exists:
 
 ## In flight
 
-No coding track in flight. Backup V1 shipped (local directory). Remote S3/Drive is later.
+File open + preview roadmap (`docs/design/file-preview-roadmap.md`). Closes when tracks 1+2+3 ship (png/pdf/md/audio/video/**3D**, chat paths, live cwd). Not coding yet — plan only.
 
 ## Next up
 
-No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
+Track 1 of that roadmap (preview kinds, including 3D via `@google/model-viewer`). Then 2 (chat), 3 (live cwd). Backlog after close: llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
 
 ## Backlog
 
