@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Conversation from "./Conversation.jsx";
 import ConversationRail from "./ConversationRail.jsx";
 import Composer from "./Composer.jsx";
@@ -8,6 +9,7 @@ import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import AgentPageBar from "./AgentPageBar.jsx";
+import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
@@ -15,6 +17,7 @@ export default function ChatSurface({
   onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit,
   filePath, onOpenFile, onCloseFile,
 }) {
+  const [expanded, setExpanded] = useState(false);
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert" || it.kind === "ask");
   const empty = !hasChat;
   const cfg = {
@@ -37,13 +40,22 @@ export default function ChatSurface({
         <Conversation items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agent && agent.id} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenFile={onOpenFile} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
-          <div className="composer-wrap">
+          <div className={"composer-wrap" + (expanded ? " expanded" : "")}>
             <div className="composer" id="run-cta">
               {composer && composer.sessionBar ? (
                 <div className="composer-tools" data-align-row>
                   {composer.sessionBar}
                   <div className="composer-tools-end">
                     <AgentPageBar onGo={composer.onAgentPage} pkgUpdates={composer.pkgUpdates} />
+                    <button
+                      type="button"
+                      className="composer-page"
+                      title={expanded ? "Collapse" : "Expand"}
+                      aria-label={expanded ? "Collapse composer" : "Expand composer"}
+                      onClick={() => setExpanded((v) => !v)}
+                    >
+                      {expanded ? <IconCollapse /> : <IconExpand />}
+                    </button>
                   </div>
                 </div>
               ) : null}
