@@ -81,6 +81,8 @@ At session end, run `/skill:handoff-update`.
 | `make ui` | Vite HMR on :5173 (proxies API to the Go server) |
 | `make web` | Build React UI → `internal/web/public` |
 | `make build` | UI + `bin/picode` |
+| `make install` | Copy to `~/.local/bin` and enable systemd --user |
+| `make update` | Rebuild + restart the installed service |
 | `make test` / `make vet` / `make fmt` | Quality gates |
 | `make ci` | Everything CI runs |
 

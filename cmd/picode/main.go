@@ -52,6 +52,9 @@ func main() {
 		case "install":
 			runInstall()
 			return
+		case "update":
+			runUpdate()
+			return
 		case "uninstall":
 			runUninstall(os.Args[2:])
 			return
@@ -69,6 +72,7 @@ func usage() {
 Usage:
   picode [flags]              start the server
   picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
+  picode update               replace that binary and restart (after make build)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
   picode screenshot [flags]   capture a page to PNG (visual-review loop)
     --url string    page to capture (required)
@@ -105,6 +109,23 @@ func runInstall() {
 	fmt.Println("Starts when this Linux user session starts.")
 	fmt.Println("  https://localhost:8445")
 	fmt.Println("  systemctl --user status picode")
+}
+
+func runUpdate() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	fmt.Println("Updating PiCode…")
+	if err := install.Update(exe, home, os.Getenv("PATH")); err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	fmt.Println("Restarted.")
+	fmt.Println("  https://localhost:8445")
 }
 
 func runUninstall(args []string) {

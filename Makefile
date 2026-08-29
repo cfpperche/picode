@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help dev ui web build restart test fmt fmt-check vet ci clean
+.PHONY: help dev ui web build restart update install test fmt fmt-check vet ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -18,17 +18,16 @@ web: ## Build the React UI into internal/web/public (ADR-0008)
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 	./scripts/setup-cert.sh
 
-install: ## Install as systemd user service + cert renewal timer
-	./scripts/install-systemd.sh
+install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
+	./bin/picode install
+
+update: build ## Rebuild UI+binary and restart the installed service
+	./bin/picode update
 
 build: web ## Build UI + bin/picode
 	go build -o bin/picode ./cmd/picode
 
-restart: build ## Rebuild and bounce the running server (self-reload within 2s if already this binary)
-	-pkill -x picode
-	sleep 1
-	rm -f $$HOME/.picode/picode.lock
-	setsid $(CURDIR)/bin/picode >>/tmp/pc.log 2>&1 </dev/null &
+restart: update ## Rebuild and restart the systemd service (`picode update`)
 
 test: ## Run all Go tests
 	go test ./...

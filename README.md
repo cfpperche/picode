@@ -69,8 +69,11 @@ Requires: [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earend
 ```bash
 git clone https://github.com/cfpperche/picode.git
 cd picode
-make dev          # → https://localhost:8445 (first free port in 8445-8455)
+make build
+./bin/picode install    # systemd --user; starts with this Linux session
 ```
+
+`make update` rebuilds from this repo and restarts the service. `make dev` runs without installing. `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
 
 First run: add a workspace (your project folder), click **Run** — a real Pi
 agent starts in the workspace and streams into the conversation panel. Close

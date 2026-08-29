@@ -40,6 +40,38 @@ func Install(exe, home, pathEnv string) error {
 	return nil
 }
 
+// Update copies this binary over the installed one and restarts the unit.
+func Update(exe, home, pathEnv string) error {
+	if !systemdAvailable() {
+		return fmt.Errorf("need systemd (user). In WSL set systemd=true in /etc/wsl.conf")
+	}
+	if home == "" {
+		h, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		home = h
+	}
+	p := ForHome(home)
+	if _, err := os.Stat(p.Unit); err != nil {
+		return fmt.Errorf("not installed — run picode install first")
+	}
+	pathEnv = withLocalBin(pathEnv, filepath.Dir(p.Bin))
+	if err := CopyExe(exe, p.Bin); err != nil {
+		return fmt.Errorf("copy binary: %w", err)
+	}
+	if err := writeUnit(p, pathEnv); err != nil {
+		return fmt.Errorf("write unit: %w", err)
+	}
+	if err := Run("systemctl", "--user", "daemon-reload"); err != nil {
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
+	}
+	if err := Run("systemctl", "--user", "restart", UnitName); err != nil {
+		return fmt.Errorf("systemctl restart: %w", err)
+	}
+	return nil
+}
+
 // Uninstall stops the unit and removes it. purge deletes ~/.picode.
 func Uninstall(home string, purge bool) error {
 	if home == "" {

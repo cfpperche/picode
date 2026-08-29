@@ -8,7 +8,8 @@
 PiCode is a **single Go binary that serves a browser UI** and manages **real
 `pi` processes** on the machine where it runs. `picode install` (ADR-0018)
 enables a systemd **user** unit so it starts with this Linux session (WSL
-included). It does not install a Windows logon task. Each agent gets a dual channel:
+included). `picode update` / `make update` copies a new binary and restarts
+that unit. It does not install a Windows logon task. Each agent gets a dual channel:
 a tmux-backed PTY that renders the genuine Pi TUI inside a browser terminal,
 and an RPC bridge (`pi --mode rpc`, JSONL over stdio) that feeds the rich UI
 with structured events. A broker routes messages between agents through a Pi

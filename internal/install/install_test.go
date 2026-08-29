@@ -58,6 +58,16 @@ func TestCopyExeAndWriteUnit(t *testing.T) {
 	}
 }
 
+func TestUpdateRequiresUnit(t *testing.T) {
+	if !systemdAvailable() {
+		t.Skip("systemd not running")
+	}
+	err := Update("/bin/true", t.TempDir(), "/usr/bin")
+	if err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestLockPID(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "picode.lock")
 	if lockPID(p) != 0 {
