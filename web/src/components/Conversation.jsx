@@ -12,8 +12,9 @@ import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
+import FileCard from "./FileCard.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile, after }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -22,7 +23,8 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
       <div className="conv-col">
         {turns.reduce((acc, t, i) => {
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onOpenFile={onOpenFile} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} agentId={agentId} onOpenTab={onOpenTab} />);
+
           } else {
             const n = acc.n++;
             const live = i === busy;
@@ -34,7 +36,8 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenFile={onOpenFile} />);          }
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} />);
+          }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
         {after}
@@ -44,7 +47,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
   );
 }
 
-function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onOpenFile }) {
+function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, agentId, onOpenTab }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
   }
@@ -55,26 +58,7 @@ function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onOpenFile }
     return <BashBlock it={it} onAbort={onAbortBash} />;
   }
   if (it.kind === "files") {
-    const i = items.indexOf(it);
-    return (
-      <div className={"files-changed" + (it.expanded ? " expanded" : "")}>
-        <button type="button" className="files-changed-head" onClick={() => onToggleFiles(i)}>
-          <span className="tp-chevron">›</span>
-          {it.paths.length} {it.paths.length === 1 ? "file" : "files"} changed
-        </button>
-        {it.expanded ? (
-          <ul className="files-changed-list">
-            {it.paths.map((p) => (
-              <li key={p}>
-                {onOpenFile ? (
-                  <button type="button" className="files-changed-open" onClick={() => onOpenFile(p)}>{p}</button>
-                ) : p}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-    );
+    return <FilesChanged it={it} items={items} onToggleFiles={onToggleFiles} agentId={agentId} onOpenTab={onOpenTab} />;
   }
   return null;
 }
@@ -169,9 +153,47 @@ function BashBlock({ it, onAbort }) {
   );
 }
 
-function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile }) {
+function openCard(setCards, p) {
+  if (!p) return;
+  setCards((c) => (c.includes(p) ? c : [...c, p]));
+}
+
+function TurnFileCards({ agentId, cards, setCards, onOpenTab }) {
+  if (!cards.length) return null;
+  return cards.map((p) => (
+    <FileCard key={p} agentId={agentId} path={p} onClose={() => setCards((c) => c.filter((x) => x !== p))} onOpenTab={onOpenTab} />
+  ));
+}
+
+function FilesChanged({ it, items, onToggleFiles, agentId, onOpenTab }) {
+  const [cards, setCards] = useState([]);
+  const i = items.indexOf(it);
+  return (
+    <div className={"files-changed" + (it.expanded ? " expanded" : "")}>
+      <button type="button" className="files-changed-head" onClick={() => onToggleFiles(i)}>
+        <span className="tp-chevron">›</span>
+        {it.paths.length} {it.paths.length === 1 ? "file" : "files"} changed
+      </button>
+      {it.expanded ? (
+        <ul className="files-changed-list">
+          {it.paths.map((p) => (
+            <li key={p}>
+              {agentId ? (
+                <button type="button" className="files-changed-open" onClick={() => openCard(setCards, p)}>{p}</button>
+              ) : p}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <TurnFileCards agentId={agentId} cards={cards} setCards={setCards} onOpenTab={onOpenTab} />
+    </div>
+  );
+}
+
+function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [cards, setCards] = useState([]);
   const liveFrom = useRef(0);
   const replyN = turn.replies.length;
   useEffect(() => {
@@ -190,7 +212,8 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
       ? "Queued"
       : fmtWorked(turnDurationMs(turn));
   const showWork = turn.work.length > 0 || live || queued;
-  const files = onOpenFile ? pathsFromTurn(turn) : [];
+  const files = pathsFromTurn(turn);
+  const open = (p) => { if (agentId) openCard(setCards, p); };
   return (
     <div className="turn" id={"turn-" + i}>
       {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} /> : null}
@@ -206,21 +229,26 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
               {turn.work.map((it, j) => (
                 <li key={it.id || j} className={"work-step" + (live && j === turn.work.length - 1 ? " current" : "")}>
                   <span className="work-step-lab">{stepLabel(it)}</span>
-                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={onOpenFile} agentId={agentId} /> : null}
+                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={open} agentId={agentId} /> : null}
                 </li>
               ))}
             </ol>
           ) : null}
         </div>
       ) : null}
-      {files.length ? (
-        <ul className="turn-files">
-          {files.map((p) => (
-            <li key={p}>
-              <button type="button" className="turn-files-open" title={p} onClick={() => onOpenFile(p)}>{basename(p)}</button>
-            </li>
-          ))}
-        </ul>
+      {files.length || cards.length ? (
+        <div className="turn-files-wrap">
+          {files.length ? (
+            <ul className="turn-files">
+              {files.map((p) => (
+                <li key={p}>
+                  <button type="button" className={"turn-files-open" + (cards.includes(p) ? " open" : "")} title={p} onClick={() => open(p)}>{basename(p)}</button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <TurnFileCards agentId={agentId} cards={cards} setCards={setCards} onOpenTab={onOpenTab} />
+        </div>
       ) : null}
       {turn.replies.map((it, j) => it.kind === "alert"
         ? <Alert key={j} it={it} />

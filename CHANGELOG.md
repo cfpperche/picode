@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Chat file cards open under the turn's file names (one card per click), not over the composer.
 - Terminal: Shift+drag selects, Ctrl+C copies if selected (else interrupt), Ctrl+V pastes. tmux mouse still handles click/scroll without Shift.
 - Sidebar Terminals list is flush like Pins (no tree indent).
 - Click a path in chat opens a closable card in the thread. **Open in tab** is the same file tab as the terminal. The old split pane is gone.
