@@ -13,9 +13,12 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,10 +99,22 @@ func New(addr string, deps Deps) *http.Server {
 	}
 }
 
+// bootID identifies this server process. The UI compares it on
+// /api/health: a change means the binary restarted (even a fast restart
+// the poll never saw as downtime) and the page must reload.
+var bootID = func() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 36)
+	}
+	return hex.EncodeToString(b)
+}()
+
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "ok",
+		"bootId": bootID,
 		"time":   time.Now().UTC().Format(time.RFC3339),
 	})
 }

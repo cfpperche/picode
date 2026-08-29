@@ -77,7 +77,10 @@ export default function ShellTerm({ agentId, session, active }) {
     };
     sock.onclose = () => {
       if (entry.unwireFit) entry.unwireFit();
-      if (!entry.closedByUser) term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+      if (!entry.closedByUser) {
+        term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+        if (window.__picodeKickHealth) window.__picodeKickHealth();
+      }
       if (terms.get(id) === entry) terms.delete(id);
     };
     terms.set(id, entry);

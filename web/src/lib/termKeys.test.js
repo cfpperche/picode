@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { copyPasteAction, newlineSeq, termShortcutRows } from "./termKeys.js";
+import { copyPasteAction, newlineSeq, termShortcutRows, wireTermKeys } from "./termKeys.js";
 
 test("Shift+Enter is the default newline", () => {
   assert.equal(newlineSeq({ type: "keydown", key: "Enter", shiftKey: true }, "shift-enter"), "\x1b[27;2;13~");
@@ -34,3 +34,25 @@ test("termShortcutRows follow newline and copy prefs", () => {
   assert.ok(!off.some((r) => r.key === "Ctrl+C"));
   assert.ok(off.some((r) => r.key === "Ctrl+Enter"));
 });
+
+test("wireTermKeys blocks the trailing keypress and sends once", () => {
+  const sent = [];
+  const send = (bytes) => sent.push(Array.from(bytes));
+  const handler = extractHandler(wireTermKeys, send);
+  const kd = { type: "keydown", key: "Enter", shiftKey: true, preventDefault() { this.pd = true; } };
+  const kp = { type: "keypress", key: "Enter", shiftKey: true, charCode: 13, preventDefault() { this.pd = true; } };
+  assert.equal(handler(kd), false);
+  assert.equal(handler(kp), false); // blocked: no \\r from xterm _keyPress
+  assert.equal(kd.pd, true);
+  assert.equal(kp.pd, true);
+  assert.equal(sent.length, 1);     // sequence emitted once (keydown)
+  assert.deepEqual(sent[0], Array.from(new TextEncoder().encode("\x1b[27;2;13~")));
+  // plain Enter keypress still passes through (submits)
+  assert.equal(handler({ type: "keypress", key: "Enter" }), true);
+});
+
+function extractHandler(wire, send) {
+  let h = null;
+  wire({ attachCustomKeyEventHandler(fn) { h = fn; } }, send);
+  return h;
+}

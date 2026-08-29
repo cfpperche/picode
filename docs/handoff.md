@@ -76,7 +76,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
-- **2026-08-29** — UI auto-reload: health watch → Reconnecting overlay (motion) → reload when the server is back.
+- **2026-08-29** — Reconnect covers fast restarts: health `bootId` + WS-close kick → tab reloads itself (proved: restart → page age reset). Shift+Enter trusted-key E2E: bytes `[27;2;13~` only, multiline composer confirmed; earlier "submit" reading was a bad pane-tail interpretation. keypress guard added for browsers that fire it after a canceled keydown.
 - **2026-08-29** — Shift+Enter FIXED with a live probe (not docs): tmux 3.6 has no Kitty on the pane side (DA1-only), pi falls back to modifyOtherKeys, so the chain is xterm-format `ESC [27;2;13~` + server `extended-keys-format xterm`. E2E proven: two lines, one message. VS Code parity: Ctrl+C interrupts by default; Copy-if-selected now opt-in.
 - **2026-08-29** — Terminal Ctrl+C copies if text is selected (Warp / Windows Terminal); else interrupt. Keys list in Preferences → Terminal; `/hotkeys` shows them.
 - **2026-08-29** — Terminal scroll: tmux `mouse on` so xterm.js enables mouse tracking (#426); screen `margin-right` so the scrollbar is clickable (#1751); stop capturing wheel (that blocked SGR). visual-review: PASS (term-scrollbar.png, `enable-mouse-events` true).

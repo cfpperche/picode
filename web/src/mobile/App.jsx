@@ -95,6 +95,7 @@ export default function MobileApp() {
         setStatus("disconnected");
         setStreaming(false);
       }
+      if (window.__picodeKickHealth) window.__picodeKickHealth();
     };
   }
 

@@ -77,7 +77,10 @@ export default function TerminalDock({
     sock.onclose = () => {
       if (entry.unwireFit) entry.unwireFit();
       setDot(false);
-      if (!entry.closedByUser) term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+      if (!entry.closedByUser) {
+        term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+        if (window.__picodeKickHealth) window.__picodeKickHealth();
+      }
     };
 
     terms.set(id, entry);

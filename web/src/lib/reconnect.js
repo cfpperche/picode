@@ -1,17 +1,24 @@
+// Health + boot watch. Two failure modes:
+//  1. server down for a while → miss → Reconnecting overlay → reload on up
+//  2. server restarted FAST (between polls) → WS dies, health never failed →
+//     compare bootId: a change means a new binary → reload immediately.
+// Any unexpected WS close should call window.__picodeKickHealth() so case 2
+// is caught within ~1s instead of the next poll.
+
 export async function pingHealth(fetchImpl = fetch) {
   try {
     const c = new AbortController();
     const t = setTimeout(() => c.abort(), 2500);
     const res = await fetchImpl("/api/health", { cache: "no-store", signal: c.signal });
     clearTimeout(t);
-    return !!res && res.ok;
+    if (!res || !res.ok) return null;
+    const body = await res.json().catch(() => null);
+    return (body && body.bootId) || "ok";
   } catch {
-    return false;
+    return null;
   }
 }
 
-// Poll /api/health. After `downAfter` misses, onState("down"). When it
-// comes back, onState("up") then reload() so hashed assets match the new binary.
 export function startReconnectWatch({
   ping = pingHealth,
   reload = defaultReload,
@@ -24,13 +31,22 @@ export function startReconnectWatch({
   let down = false;
   let timer = 0;
   let stopped = false;
+  let boot = null;
 
   async function tick() {
     if (stopped) return;
-    const ok = await ping();
+    const res = await ping();
     if (stopped) return;
-    if (ok) {
+    if (res !== null) {
       fails = 0;
+      if (boot === null) {
+        boot = res;
+      } else if (res !== boot) {
+        // Fast restart: never saw downtime, but this is a new process.
+        if (onState) onState("up");
+        reload();
+        return;
+      }
       if (down) {
         if (onState) onState("up");
         reload();
@@ -63,17 +79,19 @@ export function startReconnectWatch({
 
   tick();
   if (typeof window !== "undefined") {
+    window.__picodeKickHealth = kick;
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", kick);
-    document.addEventListener("visibilitychange", kick);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", kick);
   }
   return () => {
     stopped = true;
     clearTimeout(timer);
     if (typeof window !== "undefined") {
+      delete window.__picodeKickHealth;
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("online", kick);
-      document.removeEventListener("visibilitychange", kick);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", kick);
     }
   };
 }

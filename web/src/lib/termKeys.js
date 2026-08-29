@@ -60,7 +60,7 @@ export function termShortcutRows(prefs) {
 export function wireTermKeys(term, send) {
   if (!term || typeof term.attachCustomKeyEventHandler !== "function") return;
   term.attachCustomKeyEventHandler((ev) => {
-    if (!ev || ev.type !== "keydown") return true;
+    if (!ev || (ev.type !== "keydown" && ev.type !== "keypress")) return true;
     const prefs = readTermPrefs();
     const clip = copyPasteAction(ev, prefs);
     if (clip === "copy" || clip === "copy-if-sel") {
@@ -80,7 +80,10 @@ export function wireTermKeys(term, send) {
     const seq = newlineSeq(ev, prefs.newlineKey);
     if (!seq) return true;
     if (typeof ev.preventDefault === "function") ev.preventDefault();
-    if (send) send(new TextEncoder().encode(seq));
+    // xterm's _keyPress writes \r for Enter even after a canceled keydown
+    // (_keyDownHandled stays false) — block the trailing keypress and only
+    // emit the sequence once, on keydown.
+    if (ev.type === "keydown" && send) send(new TextEncoder().encode(seq));
     return false;
   });
 }

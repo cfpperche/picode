@@ -517,6 +517,7 @@ export default function App() {
         setWaiting(false);
         setItems((cur) => [...cur, { kind: "sys", text: "— panel disconnected —", err: true }]);
       }
+      if (window.__picodeKickHealth) window.__picodeKickHealth();
     };
   }
 

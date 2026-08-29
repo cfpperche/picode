@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- If the server drops (restart, deploy), the UI shows **Reconnecting** with a spinner, then reloads when `/api/health` is back.
+- If the server drops (restart, deploy), the UI shows **Reconnecting** with a spinner, then reloads when `/api/health` is back. Fast restarts (shorter than the poll) are caught by a `bootId` comparison, and dead WebSockets trigger an immediate check — the tab reloads itself.
 - Composer **Sketch** opens Excalidraw. Insert puts a PNG on the message (same as paste). Empty board does not insert.
 - Sketch Cancel / Insert are 28px, not the full header height.
 - Composer chips are joined button groups: session + New on top, provider / model / thinking / mode (and kind) in one bar.

@@ -25,7 +25,9 @@ Shared code lives in `web/src/lib`. Rotate does not remount (would drop WS).
 The mobile shell is a PWA (`manifest.webmanifest`, `sw.js`, Apple
 `apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
 If `GET /api/health` fails, the shell shows a Reconnecting overlay and
-reloads when the server is back (covers binary restart / deploy).
+reloads when the server is back. Fast restarts (shorter than the 2.5s
+poll) are caught by comparing the health `bootId` — a new id reloads the
+tab; unexpected WebSocket closes kick an immediate check.
 
 Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
 **Settings** is pi JSON for the selected agent. Auth, MCP, packages
