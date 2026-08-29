@@ -5,6 +5,8 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
+import { previewKind } from "../lib/filePreview.js";
+import FilePreview from "./FilePreview.jsx";
 import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 const FILE_MIN = 240;
@@ -28,6 +30,8 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
   });
   const [resizing, setResizing] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const kind = previewKind(path);
+  const [mode, setMode] = useState(kind ? "preview" : "raw");
   const hostRef = useRef(null);
   const cmRef = useRef(null);
   const mtimeRef = useRef(0);
@@ -57,7 +61,11 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
   }, [agentId, termId, ownerId, path]);
 
   useEffect(() => {
-    if (view.kind !== "text" || !hostRef.current) return;
+    setMode(previewKind(path) ? "preview" : "raw");
+  }, [path]);
+
+  useEffect(() => {
+    if (view.kind !== "text" || mode === "preview" || !hostRef.current) return;
     const lang = languageFor(view.path || path);
     const dark = document.documentElement.dataset.theme !== "light";
     const state = EditorState.create({
@@ -76,18 +84,18 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
       cm.destroy();
       cmRef.current = null;
     };
-  }, [view.kind, view.path, view.text, path]);
+  }, [view.kind, view.path, view.text, path, mode]);
 
   async function save() {
     if (view.kind !== "text" || !dirtyRef.current || saving) return;
-    const cm = cmRef.current;
-    if (!cm) return;
+    const text = cmRef.current ? cmRef.current.state.doc.toString() : view.text;
+    if (text == null) return;
     setSaving(true);
     try {
       const page = await api(fileTextUrl(agentId, termId, path).split("?")[0], {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: view.path || path, text: cm.state.doc.toString(), mtime: mtimeRef.current }),
+        body: JSON.stringify({ path: view.path || path, text, mtime: mtimeRef.current }),
       });
       mtimeRef.current = Number(page.mtime) || 0;
       dirtyRef.current = false;
@@ -167,6 +175,15 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
+  function pickMode(next) {
+    if (next === mode) return;
+    if (mode === "raw" && cmRef.current) {
+      const t = cmRef.current.state.doc.toString();
+      setView((v) => (v.kind === "text" ? { ...v, text: t } : v));
+    }
+    setMode(next);
+  }
+
   const title = view.name || view.path || path || "File";
   const canSave = view.kind === "text";
   const tab = variant === "tab";
@@ -176,7 +193,13 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
       <header className="file-pane-bar">
         <span className="file-pane-name" title={view.path || path}>{title}</span>
         {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
-        {canSave ? (
+        {kind && view.kind === "text" ? (
+          <div className="chip-group" data-align-row>
+            <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "preview"} onClick={() => pickMode("preview")}>Preview</button>
+            <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "raw"} onClick={() => pickMode("raw")}>Raw</button>
+            <button type="button" className="cockpit-chip" onClick={save} disabled={!dirty || saving}>Save</button>
+          </div>
+        ) : canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
         ) : null}
         {tab ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>}
@@ -201,7 +224,8 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
             <div className="skel-line w-70" />
           </div>
         ) : null}
-        {view.kind === "text" ? <div className="file-cm" ref={hostRef} /> : null}
+        {view.kind === "text" && mode === "raw" ? <div className="file-cm" ref={hostRef} /> : null}
+        {view.kind === "text" && mode === "preview" && kind ? <FilePreview kind={kind} text={view.text} /> : null}
         {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
       </div>
     </section>

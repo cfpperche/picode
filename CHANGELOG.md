@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- SVG and mermaid (`.mmd`) files open in **Preview** | **Raw**.
 - Ctrl+click (Cmd on Mac) a path in a terminal opens it as an editor tab. Same map as the chat file pane, for that terminal's folder. Links (`https://…`) open in the browser.
 - Settings **Keys** edits Pi's keybindings (this machine). Search, Add (press a key), Reset. Same file as `/keybindings`.
 - If the server drops (restart, deploy), the UI shows **Reconnecting** with a spinner, then reloads when `/api/health` is back. Fast restarts (shorter than the poll) are caught by a `bootId` comparison, and dead WebSockets trigger an immediate check — the tab reloads itself.
