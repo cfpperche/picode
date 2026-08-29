@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- `picode install` starts PiCode with this Linux user (systemd). `picode uninstall` undoes it. `--purge` also deletes `~/.picode`. A Windows reboot still needs WSL opened first.
 - Rename a terminal from the sidebar (pencil or double-click). New ones still start as **Terminal**.
 - Preferences → Appearance: terminal Light or Dark, separate from the app theme (default Dark).
 - Sidebar **Terminals** (icon next to Agents). **+** opens a shell as a main tab, like an agent. Closing the tab leaves tmux running; Remove stops it. Ctrl/Cmd+` also creates one. The GUI chrome uses JetBrains Mono; the conversation stays as it was.

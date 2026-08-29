@@ -31,6 +31,7 @@ import (
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/config"
+	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/screenshot"
@@ -48,6 +49,12 @@ func main() {
 		case "screenshot":
 			runScreenshot(os.Args[2:])
 			return
+		case "install":
+			runInstall()
+			return
+		case "uninstall":
+			runUninstall(os.Args[2:])
+			return
 		case "help", "-h", "--help":
 			usage()
 			return
@@ -61,6 +68,8 @@ func usage() {
 
 Usage:
   picode [flags]              start the server
+  picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
+  picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
   picode screenshot [flags]   capture a page to PNG (visual-review loop)
     --url string    page to capture (required)
     --out string    destination PNG (required)
@@ -78,6 +87,43 @@ Environment:
 
 HTTPS is served with data-dir certs (mkcert via scripts/setup-cert.sh)
 or a generated self-signed certificate. Discovery: <data>/server.json.`)
+}
+
+func runInstall() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	fmt.Println("Installing PiCode (systemd --user)…")
+	if err := install.Install(exe, home, os.Getenv("PATH")); err != nil {
+		log.Fatalf("install: %v", err)
+	}
+	fmt.Println("Starts when this Linux user session starts.")
+	fmt.Println("  https://localhost:8445")
+	fmt.Println("  systemctl --user status picode")
+}
+
+func runUninstall(args []string) {
+	fs := flag.NewFlagSet("uninstall", flag.ExitOnError)
+	purge := fs.Bool("purge", false, "also delete ~/.picode")
+	_ = fs.Parse(args)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("uninstall: %v", err)
+	}
+	fmt.Println("Removing PiCode from systemd…")
+	if err := install.Uninstall(home, *purge); err != nil {
+		log.Fatalf("uninstall: %v", err)
+	}
+	if *purge {
+		fmt.Println("Removed the service, binary, and ~/.picode.")
+		return
+	}
+	fmt.Println("Removed the service. ~/.picode is still there.")
 }
 
 // serveState shares live port info with the HTTP handlers.

@@ -74,6 +74,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
+- **2026-08-29** — `picode install` / `uninstall` (systemd --user, ADR-0018). No Windows task.
 - **2026-08-28** — Rename terminals (pencil / double-click). visual-review: PASS (term-rename.png, term-renamed.png). Terminal Light/Dark in Preferences (pref-term-theme.png), independent of the app theme.
 - **2026-08-28** — File pane header compact (24px); Save, Close, Expand last. visual-review: PASS (file-header.png, file-expanded.png, overlayAudit ok).
 - **2026-08-28** — File pane left edge resizes (persists). visual-review: PASS (file-resize.png).
