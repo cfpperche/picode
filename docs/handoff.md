@@ -47,7 +47,7 @@ What exists:
 
 ## In flight
 
-Nothing. Adopt Pi session (ADR-0021) ready to merge. File-preview roadmap closed.
+Nothing.
 
 ## Next up
 
