@@ -46,8 +46,7 @@ export default function ChatSurface({
                 <div className="composer-tools" data-align-row>
                   {composer.sessionBar}
                   <div className="composer-tools-end">
-                    <AgentPageBar onGo={composer.onAgentPage} pkgUpdates={composer.pkgUpdates} />
-                    <div className="composer-pages">
+                    <AgentPageBar onGo={composer.onAgentPage} pkgUpdates={composer.pkgUpdates}>
                       <button
                         type="button"
                         className="composer-page"
@@ -57,7 +56,7 @@ export default function ChatSurface({
                       >
                         {expanded ? <IconCollapse /> : <IconExpand />}
                       </button>
-                    </div>
+                    </AgentPageBar>
                   </div>
                 </div>
               ) : null}

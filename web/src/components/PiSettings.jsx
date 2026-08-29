@@ -49,60 +49,56 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
 
   return (
     <PageFrame id="pi-settings-view" title="Settings" context={agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
-      {!agent ? (
-        <p className="settings-desc">Select an agent to edit pi settings.</p>
-      ) : (
-        <>
-          <section className="settings-section" data-layer="global">
-            <h3>Global</h3>
-            <p className="settings-desc">This machine · ~/.pi/agent/settings.json</p>
+      <section className="settings-section" data-layer="global">
+        <h3>Global</h3>
+        <p className="settings-desc">This machine</p>
+        <LayerKnobs
+          prefix="g"
+          values={g}
+          catalog={catalog}
+          onSave={(patch) => save("global", patch, "Saved for every pi on this machine.")}
+        />
+      </section>
+      {workspace ? (
+        <section className="settings-section" data-layer="workspace">
+          <h3>Workspace</h3>
+          <p className="settings-desc">{workspace.name}</p>
+          {!canProject ? (
+            <p className="settings-desc">This folder is not trusted. Run the agent and use Trust.</p>
+          ) : (
             <LayerKnobs
-              prefix="g"
-              values={g}
+              prefix="w"
+              values={p}
               catalog={catalog}
-              onSave={(patch) => save("global", patch, "Saved for every pi on this machine.")}
+              onSave={(patch) => save("project", patch, "Saved for this folder.")}
             />
-          </section>
-          {workspace ? (
-            <section className="settings-section" data-layer="workspace">
-              <h3>Workspace</h3>
-              <p className="settings-desc">{workspace.name} · {workspace.path}</p>
-              {!canProject ? (
-                <p className="settings-desc">This folder is not trusted. Run /trust in the terminal.</p>
-              ) : (
-                <LayerKnobs
-                  prefix="w"
-                  values={p}
-                  catalog={catalog}
-                  onSave={(patch) => save("project", patch, "Saved for this folder.")}
-                />
-              )}
-            </section>
-          ) : null}
-          <section className="settings-section" data-layer="agent">
-            <h3>Agent</h3>
-            <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
-            <div className="set-rows" data-align-row>
-              <div className="set-row set-row-stack">
-                <span>Model</span>
-                <ConfigFields
-                  catalog={catalog}
-                  provider={ag.provider}
-                  model={ag.model}
-                  thinking={ag.thinking}
-                  onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)}
-                  idPrefix="ag-set"
-                  row
-                />
-              </div>
-              <div className="set-row">
-                <span>Tools</span>
-                <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
-              </div>
+          )}
+        </section>
+      ) : null}
+      {agent ? (
+        <section className="settings-section" data-layer="agent">
+          <h3>Agent</h3>
+          <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
+          <div className="set-rows" data-align-row>
+            <div className="set-row set-row-stack">
+              <span>Model</span>
+              <ConfigFields
+                catalog={catalog}
+                provider={ag.provider}
+                model={ag.model}
+                thinking={ag.thinking}
+                onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)}
+                idPrefix="ag-set"
+                row
+              />
             </div>
-          </section>
-        </>
-      )}
+            <div className="set-row">
+              <span>Tools</span>
+              <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
+            </div>
+          </div>
+        </section>
+      ) : null}
     </PageFrame>
   );
 }

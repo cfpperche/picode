@@ -518,8 +518,7 @@ export default function Composer({
         <div className="composer-tools" data-align-row>
           {sessionBar}
           <div className="composer-tools-end">
-            <AgentPageBar onGo={onAgentPage} pkgUpdates={pkgUpdates} />
-            <div className="composer-pages">
+            <AgentPageBar onGo={onAgentPage} pkgUpdates={pkgUpdates}>
               <button
                 type="button"
                 className="composer-page"
@@ -529,7 +528,7 @@ export default function Composer({
               >
                 {expanded ? <IconCollapse /> : <IconExpand />}
               </button>
-            </div>
+            </AgentPageBar>
           </div>
         </div>
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />

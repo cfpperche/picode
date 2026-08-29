@@ -6,12 +6,12 @@ const PAGES = [
   { id: "packages", label: "Packages", Icon: IconPackage },
 ];
 
-export default function AgentPageBar({ onGo, pkgUpdates }) {
-  if (!onGo) return null;
+export default function AgentPageBar({ onGo, pkgUpdates, children }) {
+  if (!onGo && !children) return null;
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
   return (
     <div className="composer-pages" role="toolbar" aria-label="Agent">
-      {PAGES.map((p) => (
+      {onGo ? PAGES.map((p) => (
         <button
           key={p.id}
           type="button"
@@ -23,7 +23,8 @@ export default function AgentPageBar({ onGo, pkgUpdates }) {
           <p.Icon />
           {p.id === "packages" && hasPkgUp ? <span className="um-dot composer-page-dot" aria-label="Updates available" /> : null}
         </button>
-      ))}
+      )) : null}
+      {children}
     </div>
   );
 }
