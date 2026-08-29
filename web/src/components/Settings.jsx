@@ -13,7 +13,7 @@ import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
 import {
   readTermPrefs, persistTermPrefs,
-  TERM_FONTS, TERM_CURSORS,
+  TERM_FONTS, TERM_CURSORS, TERM_NEWLINES,
   TERM_SIZE_MIN, TERM_SIZE_MAX,
   TERM_LINE_MIN, TERM_LINE_MAX,
   TERM_TRACK_MIN, TERM_TRACK_MAX,
@@ -148,6 +148,15 @@ export default function Settings({ hidden, themeMode, onTheme }) {
               <div className="set-row">
                 <label htmlFor="term-pad">Padding</label>
                 <input id="term-pad" type="number" min={TERM_PAD_MIN} max={TERM_PAD_MAX} value={term.padding} onChange={(e) => saveTerm({ padding: e.target.value })} />
+              </div>
+            </div>
+            <h3 className="settings-h">Keys</h3>
+            <div className="set-rows">
+              <div className="set-row">
+                <label htmlFor="term-newline">New line</label>
+                <select id="term-newline" className="set-wide" value={term.newlineKey} onChange={(e) => saveTerm({ newlineKey: e.target.value })}>
+                  {TERM_NEWLINES.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+                </select>
               </div>
             </div>
           </div>

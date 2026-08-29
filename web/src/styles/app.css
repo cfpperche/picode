@@ -852,7 +852,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   height: var(--chrome-h); min-height: var(--chrome-h);
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
 }
-.tab-strip { display: flex; align-items: stretch; padding: 0 4px; overflow-x: auto; flex: 1; min-width: 0; }
+.tab-strip { display: flex; align-items: stretch; padding: 0; overflow-x: auto; flex: 1; min-width: 0; }
 .session-bar {
   display: flex; align-items: center; gap: 6px; flex: none;
   position: relative;
@@ -893,14 +893,17 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .session-list .combo-hint { margin-left: 0; }
 .session-rename { font-size: 11px; color: var(--accent); cursor: pointer; }
 .mtab {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 10px 0 12px; font-size: 12.5px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 8px; font-size: 12.5px;
   border-right: 1px solid var(--border);
-  cursor: pointer; color: var(--text-secondary); white-space: nowrap;
+  cursor: grab; color: var(--text-secondary); white-space: nowrap;
   user-select: none;
 }
 .mtab:hover { color: var(--text-primary); background: var(--bg-hover); }
 .mtab.active { color: var(--text-primary); background: var(--bg-base); box-shadow: inset 0 -2px 0 var(--accent); }
+.mtab.dragging { opacity: .45; cursor: grabbing; }
+.mtab.drag-over { box-shadow: inset 2px 0 0 var(--accent); }
+.mtab.active.drag-over { box-shadow: inset 2px 0 0 var(--accent), inset 0 -2px 0 var(--accent); }
 .mtab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); flex: none; }
 .mtab-dot.running { background: var(--ok); }
 .mtab-close {

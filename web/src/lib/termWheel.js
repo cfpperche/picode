@@ -1,13 +1,10 @@
 // Wheel on a PiCode terminal must move the view. xterm.js otherwise
-// forwards it as Up/Down or SGR mouse, which Pi's composer eats.
-// Order: scroll xterm's own buffer; if that did not move (TUI / alt-screen
-// with no scrollback), PageUp/PageDown to the process. Shift+wheel is
-// left to xterm.
+// forwards it as Up/Down, which Pi's composer eats. Order: scroll xterm's
+// own buffer; if that did not move (TUI / no scrollback), send SGR wheel
+// at the top of the screen so Pi's transcript ScrollView moves — not PageUp
+// (tmux often swallows it) and not Up/Down (composer). Shift+wheel is xterm.
 
-const PAGE_UP = new TextEncoder().encode("\x1b[5~");
-const PAGE_DOWN = new TextEncoder().encode("\x1b[6~");
 const acc = new WeakMap();
-const THRESHOLD = 40;
 
 export function wheelLineCount(ev) {
   const dy = Number(ev && ev.deltaY) || 0;
@@ -17,15 +14,13 @@ export function wheelLineCount(ev) {
   return dy < 0 ? -n : n;
 }
 
-export function pageBytesFor(term, dy) {
-  if (!term || !dy) return null;
-  const next = (acc.get(term) || 0) + dy;
-  if (Math.abs(next) < THRESHOLD) {
-    acc.set(term, next);
-    return new Uint8Array(0);
-  }
-  acc.set(term, 0);
-  return next < 0 ? PAGE_UP : PAGE_DOWN;
+export function sgrWheelBytes(dy) {
+  const n = Number(dy) || 0;
+  if (!n) return new Uint8Array(0);
+  const btn = n < 0 ? 64 : 65;
+  const reps = Math.min(6, Math.max(1, Math.round(Math.abs(n) / 40)));
+  const one = "\x1b[<" + btn + ";2;2M";
+  return new TextEncoder().encode(one.repeat(reps));
 }
 
 export function applyTermWheel(term, ev, send) {
@@ -36,9 +31,15 @@ export function applyTermWheel(term, ev, send) {
   if (typeof term.scrollLines === "function") term.scrollLines(wheelLineCount(ev));
   const after = term.buffer && term.buffer.active ? term.buffer.active.viewportY : before;
   if (after !== before) return "xterm";
-  const bytes = pageBytesFor(term, dy);
-  if (bytes && bytes.length && send) send(bytes);
-  return bytes && bytes.length ? "page" : "hold";
+  const next = (acc.get(term) || 0) + dy;
+  if (Math.abs(next) < 24) {
+    acc.set(term, next);
+    return "hold";
+  }
+  acc.set(term, 0);
+  const bytes = sgrWheelBytes(next);
+  if (bytes.length && send) send(bytes);
+  return bytes.length ? "sgr" : "hold";
 }
 
 export function wireTermWheel(term, send, el) {

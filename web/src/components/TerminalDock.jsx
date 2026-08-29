@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
+import { wireTermKeys } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wsURL } from "../lib/api.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
@@ -24,7 +25,7 @@ export default function TerminalDock({
         hostRef.current.appendChild(entry.paneEl);
       }
       entry.paneEl.classList.add("active");
-      scheduleTermFit(entry);
+      scheduleTermFit(entry, true);
       return;
     }
     const paneEl = document.createElement("div");
@@ -37,9 +38,11 @@ export default function TerminalDock({
     term.open(paneEl);
 
     const entry = { term, fit, paneEl, sock: null, closedByUser: false };
-    wireTermWheel(term, (bytes) => {
+    const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    }, paneEl);
+    };
+    wireTermWheel(term, sendBytes, paneEl);
+    wireTermKeys(term, sendBytes);
     wireTermFit(entry);
     const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));
     sock.binaryType = "arraybuffer";
@@ -48,7 +51,7 @@ export default function TerminalDock({
     sock.onopen = () => {
       term.reset();
       setDot(true);
-      scheduleTermFit(entry);
+      scheduleTermFit(entry, true);
       term.onData((data) => {
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
       });

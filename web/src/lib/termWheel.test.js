@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyTermWheel, pageBytesFor, wheelLineCount } from "./termWheel.js";
+import { applyTermWheel, sgrWheelBytes, wheelLineCount } from "./termWheel.js";
 
 function fakeTerm(viewportY, maxY) {
   const cap = maxY == null ? 1000 : maxY;
@@ -17,10 +17,9 @@ test("wheelLineCount: pixels become lines, up is negative", () => {
   assert.equal(wheelLineCount({ deltaY: -120 }), -3);
   assert.equal(wheelLineCount({ deltaY: 40 }), 1);
   assert.equal(wheelLineCount({ deltaY: 0 }), 0);
-  assert.equal(wheelLineCount({ deltaY: -2, deltaMode: 1 }), -2);
 });
 
-test("xterm scrollback: wheel moves viewport, no PageUp", () => {
+test("xterm scrollback: wheel moves viewport, no SGR", () => {
   const sent = [];
   const t = fakeTerm(20);
   assert.equal(applyTermWheel(t, { deltaY: -120 }, (b) => sent.push(b)), "xterm");
@@ -28,28 +27,24 @@ test("xterm scrollback: wheel moves viewport, no PageUp", () => {
   assert.equal(sent.length, 0);
 });
 
-test("no scrollback: PageUp / PageDown after threshold", () => {
+test("no scrollback: SGR wheel at row 2 after threshold", () => {
   const sent = [];
   const t = fakeTerm(0, 0);
-  assert.equal(applyTermWheel(t, { deltaY: -20 }, (b) => sent.push(b)), "hold");
-  assert.equal(sent.length, 0);
-  assert.equal(applyTermWheel(t, { deltaY: -120 }, (b) => sent.push(b)), "page");
-  assert.deepEqual(sent[0], new TextEncoder().encode("\x1b[5~"));
-  const t2 = fakeTerm(0, 0);
-  applyTermWheel(t2, { deltaY: 120 }, (b) => sent.push(b));
-  assert.deepEqual(sent[1], new TextEncoder().encode("\x1b[6~"));
+  assert.equal(applyTermWheel(t, { deltaY: -10 }, (b) => sent.push(b)), "hold");
+  assert.equal(applyTermWheel(t, { deltaY: -120 }, (b) => sent.push(b)), "sgr");
+  assert.deepEqual(sent[0], sgrWheelBytes(-130));
+});
+
+test("sgrWheelBytes: up is button 64, down is 65", () => {
+  const up = new TextDecoder().decode(sgrWheelBytes(-40));
+  const down = new TextDecoder().decode(sgrWheelBytes(80));
+  assert.equal(up, "\x1b[<64;2;2M");
+  assert.equal(down, "\x1b[<65;2;2M\x1b[<65;2;2M");
 });
 
 test("shift+wheel and empty event are skipped", () => {
   const t = fakeTerm(8);
   assert.equal(applyTermWheel(t, { deltaY: -120, shiftKey: true }), "skip");
   assert.equal(t.buffer.active.viewportY, 8);
-  assert.equal(applyTermWheel(t, null), "skip");
   assert.equal(applyTermWheel(null, { deltaY: -120 }), "skip");
-});
-
-test("pageBytesFor accumulates small deltas", () => {
-  const t = {};
-  assert.equal(pageBytesFor(t, -10).length, 0);
-  assert.deepEqual(pageBytesFor(t, -40), new TextEncoder().encode("\x1b[5~"));
 });

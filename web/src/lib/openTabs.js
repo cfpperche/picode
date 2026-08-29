@@ -18,6 +18,17 @@ export function writeOpenTabs(ids, selected) {
   localStorage.setItem(KEY, JSON.stringify({ ids: clean, selected: sel }));
 }
 
+export function moveTab(ids, fromId, toId) {
+  const list = ids || [];
+  const from = list.indexOf(fromId);
+  const to = list.indexOf(toId);
+  if (from < 0 || to < 0 || from === to) return list;
+  const next = list.slice();
+  next.splice(from, 1);
+  next.splice(to, 0, fromId);
+  return next;
+}
+
 export function filterOpenTabs(saved, exists) {
   const ids = (saved.ids || []).filter(exists);
   const selected = saved.selected && ids.includes(saved.selected) ? saved.selected : (ids[0] || null);

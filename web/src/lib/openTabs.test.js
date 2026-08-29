@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs } from "./openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -9,6 +9,13 @@ test("filterOpenTabs drops missing agents", () => {
   );
   assert.deepEqual(got.ids, ["a", "b"]);
   assert.equal(got.selected, "a");
+});
+
+test("moveTab reorders and no-ops on bad ids", () => {
+  assert.deepEqual(moveTab(["a", "b", "c"], "a", "c"), ["b", "c", "a"]);
+  assert.deepEqual(moveTab(["a", "b", "c"], "c", "a"), ["c", "a", "b"]);
+  assert.deepEqual(moveTab(["a", "b"], "a", "a"), ["a", "b"]);
+  assert.deepEqual(moveTab(["a", "b"], "z", "a"), ["a", "b"]);
 });
 
 test("roundtrip", () => {

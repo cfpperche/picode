@@ -46,8 +46,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
-- Terminal wheel scrolls the terminal. If xterm has no scrollback (Pi TUI), the wheel pages that view instead of moving the composer cursor. Stretching the xterm canvas to 100% height had also broken hit-testing.
-- Terminal resizes as soon as its pane changes (sidebar, split, window) — not only on a browser window resize.
+- Terminal wheel scrolls the terminal. If xterm has no scrollback (Pi TUI), the wheel is sent as mouse-wheel to the TUI transcript (not the composer). Stretching the xterm canvas to 100% height had also broken hit-testing.
+- Terminal resizes as soon as its pane changes (sidebar, split, window) — not only on a browser window resize. Sidebar drag is debounced (one SIGWINCH after you stop).
+- Terminal **New line** key (Preferences → Terminal): Shift+Enter by default, or Ctrl+Enter / Alt+Enter. Ctrl+Shift+C/V copy and paste.
+- Agent tabs start flush (no extra left pad). Drag a tab to reorder.
 - Switching agents no longer loops the tabs against the address bar (Chrome freeze).
 
 ### Changed

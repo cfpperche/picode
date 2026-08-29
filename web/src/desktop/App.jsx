@@ -51,7 +51,7 @@ function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   return "/api/workspaces/" + id + suffix + q;
 }
 import { extraSlash } from "../lib/slash.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs } from "../lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab } from "../lib/openTabs.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
@@ -1253,6 +1253,7 @@ export default function App() {
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
+            onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
           />
 
           <div id="empty" className="empty" hidden={!noTabs && !missing}>

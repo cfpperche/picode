@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
+import { wireTermKeys } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
@@ -29,7 +30,7 @@ export default function ShellTerm({ agentId, session, active }) {
       if (live) {
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
         entry.paneEl.classList.add("active");
-        scheduleTermFit(entry);
+        scheduleTermFit(entry, true);
         if (active && entry.term) entry.term.focus();
         return undefined;
       }
@@ -43,15 +44,17 @@ export default function ShellTerm({ agentId, session, active }) {
     term.loadAddon(fit);
     term.open(paneEl);
     const entry = { term, fit, paneEl, sock: null, closedByUser: false };
-    wireTermWheel(term, (bytes) => {
+    const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    }, paneEl);
+    };
+    wireTermWheel(term, sendBytes, paneEl);
+    wireTermKeys(term, sendBytes);
     wireTermFit(entry);
     const sock = new WebSocket(wsURL("/ws/term?session=" + encodeURIComponent(session)));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
     sock.onopen = () => {
-      scheduleTermFit(entry);
+      scheduleTermFit(entry, true);
       term.onData((data) => {
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
       });

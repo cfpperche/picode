@@ -27,6 +27,12 @@ export const TERM_CURSORS = [
   { id: "underline", label: "Underline" },
 ];
 
+export const TERM_NEWLINES = [
+  { id: "shift-enter", label: "Shift+Enter" },
+  { id: "ctrl-enter", label: "Ctrl+Enter" },
+  { id: "alt-enter", label: "Alt+Enter" },
+];
+
 export const TERM_FONT = TERM_FONTS[0].css;
 
 export function defaultTermPrefs() {
@@ -40,6 +46,7 @@ export function defaultTermPrefs() {
     cursorBlink: true,
     scrollback: 10000,
     padding: 8,
+    newlineKey: "shift-enter",
   };
 }
 
@@ -67,6 +74,7 @@ function normalize(raw) {
   d.cursorBlink = src.cursorBlink !== false;
   d.scrollback = clampInt(src.scrollback, TERM_SCROLL_MIN, TERM_SCROLL_MAX, d.scrollback);
   d.padding = clampInt(src.padding, TERM_PAD_MIN, TERM_PAD_MAX, d.padding);
+  d.newlineKey = TERM_NEWLINES.some((k) => k.id === src.newlineKey) ? src.newlineKey : d.newlineKey;
   return d;
 }
 
