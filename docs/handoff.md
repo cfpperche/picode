@@ -74,6 +74,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
+- **2026-08-29** — Terminal tab fills the view + padding. visual-review: PASS (term-fill.png). Attach sets TERM; reconnect if the socket died.
 - **2026-08-29** — `make deploy` / `picode deploy` = repo → systemd. `picode update` = GitHub release for a normal user.
 - **2026-08-29** — `picode install` / `uninstall` (systemd --user, ADR-0018). No Windows task.
 - **2026-08-28** — Rename terminals (pencil / double-click). visual-review: PASS (term-rename.png, term-renamed.png). Terminal Light/Dark in Preferences (pref-term-theme.png), independent of the app theme.

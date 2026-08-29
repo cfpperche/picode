@@ -135,8 +135,17 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 	} else if exists {
 		return fmt.Errorf("tmux session %q already exists", name)
 	}
-	full := append([]string{"new-session", "-d", "-s", name, "-c", cwd, "--", command}, args...)
+	full := []string{"new-session", "-d", "-s", name, "-c", cwd,
+		"-e", "TERM=xterm-256color", "-e", "COLORTERM=truecolor",
+		"--", command}
+	full = append(full, args...)
 	_, err := m.run(ctx, full...)
+	return err
+}
+
+// SetEnv sets a session environment variable (tmux set-environment).
+func (m *Manager) SetEnv(ctx context.Context, name, key, value string) error {
+	_, err := m.run(ctx, "set-environment", "-t", name+":", key, value)
 	return err
 }
 

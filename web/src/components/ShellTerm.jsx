@@ -21,7 +21,20 @@ export default function ShellTerm({ agentId, session, active }) {
   useEffect(() => {
     if (!agentId || !session || !hostRef.current) return undefined;
     const id = shellKey(agentId);
-    closeTerm(id);
+    if (terms.has(id)) {
+      const entry = terms.get(id);
+      const live = entry.sock && entry.sock.readyState === WebSocket.OPEN;
+      if (live) {
+        if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
+        entry.paneEl.classList.add("active");
+        requestAnimationFrame(() => {
+          if (entry.fit) entry.fit.fit();
+          if (active && entry.term) entry.term.focus();
+        });
+        return undefined;
+      }
+      closeTerm(id);
+    }
     const paneEl = document.createElement("div");
     paneEl.className = "term-pane active";
     hostRef.current.appendChild(paneEl);
@@ -40,48 +53,42 @@ export default function ShellTerm({ agentId, session, active }) {
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
     sock.onopen = () => {
-      term.reset();
       const sendResize = () => {
-        if (sock.readyState === WebSocket.OPEN) {
+        if (sock.readyState === WebSocket.OPEN && term.cols > 1 && term.rows > 1) {
           sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
       };
-      fit.fit();
-      sendResize();
+      requestAnimationFrame(() => { fit.fit(); sendResize(); });
       entry.onWinResize = () => { if (paneEl.isConnected) { fit.fit(); sendResize(); } };
       window.addEventListener("resize", entry.onWinResize);
       term.onData((data) => {
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
       });
       term.onResize(() => {
-        if (sock.readyState === WebSocket.OPEN) {
+        if (sock.readyState === WebSocket.OPEN && term.cols > 1 && term.rows > 1) {
           sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
       });
       if (active) term.focus();
     };
     sock.onmessage = (ev) => {
-      if (typeof ev.data === "string") return;
+      if (typeof ev.data === "string") {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === "error") term.writeln("\r\n\x1b[31m" + msg.message + "\x1b[0m");
+        } catch { /* ignore */ }
+        return;
+      }
       term.write(new Uint8Array(ev.data));
     };
     sock.onclose = () => {
       if (entry.onWinResize) window.removeEventListener("resize", entry.onWinResize);
       if (!entry.closedByUser) term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+      if (terms.get(id) === entry) terms.delete(id);
     };
     terms.set(id, entry);
-    return () => { closeTerm(id); };
-  }, [agentId, session]);
-
-  useEffect(() => {
-    if (!active) return;
-    const entry = terms.get(shellKey(agentId));
-    if (entry && entry.fit) {
-      requestAnimationFrame(() => {
-        entry.fit.fit();
-        entry.term.focus();
-      });
-    }
-  }, [active, agentId]);
+    return undefined;
+  }, [agentId, session, active]);
 
   useEffect(() => {
     function apply() {

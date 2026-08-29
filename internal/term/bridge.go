@@ -70,6 +70,7 @@ func Bridge(tm *tmux.Manager) http.Handler {
 
 		// Initial size; the client sends a resize right after attach.
 		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)
+		cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
 		ptyFile, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
 		if err != nil {
 			writeError(ws, "cannot attach to session: "+err.Error())

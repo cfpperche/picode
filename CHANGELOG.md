@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Terminal tab fills the view (padding around the edges, no white strip). New shells get `TERM=xterm-256color`.
 - `picode update` checks GitHub for a newer release (for a normal install).
 - `make deploy` / `picode deploy` rebuilds this repo and restarts the service.
 - `picode install` starts PiCode with this Linux user (systemd). `picode uninstall` undoes it. `--purge` also deletes `~/.picode`. A Windows reboot still needs WSL opened first.

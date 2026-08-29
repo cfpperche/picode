@@ -182,5 +182,7 @@ func ensureShell(deps Deps, r *http.Request, name, cwd string) error {
 		}
 	}
 	_ = deps.Tmux.SetOption(r.Context(), name, "status", "off")
+	_ = deps.Tmux.SetEnv(r.Context(), name, "TERM", "xterm-256color")
+	_ = deps.Tmux.SetEnv(r.Context(), name, "COLORTERM", "truecolor")
 	return nil
 }

@@ -4,6 +4,7 @@ import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { applyTermTheme, readTermTheme } from "../lib/termTheme.js";
 import { closeTerm } from "../components/TerminalDock.jsx";
+import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
 import { eventsToItems } from "../lib/replay.js";
@@ -418,6 +419,7 @@ export default function App() {
   }
 
   function closeTab(id) {
+    if (isTermTab(id)) closeShellTerm(tabTermId(id));
     const ws = workspaces.find((w) => w.id === id);
     setTabs((t) => t.filter((x) => x !== id));
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -1242,7 +1244,7 @@ export default function App() {
       />
 
       <main id="main">
-        <div id="workspace-view" className="workspace-view" hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "")} hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
