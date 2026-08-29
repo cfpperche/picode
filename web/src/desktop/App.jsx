@@ -111,7 +111,7 @@ export default function App() {
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
   const [pkgUpdates, setPkgUpdates] = useState([]);
-  const [fileByAgent, setFileByAgent] = useState({});
+
   const [terminals, setTerminals] = useState([]);
   const [termError, setTermError] = useState("");
   const convRef = useRef(null);
@@ -1375,9 +1375,7 @@ export default function App() {
             onQueueEdit={(qid) => setItems((cur) => startEditQueued(cur, qid))}
             onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}
             onQueueCancelEdit={(qid) => setItems((cur) => cancelEditQueued(cur, qid))}
-            filePath={!isTermTab(selectedId) && selectedId ? fileByAgent[selectedId] : ""}
-            onOpenFile={(p) => { if (selectedId && p && !isTermTab(selectedId)) setFileByAgent((s) => ({ ...s, [selectedId]: p })); }}
-            onCloseFile={() => { if (selectedId) setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; }); }}
+            onOpenTab={(p) => { if (agent && p) openFileTab("agent", agent.id, p); }}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

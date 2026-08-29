@@ -46,11 +46,11 @@ What exists:
 
 ## In flight
 
-File open + preview roadmap. **Track 1 shipped.** Tracks 2 (chat paths) and 3 (live cwd) remain. Closes when 1+2+3 ship.
+File open + preview roadmap. **Tracks 1 and 2 shipped.** Track 3 (live cwd) remains. Closes when 1+2+3 ship.
 
 ## Next up
 
-Track 2: chat path → closable in-thread file card (Expand), **not** a main tab. Then 3: tmux pane cwd on Ctrl+click.
+Track 3: tmux `#{pane_current_path}` on Ctrl+click so `cd` then a relative path opens the right file.
 
 ## Backlog
 
@@ -76,6 +76,7 @@ Track 2: chat path → closable in-thread file card (Expand), **not** a main tab
 
 ## Recent activity
 
+- **2026-08-29** — Chat file card: click a path → closable card in the thread; Open in tab → same `#/file/a/…` as the terminal. Split FilePane removed. visual-review: PASS (file-chat-card.png, file-chat-tab.png).
 - **2026-08-29** — File preview track 1: png, pdf, md, audio, video, glb/gltf (model-viewer). visual-review: PASS (file-png-preview.png, file-md-preview.png, file-pdf-preview.png, file-audio-preview.png, file-video-preview.png, file-glb-preview.png, file-bin-raw.png, file-bin-gone.png).
 - **2026-08-29** — Ctrl+click on a terminal path eats mousedown/mouseup so tmux SGR (`<16;NaN;NaNm`) does not land in the Pi composer.
 - **2026-08-29** — Terminal Ctrl+click also matches bare `App.jsx` / `foo.js` (not only paths with `/`).

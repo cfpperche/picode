@@ -13,7 +13,7 @@ import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile }) {
+export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenFile, after }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -37,6 +37,7 @@ export default function Conversation({ items, onToggleTool, onToggleFiles, convR
             acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenFile={onOpenFile} />);          }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
+        {after}
       </div>
       <ImageLightbox src={preview} onClose={() => setPreview("")} />
     </div>

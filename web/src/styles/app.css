@@ -1071,6 +1071,35 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-preview-video { width: min(100%, 960px); }
 .file-preview-3d-wrap { display: block; padding: 0; height: 100%; }
 .file-preview-3d { width: 100%; height: min(70vh, 560px); }
+.file-cards {
+  position: absolute; left: 0; right: 0; bottom: 228px; z-index: 5;
+  padding: 0 var(--chat-gutter) 8px; pointer-events: none;
+}
+.file-cards .file-card {
+  pointer-events: auto; max-width: var(--chat-col); margin: 0 auto 8px;
+}
+.file-card {
+  margin: 8px 0 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-panel); height: fit-content; max-height: 200px;
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  position: relative; z-index: 1;
+}
+.file-card-bar {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; min-height: 32px; padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.file-card-bar .file-pane-name {
+  display: flex; align-items: center; min-height: 24px;
+}
+.file-card-bar .btn { height: 24px; min-height: 24px; padding: 0 8px; font-size: 12px; }
+.file-card-out { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.file-card-body { overflow: auto; max-height: 160px; min-height: 0; }
+.file-card-pre {
+  margin: 0; padding: 10px 12px;
+  font-family: var(--code); font-size: 12.5px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
 .file-pane-expand {
   width: 24px; height: 24px; padding: 0; display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: 6px;
