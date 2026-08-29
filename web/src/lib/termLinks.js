@@ -82,7 +82,11 @@ export function classify(raw, cwd) {
 }
 
 const HTTP_RE = /\bhttps?:\/\/[^\s<>"'\\]+/gi;
-const PATH_RE = /(?:file:\/\/[^\s<>"'\\]+|(?:~\/|\.\/|\.\.\/)[^\s<>"'\\]+|(?<=^|[\s(["'])\/[^\s<>"'\\]+|(?<=^|[\s(["'])(?:[\w.@+-]+\/)+[\w.@+-]+)/g;
+const FILE_EXT = "js|jsx|ts|tsx|mjs|cjs|json|css|html|htm|md|go|py|rs|svg|mmd|mermaid|txt|sh|toml|yml|yaml";
+const PATH_RE = new RegExp(
+  String.raw`(?:file://[^\s<>"'\\]+|(?:~/|\./|\.\./)[^\s<>"'\\]+|(?<=^|[\s(["'])/[^\s<>"'\\]+|(?<=^|[\s(["'])(?:[\w.@+-]+/)+[\w.@+-]+|(?<=^|[\s(["'])[\w.@+-]+\.(?:` + FILE_EXT + ")\\b)",
+  "g",
+);
 
 export function findLinks(line, cwd) {
   const s = String(line || "");
@@ -112,6 +116,7 @@ export function wireTermLinks(term, getCwd, onFile) {
     if (!hasOpenModifier(ev)) return;
     const hit = classify(text, typeof getCwd === "function" ? getCwd() : getCwd);
     if (!hit) return;
+    if (ev && ev.preventDefault) ev.preventDefault();
     if (hit.kind === "http") {
       window.open(hit.href, "_blank", "noopener,noreferrer");
       return;

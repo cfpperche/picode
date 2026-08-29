@@ -48,6 +48,12 @@ test("classify decision table", () => {
   }
 });
 
+test("findLinks picks bare js and jsx names", () => {
+  const hits = findLinks("see Composer.jsx and termLinks.js here", cwd);
+  assert.equal(hits.some((h) => h.path === "Composer.jsx"), true);
+  assert.equal(hits.some((h) => h.path === "termLinks.js"), true);
+});
+
 test("findLinks skips http when scanning paths and keeps tool-call paths", () => {
   const line = "read ~/picode/web/src/a.js  see https://example.com/x  and /etc/passwd";
   const hits = findLinks(line, cwd);
