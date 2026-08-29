@@ -360,7 +360,12 @@ body {
 #providers-view .ws-face {
   width: 32px; height: 32px; margin-left: 0; font-size: 13px; padding: 3px;
 }
+.hotkey-group {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-secondary); margin: 14px 0 0; font-weight: 650;
+}
 .hotkey-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.term-key-facts { margin-top: 8px; }
 .hotkey-row {
   display: flex; align-items: center; gap: 12px;
   padding: 6px 0; font-size: 13px;
@@ -1821,6 +1826,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .dlg-session { width: min(460px, calc(100vw - 32px)); }
 .dlg-create { width: min(420px, calc(100vw - 32px)); }
+.dlg-hotkeys {
+  top: 50%;
+  max-height: min(80vh, 640px);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.hotkey-body { overflow: auto; flex: 1; min-height: 0; }
+.dlg-hotkeys .dlg-actions { flex: none; margin-top: 12px; }
 .dlg-create .form-new { padding: 12px 0 0; }
 .dlg-create .form-new input,
 .dlg-create .cfg-fields select { width: 100%; }

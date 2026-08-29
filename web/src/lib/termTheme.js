@@ -47,6 +47,7 @@ export function defaultTermPrefs() {
     scrollback: 10000,
     padding: 8,
     newlineKey: "shift-enter",
+    copyIfSelection: true,
   };
 }
 
@@ -75,6 +76,7 @@ function normalize(raw) {
   d.scrollback = clampInt(src.scrollback, TERM_SCROLL_MIN, TERM_SCROLL_MAX, d.scrollback);
   d.padding = clampInt(src.padding, TERM_PAD_MIN, TERM_PAD_MAX, d.padding);
   d.newlineKey = TERM_NEWLINES.some((k) => k.id === src.newlineKey) ? src.newlineKey : d.newlineKey;
+  d.copyIfSelection = src.copyIfSelection !== false;
   return d;
 }
 
