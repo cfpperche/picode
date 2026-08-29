@@ -40,6 +40,13 @@ moment of creation**. Read [README.md](README.md) and
    `docs/handoff.md` as open questions, not into prose as facts.
    **Seeing a visual defect and shipping it as done is a violation.**
    Fix it or say FAIL. `eval` / DOM JSON is not a visual verdict.
+5. **Isolated git worktree.** Two agents must not share a working tree.
+   Never commit feature work on `main` in the primary checkout. Start from
+   current `main`:
+   `git worktree add .worktrees/<name> -b feat/<name>`
+   After the branch merges: `git worktree remove .worktrees/<name>` and
+   delete the branch. Leave `main` clean for the next session. A dirty
+   shared tree that blocks another agent is FAIL.
 
 ## Quality gates (before you say "done")
 

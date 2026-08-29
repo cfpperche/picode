@@ -25,6 +25,9 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    before declaring done, `/skill:handoff-update` before ending.
 3. Never break the build. Architectural change → ADR
    (`docs/decisions/template.md`).
+4. **Work in an isolated git worktree** (AGENTS.md non-negotiable 5).
+   Do not edit `main` in the primary checkout in parallel with another
+   agent. After merge, remove the worktree and the branch.
 
 ## The documentation contract (applies to everyone)
 

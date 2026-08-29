@@ -21,6 +21,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **From a Pi session** (New agent) copies that JSONL into a new agent. The original Pi is not stopped. Known folder → that workspace; otherwise a free agent.
 - `picode-desktop update` replaces PiCode Desktop with a newer release, and `picode-desktop version` says which build you have. Tagging the repository now publishes both binaries to a GitHub release, so `picode update` has something to find.
 - PiCode Desktop asks for administrator rights only when installing — the tray itself never runs elevated — and shows the same PiCode mark in the notification area that the browser tab shows.
 - PiCode Desktop also sets up a Windows machine that has no WSL at all: it installs WSL, restarts once (setup resumes by itself when you sign back in), installs Ubuntu, and creates your Linux account — named after your Windows one. The account has no password until you set one; PiCode does not need it. `doctor` says which of these steps are pending before you commit to anything.

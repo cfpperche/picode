@@ -119,7 +119,8 @@ this machine — not per agent. No native MCP.
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History
-is not copied into SQLite (ADR-0005).
+is not copied into SQLite (ADR-0005). **From a Pi session** copies a JSONL
+and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
 Entry: user menu (Settings, Preferences, Providers, MCPs) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):

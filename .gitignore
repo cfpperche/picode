@@ -18,6 +18,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Git worktrees (AGENTS.md: isolated trees per agent)
+.worktrees/
+
 # Local
 .env
 .env.*

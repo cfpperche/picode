@@ -8,7 +8,8 @@ Two layers. Do not mix them.
 | Public | `www/` (Markdown → VitePress) | users | GitHub Pages |
 
 Internal rules stay in [AGENTS.md](../AGENTS.md) (code and docs in the
-same commit, handoff, changelog). This file is the **user-facing** contract.
+same commit, handoff, changelog, **isolated git worktree per agent**).
+This file is the **user-facing** contract.
 
 Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 (Stripe, Diátaxis, VitePress, pi). Do not invent a docs engine.
