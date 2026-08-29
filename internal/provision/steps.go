@@ -170,6 +170,14 @@ func serviceStep() Step {
 			if _, err := os.Stat(p.Unit); err != nil {
 				return needsFix("no user unit at %s", p.Unit)
 			}
+			// `systemctl --user` always answers for the *calling* account, so
+			// asking it from root reports on root's manager while claiming to
+			// describe someone else's. Refusing to answer beats answering
+			// wrongly — the pass that runs as the owner reports the truth.
+			if env.OnBehalf() {
+				return blocked("cannot read %s's services as %s — the pass running as %s reports this",
+					env.User, env.Acting, env.User)
+			}
 			if enabled, _ := output("systemctl", "--user", "is-enabled", install.UnitName); strings.TrimSpace(enabled) != "enabled" {
 				return needsFix("unit is present but not enabled")
 			}

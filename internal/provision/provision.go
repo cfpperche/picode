@@ -60,14 +60,21 @@ func blocked(format string, a ...any) State {
 
 // Env is everything the steps are allowed to know about the machine.
 type Env struct {
-	User    string // the account PiCode runs as
-	Home    string // that account's home, where the unit and data live
+	User    string // the account PiCode runs as — the target
+	Acting  string // the account this process actually runs as
+	Home    string // the target's home, where the unit and data live
 	DataDir string
 	Exe     string // the binary to install
 	PathEnv string // PATH snapshot for the unit (ADR-0018)
 	IsRoot  bool
 	InWSL   bool
 }
+
+// OnBehalf reports whether this run is provisioning for somebody else, which
+// is what `wsl -u root picode provision --user goat` does. Per-user state —
+// a systemd user manager, most of all — cannot be read from outside the
+// account, so a check that depends on it has to say so rather than answer.
+func (e Env) OnBehalf() bool { return e.Acting != "" && e.Acting != e.User }
 
 // Detect builds an Env for this process. target overrides the account when
 // provisioning on someone's behalf, which is how the Windows side reaches the
@@ -79,6 +86,7 @@ func Detect(target string) (Env, error) {
 	if err != nil {
 		return env, fmt.Errorf("current user: %w", err)
 	}
+	env.Acting = u.Username
 	env.User, env.Home = u.Username, u.HomeDir
 
 	if target != "" && target != env.User {
@@ -141,9 +149,9 @@ func Run(env Env, steps []Step, dryRun bool) []Result {
 		case s.Scope == ScopeRoot && !env.IsRoot:
 			r.Action = ActionSkipped
 			r.Error = "needs root"
-		case s.Scope == ScopeUser && env.IsRoot && env.User != "root":
+		case s.Scope == ScopeUser && env.OnBehalf():
 			r.Action = ActionSkipped
-			r.Error = "run as " + env.User + ", not root"
+			r.Error = "run as " + env.User + ", not " + env.Acting
 		default:
 			if err := s.Fix(env); err != nil {
 				r.Action, r.Error = ActionFailed, err.Error()

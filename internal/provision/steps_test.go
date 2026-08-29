@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -87,6 +88,40 @@ func TestWSLConfStepBlocksOnAnUnreadableFile(t *testing.T) {
 
 	if got := wslConfStep().Check(Env{InWSL: true}); got.Status != StatusBlocked {
 		t.Errorf("status = %q (%s), want blocked", got.Status, got.Detail)
+	}
+}
+
+// `systemctl --user` answers for the calling account, always. Asked from root
+// about somebody else's unit it reported "present but not enabled" — a
+// confident, wrong sentence about a service that was enabled and running. A
+// check that cannot see the truth has to say so.
+func TestServiceStepRefusesToAnswerForAnotherAccount(t *testing.T) {
+	home := t.TempDir()
+	unit := filepath.Join(home, ".config", "systemd", "user")
+	if err := os.MkdirAll(unit, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(unit, "picode.service"), []byte("[Unit]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var asked bool
+	old := output
+	output = func(name string, args ...string) (string, error) {
+		asked = true
+		return "", nil
+	}
+	t.Cleanup(func() { output = old })
+
+	got := serviceStep().Check(Env{Home: home, User: "goat", Acting: "root"})
+	if got.Status != StatusBlocked {
+		t.Errorf("status = %q (%s), want blocked", got.Status, got.Detail)
+	}
+	if asked {
+		t.Error("systemctl was asked anyway — its answer would be about root, not goat")
+	}
+	if !strings.Contains(got.Detail, "goat") {
+		t.Errorf("detail = %q, want it to name the account it cannot read", got.Detail)
 	}
 }
 

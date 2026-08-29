@@ -52,7 +52,7 @@ func printResults(env provision.Env, results []provision.Result, dryRun bool) {
 		fmt.Printf("Provisioning PiCode for %s\n\n", env.User)
 	}
 
-	var pending int
+	var planned, unresolved int
 	for _, r := range results {
 		state := r.Before
 		if r.After != nil {
@@ -66,21 +66,31 @@ func printResults(env provision.Env, results []provision.Result, dryRun bool) {
 		if r.Error != "" {
 			fmt.Printf("         %-44s %s\n", "", r.Error)
 		}
-		if r.Action != provision.ActionNone && r.Action != provision.ActionFixed {
-			pending++
+		switch r.Action {
+		case provision.ActionPlanned:
+			planned++
+		case provision.ActionSkipped, provision.ActionFailed:
+			unresolved++
 		}
 	}
 
+	// A skipped step is not a step that "would change" — it is one this run
+	// could not settle, usually because another pass owns it. Counting the two
+	// together tells the reader work is pending when there may be none.
 	fmt.Println()
-	switch {
-	case pending == 0 && dryRun:
-		fmt.Println("Nothing to do — this machine is already provisioned.")
-	case pending == 0:
-		fmt.Println("Provisioned.")
-	case dryRun:
-		fmt.Printf("%d step(s) would change. Run without --dry-run to apply.\n", pending)
-	default:
-		fmt.Printf("%d step(s) still pending — see the notes above.\n", pending)
+	if planned == 0 && unresolved == 0 {
+		if dryRun {
+			fmt.Println("Nothing to do — this machine is already provisioned.")
+		} else {
+			fmt.Println("Provisioned.")
+		}
+		return
+	}
+	if planned > 0 {
+		fmt.Printf("%d step(s) would change. Run without --dry-run to apply.\n", planned)
+	}
+	if unresolved > 0 {
+		fmt.Printf("%d step(s) left unresolved by this run — see the notes above.\n", unresolved)
 	}
 }
 
