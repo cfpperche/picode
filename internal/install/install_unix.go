@@ -40,8 +40,8 @@ func Install(exe, home, pathEnv string) error {
 	return nil
 }
 
-// Update copies this binary over the installed one and restarts the unit.
-func Update(exe, home, pathEnv string) error {
+// Deploy copies this binary over the installed one and restarts the unit.
+func Deploy(exe, home, pathEnv string) error {
 	if !systemdAvailable() {
 		return fmt.Errorf("need systemd (user). In WSL set systemd=true in /etc/wsl.conf")
 	}

@@ -55,6 +55,9 @@ func main() {
 		case "update":
 			runUpdate()
 			return
+		case "deploy":
+			runDeploy()
+			return
 		case "uninstall":
 			runUninstall(os.Args[2:])
 			return
@@ -72,7 +75,8 @@ func usage() {
 Usage:
   picode [flags]              start the server
   picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
-  picode update               replace that binary and restart (after make build)
+  picode update               check GitHub for a newer release (and install it if there is one)
+  picode deploy               replace the installed binary with this one and restart (repo)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
   picode screenshot [flags]   capture a page to PNG (visual-review loop)
     --url string    page to capture (required)
@@ -111,20 +115,60 @@ func runInstall() {
 	fmt.Println("  systemctl --user status picode")
 }
 
-func runUpdate() {
+func runDeploy() {
 	exe, err := os.Executable()
 	if err != nil {
+		log.Fatalf("deploy: %v", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("deploy: %v", err)
+	}
+	fmt.Println("Deploying this binary…")
+	if err := install.Deploy(exe, home, os.Getenv("PATH")); err != nil {
+		log.Fatalf("deploy: %v", err)
+	}
+	fmt.Println("Restarted.")
+	fmt.Println("  https://localhost:8445")
+}
+
+func runUpdate() {
+	fmt.Printf("This build is %s.\n", version.Version)
+	rel, err := install.LatestRelease()
+	if err != nil {
+		if err.Error() == "no published release" {
+			fmt.Println("No published release yet.")
+			return
+		}
 		log.Fatalf("update: %v", err)
+	}
+	if !install.Newer(version.Version, rel.Tag) {
+		fmt.Printf("Already up to date (%s).\n", version.Version)
+		return
+	}
+	fmt.Printf("Version %s is out (you have %s).\n  %s\n", rel.Tag, version.Version, rel.URL)
+	if rel.AssetURL == "" {
+		fmt.Println("No binary for this OS in that release yet.")
+		return
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("update: %v", err)
 	}
-	fmt.Println("Updating PiCode…")
-	if err := install.Update(exe, home, os.Getenv("PATH")); err != nil {
+	tmp, err := os.CreateTemp("", "picode-")
+	if err != nil {
 		log.Fatalf("update: %v", err)
 	}
-	fmt.Println("Restarted.")
+	_ = tmp.Close()
+	defer os.Remove(tmp.Name())
+	fmt.Println("Downloading…")
+	if err := install.Download(rel.AssetURL, tmp.Name()); err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	if err := install.Deploy(tmp.Name(), home, os.Getenv("PATH")); err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	fmt.Println("Updated to " + rel.Tag + ".")
 	fmt.Println("  https://localhost:8445")
 }
 

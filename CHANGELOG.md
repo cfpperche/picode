@@ -13,7 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- `picode update` (or `make update` in the repo) replaces the installed binary and restarts the service.
+- `picode update` checks GitHub for a newer release (for a normal install).
+- `make deploy` / `picode deploy` rebuilds this repo and restarts the service.
 - `picode install` starts PiCode with this Linux user (systemd). `picode uninstall` undoes it. `--purge` also deletes `~/.picode`. A Windows reboot still needs WSL opened first.
 - Rename a terminal from the sidebar (pencil or double-click). New ones still start as **Terminal**.
 - Preferences → Appearance: terminal Light or Dark, separate from the app theme (default Dark).

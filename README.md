@@ -73,7 +73,7 @@ make build
 ./bin/picode install    # systemd --user; starts with this Linux session
 ```
 
-`make update` rebuilds from this repo and restarts the service. `make dev` runs without installing. `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
+`make deploy` rebuilds from this repo and restarts the service. `picode update` is for a normal install (GitHub release). `make dev` runs without installing. `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
 
 First run: add a workspace (your project folder), click **Run** — a real Pi
 agent starts in the workspace and streams into the conversation panel. Close

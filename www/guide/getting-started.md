@@ -11,7 +11,7 @@ make build
 
 Open https://localhost:8445. Add a workspace (your project folder) or a free agent, click **Run**. Close the tab; the agent keeps running.
 
-`make update` rebuilds this repo and restarts the service. `picode uninstall` removes it. `--purge` also deletes `~/.picode`.
+`make deploy` rebuilds this repo and restarts the service. `picode update` checks GitHub for a newer release. `picode uninstall` removes the service. `--purge` also deletes `~/.picode`.
 
 ```bash
 make dev          # run from the repo without installing
