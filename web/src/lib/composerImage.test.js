@@ -1,4 +1,4 @@
-import { sniffImage, MAX_IMAGE_BYTES } from "./composerImage.js";
+import { sniffImage, MAX_IMAGE_BYTES, sceneHasInk } from "./composerImage.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -11,4 +11,11 @@ test("sniffImage accepts common image types", () => {
 
 test("size cap is 4 MB", () => {
   assert.equal(MAX_IMAGE_BYTES, 4 * 1024 * 1024);
+});
+
+test("sceneHasInk ignores empty and deleted", () => {
+  assert.equal(sceneHasInk([]), false);
+  assert.equal(sceneHasInk(null), false);
+  assert.equal(sceneHasInk([{ id: "a", isDeleted: true }]), false);
+  assert.equal(sceneHasInk([{ id: "a", type: "rectangle" }]), true);
 });

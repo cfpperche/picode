@@ -76,7 +76,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
-- **2026-08-29** — Composer chips share the page-group fill. visual-review: PASS (composer-pages.png).
+- **2026-08-29** — Composer Sketch (Excalidraw → PNG chip). visual-review pending this session.
 - **2026-08-29** — Preferences → Terminal is two columns (controls + live xterm preview). visual-review: PASS (pref-terminal.png).
 - **2026-08-29** — `make deploy` / `picode deploy` = repo → systemd. `picode update` = GitHub release for a normal user.
 - **2026-08-29** — `picode install` / `uninstall` (systemd --user, ADR-0018). No Windows task.

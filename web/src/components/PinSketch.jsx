@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Excalidraw, exportToBlob, convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 
@@ -37,7 +38,7 @@ async function imageToScene(url) {
   };
 }
 
-export default function PinSketch({ open, title, initial, backgroundURL, onSave, onClose }) {
+export default function PinSketch({ open, title, initial, backgroundURL, onSave, onClose, confirmLabel }) {
   const apiRef = useRef(null);
   const [seed, setSeed] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -83,13 +84,13 @@ export default function PinSketch({ open, title, initial, backgroundURL, onSave,
     } finally { setBusy(false); }
   }
 
-  return (
+  const ui = (
     <div className="pin-sketch">
       <header className="pin-sketch-head">
         <h2>{title || "Sketch"}</h2>
         <div className="pin-sketch-actions">
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy || !seed} onClick={save}>Save</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy || !seed} onClick={save}>{confirmLabel || "Save"}</button>
         </div>
       </header>
       <div className="pin-sketch-board">
@@ -104,4 +105,5 @@ export default function PinSketch({ open, title, initial, backgroundURL, onSave,
       </div>
     </div>
   );
+  return createPortal(ui, document.body);
 }

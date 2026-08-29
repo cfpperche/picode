@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
@@ -9,11 +9,11 @@ import AgentPageBar from "./AgentPageBar.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
-import { IconClip } from "./Icons.jsx";
+import { IconClip, IconSketch } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
 import { api } from "../lib/api.js";
-import { sniffImage, readImage, MAX_IMAGES } from "../lib/composerImage.js";
+import { sniffImage, readImage, MAX_IMAGES, sceneHasInk } from "../lib/composerImage.js";
 import { filterSlash } from "../lib/slash.js";
 import { atQuery, insertAtPath, mergeAtHits, skillsFromSlash } from "../lib/atMention.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
@@ -23,6 +23,8 @@ import {
   unlockMic, speakText, stopSpeak,
 } from "../lib/speech.js";
 import { toast } from "../lib/toast.js";
+
+const PinSketch = lazy(() => import("./PinSketch.jsx"));
 
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
@@ -59,6 +61,7 @@ export default function Composer({
   const [drag, setDrag] = useState(false);
   const [preview, setPreview] = useState("");
   const [pick, setPick] = useState(false);
+  const [sketch, setSketch] = useState(null);
   const hits = filterSlash(value, slashExtra);
   const at = hits.length ? null : atQuery(value, caret);
   const atKey = at ? "@" + at.query : "";
@@ -226,6 +229,32 @@ export default function Composer({
 
   function dropPic(id) {
     setPics((cur) => cur.filter((p) => p.id !== id));
+  }
+
+  function openSketch(edit) {
+    if (!edit && pics.length >= MAX_IMAGES) { toast.error("Up to 4 images."); return; }
+    setSketch(edit || {});
+  }
+
+  async function insertSketch({ scene, preview }) {
+    if (!sceneHasInk(scene && scene.elements)) { toast.error("Draw something first."); return; }
+    const file = new File([preview], "sketch.png", { type: "image/png" });
+    try {
+      const im = await readImage(file);
+      const row = {
+        id: (sketch && sketch.id) || (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+        ...im,
+        scene,
+      };
+      setPics((cur) => {
+        if (sketch && sketch.id) return cur.map((p) => p.id === sketch.id ? row : p);
+        if (cur.length >= MAX_IMAGES) return cur;
+        return cur.concat(row);
+      });
+      setSketch(null);
+    } catch (err) {
+      if (err && err.message === "too-large") toast.error("Each image must be under 4 MB.");
+    }
   }
 
   function fireSend(text) {
@@ -532,11 +561,23 @@ export default function Composer({
           </div>
         </div>
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
+        {sketch ? (
+          <Suspense fallback={null}>
+            <PinSketch
+              open
+              title={sketch.id ? "Edit sketch" : "Sketch"}
+              initial={sketch.scene || null}
+              confirmLabel="Insert"
+              onSave={insertSketch}
+              onClose={() => setSketch(null)}
+            />
+          </Suspense>
+        ) : null}
         {pics.length ? (
           <div className="composer-pics">
             {pics.map((p) => (
               <span key={p.id} className="pin-att composer-pic">
-                <button type="button" className="pin-att-face" title="View image" onClick={() => setPreview(p.url)}>
+                <button type="button" className="pin-att-face" title={p.scene ? "Edit sketch" : "View image"} onClick={() => p.scene ? openSketch({ id: p.id, scene: p.scene }) : setPreview(p.url)}>
                   <img src={p.url} alt="" />
                 </button>
                 <button type="button" className="pin-att-x" title="Remove image" onClick={() => dropPic(p.id)}><IconX size={12} /></button>
@@ -658,15 +699,26 @@ export default function Composer({
             ) : (
               <>
                 {agentId ? (
-                  <button
-                    type="button"
-                    className="icon-btn composer-attach"
-                    title="Attach from workspace"
-                    aria-label="Attach from workspace"
-                    onClick={() => setPick(true)}
-                  >
-                    <IconClip />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="icon-btn composer-attach"
+                      title="Attach from workspace"
+                      aria-label="Attach from workspace"
+                      onClick={() => setPick(true)}
+                    >
+                      <IconClip />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn composer-attach"
+                      title="Sketch"
+                      aria-label="Sketch"
+                      onClick={() => openSketch()}
+                    >
+                      <IconSketch />
+                    </button>
+                  </>
                 ) : null}
                 <button
                   type="button"

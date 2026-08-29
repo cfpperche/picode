@@ -9,6 +9,10 @@ const OK = {
   "image/webp": "image/webp",
 };
 
+export function sceneHasInk(elements) {
+  return (elements || []).some((el) => el && el.isDeleted !== true);
+}
+
 export function sniffImage(file) {
   if (!file) return null;
   const mime = OK[(file.type || "").toLowerCase()];
