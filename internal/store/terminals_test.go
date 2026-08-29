@@ -62,6 +62,27 @@ func TestRenameTerminal(t *testing.T) {
 	}
 }
 
+func TestListTerminalsByName(t *testing.T) {
+	s := openTest(t)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateTerminal("Pi/PiCode", home); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateTerminal("Claude/PiCode", home); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListTerminals()
+	if err != nil || len(list) != 2 {
+		t.Fatalf("list=%+v %v", list, err)
+	}
+	if list[0].Name != "Claude/PiCode" || list[1].Name != "Pi/PiCode" {
+		t.Fatalf("order=%q %q", list[0].Name, list[1].Name)
+	}
+}
+
 func TestCreateTerminalBadCwd(t *testing.T) {
 	s := openTest(t)
 	if _, err := s.CreateTerminal("x", "/no/such/picode-term-cwd"); err == nil {

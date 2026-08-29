@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 const (
@@ -43,6 +44,7 @@ func registerAgentFileRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/text", handleAgentText(deps))
 	mux.HandleFunc("PUT /api/agents/{id}/text", handlePutAgentText(deps))
 	mux.HandleFunc("GET /api/agents/{id}/blob", handleAgentBlob(deps))
+	mux.HandleFunc("GET /api/agents/{id}/cwd", handleAgentCwd(deps))
 }
 
 func handleAgentFiles(deps Deps) http.HandlerFunc {
@@ -86,6 +88,23 @@ func agentCwd(deps Deps, id string) (string, error) {
 		return "", err
 	}
 	return store.AgentCwd(wk, agent), nil
+}
+
+func handleAgentCwd(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fallback, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		cwd := fallback
+		if deps.Tmux != nil && deps.Tmux.Available() {
+			if p, err := deps.Tmux.PaneCwd(r.Context(), tmux.SessionName(r.PathValue("id"))); err == nil && strings.TrimSpace(p) != "" {
+				cwd = p
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"cwd": cwd})
+	}
 }
 
 func handleAgentBrowse(deps Deps) http.HandlerFunc {

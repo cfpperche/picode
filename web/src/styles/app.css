@@ -951,6 +951,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   position: relative; background: #0e0e11;
   padding: var(--term-pad, 8px);
 }
+.term-surface[hidden] { display: none !important; }
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
 .workspace-view.term-on #empty,
 .workspace-view.term-on .chat-surface { display: none !important; }

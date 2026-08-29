@@ -20,6 +20,7 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/cwd", handleGetTerminalCwd(deps))
 }
 
 func defaultShell() string {
@@ -171,6 +172,27 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 	}
 }
 
+func liveTermCwd(deps Deps, r *http.Request, term store.Terminal) string {
+	if deps.Tmux != nil && deps.Tmux.Available() {
+		p, err := deps.Tmux.PaneCwd(r.Context(), tmux.ShellSessionName(term.ID))
+		if err == nil && strings.TrimSpace(p) != "" {
+			return p
+		}
+	}
+	return term.Cwd
+}
+
+func handleGetTerminalCwd(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"cwd": liveTermCwd(deps, r, term)})
+	}
+}
+
 func handleGetTerminalBlob(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		term, err := deps.Store.GetTerminal(r.PathValue("id"))
@@ -178,7 +200,7 @@ func handleGetTerminalBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		mime, data, code, err := readAgentBlob(term.Cwd, r.URL.Query().Get("path"))
+		mime, data, code, err := readAgentBlob(liveTermCwd(deps, r, term), r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return
@@ -197,7 +219,7 @@ func handleGetTerminalText(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		out, code, err := readAgentText(term.Cwd, r.URL.Query().Get("path"))
+		out, code, err := readAgentText(liveTermCwd(deps, r, term), r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return
@@ -221,7 +243,7 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
 		}
-		out, code, err := writeAgentText(term.Cwd, req.Path, req.Text, req.Mtime)
+		out, code, err := writeAgentText(liveTermCwd(deps, r, term), req.Path, req.Text, req.Mtime)
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return

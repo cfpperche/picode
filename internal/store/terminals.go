@@ -20,7 +20,7 @@ func scanTerminal(row interface{ Scan(...any) error }, t *Terminal) error {
 }
 
 func (s *Store) ListTerminals() ([]Terminal, error) {
-	rows, err := s.db.Query(`SELECT id, name, cwd, created_at FROM terminals ORDER BY created_at`)
+	rows, err := s.db.Query(`SELECT id, name, cwd, created_at FROM terminals ORDER BY name COLLATE NOCASE, id`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list terminals: %w", err)
 	}

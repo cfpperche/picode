@@ -1,7 +1,7 @@
 import ShellTerm from "./ShellTerm.jsx";
 import { bumpTermFontSize } from "../lib/termTheme.js";
 
-export default function TermSurface({ term, error, onOpenFile }) {
+export default function TermSurface({ term, error, hidden, onOpenFile }) {
   if (!term && !error) return null;
   function onKey(e) {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
@@ -10,14 +10,14 @@ export default function TermSurface({ term, error, onOpenFile }) {
     else if (e.key === "0") { e.preventDefault(); bumpTermFontSize(0); }
   }
   return (
-    <section className="term-surface" aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
+    <section className="term-surface" hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
       {error ? (
         <p className="file-pane-msg">
           {error}{" "}
           <a href="#/system">Open System</a>
         </p>
       ) : (
-        <ShellTerm agentId={term.id} session={term.session} active cwd={term.cwd} onOpenFile={onOpenFile} />
+        <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} onOpenFile={onOpenFile} />
       )}
     </section>
   );

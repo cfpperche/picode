@@ -47,11 +47,9 @@ What exists:
 
 ## In flight
 
-File open + preview roadmap. **Tracks 1 and 2 shipped.** Track 3 (live cwd) remains. Closes when 1+2+3 ship.
+Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 
 ## Next up
-
-Track 3: tmux `#{pane_current_path}` on Ctrl+click so `cd` then a relative path opens the right file.
 
 Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf line-merge, linger, `install.Install()`, cert, `/api/health` verify. The gating test is that a `/etc/wsl.conf` already carrying `systemd=true` comes back byte-identical.
 
@@ -76,13 +74,16 @@ Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf 
 - tmux-gated tests skip on windows/macos CI (accepted).
 - Mobile shell has no waiting card (C1 is desktop).
 - Terminal **ligatures** not offered: `@xterm/addon-ligatures` needs Node `font-finder`; browser xterm is canvas-only.
-- File tabs resolve relative paths against the terminal's **start** cwd, not `cd` later (no OSC 7). Absolute and `~/` still work.
 - ADR-0020 M3 needs the owner's exact WSL distro name — `WSL_DISTRO_NAME` is empty in the inspected shell, so `wsl -l -v` has to answer it. M4 detects it; M3 does not.
 - ADR-0020 makes `scripts/setup-cert.sh` a debt: release users have no repo, so it must be ported into `picode provision` (Go) to stop being repo-only.
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
 
+- **2026-08-29** — Track 3 live cwd: Ctrl+click asks tmux `#{pane_current_path}`. File-preview roadmap closed. Tests: PaneCwd + GET `/api/terminals/{id}/cwd` after `cd`.
+- **2026-08-29** — Chat file cards sit under the turn file names (one per click). visual-review: PASS (file-chat-cards-inline.png).
+- **2026-08-29** — Terminal: Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. visual-review: PASS (pref-term-copy.png).
+- **2026-08-29** — Sidebar Terminals list flush like Pins. visual-review: PASS (terms-flush.png).
 - **2026-08-29** — **ADR-0020** accepted: PiCode Desktop provisions the distro from Windows (tray `.exe` at the WSL boundary, `picode provision` inside). Supersedes ADR-0018, whose "Alternatives considered" had rejected both the logon task and linger; the linger objection is answered by enabling it on install and never disabling it. Carries a preservation contract (`~/.picode` untouched, tmux survives, `wsl.conf` line-merged after backup, cert reissued only near expiry). Docs only — no code, no user-visible change, so no CHANGELOG entry.
 - **2026-08-29** — Chat file card: click a path → closable card in the thread; Open in tab → same `#/file/a/…` as the terminal. Split FilePane removed. visual-review: PASS (file-chat-card.png, file-chat-tab.png).
 - **2026-08-29** — File preview track 1: png, pdf, md, audio, video, glb/gltf (model-viewer). visual-review: PASS (file-png-preview.png, file-md-preview.png, file-pdf-preview.png, file-audio-preview.png, file-video-preview.png, file-glb-preview.png, file-bin-raw.png, file-bin-gone.png).

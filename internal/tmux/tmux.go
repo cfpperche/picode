@@ -230,6 +230,19 @@ func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) err
 	return err
 }
 
+// PaneCwd returns the current pane's working directory (#{pane_current_path}).
+func (m *Manager) PaneCwd(ctx context.Context, name string) (string, error) {
+	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_path}")
+	if err != nil {
+		return "", err
+	}
+	p := strings.TrimSpace(out)
+	if p == "" {
+		return "", fmt.Errorf("tmux pane cwd empty")
+	}
+	return p, nil
+}
+
 // ExtendedKeysFormat returns the server's `extended-keys-format` option
 // value ("csi-u", "xterm", ...). Pi recommends `csi-u` so modifier keys
 // (Shift+Enter, Ctrl+Enter) survive the hop (see Pi's tmux docs).

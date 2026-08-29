@@ -1,5 +1,6 @@
 // Ctrl/Cmd+click in xterm: http → browser; path under cwd → file tab.
 // No modifier = select. Paths outside cwd are not links.
+// Activate asks tmux for the live pane cwd (Track 3). Underlines may lag.
 
 export function hasOpenModifier(ev) {
   return !!(ev && (ev.ctrlKey || ev.metaKey));
@@ -88,6 +89,35 @@ const PATH_RE = new RegExp(
   "g",
 );
 
+function scanTokens(line) {
+  const s = String(line || "");
+  const hits = [];
+  const seen = [];
+  function add(start, raw) {
+    const end = start + raw.length;
+    if (start < 0 || end <= start) return;
+    if (seen.some((r) => start < r.end && end > r.start)) return;
+    seen.push({ start, end });
+    hits.push({ start, end, raw });
+  }
+  let m;
+  const http = new RegExp(HTTP_RE.source, "gi");
+  while ((m = http.exec(s))) add(m.index, m[0]);
+  const path = new RegExp(PATH_RE.source, "g");
+  while ((m = path.exec(s))) add(m.index, m[0]);
+  hits.sort((a, b) => a.start - b.start);
+  return hits;
+}
+
+export function tokenAt(line, col) {
+  const hits = scanTokens(line);
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
+    if (col >= h.start + 1 && col <= h.end) return h;
+  }
+  return null;
+}
+
 export function linkAt(line, col, cwd) {
   const hits = findLinks(line, cwd);
   for (let i = 0; i < hits.length; i++) {
@@ -112,40 +142,39 @@ export function cellFromMouse(term, ev) {
 }
 
 export function findLinks(line, cwd) {
-  const s = String(line || "");
   const hits = [];
-  const seen = [];
-  function add(start, raw) {
-    const end = start + raw.length;
-    if (start < 0 || end <= start) return;
-    if (seen.some((r) => start < r.end && end > r.start)) return;
-    const hit = classify(raw, cwd);
-    if (!hit) return;
-    seen.push({ start, end });
-    hits.push({ start, end, raw, kind: hit.kind, href: hit.href, path: hit.path });
+  for (const t of scanTokens(line)) {
+    const hit = classify(t.raw, cwd);
+    if (!hit) continue;
+    hits.push({ start: t.start, end: t.end, raw: t.raw, kind: hit.kind, href: hit.href, path: hit.path });
   }
-  let m;
-  const http = new RegExp(HTTP_RE.source, "gi");
-  while ((m = http.exec(s))) add(m.index, m[0]);
-  const path = new RegExp(PATH_RE.source, "g");
-  while ((m = path.exec(s))) add(m.index, m[0]);
-  hits.sort((a, b) => a.start - b.start);
   return hits;
 }
 
-export function wireTermLinks(term, getCwd, onFile) {
+export function wireTermLinks(term, getCwd, onFile, getLiveCwd) {
   if (!term || typeof term.registerLinkProvider !== "function") return () => {};
   const cwdOf = () => (typeof getCwd === "function" ? getCwd() : getCwd);
   const activate = (ev, text) => {
-    const hit = classify(text, cwdOf());
-    if (!hit) return false;
-    if (ev && ev.preventDefault) ev.preventDefault();
-    if (ev && ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-    if (hit.kind === "http") {
-      window.open(hit.href, "_blank", "noopener,noreferrer");
+    const go = async () => {
+      let cwd = cwdOf();
+      if (typeof getLiveCwd === "function") {
+        try {
+          const live = await getLiveCwd();
+          if (live) cwd = live;
+        } catch { /* keep cache */ }
+      }
+      const hit = classify(text, cwd);
+      if (!hit) return false;
+      if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      if (hit.kind === "http") {
+        window.open(hit.href, "_blank", "noopener,noreferrer");
+        return true;
+      }
+      if (hit.kind === "file" && onFile) onFile(hit.path);
       return true;
-    }
-    if (hit.kind === "file" && onFile) onFile(hit.path);
+    };
+    go();
     return true;
   };
   term.options.linkHandler = {
@@ -183,12 +212,12 @@ export function wireTermLinks(term, getCwd, onFile) {
     const buf = term.buffer && term.buffer.active;
     const row = buf && buf.getLine(cell.lineIndex);
     if (!row) return;
-    const hit = linkAt(row.translateToString(true), cell.col, cwdOf());
-    if (!hit) return;
+    const tok = tokenAt(row.translateToString(true), cell.col);
+    if (!tok) return;
     ev.preventDefault();
     ev.stopImmediatePropagation();
     suppressUp = true;
-    activate(ev, hit.raw);
+    activate(ev, tok.raw);
   };
   const onUp = (ev) => {
     if (!suppressUp) return;

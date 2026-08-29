@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -115,5 +116,69 @@ func TestTerminalText(t *testing.T) {
 	out := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/text?path=/etc/passwd"))
 	if out.StatusCode != http.StatusBadRequest {
 		t.Fatalf("escape = %d", out.StatusCode)
+	}
+}
+
+func TestTerminalLiveCwd(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	start := t.TempDir()
+	live := t.TempDir()
+	if err := os.WriteFile(filepath.Join(live, "ping.txt"), []byte("pong\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	created := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": start})
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d", created.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&page)
+	id, _ := page["id"].(string)
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), sess) })
+
+	cwd := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/cwd"))
+	if cwd.StatusCode != http.StatusOK {
+		t.Fatalf("cwd = %d", cwd.StatusCode)
+	}
+	var bag map[string]any
+	_ = json.NewDecoder(cwd.Body).Decode(&bag)
+	if filepath.Clean(bag["cwd"].(string)) != filepath.Clean(start) {
+		t.Fatalf("start cwd=%v want %s", bag["cwd"], start)
+	}
+
+	m := tmux.New()
+	if err := m.SendKeys(context.Background(), sess, "cd "+live, "Enter"); err != nil {
+		t.Fatalf("cd: %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	var got string
+	for time.Now().Before(deadline) {
+		res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/cwd"))
+		var body map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&body)
+		got, _ = body["cwd"].(string)
+		if filepath.Clean(got) == filepath.Clean(live) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if filepath.Clean(got) != filepath.Clean(live) {
+		t.Fatalf("live cwd=%q want %s", got, live)
+	}
+	text := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/text?path=ping.txt"))
+	if text.StatusCode != http.StatusOK {
+		t.Fatalf("text after cd = %d", text.StatusCode)
+	}
+	var file map[string]any
+	_ = json.NewDecoder(text.Body).Decode(&file)
+	if file["text"] != "pong\n" {
+		t.Fatalf("text=%+v", file)
+	}
+	esc := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/text?path=a.go"))
+	if esc.StatusCode != http.StatusNotFound && esc.StatusCode != http.StatusBadRequest {
+		t.Fatalf("start file after cd = %d", esc.StatusCode)
 	}
 }

@@ -147,7 +147,7 @@ export default function Sidebar({
           <p className="side-empty pins-empty">No terminals yet</p>
         ) : (
           <ul className="ws-list">
-            {(terminals || []).map((t) => (
+            {[...(terminals || [])].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" })).map((t) => (
               <li
                 key={t.id}
                 className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}

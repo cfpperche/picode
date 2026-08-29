@@ -1,7 +1,7 @@
 # File open + preview — roadmap
 
 - **Date:** 2026-08-29
-- **Status:** open. **Closes when tracks 1, 2 and 3 are shipped** (including 3D).
+- **Status:** closed (2026-08-29). Tracks 1, 2 and 3 shipped.
 - **Why:** Ctrl+click in the terminal already opens a text tab (ADR-0019).
   SVG / mermaid have Preview | Raw | Save. Chat still uses the split pane.
   Relative paths use the terminal's *start* cwd. That is not the VS Code
@@ -78,7 +78,7 @@ OSC 7 later only if tmux is wrong (rare).
 - [x] png / pdf / md / audio / video / glb|gltf Preview | Raw | Save
 - [x] empty + error one-liners screenshot-read (visual-review)
 - [x] chat tool path opens a closable in-thread file card; Open in tab uses the terminal file tab
-- [ ] `cd` then Ctrl+click a relative path opens the file in the new folder
+- [x] `cd` then Ctrl+click a relative path opens the file in the new folder
 - [x] 3D uses model-viewer (or a written FAIL + three.js if it cannot)
 
-Then mark this file **closed** and point Next up elsewhere.
+Closed. Next up is elsewhere (`docs/handoff.md`).

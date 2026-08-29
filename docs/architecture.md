@@ -48,7 +48,7 @@ stay on their own routes.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The Pi TUI dock is unchanged. Ctrl/Cmd+click a path under that cwd (or an OSC-8 `file://`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). http(s) opens in the browser. Paths outside the cwd are not links. Keys (Preferences → Terminal): newline, copy-if-selected (`Ctrl+C`), `Ctrl+Shift+C/V` copy/paste.
+The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The Pi TUI dock is unchanged. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
@@ -147,7 +147,8 @@ HTTP API (Go 1.22 method patterns):
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell)
-- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` — first-class shells (ADR-0017)
+- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). cwd is the live tmux pane path.
+- `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { terms } from "../lib/terms.js";
+import { terms, parkTerm } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
 import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wireTermLinks } from "../lib/termLinks.js";
-import { wsURL } from "../lib/api.js";
+import { api, wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
@@ -23,13 +23,20 @@ export default function ShellTerm({ agentId, session, active, cwd, onOpenFile })
   const hostRef = useRef(null);
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
-  cwdRef.current = cwd;
   fileRef.current = onOpenFile;
+  useEffect(() => { cwdRef.current = cwd; }, [cwd]);
 
   useEffect(() => {
     if (!agentId || !session || !hostRef.current) return undefined;
     const id = shellKey(agentId);
     const onFile = (p) => { if (fileRef.current) fileRef.current(p); };
+    const liveCwd = async () => {
+      try {
+        const page = await api("/api/terminals/" + encodeURIComponent(agentId) + "/cwd");
+        if (page && page.cwd) cwdRef.current = page.cwd;
+      } catch { /* keep cache */ }
+      return cwdRef.current;
+    };
     if (terms.has(id)) {
       const entry = terms.get(id);
       const live = entry.sock && entry.sock.readyState === WebSocket.OPEN;
@@ -39,9 +46,9 @@ export default function ShellTerm({ agentId, session, active, cwd, onOpenFile })
         scheduleTermFit(entry, true);
         if (active && entry.term) entry.term.focus();
         if (entry.term && !entry.unwireLinks) {
-          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile);
+          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
         }
-        return undefined;
+        return () => parkTerm(entry.paneEl);
       }
       closeTerm(id);
     }
@@ -59,7 +66,7 @@ export default function ShellTerm({ agentId, session, active, cwd, onOpenFile })
     wireTermWheel(term, sendBytes, paneEl);
     wireTermKeys(term, sendBytes);
     wireTermFit(entry);
-    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile);
+    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
     const sock = new WebSocket(wsURL("/ws/term?session=" + encodeURIComponent(session)));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
@@ -96,8 +103,17 @@ export default function ShellTerm({ agentId, session, active, cwd, onOpenFile })
       if (terms.get(id) === entry) terms.delete(id);
     };
     terms.set(id, entry);
-    return undefined;
-  }, [agentId, session, active]);
+    return () => parkTerm(paneEl);
+  }, [agentId, session]);
+
+  useEffect(() => {
+    if (!active || !agentId) return;
+    const entry = terms.get(shellKey(agentId));
+    if (!entry || !entry.term) return;
+    entry.paneEl.classList.add("active");
+    scheduleTermFit(entry, true);
+    entry.term.focus();
+  }, [active, agentId]);
 
   useEffect(() => {
     function apply() {

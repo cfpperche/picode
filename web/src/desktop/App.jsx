@@ -783,8 +783,11 @@ export default function App() {
     try {
       const page = await api("/api/terminals/" + id + "/open", { method: "POST" });
       setTerminals((cur) => {
-        const rest = cur.filter((x) => x.id !== id);
-        return [...rest, page];
+        const i = cur.findIndex((x) => x.id === id);
+        if (i < 0) return [...cur, page];
+        const next = cur.slice();
+        next[i] = { ...cur[i], ...page };
+        return next;
       });
     } catch (err) {
       setTermError(humanizeError(err && err.message ? err.message : String(err)));
@@ -1346,11 +1349,20 @@ export default function App() {
             </div>
           </div>
 
-          <TermSurface
-            term={isTermTab(selectedId) ? terminals.find((t) => t.id === tabTermId(selectedId)) : null}
-            error={isTermTab(selectedId) ? termError : ""}
-            onOpenFile={(p) => { if (isTermTab(selectedId)) openFileTab("term", tabTermId(selectedId), p); }}
-          />
+          {tabs.filter(isTermTab).map((id) => {
+            const tid = tabTermId(id);
+            const t = terminals.find((x) => x.id === tid);
+            if (!t) return null;
+            return (
+              <TermSurface
+                key={id}
+                term={t}
+                hidden={selectedId !== id}
+                error={selectedId === id ? termError : ""}
+                onOpenFile={(p) => openFileTab("term", tid, p)}
+              />
+            );
+          })}
           <FileSurface
             owner={isFileTab(selectedId) ? parseFileTab(selectedId) : null}
             path={isFileTab(selectedId) ? (parseFileTab(selectedId) || {}).path : ""}

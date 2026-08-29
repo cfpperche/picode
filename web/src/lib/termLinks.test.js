@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  hasOpenModifier, stripLineCol, classify, findLinks, linkAt, underCwd, relPath,
+  hasOpenModifier, stripLineCol, classify, findLinks, linkAt, tokenAt, underCwd, relPath,
 } from "./termLinks.js";
 
 const cwd = "/home/goat/picode";
@@ -75,4 +75,20 @@ test("underCwd / relPath", () => {
   assert.equal(underCwd(cwd, cwd + "/web"), true);
   assert.equal(underCwd(cwd, "/etc/passwd"), false);
   assert.equal(relPath(cwd, cwd + "/web/a.js"), "web/a.js");
+});
+
+test("classify uses live cwd, not the start folder", () => {
+  const live = "/tmp";
+  assert.equal(classify("ping.txt", live).path, "ping.txt");
+  assert.equal(classify(live + "/ping.txt", live).path, "ping.txt");
+  assert.equal(classify(cwd + "/README.md", live), null);
+  assert.equal(classify("../secret", live), null);
+});
+
+test("tokenAt hits a path even when classify would reject it", () => {
+  const line = "see /tmp/ping.txt and README.md";
+  const tok = tokenAt(line, line.indexOf("ping") + 1);
+  assert.ok(tok);
+  assert.equal(tok.raw.includes("ping.txt"), true);
+  assert.equal(linkAt(line, line.indexOf("ping") + 1, cwd), null);
 });
