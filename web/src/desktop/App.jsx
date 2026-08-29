@@ -1421,7 +1421,7 @@ export default function App() {
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
-              slashExtra, atAgents,
+              slashExtra, atAgents, onAgentPage: go, pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
               lastReply: lastAssistantText(items),

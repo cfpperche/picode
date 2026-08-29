@@ -1490,13 +1490,23 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   border-radius: var(--radius-panel);
   padding: 10px 12px 8px;
 }
-.composer-expand {
-  position: absolute; top: 8px; right: 8px; z-index: 3;
+.composer-tools-end {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 4px;
+  flex: none;
+}
+.composer-pages { display: flex; align-items: center; gap: 4px; }
+.composer-page {
   width: 28px; height: 28px; padding: 0; display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-base); color: var(--text-secondary); cursor: pointer;
+  position: relative;
 }
-.composer-expand:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.composer-page:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.composer-page-dot {
+  position: absolute; top: -2px; right: -2px;
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
 .composer-wrap.expanded {
   top: 12px; bottom: 12px; padding: 0 20px 12px; z-index: 8;
   background: color-mix(in srgb, var(--bg-base) 88%, transparent);
@@ -1563,6 +1573,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   display: flex; align-items: center; gap: 6px;
   padding: 0 2px 8px; margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
+  min-height: 28px;
 }
 .composer-attach { flex: none; width: 28px; height: 28px; }
 .bash-block {

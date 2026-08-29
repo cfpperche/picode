@@ -5,6 +5,7 @@ import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
+import AgentPageBar from "./AgentPageBar.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
@@ -26,7 +27,7 @@ import { toast } from "../lib/toast.js";
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, atAgents, agentId,
+  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -429,15 +430,6 @@ export default function Composer({
           addPics([...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]);
         }}
       >
-        <button
-          type="button"
-          className="composer-expand"
-          title={expanded ? "Collapse" : "Expand"}
-          aria-label={expanded ? "Collapse composer" : "Expand composer"}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? <IconCollapse /> : <IconExpand />}
-        </button>
         {showAt && !voice && (
           <Command
             className="slash-menu"
@@ -523,11 +515,21 @@ export default function Composer({
             </Command.List>
           </Command>
         )}
-        {(sessionBar) ? (
-          <div className="composer-tools">
-            {sessionBar}
+        <div className="composer-tools" data-align-row>
+          {sessionBar}
+          <div className="composer-tools-end">
+            <AgentPageBar onGo={onAgentPage} pkgUpdates={pkgUpdates} />
+            <button
+              type="button"
+              className="composer-page"
+              title={expanded ? "Collapse" : "Expand"}
+              aria-label={expanded ? "Collapse composer" : "Expand composer"}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? <IconCollapse /> : <IconExpand />}
+            </button>
           </div>
-        ) : null}
+        </div>
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
         {pics.length ? (
           <div className="composer-pics">

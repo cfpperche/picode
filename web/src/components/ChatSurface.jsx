@@ -7,6 +7,7 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
+import AgentPageBar from "./AgentPageBar.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
@@ -38,7 +39,14 @@ export default function ChatSurface({
         {stopped ? (
           <div className="composer-wrap">
             <div className="composer" id="run-cta">
-              {composer && composer.sessionBar ? <div className="composer-tools">{composer.sessionBar}</div> : null}
+              {composer && composer.sessionBar ? (
+                <div className="composer-tools" data-align-row>
+                  {composer.sessionBar}
+                  <div className="composer-tools-end">
+                    <AgentPageBar onGo={composer.onAgentPage} pkgUpdates={composer.pkgUpdates} />
+                  </div>
+                </div>
+              ) : null}
               <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
               <div className="composer-controls">
                 <div className="composer-left">

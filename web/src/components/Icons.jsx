@@ -32,12 +32,15 @@ import {
   Moon,
   Paperclip,
   PenLine,
+  Package,
   Pencil,
   Pin,
   Play,
+  Plug,
   Plus,
   QrCode,
   Quote,
+  Settings,
   SlidersHorizontal,
   Smartphone,
   Square,
@@ -97,6 +100,9 @@ export const IconCollapse = lucide(Minimize2, 14);
 export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
 export const IconPin = lucide(Pin, 13);
+export const IconSettings = lucide(Settings, 14);
+export const IconMcp = lucide(Plug, 14);
+export const IconPackage = lucide(Package, 14);
 export const IconClip = lucide(Paperclip, 13);
 export const IconSketch = lucide(PenLine, 13);
 export const IconPencil = lucide(Pencil, 12);
