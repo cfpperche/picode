@@ -62,6 +62,8 @@ Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 
 ## Known debts / open questions
 
+- Force-killing the PiCode Desktop tray (`taskkill /F`, a crash) strands its `wsl … sleep infinity` keepalive, because `onExit` never runs. Harmless — it only holds the distro open — but it accumulates. The Windows fix is a Job Object with `KILL_ON_JOB_CLOSE`; a cheaper one is reaping a stale keepalive at tray startup.
+
 - MCP GET redacts env/header values (keys only). `bearerToken` stays write-only.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
 - MCP Sign in auto-start after Add/On is UI-only (no unit test). Reuse of a running agent shares `beginAuthOn` with the short-pi tests.
@@ -77,6 +79,8 @@ Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-29** — Tray icon is now the browser favicon (`web/public/favicon.svg`): the blocky Pi in white on `#09090b`, transcribed as rectangles in `mkicon.go` and drawn at 4x then boxed down so 16px stays legible. `icon_test.go` reads the SVG's fills and asserts the committed ICO carries both — verified it actually fails by regenerating with the old indigo. Restarted the tray on the owner's machine with the new mark (PID 29532); doctor still reports everything ok on both halves.
 
 - **2026-08-29** — **PiCode Desktop is live on the owner's machine.** Ran `picode-desktop.exe` through WSL interop: `doctor` showed the mkcert CA already trusted from an earlier `setup-cert.sh`, leaving only the logon task; `install` elevated (one UAC) and registered `PiCodeDesktop` — `At logon time`, `Run As User: cfpp`, `"…\picode-desktop.exe" --tray`. The tray runs (PID 30320) with its `sleep infinity` keepalive holding the distro open. Every step now reports ok on both halves. Fixed a fourth bug the run exposed: `doctor` summarised only the distro, so a fully set-up machine was still told to run install; `printWindowsSteps` now reports whether its half is finished and the summary weighs both.
 
