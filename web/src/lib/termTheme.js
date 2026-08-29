@@ -139,6 +139,7 @@ export function xtermOptions() {
     letterSpacing: p.letterSpacing,
     theme: xtermTheme(p.theme),
     scrollback: p.scrollback,
+    rightClickSelectsWord: true,
   };
 }
 

@@ -13,8 +13,9 @@
 //  3. termDataFilter on term.onData: any \r/\n that still escapes within
 //     120ms of a bound modified-Enter keydown is swapped for the sequence
 //     (or dropped, if layer 1 already sent it).
-// Ctrl+Shift+C/V copy/paste (VS Code). Ctrl+C interrupts; "copy if
-// selected" (Warp) is opt-in in Preferences → Terminal → Keys.
+// Copy/paste: Shift+drag selects (xterm bypasses tmux mouse). Ctrl+C
+// copies if there is a selection, else interrupt. Ctrl+V pastes.
+// Ctrl+Shift+C/V still copy/paste.
 
 import { readTermPrefs, TERM_NEWLINES } from "./termTheme.js";
 
@@ -45,9 +46,9 @@ export function copyPasteAction(ev, prefs) {
   if (!ctrl) return null;
   const k = (ev.key || "").toLowerCase();
   const shift = !!ev.shiftKey;
-  if (shift && k === "c") return "copy";
-  if (shift && k === "v") return "paste";
-  if (!shift && k === "c" && (prefs ? prefs.copyIfSelection === true : false)) return "copy-if-sel";
+  if (k === "c" && shift) return "copy";
+  if (k === "v") return "paste";
+  if (k === "c" && !shift) return "copy-if-sel";
   return null;
 }
 
@@ -58,10 +59,10 @@ export function termShortcutRows(prefs) {
     { key: "Ctrl+`", label: "New terminal" },
     { key: nl, label: "New line" },
   ];
-  if (p.copyIfSelection === true) {
-    rows.push({ key: "Ctrl+C", label: "Copy if selected; else interrupt" });
-  }
   rows.push(
+    { key: "Shift+drag", label: "Select" },
+    { key: "Ctrl+C", label: "Copy if selected; else interrupt" },
+    { key: "Ctrl+V", label: "Paste" },
     { key: "Ctrl+Shift+C", label: "Copy" },
     { key: "Ctrl+Shift+V", label: "Paste" },
     { key: "Ctrl++ / − / 0", label: "Font size" },

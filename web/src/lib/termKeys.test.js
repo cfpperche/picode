@@ -18,20 +18,20 @@ test("Ctrl+Shift+C/V are copy/paste", () => {
   assert.equal(copyPasteAction({ type: "keydown", key: "v", metaKey: true, shiftKey: true }), "paste");
 });
 
-test("Ctrl+C copies only when copyIfSelection is on", () => {
-  const ev = { type: "keydown", key: "c", ctrlKey: true };
-  assert.equal(copyPasteAction(ev, { copyIfSelection: true }), "copy-if-sel");
-  assert.equal(copyPasteAction(ev, { copyIfSelection: false }), null);
-  assert.equal(copyPasteAction(ev, {}), null);
-  assert.equal(copyPasteAction(ev), null);
+test("Ctrl+C copies if selected; Ctrl+V pastes", () => {
+  const c = { type: "keydown", key: "c", ctrlKey: true };
+  const v = { type: "keydown", key: "v", ctrlKey: true };
+  assert.equal(copyPasteAction(c), "copy-if-sel");
+  assert.equal(copyPasteAction(c, { copyIfSelection: false }), "copy-if-sel");
+  assert.equal(copyPasteAction(v), "paste");
 });
 
-test("termShortcutRows follow newline and copy prefs", () => {
-  const on = termShortcutRows({ newlineKey: "shift-enter", copyIfSelection: true });
+test("termShortcutRows follow newline prefs", () => {
+  const on = termShortcutRows({ newlineKey: "shift-enter" });
   assert.ok(on.some((r) => r.key === "Ctrl+C"));
+  assert.ok(on.some((r) => r.key === "Ctrl+V"));
   assert.ok(on.some((r) => r.key === "Shift+Enter"));
-  const off = termShortcutRows({ newlineKey: "ctrl-enter", copyIfSelection: false });
-  assert.ok(!off.some((r) => r.key === "Ctrl+C"));
+  const off = termShortcutRows({ newlineKey: "ctrl-enter" });
   assert.ok(off.some((r) => r.key === "Ctrl+Enter"));
 });
 

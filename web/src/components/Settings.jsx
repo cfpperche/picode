@@ -158,15 +158,11 @@ export default function Settings({ hidden, themeMode, onTheme }) {
                   {TERM_NEWLINES.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
                 </select>
               </div>
-              <div className="set-row">
-                <label htmlFor="term-copy-sel">Copy if selected</label>
-                <Switch.Root id="term-copy-sel" className="rx-switch" checked={term.copyIfSelection} onCheckedChange={(v) => saveTerm({ copyIfSelection: v })}>
-                  <Switch.Thumb className="rx-switch-thumb" />
-                </Switch.Root>
-              </div>
             </div>
-            <p className="pkg-fine">Ctrl+C interrupts (VS Code default). Turn this on to copy the selection instead; nothing selected still interrupts.</p>
             <ul className="hotkey-list term-key-facts">
+              <li className="hotkey-row"><kbd>Shift+drag</kbd><span>Select</span></li>
+              <li className="hotkey-row"><kbd>Ctrl+C</kbd><span>Copy if selected; else interrupt</span></li>
+              <li className="hotkey-row"><kbd>Ctrl+V</kbd><span>Paste</span></li>
               <li className="hotkey-row"><kbd>Ctrl+`</kbd><span>New terminal</span></li>
               <li className="hotkey-row"><kbd>Ctrl+Shift+C</kbd><span>Copy</span></li>
               <li className="hotkey-row"><kbd>Ctrl+Shift+V</kbd><span>Paste</span></li>
