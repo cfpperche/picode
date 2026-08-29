@@ -1,6 +1,6 @@
 # ADR-0018: `picode install` — systemd user unit, not Windows
 
-- **Status**: accepted
+- **Status**: superseded by ADR-0020
 - **Date**: 2026-08-29
 
 ## Context

@@ -42,6 +42,7 @@ What exists:
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 - **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
 - **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
+- **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **Decision only — no code yet.**
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 
 ## In flight
@@ -52,12 +53,15 @@ File open + preview roadmap. **Tracks 1 and 2 shipped.** Track 3 (live cwd) rema
 
 Track 3: tmux `#{pane_current_path}` on Ctrl+click so `cd` then a relative path opens the right file.
 
+Desktop **M2** (ADR-0020): `picode provision [--dry-run] [--json]` — wsl.conf line-merge, linger, `install.Install()`, cert, `/api/health` verify. The gating test is that a `/etc/wsl.conf` already carrying `systemd=true` comes back byte-identical.
+
 ## Backlog
 
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
 - Mobile parity (shell exists; not feature-complete).
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
+- Desktop **M3** `cmd/picode-desktop` (tray, logon task, keepalive), **M4** clean-machine path (`wsl --install` + resume after reboot), **M5** release (`go-winres` icon, `.exe` asset, auto-update). ADR-0020.
 
 ## Known debts / open questions
 
@@ -73,9 +77,13 @@ Track 3: tmux `#{pane_current_path}` on Ctrl+click so `cd` then a relative path 
 - Mobile shell has no waiting card (C1 is desktop).
 - Terminal **ligatures** not offered: `@xterm/addon-ligatures` needs Node `font-finder`; browser xterm is canvas-only.
 - File tabs resolve relative paths against the terminal's **start** cwd, not `cd` later (no OSC 7). Absolute and `~/` still work.
+- ADR-0020 M3 needs the owner's exact WSL distro name — `WSL_DISTRO_NAME` is empty in the inspected shell, so `wsl -l -v` has to answer it. M4 detects it; M3 does not.
+- ADR-0020 makes `scripts/setup-cert.sh` a debt: release users have no repo, so it must be ported into `picode provision` (Go) to stop being repo-only.
+- `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
 
+- **2026-08-29** — **ADR-0020** accepted: PiCode Desktop provisions the distro from Windows (tray `.exe` at the WSL boundary, `picode provision` inside). Supersedes ADR-0018, whose "Alternatives considered" had rejected both the logon task and linger; the linger objection is answered by enabling it on install and never disabling it. Carries a preservation contract (`~/.picode` untouched, tmux survives, `wsl.conf` line-merged after backup, cert reissued only near expiry). Docs only — no code, no user-visible change, so no CHANGELOG entry.
 - **2026-08-29** — Chat file card: click a path → closable card in the thread; Open in tab → same `#/file/a/…` as the terminal. Split FilePane removed. visual-review: PASS (file-chat-card.png, file-chat-tab.png).
 - **2026-08-29** — File preview track 1: png, pdf, md, audio, video, glb/gltf (model-viewer). visual-review: PASS (file-png-preview.png, file-md-preview.png, file-pdf-preview.png, file-audio-preview.png, file-video-preview.png, file-glb-preview.png, file-bin-raw.png, file-bin-gone.png).
 - **2026-08-29** — Ctrl+click on a terminal path eats mousedown/mouseup so tmux SGR (`<16;NaN;NaNm`) does not land in the Pi composer.
