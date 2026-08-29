@@ -28,6 +28,8 @@ import CreateForm from "../components/CreateForm.jsx";
 import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId } from "../lib/routes.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
+import { startReconnectWatch } from "../lib/reconnect.js";
+import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
@@ -103,6 +105,7 @@ export default function App() {
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [llamaOpen, setLlamaOpen] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
@@ -319,6 +322,9 @@ export default function App() {
   }, [loadWorkspaces]);
 
   useEffect(() => startPresence(), []);
+  useEffect(() => startReconnectWatch({
+    onState: (s) => { if (s === "down") setReconnect(true); },
+  }), []);
   useEffect(() => {
     if (!tabsReady) return;
     writeOpenTabs(tabs, selectedId);
@@ -1573,6 +1579,7 @@ export default function App() {
       <LlamaDialog open={llamaOpen} onClose={() => setLlamaOpen(false)} onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} />
       <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+      {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       <ConfirmDialog />
       <PromptDialog />

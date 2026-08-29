@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, wsURL } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
+import { startReconnectWatch } from "../lib/reconnect.js";
+import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -38,6 +40,7 @@ export default function MobileApp() {
   const [streaming, setStreaming] = useState(false);
   const [items, setItems] = useState([]);
   const [shareOpen, setShareOpen] = useState(false);
+  const [reconnect, setReconnect] = useState(false);
   const [more, setMore] = useState("menu");
   const convRef = useRef(null);
   const nearBottom = useRef(true);
@@ -51,6 +54,9 @@ export default function MobileApp() {
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
+  useEffect(() => startReconnectWatch({
+    onState: (s) => { if (s === "down") setReconnect(true); },
+  }), []);
 
   const load = useCallback(async () => {
     const list = await api("/api/workspaces");
@@ -347,6 +353,7 @@ export default function MobileApp() {
       </nav>
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
+      {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <ConfirmDialog />
     </div>
   );

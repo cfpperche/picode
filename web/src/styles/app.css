@@ -597,6 +597,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   padding: 24px;
   animation: fade-in var(--motion-med) var(--ease-out);
 }
+.reconnect-job { z-index: 80; }
 .pkg-job-card {
   width: min(440px, 100%);
   padding: 20px 20px 16px;

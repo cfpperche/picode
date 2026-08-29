@@ -76,6 +76,7 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 
 ## Recent activity
 
+- **2026-08-29** — UI auto-reload: health watch → Reconnecting overlay (motion) → reload when the server is back.
 - **2026-08-29** — Terminal Shift+Enter is CSI-u through tmux (`extended-keys` + `csi-u` on attach). modifyOtherKeys never reached the Pi TUI.
 - **2026-08-29** — Terminal Ctrl+C copies if text is selected (Warp / Windows Terminal); else interrupt. Keys list in Preferences → Terminal; `/hotkeys` shows them.
 - **2026-08-29** — Terminal scroll: tmux `mouse on` so xterm.js enables mouse tracking (#426); screen `margin-right` so the scrollbar is clickable (#1751); stop capturing wheel (that blocked SGR). visual-review: PASS (term-scrollbar.png, `enable-mouse-events` true).
