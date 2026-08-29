@@ -25,6 +25,9 @@ Same file tab, same chip group: **Preview | Raw | Save**. Default Preview
 when we can render; Raw is always the text (or “Can't show this file.”).
 Empty = one line + Raw. Error = one line + Raw. Save stays in the group.
 
+Ctrl+click is host-only: it must **not** send SGR mouse (`<16;…m`) into the
+TUI composer. Eat mousedown/mouseup on a link before xterm encodes them.
+
 ## Track 1 — Preview kinds
 
 | Kind | Ext | How |

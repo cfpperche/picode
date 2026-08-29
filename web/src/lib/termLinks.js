@@ -82,11 +82,34 @@ export function classify(raw, cwd) {
 }
 
 const HTTP_RE = /\bhttps?:\/\/[^\s<>"'\\]+/gi;
-const FILE_EXT = "js|jsx|ts|tsx|mjs|cjs|json|css|html|htm|md|go|py|rs|svg|mmd|mermaid|txt|sh|toml|yml|yaml";
+const FILE_EXT = "js|jsx|ts|tsx|mjs|cjs|json|css|html|htm|md|mdx|go|py|rs|svg|mmd|mermaid|txt|sh|toml|yml|yaml|png|jpg|jpeg|gif|webp|pdf|mp3|wav|ogg|m4a|mp4|webm|mkv|glb|gltf";
 const PATH_RE = new RegExp(
   String.raw`(?:file://[^\s<>"'\\]+|(?:~/|\./|\.\./)[^\s<>"'\\]+|(?<=^|[\s(["'])/[^\s<>"'\\]+|(?<=^|[\s(["'])(?:[\w.@+-]+/)+[\w.@+-]+|(?<=^|[\s(["'])[\w.@+-]+\.(?:` + FILE_EXT + ")\\b)",
   "g",
 );
+
+export function linkAt(line, col, cwd) {
+  const hits = findLinks(line, cwd);
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
+    if (col >= h.start + 1 && col <= h.end) return h;
+  }
+  return null;
+}
+
+export function cellFromMouse(term, ev) {
+  if (!term || !ev || !term.cols || !term.rows) return null;
+  const root = term.element;
+  const el = (root && (root.querySelector(".xterm-rows") || root.querySelector(".xterm-screen"))) || root;
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return null;
+  const col = Math.ceil((ev.clientX - r.left) / (r.width / term.cols));
+  const row = Math.ceil((ev.clientY - r.top) / (r.height / term.rows));
+  if (col < 1 || row < 1 || col > term.cols || row > term.rows) return null;
+  const vp = (term.buffer && term.buffer.active && term.buffer.active.viewportY) || 0;
+  return { col, row, lineIndex: vp + row - 1 };
+}
 
 export function findLinks(line, cwd) {
   const s = String(line || "");
@@ -112,19 +135,24 @@ export function findLinks(line, cwd) {
 
 export function wireTermLinks(term, getCwd, onFile) {
   if (!term || typeof term.registerLinkProvider !== "function") return () => {};
+  const cwdOf = () => (typeof getCwd === "function" ? getCwd() : getCwd);
   const activate = (ev, text) => {
-    if (!hasOpenModifier(ev)) return;
-    const hit = classify(text, typeof getCwd === "function" ? getCwd() : getCwd);
-    if (!hit) return;
+    const hit = classify(text, cwdOf());
+    if (!hit) return false;
     if (ev && ev.preventDefault) ev.preventDefault();
+    if (ev && ev.stopImmediatePropagation) ev.stopImmediatePropagation();
     if (hit.kind === "http") {
       window.open(hit.href, "_blank", "noopener,noreferrer");
-      return;
+      return true;
     }
     if (hit.kind === "file" && onFile) onFile(hit.path);
+    return true;
   };
   term.options.linkHandler = {
-    activate,
+    activate: (ev, text) => {
+      if (!hasOpenModifier(ev)) return;
+      activate(ev, text);
+    },
     allowNonHttpProtocols: true,
   };
   const disp = term.registerLinkProvider({
@@ -136,16 +164,44 @@ export function wireTermLinks(term, getCwd, onFile) {
         return;
       }
       const text = row.translateToString(true);
-      const cwd = typeof getCwd === "function" ? getCwd() : getCwd;
-      const links = findLinks(text, cwd).map((l) => ({
+      const links = findLinks(text, cwdOf()).map((l) => ({
         text: l.raw,
         range: { start: { x: l.start + 1, y }, end: { x: l.start + l.raw.length, y } },
-        activate: (ev) => activate(ev, l.raw),
+        activate: (ev) => {
+          if (!hasOpenModifier(ev)) return;
+          activate(ev, l.raw);
+        },
       }));
       cb(links.length ? links : undefined);
     },
   });
+  let suppressUp = false;
+  const onDown = (ev) => {
+    if (!hasOpenModifier(ev) || ev.button !== 0) return;
+    const cell = cellFromMouse(term, ev);
+    if (!cell) return;
+    const buf = term.buffer && term.buffer.active;
+    const row = buf && buf.getLine(cell.lineIndex);
+    if (!row) return;
+    const hit = linkAt(row.translateToString(true), cell.col, cwdOf());
+    if (!hit) return;
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    suppressUp = true;
+    activate(ev, hit.raw);
+  };
+  const onUp = (ev) => {
+    if (!suppressUp) return;
+    suppressUp = false;
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  };
+  const el = term.element;
+  if (el) el.addEventListener("mousedown", onDown, true);
+  window.addEventListener("mouseup", onUp, true);
   return () => {
     try { disp.dispose(); } catch { /* ignore */ }
+    if (el) el.removeEventListener("mousedown", onDown, true);
+    window.removeEventListener("mouseup", onUp, true);
   };
 }

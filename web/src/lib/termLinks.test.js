@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  hasOpenModifier, stripLineCol, classify, findLinks, underCwd, relPath,
+  hasOpenModifier, stripLineCol, classify, findLinks, linkAt, underCwd, relPath,
 } from "./termLinks.js";
 
 const cwd = "/home/goat/picode";
@@ -46,6 +46,15 @@ test("classify decision table", () => {
     if (r.want.path) assert.equal(got.path, r.want.path, r.raw);
     if (r.want.href) assert.equal(got.href, r.want.href, r.raw);
   }
+});
+
+test("linkAt hits the column of a jsx path", () => {
+  const line = "read web/src/components/Composer.jsx";
+  const hits = findLinks(line, cwd);
+  assert.ok(hits[0]);
+  const col = hits[0].start + 1;
+  assert.equal(linkAt(line, col, cwd).path, "web/src/components/Composer.jsx");
+  assert.equal(linkAt(line, 1, cwd), null);
 });
 
 test("findLinks picks bare js and jsx names", () => {
