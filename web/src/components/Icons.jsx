@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Cloud,
   Copy,
+  Ellipsis,
   EllipsisVertical,
   ExternalLink,
   File,
@@ -80,6 +81,7 @@ export const IconGit = lucide(GitBranch, 12);
 export const IconFolder = lucide(Folder, 13);
 export const IconFile = lucide(File, 13);
 export const IconMore = lucide(EllipsisVertical, 14);
+export const IconEllipsis = lucide(Ellipsis, 14);
 export const IconHome = lucide(Home, 13);
 export const IconDrive = lucide(HardDrive, 13);
 export const IconAgent = lucide(Bot, 13);

@@ -286,7 +286,10 @@ body {
   height: var(--chrome-h); padding: 0 12px; border-bottom: 1px solid var(--border);
 }
 .pin-sketch-head h2 { margin: 0; font-size: 14px; font-weight: 650; }
-.pin-sketch-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.pin-sketch-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.pin-sketch-actions .btn {
+  height: 28px; min-height: 28px; padding: 0 10px; font-size: 12px;
+}
 .pin-sketch-board { flex: 1; min-height: 0; position: relative; }
 .pin-sketch-board .excalidraw { height: 100% !important; }
 .pin-sketch-wait { padding: 24px; color: var(--text-secondary); }
@@ -1513,6 +1516,21 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   position: absolute; top: -2px; right: -2px;
   box-shadow: 0 0 0 2px var(--bg-panel);
 }
+.composer-more-pop {
+  min-width: 160px; padding: 4px; z-index: 50;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+.composer-more-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; height: 32px; padding: 0 8px; box-sizing: border-box;
+  border: 0; border-radius: 6px; background: none;
+  color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer;
+}
+.composer-more-item:hover, .composer-more-item[data-highlighted] {
+  background: var(--bg-hover); outline: none;
+}
+.composer-more-item svg { color: var(--text-secondary); flex: none; }
 .composer-wrap.expanded {
   top: 12px; bottom: 12px; padding: 0 20px 12px; z-index: 8;
   background: color-mix(in srgb, var(--bg-base) 88%, transparent);

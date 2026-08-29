@@ -1,4 +1,5 @@
-import { IconSettings, IconMcp, IconPackage } from "./Icons.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconSettings, IconMcp, IconPackage, IconEllipsis } from "./Icons.jsx";
 
 const PAGES = [
   { id: "settings", label: "Settings", Icon: IconSettings },
@@ -11,20 +12,28 @@ export default function AgentPageBar({ onGo, pkgUpdates, children }) {
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
   return (
     <div className="composer-pages" role="toolbar" aria-label="Agent">
-      {onGo ? PAGES.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          className="composer-page"
-          aria-label={p.label}
-          title={p.label}
-          onClick={() => onGo(p.id)}
-        >
-          <p.Icon />
-          {p.id === "packages" && hasPkgUp ? <span className="um-dot composer-page-dot" aria-label="Updates available" /> : null}
-        </button>
-      )) : null}
       {children}
+      {onGo ? (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="composer-page" aria-label="More" title="More">
+              <IconEllipsis />
+              {hasPkgUp ? <span className="um-dot composer-page-dot" aria-label="Updates available" /> : null}
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className="composer-more-pop" side="top" align="end" sideOffset={6} collisionPadding={8}>
+              {PAGES.map((p) => (
+                <DropdownMenu.Item key={p.id} className="composer-more-item" onSelect={() => onGo(p.id)}>
+                  <p.Icon />
+                  <span>{p.label}</span>
+                  {p.id === "packages" && hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}
+                </DropdownMenu.Item>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      ) : null}
     </div>
   );
 }
