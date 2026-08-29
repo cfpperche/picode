@@ -4,6 +4,15 @@
 // and pi's fallback parser expects exactly this. VS Code's own terminal
 // reaches the same result via Kitty in its xterm fork; the OSS xterm.js
 // we embed has neither, so we encode here.
+//
+// Three layers, because browsers disagree on what follows a canceled
+// keydown (keypress on Windows Chrome, input from IME, CDP…):
+//  1. customKeyEventHandler: keydown → send the sequence, block the rest;
+//  2. keypress of a bound modified Enter → blocked (xterm _keyPress would
+//     write \r even after a canceled keydown);
+//  3. termDataFilter on term.onData: any \r/\n that still escapes within
+//     120ms of a bound modified-Enter keydown is swapped for the sequence
+//     (or dropped, if layer 1 already sent it).
 // Ctrl+Shift+C/V copy/paste (VS Code). Ctrl+C interrupts; "copy if
 // selected" (Warp) is opt-in in Preferences → Terminal → Keys.
 
@@ -14,6 +23,9 @@ const SEQ = {
   "alt-enter": "\x1b[27;3;13~",
   "ctrl-enter": "\x1b[27;5;13~",
 };
+
+const WINDOW = 120;
+let recent = null; // { t, seq, sent } — last modified-Enter keydown
 
 export function newlineSeq(ev, newlineKey) {
   if (!ev || ev.type === "keyup" || ev.key !== "Enter" || ev.repeat) return null;
@@ -46,7 +58,7 @@ export function termShortcutRows(prefs) {
     { key: "Ctrl+`", label: "New terminal" },
     { key: nl, label: "New line" },
   ];
-  if (p.copyIfSelection !== false) {
+  if (p.copyIfSelection === true) {
     rows.push({ key: "Ctrl+C", label: "Copy if selected; else interrupt" });
   }
   rows.push(
@@ -57,8 +69,32 @@ export function termShortcutRows(prefs) {
   return rows;
 }
 
+// Layer 3: pass term.onData through this. "\r" right after a bound
+// modified-Enter keydown becomes the sequence (or "" when already sent).
+export function termDataFilter(data) {
+  if (data !== "\r" && data !== "\n") return data;
+  const r = recent;
+  if (!r || Date.now() - r.t > WINDOW) return data; // plain Enter
+  if (r.sent) return ""; // echo after layer 1 — drop
+  if (!r.seq) return data; // modified but not the bound key — VS Code parity: pass \r
+  r.sent = true;
+  return r.seq; // the path layer 1 never caught
+}
+
+function trackKeydown(ev) {
+  if (!ev || ev.type !== "keydown" || ev.key !== "Enter") return;
+  const mod = ev.shiftKey || ev.altKey || ev.ctrlKey || ev.metaKey;
+  if (!mod) {
+    recent = null;
+    return;
+  }
+  recent = { t: Date.now(), seq: newlineSeq(ev, readTermPrefs().newlineKey), sent: false };
+}
+
 export function wireTermKeys(term, send) {
   if (!term || typeof term.attachCustomKeyEventHandler !== "function") return;
+  const ta = term.textarea || (term.element && term.element.querySelector("textarea"));
+  if (ta) ta.addEventListener("keydown", trackKeydown, true);
   term.attachCustomKeyEventHandler((ev) => {
     if (!ev || (ev.type !== "keydown" && ev.type !== "keypress")) return true;
     const prefs = readTermPrefs();
@@ -80,10 +116,10 @@ export function wireTermKeys(term, send) {
     const seq = newlineSeq(ev, prefs.newlineKey);
     if (!seq) return true;
     if (typeof ev.preventDefault === "function") ev.preventDefault();
-    // xterm's _keyPress writes \r for Enter even after a canceled keydown
-    // (_keyDownHandled stays false) — block the trailing keypress and only
-    // emit the sequence once, on keydown.
-    if (ev.type === "keydown" && send) send(new TextEncoder().encode(seq));
+    if (ev.type === "keydown") {
+      if (send) send(new TextEncoder().encode(seq));
+      if (recent) recent.sent = true;
+    }
     return false;
   });
 }

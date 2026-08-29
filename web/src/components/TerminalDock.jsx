@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
-import { wireTermKeys } from "../lib/termKeys.js";
+import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wsURL } from "../lib/api.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
@@ -53,7 +53,9 @@ export default function TerminalDock({
       setDot(true);
       scheduleTermFit(entry, true);
       term.onData((data) => {
-        if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(data));
+        const out = termDataFilter(data);
+        if (out === "") return;
+        if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(out));
       });
       term.onResize(() => {
         if (sock.readyState === WebSocket.OPEN) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { copyPasteAction, newlineSeq, termShortcutRows, wireTermKeys } from "./termKeys.js";
+import { copyPasteAction, newlineSeq, termShortcutRows, termDataFilter, wireTermKeys } from "./termKeys.js";
 
 test("Shift+Enter is the default newline", () => {
   assert.equal(newlineSeq({ type: "keydown", key: "Enter", shiftKey: true }, "shift-enter"), "\x1b[27;2;13~");
@@ -56,3 +56,39 @@ function extractHandler(wire, send) {
   wire({ attachCustomKeyEventHandler(fn) { h = fn; } }, send);
   return h;
 }
+
+function fakeEnterKey(mods = {}) {
+  const { bubbles, ...rest } = mods;
+  const e = new Event("keydown", { bubbles: !!bubbles });
+  Object.assign(e, rest);
+  e.key = "Enter";
+  return e;
+}
+
+test("termDataFilter converts a stray \\r after an unhandled Shift+Enter (Windows Chrome)", () => {
+  const sent = [];
+  const send = (bytes) => sent.push(Array.from(bytes));
+  const ta = new EventTarget(); // fake textarea for the capture tracker
+  let h = null;
+  wireTermKeys({ attachCustomKeyEventHandler(fn) { h = fn; }, textarea: ta }, send);
+
+  // Windows-miss scenario: the keydown tracker sees it, the handler does not
+  ta.dispatchEvent(fakeEnterKey({ shiftKey: true, bubbles: true }));
+  assert.equal(termDataFilter("\r"), "\x1b[27;2;13~"); // converted, not submitted
+  assert.equal(termDataFilter("\r"), ""); // subsequent echo dropped
+
+  // Handler-ran scenario: sequence sent once, echo \r dropped
+  ta.dispatchEvent(fakeEnterKey({ shiftKey: true, bubbles: true }));
+  assert.equal(h({ type: "keydown", key: "Enter", shiftKey: true, preventDefault() {} }), false);
+  assert.equal(termDataFilter("\r"), "");
+  assert.equal(sent.length, 1);
+
+  // Plain Enter (no modifiers tracked) passes through
+  ta.dispatchEvent(fakeEnterKey({}));
+  assert.equal(termDataFilter("\r"), "\r");
+  // Non-bound modified Enter keeps VS Code parity (\r passes)
+  ta.dispatchEvent(fakeEnterKey({ ctrlKey: true, bubbles: true })); // pref is shift-enter
+  assert.equal(termDataFilter("\r"), "\r");
+  // Non-Enter data untouched
+  assert.equal(termDataFilter("abc"), "abc");
+});
