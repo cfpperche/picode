@@ -175,6 +175,10 @@ body {
   color: var(--text-secondary);
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
+.side-terms .ws-row1, .side-terms .ws-row2 {
+  display: flex; align-items: center; gap: 8px;
+}
+.side-terms .ws-row2 { padding-left: calc(var(--tree-icon) + 8px); }
 .pin-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .pin-card {
   padding: 8px 8px; border-radius: 8px; cursor: pointer;

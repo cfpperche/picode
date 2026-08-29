@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Sidebar Terminals list is flush like Pins (no tree indent).
 - Click a path in chat opens a closable card in the thread. **Open in tab** is the same file tab as the terminal. The old split pane is gone.
 - File Preview also covers png, pdf, markdown, audio, video, and 3D (`.glb` / `.gltf` via model-viewer). Binary Raw is “Can't show this file.”
 - SVG and mermaid (`.mmd`) files open in **Preview** | **Raw**.

@@ -138,31 +138,26 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "terms" ? (
-      <div className="side-section">
-        <div className="side-head tree-row">
-          <span className="tree-spc" aria-hidden="true" />
-          <span className="tree-icon"><IconTerminal size={16} /></span>
-          <span className="side-title">Terminals</span>
-          <span className="tree-meta" />
+      <div className="side-section side-terms">
+        <div className="pins-head">
+          <span className="pins-title">Terminals</span>
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
         </div>
         {(terminals || []).length === 0 ? (
-          <p className="side-empty">No terminals yet</p>
+          <p className="side-empty pins-empty">No terminals yet</p>
         ) : (
-          <ul className="ws-list tree-children">
+          <ul className="ws-list">
             {(terminals || []).map((t) => (
               <li
                 key={t.id}
                 className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
                 onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
               >
-                <div className="ws-row1 tree-row">
-                  <span className="tree-spc" aria-hidden="true" />
+                <div className="ws-row1">
                   <span className="tree-icon"><IconTerminal size={14} /></span>
                   <span className="ws-name" title={t.cwd} onDoubleClick={(e) => { e.stopPropagation(); onRenameTerm && onRenameTerm(t); }}>{t.name}</span>
                 </div>
-                <div className="ws-row2 tree-row">
-                  <span className="tree-spc" aria-hidden="true" />
+                <div className="ws-row2">
                   <span className="ws-path" title={t.cwd}>{t.cwd}</span>
                 </div>
                 <span className="ws-actions">
