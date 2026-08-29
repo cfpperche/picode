@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage } from "./Icons.jsx";
 import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
@@ -29,63 +29,71 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
 
           <DropdownMenu.Separator className="um-divider" />
           <div className="um-label">Theme</div>
-          <div className="um-theme" role="group" aria-label="Theme">
-            <button type="button" data-theme-option="light" data-active={themeMode === "light" ? "1" : ""} onClick={() => onTheme("light")}>
+          <div className="um-theme" role="radiogroup" aria-label="Theme">
+            <button type="button" role="radio" aria-checked={themeMode === "light"} data-theme-option="light" data-active={themeMode === "light" ? "1" : ""} onClick={() => onTheme("light")}>
               <IconSun /> Light
             </button>
-            <button type="button" data-theme-option="system" data-active={themeMode === "system" ? "1" : ""} onClick={() => onTheme("system")}>
+            <button type="button" role="radio" aria-checked={themeMode === "system"} data-theme-option="system" data-active={themeMode === "system" ? "1" : ""} onClick={() => onTheme("system")}>
               <IconMonitor /> System
             </button>
-            <button type="button" data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => onTheme("dark")}>
+            <button type="button" role="radio" aria-checked={themeMode === "dark"} data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => onTheme("dark")}>
               <IconMoon /> Dark
             </button>
           </div>
 
           <div className="um-label">Layout</div>
-          <div className="um-theme" role="group" aria-label="Layout">
-            <button type="button" data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
+          <div className="um-theme" role="radiogroup" aria-label="Layout">
+            <button type="button" role="radio" aria-checked={readShellPref() === "desktop"} data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
               <IconMonitor /> Desktop
             </button>
-            <button type="button" data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
+            <button type="button" role="radio" aria-checked={readShellPref() === "system"} data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
               <IconMonitor /> Auto
             </button>
-            <button type="button" data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
+            <button type="button" role="radio" aria-checked={readShellPref() === "mobile"} data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
               <IconPhone /> Mobile
             </button>
           </div>
 
           <DropdownMenu.Separator className="um-divider" />
           <DropdownMenu.Item className="um-item" id="um-preferences" onSelect={() => onNavigate("preferences")}>
-            <span>Preferences</span>
+            <IconMode className="um-item-ico" />
+            <span className="um-item-name">Preferences</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-settings" onSelect={() => onNavigate("settings")}>
-            <span>Settings</span>
+            <IconSettings className="um-item-ico" />
+            <span className="um-item-name">Settings</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-system" onSelect={() => onNavigate("system")}>
-            <span>System</span>
+            <IconDrive className="um-item-ico" />
+            <span className="um-item-name">System</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-providers" onSelect={() => onNavigate("providers")}>
-            <span>Providers</span>
+            <IconProvider className="um-item-ico" />
+            <span className="um-item-name">Providers</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-mcps" onSelect={() => onNavigate("mcps")}>
-            <span>MCPs</span>
+            <IconMcp className="um-item-ico" />
+            <span className="um-item-name">MCPs</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-packages" onSelect={() => onNavigate("packages")}>
-            <span className="um-item-label">Packages{hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
+            <IconPackage className="um-item-ico" />
+            <span className="um-item-name">Packages{hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-devices" onSelect={() => onNavigate("devices")}>
-            <span>Devices</span>
+            <IconPhone className="um-item-ico" />
+            <span className="um-item-name">Devices</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-share" onSelect={() => onShare && onShare()}>
-            <span>Open on phone</span>
-            <IconQR />
+            <IconQR className="um-item-ico" />
+            <span className="um-item-name">Open on phone</span>
+            <IconChevronRight />
           </DropdownMenu.Item>
           <div style={{ padding: "8px 10px 10px" }}><InstallButton className="btn btn-primary btn-sm" /></div>
           <DropdownMenu.Item asChild>

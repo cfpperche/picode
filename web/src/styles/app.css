@@ -754,7 +754,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   position: absolute; top: -2px; right: -2px;
   box-shadow: 0 0 0 2px var(--bg-panel);
 }
-.um-item-label { display: inline-flex; align-items: center; gap: 8px; }
+.um-item-name { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; text-align: left; }
+.um-item-ico { flex: none; }
 .um-meta { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; line-height: 1.25; }
 .um-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .um-sub { font-size: 11px; color: var(--text-secondary); }
@@ -776,17 +777,24 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   padding: 2px 8px 6px; font-size: 11px; text-transform: uppercase;
   letter-spacing: .08em; color: var(--text-secondary);
 }
-.um-theme { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 4px 4px; }
-.um-theme button {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 5px 0; border-radius: var(--radius-ctl);
-  border: 1px solid transparent; background: transparent;
-  color: var(--text-secondary); font-family: inherit; font-size: 12px; cursor: pointer;
+.um-theme {
+  display: flex; align-items: stretch; height: 28px;
+  margin: 0 8px 6px;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--bg-base);
 }
-.um-theme button:hover { color: var(--text-primary); background: var(--bg-panel); }
+.um-theme button {
+  flex: auto; min-width: 0;
+  display: flex; align-items: center; justify-content: flex-start; gap: 6px;
+  padding: 0 9px; border: 0; border-right: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.um-theme button svg { flex: none; }
+.um-theme button:last-child { border-right: 0; }
+.um-theme button:hover { color: var(--text-primary); background: var(--bg-hover); }
 .um-theme button[data-active="1"] {
-  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  background: var(--accent-soft);
+  color: var(--accent); background: var(--accent-soft);
 }
 .um-item {
   display: flex; width: 100%; align-items: center; justify-content: space-between;
