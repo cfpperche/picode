@@ -936,6 +936,30 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .settings-section > .settings-h:first-child { margin-top: 0; }
 .theme-cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 360px; }
+.term-pref {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+.term-pref .theme-cards.two { max-width: none; }
+.term-pref .set-rows { gap: 8px; }
+.term-pref .set-row select.set-wide { min-width: 0; max-width: 12rem; }
+.term-pref-preview-slot { position: relative; min-height: 240px; }
+.term-preview {
+  position: absolute; inset: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ctl);
+  overflow: hidden;
+  background: #0e0e11;
+}
+.term-preview .xterm,
+.term-preview .xterm-viewport,
+.term-preview .xterm-screen { height: 100% !important; }
+@media (max-width: 860px) {
+  .term-pref { grid-template-columns: 1fr; }
+  .term-pref-preview-slot { min-height: 220px; height: 220px; }
+}
 .term-surface .file-shell {
   flex: 1; min-height: 0; position: relative; background: transparent;
 }
