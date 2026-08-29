@@ -38,9 +38,18 @@ func (osRunner) Run(name string, args ...string) error {
 	return nil
 }
 
-// startDetached launches a child meant to outlive the call — the keepalive
-// that holds the distro open.
-func startDetached(name string, args ...string) (*exec.Cmd, error) {
+// startSupervised launches a child meant to outlive the call — the keepalive
+// that holds the distro open — and ties its lifetime to this process, so the
+// child cannot survive a tray that was force-killed.
+func startSupervised(name string, args ...string) (*exec.Cmd, error) {
 	cmd := newCmd(name, args...)
-	return cmd, cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	if err := superviseChild(cmd); err != nil {
+		// The keepalive still works; it just outlives a forced kill. Better a
+		// stray sleep than no keepalive at all.
+		return cmd, err
+	}
+	return cmd, nil
 }

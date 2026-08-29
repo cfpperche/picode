@@ -62,7 +62,6 @@ Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 
 ## Known debts / open questions
 
-- Force-killing the PiCode Desktop tray (`taskkill /F`, a crash) strands its `wsl … sleep infinity` keepalive, because `onExit` never runs. Harmless — it only holds the distro open — but it accumulates. The Windows fix is a Job Object with `KILL_ON_JOB_CLOSE`; a cheaper one is reaping a stale keepalive at tray startup.
 
 - MCP GET redacts env/header values (keys only). `bearerToken` stays write-only.
 - MCP **installed + zero servers** Add form is live (`docs/screenshots/mcp-named.png`). Sidebar-on-pane → `#/` checked in browser, not unit-tested.
@@ -79,6 +78,8 @@ Nothing. File-preview roadmap **closed** (tracks 1+2+3).
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-29** — Keepalive debt paid: the tray's `wsl.exe` child now lives in a job object with `KILL_ON_JOB_CLOSE`, so the kernel tears it down however the tray dies — `taskkill /F` and crashes included, where no deferred Go code runs. Established first that killing the Windows-side `wsl.exe` does end the Linux process (launched a `sleep 99999`, killed its wsl.exe, watched it go), because the whole fix rests on that. Then proved it end to end on the machine: before, a force-killed tray left `sleep infinity` behind; after, `taskkill /F` leaves nothing. `startDetached` became `startSupervised`, and a failure to supervise is non-fatal — a keepalive that can be stranded beats no keepalive.
 
 - **2026-08-29** — Tray icon is now the browser favicon (`web/public/favicon.svg`): the blocky Pi in white on `#09090b`, transcribed as rectangles in `mkicon.go` and drawn at 4x then boxed down so 16px stays legible. `icon_test.go` reads the SVG's fills and asserts the committed ICO carries both — verified it actually fails by regenerating with the old indigo. Restarted the tray on the owner's machine with the new mark (PID 29532); doctor still reports everything ok on both halves.
 

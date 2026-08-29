@@ -60,9 +60,12 @@ func runTray(distroFlag, userFlag string) error {
 		}
 
 		// Hold the distro open. Without this the VM is reclaimed when idle and
-		// PiCode goes down while the tray still says it is up.
-		if cmd, err := startDetached(desktop.WSLExe, desktop.KeepaliveArgs(t.app.distro)...); err == nil {
+		// PiCode goes down while the tray still says it is up. The child is
+		// supervised, so it cannot outlive this process even if the tray is
+		// force-killed and onExit never runs.
+		if cmd, err := startSupervised(desktop.WSLExe, desktop.KeepaliveArgs(t.app.distro)...); cmd != nil {
 			t.keepalive = cmd
+			_ = err // the keepalive runs either way; only supervision may have failed
 		}
 
 		go t.poll()

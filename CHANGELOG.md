@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Closing PiCode Desktop no longer leaves a process behind holding WSL open. Ending it from Task Manager, or a crash, now shuts the keepalive down too.
 - `picode-desktop doctor` no longer tells you to run the installer on a machine that is already fully set up.
 - Setting PiCode up no longer reports the service as "present but not enabled" when it is running fine. Part of the setup runs as another account, and from there the answer was about the wrong account entirely; it now says it cannot tell, and the part that can tell reports it.
 - `picode <typo>` now says so instead of starting a second server. Any unrecognised word used to fall through and launch PiCode again — under a different account it would come up with its own data directory and its own port, with nothing to say it had happened.
