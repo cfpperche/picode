@@ -1691,6 +1691,20 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer;
 }
 .cockpit-chip:hover { background: var(--bg-hover); }
+.chip-group {
+  display: inline-flex; align-items: stretch; height: 28px; flex: none;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--bg-base);
+}
+.chip-group .cockpit-chip {
+  height: auto; border: 0; border-right: 1px solid var(--border);
+  border-radius: 0; background: transparent;
+}
+.chip-group .cockpit-chip:last-child { border-right: 0; }
+.chip-group .cockpit-chip:hover { background: var(--bg-hover); }
+.chip-group .cockpit-chip:focus-visible { outline-offset: -2px; }
+.chip-group .cockpit-chip > * { flex: none; }
+.chip-group .cockpit-chip .cockpit-chip-label { flex: 0 1 auto; min-width: 0; }
 .cockpit-chip:focus-visible,
 .icon-btn:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;

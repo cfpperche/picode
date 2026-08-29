@@ -672,7 +672,7 @@ export default function Composer({
               </div>
             </div>
           ) : (
-            <div className="composer-left">
+            <div className="composer-left chip-group">
               <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
               <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
               <ThinkingChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />

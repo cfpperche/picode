@@ -15,6 +15,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 - Composer **Sketch** opens Excalidraw. Insert puts a PNG on the message (same as paste). Empty board does not insert.
 - Sketch Cancel / Insert are 28px, not the full header height.
+- Composer chips are joined button groups: session + New on top, provider / model / thinking / mode (and kind) in one bar.
 - Machine menu: Theme and Layout are one joined left-aligned control; menu entries have icons.
 - Composer top-right is Expand + More. More lists Settings, MCPs, Packages (icon + label).
 - Composer chips (session, New, provider, model, thinking, mode) use the same light fill as the page-icon group.

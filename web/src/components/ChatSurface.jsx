@@ -62,7 +62,7 @@ export default function ChatSurface({
               ) : null}
               <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
               <div className="composer-controls">
-                <div className="composer-left">
+                <div className="composer-left chip-group">
                   <ProviderChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ModelChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ThinkingChip catalog={catalog} cfg={cfg} onChange={onCfg} />

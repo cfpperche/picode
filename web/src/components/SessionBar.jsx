@@ -13,51 +13,53 @@ export default function SessionBar({ sessions, current, onNew, onResume, onRenam
 
   return (
     <div className={"session-bar" + (inline ? " inline" : "")}>
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger asChild>
-          <button type="button" id="session-picker" className="cockpit-chip" title={costText ? "Sessions · " + costText : "Sessions"}>
-            <span className="cockpit-chip-icon"><IconSession /></span>
-            <span className="cockpit-chip-label">{label}</span>
-            {costText ? <span className="session-cost">{costText}</span> : null}
-            <span className="session-count">{list.length}</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content className="session-pop" side="top" align="start" sideOffset={6} collisionPadding={8}>
-            <Command loop>
-              <Command.Input className="combo-input" placeholder="Search sessions" />
-              <Command.List className="session-list">
-                <Command.Empty className="combo-empty">{list.length === 0 ? "No sessions yet" : "No matches"}</Command.Empty>
-                {list.map((s) => (
-                  <Command.Item
-                    key={s.path}
-                    value={(s.name || "") + " " + (s.preview || "") + " " + s.path}
-                    className={"cockpit-opt" + (s.path === current ? " selected" : "")}
-                    onSelect={() => { if (s.path !== current) onResume(s.path); setOpen(false); }}
-                  >
-                    <span className="session-name">{s.name || s.preview || "Untitled"}</span>
-                    <span className="combo-hint">{shortDate(s.updatedAt || s.createdAt)}</span>
-                    {onRename ? (
-                      <span
-                        className="session-rename"
-                        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                        onClick={(e) => { e.stopPropagation(); onRename(s); }}
-                      >Rename</span>
-                    ) : null}
-                  </Command.Item>
-                ))}
-              </Command.List>
-            </Command>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
-      <button type="button" className="cockpit-chip" onClick={onNew} title="New session">
-        <span className="cockpit-chip-icon"><IconPlus /></span>
-        <span className="cockpit-chip-label">New</span>
-      </button>
+      <div className="chip-group">
+        <Popover.Root open={open} onOpenChange={setOpen}>
+          <Popover.Trigger asChild>
+            <button type="button" id="session-picker" className="cockpit-chip" title={costText ? "Sessions · " + costText : "Sessions"}>
+              <span className="cockpit-chip-icon"><IconSession /></span>
+              <span className="cockpit-chip-label">{label}</span>
+              {costText ? <span className="session-cost">{costText}</span> : null}
+              <span className="session-count">{list.length}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content className="session-pop" side="top" align="start" sideOffset={6} collisionPadding={8}>
+              <Command loop>
+                <Command.Input className="combo-input" placeholder="Search sessions" />
+                <Command.List className="session-list">
+                  <Command.Empty className="combo-empty">{list.length === 0 ? "No sessions yet" : "No matches"}</Command.Empty>
+                  {list.map((s) => (
+                    <Command.Item
+                      key={s.path}
+                      value={(s.name || "") + " " + (s.preview || "") + " " + s.path}
+                      className={"cockpit-opt" + (s.path === current ? " selected" : "")}
+                      onSelect={() => { if (s.path !== current) onResume(s.path); setOpen(false); }}
+                    >
+                      <span className="session-name">{s.name || s.preview || "Untitled"}</span>
+                      <span className="combo-hint">{shortDate(s.updatedAt || s.createdAt)}</span>
+                      {onRename ? (
+                        <span
+                          className="session-rename"
+                          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onClick={(e) => { e.stopPropagation(); onRename(s); }}
+                        >Rename</span>
+                      ) : null}
+                    </Command.Item>
+                  ))}
+                </Command.List>
+              </Command>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+        <button type="button" className="cockpit-chip" onClick={onNew} title="New session">
+          <span className="cockpit-chip-icon"><IconPlus /></span>
+          <span className="cockpit-chip-label">New</span>
+        </button>
+      </div>
       {onChat ? (
         <div className="session-bar-end">
           <button type="button" className="cockpit-chip" onClick={onChat} title="Chat">
