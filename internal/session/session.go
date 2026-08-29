@@ -4,9 +4,11 @@ package session
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,6 +18,7 @@ type Summary struct {
 	ID        string  `json:"id"`
 	Path      string  `json:"path"`
 	Name      string  `json:"name,omitempty"`
+	Cwd       string  `json:"cwd,omitempty"`
 	CreatedAt string  `json:"createdAt"`
 	UpdatedAt string  `json:"updatedAt"`
 	Preview   string  `json:"preview,omitempty"`
@@ -66,6 +69,124 @@ func List(cwd string) ([]Summary, error) {
 	return out, nil
 }
 
+// TestRoot, when set, is Root() (tests only).
+var TestRoot string
+
+// Root is ~/.pi/agent/sessions.
+func Root() string {
+	if TestRoot != "" {
+		return TestRoot
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".pi", "agent", "sessions")
+}
+
+// ListAll summaries every JSONL under Root, newest first.
+func ListAll() ([]Summary, error) {
+	return ListRoot(Root())
+}
+
+// ListRoot is ListAll against an explicit sessions root (tests).
+func ListRoot(root string) ([]Summary, error) {
+	if root == "" {
+		return []Summary{}, nil
+	}
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Summary{}, nil
+		}
+		return nil, err
+	}
+	var out []Summary
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		list, err := listDir(filepath.Join(root, e.Name()))
+		if err != nil {
+			continue
+		}
+		out = append(out, list...)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt > out[j].UpdatedAt })
+	if out == nil {
+		out = []Summary{}
+	}
+	return out, nil
+}
+
+func listDir(dir string) ([]Summary, error) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []Summary
+	for _, e := range ents {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		s, err := Summarize(p)
+		if err != nil {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// UnderRoot reports whether path is a JSONL inside the sessions root.
+func UnderRoot(root, path string) bool {
+	if root == "" || path == "" {
+		return false
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absRoot, abs)
+	if err != nil {
+		return false
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return false
+	}
+	return strings.HasSuffix(abs, ".jsonl")
+}
+
+// CopyFile writes a new JSONL next to src. The original file is not touched.
+func CopyFile(src string) (string, error) {
+	src, err := filepath.Abs(src)
+	if err != nil {
+		return "", err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+	name := time.Now().UTC().Format("2006-01-02T15-04-05") + "_adopt_" + strconv.FormatInt(time.Now().UnixNano()%1e9, 36) + ".jsonl"
+	dst := filepath.Join(filepath.Dir(src), name)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		_ = os.Remove(dst)
+		return "", err
+	}
+	return dst, nil
+}
+
 // Summarize reads a JSONL session file.
 func Summarize(path string) (Summary, error) {
 	st, err := os.Stat(path)
@@ -100,6 +221,9 @@ func Summarize(path string) (Summary, error) {
 			}
 			if ts, _ := raw["timestamp"].(string); ts != "" {
 				s.CreatedAt = ts
+			}
+			if cwd, _ := raw["cwd"].(string); cwd != "" {
+				s.Cwd = cwd
 			}
 		case "session_info":
 			if n, _ := raw["name"].(string); n != "" {

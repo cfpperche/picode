@@ -34,6 +34,48 @@ func TestSummarize(t *testing.T) {
 	if s.Cost < 0.11 || s.Cost > 0.13 {
 		t.Fatalf("cost = %v", s.Cost)
 	}
+	if s.Cwd != "/tmp" {
+		t.Fatalf("cwd = %q", s.Cwd)
+	}
+}
+
+func TestListRootAndCopy(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "--tmp--")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "s.jsonl")
+	body := `{"type":"session","version":3,"id":"abc","timestamp":"2026-08-24T01:00:00.000Z","cwd":"/tmp"}
+`
+	if err := os.WriteFile(src, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list, err := ListRoot(root)
+	if err != nil || len(list) != 1 || list[0].Cwd != "/tmp" {
+		t.Fatalf("list=%+v %v", list, err)
+	}
+	dst, err := CopyFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dst == src {
+		t.Fatal("copy overwrote source")
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil || string(got) != body {
+		t.Fatalf("copy bytes: %s %v", got, err)
+	}
+	orig, _ := os.ReadFile(src)
+	if string(orig) != body {
+		t.Fatal("source changed")
+	}
+	if UnderRoot(root, "/etc/passwd") {
+		t.Fatal("etc")
+	}
+	if !UnderRoot(root, src) {
+		t.Fatal("src should be under root")
+	}
 }
 
 func TestTranscriptCompaction(t *testing.T) {

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -16,6 +19,8 @@ func registerSessionOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/tree", handleAgentTree(deps))
 	mux.HandleFunc("POST /api/agents/{id}/fork", handleAgentFork(deps))
 	mux.HandleFunc("POST /api/agents/{id}/clone", handleAgentClone(deps))
+	mux.HandleFunc("GET /api/pi-sessions", handleListPiSessions(deps))
+	mux.HandleFunc("POST /api/pi-sessions/adopt", handleAdoptPiSession(deps))
 }
 
 func handleAgentTree(deps Deps) http.HandlerFunc {
@@ -138,4 +143,91 @@ func writeSessionOp(w http.ResponseWriter, deps Deps, agentID string, ma *rpc.Ma
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func handleListPiSessions(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		list, err := session.ListAll()
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"sessions": list})
+	}
+}
+
+func handleAdoptPiSession(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Path string `json:"path"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
+			writeErr(w, http.StatusBadRequest, "path required")
+			return
+		}
+		src := strings.TrimSpace(req.Path)
+		if !session.UnderRoot(session.Root(), src) {
+			writeErr(w, http.StatusBadRequest, "session is not on this machine")
+			return
+		}
+		sum, err := session.Summarize(src)
+		if err != nil {
+			if os.IsNotExist(err) {
+				writeErr(w, http.StatusNotFound, "That session is gone.")
+				return
+			}
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		cwd := strings.TrimSpace(sum.Cwd)
+		if cwd == "" {
+			writeErr(w, http.StatusBadRequest, "This session has no folder.")
+			return
+		}
+		copyPath, err := session.CopyFile(src)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		name := strings.TrimSpace(sum.Name)
+		if name == "" {
+			name = strings.TrimSpace(sum.Preview)
+		}
+		if name == "" {
+			name = "Pi session"
+		}
+		if len([]rune(name)) > 60 {
+			r := []rune(name)
+			name = string(r[:60])
+		}
+		wsID, work := adoptHome(deps, cwd)
+		agent, err := deps.Store.AddAgent(wsID, name, work)
+		if err != nil {
+			_ = os.Remove(copyPath)
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &copyPath})
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
+	}
+}
+
+func adoptHome(deps Deps, cwd string) (wsID, work string) {
+	cwd = filepath.Clean(cwd)
+	list, err := deps.Store.ListWorkspaces()
+	if err == nil {
+		for _, wk := range list {
+			if wk.ID == store.FreeWorkspaceID {
+				continue
+			}
+			if filepath.Clean(wk.Path) == cwd {
+				return wk.ID, ""
+			}
+		}
+	}
+	return store.FreeWorkspaceID, cwd
 }

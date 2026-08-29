@@ -86,6 +86,7 @@ export default function App() {
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
+  const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set());
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
@@ -1632,6 +1633,28 @@ export default function App() {
         cfg={newCfg}
         onCfg={setNewCfg}
         error={formError}
+        sessions={piSessions}
+        onKind={(k) => {
+          setFormKind(k);
+          setFormError("");
+          if (k === "session") {
+            setPiSessions(null);
+            api("/api/pi-sessions").then((p) => setPiSessions((p && p.sessions) || [])).catch(() => setPiSessions([]));
+          }
+        }}
+        onAdopt={async (path) => {
+          setFormError("");
+          try {
+            const ag = await api("/api/pi-sessions/adopt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path }),
+            });
+            await loadWorkspaces();
+            setShowForm(false);
+            if (ag && ag.id) openTab(ag.id);
+          } catch (err) { setFormError(humanizeError(err && err.message ? err.message : String(err))); }
+        }}
         onSubmit={submitNew}
         onClose={() => { setShowForm(false); setFormError(""); }}
       />

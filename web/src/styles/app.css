@@ -1913,6 +1913,20 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dlg-create .form-new { padding: 12px 0 0; }
 .dlg-create .form-new input,
 .dlg-create .cfg-fields select { width: 100%; }
+.session-pick {
+  list-style: none; margin: 8px 0 0; padding: 0;
+  max-height: 280px; overflow: auto;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.session-pick-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-panel); color: inherit; cursor: pointer; font: inherit;
+}
+.session-pick-btn:hover { border-color: var(--accent); }
+.session-pick-name { font-size: 13px; }
+.session-pick-cwd { font-size: 11px; color: var(--text-secondary); font-family: var(--mono); }
 .create-overlay {
   position: fixed; inset: 0; z-index: 70;
   background: color-mix(in srgb, #000 35%, transparent);

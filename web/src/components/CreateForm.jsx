@@ -6,14 +6,46 @@ import { useMedia } from "../lib/media.js";
 
 export default function CreateForm({
   open, kind, workspaceName, catalog, cfg, onCfg, error, onSubmit, onClose,
+  sessions, onAdopt, onKind,
 }) {
   const desktop = useMedia("(min-width: 720px)");
   const title = kind === "workspace"
     ? "New workspace"
-    : kind === "agent"
-      ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
-      : "New agent";
-  const fields = (
+    : kind === "session"
+      ? "From a Pi session"
+      : kind === "agent"
+        ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
+        : "New agent";
+  const sessionBody = kind === "session" ? (
+    <div className="create-form">
+      {sessions == null ? (
+        <div className="file-skel" aria-hidden="true">
+          <div className="skel-line w-80" />
+          <div className="skel-line w-50" />
+        </div>
+      ) : sessions.length === 0 ? (
+        <p className="side-empty">No Pi sessions on this machine.{" "}
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onKind && onKind("free")}>New agent</button>
+        </p>
+      ) : (
+        <ul className="session-pick">
+          {sessions.map((s) => (
+            <li key={s.path}>
+              <button type="button" className="session-pick-btn" onClick={() => onAdopt && onAdopt(s.path)}>
+                <span className="session-pick-name">{s.name || s.preview || "Pi session"}</span>
+                {s.cwd ? <span className="session-pick-cwd">{s.cwd}</span> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="form-error" hidden={!error}>{error}</p>
+      <div className="dlg-actions">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  ) : null;
+  const fields = kind === "session" ? sessionBody : (
     <form className="form-new create-form" noValidate onSubmit={onSubmit}>
       {kind === "workspace" ? (
         <>
@@ -30,6 +62,11 @@ export default function CreateForm({
       )}
       <ConfigFields catalog={catalog} provider={cfg.provider} model={cfg.model} thinking={cfg.thinking} onChange={onCfg} idPrefix="create" />
       <p className="form-error" hidden={!error}>{error}</p>
+      {onKind ? (
+        <p className="dlg-body">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => onKind("session")}>From a Pi session</button>
+        </p>
+      ) : null}
       <div className="dlg-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
         <button type="submit" className="btn btn-primary btn-sm">Create</button>
@@ -45,7 +82,7 @@ export default function CreateForm({
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {kind === "workspace" ? "A folder plus its first agent." : "Provider, model, and thinking are required."}
+              {kind === "workspace" ? "A folder plus its first agent." : kind === "session" ? "A copy. Close the other Pi if you want — we do not touch it." : "Provider, model, and thinking are required."}
             </Dialog.Description>
             {fields}
           </Dialog.Content>
@@ -62,7 +99,7 @@ export default function CreateForm({
           <div className="create-handle" aria-hidden="true" />
           <Drawer.Title className="dlg-title">{title}</Drawer.Title>
           <Drawer.Description className="dlg-body">
-            {kind === "workspace" ? "A folder plus its first agent." : "Provider, model, and thinking are required."}
+            {kind === "workspace" ? "A folder plus its first agent." : kind === "session" ? "A copy. Close the other Pi if you want — we do not touch it." : "Provider, model, and thinking are required."}
           </Drawer.Description>
           {fields}
         </Drawer.Content>
