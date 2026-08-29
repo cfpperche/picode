@@ -1,15 +1,15 @@
 // Terminal keys (Warp / Windows Terminal / VS Code terminal).
-// Shift+Enter (or Ctrl/Alt+Enter) inserts a line; Enter still sends.
-// Ctrl+C copies when text is selected, else SIGINT. Ctrl+Shift+C/V always
-// copy/paste. Sequences: xterm modifyOtherKeys CSI 27 ; mod ; 13 ~.
+// Shift+Enter (or Ctrl/Alt+Enter) inserts a line in the Pi TUI. Bytes go
+// through tmux attach — send CSI-u (\x1b[13;2u), not xterm modifyOtherKeys.
+// tmux extended-keys-format csi-u is what pi documents. Ctrl+C copies when
+// text is selected, else SIGINT. Ctrl+Shift+C/V always copy/paste.
 
 import { readTermPrefs, TERM_NEWLINES } from "./termTheme.js";
 
-const ENTER = 13;
 const SEQ = {
-  "shift-enter": "\x1b[27;2;" + ENTER + "~",
-  "alt-enter": "\x1b[27;3;" + ENTER + "~",
-  "ctrl-enter": "\x1b[27;5;" + ENTER + "~",
+  "shift-enter": "\x1b[13;2u",
+  "alt-enter": "\x1b[13;3u",
+  "ctrl-enter": "\x1b[13;5u",
 };
 
 export function newlineSeq(ev, newlineKey) {

@@ -139,7 +139,21 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 		"-e", "TERM=xterm-256color", "-e", "COLORTERM=truecolor",
 		"--", command}
 	full = append(full, args...)
-	_, err := m.run(ctx, full...)
+	if _, err := m.run(ctx, full...); err != nil {
+		return err
+	}
+	_ = m.EnsureExtendedKeys(ctx)
+	return nil
+}
+
+// EnsureExtendedKeys turns on tmux extended keys in CSI-u form so
+// Shift+Enter survives attach (pi docs/tmux.md). Best-effort: older
+// tmux without extended-keys-format is ignored.
+func (m *Manager) EnsureExtendedKeys(ctx context.Context) error {
+	if _, err := m.run(ctx, "set-option", "-g", "extended-keys", "on"); err != nil {
+		return err
+	}
+	_, err := m.run(ctx, "set-option", "-g", "extended-keys-format", "csi-u")
 	return err
 }
 

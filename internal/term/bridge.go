@@ -71,6 +71,8 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		// xterm.js#426: the outer tty must be in mouse mode or the wheel
 		// becomes Up/Down (#1310) and never reaches the TUI.
 		_ = tm.SetOption(r.Context(), name, "mouse", "on")
+		// Shift+Enter is CSI-u; without this tmux collapses it to Enter.
+		_ = tm.EnsureExtendedKeys(r.Context())
 
 		// Initial size; the client sends a resize right after attach.
 		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)

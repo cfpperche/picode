@@ -104,6 +104,23 @@ func TestSendKeysReachesSession(t *testing.T) {
 	}
 }
 
+func TestEnsureExtendedKeysCSIU(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("extkeys-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(ctx, name, t.TempDir(), "sleep", "10"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	f, err := m.ExtendedKeysFormat(ctx)
+	if err != nil {
+		t.Fatalf("ExtendedKeysFormat: %v", err)
+	}
+	if f != "csi-u" {
+		t.Fatalf("extended-keys-format = %q, want csi-u", f)
+	}
+}
+
 func TestSessionNamePrefix(t *testing.T) {
 	if got := SessionName("abc"); got != "picode-abc" {
 		t.Errorf("SessionName(abc) = %q, want picode-abc", got)
