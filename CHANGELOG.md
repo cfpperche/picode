@@ -11,6 +11,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- `picode <typo>` now says so instead of starting a second server. Any unrecognised word used to fall through and launch PiCode again — under a different account it would come up with its own data directory and its own port, with nothing to say it had happened.
+- PiCode Desktop finds `picode` inside the distro even when running as root, which it does for part of the setup. It looked the name up on a PATH that never had it.
+
 ### Added
 
 - `picode-desktop update` replaces PiCode Desktop with a newer release, and `picode-desktop version` says which build you have. Tagging the repository now publishes both binaries to a GitHub release, so `picode update` has something to find.

@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -45,31 +46,46 @@ import (
 
 func main() {
 	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "screenshot":
-			runScreenshot(os.Args[2:])
+		if dispatch(os.Args[1], os.Args[2:]) {
 			return
-		case "install":
-			runInstall()
-			return
-		case "provision":
-			runProvision(os.Args[2:])
-			return
-		case "update":
-			runUpdate()
-			return
-		case "deploy":
-			runDeploy()
-			return
-		case "uninstall":
-			runUninstall(os.Args[2:])
-			return
-		case "help", "-h", "--help":
+		}
+		// An unrecognised subcommand used to fall through to serve(). That is
+		// how an older picode, asked to `provision` by a newer caller, quietly
+		// came up as a *second* server — as root, in /root/.picode, on
+		// whatever port was free. A typo did the same. Flags still belong to
+		// the server; a bare word has to be a command we know.
+		if !strings.HasPrefix(os.Args[1], "-") {
+			fmt.Fprintf(os.Stderr, "picode: unknown command %q\n\n", os.Args[1])
 			usage()
-			return
+			os.Exit(2)
 		}
 	}
 	serve()
+}
+
+// dispatch runs a subcommand and reports whether it handled the argument.
+// Keeping the list here — rather than repeating it in the guard above — is
+// what stops the two from drifting apart.
+func dispatch(cmd string, args []string) bool {
+	switch cmd {
+	case "screenshot":
+		runScreenshot(args)
+	case "install":
+		runInstall()
+	case "provision":
+		runProvision(args)
+	case "update":
+		runUpdate()
+	case "deploy":
+		runDeploy()
+	case "uninstall":
+		runUninstall(args)
+	case "help", "-h", "--help":
+		usage()
+	default:
+		return false
+	}
+	return true
 }
 
 func usage() {

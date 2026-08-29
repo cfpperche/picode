@@ -71,6 +71,7 @@ func assertArgs(t *testing.T, got, want []string) {
 // enabling systemd and linger is what makes the user pass meaningful.
 func TestProvisionRunsRootThenUser(t *testing.T) {
 	r := &fakeRunner{replies: [][]byte{
+		utf16le("/home/goat/.local/bin/picode\n"),
 		reportJSON(true, step("linger", "root", "fixed")),
 		reportJSON(false, step("service", "user", "fixed")),
 	}}
@@ -82,11 +83,19 @@ func TestProvisionRunsRootThenUser(t *testing.T) {
 	if len(reports) != 2 {
 		t.Fatalf("got %d reports, want 2", len(reports))
 	}
-	if len(r.calls) != 2 {
-		t.Fatalf("got %d calls, want 2", len(r.calls))
+	if len(r.calls) != 3 {
+		t.Fatalf("got %d calls, want 3 (one lookup, two passes)", len(r.calls))
 	}
 
-	first, second := strings.Join(r.calls[0], " "), strings.Join(r.calls[1], " ")
+	// Both passes must use the absolute path: root's PATH does not carry
+	// ~/.local/bin, so the bare name resolves only for the owner.
+	for i, c := range r.calls[1:] {
+		if !strings.Contains(strings.Join(c, " "), "/home/goat/.local/bin/picode") {
+			t.Errorf("pass %d does not use the resolved path: %v", i, c)
+		}
+	}
+
+	first, second := strings.Join(r.calls[1], " "), strings.Join(r.calls[2], " ")
 	if !strings.Contains(first, "-u root") {
 		t.Errorf("first pass = %q, want it to run as root", first)
 	}
@@ -95,7 +104,7 @@ func TestProvisionRunsRootThenUser(t *testing.T) {
 	}
 	// Both passes name the target account, or the root pass would enable
 	// lingering for root instead of the owner.
-	for i, c := range r.calls {
+	for i, c := range r.calls[1:] {
 		if !strings.Contains(strings.Join(c, " "), "--user goat") {
 			t.Errorf("pass %d does not target the owner: %v", i, c)
 		}
@@ -104,13 +113,14 @@ func TestProvisionRunsRootThenUser(t *testing.T) {
 
 func TestProvisionPassesDryRunThrough(t *testing.T) {
 	r := &fakeRunner{replies: [][]byte{
+		utf16le("/home/goat/.local/bin/picode\n"),
 		reportJSON(true, step("linger", "root", "planned")),
 		reportJSON(false, step("service", "user", "planned")),
 	}}
 	if _, err := Provision(r, "Ubuntu", "goat", true); err != nil {
 		t.Fatal(err)
 	}
-	for i, c := range r.calls {
+	for i, c := range r.calls[1:] {
 		if !strings.Contains(strings.Join(c, " "), "--dry-run") {
 			t.Errorf("pass %d lost --dry-run: %v", i, c)
 		}
@@ -122,10 +132,11 @@ func TestProvisionPassesDryRunThrough(t *testing.T) {
 func TestProvisionKeepsTheReportOnANonZeroExit(t *testing.T) {
 	r := &fakeRunner{
 		replies: [][]byte{
+			utf16le("/usr/local/bin/picode\n"),
 			reportJSON(true, step("linger", "root", "failed")),
 			reportJSON(false, step("service", "user", "fixed")),
 		},
-		errs: []error{errors.New("exit status 1"), nil},
+		errs: []error{nil, errors.New("exit status 1"), nil},
 	}
 	reports, err := Provision(r, "Ubuntu", "goat", false)
 	if err != nil {
@@ -138,8 +149,8 @@ func TestProvisionKeepsTheReportOnANonZeroExit(t *testing.T) {
 
 func TestProvisionReportsUnparseableOutput(t *testing.T) {
 	r := &fakeRunner{
-		replies: [][]byte{[]byte("wsl: distribution not found")},
-		errs:    []error{errors.New("exit status 1")},
+		replies: [][]byte{utf16le("/usr/local/bin/picode\n"), []byte("wsl: distribution not found")},
+		errs:    []error{nil, errors.New("exit status 1")},
 	}
 	if _, err := Provision(r, "Nope", "goat", false); err == nil {
 		t.Error("garbage output was accepted")
@@ -263,5 +274,37 @@ func TestTaskCreateArgsRegisterAnUnelevatedLogonTask(t *testing.T) {
 	}
 	if strings.Contains(got, "/rl highest") {
 		t.Error("the tray task must not be elevated")
+	}
+}
+
+// The lookup has to run as the owner through a login shell. Running it as root,
+// or without -l, finds nothing — which is exactly the bug that shipped: the
+// root pass received a bare "picode" and died with "command not found".
+func TestPicodePathUsesTheOwnersLoginShell(t *testing.T) {
+	r := &fakeRunner{replies: [][]byte{utf16le("/home/goat/.local/bin/picode\n")}}
+
+	got, err := PicodePath(r, "Ubuntu", "goat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/home/goat/.local/bin/picode" {
+		t.Errorf("PicodePath = %q", got)
+	}
+
+	call := strings.Join(r.calls[0], " ")
+	if !strings.Contains(call, "-u goat") {
+		t.Errorf("the lookup ran as the wrong account: %q", call)
+	}
+	if !strings.Contains(call, "sh -lc") {
+		t.Errorf("the lookup used no login shell, so ~/.local/bin is not on PATH: %q", call)
+	}
+}
+
+func TestPicodePathReportsAMissingBinaryPlainly(t *testing.T) {
+	r := &fakeRunner{replies: [][]byte{utf16le("\n")}}
+	if _, err := PicodePath(r, "Ubuntu", "goat"); err == nil {
+		t.Fatal("an empty lookup was accepted")
+	} else if !strings.Contains(err.Error(), "not installed") {
+		t.Errorf("error = %q, want it to say picode is not installed", err)
 	}
 }

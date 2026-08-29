@@ -53,11 +53,15 @@ func ListDistros(r Runner) ([]Distro, error) {
 // The root pass goes first because enabling systemd and lingering is what
 // makes the user pass meaningful.
 func Provision(r Runner, distro, user string, dryRun bool) ([]provision.Report, error) {
+	exe, err := PicodePath(r, distro, user)
+	if err != nil {
+		return nil, err
+	}
 	passes := []struct{ as string }{{"root"}, {user}}
 
 	var reports []provision.Report
 	for _, p := range passes {
-		rep, err := provisionPass(r, distro, p.as, user, dryRun)
+		rep, err := provisionPass(r, distro, exe, p.as, user, dryRun)
 		if err != nil {
 			return reports, err
 		}
@@ -66,8 +70,24 @@ func Provision(r Runner, distro, user string, dryRun bool) ([]provision.Report, 
 	return reports, nil
 }
 
-func provisionPass(r Runner, distro, as, target string, dryRun bool) (provision.Report, error) {
-	command := []string{"picode", "provision", "--json", "--user", target}
+// PicodePath finds the picode binary inside the distro, as an absolute path.
+//
+// The lookup runs as the owner and through a **login** shell, because that is
+// the only combination that resolves it: ADR-0018 installs to ~/.local/bin,
+// which reaches PATH through the account's profile. A non-login shell never
+// reads that profile, and root's PATH never had the directory at all — so the
+// root pass has to be handed the absolute path rather than left to find it.
+func PicodePath(r Runner, distro, user string) (string, error) {
+	out, err := r.Output(WSLExe, WSLArgs(distro, user, "sh", "-lc", "command -v picode")...)
+	path := strings.TrimSpace(DecodeWindows(out))
+	if err != nil || path == "" {
+		return "", fmt.Errorf("picode is not installed in %s — install it in the distro first", distro)
+	}
+	return path, nil
+}
+
+func provisionPass(r Runner, distro, exe, as, target string, dryRun bool) (provision.Report, error) {
+	command := []string{exe, "provision", "--json", "--user", target}
 	if dryRun {
 		command = append(command, "--dry-run")
 	}
