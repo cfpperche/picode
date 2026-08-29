@@ -5,14 +5,13 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
-import { IconExpand, IconCollapse, IconX } from "./Icons.jsx";
-import ShellTerm from "./ShellTerm.jsx";
+import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 const FILE_MIN = 240;
 const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
 
-export default function FilePane({ agentId, path, shell, tab, onTab, onCloseFile, onCloseShell, onOpenShell }) {
+export default function FilePane({ agentId, path, onClose }) {
   const [view, setView] = useState({ kind: "load" });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -118,7 +117,7 @@ export default function FilePane({ agentId, path, shell, tab, onTab, onCloseFile
       });
   }
 
-  async function closeFileTab() {
+  async function close() {
     if (dirtyRef.current) {
       const ok = await askConfirm({
         title: "Discard changes?",
@@ -128,7 +127,7 @@ export default function FilePane({ agentId, path, shell, tab, onTab, onCloseFile
       });
       if (!ok) return;
     }
-    onCloseFile();
+    onClose();
   }
 
   function onSizerDown(e) {
@@ -161,35 +160,17 @@ export default function FilePane({ agentId, path, shell, tab, onTab, onCloseFile
   }, [expanded]);
 
   const title = view.name || view.path || path || "File";
-  const canSave = tab === "file" && view.kind === "text";
-  const hasFile = !!path;
-  const hasShell = !!(shell && (shell.session || shell.error));
-  const fileOn = tab === "file" || !hasShell;
+  const canSave = view.kind === "text";
   return (
-    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "")} aria-label={fileOn ? title : "Terminal"} style={expanded ? undefined : { width }}>
+    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "")} aria-label={title} style={expanded ? undefined : { width }}>
       {expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
       <header className="file-pane-bar">
-        <div className="file-pane-tabs">
-          {hasFile ? (
-            <button type="button" className={"file-etab" + (fileOn ? " on" : "")} onClick={() => onTab && onTab("file")}>
-              <span className="file-etab-name" title={view.path || path}>{title}</span>
-              {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
-              <span className="file-etab-x" role="button" title="Close" onClick={(e) => { e.stopPropagation(); closeFileTab(); }}><IconX size={12} /></span>
-            </button>
-          ) : null}
-          {hasShell ? (
-            <button type="button" className={"file-etab" + (!fileOn ? " on" : "")} title="Stays running if you close this tab" onClick={() => onTab && onTab("shell")}>
-              <span className="file-etab-name">Terminal</span>
-              <span className="file-etab-x" role="button" title="Close" onClick={(e) => { e.stopPropagation(); onCloseShell && onCloseShell(); }}><IconX size={12} /></span>
-            </button>
-          ) : null}
-          {!hasShell && onOpenShell ? (
-            <button type="button" className="file-etab file-etab-add" title="Terminal" onClick={onOpenShell}>+</button>
-          ) : null}
-        </div>
+        <span className="file-pane-name" title={view.path || path}>{title}</span>
+        {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
         {canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
         ) : null}
+        <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>
         <button
           type="button"
           className="file-pane-expand"
@@ -201,32 +182,16 @@ export default function FilePane({ agentId, path, shell, tab, onTab, onCloseFile
         </button>
       </header>
       <div className="file-pane-body">
-        {hasFile ? (
-          <div className="file-pane-page" hidden={!fileOn}>
-            {view.kind === "load" ? (
-              <div className="file-skel" aria-hidden="true">
-                <div className="skel-line w-80" />
-                <div className="skel-line w-90" />
-                <div className="skel-line w-50" />
-                <div className="skel-line w-70" />
-              </div>
-            ) : null}
-            {view.kind === "text" ? <div className="file-cm" ref={hostRef} /> : null}
-            {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
+        {view.kind === "load" ? (
+          <div className="file-skel" aria-hidden="true">
+            <div className="skel-line w-80" />
+            <div className="skel-line w-90" />
+            <div className="skel-line w-50" />
+            <div className="skel-line w-70" />
           </div>
         ) : null}
-        {hasShell ? (
-          <div className="file-pane-page" hidden={fileOn}>
-            {shell.error ? (
-              <p className="file-pane-msg">
-                {shell.error}{" "}
-                <a href="#/system">Open System</a>
-              </p>
-            ) : (
-              <ShellTerm agentId={agentId} session={shell.session} active={!fileOn} />
-            )}
-          </div>
-        ) : null}
+        {view.kind === "text" ? <div className="file-cm" ref={hostRef} /> : null}
+        {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
       </div>
     </section>
   );

@@ -10,6 +10,7 @@ import Sidebar from "../components/Sidebar.jsx";
 import AgentTabs from "../components/AgentTabs.jsx";
 import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
+import TermSurface from "../components/TermSurface.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
 import Settings from "../components/Settings.jsx";
 import PiSettings from "../components/PiSettings.jsx";
@@ -22,7 +23,7 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId } from "../lib/routes.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { setShell } from "../lib/shell.js";
@@ -105,8 +106,8 @@ export default function App() {
   const [statusBar, setStatusBar] = useState(null);
   const [pkgUpdates, setPkgUpdates] = useState([]);
   const [fileByAgent, setFileByAgent] = useState({});
-  const [shellByAgent, setShellByAgent] = useState({});
-  const [editorTabByAgent, setEditorTabByAgent] = useState({});
+  const [terminals, setTerminals] = useState([]);
+  const [termError, setTermError] = useState("");
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -138,24 +139,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    function onShell() {
-      const id = selectedRef.current;
-      if (id) openShell(id);
-    }
-    window.addEventListener("picode-open-shell", onShell);
-    return () => window.removeEventListener("picode-open-shell", onShell);
-  }, []);
-
-  useEffect(() => {
     function onKey(e) {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "`") {
         e.preventDefault();
-        const id = selectedRef.current;
-        if (id) window.dispatchEvent(new Event("picode-open-shell"));
+        window.dispatchEvent(new Event("picode-new-term"));
       }
     }
+    function onNew() { createTerminal(); }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("picode-new-term", onNew);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("picode-new-term", onNew);
+    };
   }, []);
 
   const pkgWs = selected ? selected.id : "";
@@ -292,11 +288,21 @@ export default function App() {
         const list = await loadWorkspaces();
         let free = [];
         try { free = await api("/api/agents?free=1"); } catch { free = []; }
-        const exists = (id) => !!locate(list, free, id);
+        let terms = [];
+        try { terms = (await api("/api/terminals")).terminals || []; } catch { terms = []; }
+        setTerminals(terms);
+        const exists = (id) => {
+          if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
+          return !!locate(list, free, id);
+        };
         const next = filterOpenTabs(readOpenTabs(), exists);
         setTabs(next.ids);
+        const fromTerm = parseRoute() === "workspace" ? termRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        if (fromHash) {
+        if (fromTerm) {
+          if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
+          else { setGoneId(termTabId(fromTerm)); setSelectedId(null); }
+        } else if (fromHash) {
           if (exists(fromHash)) openTab(fromHash, list);
           else { setGoneId(fromHash); setSelectedId(null); }
         } else if (next.selected) openTab(next.selected, list);
@@ -317,6 +323,17 @@ export default function App() {
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
+    const tid = termRoute(hash);
+    if (tid) {
+      if (terminals.some((t) => t.id === tid)) {
+        setGoneId((g) => (g ? "" : g));
+        if (selectedRef.current !== termTabId(tid)) openTermTab(tid);
+      } else {
+        setGoneId((g) => (g === termTabId(tid) ? g : termTabId(tid)));
+        if (selectedRef.current) setSelectedId(null);
+      }
+      return;
+    }
     const id = agentRoute(hash);
     if (!id) {
       setGoneId((g) => (g ? "" : g));
@@ -341,7 +358,7 @@ export default function App() {
     if (!tabsReady) return;
     if (route !== "workspace") return;
     if (goneId) return;
-    const want = workspaceHash(selectedId);
+    const want = isTermTab(selectedId) ? termHash(tabTermId(selectedId)) : workspaceHash(selectedId);
     if (location.hash === want) return;
     if (!agentRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
@@ -367,6 +384,7 @@ export default function App() {
   }, [draft, kind, selectedId]);
 
   function openTab(id, list) {
+    if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
     const loc = locate(list || workspaces, freeAgents, id);
     if (!loc || !loc.agent) return;
     const aid = loc.agent.id;
@@ -407,9 +425,12 @@ export default function App() {
       setTabs((t) => {
         const next = t[t.length - 1];
         if (next) {
-          setSelectedId(next);
-          const ws2 = workspaces.find((w) => w.id === next);
-          if (ws2) prepareSurface(ws2);
+          if (isTermTab(next)) openTermTab(tabTermId(next));
+          else {
+            setSelectedId(next);
+            const loc = locate(workspaces, freeAgents, next);
+            if (loc && loc.agent) prepareSurface(loc.agent);
+          }
         } else {
           setSelectedId(null);
         }
@@ -686,31 +707,46 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
-  async function openShell(id) {
+  async function openTermTab(id) {
     if (!id) return;
-    setEditorTabByAgent((s) => ({ ...s, [id]: "shell" }));
+    const tab = termTabId(id);
+    setGoneId("");
+    setTermError("");
+    setSelectedId(tab);
+    setTabs((t) => (t.includes(tab) ? t : [...t, tab]));
     try {
-      const page = await api("/api/agents/" + id + "/shells", { method: "POST" });
-      setShellByAgent((s) => ({ ...s, [id]: { session: page.session } }));
+      const page = await api("/api/terminals/" + id + "/open", { method: "POST" });
+      setTerminals((cur) => {
+        const rest = cur.filter((x) => x.id !== id);
+        return [...rest, page];
+      });
     } catch (err) {
-      const msg = humanizeError(err && err.message ? err.message : String(err));
-      setShellByAgent((s) => ({ ...s, [id]: { error: msg } }));
+      setTermError(humanizeError(err && err.message ? err.message : String(err)));
     }
   }
 
-  function closeShell(id) {
-    if (!id) return;
-    setShellByAgent((s) => {
-      const n = { ...s };
-      delete n[id];
-      return n;
+  async function createTerminal() {
+    try {
+      const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      setTerminals((cur) => [...cur, page]);
+      await openTermTab(page.id);
+    } catch (err) { toastError(err); }
+  }
+
+  async function removeTerminal(t) {
+    if (!t) return;
+    const ok = await askConfirm({
+      title: "Remove terminal?",
+      message: "This stops the tmux session. The tab closes.",
+      confirmLabel: "Remove",
+      danger: true,
     });
-    setEditorTabByAgent((s) => {
-      const n = { ...s };
-      if (fileByAgent[id]) n[id] = "file";
-      else delete n[id];
-      return n;
-    });
+    if (!ok) return;
+    try {
+      await api("/api/terminals/" + t.id, { method: "DELETE" });
+      setTerminals((cur) => cur.filter((x) => x.id !== t.id));
+      closeTab(termTabId(t.id));
+    } catch (err) { toastError(err); }
   }
 
   async function openInteractive(id, opts) {
@@ -1160,6 +1196,10 @@ export default function App() {
         workingId={(streaming || waiting) ? selectedId : null}
         waitingId={waiting ? selectedId : null}
         termView={termView}
+        terminals={terminals}
+        onNewTerm={createTerminal}
+        onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
+        onRemoveTerm={removeTerminal}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -1186,6 +1226,7 @@ export default function App() {
             tabs={tabs}
             workspaces={workspaces}
             freeAgents={freeAgents}
+            terminals={terminals}
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
@@ -1195,8 +1236,8 @@ export default function App() {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>That agent is gone.</h2>
-                  {(workspaces.length + freeAgents.length) > 0 ? (
+                  <h2>{isTermTab(goneId) ? "That terminal is gone." : "That agent is gone."}</h2>
+                  {(workspaces.length + freeAgents.length + terminals.length) > 0 ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
                     <>
@@ -1215,8 +1256,12 @@ export default function App() {
             </div>
           </div>
 
+          <TermSurface
+            term={isTermTab(selectedId) ? terminals.find((t) => t.id === tabTermId(selectedId)) : null}
+            error={isTermTab(selectedId) ? termError : ""}
+          />
           <ChatSurface
-            hidden={noTabs || missing || termView}
+            hidden={noTabs || missing || termView || isTermTab(selectedId)}
             stopped={stopped}
             items={items}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
@@ -1234,27 +1279,9 @@ export default function App() {
             onQueueEdit={(qid) => setItems((cur) => startEditQueued(cur, qid))}
             onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}
             onQueueCancelEdit={(qid) => setItems((cur) => cancelEditQueued(cur, qid))}
-            filePath={selectedId ? fileByAgent[selectedId] : ""}
-            onOpenFile={(p) => {
-              if (!selectedId || !p) return;
-              setFileByAgent((s) => ({ ...s, [selectedId]: p }));
-              setEditorTabByAgent((s) => ({ ...s, [selectedId]: "file" }));
-            }}
-            onCloseFile={() => {
-              if (!selectedId) return;
-              setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; });
-              setEditorTabByAgent((s) => {
-                const n = { ...s };
-                if (shellByAgent[selectedId]) n[selectedId] = "shell";
-                else delete n[selectedId];
-                return n;
-              });
-            }}
-            shell={selectedId ? shellByAgent[selectedId] : null}
-            editorTab={selectedId ? (editorTabByAgent[selectedId] || (fileByAgent[selectedId] ? "file" : "shell")) : "file"}
-            onEditorTab={(t) => { if (selectedId) setEditorTabByAgent((s) => ({ ...s, [selectedId]: t })); }}
-            onOpenShell={() => selectedId && openShell(selectedId)}
-            onCloseShell={() => selectedId && closeShell(selectedId)}
+            filePath={!isTermTab(selectedId) && selectedId ? fileByAgent[selectedId] : ""}
+            onOpenFile={(p) => { if (selectedId && p && !isTermTab(selectedId)) setFileByAgent((s) => ({ ...s, [selectedId]: p })); }}
+            onCloseFile={() => { if (selectedId) setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; }); }}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

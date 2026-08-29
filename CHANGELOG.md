@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Terminal** opens a project shell as a tab in the file pane (Ctrl/Cmd+`). Closing the tab leaves it running. Need tmux: one line + Open System.
+- Sidebar **Terminals** (icon next to Agents). **+** opens a shell as a main tab, like an agent. Closing the tab leaves tmux running; Remove stops it. Ctrl/Cmd+` also creates one. The GUI chrome uses JetBrains Mono; the conversation stays as it was.
 - File pane header is shorter. Save, Close, then Expand (fills the chat area; Escape or the button to leave).
 - Drag the left edge of the file pane to resize it.
 - The file pane uses the same light/dark colors as the rest of the app (gutter, syntax, selection).

@@ -1,6 +1,6 @@
 # ADR-0016: Project shells in tmux, as editor tabs
 
-- **Status**: accepted
+- **Status**: superseded by ADR-0017
 - **Date**: 2026-08-28
 
 ## Context

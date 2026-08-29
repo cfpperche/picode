@@ -7,14 +7,12 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
-import { IconTerminal } from "./Icons.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, onAbortBash, onReplyAsk,
   onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit,
   filePath, onOpenFile, onCloseFile,
-  shell, editorTab, onEditorTab, onOpenShell, onCloseShell,
 }) {
   const hasChat = items.some((it) => it.kind === "block" || it.kind === "tool" || it.kind === "alert" || it.kind === "ask");
   const empty = !hasChat;
@@ -40,17 +38,7 @@ export default function ChatSurface({
         {stopped ? (
           <div className="composer-wrap">
             <div className="composer" id="run-cta">
-              {composer && composer.sessionBar ? (
-                <div className="composer-tools">
-                  {composer.sessionBar}
-                  {onOpenShell ? (
-                    <button type="button" className="cockpit-chip" onClick={onOpenShell} title="Terminal">
-                      <span className="cockpit-chip-icon"><IconTerminal /></span>
-                      <span className="cockpit-chip-label">Terminal</span>
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
+              {composer && composer.sessionBar ? <div className="composer-tools">{composer.sessionBar}</div> : null}
               <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
               <div className="composer-controls">
                 <div className="composer-left">
@@ -67,21 +55,10 @@ export default function ChatSurface({
             </div>
           </div>
         ) : (
-          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} agentId={agent && agent.id} onOpenShell={onOpenShell} />
+          <Composer {...composer} stopped={false} catalog={catalog} cfg={cfg} onConfig={onConfig} onSlash={onSlash} statusBar={statusBar} onCompact={onCompact} agentId={agent && agent.id} />
         )}
         </div>
-        {agent && agent.id && (filePath || shell) ? (
-          <FilePane
-            agentId={agent.id}
-            path={filePath}
-            shell={shell}
-            tab={editorTab}
-            onTab={onEditorTab}
-            onCloseFile={onCloseFile}
-            onCloseShell={onCloseShell}
-            onOpenShell={onOpenShell}
-          />
-        ) : null}
+        {filePath && agent && agent.id ? <FilePane agentId={agent.id} path={filePath} onClose={onCloseFile} /> : null}
       </div>
     </section>
   );

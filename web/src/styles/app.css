@@ -70,9 +70,12 @@ html, body {
 body {
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--sans);
+  font-family: var(--mono);
   font-size: 13px;
   line-height: 1.5;
+}
+.conversation, .chat-hello, .composer-wrap {
+  font-family: var(--sans);
 }
 
 #app { display: flex; height: 100vh; max-height: 100vh; min-height: 0; overflow: hidden; }
@@ -919,10 +922,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-pane.expanded {
   position: absolute; inset: 0; width: auto; z-index: 12; border-left: 0;
 }
+.term-surface {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  position: relative; background: var(--bg-base);
+}
+.term-surface .file-shell { flex: 1; min-height: 0; }
+.mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 .file-pane-bar {
   display: flex; align-items: center; gap: 6px;
   height: 32px; min-height: 32px;
-  padding: 0 8px 0 0; border-bottom: 1px solid var(--border);
+  padding: 0 8px 0 12px; border-bottom: 1px solid var(--border);
 }
 .file-pane-tabs {
   display: flex; align-items: stretch; flex: 1; min-width: 0; overflow: hidden;

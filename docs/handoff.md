@@ -41,16 +41,16 @@ What exists:
 - Track **D4** `/tree` is Prompts. Now on the current card. Other cards confirm then start a new session (this one stays). In-place jump still pi#8645.
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 - **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
-- **ADR-0016** + Track **F1**: project shell as an editor tab (`picode-sh-<id>`, `$SHELL` in cwd). Close tab detaches. Pi TUI dock unchanged.
+- **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
 
 ## In flight
 
-Track F1 shipped (one shell, editor tab). F2 (N shells) / F3 (file tabs) later.
+Track F terminals: first-class sidebar + main tabs (ADR-0017).
 Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
-No coding track in flight. Backlog: F2/F3 shells, llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
+No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
 
 ## Backlog
 
@@ -74,7 +74,7 @@ No coding track in flight. Backlog: F2/F3 shells, llama installer, mobile parity
 
 ## Recent activity
 
-- **2026-08-28** — F1 project shell as editor tab (ADR-0016). visual-review: PASS (file-shell.png, overlayAudit ok). Need-tmux empty not shot (tmux installed here).
+- **2026-08-28** — First-class terminals (sidebar icon, main tabs, ADR-0017). visual-review: PASS (terms-empty.png, terms-open.png, overlayAudit ok). GUI chrome JetBrains Mono; conversation stays sans.
 - **2026-08-28** — File pane header compact (24px); Save, Close, Expand last. visual-review: PASS (file-header.png, file-expanded.png, overlayAudit ok).
 - **2026-08-28** — File pane left edge resizes (persists). visual-review: PASS (file-resize.png).
 - **2026-08-28** — File pane syntax colors follow GUI light/dark. visual-review: PASS (file-theme-light.png, file-theme-dark.png, overlayAudit ok).

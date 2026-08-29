@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -27,4 +27,11 @@ test("agent hash is still the workspace shell", () => {
   assert.equal(agentRoute("#/mcps"), null);
   assert.equal(workspaceHash("grok-c87aca"), "#/agent/grok-c87aca");
   assert.equal(workspaceHash(null), "#/");
+  assert.equal(parseRoute("#/term/term-abc"), "workspace");
+  assert.equal(termRoute("#/term/term-abc"), "term-abc");
+  assert.equal(termHash("term-abc"), "#/term/term-abc");
+  assert.equal(isTermTab("t:term-abc"), true);
+  assert.equal(tabTermId("t:term-abc"), "term-abc");
+  assert.equal(termTabId("term-abc"), "t:term-abc");
+  assert.equal(isTermTab("grok-c87aca"), false);
 });

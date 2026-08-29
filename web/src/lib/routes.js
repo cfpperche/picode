@@ -21,6 +21,7 @@ export function parseRoute(hash) {
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
+  if (h.startsWith("/term/")) return "workspace";
   return "workspace";
 }
 
@@ -31,8 +32,31 @@ export function agentRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+export function termRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/term\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
 export function workspaceHash(agentId) {
   return agentId ? "#/agent/" + encodeURIComponent(agentId) : "#/";
+}
+
+export function termHash(id) {
+  return id ? "#/term/" + encodeURIComponent(id) : "#/";
+}
+
+export function termTabId(id) {
+  return id ? "t:" + id : "";
+}
+
+export function isTermTab(id) {
+  return String(id || "").startsWith("t:");
+}
+
+export function tabTermId(id) {
+  return isTermTab(id) ? String(id).slice(2) : "";
 }
 
 export function pinRoute(hash) {

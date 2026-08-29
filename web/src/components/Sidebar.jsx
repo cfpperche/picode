@@ -23,6 +23,7 @@ export default function Sidebar({
   freeAgents, onNewFree, onNewAgent, onRemoveAgent,
   workingId,
   waitingId,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -31,8 +32,11 @@ export default function Sidebar({
   const [resizing, setResizing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [tab, setTab] = useState(() => {
-    try { return localStorage.getItem(TAB_KEY) === "pins" ? "pins" : "agents"; }
-    catch { return "agents"; }
+    try {
+      const v = localStorage.getItem(TAB_KEY);
+      if (v === "pins" || v === "terms") return v;
+      return "agents";
+    } catch { return "agents"; }
   });
   function selectTab(next) {
     setTab(next);
@@ -126,12 +130,49 @@ export default function Sidebar({
         </span>
         <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
       </header>
 
       {tab === "pins" ? (
         <Pins />
+      ) : tab === "terms" ? (
+      <div className="side-section">
+        <div className="side-head tree-row">
+          <span className="tree-spc" aria-hidden="true" />
+          <span className="tree-icon"><IconTerminal size={16} /></span>
+          <span className="side-title">Terminals</span>
+          <span className="tree-meta" />
+          <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
+        </div>
+        {(terminals || []).length === 0 ? (
+          <p className="side-empty">No terminals yet</p>
+        ) : (
+          <ul className="ws-list tree-children">
+            {(terminals || []).map((t) => (
+              <li
+                key={t.id}
+                className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
+                onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
+              >
+                <div className="ws-row1 tree-row">
+                  <span className="tree-spc" aria-hidden="true" />
+                  <span className="tree-icon"><IconTerminal size={14} /></span>
+                  <span className="ws-name" title={t.cwd}>{t.name}</span>
+                </div>
+                <div className="ws-row2 tree-row">
+                  <span className="tree-spc" aria-hidden="true" />
+                  <span className="ws-path" title={t.cwd}>{t.cwd}</span>
+                </div>
+                <span className="ws-actions">
+                  <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       ) : (
       <div className="side-section">
         <div className="side-head tree-row" onClick={() => toggleWs("sec-agents")}>
