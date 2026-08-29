@@ -1492,17 +1492,23 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .composer-tools-end {
   margin-left: auto;
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 6px;
   flex: none;
 }
-.composer-pages { display: flex; align-items: center; gap: 4px; }
+.composer-pages {
+  display: inline-flex; align-items: stretch;
+  height: 28px;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--bg-base);
+}
 .composer-page {
   width: 28px; height: 28px; padding: 0; display: grid; place-items: center;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg-base); color: var(--text-secondary); cursor: pointer;
+  border: 0; border-right: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
   position: relative;
 }
-.composer-page:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.composer-page:last-child { border-right: 0; }
+.composer-page:hover { color: var(--text-primary); background: var(--bg-hover); }
 .composer-page-dot {
   position: absolute; top: -2px; right: -2px;
   box-shadow: 0 0 0 2px var(--bg-panel);

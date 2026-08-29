@@ -47,15 +47,17 @@ export default function ChatSurface({
                   {composer.sessionBar}
                   <div className="composer-tools-end">
                     <AgentPageBar onGo={composer.onAgentPage} pkgUpdates={composer.pkgUpdates} />
-                    <button
-                      type="button"
-                      className="composer-page"
-                      title={expanded ? "Collapse" : "Expand"}
-                      aria-label={expanded ? "Collapse composer" : "Expand composer"}
-                      onClick={() => setExpanded((v) => !v)}
-                    >
-                      {expanded ? <IconCollapse /> : <IconExpand />}
-                    </button>
+                    <div className="composer-pages">
+                      <button
+                        type="button"
+                        className="composer-page"
+                        title={expanded ? "Collapse" : "Expand"}
+                        aria-label={expanded ? "Collapse composer" : "Expand composer"}
+                        onClick={() => setExpanded((v) => !v)}
+                      >
+                        {expanded ? <IconCollapse /> : <IconExpand />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
