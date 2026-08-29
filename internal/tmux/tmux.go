@@ -15,6 +15,11 @@ import (
 // Prefix marks tmux sessions owned by PiCode.
 const Prefix = "picode-"
 
+// ShellPrefix marks project shells (ADR-0016). Still under Prefix so
+// OwnedSessionName and /ws/term accept them. Distinct from the interactive
+// agent session (SessionName).
+const ShellPrefix = "picode-sh-"
+
 // Session describes a tmux session owned by PiCode.
 type Session struct {
 	Name     string    `json:"name"`
@@ -56,7 +61,7 @@ func OwnedSessionName(name string) bool {
 // Ids are sanitized to [a-z0-9-]: dots and colons are tmux target
 // separators and would corrupt lookups (verified against tmux 3.6 —
 // even the "=" exact-match prefix does not protect dotted names).
-func SessionName(id string) string {
+func sanitizeID(id string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(id) {
 		switch {
@@ -66,12 +71,28 @@ func SessionName(id string) string {
 			b.WriteRune('-')
 		}
 	}
-	name := Prefix + b.String()
-	name = strings.TrimRight(name, "-")
+	return strings.TrimRight(b.String(), "-")
+}
+
+func clipName(name string) string {
 	if len(name) > 60 { // tmux session name length cap (with margin)
-		name = name[:60]
+		return name[:60]
 	}
 	return name
+}
+
+func SessionName(id string) string {
+	return clipName(Prefix + sanitizeID(id))
+}
+
+// ShellSessionName is the one project shell for this agent (F1).
+func ShellSessionName(agentID string) string {
+	return clipName(ShellPrefix + sanitizeID(agentID))
+}
+
+// IsShellSession reports whether name is a project shell, not the Pi TUI.
+func IsShellSession(name string) bool {
+	return strings.HasPrefix(name, ShellPrefix) && OwnedSessionName(name)
 }
 
 func (m *Manager) run(ctx context.Context, args ...string) (string, error) {
@@ -116,6 +137,13 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 	}
 	full := append([]string{"new-session", "-d", "-s", name, "-c", cwd, "--", command}, args...)
 	_, err := m.run(ctx, full...)
+	return err
+}
+
+// SetOption sets a session option (e.g. status off on project shells).
+func (m *Manager) SetOption(ctx context.Context, name, key, value string) error {
+	// set-option treats "=" as a pane name (same as send-keys); use "name:".
+	_, err := m.run(ctx, "set-option", "-t", name+":", key, value)
 	return err
 }
 

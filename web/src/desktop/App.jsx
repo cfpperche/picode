@@ -105,6 +105,8 @@ export default function App() {
   const [statusBar, setStatusBar] = useState(null);
   const [pkgUpdates, setPkgUpdates] = useState([]);
   const [fileByAgent, setFileByAgent] = useState({});
+  const [shellByAgent, setShellByAgent] = useState({});
+  const [editorTabByAgent, setEditorTabByAgent] = useState({});
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -133,6 +135,27 @@ export default function App() {
     }
     window.addEventListener("picode-open-file", onOpen);
     return () => window.removeEventListener("picode-open-file", onOpen);
+  }, []);
+
+  useEffect(() => {
+    function onShell() {
+      const id = selectedRef.current;
+      if (id) openShell(id);
+    }
+    window.addEventListener("picode-open-shell", onShell);
+    return () => window.removeEventListener("picode-open-shell", onShell);
+  }, []);
+
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "`") {
+        e.preventDefault();
+        const id = selectedRef.current;
+        if (id) window.dispatchEvent(new Event("picode-open-shell"));
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const pkgWs = selected ? selected.id : "";
@@ -663,6 +686,33 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
+  async function openShell(id) {
+    if (!id) return;
+    setEditorTabByAgent((s) => ({ ...s, [id]: "shell" }));
+    try {
+      const page = await api("/api/agents/" + id + "/shells", { method: "POST" });
+      setShellByAgent((s) => ({ ...s, [id]: { session: page.session } }));
+    } catch (err) {
+      const msg = humanizeError(err && err.message ? err.message : String(err));
+      setShellByAgent((s) => ({ ...s, [id]: { error: msg } }));
+    }
+  }
+
+  function closeShell(id) {
+    if (!id) return;
+    setShellByAgent((s) => {
+      const n = { ...s };
+      delete n[id];
+      return n;
+    });
+    setEditorTabByAgent((s) => {
+      const n = { ...s };
+      if (fileByAgent[id]) n[id] = "file";
+      else delete n[id];
+      return n;
+    });
+  }
+
   async function openInteractive(id, opts) {
     const loc = locate(workspaces, freeAgents, id);
     if (!loc || !loc.agent) return;
@@ -1185,8 +1235,26 @@ export default function App() {
             onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}
             onQueueCancelEdit={(qid) => setItems((cur) => cancelEditQueued(cur, qid))}
             filePath={selectedId ? fileByAgent[selectedId] : ""}
-            onOpenFile={(p) => { if (selectedId && p) setFileByAgent((s) => ({ ...s, [selectedId]: p })); }}
-            onCloseFile={() => { if (selectedId) setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; }); }}
+            onOpenFile={(p) => {
+              if (!selectedId || !p) return;
+              setFileByAgent((s) => ({ ...s, [selectedId]: p }));
+              setEditorTabByAgent((s) => ({ ...s, [selectedId]: "file" }));
+            }}
+            onCloseFile={() => {
+              if (!selectedId) return;
+              setFileByAgent((s) => { const n = { ...s }; delete n[selectedId]; return n; });
+              setEditorTabByAgent((s) => {
+                const n = { ...s };
+                if (shellByAgent[selectedId]) n[selectedId] = "shell";
+                else delete n[selectedId];
+                return n;
+              });
+            }}
+            shell={selectedId ? shellByAgent[selectedId] : null}
+            editorTab={selectedId ? (editorTabByAgent[selectedId] || (fileByAgent[selectedId] ? "file" : "shell")) : "file"}
+            onEditorTab={(t) => { if (selectedId) setEditorTabByAgent((s) => ({ ...s, [selectedId]: t })); }}
+            onOpenShell={() => selectedId && openShell(selectedId)}
+            onCloseShell={() => selectedId && closeShell(selectedId)}
             onRun={() => selectedId && startManaged(selectedId)}
             onOpenTerm={() => selectedId && openInteractive(selectedId)}
             catalog={catalog}

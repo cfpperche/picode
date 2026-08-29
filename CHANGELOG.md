@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Terminal** opens a project shell as a tab in the file pane (Ctrl/Cmd+`). Closing the tab leaves it running. Need tmux: one line + Open System.
 - File pane header is shorter. Save, Close, then Expand (fills the chat area; Escape or the button to leave).
 - Drag the left edge of the file pane to resize it.
 - The file pane uses the same light/dark colors as the rest of the app (gutter, syntax, selection).

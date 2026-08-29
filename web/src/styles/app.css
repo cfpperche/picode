@@ -922,8 +922,33 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-pane-bar {
   display: flex; align-items: center; gap: 6px;
   height: 32px; min-height: 32px;
-  padding: 0 8px 0 12px; border-bottom: 1px solid var(--border);
+  padding: 0 8px 0 0; border-bottom: 1px solid var(--border);
 }
+.file-pane-tabs {
+  display: flex; align-items: stretch; flex: 1; min-width: 0; overflow: hidden;
+}
+.file-etab {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 32px; padding: 0 8px; max-width: 180px;
+  border: 0; border-right: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.file-etab.on { color: var(--text-primary); background: var(--bg-base); }
+.file-etab-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--mono); font-size: 12px;
+}
+.file-etab-x {
+  display: grid; place-items: center; width: 16px; height: 16px; flex: none;
+  border-radius: 4px; color: var(--text-secondary);
+}
+.file-etab-x:hover { color: var(--text-primary); background: var(--bg-hover); }
+.file-etab-add { max-width: none; padding: 0 10px; font-size: 16px; line-height: 1; }
+.file-pane-page { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.file-pane-page[hidden] { display: none !important; }
+.file-shell { flex: 1; min-height: 0; position: relative; background: var(--bg-base); }
+.file-shell .term-pane { padding: 0; }
 .file-pane-bar .btn {
   height: 24px; min-height: 24px; padding: 0 8px; font-size: 12px;
 }
@@ -978,6 +1003,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
 }
 .file-pane-msg { margin: 0; padding: 12px; color: var(--text-secondary); font-size: 13px; }
+.file-pane-msg a { color: var(--accent); }
 .file-skel { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .tp-file {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

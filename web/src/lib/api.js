@@ -19,6 +19,9 @@ export function humanizeError(msg) {
   if (/name is required/i.test(msg)) {
     return "Give the workspace a name.";
   }
+  if (/need tmux/i.test(msg)) {
+    return "Need tmux to open a terminal.";
+  }
   if (/can't find pane|can't find session|tmux send-keys/i.test(msg)) {
     return "Couldn't reach the terminal. Open Terminal and try again.";
   }

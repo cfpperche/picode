@@ -4,7 +4,7 @@ import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs, IconTerminal } from "./Icons.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
@@ -26,7 +26,7 @@ import { toast } from "../lib/toast.js";
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, atAgents, agentId,
+  slashExtra, atAgents, agentId, onOpenShell,
 }) {
   const ta = useRef(null);
   const hist = useRef(newHist());
@@ -523,9 +523,15 @@ export default function Composer({
             </Command.List>
           </Command>
         )}
-        {(sessionBar) ? (
+        {(sessionBar || onOpenShell) ? (
           <div className="composer-tools">
             {sessionBar}
+            {onOpenShell ? (
+              <button type="button" className="cockpit-chip" onClick={onOpenShell} title="Terminal">
+                <span className="cockpit-chip-icon"><IconTerminal /></span>
+                <span className="cockpit-chip-label">Terminal</span>
+              </button>
+            ) : null}
           </div>
         ) : null}
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />

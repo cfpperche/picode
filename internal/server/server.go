@@ -69,6 +69,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSlashOps(mux, deps)
 	registerSlashRes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
+	registerAgentShellRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux)
 	registerSnippet(mux, deps)

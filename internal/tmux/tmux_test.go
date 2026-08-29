@@ -108,6 +108,15 @@ func TestSessionNamePrefix(t *testing.T) {
 	if got := SessionName("abc"); got != "picode-abc" {
 		t.Errorf("SessionName(abc) = %q, want picode-abc", got)
 	}
+	if got := ShellSessionName("abc"); got != "picode-sh-abc" {
+		t.Errorf("ShellSessionName(abc) = %q, want picode-sh-abc", got)
+	}
+	if !IsShellSession("picode-sh-abc") {
+		t.Error("IsShellSession(picode-sh-abc) = false")
+	}
+	if IsShellSession(SessionName("abc")) {
+		t.Error("IsShellSession on agent session = true")
+	}
 }
 
 func TestSessionNameSanitizes(t *testing.T) {

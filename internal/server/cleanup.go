@@ -165,6 +165,7 @@ func (deps Deps) stopAgent(ctx context.Context, id string) {
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
 		_ = deps.Tmux.KillSession(ctx, tmux.SessionName(id))
+		_ = deps.Tmux.KillSession(ctx, tmux.ShellSessionName(id))
 	}
 }
 
