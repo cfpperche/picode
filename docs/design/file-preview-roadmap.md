@@ -50,14 +50,18 @@ TUI composer. Eat mousedown/mouseup on a link before xterm encodes them.
 | CAD / edit mesh | not a DCC |
 | Preview for `.js` / `.jsx` | they stay the text editor |
 
-## Track 2 — Chat paths
+## Track 2 — Chat paths (not a tab)
 
-Tool rows (`read` / `edit` / turn file names) open **the same** `#/file/…`
-tab as the terminal. Click is enough (already a button). No Ctrl. The
-chat split FilePane remains for the in-chat hatch until this track
-replaces it (one opener, one tab).
+Click a path in the conversation (`read` / `edit` / turn file names)
+opens a **closable card in the conversation**, not `#/file/…`.
+One **Expand** control on that card opens the full preview (same
+Preview | Raw engine as the terminal tab). Collapse/close returns to
+the thread. No new main tab.
 
-Agent cwd, not a terminal. `#/file/a/<agentId>/<path>`.
+The chat split FilePane (ADR-0015) is replaced by this card, or kept
+only until the card ships — not both.
+
+Agent cwd. No Ctrl (already a button).
 
 ## Track 3 — Live cwd
 
@@ -75,7 +79,7 @@ OSC 7 later only if tmux is wrong (rare).
 
 - [x] png / pdf / md / audio / video / glb|gltf Preview | Raw | Save
 - [x] empty + error one-liners screenshot-read (visual-review)
-- [ ] chat tool path opens the same tab as the terminal
+- [ ] chat tool path opens a closable in-thread file card (Expand = full preview; not a main tab)
 - [ ] `cd` then Ctrl+click a relative path opens the file in the new folder
 - [x] 3D uses model-viewer (or a written FAIL + three.js if it cannot)
 

@@ -50,7 +50,7 @@ File open + preview roadmap. **Track 1 shipped.** Tracks 2 (chat paths) and 3 (l
 
 ## Next up
 
-Track 2: chat tool path opens the same `#/file/…` tab. Then 3: tmux pane cwd on Ctrl+click.
+Track 2: chat path → closable in-thread file card (Expand), **not** a main tab. Then 3: tmux pane cwd on Ctrl+click.
 
 ## Backlog
 
