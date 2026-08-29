@@ -73,8 +73,16 @@ func assetName() string {
 // APIRoot is the GitHub API prefix. Tests replace it.
 var APIRoot = "https://api.github.com"
 
-// LatestRelease fetches GitHub's latest release.
+// LatestRelease fetches GitHub's latest release and the asset for this
+// platform.
 func LatestRelease() (Release, error) {
+	return LatestReleaseFor(assetName())
+}
+
+// LatestReleaseFor is LatestRelease for a named asset, so a sibling binary —
+// picode-desktop.exe — can share the same release and the same update check
+// instead of growing its own copy of this code.
+func LatestReleaseFor(want string) (Release, error) {
 	url := APIRoot + "/repos/" + ReleaseRepo + "/releases/latest"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -98,7 +106,6 @@ func LatestRelease() (Release, error) {
 	if err := json.Unmarshal(body, &g); err != nil {
 		return Release{}, err
 	}
-	want := assetName()
 	rel := Release{Tag: stripV(g.TagName), URL: g.HTMLURL}
 	for _, a := range g.Assets {
 		if a.Name == want || a.Name == want+".tar.gz" {

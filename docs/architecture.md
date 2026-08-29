@@ -56,6 +56,17 @@ password is left **locked** — provisioning reaches root through `wsl -u root`
 and never needs sudo, so setting a password or granting passwordless sudo
 would be a security decision the installer has no standing to make.
 
+Both binaries ship in one GitHub release, tag-triggered
+(`.github/workflows/release.yml`), with the version stamped through
+`-X internal/version.Version` — `Version` is a var for exactly that. Asset
+names are a contract: `internal/install.assetName()` looks for
+`picode-<goos>-<goarch>`, and `picode-desktop` for
+`picode-desktop-windows-amd64.exe`; a test reads the workflow to keep the two
+from drifting. `picode update` and `picode-desktop update` both use
+`install.LatestReleaseFor`. Elevation is decided at **runtime** (`ShellExecuteW`
+with `runas`), never by a manifest: the same executable is also the tray, and a
+`requireAdministrator` manifest would elevate that too.
+
 ## Application routes
 
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),

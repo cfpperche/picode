@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- `picode-desktop update` replaces PiCode Desktop with a newer release, and `picode-desktop version` says which build you have. Tagging the repository now publishes both binaries to a GitHub release, so `picode update` has something to find.
+- PiCode Desktop asks for administrator rights only when installing — the tray itself never runs elevated — and has an icon in the notification area.
 - PiCode Desktop also sets up a Windows machine that has no WSL at all: it installs WSL, restarts once (setup resumes by itself when you sign back in), installs Ubuntu, and creates your Linux account — named after your Windows one. The account has no password until you set one; PiCode does not need it. `doctor` says which of these steps are pending before you commit to anything.
 - **PiCode Desktop** (`picode-desktop.exe`): a Windows tray app that starts WSL at logon, sets the distro up, and keeps PiCode reachable in the browser. `doctor` reports what it would change without touching anything; `install` applies it and registers the logon task. The tray shows whether PiCode is up and offers Open, Restart and View logs. It holds WSL open so the idle timeout does not shut PiCode down mid-session, and trusts the certificate so the browser stops warning. One binary, no installer, no runtime.
 - Sidebar Terminals stay A–Z by name (opening a tab no longer shuffles the list).

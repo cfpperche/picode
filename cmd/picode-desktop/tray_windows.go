@@ -39,6 +39,7 @@ func runTray(distroFlag, userFlag string) error {
 	var resolveErr error
 
 	systray.Run(func() {
+		systray.SetIcon(trayIcon)
 		systray.SetTitle("PiCode")
 		systray.SetTooltip("PiCode — starting…")
 

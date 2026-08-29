@@ -1,0 +1,89 @@
+name: Release
+
+# Tagging is the trigger, so a release is always a commit someone chose.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (must already exist)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The UI is embedded with go:embed, so it has to exist before any
+      # binary is built — once, for every platform.
+      - name: Build UI
+        run: cd web && npm ci && npm run build
+
+      - name: Resolve version
+        id: v
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # Asset names are a contract: internal/install.assetName() looks for
+      # exactly picode-<goos>-<goarch>, and that is what `picode update`
+      # downloads. Renaming these breaks self-update for every install.
+      - name: Build binaries
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ldflags="-s -w -X github.com/cfpperche/picode/internal/version.Version=${VERSION}"
+
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            goos="${target%/*}"; goarch="${target#*/}"
+            echo "building picode-${goos}-${goarch}"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -ldflags "$ldflags" \
+              -o "dist/picode-${goos}-${goarch}" ./cmd/picode
+          done
+
+          # PiCode Desktop is Windows-only and links as a GUI app, so no
+          # console window flashes when the logon task starts it.
+          echo "building picode-desktop-windows-amd64.exe"
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+            go build -trimpath -ldflags "$ldflags -H=windowsgui" \
+            -o dist/picode-desktop-windows-amd64.exe ./cmd/picode-desktop
+
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -lh dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "$TAG" \
+              --notes "See CHANGELOG.md for what changed in $TAG."
+          fi

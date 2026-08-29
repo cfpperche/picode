@@ -15,6 +15,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/desktop"
 	"github.com/cfpperche/picode/internal/provision"
+	"github.com/cfpperche/picode/internal/version"
 )
 
 type app struct {
@@ -40,6 +41,10 @@ func main() {
 		exit(runInstall(*distro, *user))
 	case "uninstall":
 		exit(runUninstall())
+	case "update":
+		exit(runUpdate())
+	case "version":
+		fmt.Printf("picode-desktop %s\n", version.Version)
 	case "help":
 		usage()
 	default:
@@ -83,6 +88,8 @@ Usage:
   picode-desktop doctor          report what setup would change, touch nothing
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
+  picode-desktop update          replace this program with a newer release
+  picode-desktop version         print this build's version
 
 Flags:
   --distro string   WSL distribution (default: the only WSL 2 one, else the default)
@@ -163,6 +170,15 @@ func runInstall(distroFlag, userFlag string) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("install runs on Windows — from inside the distro use `picode provision`")
 	}
+	// Installing WSL and writing to the machine certificate store both need
+	// administrator rights. Ask once, here, rather than failing halfway
+	// through with half a machine set up.
+	if relaunched, err := elevate(); err != nil {
+		return err
+	} else if relaunched {
+		return nil // the elevated copy took over
+	}
+
 	// A clean machine has no distro to resolve yet, so the bootstrap runs
 	// first and only then is there something to name.
 	pre := app{runner: osRunner{}}
