@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
+import { wireTermWheel } from "../lib/termWheel.js";
 import { wsURL } from "../lib/api.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 
@@ -35,6 +36,9 @@ export default function TerminalDock({
     term.open(paneEl);
 
     const entry = { term, fit, paneEl, sock: null, onWinResize: null, closedByUser: false };
+    wireTermWheel(term, (bytes) => {
+      if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
+    });
     const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;

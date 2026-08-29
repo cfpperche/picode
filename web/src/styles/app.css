@@ -975,9 +975,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   flex: 1; min-height: 0; position: relative; background: transparent;
 }
 .term-surface .term-pane { padding: 0; }
-.term-surface .xterm,
-.term-surface .xterm-viewport,
-.term-surface .xterm-screen { height: 100% !important; }
+.term-surface .xterm { height: 100%; width: 100%; }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 .file-pane-bar {
   display: flex; align-items: center; gap: 6px;

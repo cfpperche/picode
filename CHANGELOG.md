@@ -46,6 +46,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Terminal wheel on a full-screen TUI (Pi, vim, less) pages the view instead of moving the composer cursor. Stretching the xterm canvas to 100% height had also broken mouse hit-testing.
 - Switching agents no longer loops the tabs against the address bar (Chrome freeze).
 
 ### Changed
