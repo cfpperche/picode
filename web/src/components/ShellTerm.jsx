@@ -5,6 +5,7 @@ import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
 import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
+import { wireTermLinks } from "../lib/termLinks.js";
 import { wsURL } from "../lib/api.js";
 import { closeTerm } from "./TerminalDock.jsx";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
@@ -18,12 +19,17 @@ export function closeShellTerm(agentId) {
   closeTerm(shellKey(agentId));
 }
 
-export default function ShellTerm({ agentId, session, active }) {
+export default function ShellTerm({ agentId, session, active, cwd, onOpenFile }) {
   const hostRef = useRef(null);
+  const cwdRef = useRef(cwd);
+  const fileRef = useRef(onOpenFile);
+  cwdRef.current = cwd;
+  fileRef.current = onOpenFile;
 
   useEffect(() => {
     if (!agentId || !session || !hostRef.current) return undefined;
     const id = shellKey(agentId);
+    const onFile = (p) => { if (fileRef.current) fileRef.current(p); };
     if (terms.has(id)) {
       const entry = terms.get(id);
       const live = entry.sock && entry.sock.readyState === WebSocket.OPEN;
@@ -32,6 +38,9 @@ export default function ShellTerm({ agentId, session, active }) {
         entry.paneEl.classList.add("active");
         scheduleTermFit(entry, true);
         if (active && entry.term) entry.term.focus();
+        if (entry.term && !entry.unwireLinks) {
+          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile);
+        }
         return undefined;
       }
       closeTerm(id);
@@ -50,6 +59,7 @@ export default function ShellTerm({ agentId, session, active }) {
     wireTermWheel(term, sendBytes, paneEl);
     wireTermKeys(term, sendBytes);
     wireTermFit(entry);
+    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile);
     const sock = new WebSocket(wsURL("/ws/term?session=" + encodeURIComponent(session)));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;

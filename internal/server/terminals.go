@@ -17,6 +17,8 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("DELETE /api/terminals/{id}", handleDeleteTerminal(deps))
 	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
+	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
 }
 
 func defaultShell() string {
@@ -165,6 +167,46 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleGetTerminalText(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		out, code, err := readAgentText(term.Cwd, r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+func handlePutTerminalText(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		var req agentTextPut
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Path == "" {
+			req.Path = r.URL.Query().Get("path")
+		}
+		out, code, err := writeAgentText(term.Cwd, req.Path, req.Text, req.Mtime)
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 

@@ -11,7 +11,14 @@ const FILE_MIN = 240;
 const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
 
-export default function FilePane({ agentId, path, onClose }) {
+function fileTextUrl(agentId, termId, path) {
+  const base = termId
+    ? "/api/terminals/" + encodeURIComponent(termId) + "/text"
+    : "/api/agents/" + encodeURIComponent(agentId) + "/text";
+  return base + "?path=" + encodeURIComponent(path);
+}
+
+export default function FilePane({ agentId, termId, path, onClose, variant }) {
   const [view, setView] = useState({ kind: "load" });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -28,13 +35,14 @@ export default function FilePane({ agentId, path, onClose }) {
   const saveRef = useRef(async () => {});
   dirtyRef.current = dirty;
 
+  const ownerId = termId || agentId;
   useEffect(() => {
-    if (!agentId || !path) return;
+    if (!ownerId || !path) return;
     let stop = false;
     setView({ kind: "load" });
     setDirty(false);
     dirtyRef.current = false;
-    api("/api/agents/" + agentId + "/text?path=" + encodeURIComponent(path))
+    api(fileTextUrl(agentId, termId, path))
       .then((page) => {
         if (stop) return;
         mtimeRef.current = Number(page.mtime) || 0;
@@ -46,7 +54,7 @@ export default function FilePane({ agentId, path, onClose }) {
         setView({ kind: "msg", path, name: path.split("/").pop() || path, text: fileMsg(raw) });
       });
     return () => { stop = true; };
-  }, [agentId, path]);
+  }, [agentId, termId, ownerId, path]);
 
   useEffect(() => {
     if (view.kind !== "text" || !hostRef.current) return;
@@ -76,7 +84,7 @@ export default function FilePane({ agentId, path, onClose }) {
     if (!cm) return;
     setSaving(true);
     try {
-      const page = await api("/api/agents/" + agentId + "/text", {
+      const page = await api(fileTextUrl(agentId, termId, path).split("?")[0], {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: view.path || path, text: cm.state.doc.toString(), mtime: mtimeRef.current }),
@@ -106,7 +114,7 @@ export default function FilePane({ agentId, path, onClose }) {
     setView({ kind: "load" });
     setDirty(false);
     dirtyRef.current = false;
-    api("/api/agents/" + agentId + "/text?path=" + encodeURIComponent(path))
+    api(fileTextUrl(agentId, termId, path))
       .then((page) => {
         mtimeRef.current = Number(page.mtime) || 0;
         setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });
@@ -161,16 +169,18 @@ export default function FilePane({ agentId, path, onClose }) {
 
   const title = view.name || view.path || path || "File";
   const canSave = view.kind === "text";
+  const tab = variant === "tab";
   return (
-    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "")} aria-label={title} style={expanded ? undefined : { width }}>
-      {expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
+    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "") + (tab ? " file-pane-tab" : "")} aria-label={title} style={tab || expanded ? undefined : { width }}>
+      {tab || expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
       <header className="file-pane-bar">
         <span className="file-pane-name" title={view.path || path}>{title}</span>
         {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
         {canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
         ) : null}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>
+        {tab ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>}
+        {tab ? null : (
         <button
           type="button"
           className="file-pane-expand"
@@ -180,6 +190,7 @@ export default function FilePane({ agentId, path, onClose }) {
         >
           {expanded ? <IconCollapse /> : <IconExpand />}
         </button>
+        )}
       </header>
       <div className="file-pane-body">
         {view.kind === "load" ? (

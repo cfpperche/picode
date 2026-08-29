@@ -155,12 +155,30 @@ func handlePutAgentText(deps Deps) http.HandlerFunc {
 	}
 }
 
+func expandUser(rel string) (string, error) {
+	rel = strings.TrimSpace(rel)
+	if rel != "~" && !strings.HasPrefix(rel, "~/") {
+		return rel, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if rel == "~" {
+		return home, nil
+	}
+	return filepath.Join(home, rel[2:]), nil
+}
+
 func relUnderCwd(cwd, rel string) (abs, outRel string, err error) {
 	cwdAbs, err := filepath.Abs(cwd)
 	if err != nil {
 		return "", "", err
 	}
-	rel = strings.TrimSpace(rel)
+	rel, err = expandUser(rel)
+	if err != nil {
+		return "", "", err
+	}
 	var cand string
 	if filepath.IsAbs(rel) {
 		cand = filepath.Clean(rel)

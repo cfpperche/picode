@@ -37,6 +37,7 @@ stay on their own routes.
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load) |
+| `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
@@ -47,7 +48,7 @@ stay on their own routes.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Click a path on an `edit`/`write` card (or the turn's file names) opens that file beside the chat (`GET/PUT /api/agents/{id}/text`, cwd only). Save writes the file. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The Pi TUI dock is unchanged. Keys (Preferences → Terminal): newline, copy-if-selected (`Ctrl+C`), `Ctrl+Shift+C/V` copy/paste.
+The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The Pi TUI dock is unchanged. Ctrl/Cmd+click a path under that cwd (or an OSC-8 `file://`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). http(s) opens in the browser. Paths outside the cwd are not links. Keys (Preferences → Terminal): newline, copy-if-selected (`Ctrl+C`), `Ctrl+Shift+C/V` copy/paste.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files

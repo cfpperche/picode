@@ -29,6 +29,23 @@ func TestRelUnderCwd(t *testing.T) {
 	}
 }
 
+func TestRelUnderCwdHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	cwd := filepath.Join(home, "proj")
+	if err := os.MkdirAll(filepath.Join(cwd, "web"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, rel, err := relUnderCwd(cwd, "~/proj/web")
+	if err != nil || rel != "web" {
+		t.Fatalf("tilde = %s %v", rel, err)
+	}
+	if _, _, err := relUnderCwd(cwd, "~/other"); err == nil {
+		t.Fatal("tilde outside")
+	}
+}
+
 func TestBrowseAndReadImage(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "readme.md"), []byte("hi"), 0o644); err != nil {

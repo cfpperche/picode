@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -35,4 +35,14 @@ test("agent hash is still the workspace shell", () => {
   assert.equal(tabTermId("t:term-abc"), "term-abc");
   assert.equal(termTabId("term-abc"), "t:term-abc");
   assert.equal(isTermTab("grok-c87aca"), false);
+});
+
+test("file tabs encode path in the hash and the tab id", () => {
+  const id = fileTabId("term", "term-abc", "web/src/a.js");
+  assert.equal(isFileTab(id), true);
+  assert.deepEqual(parseFileTab(id), { kind: "term", id: "term-abc", path: "web/src/a.js" });
+  assert.equal(fileHash("term", "term-abc", "web/src/a.js"), "#/file/t/term-abc/web%2Fsrc%2Fa.js");
+  assert.deepEqual(fileRoute("#/file/t/term-abc/web%2Fsrc%2Fa.js"), { kind: "term", id: "term-abc", path: "web/src/a.js" });
+  assert.equal(parseRoute("#/file/t/term-abc/web%2Fsrc%2Fa.js"), "workspace");
+  assert.equal(isFileTab("t:term-abc"), false);
 });

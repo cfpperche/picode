@@ -5,16 +5,21 @@ import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
 import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
+import { wireTermLinks } from "../lib/termLinks.js";
 import { wsURL } from "../lib/api.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 
 import "@xterm/xterm/css/xterm.css";
 
 export default function TerminalDock({
-  open, agent, workspace,
+  open, agent, workspace, onOpenFile,
 }) {
   const hostRef = useRef(null);
   const status = useRef({ set: () => {} });
+  const cwdRef = useRef("");
+  const fileRef = useRef(onOpenFile);
+  cwdRef.current = (agent && agent.workPath) || (workspace && workspace.path) || "";
+  fileRef.current = onOpenFile;
 
   useEffect(() => {
     if (!open || !agent || agent.mode !== "interactive") return;
@@ -26,6 +31,9 @@ export default function TerminalDock({
       }
       entry.paneEl.classList.add("active");
       scheduleTermFit(entry, true);
+      if (entry.term && !entry.unwireLinks) {
+        entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, (p) => { if (fileRef.current) fileRef.current(p); });
+      }
       return;
     }
     const paneEl = document.createElement("div");
@@ -44,6 +52,7 @@ export default function TerminalDock({
     wireTermWheel(term, sendBytes, paneEl);
     wireTermKeys(term, sendBytes);
     wireTermFit(entry);
+    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, (p) => { if (fileRef.current) fileRef.current(p); });
     const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));
     sock.binaryType = "arraybuffer";
     entry.sock = sock;
@@ -139,6 +148,7 @@ export function closeTerm(id) {
   const t = terms.get(id);
   if (!t) return;
   t.closedByUser = true;
+  if (t.unwireLinks) try { t.unwireLinks(); } catch { /* ignore */ }
   try { t.sock.close(); } catch { /* ignore */ }
   t.term.dispose();
   t.paneEl.remove();

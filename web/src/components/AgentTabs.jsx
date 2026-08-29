@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { locate, displayAgentName } from "../lib/tree.js";
-import { isTermTab, tabTermId } from "../lib/routes.js";
-import { IconTerminal } from "./Icons.jsx";
+import { isTermTab, tabTermId, isFileTab, parseFileTab } from "../lib/routes.js";
+import { IconTerminal, IconFile } from "./Icons.jsx";
 
 export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
   const terms = terminals || [];
@@ -21,6 +21,17 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
               </Tab>
             );
           }
+          if (isFileTab(id)) {
+            const f = parseFileTab(id);
+            if (!f) return null;
+            const name = (f.path || "").split("/").pop() || f.path || "File";
+            return (
+              <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab">
+                <span className="mtab-term"><IconFile size={13} /></span>
+                <span title={f.path}>{name}</span>
+              </Tab>
+            );
+          }
           const loc = locate(workspaces, freeAgents, id);
           if (!loc || !loc.agent) return null;
           const mode = loc.agent.mode || "stopped";
@@ -33,7 +44,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
         })}
       </div>
     </div>
-    {tabs.length > 0 && !isTermTab(selectedId) ? sessionSlot : null}
+    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) ? sessionSlot : null}
     </>
   );
 }

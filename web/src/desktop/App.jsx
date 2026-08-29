@@ -13,6 +13,7 @@ import AgentTabs from "../components/AgentTabs.jsx";
 import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
+import FileSurface from "../components/FileSurface.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
 import Settings from "../components/Settings.jsx";
 import PiSettings from "../components/PiSettings.jsx";
@@ -25,7 +26,7 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab } from "../lib/routes.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
@@ -299,15 +300,28 @@ export default function App() {
         setTerminals(terms);
         const exists = (id) => {
           if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
+          if (isFileTab(id)) {
+            const f = parseFileTab(id);
+            if (!f) return false;
+            if (f.kind === "term") return terms.some((t) => t.id === f.id);
+            return !!locate(list, free, f.id);
+          }
           return !!locate(list, free, id);
         };
         const next = filterOpenTabs(readOpenTabs(), exists);
         setTabs(next.ids);
         const fromTerm = parseRoute() === "workspace" ? termRoute() : null;
+        const fromFile = parseRoute() === "workspace" ? fileRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
         if (fromTerm) {
           if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
           else { setGoneId(termTabId(fromTerm)); setSelectedId(null); }
+        } else if (fromFile) {
+          const fid = fileTabId(fromFile.kind, fromFile.id, fromFile.path);
+          if (exists(fid)) {
+            setSelectedId(fid);
+            setTabs((t) => (t.includes(fid) ? t : [...t, fid]));
+          } else { setGoneId(fid); setSelectedId(null); }
         } else if (fromHash) {
           if (exists(fromHash)) openTab(fromHash, list);
           else { setGoneId(fromHash); setSelectedId(null); }
@@ -343,6 +357,24 @@ export default function App() {
       }
       return;
     }
+    const fromFile = fileRoute(hash);
+    if (fromFile) {
+      const fid = fileTabId(fromFile.kind, fromFile.id, fromFile.path);
+      const ok = fromFile.kind === "term"
+        ? terminals.some((t) => t.id === fromFile.id)
+        : !!locate(workspaces, freeAgents, fromFile.id);
+      if (ok) {
+        setGoneId((g) => (g ? "" : g));
+        if (selectedRef.current !== fid) {
+          setSelectedId(fid);
+          setTabs((t) => (t.includes(fid) ? t : [...t, fid]));
+        }
+      } else {
+        setGoneId((g) => (g === fid ? g : fid));
+        if (selectedRef.current) setSelectedId(null);
+      }
+      return;
+    }
     const id = agentRoute(hash);
     if (!id) {
       setGoneId((g) => (g ? "" : g));
@@ -367,9 +399,14 @@ export default function App() {
     if (!tabsReady) return;
     if (route !== "workspace") return;
     if (goneId) return;
-    const want = isTermTab(selectedId) ? termHash(tabTermId(selectedId)) : workspaceHash(selectedId);
+    const file = isFileTab(selectedId) ? parseFileTab(selectedId) : null;
+    const want = isTermTab(selectedId)
+      ? termHash(tabTermId(selectedId))
+      : file
+        ? fileHash(file.kind, file.id, file.path)
+        : workspaceHash(selectedId);
     if (location.hash === want) return;
-    if (!agentRoute(location.hash) && selectedId) {
+    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
       setHash(want);
       return;
@@ -394,6 +431,14 @@ export default function App() {
 
   function openTab(id, list) {
     if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
+    if (isFileTab(id)) {
+      const f = parseFileTab(id);
+      if (!f) return;
+      setGoneId("");
+      setSelectedId(id);
+      setTabs((t) => (t.includes(id) ? t : [...t, id]));
+      return;
+    }
     const loc = locate(list || workspaces, freeAgents, id);
     if (!loc || !loc.agent) return;
     const aid = loc.agent.id;
@@ -424,6 +469,14 @@ export default function App() {
     }
   }
 
+  function openFileTab(kind, ownerId, path) {
+    if (!ownerId || !path) return;
+    const id = fileTabId(kind, ownerId, path);
+    setGoneId("");
+    setSelectedId(id);
+    setTabs((t) => (t.includes(id) ? t : [...t, id]));
+  }
+
   function closeTab(id) {
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     const ws = workspaces.find((w) => w.id === id);
@@ -436,7 +489,9 @@ export default function App() {
         const next = t[t.length - 1];
         if (next) {
           if (isTermTab(next)) openTermTab(tabTermId(next));
-          else {
+          else if (isFileTab(next)) {
+            setSelectedId(next);
+          } else {
             setSelectedId(next);
             const loc = locate(workspaces, freeAgents, next);
             if (loc && loc.agent) prepareSurface(loc.agent);
@@ -774,6 +829,10 @@ export default function App() {
     try {
       await api("/api/terminals/" + t.id, { method: "DELETE" });
       setTerminals((cur) => cur.filter((x) => x.id !== t.id));
+      setTabs((cur) => cur.filter((id) => {
+        const f = parseFileTab(id);
+        return !(f && f.kind === "term" && f.id === t.id);
+      }));
       closeTab(termTabId(t.id));
     } catch (err) { toastError(err); }
   }
@@ -1251,7 +1310,7 @@ export default function App() {
       />
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "")} hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
@@ -1267,7 +1326,7 @@ export default function App() {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>{isTermTab(goneId) ? "That terminal is gone." : "That agent is gone."}</h2>
+                  <h2>{isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) ? "That terminal is gone." : "That agent is gone."}</h2>
                   {(workspaces.length + freeAgents.length + terminals.length) > 0 ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
@@ -1290,9 +1349,15 @@ export default function App() {
           <TermSurface
             term={isTermTab(selectedId) ? terminals.find((t) => t.id === tabTermId(selectedId)) : null}
             error={isTermTab(selectedId) ? termError : ""}
+            onOpenFile={(p) => { if (isTermTab(selectedId)) openFileTab("term", tabTermId(selectedId), p); }}
+          />
+          <FileSurface
+            owner={isFileTab(selectedId) ? parseFileTab(selectedId) : null}
+            path={isFileTab(selectedId) ? (parseFileTab(selectedId) || {}).path : ""}
+            onClose={() => isFileTab(selectedId) && closeTab(selectedId)}
           />
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId)}
             stopped={stopped}
             items={items}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
@@ -1482,6 +1547,7 @@ export default function App() {
             open={termView && !onPane}
             agent={agent}
             workspace={selected}
+            onOpenFile={(p) => { if (agent) openFileTab("agent", agent.id, p); }}
           />
         </div>
 

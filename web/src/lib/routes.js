@@ -22,6 +22,7 @@ export function parseRoute(hash) {
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h.startsWith("/term/")) return "workspace";
+  if (h.startsWith("/file/")) return "workspace";
   return "workspace";
 }
 
@@ -57,6 +58,41 @@ export function isTermTab(id) {
 
 export function tabTermId(id) {
   return isTermTab(id) ? String(id).slice(2) : "";
+}
+
+export function fileTabId(kind, id, path) {
+  const k = kind === "term" ? "t" : "a";
+  return "f:" + k + ":" + String(id || "") + ":" + encodeURIComponent(path || "");
+}
+
+export function isFileTab(id) {
+  return String(id || "").startsWith("f:");
+}
+
+export function parseFileTab(id) {
+  const m = /^f:(t|a):([^:]+):(.+)$/.exec(String(id || ""));
+  if (!m) return null;
+  try {
+    return { kind: m[1] === "t" ? "term" : "agent", id: m[2], path: decodeURIComponent(m[3]) };
+  } catch {
+    return null;
+  }
+}
+
+export function fileHash(kind, id, path) {
+  const k = kind === "term" ? "t" : "a";
+  return "#/file/" + k + "/" + encodeURIComponent(id || "") + "/" + encodeURIComponent(path || "");
+}
+
+export function fileRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/file\/(t|a)\/([^/]+)\/(.+)$/.exec(h);
+  if (!m) return null;
+  try {
+    return { kind: m[1] === "t" ? "term" : "agent", id: decodeURIComponent(m[2]), path: decodeURIComponent(m[3]) };
+  } catch {
+    return null;
+  }
 }
 
 export function pinRoute(hash) {

@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/tmux"
@@ -76,5 +78,42 @@ func TestTerminalsGone(t *testing.T) {
 	del := do(t, ts.Client(), req)
 	if del.StatusCode != http.StatusNotFound {
 		t.Fatalf("delete missing = %d", del.StatusCode)
+	}
+}
+
+func TestTerminalText(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	miss := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/nope/text?path=a.go"))
+	if miss.StatusCode != http.StatusNotFound {
+		t.Fatalf("gone term = %d", miss.StatusCode)
+	}
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	proj := t.TempDir()
+	if err := os.WriteFile(filepath.Join(proj, "a.go"), []byte("pkg\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	created := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": proj})
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d", created.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&page)
+	id, _ := page["id"].(string)
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), sess) })
+	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/text?path=a.go"))
+	if got.StatusCode != http.StatusOK {
+		t.Fatalf("text = %d", got.StatusCode)
+	}
+	var body map[string]any
+	_ = json.NewDecoder(got.Body).Decode(&body)
+	if body["text"] != "pkg\n" || body["path"] != "a.go" {
+		t.Fatalf("%+v", body)
+	}
+	out := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/text?path=/etc/passwd"))
+	if out.StatusCode != http.StatusBadRequest {
+		t.Fatalf("escape = %d", out.StatusCode)
 	}
 }

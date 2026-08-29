@@ -950,6 +950,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
 .workspace-view.term-on #empty,
 .workspace-view.term-on .chat-surface { display: none !important; }
+.workspace-view.file-on #empty,
+.workspace-view.file-on .chat-surface,
+.workspace-view.file-on .term-surface { display: none !important; }
+.file-surface {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  min-width: 0; background: var(--bg-panel);
+}
+.file-pane.file-pane-tab {
+  flex: 1; width: auto; min-width: 0; border-left: 0;
+}
 .settings-h {
   margin: 16px 0 8px; font-size: 11px; font-weight: 650;
   text-transform: uppercase; letter-spacing: .08em; color: var(--text-secondary);

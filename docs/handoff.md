@@ -46,8 +46,7 @@ What exists:
 
 ## In flight
 
-Track F terminals: first-class sidebar + main tabs (ADR-0017).
-Backup V1 shipped (local directory). Remote S3/Drive is later.
+No coding track in flight. Backup V1 shipped (local directory). Remote S3/Drive is later.
 
 ## Next up
 
@@ -73,9 +72,11 @@ No coding track in flight. Backlog: llama installer, mobile parity, `/tree` in-p
 - tmux-gated tests skip on windows/macos CI (accepted).
 - Mobile shell has no waiting card (C1 is desktop).
 - Terminal **ligatures** not offered: `@xterm/addon-ligatures` needs Node `font-finder`; browser xterm is canvas-only.
+- File tabs resolve relative paths against the terminal's **start** cwd, not `cd` later (no OSC 7). Absolute and `~/` still work.
 
 ## Recent activity
 
+- **2026-08-29** — ADR-0019: Ctrl/Cmd+click a path in the terminal opens `#/file/…` on the tab strip (text only). http(s) → browser. visual-review: PASS (file-tab.png, file-tab-gone.png, file-tab-outside.png). Chat FilePane unchanged.
 - **2026-08-29** — Reconnect covers fast restarts: health `bootId` + WS-close kick → tab reloads itself (proved: restart → page age reset). Shift+Enter trusted-key E2E: bytes `[27;2;13~` only, multiline composer confirmed; earlier "submit" reading was a bad pane-tail interpretation. keypress guard added for browsers that fire it after a canceled keydown.
 - **2026-08-29** — Shift+Enter three-layer fix: ground truth via session JSONL proved the user's Windows Chrome submits (a stray `\r` after the canceled keydown). `termDataFilter` on `term.onData` swaps/drops that `\r` (120ms window). Keydown tracker lives on the xterm textarea (capture).
 - **2026-08-29** — Terminal Ctrl+C copies if text is selected (Warp / Windows Terminal); else interrupt. Keys list in Preferences → Terminal; `/hotkeys` shows them.
