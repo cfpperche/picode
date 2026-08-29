@@ -1,15 +1,18 @@
-// Terminal keys (Warp / Windows Terminal / VS Code terminal).
-// Shift+Enter (or Ctrl/Alt+Enter) inserts a line in the Pi TUI. Bytes go
-// through tmux attach — send CSI-u (\x1b[13;2u), not xterm modifyOtherKeys.
-// tmux extended-keys-format csi-u is what pi documents. Ctrl+C copies when
-// text is selected, else SIGINT. Ctrl+Shift+C/V always copy/paste.
+// Terminal keys (VS Code integrated-terminal defaults).
+// Modified Enter goes as xterm modifyOtherKeys (CSI 27;mod;13~): tmux
+// (extended-keys-format xterm, set on attach) re-encodes it to the pane,
+// and pi's fallback parser expects exactly this. VS Code's own terminal
+// reaches the same result via Kitty in its xterm fork; the OSS xterm.js
+// we embed has neither, so we encode here.
+// Ctrl+Shift+C/V copy/paste (VS Code). Ctrl+C interrupts; "copy if
+// selected" (Warp) is opt-in in Preferences → Terminal → Keys.
 
 import { readTermPrefs, TERM_NEWLINES } from "./termTheme.js";
 
 const SEQ = {
-  "shift-enter": "\x1b[13;2u",
-  "alt-enter": "\x1b[13;3u",
-  "ctrl-enter": "\x1b[13;5u",
+  "shift-enter": "\x1b[27;2;13~",
+  "alt-enter": "\x1b[27;3;13~",
+  "ctrl-enter": "\x1b[27;5;13~",
 };
 
 export function newlineSeq(ev, newlineKey) {
@@ -32,7 +35,7 @@ export function copyPasteAction(ev, prefs) {
   const shift = !!ev.shiftKey;
   if (shift && k === "c") return "copy";
   if (shift && k === "v") return "paste";
-  if (!shift && k === "c" && (prefs ? prefs.copyIfSelection !== false : true)) return "copy-if-sel";
+  if (!shift && k === "c" && (prefs ? prefs.copyIfSelection === true : false)) return "copy-if-sel";
   return null;
 }
 

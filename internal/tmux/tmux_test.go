@@ -104,7 +104,7 @@ func TestSendKeysReachesSession(t *testing.T) {
 	}
 }
 
-func TestEnsureExtendedKeysCSIU(t *testing.T) {
+func TestEnsureExtendedKeysXterm(t *testing.T) {
 	m := requireTmux(t)
 	ctx := context.Background()
 	name := SessionName("extkeys-" + time.Now().Format("150405-000000000"))
@@ -116,8 +116,8 @@ func TestEnsureExtendedKeysCSIU(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExtendedKeysFormat: %v", err)
 	}
-	if f != "csi-u" {
-		t.Fatalf("extended-keys-format = %q, want csi-u", f)
+	if f != "xterm" {
+		t.Fatalf("extended-keys-format = %q, want xterm", f)
 	}
 }
 

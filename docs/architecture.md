@@ -155,9 +155,14 @@ lookups). Project shells use `picode-sh-<id>` (same prefix, different name).
 binary frames = terminal bytes, text frames = `resize` control JSON;
 closing the tab ends only the attach — the agent or shell keeps running in tmux.
 Resize propagates via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5. Attach and `NewSession` set `extended-keys on` /
-`extended-keys-format csi-u` (Pi's recommendation) so `Shift+Enter` is
-CSI-u (`\x1b[13;2u`) through the hop, not plain Enter. `/api/system` still
-warns if the running server is on another format.
+`extended-keys-format xterm` (modifyOtherKeys). Probed live: tmux 3.6
+answers only DA1 to a pane's Kitty query, so pi falls back to
+modifyOtherKeys and expects `ESC [27;2;13~`; tmux re-encodes client keys
+per this format, so Shift+Enter reaches the TUI as a newline. The OSS
+xterm.js (6.0.0) has neither Kitty nor modifyOtherKeys input encoding,
+so `termKeys.js` encodes modified Enter itself (VS Code's terminal gets
+the same result from its xterm fork). `/api/system` warns if the running
+server is on another format.
 
 ### RPCBridge ✅ (M2 core)
 `internal/rpc`: JSONL client for `pi --mode rpc` (strict `\n` framing via

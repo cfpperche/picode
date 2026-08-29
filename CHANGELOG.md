@@ -56,7 +56,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
-- Terminal Shift+Enter (and Ctrl/Alt+Enter) send CSI-u through tmux (`\x1b[13;2u`), not xterm `modifyOtherKeys`. Attach turns on `extended-keys` + `csi-u` so the Pi TUI can tell them from Enter.
+- Terminal Shift+Enter (and Ctrl/Alt+Enter) match the VS Code integrated terminal: xterm `modifyOtherKeys` (`ESC [27;2;13~`) through tmux attach, with `extended-keys` + `format xterm` set on attach (probed: tmux answers only DA1 to Kitty, so pi's fallback expects this format). Ctrl+C interrupts by default (VS Code parity); **Copy if selected** (Warp-style) is now opt-in in Preferences → Terminal → Keys.
 - Terminal **Ctrl+C** copies the selection when there is one (Warp / Windows Terminal); nothing selected still interrupts. Toggle in Preferences → Terminal → Keys. `/hotkeys` lists terminal shortcuts.
 - MCP **Sign in** no longer needs the agent running. Add or On on an OAuth server starts Sign in. One login is shared by every agent on this machine.
 - MCP **Use from…** sits with Add (first chip). The card no longer says which app is mirrored — each row already has SHARED. An empty server list is one line: No servers yet.

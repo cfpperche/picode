@@ -146,14 +146,17 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 	return nil
 }
 
-// EnsureExtendedKeys turns on tmux extended keys in CSI-u form so
-// Shift+Enter survives attach (pi docs/tmux.md). Best-effort: older
-// tmux without extended-keys-format is ignored.
+// EnsureExtendedKeys turns on tmux extended keys so Shift+Enter survives
+// attach. Format is **xterm** (modifyOtherKeys), not csi-u: probed live —
+// tmux 3.6 answers only DA1 to a pane's Kitty query (`CSI ? u`), so pi
+// falls back to modifyOtherKeys (`CSI > 4;2m`) and expects
+// `ESC [27;2;13~`. tmux re-encodes client keys per this server option.
+// Best-effort: older tmux without extended-keys-format is ignored.
 func (m *Manager) EnsureExtendedKeys(ctx context.Context) error {
-	if _, err := m.run(ctx, "set-option", "-g", "extended-keys", "on"); err != nil {
+	if _, err := m.run(ctx, "set-option", "-s", "extended-keys", "on"); err != nil {
 		return err
 	}
-	_, err := m.run(ctx, "set-option", "-g", "extended-keys-format", "csi-u")
+	_, err := m.run(ctx, "set-option", "-s", "extended-keys-format", "xterm")
 	return err
 }
 

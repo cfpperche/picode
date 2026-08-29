@@ -165,7 +165,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
                 </Switch.Root>
               </div>
             </div>
-            <p className="pkg-fine">Ctrl+C copies the selection. Nothing selected → interrupt.</p>
+            <p className="pkg-fine">Ctrl+C interrupts (VS Code default). Turn this on to copy the selection instead; nothing selected still interrupts.</p>
             <ul className="hotkey-list term-key-facts">
               <li className="hotkey-row"><kbd>Ctrl+`</kbd><span>New terminal</span></li>
               <li className="hotkey-row"><kbd>Ctrl+Shift+C</kbd><span>Copy</span></li>

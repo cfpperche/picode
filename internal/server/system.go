@@ -58,9 +58,9 @@ func handleSystem(deps Deps) http.HandlerFunc {
 			// Best effort: requires a running tmux server.
 			if f, err := deps.Tmux.ExtendedKeysFormat(r.Context()); err == nil {
 				rep.Tmux.ExtendedKeysFormat = f
-				if f != "csi-u" {
+				if f != "xterm" {
 					rep.Warnings = append(rep.Warnings,
-						"tmux extended-keys-format is \""+f+"\"; Pi recommends \"csi-u\" so keys like Shift+Enter reach your agents")
+						"tmux extended-keys-format is \""+f+"\"; PiCode sets \"xterm\" on attach so Shift+Enter reaches your agents")
 				}
 			}
 		} else {
