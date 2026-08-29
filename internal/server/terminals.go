@@ -19,6 +19,7 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
 }
 
 func defaultShell() string {
@@ -167,6 +168,25 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleGetTerminalBlob(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		mime, data, code, err := readAgentBlob(term.Cwd, r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", mime)
+		w.Header().Set("Cache-Control", "private, max-age=0")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
 	}
 }
 

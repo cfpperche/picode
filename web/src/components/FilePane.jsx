@@ -5,7 +5,7 @@ import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
-import { previewKind } from "../lib/filePreview.js";
+import { previewKind, isBlobKind, fileBlobUrl } from "../lib/filePreview.js";
 import FilePreview from "./FilePreview.jsx";
 import { IconExpand, IconCollapse } from "./Icons.jsx";
 
@@ -43,21 +43,47 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
   useEffect(() => {
     if (!ownerId || !path) return;
     let stop = false;
+    const blobRef = { current: "" };
     setView({ kind: "load" });
     setDirty(false);
     dirtyRef.current = false;
-    api(fileTextUrl(agentId, termId, path))
-      .then((page) => {
-        if (stop) return;
-        mtimeRef.current = Number(page.mtime) || 0;
-        setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });
-      })
-      .catch((err) => {
-        if (stop) return;
-        const raw = err && err.message ? err.message : String(err);
-        setView({ kind: "msg", path, name: path.split("/").pop() || path, text: fileMsg(raw) });
-      });
-    return () => { stop = true; };
+    const name = path.split("/").pop() || path;
+    if (isBlobKind(previewKind(path))) {
+      fetch(fileBlobUrl(agentId, termId, path))
+        .then(async (res) => {
+          if (stop) return;
+          if (!res.ok) {
+            let msg = res.statusText;
+            try { msg = (await res.json()).error || msg; } catch { /* keep */ }
+            throw new Error(msg);
+          }
+          const buf = await res.blob();
+          blobRef.current = URL.createObjectURL(buf);
+          if (stop) { URL.revokeObjectURL(blobRef.current); return; }
+          setView({ kind: "bin", path, name, src: blobRef.current });
+        })
+        .catch((err) => {
+          if (stop) return;
+          const raw = err && err.message ? err.message : String(err);
+          setView({ kind: "msg", path, name, text: fileMsg(raw) });
+        });
+    } else {
+      api(fileTextUrl(agentId, termId, path))
+        .then((page) => {
+          if (stop) return;
+          mtimeRef.current = Number(page.mtime) || 0;
+          setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });
+        })
+        .catch((err) => {
+          if (stop) return;
+          const raw = err && err.message ? err.message : String(err);
+          setView({ kind: "msg", path, name, text: fileMsg(raw) });
+        });
+    }
+    return () => {
+      stop = true;
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+    };
   }, [agentId, termId, ownerId, path]);
 
   useEffect(() => {
@@ -186,6 +212,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
 
   const title = view.name || view.path || path || "File";
   const canSave = view.kind === "text";
+  const showPreview = !!kind && (view.kind === "text" || view.kind === "bin");
   const tab = variant === "tab";
   return (
     <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "") + (tab ? " file-pane-tab" : "")} aria-label={title} style={tab || expanded ? undefined : { width }}>
@@ -193,11 +220,11 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
       <header className="file-pane-bar">
         <span className="file-pane-name" title={view.path || path}>{title}</span>
         {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
-        {kind && view.kind === "text" ? (
+        {showPreview ? (
           <div className="chip-group" data-align-row>
             <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "preview"} onClick={() => pickMode("preview")}>Preview</button>
             <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "raw"} onClick={() => pickMode("raw")}>Raw</button>
-            <button type="button" className="cockpit-chip" onClick={save} disabled={!dirty || saving}>Save</button>
+            {canSave ? <button type="button" className="cockpit-chip" onClick={save} disabled={!dirty || saving}>Save</button> : null}
           </div>
         ) : canSave ? (
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
@@ -225,7 +252,10 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
           </div>
         ) : null}
         {view.kind === "text" && mode === "raw" ? <div className="file-cm" ref={hostRef} /> : null}
-        {view.kind === "text" && mode === "preview" && kind ? <FilePreview kind={kind} text={view.text} /> : null}
+        {view.kind === "bin" && mode === "raw" ? <p className="file-pane-msg">Can't show this file.</p> : null}
+        {mode === "preview" && kind && (view.kind === "text" || view.kind === "bin") ? (
+          <FilePreview kind={kind} text={view.text} src={view.src} />
+        ) : null}
         {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
       </div>
     </section>

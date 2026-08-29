@@ -73,10 +73,10 @@ OSC 7 later only if tmux is wrong (rare).
 
 ## Done when
 
-- [ ] png / pdf / md / audio / video / glb|gltf Preview | Raw | Save
-- [ ] empty + error one-liners screenshot-read (visual-review)
+- [x] png / pdf / md / audio / video / glb|gltf Preview | Raw | Save
+- [x] empty + error one-liners screenshot-read (visual-review)
 - [ ] chat tool path opens the same tab as the terminal
 - [ ] `cd` then Ctrl+click a relative path opens the file in the new folder
-- [ ] 3D uses model-viewer (or a written FAIL + three.js if it cannot)
+- [x] 3D uses model-viewer (or a written FAIL + three.js if it cannot)
 
 Then mark this file **closed** and point Next up elsewhere.

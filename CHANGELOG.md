@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- File Preview also covers png, pdf, markdown, audio, video, and 3D (`.glb` / `.gltf` via model-viewer). Binary Raw is “Can't show this file.”
 - SVG and mermaid (`.mmd`) files open in **Preview** | **Raw**.
 - Ctrl+click a path in the terminal does not type mouse junk (`<16;…m`) into the agent composer.
 - Ctrl+click (Cmd on Mac) a path in a terminal opens it as an editor tab. Same map as the chat file pane, for that terminal's folder. Links (`https://…`) open in the browser. Bare names like `App.jsx` / `foo.js` count too.

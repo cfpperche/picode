@@ -46,11 +46,11 @@ What exists:
 
 ## In flight
 
-File open + preview roadmap (`docs/design/file-preview-roadmap.md`). Closes when tracks 1+2+3 ship (png/pdf/md/audio/video/**3D**, chat paths, live cwd). Not coding yet — plan only.
+File open + preview roadmap. **Track 1 shipped.** Tracks 2 (chat paths) and 3 (live cwd) remain. Closes when 1+2+3 ship.
 
 ## Next up
 
-Track 1 of that roadmap (preview kinds, including 3D via `@google/model-viewer`). Then 2 (chat), 3 (live cwd). Backlog after close: llama installer, mobile parity, `/tree` in-place (pi#8645), worktrees.
+Track 2: chat tool path opens the same `#/file/…` tab. Then 3: tmux pane cwd on Ctrl+click.
 
 ## Backlog
 
@@ -76,6 +76,7 @@ Track 1 of that roadmap (preview kinds, including 3D via `@google/model-viewer`)
 
 ## Recent activity
 
+- **2026-08-29** — File preview track 1: png, pdf, md, audio, video, glb/gltf (model-viewer). visual-review: PASS (file-png-preview.png, file-md-preview.png, file-pdf-preview.png, file-audio-preview.png, file-video-preview.png, file-glb-preview.png, file-bin-raw.png, file-bin-gone.png).
 - **2026-08-29** — Ctrl+click on a terminal path eats mousedown/mouseup so tmux SGR (`<16;NaN;NaNm`) does not land in the Pi composer.
 - **2026-08-29** — Terminal Ctrl+click also matches bare `App.jsx` / `foo.js` (not only paths with `/`).
 - **2026-08-29** — File V1.1: `.svg` / `.mmd` open Preview \| Raw \| Save (one chip group). Empty: “Nothing to preview.” Bad mermaid: “Can't draw this diagram.” visual-review: PASS (file-svg-preview.png, file-svg-raw.png, file-mmd-preview.png, file-mmd-empty.png, file-mmd-error.png).

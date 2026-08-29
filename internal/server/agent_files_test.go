@@ -182,6 +182,26 @@ func TestReadAgentText(t *testing.T) {
 	}
 }
 
+func TestReadAgentBlob(t *testing.T) {
+	root := t.TempDir()
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}
+	if err := os.WriteFile(filepath.Join(root, "a.png"), png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mime, data, code, err := readAgentBlob(root, "a.png")
+	if err != nil || code != http.StatusOK || mime != "image/png" || len(data) != len(png) {
+		t.Fatalf("%s %d %v %d", mime, code, err, len(data))
+	}
+	_, _, code, err = readAgentBlob(root, "a.go")
+	if code != http.StatusUnsupportedMediaType || err == nil {
+		t.Fatalf("go %d %v", code, err)
+	}
+	_, _, _, err = readAgentBlob(root, filepath.Join(t.TempDir(), "x.png"))
+	if err == nil {
+		t.Fatal("escape")
+	}
+}
+
 func TestAgentTextHTTP(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	proj := t.TempDir()

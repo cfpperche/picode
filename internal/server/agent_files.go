@@ -21,6 +21,7 @@ const (
 	fileScanCap  = 200
 	fileHitCap   = 20
 	maxAgentText = 1 << 20
+	maxAgentBlob = 32 << 20
 )
 
 var skipFileDir = map[string]bool{
@@ -41,6 +42,7 @@ func registerAgentFileRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/file", handleAgentFile(deps))
 	mux.HandleFunc("GET /api/agents/{id}/text", handleAgentText(deps))
 	mux.HandleFunc("PUT /api/agents/{id}/text", handlePutAgentText(deps))
+	mux.HandleFunc("GET /api/agents/{id}/blob", handleAgentBlob(deps))
 }
 
 func handleAgentFiles(deps Deps) http.HandlerFunc {
@@ -63,6 +65,15 @@ func handleAgentFiles(deps Deps) http.HandlerFunc {
 var imageMIME = map[string]string{
 	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
 	".gif": "image/gif", ".webp": "image/webp",
+}
+
+var blobMIME = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+	".gif": "image/gif", ".webp": "image/webp",
+	".pdf": "application/pdf",
+	".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".m4a": "audio/mp4",
+	".mp4": "video/mp4", ".webm": "video/webm", ".mkv": "video/x-matroska",
+	".glb": "model/gltf-binary", ".gltf": "model/gltf+json",
 }
 
 func agentCwd(deps Deps, id string) (string, error) {
@@ -106,6 +117,25 @@ func handleAgentFile(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+func handleAgentBlob(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))
+		if err != nil {
+			writeErr(w, code, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", mime)
+		w.Header().Set("Cache-Control", "private, max-age=0")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
 	}
 }
 
@@ -249,6 +279,39 @@ func readAgentText(cwd, rel string) (map[string]any, int, error) {
 		"bytes": len(b),
 		"mtime": st.ModTime().UnixMilli(),
 	}, http.StatusOK, nil
+}
+
+func readAgentBlob(cwd, rel string) (string, []byte, int, error) {
+	if strings.TrimSpace(rel) == "" {
+		return "", nil, http.StatusBadRequest, fmt.Errorf("path is required")
+	}
+	abs, _, err := relUnderCwd(cwd, rel)
+	if err != nil {
+		return "", nil, http.StatusBadRequest, err
+	}
+	ext := strings.ToLower(filepath.Ext(abs))
+	mime := blobMIME[ext]
+	if mime == "" {
+		return "", nil, http.StatusUnsupportedMediaType, fmt.Errorf("can't show this file")
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil, http.StatusNotFound, fmt.Errorf("that file is gone")
+		}
+		return "", nil, http.StatusBadRequest, err
+	}
+	if st.IsDir() {
+		return "", nil, http.StatusBadRequest, fmt.Errorf("that's a folder")
+	}
+	if st.Size() > maxAgentBlob {
+		return "", nil, http.StatusRequestEntityTooLarge, fmt.Errorf("this file is too large")
+	}
+	b, err := os.ReadFile(abs)
+	if err != nil {
+		return "", nil, http.StatusBadRequest, err
+	}
+	return mime, b, http.StatusOK, nil
 }
 
 func writeAgentText(cwd, rel, text string, mtime int64) (map[string]any, int, error) {

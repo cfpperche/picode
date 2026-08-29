@@ -37,7 +37,7 @@ stay on their own routes.
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load) |
-| `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock. `.svg` / `.mmd` default to Preview \| Raw. |
+| `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock. Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
