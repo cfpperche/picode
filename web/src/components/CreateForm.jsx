@@ -17,7 +17,7 @@ export default function CreateForm({
         ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
         : "New agent";
   const sessionBody = kind === "session" ? (
-    <div className="create-form">
+    <div className="form-new create-form">
       {sessions == null ? (
         <div className="file-skel" aria-hidden="true">
           <div className="skel-line w-80" />

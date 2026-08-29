@@ -47,7 +47,7 @@ What exists:
 
 ## In flight
 
-Adopt Pi session (ADR-0021, `feat/adopt-pi-session`): copy JSONL, never steal TUI. UI needs visual-review on the picker (empty + list). File-preview roadmap closed.
+Nothing. Adopt Pi session (ADR-0021) ready to merge. File-preview roadmap closed.
 
 ## Next up
 
