@@ -16,7 +16,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"io/fs"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -89,12 +89,7 @@ func New(addr string, deps Deps) *http.Server {
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
 	mux.Handle("/ws/agent", agentWS(deps))
 
-	public, err := fs.Sub(web.Public, "public")
-	if err != nil {
-		// Cannot happen: public/ is embedded at build time.
-		panic("picode: embedded UI missing: " + err.Error())
-	}
-	mux.Handle("/", cacheControl(http.FileServer(http.FS(public))))
+	mux.Handle("/", cacheControl(uiHandler()))
 
 	return &http.Server{
 		Addr:              addr,
@@ -146,6 +141,26 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // cacheControl keeps the UI from being stale after binary upgrades: the
 // app shell (index.html) must revalidate every load; hashed Vite assets
 // under /assets/ are content-addressed and can be cached forever.
+// uiHandler serves the frontend. In a disk build (ADR-0023) the UI may simply
+// not have been built yet, and a wall of 404s does not say that — so the check
+// is per request, which also means the page starts working the moment
+// `make web` finishes, without a restart.
+func uiHandler() http.Handler {
+	files := http.FileServer(http.FS(web.UI()))
+	if web.Embedded() {
+		return files // sealed in at compile time; it is always there
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if web.Built() {
+			files.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "PiCode: the UI has not been built yet.\n\nRun `make web` (or `make build`), then reload.\nLooked in: %s\n", web.Dir())
+	})
+}
+
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/assets/") {

@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- The built UI is no longer committed to the repository (ADR-0023). Released
+  binaries are unchanged — they still carry the UI inside. For contributors:
+  `make build` works as before, and `make dev` now needs `make web` once on a
+  fresh clone. A UI change stops rewriting ~133 generated files per commit.
+
+### Changed
+
 - **Terminals no longer wear tmux's skin.** PiCode used to force tmux's own
   mouse mode on every session, so dragging entered tmux copy-mode instead of
   selecting text. It was there to keep the wheel working, and the wheel no

@@ -24,8 +24,8 @@ install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 deploy: build ## Rebuild UI+binary and restart the installed service
 	./bin/picode deploy
 
-build: web ## Build UI + bin/picode
-	go build -o bin/picode ./cmd/picode
+build: web ## Build UI + bin/picode (embeds the UI — ADR-0023)
+	go build -tags embedui -o bin/picode ./cmd/picode
 
 desktop: ## Cross-compile the Windows tray binary (ADR-0020) — no C compiler needed
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \

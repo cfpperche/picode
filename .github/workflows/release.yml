@@ -60,7 +60,7 @@ jobs:
             goos="${target%/*}"; goarch="${target#*/}"
             echo "building picode-${goos}-${goarch}"
             CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-              go build -trimpath -ldflags "$ldflags" \
+              go build -trimpath -tags embedui -ldflags "$ldflags" \
               -o "dist/picode-${goos}-${goarch}" ./cmd/picode
           done
 

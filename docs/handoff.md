@@ -106,13 +106,10 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
-- ADR-0023 is decided but not implemented. Unverified before it can ship: whether
-  the service worker behaves the same when assets come from disk instead of the
-  embedded FS. It caches only hashed `/assets/` and the paths do not change, but
-  nobody has exercised it. Also unfixed: `make fmt-check` runs `gofmt -l .`,
-  which walks into `.worktrees/`, so one agent's uncommitted code fails another
-  agent's gate — `vet` and `test` are immune because a worktree is a nested
-  module. Scoping it to `git ls-files '*.go'` is a one-line fix.
+- `make fmt-check` runs `gofmt -l .`, which walks into `.worktrees/`, so one
+  agent's uncommitted code fails another agent's gate — `vet` and `test` are
+  immune because a worktree is a nested module. Scoping it to
+  `git ls-files '*.go'` is a one-line fix, still unmade.
 
 - OSC 52 reaching the *actual* system clipboard is unproven. The chain was
   verified end to end in a headless browser — tmux passthrough → xterm.js →
@@ -165,6 +162,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — ADR-0023 implemented. `internal/web` splits into a disk loader (default) and an embedded one (`-tags embedui`), which is what `make build`, `ci.yml` and `release.yml` now use; `internal/web/public/` is untracked and gitignored. The ADR's gating question is answered: over https the service worker registers, activates and fills `picode-assets-v1` with the hashed assets in disk mode, and both modes serve byte-identical asset URLs with identical Cache-Control (`immutable` for `/assets/`, `no-cache` elsewhere). The earlier `swRegs: 0` was a red herring — `main.jsx:16` only registers over https, so it was 0 in both modes. A disk build with no UI answers 503 with `run make web` instead of 404s, and starts serving the moment the files appear.
 - **2026-08-30** — ADR-0023: the built UI stops being committed. It had been tracked since the bootstrap commit with no decision behind it — 330 files, 33 MB, 77% of the repo's commits, 133 files rewritten per UI change, and 335/334 `rename/rename` conflicts in two merges that day, every one resolved by rebuilding. Checked six peers (Grafana, Prometheus, Vault, Coder, Gitea, Syncthing): none commits it. Prometheus also answers the constraint that kept us — `//go:build !builtinassets` serves from disk and the default build does not embed at all. Decision recorded; the code change is not made yet.
 - **2026-08-30** — User menu gained a **Sessions** item (between System and Providers) that opens the machine-wide `#/sessions` view; `go("sessions")` short-circuits the `/sessions/:id` template. Live click-through verified: menu → 36 folders · 99 sessions · audit ok.
 - **2026-08-30** — Terminals stopped wearing tmux's skin. PiCode forced tmux's own `mouse on` since before `termWheel.js` grew its SGR fallback; its only remaining effect was tmux copy-mode on every drag, which is why text could not be selected. Owner tested `mouse off` on the real machine — the wheel still scrolls — so both call sites drop it. Paired with `allow-passthrough on` and a write-only OSC 52 handler so a copy made inside the pane reaches the system clipboard. Proved A/B in the browser: with passthrough on the handler fires, with it off the sequence never arrives. The read form (`52;c;?`) is refused on purpose — `@xterm/addon-clipboard` implements it, which would let any agent in a pane read the user's clipboard. Benchmark: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.

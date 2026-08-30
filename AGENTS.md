@@ -94,7 +94,7 @@ At session end, run `/skill:handoff-update`.
 
 | Command | What it does |
 |---|---|
-| `make dev` | Run the Go server (serves last UI build) |
+| `make dev` | Run the Go server — reads the UI from disk; run `make web` once first (ADR-0023) |
 | `make ui` | Vite HMR on :5173 (proxies API to the Go server) |
 | `make web` | Build React UI → `internal/web/public` |
 | `make build` | UI + `bin/picode` |
@@ -114,7 +114,8 @@ docs/screenshots/  committed visual evidence (see its README)
 .pi/               Pi harness: skills, project settings
 cmd/picode/        entrypoint
 internal/server/   HTTP server + API
-internal/web/      embedded UI assets (Vite output, go:embed)
+internal/web/      UI loader: from disk by default, embedded with `-tags embedui` (ADR-0023).
+                   public/ is Vite output and is NOT committed
 web/               React + Vite + Tailwind sources (ADR-0008)
 .github/           CI
 ```

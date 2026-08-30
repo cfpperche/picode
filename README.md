@@ -51,7 +51,7 @@ third: **the browser is a door, not a cage**.
 ```
 Browser (xterm.js + rich UI)
    ↕ HTTP + WebSocket
-picode — single Go binary (UI embedded via go:embed)
+picode — single Go binary (UI embedded at release build)
    ├─ Agent manager     spawn / stop / restart pi per workspace
    ├─ Terminal bridge   tmux-backed PTY → the real Pi TUI in your tab
    ├─ RPC bridge        pi --mode rpc → structured events, tasks, diffs
@@ -73,7 +73,7 @@ make build
 ./bin/picode install    # systemd --user; starts with this Linux session
 ```
 
-`make deploy` rebuilds from this repo and restarts the service. `picode update` is for a normal install (GitHub release). `make dev` runs without installing. `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
+`make deploy` rebuilds from this repo and restarts the service. `picode update` is for a normal install (GitHub release). `make dev` runs without installing (it reads the UI from disk, so run `make web` once on a fresh clone — ADR-0023). `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
 
 First run: add a workspace (your project folder), click **Run** — a real Pi
 agent starts in the workspace and streams into the conversation panel. Close
