@@ -26,3 +26,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
+| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted |

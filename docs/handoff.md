@@ -47,7 +47,13 @@ What exists:
 
 ## In flight
 
-Nothing.
+**ADR-0022 — git graph.** Decision accepted, no code yet. One graph per
+repository (`git rev-parse --git-common-dir`), so every worktree of a repo
+shares one tab and each worktree's HEAD is marked with the agents living
+there. Read-only: a commit opens its diff, nothing writes. Route carries the
+owner (`#/git/<t|a>/<id>`), the tab id carries the repo (`g:<key>`) — that
+split is what keeps `relUnderCwd` confinement intact. Layout runs in the
+browser; Go returns data on one endpoint.
 
 ## Next up
 
@@ -85,6 +91,13 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- ADR-0022 leaves two costs unmeasured. **Occupant scan**: marking heads
+  means `ListAllAgents`, resolving each cwd, and a git call per agent to get
+  its common dir — `occupantsOf` (`internal/server/cleanup.go:88`) is the
+  shape to generalise, but nobody has timed it with many agents. **Commit
+  ceiling**: the SVG weight past which the graph stops being usable is
+  unknown; 250 with a load-more is a guess borrowed from Git Graph's 300.
+
 - Machine state left by the ADR-0020 session: `~/.local/bin/picode` was
   replaced with a build of `main` (the old one is not kept in the repo — it
   predates `provision`), `picode-desktop.exe` sits in
@@ -111,6 +124,7 @@ Never exercised, because this machine was already past them:
 - **2026-08-30** — Terminal/chat view persists per agent across reload (localStorage `picode-term-view`).
 - **2026-08-30** — Transcript API paginated (`?tail=&skip=`): opening the 129.5 MB session loads a 200-event slice (~1 s server, small payload); Load earlier fetches older turns from the server with scroll anchoring.
 - **2026-08-30** — Huge sessions render a window (~60 turns) with Load earlier on scroll; composer height tracks local text. Proven on a 122 MB session (226 turns → 60 mounted).
+- **2026-08-29** — ADR-0022: the git graph belongs to a repository, not to an agent. Studied VS Code's Git Graph first (it is mhutchie's extension, not VS Code): one runtime dependency, `iconv-lite`, no framework and no charting library — 913 lines of DOM + SVG, of which 73 place the columns. Measured that worktrees share refs and differ only in HEAD, which is why one graph with N marked heads beats N near-identical graphs. Read-only in this ADR: no write path exists that could hit a worktree while an agent is mid-turn.
 - **2026-08-29** — ADR-0021 adopt Pi session by copy. GET/POST `/api/pi-sessions`. New agent → From a Pi session.
 - **2026-08-29** — Agents work in an isolated git worktree (AGENTS.md #5). After merge, remove the tree and the branch.
 - **2026-08-29** — Keepalive debt paid: the tray's `wsl.exe` child now lives in a job object with `KILL_ON_JOB_CLOSE`, so the kernel tears it down however the tray dies — `taskkill /F` and crashes included, where no deferred Go code runs. Established first that killing the Windows-side `wsl.exe` does end the Linux process (launched a `sleep 99999`, killed its wsl.exe, watched it go), because the whole fix rests on that. Then proved it end to end on the machine: before, a force-killed tray left `sleep infinity` behind; after, `taskkill /F` leaves nothing. `startDetached` became `startSupervised`, and a failure to supervise is non-fatal — a keepalive that can be stranded beats no keepalive.
