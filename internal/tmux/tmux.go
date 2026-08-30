@@ -143,6 +143,10 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 		return err
 	}
 	_ = m.EnsureExtendedKeys(ctx)
+	// PiCode owns the surface: the tmux status line would render as a green
+	// bar at the bottom of the web terminal. Terminals turn it off per
+	// session; do it here so agent TUI sessions match from the first paint.
+	_ = m.SetOption(ctx, name, "status", "off")
 	return nil
 }
 
