@@ -95,4 +95,77 @@ func TestTranscriptTailWindow(t *testing.T) {
 	if b, _ := skipBig["bytes"].(float64); b <= 0 {
 		t.Fatalf("bytes = %v", skipBig["bytes"])
 	}
+	if skipBig["compacted"] != false {
+		t.Fatalf("uncompacted session reported compacted=%v", skipBig["compacted"])
+	}
+}
+
+func writeCompactSession(t *testing.T, cwd string) string {
+	t.Helper()
+	dir := session.Dir(cwd)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, "compact.jsonl")
+	body := ``
+	for i := 1; i <= 3; i++ {
+		body += `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"old` + strconv.Itoa(i) + `"}]}}` + "\n"
+	}
+	body += `{"type":"compaction","summary":"SUMMARY: the old turns","timestamp":1759000000}` + "\n"
+	body += `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"new1"}]}}` + "\n"
+	body += `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"new2"}]}}` + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// After a compaction the window must start at the boundary: pre-compaction
+// history stays inside the summary, exactly like pi replays it.
+func TestTranscriptCompactionBoundary(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	proj := filepath.Join(home, "p2")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	src := writeCompactSession(t, proj)
+	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App2", "path": proj})
+	var wsv workspaceView
+	if err := json.NewDecoder(ws.Body).Decode(&wsv); err != nil {
+		t.Fatal(err)
+	}
+	base := ts.URL + "/api/workspaces/" + wsv.ID + "/sessions/transcript?path=" + src
+	res := do(t, ts.Client(), mustGet(t, base))
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET = %d", res.StatusCode)
+	}
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	events := body["events"].([]any)
+	if len(events) != 3 {
+		t.Fatalf("events = %d, want 3 (summary + new1 + new2)", len(events))
+	}
+	first := events[0].(map[string]any)
+	if first["kind"] != "compaction" || first["text"] != "SUMMARY: the old turns" {
+		t.Fatalf("first = %v %v", first["kind"], first["text"])
+	}
+	for _, e := range events[1:] {
+		if txt := e.(map[string]any)["text"]; txt == "old1" || txt == "old2" || txt == "old3" {
+			t.Fatalf("pre-compaction event leaked: %v", txt)
+		}
+	}
+	if body["compacted"] != true || body["total"].(float64) != 3 {
+		t.Fatalf("compacted=%v total=%v", body["compacted"], body["total"])
+	}
+	// Load earlier stops at the boundary: no pre-compaction remaining.
+	res2 := do(t, ts.Client(), mustGet(t, base+"&tail=1"))
+	var b2 map[string]any
+	if err := json.NewDecoder(res2.Body).Decode(&b2); err != nil {
+		t.Fatal(err)
+	}
+	if b2["remaining"].(float64) != 2 {
+		t.Fatalf("tail=1 remaining=%v, want 2", b2["remaining"])
+	}
 }

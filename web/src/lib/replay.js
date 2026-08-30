@@ -39,6 +39,9 @@ export function eventsToItems(events) {
         ts: e.ts || 0,
       };
     }
+    if (e.kind === "compaction") {
+      return { kind: "compaction", text: e.text || "Session compacted.", ts: e.ts || 0 };
+    }
     return { kind: "block", cls: "", actor: "agent", text: e.text || "", ts: e.ts || 0 };
   });
 }

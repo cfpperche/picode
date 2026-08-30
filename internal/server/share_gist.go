@@ -105,6 +105,11 @@ func shareHTML(path string) string {
 	}
 	n := 0
 	for _, e := range evs {
+		if e.Kind == "compaction" {
+			n++
+			fmt.Fprintf(&b, `<div class="a"><strong>· Session compacted ·</strong>%s%s</div>`, "\n", html.EscapeString(e.Text))
+			continue
+		}
 		if e.Kind != "user" && e.Kind != "assistant" {
 			continue
 		}

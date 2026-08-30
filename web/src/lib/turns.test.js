@@ -75,3 +75,15 @@ test("step labels stay factual", () => {
   assert.equal(stepLabel({ kind: "tool", name: "read", args: "@" + "/home/goat/very/long/path/to/README.md" }), "Read README.md");
   assert.equal(stepLabel({ kind: "tool", name: "web_search", args: "lula" }), "Searched lula");
 });
+
+test("groupTurns: compaction card is its own loose row, never swallowed by a turn", () => {
+  const turns = groupTurns([
+    { kind: "block", cls: "user", text: "hi", ts: 1 },
+    { kind: "compaction", text: "SUMMARY", ts: 2 },
+    { kind: "block", cls: "", text: "hello again", ts: 3 },
+  ]);
+  const loose = turns.filter((t) => t.kind === "loose");
+  assert.equal(loose.length, 1);
+  assert.equal(loose[0].item.kind, "compaction");
+  assert.equal(loose[0].item.text, "SUMMARY");
+});

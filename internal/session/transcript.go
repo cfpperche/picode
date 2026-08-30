@@ -22,8 +22,10 @@ type Event struct {
 }
 
 // Transcript reads a JSONL session into chat events (ADR-0005: read-only).
+// Full fidelity — includes pre-compaction history; compaction markers come
+// back as Kind "compaction".
 func Transcript(path string) ([]Event, error) {
-	out, err := transcriptAll(path)
+	out, _, err := transcriptAll(path)
 	return out, err
 }
 
@@ -31,12 +33,21 @@ func Transcript(path string) ([]Event, error) {
 // of them, plus the total event count. tail<=0 returns everything (skip
 // then truncates from the start). The whole file is scanned to rebuild
 // tool-call pairing; only the window is returned.
-func TranscriptWindow(path string, tail, skip int) ([]Event, int, error) {
-	all, err0 := transcriptAll(path)
+//
+// The window is cut at the LAST compaction boundary: events older than it
+// live only inside the compaction summary (that is what pi replays too),
+// so the chat never resurrects pre-compaction history. compacted reports
+// whether a boundary was found.
+func TranscriptWindow(path string, tail, skip int) (ev []Event, total int, compacted bool, err error) {
+	all, boundary, err0 := transcriptAll(path)
 	if err0 != nil {
-		return nil, 0, err0
+		return nil, 0, false, err0
 	}
-	total := len(all)
+	if boundary > 0 {
+		all = all[boundary:]
+		compacted = true
+	}
+	total = len(all)
 	if skip < 0 {
 		skip = 0
 	}
@@ -55,18 +66,19 @@ func TranscriptWindow(path string, tail, skip int) ([]Event, int, error) {
 	if tail <= 0 || start < 0 {
 		start = 0
 	}
-	return all[start:end], total, nil
+	return all[start:end], total, compacted, nil
 }
 
-func transcriptAll(path string) ([]Event, error) {
+func transcriptAll(path string) ([]Event, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
 
 	var out []Event
 	pending := map[string]int{}
+	boundary := 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
 	for sc.Scan() {
@@ -85,7 +97,11 @@ func transcriptAll(path string) ([]Event, error) {
 			if sum == "" {
 				sum = "Session compacted."
 			}
-			out = append(out, Event{Kind: "assistant", Text: sum, Timestamp: ts})
+			// Mark the boundary (last one wins) and emit the summary as its
+			// own kind so the UI can render a collapsible card instead of a
+			// giant assistant message.
+			boundary = len(out)
+			out = append(out, Event{Kind: "compaction", Text: sum, Timestamp: ts})
 			continue
 		case "message":
 		default:
@@ -106,7 +122,7 @@ func transcriptAll(path string) ([]Event, error) {
 			out = applyToolResult(out, msg, pending)
 		}
 	}
-	return out, sc.Err()
+	return out, boundary, sc.Err()
 }
 
 func entryTS(raw map[string]any) int64 {
