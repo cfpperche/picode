@@ -1,9 +1,9 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession, IconTerminal } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession } from "./Icons.jsx";
 import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
-export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, pkgUpdates, piUpdate }) {
+export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, pkgUpdates }) {
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
   return (
     <DropdownMenu.Root>
@@ -68,11 +68,6 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
           <DropdownMenu.Item className="um-item" id="um-system" onSelect={() => onNavigate("system")}>
             <IconDrive className="um-item-ico" />
             <span className="um-item-name">System</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-pi" onSelect={() => onNavigate("system")}>
-            <IconTerminal className="um-item-ico" />
-            <span className="um-item-name">Pi{piUpdate ? <span className="um-dot" aria-label="Update available" /> : null}</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-sessions" onSelect={() => onNavigate("sessions")}>

@@ -11,6 +11,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Pi update card in System**: installed → latest with a Copy command (`pi update --self`) and **Update now**, which runs the self-update and reports the new version (running agents keep the old one until restarted). The registry check rides on GET /api/system with a 6 h cache.
+
 ### Fixed
 
 - An agent whose folder is a *subfolder* of the repository now shows on the git
