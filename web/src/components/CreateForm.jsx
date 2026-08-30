@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Drawer } from "vaul";
 import ConfigFields from "./ConfigFields.jsx";
@@ -16,36 +17,14 @@ export default function CreateForm({
       : kind === "agent"
         ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
         : "New agent";
-  const sessionBody = kind === "session" ? (
-    <div className="form-new create-form">
-      {sessions == null ? (
-        <div className="file-skel" aria-hidden="true">
-          <div className="skel-line w-80" />
-          <div className="skel-line w-50" />
-        </div>
-      ) : sessions.length === 0 ? (
-        <p className="side-empty">No Pi sessions on this machine.{" "}
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => onKind && onKind("free")}>New agent</button>
-        </p>
-      ) : (
-        <ul className="session-pick">
-          {sessions.map((s) => (
-            <li key={s.path}>
-              <button type="button" className="session-pick-btn" onClick={() => onAdopt && onAdopt(s.path)}>
-                <span className="session-pick-name">{s.name || s.preview || "Pi session"}</span>
-                {s.cwd ? <span className="session-pick-cwd">{s.cwd}</span> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="form-error" hidden={!error}>{error}</p>
-      <div className="dlg-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-      </div>
-    </div>
-  ) : null;
-  const fields = kind === "session" ? sessionBody : (
+  const desc = kind === "workspace"
+    ? "A folder plus its first agent."
+    : kind === "session"
+      ? "A copy. The original stays."
+      : "Provider, model, and thinking are required.";
+  const fields = kind === "session" ? (
+    <SessionPicker sessions={sessions} error={error} onAdopt={onAdopt} onKind={onKind} onClose={onClose} />
+  ) : (
     <form className="form-new create-form" noValidate onSubmit={onSubmit}>
       {kind === "workspace" ? (
         <>
@@ -79,11 +58,9 @@ export default function CreateForm({
       <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
-          <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Content className={"dlg dlg-create" + (kind === "session" ? " dlg-create-session" : "")} onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-            <Dialog.Description className="dlg-body">
-              {kind === "workspace" ? "A folder plus its first agent." : kind === "session" ? "A copy. Close the other Pi if you want — we do not touch it." : "Provider, model, and thinking are required."}
-            </Dialog.Description>
+            <Dialog.Description className="dlg-body">{desc}</Dialog.Description>
             {fields}
           </Dialog.Content>
         </Dialog.Portal>
@@ -98,12 +75,67 @@ export default function CreateForm({
         <Drawer.Content className="create-drawer">
           <div className="create-handle" aria-hidden="true" />
           <Drawer.Title className="dlg-title">{title}</Drawer.Title>
-          <Drawer.Description className="dlg-body">
-            {kind === "workspace" ? "A folder plus its first agent." : kind === "session" ? "A copy. Close the other Pi if you want — we do not touch it." : "Provider, model, and thinking are required."}
-          </Drawer.Description>
+          <Drawer.Description className="dlg-body">{desc}</Drawer.Description>
           {fields}
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>
+  );
+}
+
+function SessionPicker({ sessions, error, onAdopt, onKind, onClose }) {
+  const [q, setQ] = useState("");
+  useEffect(() => { setQ(""); }, [sessions]);
+  const shown = useMemo(() => {
+    const list = sessions || [];
+    const n = q.trim().toLowerCase();
+    if (!n) return list;
+    return list.filter((s) => [s.name, s.preview, s.cwd].some((x) => String(x || "").toLowerCase().includes(n)));
+  }, [sessions, q]);
+  return (
+    <div className="form-new create-form session-picker">
+      {sessions == null ? (
+        <div className="file-skel" aria-hidden="true">
+          <div className="skel-line w-80" />
+          <div className="skel-line w-50" />
+        </div>
+      ) : sessions.length === 0 ? (
+        <p className="side-empty">No Pi sessions on this machine.{" "}
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onKind && onKind("free")}>New agent</button>
+        </p>
+      ) : (
+        <>
+          <input
+            type="search"
+            className="session-pick-filter"
+            placeholder="Search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            autoFocus
+            autoComplete="off"
+          />
+          {shown.length === 0 ? (
+            <p className="side-empty">No matching sessions.{" "}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setQ("")}>Clear</button>
+            </p>
+          ) : (
+            <ul className="session-pick">
+              {shown.map((s) => (
+                <li key={s.path}>
+                  <button type="button" className="session-pick-btn" title={(s.name || s.preview || "") + "\n" + (s.cwd || "")} onClick={() => onAdopt && onAdopt(s.path)}>
+                    <span className="session-pick-name">{s.name || s.preview || "Pi session"}</span>
+                    {s.cwd ? <span className="session-pick-cwd">{s.cwd}</span> : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      <p className="form-error" hidden={!error}>{error}</p>
+      <div className="dlg-actions">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
   );
 }

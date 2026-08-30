@@ -1902,6 +1902,17 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .dlg-session { width: min(460px, calc(100vw - 32px)); }
 .dlg-create { width: min(420px, calc(100vw - 32px)); }
+.dlg-create-session {
+  width: min(480px, calc(100vw - 32px));
+  top: 50%;
+  max-height: min(80vh, 560px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.dlg-create-session .session-picker {
+  flex: 1; min-height: 0; min-width: 0;
+  display: flex; flex-direction: column; padding-top: 10px;
+}
 .dlg-hotkeys {
   top: 50%;
   max-height: min(80vh, 640px);
@@ -1913,22 +1924,36 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dlg-create .form-new { padding: 12px 0 0; }
 .dlg-create .form-new input,
 .dlg-create .cfg-fields select { width: 100%; }
+.session-pick-filter {
+  width: 100%; min-width: 0; height: var(--ctl-h); box-sizing: border-box;
+  padding: 0 10px; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 13px;
+}
+.session-pick-filter:focus { outline: none; border-color: var(--accent); }
 .session-pick {
   list-style: none; margin: 8px 0 0; padding: 0;
-  max-height: 168px; overflow: auto;
+  flex: 1; min-height: 0; min-width: 0;
+  overflow-x: hidden; overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px;
 }
-.dlg-create .session-pick + .form-error + .dlg-actions {
-  margin-top: 12px; padding-top: 12px;
+.session-picker .dlg-actions {
+  flex: none; margin-top: 12px; padding-top: 12px;
   border-top: 1px solid var(--border);
 }
 .session-pick-btn {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  width: 100%; text-align: left; padding: 8px 10px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+  text-align: left; padding: 8px 10px;
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
   background: var(--bg-panel); color: inherit; cursor: pointer; font: inherit;
+  overflow: hidden;
 }
 .session-pick-btn:hover { border-color: var(--accent); }
+.session-pick-name, .session-pick-cwd {
+  display: block; min-width: 0; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .session-pick-name { font-size: 13px; }
 .session-pick-cwd { font-size: 11px; color: var(--text-secondary); font-family: var(--mono); }
 .create-overlay {
