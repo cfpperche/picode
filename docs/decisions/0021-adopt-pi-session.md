@@ -13,9 +13,11 @@ forbids two live `pi` processes on one JSONL.
 ## Decision
 
 Adopt **copies** the JSONL and points the new agent at the copy
-(`--session`). The original file and any live TUI are untouched. If the
-session cwd matches a workspace, the agent is created there; otherwise it
-is a free agent with that cwd. PiCode never kills the user's terminal.
+(`--session`). The last `model_change` / `thinking_level_change` in that
+file become the agent's provider, model, and thinking. The original file
+and any live TUI are untouched. If the session cwd matches a workspace,
+the agent is created there; otherwise it is a free agent with that cwd.
+PiCode never kills the user's terminal.
 
 ## Consequences
 

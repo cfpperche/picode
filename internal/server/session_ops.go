@@ -207,7 +207,17 @@ func handleAdoptPiSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &copyPath})
+		patch := store.AgentPatch{SessionPath: &copyPath}
+		if sum.Provider != "" {
+			patch.Provider = &sum.Provider
+		}
+		if sum.Model != "" {
+			patch.Model = &sum.Model
+		}
+		if sum.Thinking != "" {
+			patch.Thinking = &sum.Thinking
+		}
+		agent, err = deps.Store.UpdateAgent(agent.ID, patch)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return

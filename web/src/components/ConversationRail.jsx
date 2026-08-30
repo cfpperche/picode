@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { railAnchors } from "../lib/rail.js";
 
-export default function ConversationRail({ items, convRef }) {
+function ConversationRail({ items, convRef }) {
   const anchors = railAnchors(items);
   const [on, setOn] = useState(false);
   const [active, setActive] = useState("");
@@ -82,3 +82,5 @@ export default function ConversationRail({ items, convRef }) {
     </Tooltip.Provider>
   );
 }
+
+export default memo(ConversationRail);

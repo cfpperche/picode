@@ -18,6 +18,8 @@ func TestSummarize(t *testing.T) {
 	p := filepath.Join(dir, "s.jsonl")
 	body := `{"type":"session","version":3,"id":"abc","timestamp":"2026-08-24T01:00:00.000Z","cwd":"/tmp"}
 {"type":"session_info","id":"n1","parentId":"abc","timestamp":"2026-08-24T01:00:01.000Z","name":"Refactor auth"}
+{"type":"model_change","provider":"xai","modelId":"grok-4.6"}
+{"type":"thinking_level_change","thinkingLevel":"low"}
 {"type":"message","message":{"role":"user","content":[{"type":"text","text":"List the files"}],"timestamp":1}}
 {"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"cost":{"total":0.12}},"timestamp":2}}
 `
@@ -36,6 +38,9 @@ func TestSummarize(t *testing.T) {
 	}
 	if s.Cwd != "/tmp" {
 		t.Fatalf("cwd = %q", s.Cwd)
+	}
+	if s.Provider != "xai" || s.Model != "grok-4.6" || s.Thinking != "low" {
+		t.Fatalf("cfg = %q %q %q", s.Provider, s.Model, s.Thinking)
 	}
 }
 

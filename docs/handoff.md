@@ -47,7 +47,7 @@ What exists:
 
 ## In flight
 
-Nothing.
+Nothing. Adopt copies provider/model/thinking; composer types locally (feat/adopt-config).
 
 ## Next up
 

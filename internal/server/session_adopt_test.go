@@ -20,6 +20,8 @@ func writeAdoptSession(t *testing.T, cwd string) string {
 	p := filepath.Join(dir, "s.jsonl")
 	body := `{"type":"session","version":3,"id":"abc","timestamp":"2026-08-24T01:00:00.000Z","cwd":"` + cwd + `"}
 {"type":"session_info","name":"Refactor auth"}
+{"type":"model_change","provider":"xai","modelId":"grok-4.6"}
+{"type":"thinking_level_change","thinkingLevel":"high"}
 {"type":"message","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}
 `
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
@@ -57,6 +59,9 @@ func TestAdoptPiSessionDecisionTable(t *testing.T) {
 		}
 		if _, err := os.Stat(src); err != nil {
 			t.Fatal("source must stay")
+		}
+		if ag.Provider == nil || *ag.Provider != "xai" || ag.Model == nil || *ag.Model != "grok-4.6" || ag.Thinking == nil || *ag.Thinking != "high" {
+			t.Fatalf("cfg provider=%v model=%v thinking=%v", ag.Provider, ag.Model, ag.Thinking)
 		}
 	})
 
