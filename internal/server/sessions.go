@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/session"
@@ -47,14 +49,16 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 			path = *agent.SessionPath
 		}
 		if path == "" {
-			writeJSON(w, http.StatusOK, map[string]any{"events": []any{}, "path": ""})
+			writeJSON(w, http.StatusOK, map[string]any{"events": []any{}, "path": "", "total": 0, "remaining": 0})
 			return
 		}
 		if !safeSessionPath(store.AgentCwd(wk, agent), path) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
-		ev, err := session.Transcript(path)
+		tail := atoiOr(r.URL.Query().Get("tail"), 0)
+		skip := atoiOr(r.URL.Query().Get("skip"), 0)
+		ev, total, err := session.TranscriptWindow(path, tail, skip)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -62,8 +66,27 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 		if ev == nil {
 			ev = []session.Event{}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"events": ev, "path": path})
+		remaining := total - skip - len(ev)
+		if remaining < 0 {
+			remaining = 0
+		}
+		var bytes int64
+		if st, err := os.Stat(path); err == nil {
+			bytes = st.Size()
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"events": ev, "path": path, "total": total, "remaining": remaining, "bytes": bytes})
 	}
+}
+
+func atoiOr(s string, def int) int {
+	if s == "" {
+		return def
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 0 {
+		return def
+	}
+	return n
 }
 
 func handleNewSession(deps Deps) http.HandlerFunc {

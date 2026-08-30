@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Opening an agent loads only the newest slice of the transcript; Load earlier fetches older turns from the server. Huge sessions no longer dump 100+ MB into the browser.
 - Sending shows the message and Working immediately; the server answer reconciles after.
 - Huge sessions render the last ~60 turns; older ones load on scroll (no more whole-history lag).
 - From a Pi session copies provider, model, and thinking from the JSONL.

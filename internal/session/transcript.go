@@ -23,6 +23,42 @@ type Event struct {
 
 // Transcript reads a JSONL session into chat events (ADR-0005: read-only).
 func Transcript(path string) ([]Event, error) {
+	out, err := transcriptAll(path)
+	return out, err
+}
+
+// TranscriptWindow returns at most tail events, skipping the newest skip
+// of them, plus the total event count. tail<=0 returns everything (skip
+// then truncates from the start). The whole file is scanned to rebuild
+// tool-call pairing; only the window is returned.
+func TranscriptWindow(path string, tail, skip int) ([]Event, int, error) {
+	all, err0 := transcriptAll(path)
+	if err0 != nil {
+		return nil, 0, err0
+	}
+	total := len(all)
+	if skip < 0 {
+		skip = 0
+	}
+	if skip > total {
+		skip = total
+	}
+	end := total - skip
+	if tail > 0 && end == 0 {
+		// skipped past everything: hand back the oldest events
+		end = tail
+		if end > total {
+			end = total
+		}
+	}
+	start := end - tail
+	if tail <= 0 || start < 0 {
+		start = 0
+	}
+	return all[start:end], total, nil
+}
+
+func transcriptAll(path string) ([]Event, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err

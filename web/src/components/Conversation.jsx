@@ -16,36 +16,53 @@ import FileCard from "./FileCard.jsx";
 
 const WINDOW_STEP = 60;
 
-function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after }) {
+function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
   const [preview, setPreview] = useState("");
   const [limit, setLimit] = useState(WINDOW_STEP);
   const growLock = useRef(false);
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
   const hiddenCount = Math.max(0, turns.length - limit);
+  const serverRemaining = Math.max(0, earlierRemaining || 0);
+  const canGrow = hiddenCount > 0 || serverRemaining > 0;
   function growEarlier() {
     if (growLock.current) return;
-    growLock.current = true;
-    const el = convRef && convRef.current;
-    const keep = el ? el.scrollHeight - el.scrollTop : 0;
-    setLimit((l) => l + WINDOW_STEP);
-    requestAnimationFrame(() => {
-      const el2 = convRef && convRef.current;
-      if (el2) el2.scrollTop = Math.max(0, el2.scrollHeight - keep);
-      growLock.current = false;
-    });
+    if (hiddenCount > 0) {
+      growLock.current = true;
+      const el = convRef && convRef.current;
+      const keep = el ? el.scrollHeight - el.scrollTop : 0;
+      setLimit((l) => l + WINDOW_STEP);
+      requestAnimationFrame(() => {
+        const el2 = convRef && convRef.current;
+        if (el2) el2.scrollTop = Math.max(0, el2.scrollHeight - keep);
+        growLock.current = false;
+      });
+      return;
+    }
+    if (serverRemaining > 0 && onFetchEarlier) {
+      growLock.current = true;
+      const el = convRef && convRef.current;
+      const keep = el ? el.scrollHeight - el.scrollTop : 0;
+      Promise.resolve(onFetchEarlier()).finally(() => {
+        requestAnimationFrame(() => {
+          const el2 = convRef && convRef.current;
+          if (el2) el2.scrollTop = Math.max(0, el2.scrollHeight - keep);
+          growLock.current = false;
+        });
+      });
+    }
   }
   function onScrollWrap(ev) {
     const el = ev && ev.currentTarget;
-    if (el && el.scrollTop < 80 && hiddenCount > 0) growEarlier();
+    if (el && el.scrollTop < 80 && canGrow) growEarlier();
     if (onScroll) onScroll(ev);
   }
   return (
     <div id="conversation" className="conversation" ref={convRef} onScroll={onScrollWrap} style={{ visibility: hidden ? "hidden" : "visible" }}>
       <div className="conv-col">
-        {hiddenCount > 0 ? (
+        {canGrow ? (
           <button type="button" className="conv-load-earlier" onClick={growEarlier}>
-            Load earlier ({hiddenCount})
+            {hiddenCount > 0 ? "Load earlier (" + hiddenCount + ")" : "Load earlier"}
           </button>
         ) : null}
         {turns.reduce((acc, t, i) => {
