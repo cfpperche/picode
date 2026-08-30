@@ -74,6 +74,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSlashRes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
+	registerGitGraphRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux)
 	registerSnippet(mux, deps)
