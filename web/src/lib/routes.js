@@ -22,7 +22,7 @@ export function parseRoute(hash) {
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
-  if (h.startsWith("/sessions/")) return "sessions";
+  if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "sessions";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";

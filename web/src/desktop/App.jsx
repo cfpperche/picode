@@ -1826,11 +1826,12 @@ export default function App() {
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
-        {sessionsWsId ? (
+        {route === "sessions" ? (
           <SessionsView
             wsId={sessionsWsId}
             workspace={sessionsWs}
             agents={(sessionsWs && sessionsWs.agents) || []}
+            workspaces={workspaces}
             onOpenAgent={(id) => revealAgent(id)}
             onCompactAgent={compactAgentById}
           />

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +30,8 @@ func writeManageSession(t *testing.T, cwd, name string, age time.Duration) strin
 		t.Fatal(err)
 	}
 	p := filepath.Join(dir, name)
-	body := `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}` + "\n"
+	body := `{"type":"session","id":"t","cwd":` + strconv.Quote(cwd) + `}` + "\n" +
+		`{"type":"message","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}` + "\n"
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -179,5 +181,73 @@ func TestManageViewNamesAgent(t *testing.T) {
 	}
 	if strings.TrimSpace(view.Sessions[0].InUseBy.AgentName) == "" {
 		t.Fatal("inUseBy has no agent name")
+	}
+}
+
+// Machine-wide view: sessions from every folder, tagged with the workspace
+// they belong to; delete validates against the sessions root, not a folder.
+func TestAllSessionsView(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	proj := filepath.Join(home, "p")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(home, "other")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	var wsv workspaceView
+	if err := json.NewDecoder(ws.Body).Decode(&wsv); err != nil {
+		t.Fatal(err)
+	}
+	inWs := writeManageSession(t, proj, "in-ws.jsonl", 0)
+	outside := writeManageSession(t, other, "outside.jsonl", 0)
+
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/sessions/all"))
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("all = %d", res.StatusCode)
+	}
+	var body struct {
+		Sessions []struct {
+			Path      string `json:"path"`
+			Cwd       string `json:"cwd"`
+			Workspace string `json:"workspace"`
+		} `json:"sessions"`
+		TotalBytes int64 `json:"totalBytes"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	var sawInWs, sawOutside bool
+	for _, s := range body.Sessions {
+		if s.Path == inWs {
+			sawInWs = true
+			if s.Workspace != "App" {
+				t.Fatalf("in-ws tagged %q, want App", s.Workspace)
+			}
+		}
+		if s.Path == outside {
+			sawOutside = true
+			if s.Workspace != "" {
+				t.Fatalf("outside tagged %q, want empty", s.Workspace)
+			}
+		}
+	}
+	if !sawInWs || !sawOutside {
+		t.Fatalf("all view missed sessions: inWs=%v outside=%v", sawInWs, sawOutside)
+	}
+
+	// Machine delete: outside folder ok; path outside the root rejected.
+	if c := postJSONMethod(t, ts, http.MethodDelete, "/api/sessions/all", map[string]string{"path": outside}).StatusCode; c != http.StatusOK {
+		t.Fatalf("delete outside-folder = %d", c)
+	}
+	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+		t.Fatal("outside session still on disk")
+	}
+	notRoot := filepath.Join(home, "loose.jsonl")
+	_ = os.WriteFile(notRoot, []byte("{}\n"), 0o644)
+	if c := postJSONMethod(t, ts, http.MethodDelete, "/api/sessions/all", map[string]string{"path": notRoot}).StatusCode; c != http.StatusBadRequest {
+		t.Fatalf("delete non-root = %d, want 400", c)
 	}
 }
