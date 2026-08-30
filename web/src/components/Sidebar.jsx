@@ -22,6 +22,7 @@ export default function Sidebar({
   userMenu, termView, onChat, onTerm,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent,
   workingId,
+  workingIds,
   waitingId,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm,
 }) {
@@ -100,7 +101,7 @@ export default function Sidebar({
       >
         <div className="ws-row1 tree-row">
           <span className="tree-spc" aria-hidden="true" />
-          {ag.id === workingId ? <PiSpinner /> : <ProviderFace agent={ag} />}
+          {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
           <span className="ws-name" title={title}>{label}{model ? <span className="ws-model"> - {model}</span> : null}</span>
           {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
         </div>

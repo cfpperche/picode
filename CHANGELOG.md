@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- The sidebar spinner now also shows when the agent is working from the terminal (TUI), not only from chat.
 - /compact shows "Compacting session…" in the thread and closes the line when pi finishes — no more silent minutes on huge sessions.
 - Reload lands back in Terminal when the agent was being viewed in the terminal (view mode persists per agent).
 - Opening an agent loads only the newest slice of the transcript; Load earlier fetches older turns from the server. Huge sessions no longer dump 100+ MB into the browser.

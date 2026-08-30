@@ -243,6 +243,25 @@ func (m *Manager) PaneCwd(ctx context.Context, name string) (string, error) {
 	return p, nil
 }
 
+// CaptureTail returns the last n lines of the session's active pane
+// (tmux capture-pane -p). Used to read the pi TUI's own state, e.g. its
+// "Working…" spinner when the agent is driven from the terminal.
+func (m *Manager) CaptureTail(ctx context.Context, name string, n int) (string, error) {
+	if n <= 0 {
+		n = 8
+	}
+	out, err := m.run(ctx, "capture-pane", "-p", "-t", name+":", "-S", "-"+strconv.Itoa(n))
+	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
+
+// LooksWorking reports whether a captured TUI tail shows pi's busy state.
+func LooksWorking(captured string) bool {
+	return strings.Contains(strings.ToLower(captured), "working")
+}
+
 // ExtendedKeysFormat returns the server's `extended-keys-format` option
 // value ("csi-u", "xterm", ...). Pi recommends `csi-u` so modifier keys
 // (Shift+Enter, Ctrl+Enter) survive the hop (see Pi's tmux docs).
