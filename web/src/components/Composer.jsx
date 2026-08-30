@@ -62,12 +62,18 @@ export default function Composer({
   const [preview, setPreview] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
-  const hits = filterSlash(value, slashExtra);
-  const at = hits.length ? null : atQuery(value, caret);
+  const [text, setText] = useState(value || "");
+  const hits = filterSlash(text, slashExtra);
+  const at = hits.length ? null : atQuery(text, caret);
   const atKey = at ? "@" + at.query : "";
   const showAt = !!(at && atOk && atHits && atHide !== atKey);
 
-  useEffect(() => { valueRef.current = value; }, [value]);
+  useEffect(() => { setText(value || ""); }, [value]);
+  useEffect(() => { valueRef.current = text; }, [text]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (onChange) onChange(text); }, 160);
+    return () => clearTimeout(t);
+  }, [text]);
   useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
 
@@ -157,10 +163,10 @@ export default function Composer({
   }
 
   function setAtQuery(q) {
-    const tok = atQuery(value, caret);
+    const tok = atQuery(text, caret);
     if (!tok) return;
-    const next = (value || "").slice(0, tok.start) + "@" + q + (value || "").slice(caret);
-    onChange(next);
+    const next = (text || "").slice(0, tok.start) + "@" + q + (text || "").slice(caret);
+    setText(next);
     const pos = tok.start + 1 + q.length;
     requestAnimationFrame(() => {
       const el = ta.current;
@@ -171,8 +177,8 @@ export default function Composer({
 
   function pickAt(hit) {
     if (!hit) return;
-    const next = insertAtPath(value, caret, hit.path);
-    onChange(next.text);
+    const next = insertAtPath(text, caret, hit.path);
+    setText(next.text);
     setAtHits(null);
     setAtHide(atKey);
     requestAnimationFrame(() => {
@@ -218,8 +224,8 @@ export default function Composer({
       }
       return;
     }
-    const next = insertAtPath(value, caret, hit.path);
-    onChange(next.text);
+    const next = insertAtPath(text, caret, hit.path);
+    setText(next.text);
     requestAnimationFrame(() => {
       const el = ta.current;
       if (el) { el.focus(); el.setSelectionRange(next.caret, next.caret); }
@@ -257,21 +263,23 @@ export default function Composer({
     }
   }
 
-  function fireSend(text) {
-    const body = text == null ? value : text;
+  function fireSend(sent) {
+    const body = sent == null ? text : sent;
     histPush(hist.current, body || "");
     if (onSend) onSend(body, pics);
     setPics([]);
+    setText("");
+    if (onChange) onChange("");
   }
 
   function pickSlash(cmd) {
     if (!cmd) return;
     if (cmd.run === "insert") {
-      onChange(cmd.insert || cmd.label + " ");
+      setText(cmd.insert || cmd.label + " ");
       requestAnimationFrame(() => ta.current?.focus());
       return;
     }
-    onChange("");
+    setText("");
     if (cmd.run === "copy") {
       const t = lastReply || "";
       if (!t) { toast.info("No assistant reply yet."); return; }
@@ -338,12 +346,12 @@ export default function Composer({
         onInterim: (t) => {
           const shown = mergeTranscript(finals.current, t);
           setCaption(shown);
-          if (modeRef.current === "dictate") onChange(mergeTranscript(dictateBase.current, shown));
+          if (modeRef.current === "dictate") setText(mergeTranscript(dictateBase.current, shown));
         },
         onFinal: (t) => {
           finals.current = mergeTranscript(finals.current, t);
           setCaption(finals.current);
-          if (modeRef.current === "dictate") onChange(mergeTranscript(dictateBase.current, finals.current));
+          if (modeRef.current === "dictate") setText(mergeTranscript(dictateBase.current, finals.current));
         },
         onError: (code) => {
           const msg = humanizeSpeechError(code);
@@ -388,7 +396,7 @@ export default function Composer({
     modeRef.current = "off";
     setDictate(false);
     setCaption("");
-    onChange(base);
+    setText(base);
   }
 
   function toggleDictate() {
@@ -413,7 +421,7 @@ export default function Composer({
     setVoice(false);
     setCaption("");
     finals.current = "";
-    if (leftover && !streamingRef.current) onChange(mergeTranscript(valueRef.current, leftover));
+    if (leftover && !streamingRef.current) setText(mergeTranscript(valueRef.current, leftover));
   }
 
   function interrupt() {
@@ -597,8 +605,8 @@ export default function Composer({
             ref={ta}
             rows={2}
             placeholder="Message the agent — / commands, @ files, ! shell"
-            value={value}
-            onChange={(e) => { histTyped(hist.current); onChange(e.target.value); markCaret(e.target); }}
+            value={text}
+            onChange={(e) => { histTyped(hist.current); setText(e.target.value); markCaret(e.target); }}
             onSelect={(e) => markCaret(e.target)}
             onClick={(e) => markCaret(e.target)}
             onKeyUp={(e) => markCaret(e.target)}
@@ -607,7 +615,7 @@ export default function Composer({
                 if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(hits.length - 1, i + 1)); return; }
                 if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(0, i - 1)); return; }
                 if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
-                if (e.key === "Escape") { e.preventDefault(); onChange(""); return; }
+                if (e.key === "Escape") { e.preventDefault(); setText(""); return; }
               }
               if (showAt) {
                 if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
@@ -621,13 +629,13 @@ export default function Composer({
               }
               if (e.key === "ArrowUp" && caretFirstLine(ta.current)) {
                 e.preventDefault();
-                onChange(histUp(hist.current, value || ""));
+                setText(histUp(hist.current, text || ""));
                 requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
                 return;
               }
               if (e.key === "ArrowDown" && caretLastLine(ta.current)) {
                 e.preventDefault();
-                onChange(histDown(hist.current, value || ""));
+                setText(histDown(hist.current, text || ""));
                 requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
                 return;
               }

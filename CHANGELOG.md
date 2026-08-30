@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- From a Pi session copies provider, model, and thinking from the JSONL.
+- Typing in the composer no longer re-renders the whole conversation on each key.
 - From a Pi session: search, no horizontal scrollbar, list scrolls above Cancel.
 - An empty workspace no longer shows a ghost agent row.
 - Closing PiCode Desktop no longer leaves a process behind holding WSL open. Ending it from Task Manager, or a crash, now shuts the keepalive down too.

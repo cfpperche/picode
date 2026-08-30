@@ -24,6 +24,9 @@ type Summary struct {
 	Preview   string  `json:"preview,omitempty"`
 	Messages  int     `json:"messages"`
 	Cost      float64 `json:"cost"`
+	Provider  string  `json:"provider,omitempty"`
+	Model     string  `json:"model,omitempty"`
+	Thinking  string  `json:"thinking,omitempty"`
 }
 
 // DirName is pi's folder name for a workspace cwd.
@@ -228,6 +231,17 @@ func Summarize(path string) (Summary, error) {
 		case "session_info":
 			if n, _ := raw["name"].(string); n != "" {
 				s.Name = n
+			}
+		case "model_change":
+			if p, _ := raw["provider"].(string); p != "" {
+				s.Provider = p
+			}
+			if m, _ := raw["modelId"].(string); m != "" {
+				s.Model = m
+			}
+		case "thinking_level_change":
+			if t, _ := raw["thinkingLevel"].(string); t != "" {
+				s.Thinking = t
 			}
 		case "message":
 			s.Messages++

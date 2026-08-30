@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -14,7 +14,7 @@ import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
 
-export default function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after }) {
+function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after }) {
   const [preview, setPreview] = useState("");
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
@@ -467,4 +467,5 @@ export function summarizeArgs(args) {
   return s.length > 2 ? s : "";
 }
 
+export default memo(Conversation);
 export { statLabel };
