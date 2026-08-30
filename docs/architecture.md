@@ -228,7 +228,7 @@ HTTP API (Go 1.22 method patterns):
   refused) so a copy made in the pane reaches the system clipboard — which is
   what keeps copying possible now that `mouse on` gives the drag to tmux.
   Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
-- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). cwd is the live tmux pane path.
+- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). The list's `cwd` and its git facts both come from the live tmux pane path (record as fallback) — the sidebar says where the terminal is, not where it was born. Workspace agent views carry per-agent git from the agent's effective directory (workPath, else the workspace path).
 - `GET/PATCH /api/terminals/settings` · `GET/PATCH /api/terminals/{id}/settings`
   — terminal **behaviour** (ADR-0024). One global row plus a row per terminal
   holding only the fields that differ; `internal/termopts` is the registry of

@@ -224,3 +224,58 @@ func tmuxOption(t *testing.T, session, option string) string {
 	}
 	return strings.TrimSpace(string(out))
 }
+
+// The list reports where the terminal IS. The stored cwd is only where it was
+// born; after a `cd` inside the pane the two disagree, and the git facts in
+// the same response were already read from the live path — reporting the
+// stale one next to them showed the wrong directory under every terminal in
+// the sidebar.
+func TestListTerminalsReportsTheLivePaneCwd(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	born := t.TempDir()
+	created := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": born})
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d", created.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&page)
+	created.Body.Close()
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), sess) })
+
+	elsewhere := t.TempDir()
+	if err := tm.SendKeys(context.Background(), sess, "cd "+elsewhere, "Enter"); err != nil {
+		t.Fatalf("cd: %v", err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		res, err := ts.Client().Get(ts.URL + "/api/terminals")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out struct {
+			Terminals []map[string]any `json:"terminals"`
+		}
+		_ = json.NewDecoder(res.Body).Decode(&out)
+		res.Body.Close()
+		if len(out.Terminals) != 1 {
+			t.Fatalf("terminals = %d, want 1", len(out.Terminals))
+		}
+		cwd, _ := out.Terminals[0]["cwd"].(string)
+		// The pane may resolve symlinks (macOS /tmp); compare resolved.
+		want, _ := filepath.EvalSymlinks(elsewhere)
+		got, _ := filepath.EvalSymlinks(cwd)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("cwd = %q, want the live pane path %q (stored was %q)", cwd, elsewhere, born)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}

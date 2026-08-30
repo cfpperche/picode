@@ -56,11 +56,15 @@ func handleListTerminals(deps Deps) http.HandlerFunc {
 			if deps.Tmux != nil && deps.Tmux.Available() {
 				live, _ = deps.Tmux.HasSession(r.Context(), name)
 			}
-			// The graph entry point is only offered where there is a repository
-			// to open, so the list carries the same git facts agents do — read
-			// from the pane's live cwd, not the record (ADR-0022).
+			// The list speaks about where the terminal IS, not where it was
+			// born: `cwd` is the pane's live path (falling back to the record
+			// when the session is gone), and the git facts are read from the
+			// same place (ADR-0022). Reporting the stored cwd next to live git
+			// info let the two disagree after a `cd`.
+			cwd := liveTermCwd(deps, r, t)
 			view := termView(t, name, live)
-			view["git"] = gitinfo.Inspect(liveTermCwd(deps, r, t))
+			view["cwd"] = cwd
+			view["git"] = gitinfo.Inspect(cwd)
 			out = append(out, view)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"terminals": out})

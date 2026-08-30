@@ -63,7 +63,12 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	views := make([]agentView, 0, len(agents))
 	for _, a := range agents {
 		mode := deps.runMode(r, a.ID)
-		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode)})
+		// Each agent carries its own git facts, read from its EFFECTIVE
+		// directory: an agent with a workPath may sit in a different repo (or
+		// branch, via a worktree) than the workspace it belongs to, and the
+		// sidebar line is about the agent, not its container.
+		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
+			Git: gitinfo.Inspect(store.AgentCwd(w, a))})
 	}
 	var first agentView
 	if len(views) > 0 {

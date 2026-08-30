@@ -11,6 +11,25 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Terminal cards show where the terminal IS.** The sidebar printed the
+  folder each terminal was created in, forever — a `cd` inside the pane
+  never reached it, while the git info beside it was already read from the
+  live path. `GET /api/terminals` now reports the live pane cwd.
+- A workspace agent on its own workPath showed its workspace's branch
+  instead of its own: agent views now carry git facts for the agent's
+  effective directory, and the sidebar never pairs one directory's path with
+  another's branch.
+
+### Changed
+
+- **Terminal and agent cards share one design.** The second line is a folder
+  icon and the path — or, in a repository, a git icon (click: the graph) and
+  `path / branch`. Paths are ~-shortened everywhere; the duplicate git
+  button in the terminal hover actions is gone; the git icon's tooltip
+  finally names the branch.
+
 ### Added
 
 - **The whole tmux catalog is a settings surface** (ADR-0025). The terminal
