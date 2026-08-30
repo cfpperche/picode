@@ -63,7 +63,8 @@ moment of creation**. Read [README.md](README.md) and
 ```bash
 make fmt-check    # gofmt clean
 make vet          # go vet clean
-make test         # tests pass
+make test         # Go tests pass
+make test-js      # frontend tests pass
 make build        # UI (npm) + binary builds
 ```
 
@@ -100,7 +101,7 @@ At session end, run `/skill:handoff-update`.
 | `make build` | UI + `bin/picode` |
 | `make install` | Copy to `~/.local/bin` and enable systemd --user |
 | `make deploy` | Rebuild + restart the installed service |
-| `make test` / `make vet` / `make fmt` | Quality gates |
+| `make test` / `make test-js` / `make vet` / `make fmt` | Quality gates (Go tests, frontend tests) |
 | `make ci` | Everything CI runs |
 
 ## Repo map

@@ -12,8 +12,15 @@ dev: ## Run the Go server (HTTPS, port 8445+; serves last `make web` build)
 ui: ## Vite HMR on :5173 (proxies /api and /ws to https://localhost:8445)
 	cd web && npm run dev
 
-web: ## Build the React UI into internal/web/public (ADR-0008)
-	cd web && npm ci && npm run build
+# npm ci wipes and reinstalls, so it is gated on the lockfile rather than run
+# by every target that needs node_modules. Without this, `make ci` paid for two
+# full installs: one to test the frontend, one to build it.
+web/node_modules: web/package-lock.json
+	cd web && npm ci
+	@touch web/node_modules
+
+web: web/node_modules ## Build the React UI into internal/web/public (ADR-0008)
+	cd web && npm run build
 
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 	./scripts/setup-cert.sh
@@ -36,6 +43,9 @@ restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 test: ## Run all Go tests
 	go test ./...
 
+test-js: web/node_modules ## Run the frontend unit tests
+	cd web && npm test
+
 # Both targets walk the package directories `go list` reports, not the tree.
 # `.` reaches into .worktrees/, where a sibling agent has its own checkout: fmt
 # would rewrite their uncommitted files and fmt-check would fail this gate on
@@ -53,7 +63,7 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: fmt-check vet test build ## Everything CI runs (includes UI build)
+ci: fmt-check vet test test-js build ## Everything CI runs (includes UI build)
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/
