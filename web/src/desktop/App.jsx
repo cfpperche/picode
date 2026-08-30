@@ -1546,7 +1546,6 @@ export default function App() {
           onTheme: setTheme,
           onNavigate: go,
           pkgUpdates,
-          piUpdate: !!(system && system.pi && system.pi.updateAvailable),
         }}
       />
 
