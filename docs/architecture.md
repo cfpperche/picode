@@ -145,7 +145,7 @@ list the action; a QR is only drawn when every check passes.
 └───────────────┬────────────────────────────────────────────┘
                 │ HTTP /api/*  +  WebSocket /ws/*
 ┌───────────────▼────────────────────────────────────────────┐
-│ picode (single Go binary, UI embedded via go:embed)        │
+│ picode (single Go binary, UI embedded — `-tags embedui`)   │
 │                                                            │
 │  AgentManager ─── spawn/stop/restart ──► pi processes      │
 │  TerminalBridge ─ tmux sessions ───────► pi (interactive)  │

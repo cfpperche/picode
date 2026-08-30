@@ -466,6 +466,10 @@ func TestManagedModeFlow(t *testing.T) {
 }
 
 func TestIndexServed(t *testing.T) {
+	// A disk build (ADR-0023) reads the UI from a directory that does not exist
+	// under the package dir during tests. Point it at one; the assertion is that
+	// the server serves the index, not where the bytes live.
+	withUI(t)
 	ts := newTestServer(t, "cat")
 
 	res, err := ts.Client().Get(ts.URL + "/")
