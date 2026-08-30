@@ -15,6 +15,8 @@ test("firstAgentId and display name", () => {
   assert.equal(displayAgentName({ name: "default" }, ws), "Repo");
   assert.equal(displayAgentName({ name: "review" }, ws), "review");
   assert.equal(agentsOf(ws).length, 2);
+  assert.equal(agentsOf({ id: "w2", name: "Empty", agents: [] }).length, 0);
+  assert.equal(agentsOf({ id: "w3", name: "Ghost", agents: [], agent: {} }).length, 0);
 });
 
 test("mentionAgents skips the open agent", () => {

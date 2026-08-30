@@ -1,7 +1,7 @@
 export function agentsOf(ws) {
   if (!ws) return [];
-  if (ws.agents && ws.agents.length) return ws.agents;
-  return ws.agent ? [ws.agent] : [];
+  const list = (ws.agents && ws.agents.length) ? ws.agents : (ws.agent && ws.agent.id ? [ws.agent] : []);
+  return list.filter((a) => a && a.id);
 }
 
 export function locate(workspaces, freeAgents, agentId) {
