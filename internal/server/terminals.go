@@ -271,13 +271,12 @@ func ensureShell(deps Deps, r *http.Request, name, cwd string) error {
 			return err
 		}
 	}
-	_ = deps.Tmux.SetOption(r.Context(), name, "status", "off")
-	_ = deps.Tmux.SetOption(r.Context(), name, "allow-passthrough", "on")
-	// Everything the user can change comes from the registry, resolved for
-	// this session (ADR-0024). A brand-new terminal has no overrides yet, so
-	// this is the global default — which is the point: it is a default, not a
-	// snapshot taken at creation.
-	applyTermOptions(r.Context(), deps, name, termOptionResolver(deps)(name))
+	// Everything PiCode manages — status bar, passthrough, mouse, extended
+	// keys — comes from the resolver (ADR-0024): the old forces are its
+	// defaults, so a user override wins with no special case. A brand-new
+	// terminal has no overrides yet, so this is the global default — which is
+	// the point: a default, not a snapshot taken at creation.
+	applyScoped(r.Context(), deps, name, termOptionResolver(deps)(name))
 	_ = deps.Tmux.SetEnv(r.Context(), name, "TERM", "xterm-256color")
 	_ = deps.Tmux.SetEnv(r.Context(), name, "COLORTERM", "truecolor")
 	return nil

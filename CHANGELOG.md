@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **The whole tmux catalog is a settings surface** (ADR-0025). The terminal
+  settings dialog grew into a page: the curated flags with their explanations
+  on top, then every option of the running tmux — searchable, grouped by
+  reach ("This terminal" / "All PiCode terminals" / "This machine's tmux"),
+  the dangerous ones labelled with their consequence instead of hidden.
+  Values are checked by tmux itself; what it refuses is reported in its own
+  words. The options PiCode used to force in code (status bar off, clipboard
+  passthrough on, extended keys) became defaults on this page, so overriding
+  them is now the user's call, warning attached.
+
 ### Changed
 
 - **Compaction progress moved from the composer statusbar into the chat**

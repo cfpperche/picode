@@ -46,12 +46,13 @@ var upgrader = websocket.Upgrader{
 
 // Bridge returns the /ws/term handler. Query: ?session=<tmux session name>.
 //
-// resolve supplies the tmux options this session should be running with, and
-// is applied on every attach — so a setting changed while nobody was looking
-// takes hold the next time the terminal is opened, and a session that predates
-// the setting heals itself rather than staying odd forever. A nil resolve
-// means PiCode manages no options.
-func Bridge(tm *tmux.Manager, resolve func(session string) map[string]string) http.Handler {
+// resolve supplies the tmux options this session should be running with —
+// each already carrying the scope to write it at — and is applied on every
+// attach, so a setting changed while nobody was looking takes hold the next
+// time the terminal is opened, and a session that predates the setting heals
+// itself rather than staying odd forever. A nil resolve means PiCode manages
+// no options.
+func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("session")
 		if !tmux.OwnedSessionName(name) {
@@ -74,29 +75,17 @@ func Bridge(tm *tmux.Manager, resolve func(session string) map[string]string) ht
 		}
 		defer ws.Close()
 
-		// The user's options (today: `mouse`). `mouse on` is the default and
-		// the reason the wheel works at all in a TUI that ignores the mouse —
-		// Pi's. Turning it off on 2026-08-30 to recover native text selection
-		// broke exactly that, while leaving Claude Code untouched because it
-		// enables mouse tracking itself. One constant could not serve both, so
-		// it became a setting (ADR-0024). Copying still leaves the pane either
-		// way: a copy-mode drag emits OSC 52, which termClipboard.js handles.
+		// Everything PiCode manages on the session — mouse, status bar,
+		// passthrough, extended keys — comes through the resolver now
+		// (ADR-0024): the old hardcoded forces are its *defaults*, so a user
+		// override wins without a special case, and every attach re-applies,
+		// healing sessions that predate a setting. What each option protects
+		// is documented on the flag itself (internal/termopts).
 		if resolve != nil {
-			for key, value := range resolve(name) {
-				_ = tm.SetOption(r.Context(), name, key, value)
+			for _, sv := range resolve(name) {
+				_ = tm.SetScopedOption(r.Context(), sv.Scope, name, sv.Key, sv.Value)
 			}
 		}
-
-		// allow-passthrough defaults to off in tmux 3.3+, which silently drops
-		// the DCS envelope an application wraps OSC 52 in. Without it a copy
-		// made inside the pane never leaves tmux
-		// (docs/benchmarks/2026-08-30-web-terminal-clipboard.md).
-		_ = tm.SetOption(r.Context(), name, "allow-passthrough", "on")
-		// No tmux status line: it shows as a green bar under the TUI. This
-		// also heals sessions created before it was set at creation time.
-		_ = tm.SetOption(r.Context(), name, "status", "off")
-		// Shift+Enter is CSI-u; without this tmux collapses it to Enter.
-		_ = tm.EnsureExtendedKeys(r.Context())
 
 		// Initial size; the client sends a resize right after attach.
 		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)

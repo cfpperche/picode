@@ -2724,3 +2724,33 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   .termset-seg-face { transition: none; }
   .termset-seg-skel { animation: none; }
 }
+
+/* Full-catalog terminal settings page (ADR-0024, open catalog). Extends the
+   termset dialog styles above; the page reuses field/seg/chip/danger rules. */
+#termset-view .settings-wrap.wide { max-width: 760px; }
+.termset-page { display: flex; flex-direction: column; gap: 22px; }
+.termset-danger { margin: 8px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--warn); }
+.termset-chip-server {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 999px;
+  color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.termset-search-row { position: sticky; top: 0; z-index: 2; background: var(--bg-panel); padding: 6px 0; }
+.termset-search { margin-top: 0; }
+.termset-cat-title { margin: 0; font-size: 13px; font-weight: 650; color: var(--text-primary); }
+.termset-cat-note { margin: 4px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--text-secondary); }
+.termset-cat-empty { margin: 12px 0 0; font-size: 12px; color: var(--text-secondary); }
+.termset-cat-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
+.termset-row { padding: 10px 0; border-top: 1px solid var(--border); }
+.termset-row-head { display: flex; align-items: center; gap: 8px; }
+.termset-row-name { font-family: var(--mono); font-size: 12px; color: var(--text-primary); }
+.termset-chip-scope {
+  font-size: 10px; padding: 0 6px; border-radius: 999px;
+  color: var(--text-secondary); border: 1px solid var(--border);
+}
+.termset-row-note { margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); }
+.termset-row-edit { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.termset-row-edit .termset-row-input { margin-top: 0; flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.termset-seg-sm { margin-top: 8px; }
+.termset-seg-sm .termset-seg-face { height: 28px; padding: 0 11px; font-size: 11.5px; }

@@ -239,9 +239,18 @@ HTTP API (Go 1.22 method patterns):
   from the store — the terminals and agents this instance has records for —
   never from `tmux list-sessions`, which answers for the whole machine and
   would let one instance write into another's sessions. `null` clears a
-  field — storing the inherited value instead would pin it. Unknown keys and
-  values are refused (400) rather than dropped. Today the registry holds one
-  flag, `mouse`; it grows from real parity gaps, not from what tmux offers.
+  field — storing the inherited value instead would pin it. The curated
+  registry (`mouse`, `status`, `allow-passthrough`, `extended-keys`,
+  `extended-keys-format`) carries help and warnings and doubles as the
+  defaults layer — the options PiCode once forced in code live here now, so a
+  user override wins with no hardcoded exception. Beyond it,
+  `GET /api/terminals/settings/catalog` serves the ENTIRE option space of the
+  running tmux (ADR-0025), read live from `show-options -sg/-g/-wg`; any of
+  it can be stored and applied, validated by tmux itself (scratch session for
+  session/window values; server values apply for real) with its refusal
+  surfaced in its own words. Server-scoped keys are refused on a per-terminal
+  PATCH — tmux keeps them per machine and the UI labels them so. The page is
+  `#/termset` (global) and `#/termset/<id>` (one terminal).
   Appearance (font, colours, cursor) stays in `localStorage`, per browser.
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,

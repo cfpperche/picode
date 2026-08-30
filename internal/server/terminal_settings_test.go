@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/termopts"
@@ -92,17 +94,98 @@ func TestClearingAGlobalFieldReturnsItToTheDefault(t *testing.T) {
 	}
 }
 
-func TestTermSettingsRefuseWhatTheRegistryDoesNotKnow(t *testing.T) {
+// The whole catalog is writable now, so refusal is for what cannot be
+// honest: a name this tmux does not know, a curated value outside its enum,
+// and a non-curated value tmux itself rejects — in tmux's own words.
+func TestTermSettingsRefuseWhatCannotBeApplied(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
 	for _, body := range []map[string]any{
-		{"history-limit": "50000"}, // a real tmux option, but not one we offer
-		{"mouse": "maybe"},         // a value the flag does not take
+		{"mouse-speed": "fast"}, // no such option
+		{"mouse": "maybe"},      // curated flag, value outside its enum
+		// A value tmux refuses. Chosen with care: tmux normalises yes/no
+		// onto booleans, so "yes" on a bool is VALID — a number option fed
+		// text is what actually errors ("value is invalid").
+		{"display-time": "abc"},
 	} {
 		res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/settings", body)
 		if res.StatusCode != http.StatusBadRequest {
 			t.Errorf("patch %v = %d, want 400", body, res.StatusCode)
 		}
 		res.Body.Close()
+	}
+}
+
+// And the counterpart: a real option outside the curated tier is accepted,
+// stored, and applied to a live owned session at the right scope — including
+// a window-scoped one, which needs `set-option -w`.
+func TestANonCuratedOptionIsStoredAndApplied(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	id, session := newTerminal(t, ts)
+
+	res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings", map[string]any{"mode-keys": "vi"})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("patch mode-keys = %d", res.StatusCode)
+	}
+	res.Body.Close()
+
+	out, err := exec.Command("tmux", "show-options", "-w", "-t", session+":", "-v", "mode-keys").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "vi" {
+		t.Fatalf("mode-keys on the window = %q (%v), want vi", strings.TrimSpace(string(out)), err)
+	}
+
+	// Clearing it must UNSET the live value, not leave it pinned: mode-keys
+	// has no PiCode default underneath, so nothing would ever overwrite it.
+	postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings", map[string]any{"mode-keys": nil}).Body.Close()
+	out, _ = exec.Command("tmux", "show-options", "-w", "-t", session+":", "-v", "mode-keys").Output()
+	if strings.TrimSpace(string(out)) == "vi" {
+		t.Fatal("cleared option is still set on the live window")
+	}
+}
+
+// A server-wide option offered per terminal would be a lie — the panel labels
+// it machine-wide and the API holds the same line.
+func TestAServerScopedOptionIsRefusedPerTerminal(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	id, _ := newTerminal(t, ts)
+	res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings", map[string]any{"escape-time": "50"})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("per-terminal escape-time = %d, want 400", res.StatusCode)
+	}
+	res.Body.Close()
+}
+
+func TestCatalogListsAllScopesWithWarnings(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	got := termSettings(t, ts, "/api/terminals/settings/catalog")
+	rows, ok := got["catalog"].([]any)
+	if !ok || len(rows) < 100 {
+		t.Fatalf("catalog has %d rows, want the full option space (~159)", len(rows))
+	}
+	byName := map[string]map[string]any{}
+	for _, r := range rows {
+		row := r.(map[string]any)
+		byName[row["name"].(string)] = row
+	}
+	if r := byName["destroy-unattached"]; r == nil || r["danger"] == "" || r["danger"] == nil {
+		t.Error("destroy-unattached carries no warning — the panel must label it")
+	}
+	if r := byName["mouse"]; r == nil || r["curated"] != true {
+		t.Error("mouse is not marked curated")
+	}
+	if r := byName["escape-time"]; r == nil || r["scope"] != "server" {
+		t.Error("escape-time is not marked server scope")
 	}
 }
 
