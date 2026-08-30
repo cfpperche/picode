@@ -216,7 +216,9 @@ HTTP API (Go 1.22 method patterns):
   its folder; delete validates against the sessions root. Powers the
   `#/sessions` All-folders view.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
-- `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
+- `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX).
+  `pi.latest`/`pi.updateAvailable` ride along (registry check, 6 h cache);
+  `POST /api/system/pi-update` runs `pi update --self`.
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell).
   The bridge sets `status off`, `allow-passthrough on` and extended keys on the
   session, and deliberately does **not** set `mouse` — tmux owning the mouse put

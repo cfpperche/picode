@@ -1,13 +1,16 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/share"
 )
 
@@ -22,6 +25,8 @@ type systemReport struct {
 	Pi struct {
 		Installed bool   `json:"installed"`
 		Version   string `json:"version,omitempty"`
+		Latest    string `json:"latest,omitempty"`
+		Outdated  bool   `json:"updateAvailable"`
 	} `json:"pi"`
 	Mkcert struct {
 		Installed bool `json:"installed"`
@@ -73,6 +78,9 @@ func handleSystem(deps Deps) http.HandlerFunc {
 			if out, err := exec.Command(deps.AgentCmd, "--version").Output(); err == nil {
 				rep.Pi.Version = strings.TrimSpace(string(out))
 			}
+			info := pipkg.PiUpdateCheck(r.Context(), rep.Pi.Version)
+			rep.Pi.Latest = info.Latest
+			rep.Pi.Outdated = info.Outdated
 		} else {
 			rep.Warnings = append(rep.Warnings,
 				"pi is not installed — install it with: npm install -g @earendil-works/pi-coding-agent")
@@ -135,5 +143,29 @@ func handleCatalog(deps Deps) http.HandlerFunc {
 		}
 		attachLlamaModels(&rep)
 		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handlePiSelfUpdate runs `pi update --self` (the button in System).
+// Background context: the install must survive a client disconnect.
+func handlePiSelfUpdate(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		out, err := pipkg.UpdatePiSelf(ctx, deps.AgentCmd)
+		if err != nil {
+			msg := strings.TrimSpace(out + "\n" + err.Error())
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+		pipkg.ResetPiUpdateCache()
+		version := ""
+		if v, verr := exec.Command(deps.AgentCmd, "--version").Output(); verr == nil {
+			version = strings.TrimSpace(string(v))
+		}
+		if len(out) > 4000 {
+			out = out[len(out)-4000:]
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": version, "output": strings.TrimSpace(out)})
 	}
 }

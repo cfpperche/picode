@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { toast } from "../lib/toast.js";
+import PiSpinner from "./PiSpinner.jsx";
 import PageFrame from "./PageFrame.jsx";
 
 export default function System({ hidden, version, system: systemProp }) {
@@ -39,6 +41,8 @@ export default function System({ hidden, version, system: systemProp }) {
           ))}
         </dl>
       </section>
+
+      {system && system.pi && system.pi.updateAvailable ? <PiUpdateCard pi={system.pi} /> : null}
 
       <section className="settings-section">
         <h3>About</h3>
@@ -90,6 +94,44 @@ function depRows(system) {
   return rows;
 }
 
+function PiUpdateCard({ pi }) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState("");
+  const [err, setErr] = useState("");
+  async function run() {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await api("/api/system/pi-update", { method: "POST" });
+      setDone((res && res.version) || "updated");
+      toast.ok("pi updated" + ((res && res.version) ? " to " + res.version : "") + " — restart agents to pick it up.");
+    } catch (e) {
+      setErr((e && e.message) || "Update failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="settings-section pi-update-card">
+      <h3>Pi update</h3>
+      <p className="pi-update-line" data-align-row>
+        <span>
+          <strong>{pi.version || "installed"}</strong> → <strong>{pi.latest}</strong> available
+        </span>
+        <span className="pi-update-actions" data-align-row>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { navigator.clipboard.writeText("pi update --self"); toast.ok("Command copied."); }} title="Copy the terminal command">Copy command</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={run} title="Runs pi update --self">
+            {busy ? <><PiSpinner title="Updating pi" /> Updating…</> : "Update now"}
+          </button>
+        </span>
+      </p>
+      {busy ? <p className="pi-update-note">This runs <code>pi update --self</code> and can take a minute.</p> : null}
+      {done ? <p className="pi-update-note ok">Now at <strong>{done}</strong>. Running agents keep the old version until you restart them.</p> : null}
+      {err ? <p className="pi-update-note err" title={err}>{err.slice(0, 300)}</p> : null}
+      {!done && !busy && !err ? <p className="pi-update-note">Running agents keep the old version until you restart them.</p> : null}
+    </section>
+  );
+}
 function tailscaleValue(ts) {
   if (!ts || !ts.installed) return "not installed · optional";
   return ts.ip || "installed";
