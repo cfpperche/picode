@@ -1144,6 +1144,15 @@ export default function App() {
         scrollToEnd();
         return;
       }
+      // Optimistic UI: the agent may take seconds to boot (huge session);
+      // show the turn now and reconcile when the server answers.
+      const sentTs = Date.now();
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: payload, images: pics.map((p) => p.url), ts: sentTs }]);
+      setDraft("");
+      clearDraft(agent.id);
+      pendingPayload.current = "";
+      scrollToEnd();
+      if (!busy) setStreaming(true);
       try {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
       } catch { /* already running or start failed; enqueue still */ }
@@ -1151,28 +1160,29 @@ export default function App() {
         const loc = locate(workspaces, freeAgents, agent.id);
         if (loc) connectPanel(loc);
       }
-      if (pics.length || busy || sendKind === "steer" || sendKind === "follow_up") {
-        await api("/api/agents/" + agent.id + "/prompt", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: sendKind,
-            message: payload,
-            images: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
-          }),
-        });
-      } else {
-        await api("/api/agents/" + agent.id + "/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: sendKind, payload, source: "user" }),
-        });
+      try {
+        if (pics.length || busy || sendKind === "steer" || sendKind === "follow_up") {
+          await api("/api/agents/" + agent.id + "/prompt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: sendKind,
+              message: payload,
+              images: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
+            }),
+          });
+        } else {
+          await api("/api/agents/" + agent.id + "/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: sendKind, payload, source: "user" }),
+          });
+        }
+      } catch (e) {
+        setStreaming(false);
+        setItems((cur) => cur.map((it) => (it.kind === "block" && it.cls === "user" && it.ts === sentTs ? { ...it, text: it.text + "\n\n— not delivered: " + (e && e.message ? e.message : e) } : it)));
+        throw e;
       }
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: payload, images: pics.map((p) => p.url), ts: Date.now() }]);
-      setDraft("");
-      clearDraft(agent.id);
-      pendingPayload.current = "";
-      scrollToEnd();
       if (agent.mode === "interactive") {
         setTermWanted((s) => { const n = new Set(s); n.delete(agent.id); return n; });
       }

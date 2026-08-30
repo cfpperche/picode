@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Sending shows the message and Working immediately; the server answer reconciles after.
 - Huge sessions render the last ~60 turns; older ones load on scroll (no more whole-history lag).
 - From a Pi session copies provider, model, and thinking from the JSONL.
 - Typing in the composer no longer re-renders the whole conversation on each key.
