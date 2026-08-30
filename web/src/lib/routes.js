@@ -137,6 +137,11 @@ export function providersLlama(hash) {
 }
 
 export function go(name, agentId) {
+  if (name === "sessions") {
+    // Machine-wide view; the per-workspace one is #/sessions/<id>.
+    location.hash = "#/sessions";
+    return;
+  }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";

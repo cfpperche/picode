@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
+import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -85,4 +85,15 @@ test("sessions route parses workspace id", () => {
   assert.equal(sessionsRoute("#/agent/opus"), null);
   assert.equal(sessionsHash("ws-9"), "#/sessions/ws-9");
   assert.equal(sessionsHash(""), "#/");
+});
+
+test("go(sessions) lands on the machine-wide view, not the :id template", () => {
+  const orig = globalThis.location;
+  globalThis.location = { hash: "" };
+  try {
+    go("sessions");
+    assert.equal(globalThis.location.hash, "#/sessions");
+  } finally {
+    globalThis.location = orig;
+  }
 });

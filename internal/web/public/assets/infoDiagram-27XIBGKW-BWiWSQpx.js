@@ -1,6 +1,0 @@
-<<<<<<<< HEAD:internal/web/public/assets/infoDiagram-27XIBGKW-qxRcltlU.js
-import{_ as e,l as s,G as o,d as i}from"./mermaid.core-DY3nXMcK.js";import{p as g}from"./cynefin-OW5HDTMX-BKuZFFZx.js";import"./index-BrbluF_t.js";var p={parse:e(async r=>{const a=await g("info",r);s.debug(a)},"parse")},d={version:"11.17.2"},v=e(()=>d.version,"getVersion"),m={getVersion:v},c=e((r,a,n)=>{s.debug(`rendering info diagram
-========
-import{_ as e,l as s,G as o,d as i}from"./mermaid.core-Cm_PyqqR.js";import{p as g}from"./cynefin-OW5HDTMX-Cd5r-63J.js";import"./index-DT3nOWtL.js";var p={parse:e(async r=>{const a=await g("info",r);s.debug(a)},"parse")},d={version:"11.17.2"},v=e(()=>d.version,"getVersion"),m={getVersion:v},c=e((r,a,n)=>{s.debug(`rendering info diagram
->>>>>>>> feat/sessions-all:internal/web/public/assets/infoDiagram-27XIBGKW-BWiWSQpx.js
-`+r);const t=o(a);i(t,100,400,!0),t.append("g").append("text").attr("x",100).attr("y",40).attr("class","version").attr("font-size",32).style("text-anchor","middle").text(`v${n}`)},"draw"),l={draw:c},b={parser:p,db:m,renderer:l};export{b as diagram};
