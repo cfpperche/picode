@@ -63,6 +63,14 @@ render megabytes.
 
 ## Next up
 
+**Multi-runtime TUIs in terminals** (owner direction, research in flight in
+another session): the ADE will host TUIs from several agent runtimes — in
+**terminal surfaces only**; agents stay **Pi-only for now**. The unified
+TermSurface/ShellTerm path is the substrate (any tmux session renders the
+same). Known landmine for that research: tmux's `extended-keys-format` is
+server-wide — we force `xterm` (modifyOtherKeys) so Shift+Enter survives,
+but some TUIs prefer csi-u/Kitty; per-session key format may be needed.
+
 **PiCode Desktop is installed and running on the owner's machine. What is
 left is validation — the list below is what has *not* been proved.**
 
