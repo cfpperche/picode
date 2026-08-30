@@ -13,6 +13,9 @@ import (
 // Run is systemctl (and friends). Tests replace it.
 var Run = func(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	// Fill in the session variables when this process was not started from a
+	// login shell; without them `systemctl --user` cannot find its own manager.
+	cmd.Env = append(os.Environ(), sessionEnv(os.Getenv, os.Getuid(), pathExists)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

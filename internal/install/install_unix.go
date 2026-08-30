@@ -23,6 +23,11 @@ func Install(exe, home, pathEnv string) error {
 		home = h
 	}
 	p := ForHome(home)
+	// Before touching anything: an install that copies and then cannot enable
+	// the unit is worse than one that never started.
+	if err := EnsureUserSession(); err != nil {
+		return err
+	}
 	pathEnv = withLocalBin(pathEnv, filepath.Dir(p.Bin))
 	if err := CopyExe(exe, p.Bin); err != nil {
 		return fmt.Errorf("copy binary: %w", err)
@@ -55,6 +60,11 @@ func Deploy(exe, home, pathEnv string) error {
 	p := ForHome(home)
 	if _, err := os.Stat(p.Unit); err != nil {
 		return fmt.Errorf("not installed — run picode install first")
+	}
+	// Same reason as Install: copying the new binary and failing to restart
+	// leaves the old one running and looks like a successful deploy.
+	if err := EnsureUserSession(); err != nil {
+		return err
 	}
 	pathEnv = withLocalBin(pathEnv, filepath.Dir(p.Bin))
 	if err := CopyExe(exe, p.Bin); err != nil {
