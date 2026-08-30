@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/gitgraph"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -409,4 +411,105 @@ func addWorkspaceAgent(t *testing.T, ts *httptest.Server, wsID string, body map[
 		t.Fatal("no agent id in response")
 	}
 	return out.ID
+}
+
+// Resolving a directory to its repository spawns git (~23ms measured), and
+// agents commonly share a directory. The memo is only worth having if it
+// actually collapses those calls — so count them.
+func TestOccupantScanAsksGitOncePerDirectory(t *testing.T) {
+	repo := gitRepo(t)
+	deep := filepath.Join(repo, "deep")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	st := testStore(t)
+	ws, root, err := st.AddWorkspace("App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = root
+	// Five agents sharing one subdirectory, and three each in their own.
+	for i := 0; i < 5; i++ {
+		if _, err := st.AddAgent(ws.ID, fmt.Sprintf("same%d", i), deep); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 3; i++ {
+		dir := filepath.Join(repo, "own", fmt.Sprintf("d%d", i))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.AddAgent(ws.ID, fmt.Sprintf("own%d", i), dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	g := gitgraph.Load(repo, 20)
+	if g == nil {
+		t.Fatal("no graph")
+	}
+
+	prev := gitKeyOf
+	t.Cleanup(func() { gitKeyOf = prev })
+	var asked []string
+	gitKeyOf = func(dir string) string {
+		asked = append(asked, dir)
+		return prev(dir)
+	}
+
+	deps := Deps{Store: st}
+	occ := deps.occupantsByWorktree(g)
+
+	// Four distinct directories below the root: the shared one asked once, the
+	// three private ones once each. Without the memo the shared one alone
+	// would account for five.
+	if len(asked) != 4 {
+		t.Fatalf("git asked %d times for %d agents: %v", len(asked), 8, asked)
+	}
+	seen := map[string]int{}
+	for _, d := range asked {
+		seen[d]++
+	}
+	for d, n := range seen {
+		if n != 1 {
+			t.Fatalf("%s asked %d times", d, n)
+		}
+	}
+	// And the agents still land where they belong.
+	total := 0
+	for _, list := range occ {
+		total += len(list)
+	}
+	if total != 9 { // 8 added plus the workspace's own first agent
+		t.Fatalf("occupants = %d, want 9: %+v", total, occ)
+	}
+}
+
+// Agents at a worktree root are resolved by their path alone; git is not
+// asked at all. That is the shape the product produces, and it must stay free.
+func TestOccupantScanAsksNothingForAgentsAtTheRoot(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	ws, _, err := st.AddWorkspace("App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 20; i++ {
+		if _, err := st.AddAgent(ws.ID, fmt.Sprintf("a%d", i), repo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g := gitgraph.Load(repo, 20)
+
+	prev := gitKeyOf
+	t.Cleanup(func() { gitKeyOf = prev })
+	calls := 0
+	gitKeyOf = func(dir string) string { calls++; return prev(dir) }
+
+	deps := Deps{Store: st}
+	deps.occupantsByWorktree(g)
+	if calls != 0 {
+		t.Fatalf("git asked %d times for agents that need no asking", calls)
+	}
 }

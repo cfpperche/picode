@@ -77,11 +77,11 @@ func Key(dir string) string {
 		return ""
 	}
 	if !filepath.IsAbs(common) {
-		top := git(dir, "rev-parse", "--show-toplevel")
-		if top == "" {
-			return ""
-		}
-		common = filepath.Join(top, common)
+		// git answers relative to the directory it ran in, not to the work
+		// tree root: `.git` from the top, `../.git` one level down. Joining
+		// against --show-toplevel is right only when those are the same
+		// directory, and silently points above the repository otherwise.
+		common = filepath.Join(dir, common)
 	}
 	abs, err := filepath.Abs(common)
 	if err != nil {

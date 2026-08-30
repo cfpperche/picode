@@ -450,3 +450,28 @@ func output(t *testing.T, dir, name string, args ...string) string {
 	}
 	return string(out)
 }
+
+// git reports the common dir relative to the directory it ran in — `.git` from
+// the top, `../.git` one level down. Resolving that against the work tree root
+// instead of against the directory pointed one level above the repository, and
+// every caller comparing keys then saw a mismatch that was not there.
+func TestKeyIsTheSameFromAnyDepth(t *testing.T) {
+	dir := repo(t)
+	deep := filepath.Join(dir, "one", "two", "three")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	want := Key(dir)
+	if want == "" {
+		t.Fatal("no key at the root")
+	}
+	for _, d := range []string{
+		filepath.Join(dir, "one"),
+		filepath.Join(dir, "one", "two"),
+		deep,
+	} {
+		if got := Key(d); got != want {
+			t.Fatalf("Key(%s) = %q, want %q", d, got, want)
+		}
+	}
+}

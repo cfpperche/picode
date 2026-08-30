@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- An agent whose folder is a *subfolder* of the repository now shows on the git
+  graph. It never did: the repository was resolved one level too high for any
+  directory below the top, so the agent was quietly left off the branch it was
+  working on.
+
+### Fixed
+
 - `picode install` and `picode deploy` work when run outside a login shell — a
   script, a cron job, an agent. They used to copy the new binary and then fail
   to restart the service, leaving the old one running and the update looking
