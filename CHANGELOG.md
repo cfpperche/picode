@@ -32,6 +32,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - **Workspace Sessions view** (`#/sessions/<id>`, folder icon in the sidebar): every Pi session under the workspace folder — size, age, messages, cost, provider/model, and whether it is an agent's current session. Actions: Open with… (switches a workspace agent to that session, no copy), Compact (in-use), Delete (orphans only, with confirm; in-use is blocked and says why).
 - **All-folders Sessions view** (`#/sessions`, "All folders →" link): every Pi session on the machine, grouped by folder — workspaces first, others marked "not a workspace". Same actions; Open with… only where a PiCode workspace owns the folder; Delete is validated against the machine's sessions root.
 - The user menu (bottom of the sidebar) has a **Sessions** item that opens the machine-wide view.
+- The Sessions card no longer repeats "Back to agents" in the all-folders mode — the page header Back is the way out; "All folders →" stays on the per-workspace card.
 - **Auto-clean orphans**: Off / 30 / 60 / 90 days in the Sessions view. Orphan sessions (not the current session of any agent) untouched for that long are deleted — swept at boot, daily, and right after the setting changes. Default Off.
 
 ### Fixed
