@@ -88,6 +88,7 @@ export default function App() {
   const [formError, setFormError] = useState("");
   const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
+  const [tuiWorking, setTuiWorking] = useState([]);
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const draftAgentRef = useRef(null);
@@ -368,6 +369,23 @@ export default function App() {
   }, [loadWorkspaces]);
 
   useEffect(() => startPresence(), []);
+  useEffect(() => {
+    // The TUI has no event channel; poll tmux for pi's own Working state.
+    let stop = false;
+    async function poll() {
+      const ids = new Set(freeAgents.map((a) => a.id));
+      for (const w of workspaces) for (const a of w.agents || []) ids.add(a.id);
+      if (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId)) ids.add(selectedId);
+      if (!ids.size) return;
+      try {
+        const d = await api("/api/tui-working?ids=" + encodeURIComponent([...ids].join(",")));
+        if (!stop) setTuiWorking(d.working || []);
+      } catch { /* transient */ }
+    }
+    poll();
+    const t = setInterval(poll, 3000);
+    return () => { stop = true; clearInterval(t); };
+  }, [workspaces, freeAgents, selectedId]);
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
   }), []);
@@ -1346,6 +1364,7 @@ export default function App() {
         onRemoveAgent={removeAgent}
         freeAgents={freeAgents}
         workingId={(streaming || waiting) ? selectedId : null}
+        workingIds={tuiWorking}
         waitingId={waiting ? selectedId : null}
         termView={termView}
         terminals={terminals}
