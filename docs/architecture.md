@@ -213,7 +213,13 @@ HTTP API (Go 1.22 method patterns):
   it deletes only sessions no agent is bound to.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
-- `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell)
+- `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell).
+  The bridge sets `status off`, `allow-passthrough on` and extended keys on the
+  session, and deliberately does **not** set `mouse` — tmux owning the mouse put
+  copy-mode over every drag, and `web/src/lib/termWheel.js` synthesises the
+  wheel bytes itself. `web/src/lib/termClipboard.js` handles OSC 52 (write
+  only; the read form is refused) so a copy made in the pane reaches the system
+  clipboard. Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
 - `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). cwd is the live tmux pane path.
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,

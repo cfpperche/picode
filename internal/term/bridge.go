@@ -68,9 +68,20 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		}
 		defer ws.Close()
 
-		// xterm.js#426: the outer tty must be in mouse mode or the wheel
-		// becomes Up/Down (#1310) and never reaches the TUI.
-		_ = tm.SetOption(r.Context(), name, "mouse", "on")
+		// tmux does NOT take the mouse. It used to, so the wheel would reach the
+		// TUI as SGR (xterm.js#426/#1310) — but termWheel.js now synthesises
+		// those bytes itself when nothing is tracking the mouse, and forcing the
+		// option only bought tmux's copy-mode on every drag, which is the one
+		// thing a browser terminal should not put over a TUI. Verified on the
+		// owner's machine: with mouse off the wheel still scrolls. An
+		// application that wants the mouse still gets it — it enables tracking
+		// itself and tmux forwards that through.
+
+		// allow-passthrough defaults to off in tmux 3.3+, which silently drops
+		// the DCS envelope an application wraps OSC 52 in. Without it a copy
+		// made inside the pane never leaves tmux
+		// (docs/benchmarks/2026-08-30-web-terminal-clipboard.md).
+		_ = tm.SetOption(r.Context(), name, "allow-passthrough", "on")
 		// No tmux status line: it shows as a green bar under the TUI. This
 		// also heals sessions created before it was set at creation time.
 		_ = tm.SetOption(r.Context(), name, "status", "off")

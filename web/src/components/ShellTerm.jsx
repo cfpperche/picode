@@ -6,7 +6,9 @@ import { wireTermWheel } from "../lib/termWheel.js";
 import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wireTermLinks } from "../lib/termLinks.js";
+import { wireTermClipboard } from "../lib/termClipboard.js";
 import { api, wsURL } from "../lib/api.js";
+import { toast } from "../lib/toast.js";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
 
@@ -65,6 +67,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     };
     wireTermWheel(term, sendBytes, paneEl);
     wireTermKeys(term, sendBytes);
+    wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
     const sock = new WebSocket(wsURL("/ws/term?session=" + encodeURIComponent(session)));

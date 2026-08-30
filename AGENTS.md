@@ -48,6 +48,16 @@ moment of creation**. Read [README.md](README.md) and
    delete the branch. Leave `main` clean for the next session. A dirty
    shared tree that blocks another agent is FAIL.
 
+6. **Decisions are provisional.** Every ADR, "Refuse" table and architectural
+   constraint here records a choice that was right when it was made — not a
+   law. Never answer a request with "that is impossible" or "that is
+   structural" because a document says so. Name the decision, explain the trade
+   it made, say what changing it would cost, and **wait for the owner's
+   approval**. Routine implementation choices stay with the agent; anything
+   that alters a documented decision, or declares something permanently
+   refused, is the owner's call. A constraint nobody has re-measured is a
+   candidate for re-measuring, not a fact.
+
 ## Quality gates (before you say "done")
 
 ```bash

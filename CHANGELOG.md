@@ -11,6 +11,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Terminals no longer wear tmux's skin.** PiCode used to force tmux's own
+  mouse mode on every session, so dragging entered tmux copy-mode instead of
+  selecting text. It was there to keep the wheel working, and the wheel no
+  longer needs it — selecting with the mouse works again in terminals and in
+  agent TUIs. An app that wants the mouse (Claude Code does) still gets it, and
+  Shift still bypasses that, as in any terminal.
+
+### Added
+
+- Copying inside a PiCode terminal now reaches the system clipboard. A copy in
+  tmux's copy-mode, or one an app performs itself (`OSC 52`), lands where you
+  can paste it. Reading the clipboard from inside the terminal stays
+  unsupported on purpose.
+
 ### Added
 
 - **Workspace Sessions view** (`#/sessions/<id>`, folder icon in the sidebar): every Pi session under the workspace folder — size, age, messages, cost, provider/model, and whether it is an agent's current session. Actions: Open with… (switches a workspace agent to that session, no copy), Compact (in-use), Delete (orphans only, with confirm; in-use is blocked and says why).
