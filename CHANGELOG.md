@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- `picode install` and `picode deploy` refuse a binary built without the UI
+  inside, instead of handing the service one that shows "the UI has not been
+  built yet" in the browser. `make build` produces the right binary; a plain
+  `go build` does not (ADR-0023).
+
+### Fixed
+
 - An agent whose folder is a *subfolder* of the repository now shows on the git
   graph. It never did: the repository was resolved one level too high for any
   directory below the top, so the agent was quietly left off the branch it was
