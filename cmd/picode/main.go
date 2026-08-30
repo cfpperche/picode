@@ -42,6 +42,7 @@ import (
 	"github.com/cfpperche/picode/internal/tlsutil"
 	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/version"
+	"github.com/cfpperche/picode/internal/web"
 )
 
 func main() {
@@ -120,7 +121,25 @@ HTTPS is served with data-dir certs (mkcert via scripts/setup-cert.sh)
 or a generated self-signed certificate. Discovery: <data>/server.json.`)
 }
 
+// shippable refuses to hand the service a binary with no UI inside. A disk
+// build (ADR-0023) reads the UI from `internal/web/public` relative to its
+// working directory, so installing one leaves the browser on "the UI has not
+// been built yet" — or, worse, appears to work for as long as the process
+// happens to run from the repository, and breaks the next time that directory
+// is rebuilt. This is not checked inside install.Deploy: `picode update`
+// deploys a *downloaded* release, and asking whether *this* binary embeds the
+// UI would be the wrong question there.
+func shippable(cmd string) {
+	if web.Embedded() {
+		return
+	}
+	log.Fatalf("%s: this binary has no UI embedded.\n"+
+		"Build one with `make build` (which passes -tags embedui); a plain "+
+		"`go build` produces a binary that reads the UI from disk.", cmd)
+}
+
 func runInstall() {
+	shippable("install")
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("install: %v", err)
@@ -139,6 +158,7 @@ func runInstall() {
 }
 
 func runDeploy() {
+	shippable("deploy")
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("deploy: %v", err)

@@ -13,13 +13,17 @@ ui: ## Vite HMR on :5173 (proxies /api and /ws to https://localhost:8445)
 	cd web && npm run dev
 
 # npm ci wipes and reinstalls, so it is gated on the lockfile rather than run
-# by every target that needs node_modules. Without this, `make ci` paid for two
-# full installs: one to test the frontend, one to build it.
-web/node_modules: web/package-lock.json
-	cd web && npm ci
-	@touch web/node_modules
+# by every target that needs node_modules. The stamp is the manifest npm writes
+# on a successful install, not the directory: an empty node_modules with a
+# fresh timestamp satisfies make and then the build dies on `vite: not found`,
+# which is exactly what happened once.
+NODE_STAMP := web/node_modules/.package-lock.json
 
-web: web/node_modules ## Build the React UI into internal/web/public (ADR-0008)
+$(NODE_STAMP): web/package-lock.json
+	cd web && npm ci
+	@touch $(NODE_STAMP)
+
+web: $(NODE_STAMP) ## Build the React UI into internal/web/public (ADR-0008)
 	cd web && npm run build
 
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
@@ -43,7 +47,7 @@ restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 test: ## Run all Go tests
 	go test ./...
 
-test-js: web/node_modules ## Run the frontend unit tests
+test-js: $(NODE_STAMP) ## Run the frontend unit tests
 	cd web && npm test
 
 # Both targets walk the package directories `go list` reports, not the tree.
