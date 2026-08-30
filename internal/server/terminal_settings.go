@@ -77,17 +77,39 @@ func applyTermOptions(ctx context.Context, deps Deps, session string, opts map[s
 	}
 }
 
-// applyTermOptionsEverywhere re-resolves every live PiCode session. Used after
-// a global change: each session gets its OWN resolution, so a terminal that
-// pins a field keeps its value while the rest follow. Blanket-applying the new
-// global instead would silently overwrite exactly the overrides the panel just
-// promised to respect.
+// ownSessions is every session name this instance is responsible for, derived
+// from the store: one per terminal, one per agent.
+//
+// NOT from `tmux list-sessions`. That answers for the whole machine — every
+// session carrying the prefix, whoever created it. Applying a global change to
+// that list writes into sessions this instance has never heard of, which is
+// not a hypothetical: a single `go test` against a throwaway database in /tmp
+// flipped `mouse` on the developer's own running terminals, because they wore
+// the same prefix. The store is the only honest answer to "mine".
+func ownSessions(deps Deps) []string {
+	var out []string
+	if list, err := deps.Store.ListTerminals(); err == nil {
+		for _, t := range list {
+			out = append(out, tmux.ShellSessionName(t.ID))
+		}
+	}
+	// Agents have no per-terminal overrides, but their TUI runs in a session
+	// that takes the same global defaults, so a change has to reach it too.
+	if agents, err := deps.Store.ListAllAgents(); err == nil {
+		for _, a := range agents {
+			out = append(out, tmux.SessionName(a.ID))
+		}
+	}
+	return out
+}
+
+// applyTermOptionsEverywhere re-resolves every session this instance owns.
+// Used after a global change: each session gets its OWN resolution, so a
+// terminal that pins a field keeps its value while the rest follow.
+// Blanket-applying the new global instead would silently overwrite exactly the
+// overrides the panel just promised to respect.
 func applyTermOptionsEverywhere(ctx context.Context, deps Deps) {
 	if deps.Tmux == nil || !deps.Tmux.Available() {
-		return
-	}
-	sessions, err := deps.Tmux.ListSessions(ctx)
-	if err != nil {
 		return
 	}
 	global, err := deps.Store.TerminalSettings(termopts.GlobalScope)
@@ -95,8 +117,13 @@ func applyTermOptionsEverywhere(ctx context.Context, deps Deps) {
 		return
 	}
 	scopeOf := scopeBySession(deps)
-	for _, s := range sessions {
-		applyTermOptions(ctx, deps, s.Name, termOptionsFor(deps, global, scopeOf, s.Name))
+	for _, name := range ownSessions(deps) {
+		// A record whose session is not running is skipped rather than
+		// created: settings are not a reason to start a terminal.
+		if live, err := deps.Tmux.HasSession(ctx, name); err != nil || !live {
+			continue
+		}
+		applyTermOptions(ctx, deps, name, termOptionsFor(deps, global, scopeOf, name))
 	}
 }
 

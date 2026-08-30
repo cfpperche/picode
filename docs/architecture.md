@@ -235,7 +235,10 @@ HTTP API (Go 1.22 method patterns):
   offered tmux options and the layering rule (defaults ← global ← overrides).
   A PATCH stores and applies live: a terminal patch touches that session, a
   global patch re-resolves **every** owned session individually, so an override
-  is never overwritten by the pass that updates everyone else. `null` clears a
+  is never overwritten by the pass that updates everyone else. "Owned" comes
+  from the store — the terminals and agents this instance has records for —
+  never from `tmux list-sessions`, which answers for the whole machine and
+  would let one instance write into another's sessions. `null` clears a
   field — storing the inherited value instead would pin it. Unknown keys and
   values are refused (400) rather than dropped. Today the registry holds one
   flag, `mouse`; it grows from real parity gaps, not from what tmux offers.
