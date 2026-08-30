@@ -202,6 +202,13 @@ HTTP API (Go 1.22 method patterns):
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell)
 - `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). cwd is the live tmux pane path.
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
+- `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
+  refs and worktrees of whatever repository that owner's cwd belongs to, plus
+  the agents living in each worktree (`?limit=`, default 250). One graph per
+  repository: the identity is `git rev-parse --git-common-dir`, so every
+  worktree answers with the same key and collapses onto one tab. The route
+  carries the *owner* because the owner is what authorises the read — the
+  server never resolves a repository from a path in the URL (ADR-0022).
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,

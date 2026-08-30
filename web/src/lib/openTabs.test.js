@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted } from "./openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -40,4 +40,28 @@ test("term view roundtrip and dedupe", () => {
   assert.deepEqual(readTermWanted(), ["a", "b"]);
   writeTermWanted([]);
   assert.deepEqual(readTermWanted(), []);
+});
+
+test("git owners survive a round trip and reject junk", () => {
+  const store = {};
+  globalThis.localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+  };
+
+  writeGitOwners({ "g:/r/.git": { kind: "agent", id: "opus", name: "Opus" } });
+  assert.deepEqual(readGitOwners(), { "g:/r/.git": { kind: "agent", id: "opus", name: "Opus" } });
+
+  // An unknown kind falls back to agent; an entry with no id is dropped.
+  store["picode-git-owners"] = JSON.stringify({
+    "g:/a": { kind: "wat", id: "x" },
+    "g:/b": { kind: "term", id: "" },
+    "g:/c": "not-an-object",
+  });
+  assert.deepEqual(readGitOwners(), { "g:/a": { kind: "agent", id: "x", name: "" } });
+
+  store["picode-git-owners"] = "{ broken";
+  assert.deepEqual(readGitOwners(), {});
+  store["picode-git-owners"] = JSON.stringify([1, 2]);
+  assert.deepEqual(readGitOwners(), {});
 });

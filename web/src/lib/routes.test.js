@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -45,4 +45,34 @@ test("file tabs encode path in the hash and the tab id", () => {
   assert.deepEqual(fileRoute("#/file/t/term-abc/web%2Fsrc%2Fa.js"), { kind: "term", id: "term-abc", path: "web/src/a.js" });
   assert.equal(parseRoute("#/file/t/term-abc/web%2Fsrc%2Fa.js"), "workspace");
   assert.equal(isFileTab("t:term-abc"), false);
+});
+
+test("the git hash names the owner, the tab id names the repository", () => {
+  // ADR-0022: two agents in two worktrees of one repo ask by different hashes
+  // and land on the same tab.
+  assert.equal(parseRoute("#/git/a/opus"), "workspace");
+  assert.deepEqual(gitRoute("#/git/a/opus"), { kind: "agent", id: "opus" });
+  assert.deepEqual(gitRoute("#/git/t/sh1"), { kind: "term", id: "sh1" });
+  assert.equal(gitRoute("#/agent/opus"), null);
+  assert.equal(gitRoute("#/git/x/opus"), null);
+
+  assert.equal(gitHash("agent", "opus"), "#/git/a/opus");
+  assert.equal(gitHash("term", "sh1"), "#/git/t/sh1");
+  assert.deepEqual(gitRoute(gitHash("agent", "a/b")), { kind: "agent", id: "a/b" });
+
+  const key = "/home/goat/picode/.git";
+  assert.equal(gitTabId(key), "g:" + key);
+  assert.ok(isGitTab(gitTabId(key)));
+  assert.equal(gitTabKey(gitTabId(key)), key);
+  assert.equal(gitTabId(""), "");
+  assert.ok(!isGitTab("a:opus"));
+  assert.ok(!isGitTab(""));
+  assert.equal(gitTabKey("t:sh1"), "");
+});
+
+test("git tabs are distinct from file and terminal tabs", () => {
+  const git = gitTabId("/repo/.git");
+  assert.ok(!isFileTab(git) && !isTermTab(git));
+  assert.ok(!isGitTab(fileTabId("agent", "opus", "a.js")));
+  assert.ok(!isGitTab(termTabId("sh1")));
 });

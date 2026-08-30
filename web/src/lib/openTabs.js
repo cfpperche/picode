@@ -53,3 +53,33 @@ export function writeTermWanted(ids) {
   const clean = [...new Set((ids || []).map((x) => String(x || "")).filter(Boolean))];
   localStorage.setItem(TERM_KEY, JSON.stringify(clean));
 }
+
+const GIT_KEY = "picode-git-owners";
+
+// A git tab is identified by its repository (ADR-0022), but a reload has to
+// re-fetch it through an owner that authorises the read. This remembers which
+// owner opened each graph tab so the tab can come back.
+export function readGitOwners() {
+  try {
+    const j = JSON.parse(localStorage.getItem(GIT_KEY) || "{}");
+    if (!j || typeof j !== "object" || Array.isArray(j)) return {};
+    const out = {};
+    for (const [tab, owner] of Object.entries(j)) {
+      if (!owner || typeof owner !== "object") continue;
+      const kind = owner.kind === "term" ? "term" : "agent";
+      const id = String(owner.id || "");
+      if (id) out[tab] = { kind, id, name: String(owner.name || "") };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function writeGitOwners(map) {
+  try {
+    localStorage.setItem(GIT_KEY, JSON.stringify(map || {}));
+  } catch {
+    /* private mode, quota — the tab simply will not survive a reload */
+  }
+}

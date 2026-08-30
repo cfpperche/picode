@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Git graph.** The repository icon beside an agent or a terminal in the
+  sidebar opens the commit history as a tab: branches, merges, tags, and the
+  agents living in each worktree shown on the branch they are on. One graph per
+  repository, so two agents working in two worktrees of the same repo share a
+  single tab. Read-only — nothing in it changes the repository (ADR-0022).
+
 ### Fixed
 
 - Reload lands back in Terminal when the agent was being viewed in the terminal (view mode persists per agent).
