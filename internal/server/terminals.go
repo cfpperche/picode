@@ -272,8 +272,9 @@ func ensureShell(deps Deps, r *http.Request, name, cwd string) error {
 		}
 	}
 	_ = deps.Tmux.SetOption(r.Context(), name, "status", "off")
-	// No "mouse on" here either: it put tmux's copy-mode over every drag and
-	// the wheel no longer depends on it (see internal/term/bridge.go).
+	// mouse on is the default a terminal is created with; ADR-0024 makes it
+	// overridable per terminal (see internal/term/bridge.go for why).
+	_ = deps.Tmux.SetOption(r.Context(), name, "mouse", "on")
 	_ = deps.Tmux.SetOption(r.Context(), name, "allow-passthrough", "on")
 	_ = deps.Tmux.SetEnv(r.Context(), name, "TERM", "xterm-256color")
 	_ = deps.Tmux.SetEnv(r.Context(), name, "COLORTERM", "truecolor")

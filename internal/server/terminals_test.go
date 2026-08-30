@@ -185,13 +185,13 @@ func TestTerminalLiveCwd(t *testing.T) {
 	}
 }
 
-// PiCode used to force tmux's own mouse mode on every session so the wheel
-// would reach the TUI. termWheel.js synthesises those bytes now, and the
-// option's only remaining effect was putting tmux's copy-mode over every drag
-// — the browser terminal stopped being able to select text. This pins that it
-// stays off, and that passthrough (which carries OSC 52 out of the pane) stays
-// on. Both are set per session, so a regression here is silent.
-func TestTerminalSessionLeavesTheMouseAloneAndPassesThrough(t *testing.T) {
+// A terminal is created with tmux owning the mouse (ADR-0024). That default
+// was removed on 2026-08-30 to recover native text selection, which broke the
+// wheel in Pi's TUI — it does not enable mouse tracking itself, so nothing was
+// left to scroll it. Passthrough stays on alongside it: it is what carries
+// OSC 52 out of the pane, and it is what keeps copying possible now that a
+// drag belongs to tmux. Both are set per session, so a regression is silent.
+func TestTerminalSessionTakesTheMouseAndPassesThrough(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
@@ -208,8 +208,8 @@ func TestTerminalSessionLeavesTheMouseAloneAndPassesThrough(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), sess) })
 
-	if got := tmuxOption(t, sess, "mouse"); got == "on" {
-		t.Fatalf("tmux must not own the mouse: mouse=%q", got)
+	if got := tmuxOption(t, sess, "mouse"); got != "on" {
+		t.Fatalf("mouse=%q, want on — without it the wheel dies in a TUI that does not track the mouse", got)
 	}
 	if got := tmuxOption(t, sess, "allow-passthrough"); got != "on" {
 		t.Fatalf("allow-passthrough=%q, want on — OSC 52 cannot leave the pane without it", got)

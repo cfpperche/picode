@@ -68,14 +68,15 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		}
 		defer ws.Close()
 
-		// tmux does NOT take the mouse. It used to, so the wheel would reach the
-		// TUI as SGR (xterm.js#426/#1310) — but termWheel.js now synthesises
-		// those bytes itself when nothing is tracking the mouse, and forcing the
-		// option only bought tmux's copy-mode on every drag, which is the one
-		// thing a browser terminal should not put over a TUI. Verified on the
-		// owner's machine: with mouse off the wheel still scrolls. An
-		// application that wants the mouse still gets it — it enables tracking
-		// itself and tmux forwards that through.
+		// tmux takes the mouse. Turning this off (2026-08-30, to get native
+		// text selection back) broke the wheel in Pi's TUI while leaving Claude
+		// Code's untouched: Claude Code enables mouse tracking itself, Pi does
+		// not, and termWheel.js's synthesised bytes were not enough to cover
+		// the difference. One constant cannot serve both TUIs, so the default
+		// goes back to the one that scrolls everywhere and ADR-0024 makes it
+		// overridable per terminal. Copying still leaves the pane: a copy-mode
+		// drag emits OSC 52, which web/src/lib/termClipboard.js now handles.
+		_ = tm.SetOption(r.Context(), name, "mouse", "on")
 
 		// allow-passthrough defaults to off in tmux 3.3+, which silently drops
 		// the DCS envelope an application wraps OSC 52 in. Without it a copy

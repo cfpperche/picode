@@ -100,10 +100,23 @@ Recorded as choices, not closed doors.
 
 ## Open questions
 
-- Whether changing `mouse` on a session that already has an attached xterm.js
-  reaches the browser, or whether the client has to be told. The tmux manual
-  does not say, and this has not been tested. It decides whether the PATCH is
-  enough on its own.
+- ~~Whether changing `mouse` on a session that already has an attached xterm.js
+  reaches the browser.~~ **Measured 2026-08-30: it does — a PATCH is enough.**
+  With a client attached and the option flipped from outside, the same wheel
+  bytes that did nothing before the flip put the pane in copy-mode after it,
+  with no reattach. The chain, end to end:
+
+  | Step | Measured |
+  |---|---|
+  | `mouse on` | tmux sends `?1006h ?1000h ?1002h` to the outer terminal |
+  | xterm.js | sees tracking on, sends SGR natively; `termWheel.js` stands down |
+  | tmux | the app is not tracking, so tmux takes the wheel → scrolls |
+  | drag-release | `OSC 52 ; ; <base64>` reaches the client (`set-clipboard external`) |
+  | `termClipboard.js` | selection `''` is in `HONOURED`, so the copy lands |
+
+  The cost is the known one: while tracking is on, a drag belongs to the
+  application, so native browser selection needs Shift. That is the trade the
+  per-terminal override exists to let a user make.
 - Which flags beyond `mouse` earn a place. `history-limit` and `escape-time`
   are plausible; none has been asked for. The list should grow from real parity
   gaps rather than from what tmux happens to offer.

@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **The wheel scrolls again in a TUI that does not track the mouse** (Pi's).
+  Terminal sessions get `mouse on` back, the default that was removed on
+  2026-08-30 to recover native text selection — it took Pi's scrollback with
+  it, while Claude Code was unaffected because it enables mouse tracking
+  itself. Copying still leaves the pane: a copy-mode drag emits OSC 52, which
+  the browser terminal now handles. Per-terminal opt-out lands with ADR-0024.
+
 ### Added
 
 - **Pi update card in System**: installed → latest with a Copy command (`pi update --self`) and **Update now**, which runs the self-update and reports the new version (running agents keep the old one until restarted). The registry check rides on GET /api/system with a 6 h cache.
