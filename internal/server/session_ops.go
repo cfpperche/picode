@@ -21,6 +21,10 @@ func registerSessionOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/clone", handleAgentClone(deps))
 	mux.HandleFunc("GET /api/pi-sessions", handleListPiSessions(deps))
 	mux.HandleFunc("POST /api/pi-sessions/adopt", handleAdoptPiSession(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/sessions/manage", handleManageSessions(deps))
+	mux.HandleFunc("DELETE /api/workspaces/{id}/sessions/manage", handleDeleteManagedSession(deps))
+	mux.HandleFunc("GET /api/session-cleanup", handleCleanupSetting(deps))
+	mux.HandleFunc("PUT /api/session-cleanup", handleCleanupSetting(deps))
 }
 
 func handleAgentTree(deps Deps) http.HandlerFunc {

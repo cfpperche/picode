@@ -23,6 +23,7 @@ type Summary struct {
 	UpdatedAt string  `json:"updatedAt"`
 	Preview   string  `json:"preview,omitempty"`
 	Messages  int     `json:"messages"`
+	Size      int64   `json:"size"`
 	Cost      float64 `json:"cost"`
 	Provider  string  `json:"provider,omitempty"`
 	Model     string  `json:"model,omitempty"`
@@ -122,9 +123,18 @@ func ListRoot(root string) ([]Summary, error) {
 	return out, nil
 }
 
+// ListDir summaries every JSONL directly inside dir, newest first.
+func ListDir(dir string) ([]Summary, error) {
+	return listDir(dir)
+}
+
 func listDir(dir string) ([]Summary, error) {
 	ents, err := os.ReadDir(dir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// A workspace that never chatted has no sessions dir yet.
+			return []Summary{}, nil
+		}
 		return nil, err
 	}
 	var out []Summary
@@ -205,6 +215,7 @@ func Summarize(path string) (Summary, error) {
 	s := Summary{
 		Path:      path,
 		UpdatedAt: st.ModTime().UTC().Format(time.RFC3339),
+		Size:      st.Size(),
 	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)

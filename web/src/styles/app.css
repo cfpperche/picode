@@ -382,6 +382,43 @@ body {
 .dlg-changelog { max-width: 560px; }
 .dlg-llama { max-width: 560px; max-height: min(80vh, 720px); overflow: auto; }
 .dlg-llama .settings-section { padding: 0; margin: 12px 0 0; }
+.sessions-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin: 4px 0 12px;
+}
+.sessions-total { color: var(--text-secondary); font-size: 12.5px; line-height: 36px; }
+.sessions-actions { display: flex; align-items: center; gap: 10px; }
+.sessions-cleanup {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-h);
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.sessions-cleanup select {
+  height: var(--ctl-h, 30px); padding: 0 6px;
+  font: inherit; font-size: 12.5px;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.sessions-list { gap: 6px; }
+.sess-row { flex-wrap: wrap; row-gap: 6px; }
+.sess-name { font-family: var(--mono); font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
+.sess-badge {
+  flex: none; font-size: 10.5px; padding: 1px 7px; border-radius: 99px;
+  border: 1px solid var(--border); color: var(--text-secondary);
+}
+.sess-badge.in-use { border-color: transparent; background: var(--bg-hover); color: var(--text-primary); }
+.sess-meta { font-size: 11px; color: var(--text-secondary); }
+.sess-facts {
+  display: flex; gap: 10px; flex: none;
+  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
+}
+.sess-row .mcp-row-main { flex: 1; }
+.sessions-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.sessions-pick span { font-size: 12.5px; color: var(--text-secondary); }
+.sessions-pick select {
+  height: var(--ctl-h, 30px); padding: 0 6px; font: inherit;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px;
+}
 .dlg-llama .form-new { padding: 0; }
 .share-link {
   display: flex; align-items: center; gap: 8px; margin: 10px 0 0;

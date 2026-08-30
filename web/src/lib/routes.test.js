@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
+import { parseRoute, ROUTES, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -75,4 +75,13 @@ test("git tabs are distinct from file and terminal tabs", () => {
   assert.ok(!isFileTab(git) && !isTermTab(git));
   assert.ok(!isGitTab(fileTabId("agent", "opus", "a.js")));
   assert.ok(!isGitTab(termTabId("sh1")));
+});
+
+test("sessions route parses workspace id", () => {
+  assert.equal(parseRoute("#/sessions/ws-9"), "sessions");
+  assert.equal(sessionsRoute("#/sessions/ws-9"), "ws-9");
+  assert.equal(sessionsRoute("#/agent/opus"), null);
+  assert.equal(sessionsHash("ws-9"), "#/sessions/ws-9");
+  assert.equal(sessionsHash(""), "#/");
+  assert.equal(parseRoute("#/sessions/"), "sessions");
 });

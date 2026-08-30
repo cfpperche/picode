@@ -202,6 +202,15 @@ HTTP API (Go 1.22 method patterns):
   preview for the delete dialog (session count, last occupant, owned work folder).
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
+- `GET /api/workspaces/{id}/sessions/manage` — every Pi session under the
+  folder (`session.ListDir`), each with size/age/messages/cost and
+  `inUseBy` (the agent whose current session it is); `cleanupDays` and
+  `totalBytes` ride along. `DELETE` on the same path removes one orphan
+  (in-use → 409). Powers the `#/sessions/<id>` view (sidebar folder icon):
+  Open with… reuses the resume endpoint, Compact reuses the agent compact.
+- `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
+  (0 = off, default). Sweep runs at boot, daily, and after each change;
+  it deletes only sessions no agent is bound to.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell)
