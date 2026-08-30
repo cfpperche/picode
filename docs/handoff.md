@@ -47,14 +47,22 @@ What exists:
 
 ## In flight
 
-**ADR-0024 — terminal settings.** Decision accepted, no code yet. Behaviour
-(tmux) moves to the store with a global row and per-terminal overrides holding
-only what differs; appearance (xterm.js) stays per browser. Live inheritance,
-so a global change reaches every terminal that has not overridden the field.
-User-defined presets stamp values and record their origin, with Reapply to
-propagate on request — nobody is changed silently and deleting a preset breaks
-nothing. `mouse` returns to on by default, off per terminal, which restores
-Pi's wheel without giving back the copy-mode skin everywhere.
+**ADR-0024 — terminal settings. Step 0 shipped; the panel is not built.**
+`mouse on` is the default again at both call sites (`internal/term/bridge.go`,
+`ensureShell`), which is what restores the wheel in Pi's TUI. The test that
+pinned it off now pins it on, and it was checked failing without the change.
+
+The ADR's first open question is answered, measured rather than assumed:
+flipping `mouse` on a session that already has an attached client takes effect
+immediately, so a PATCH will be enough — no reattach, no telling the browser.
+The full chain is in the ADR. The one cost is real and known: while tracking
+is on, a drag belongs to the application, so native selection needs Shift, and
+a copy-mode drag reaches the clipboard as `OSC 52 ; ; <base64>` instead.
+
+Still to build: the store rows (global + per-terminal overrides), the PATCH
+endpoints, presets, and the two gears in the Terminals list. Nothing beyond
+`mouse` is exposed yet — the ADR says the flag list grows from real parity
+gaps, and `mouse` is the only one so far.
 
 **ADR-0022 — git graph. G1 (data), G2 (the graph) and G3 (commit diff) are
 built and visually verified. The ADR is delivered.**
