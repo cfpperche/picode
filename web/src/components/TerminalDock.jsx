@@ -167,14 +167,3 @@ export default function TerminalDock({
     </section>
   );
 }
-
-export function closeTerm(id) {
-  const t = terms.get(id);
-  if (!t) return;
-  t.closedByUser = true;
-  if (t.unwireLinks) try { t.unwireLinks(); } catch { /* ignore */ }
-  try { t.sock.close(); } catch { /* ignore */ }
-  t.term.dispose();
-  t.paneEl.remove();
-  terms.delete(id);
-}

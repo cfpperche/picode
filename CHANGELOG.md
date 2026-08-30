@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- The agent's Pi TUI now renders through the same terminal surface as first-class terminals (one xterm.js engine, same padding, scrollbar, and fit) instead of the old dock wrapper; in managed mode the view shows a one-line hint with an Open TUI action.
 - After /compact, reloading no longer resurrects pre-compaction history: the transcript window now starts at the last compaction boundary (exactly what pi replays), and the summary renders as a collapsible "Session compacted" card instead of a giant message.
 - The "run /compact" hint no longer nags a session that was already compacted; it now says plainly that the file stays large on disk (cold boots stay slow until pi loads sessions lazily).
 - /compact shows a live "Compacting m:ss" segment with spinner in the composer statusbar — it survives the TUI→managed switch, page reloads (persisted per agent), and closes on the server answer or `compaction_end`.

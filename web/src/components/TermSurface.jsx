@@ -1,7 +1,7 @@
 import ShellTerm from "./ShellTerm.jsx";
 import { bumpTermFontSize } from "../lib/termTheme.js";
 
-export default function TermSurface({ term, error, hidden, onOpenFile }) {
+export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }) {
   if (!term && !error) return null;
   function onKey(e) {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
@@ -17,7 +17,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile }) {
           <a href="#/system">Open System</a>
         </p>
       ) : (
-        <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} onOpenFile={onOpenFile} />
+        <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
       )}
     </section>
   );

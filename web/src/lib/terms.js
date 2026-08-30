@@ -14,3 +14,15 @@ export function parkTerm(el) {
   }
   if (el.parentElement !== box) box.appendChild(el);
 }
+
+// Dispose a live attach: close the socket, drop the xterm instance.
+export function closeTerm(id) {
+  const t = terms.get(id);
+  if (!t) return;
+  t.closedByUser = true;
+  if (t.unwireLinks) try { t.unwireLinks(); } catch { /* ignore */ }
+  try { t.sock.close(); } catch { /* ignore */ }
+  t.term.dispose();
+  t.paneEl.remove();
+  terms.delete(id);
+}

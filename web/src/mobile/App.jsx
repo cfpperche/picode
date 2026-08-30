@@ -11,7 +11,7 @@ import Conversation from "../components/Conversation.jsx";
 import Composer from "../components/Composer.jsx";
 import { bashLine } from "../lib/bashLine.js";
 import TerminalDock from "../components/TerminalDock.jsx";
-import { closeTerm } from "../components/TerminalDock.jsx";
+import { closeTerm } from "../lib/terms.js";
 import ShareDrawer from "../components/ShareDrawer.jsx";
 import InstallButton from "../components/InstallButton.jsx";
 import Devices from "../components/Devices.jsx";
