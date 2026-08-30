@@ -46,6 +46,10 @@ type graphView struct {
 	More      bool              `json:"more"`
 }
 
+// gitKeyOf resolves a directory to its repository. A var so a test can count
+// how often it runs — which is the whole point of the memo below.
+var gitKeyOf = gitgraph.Key
+
 func registerGitGraphRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/git", handleAgentGraph(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git", handleTerminalGraph(deps))
@@ -140,6 +144,11 @@ func (deps Deps) occupantsByWorktree(g *gitgraph.Graph) map[string][]occupant {
 
 	out := map[string][]occupant{}
 	wsCache := map[string]store.Workspace{}
+	// Resolving a directory to its repository spawns git, ~23ms measured, and
+	// agents commonly share a directory. Remembered for this request only: a
+	// folder cannot change repository inside one graph load, and remembering
+	// longer would mean answering from a stale note after someone moves one.
+	keyOf := map[string]string{}
 	for _, a := range agents {
 		wk, ok := wsCache[a.WorkspaceID]
 		if !ok {
@@ -157,8 +166,15 @@ func (deps Deps) occupantsByWorktree(g *gitgraph.Graph) map[string][]occupant {
 		if root == "" {
 			continue
 		}
-		if !exact && gitgraph.Key(cwd) != g.Key {
-			continue // a different repository nested inside this checkout
+		if !exact {
+			key, seen := keyOf[cwd]
+			if !seen {
+				key = gitKeyOf(cwd)
+				keyOf[cwd] = key
+			}
+			if key != g.Key {
+				continue // a different repository nested inside this checkout
+			}
 		}
 		out[root] = append(out[root], occupant{ID: a.ID, Name: a.Name})
 	}
