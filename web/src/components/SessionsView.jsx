@@ -191,9 +191,9 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
       <div className="sessions-toolbar" data-align-row>
         <span className="sessions-total">{all ? "All folders · " : ""}{sessions.length} {sessions.length === 1 ? "session" : "sessions"} · {fmtBytes(total)} on disk</span>
         <div className="sessions-actions" data-align-row>
-          <a className="sessions-scope-link" href={all ? "#/" : "#/sessions"} title={all ? "Back to agents" : "Every Pi session on this machine, grouped by folder"}>
-            {all ? "Back to agents" : "All folders →"}
-          </a>
+          {!all ? (
+            <a className="sessions-scope-link" href="#/sessions" title="Every Pi session on this machine, grouped by folder">All folders →</a>
+          ) : null}
           <label className="sessions-cleanup" title="Orphan sessions (not the current session of any agent) are deleted after this many days.">
             Auto-clean orphans
             <select
