@@ -45,7 +45,13 @@ var upgrader = websocket.Upgrader{
 }
 
 // Bridge returns the /ws/term handler. Query: ?session=<tmux session name>.
-func Bridge(tm *tmux.Manager) http.Handler {
+//
+// resolve supplies the tmux options this session should be running with, and
+// is applied on every attach — so a setting changed while nobody was looking
+// takes hold the next time the terminal is opened, and a session that predates
+// the setting heals itself rather than staying odd forever. A nil resolve
+// means PiCode manages no options.
+func Bridge(tm *tmux.Manager, resolve func(session string) map[string]string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("session")
 		if !tmux.OwnedSessionName(name) {
@@ -68,15 +74,18 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		}
 		defer ws.Close()
 
-		// tmux takes the mouse. Turning this off (2026-08-30, to get native
-		// text selection back) broke the wheel in Pi's TUI while leaving Claude
-		// Code's untouched: Claude Code enables mouse tracking itself, Pi does
-		// not, and termWheel.js's synthesised bytes were not enough to cover
-		// the difference. One constant cannot serve both TUIs, so the default
-		// goes back to the one that scrolls everywhere and ADR-0024 makes it
-		// overridable per terminal. Copying still leaves the pane: a copy-mode
-		// drag emits OSC 52, which web/src/lib/termClipboard.js now handles.
-		_ = tm.SetOption(r.Context(), name, "mouse", "on")
+		// The user's options (today: `mouse`). `mouse on` is the default and
+		// the reason the wheel works at all in a TUI that ignores the mouse —
+		// Pi's. Turning it off on 2026-08-30 to recover native text selection
+		// broke exactly that, while leaving Claude Code untouched because it
+		// enables mouse tracking itself. One constant could not serve both, so
+		// it became a setting (ADR-0024). Copying still leaves the pane either
+		// way: a copy-mode drag emits OSC 52, which termClipboard.js handles.
+		if resolve != nil {
+			for key, value := range resolve(name) {
+				_ = tm.SetOption(r.Context(), name, key, value)
+			}
+		}
 
 		// allow-passthrough defaults to off in tmux 3.3+, which silently drops
 		// the DCS envelope an application wraps OSC 52 in. Without it a copy

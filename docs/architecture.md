@@ -98,7 +98,7 @@ stay on their own routes.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste.
+The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear beside **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
@@ -221,12 +221,25 @@ HTTP API (Go 1.22 method patterns):
   `POST /api/system/pi-update` runs `pi update --self`.
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell).
   The bridge sets `status off`, `allow-passthrough on` and extended keys on the
-  session, and deliberately does **not** set `mouse` — tmux owning the mouse put
-  copy-mode over every drag, and `web/src/lib/termWheel.js` synthesises the
-  wheel bytes itself. `web/src/lib/termClipboard.js` handles OSC 52 (write
-  only; the read form is refused) so a copy made in the pane reaches the system
-  clipboard. Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
+  session, then applies the session's **resolved** tmux options (ADR-0024) — on
+  every attach, so a setting changed while the terminal was closed takes hold
+  when it is reopened and an older session heals itself.
+  `web/src/lib/termClipboard.js` handles OSC 52 (write only; the read form is
+  refused) so a copy made in the pane reaches the system clipboard — which is
+  what keeps copying possible now that `mouse on` gives the drag to tmux.
+  Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
 - `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). cwd is the live tmux pane path.
+- `GET/PATCH /api/terminals/settings` · `GET/PATCH /api/terminals/{id}/settings`
+  — terminal **behaviour** (ADR-0024). One global row plus a row per terminal
+  holding only the fields that differ; `internal/termopts` is the registry of
+  offered tmux options and the layering rule (defaults ← global ← overrides).
+  A PATCH stores and applies live: a terminal patch touches that session, a
+  global patch re-resolves **every** owned session individually, so an override
+  is never overwritten by the pass that updates everyone else. `null` clears a
+  field — storing the inherited value instead would pin it. Unknown keys and
+  values are refused (400) rather than dropped. Today the registry holds one
+  flag, `mouse`; it grows from real parity gaps, not from what tmux offers.
+  Appearance (font, colours, cursor) stays in `localStorage`, per browser.
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
