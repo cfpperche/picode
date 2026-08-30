@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { terms, parkTerm } from "../lib/terms.js";
+import { terms, parkTerm, closeTerm } from "../lib/terms.js";
 import { wireTermWheel } from "../lib/termWheel.js";
 import { wireTermKeys, termDataFilter } from "../lib/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "../lib/termFit.js";
 import { wireTermLinks } from "../lib/termLinks.js";
 import { api, wsURL } from "../lib/api.js";
-import { closeTerm } from "./TerminalDock.jsx";
 import { xtermOptions, applyXtermOptions } from "../lib/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
 
@@ -19,7 +18,7 @@ export function closeShellTerm(agentId) {
   closeTerm(shellKey(agentId));
 }
 
-export default function ShellTerm({ agentId, session, active, cwd, onOpenFile }) {
+export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOpenFile }) {
   const hostRef = useRef(null);
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
@@ -32,7 +31,8 @@ export default function ShellTerm({ agentId, session, active, cwd, onOpenFile })
     const onFile = (p) => { if (fileRef.current) fileRef.current(p); };
     const liveCwd = async () => {
       try {
-        const page = await api("/api/terminals/" + encodeURIComponent(agentId) + "/cwd");
+        const base = cwdKind === "agent" ? "/api/agents/" : "/api/terminals/";
+        const page = await api(base + encodeURIComponent(agentId) + "/cwd");
         if (page && page.cwd) cwdRef.current = page.cwd;
       } catch { /* keep cache */ }
       return cwdRef.current;

@@ -3,7 +3,7 @@ import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { applyTermChrome } from "../lib/termTheme.js";
-import { closeTerm } from "../components/TerminalDock.jsx";
+import { closeTerm } from "../lib/terms.js";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -15,7 +15,6 @@ import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
 import FileSurface from "../components/FileSurface.jsx";
-import TerminalDock from "../components/TerminalDock.jsx";
 import Settings from "../components/Settings.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import System from "../components/System.jsx";
@@ -573,7 +572,7 @@ export default function App() {
     const ws = workspaces.find((w) => w.id === id);
     setTabs((t) => t.filter((x) => x !== id));
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
-    if (ws && ws.agent) closeTerm(ws.agent.id);
+    if (ws && ws.agent) closeShellTerm(ws.agent.id);
     if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
     if (selectedId === id) {
       setTabs((t) => {
@@ -956,7 +955,7 @@ export default function App() {
     if (!loc || !loc.agent) return;
     try {
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
-      closeTerm(loc.agent.id);
+      closeShellTerm(loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
       setStreaming(false);
       streamingRef.current = false;
@@ -999,7 +998,7 @@ export default function App() {
     if (!choice) return;
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
-      closeTerm(ag.id);
+      closeShellTerm(ag.id);
       setTabs((t) => t.filter((x) => x !== ag.id));
       if (selectedId === ag.id) setSelectedId(null);
       await loadWorkspaces();
@@ -1018,7 +1017,7 @@ export default function App() {
       const ids = (ws.agents || []).map((a) => a.id);
       if (ws.agent) ids.push(ws.agent.id);
       for (const id of [...new Set(ids)]) {
-        closeTerm(id);
+        closeShellTerm(id);
         if (panelRef.current && panelRef.current.agentId === id) closePanel();
       }
       setTabs((t) => t.filter((x) => x !== ws.id && !ids.includes(x)));
@@ -1679,12 +1678,23 @@ export default function App() {
             }}
           />
 
-          <TerminalDock
-            open={termView && !onPane}
-            agent={agent}
-            workspace={selected}
-            onOpenFile={(p) => { if (agent) openFileTab("agent", agent.id, p); }}
-          />
+          {termView && !onPane && agent ? (
+            agent.mode === "interactive" ? (
+              <TermSurface
+                key={"agterm-" + agent.id}
+                term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
+                cwdKind="agent"
+                onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+              />
+            ) : (
+              <section className="term-surface" aria-label="Agent terminal">
+                <p className="file-pane-msg">
+                  Agent is in managed mode (chat-driven).{" "}
+                  <button type="button" className="btn btn-sm" onClick={() => openInteractive(agent.id)}>Open TUI</button>
+                </p>
+              </section>
+            )
+          ) : null}
         </div>
 
         <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
