@@ -83,9 +83,9 @@ export default function Composer({
     if (expanded) { el.style.height = "100%"; return; }
     el.style.height = "auto";
     el.style.height = Math.max(52, Math.min(el.scrollHeight, 160)) + "px";
-  }, [value, expanded, voice]);
+  }, [text, expanded, voice]);
 
-  useEffect(() => { setSlashIdx(0); }, [value]);
+  useEffect(() => { setSlashIdx(0); }, [text]);
   useEffect(() => { setAtIdx(0); }, [atKey]);
 
   useEffect(() => {
