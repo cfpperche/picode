@@ -14,14 +14,42 @@ import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
 
+const WINDOW_STEP = 60;
+
 function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after }) {
   const [preview, setPreview] = useState("");
+  const [limit, setLimit] = useState(WINDOW_STEP);
+  const growLock = useRef(false);
   const turns = groupTurns((items || []).filter((it) => it.kind !== "sys" || it.err));
   const busy = workingIndex(turns, !!streaming);
+  const hiddenCount = Math.max(0, turns.length - limit);
+  function growEarlier() {
+    if (growLock.current) return;
+    growLock.current = true;
+    const el = convRef && convRef.current;
+    const keep = el ? el.scrollHeight - el.scrollTop : 0;
+    setLimit((l) => l + WINDOW_STEP);
+    requestAnimationFrame(() => {
+      const el2 = convRef && convRef.current;
+      if (el2) el2.scrollTop = Math.max(0, el2.scrollHeight - keep);
+      growLock.current = false;
+    });
+  }
+  function onScrollWrap(ev) {
+    const el = ev && ev.currentTarget;
+    if (el && el.scrollTop < 80 && hiddenCount > 0) growEarlier();
+    if (onScroll) onScroll(ev);
+  }
   return (
-    <div id="conversation" className="conversation" ref={convRef} onScroll={onScroll} style={{ visibility: hidden ? "hidden" : "visible" }}>
+    <div id="conversation" className="conversation" ref={convRef} onScroll={onScrollWrap} style={{ visibility: hidden ? "hidden" : "visible" }}>
       <div className="conv-col">
+        {hiddenCount > 0 ? (
+          <button type="button" className="conv-load-earlier" onClick={growEarlier}>
+            Load earlier ({hiddenCount})
+          </button>
+        ) : null}
         {turns.reduce((acc, t, i) => {
+          if (i < hiddenCount && i !== busy) return acc;
           if (t.kind === "loose") {
             acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} agentId={agentId} onOpenTab={onOpenTab} />);
 

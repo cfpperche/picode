@@ -1213,6 +1213,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   scrollbar-gutter: auto;
 }
 .conversation.with-rail::-webkit-scrollbar { width: 0; height: 0; }
+.conv-load-earlier {
+  flex: none; margin: 12px auto 4px; padding: 0 14px;
+  height: 28px; display: inline-flex; align-items: center; gap: 6px;
+  align-self: center;
+  border: 1px solid var(--border); border-radius: 99px;
+  background: var(--bg-panel); color: var(--text-secondary);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.conv-load-earlier:hover { color: var(--text-primary); border-color: var(--border-strong); }
 .conv-rail {
   position: absolute; right: 8px; top: 16px; bottom: 180px; z-index: 5; width: 22px;
   display: flex; flex-direction: column; justify-content: center; align-items: center;
