@@ -107,11 +107,6 @@ Never exercised, because this machine was already past them:
 ## Known debts / open questions
 
 
-- JS tests still do not run in `make ci`. `npm test` was widened from 2 files
-  to all of `src/lib/*.test.js` (159 → 175 tests, all passing), but wiring it
-  into `make test` would run it before `make build` installs `node_modules`,
-  and breaking CI is worse than the gap. The ordering has to change first.
-
 - ADR-0022 leaves two costs unmeasured. **Occupant scan**: marking heads
   means `ListAllAgents`, resolving each cwd, and a git call per agent to get
   its common dir — `occupantsOf` (`internal/server/cleanup.go:88`) is the
@@ -142,6 +137,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Frontend tests run in CI. 197 of them were passing where nothing watched. The blocker was ordering — `npm test` needed `node_modules`, which only `make build` installed — so installing moved into its own target gated on `web/package-lock.json`, and `web` and the new `test-js` both depend on it. That also removes a second full `npm ci` per `make ci`. Verified the gate can actually fail: a deliberately broken test takes `make ci` to exit 2, and the guard skips the install on a second run (10s → 2.7s) but reruns it when the lockfile is touched.
 - **2026-08-30** — `POST /api/workspaces/{id}/agents` accepts `workPath`; it was hardcoded empty, so ADR-0022's centrepiece — two agents in sibling worktrees of one repo — could only be built from free agents. Reuses `resolveAgentWorkDir`, the same resolver free agents use, so the two creation paths cannot drift; blank stays blank and keeps the agent on the workspace folder. Verified the test has teeth: with the old hardcode both agents pile onto `main`. **API only — no UI was added**, since nothing asked for one.
 - **2026-08-30** — Clipboard validated in a browser, closing the ADR-0023-era debt. Text emitted as OSC 52 from inside a tmux pane came back out of the *system* clipboard via a real Ctrl+V — the whole chain, not an inference. Chrome refuses the write without a recent user gesture and accepts it right after a click; the handler's toast covers the refusal. That refusal path needed a synthetic probe to reach at all, so it is not being designed around. Firefox is still unchecked: the automation here only drives Chrome.
 - **2026-08-30** — `make fmt` and `make fmt-check` stop reaching into `.worktrees/`. Both walked the tree with `.`, so a sibling agent's uncommitted code failed this gate — and `fmt` was worse than reported: `gofmt -w .` would have *rewritten* their files. Both now walk the directories `go list ./...` reports, the same module boundary `vet` and `test` always respected. The `git ls-files` fix I had written in this file was wrong and is dropped: tested, it misses a new file not yet `git add`ed, so it would pass locally and fail in CI. `go list` catches it, and covers 204 of 204 `.go` files in the module including `//go:build ignore` ones. CI's inline gofmt step now calls the same target instead of repeating the command.
