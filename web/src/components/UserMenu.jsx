@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession } from "./Icons.jsx";
 import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
@@ -68,6 +68,11 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
           <DropdownMenu.Item className="um-item" id="um-system" onSelect={() => onNavigate("system")}>
             <IconDrive className="um-item-ico" />
             <span className="um-item-name">System</span>
+            <IconChevronRight />
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className="um-item" id="um-sessions" onSelect={() => onNavigate("sessions")}>
+            <IconSession className="um-item-ico" />
+            <span className="um-item-name">Sessions</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-providers" onSelect={() => onNavigate("providers")}>

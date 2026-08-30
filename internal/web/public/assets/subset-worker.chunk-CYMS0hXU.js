@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:internal/web/public/assets/subset-worker.chunk-CYMS0hXU.js
-import{Commands as r,subsetToBinary as s}from"./subset-shared.chunk-BGvi7pYg.js";import"./percentages-BXMCSKIN-BzK55stj.js";import"./index-BrbluF_t.js";import"./with-selector-IbUwBtH_.js";var p=import.meta.url?new URL(import.meta.url):void 0;typeof window>"u"&&typeof self<"u"&&(self.onmessage=async a=>{switch(a.data.command){case r.Subset:let t=await s(a.data.arrayBuffer,a.data.codePoints);self.postMessage(t,{transfer:[t]});break}});export{p as WorkerUrl};
-========
-import{Commands as r,subsetToBinary as s}from"./subset-shared.chunk-BUIVoYRh.js";import"./percentages-BXMCSKIN-DDdUUVSV.js";import"./index-DT3nOWtL.js";import"./with-selector-BecEaw0c.js";var p=import.meta.url?new URL(import.meta.url):void 0;typeof window>"u"&&typeof self<"u"&&(self.onmessage=async a=>{switch(a.data.command){case r.Subset:let t=await s(a.data.arrayBuffer,a.data.codePoints);self.postMessage(t,{transfer:[t]});break}});export{p as WorkerUrl};
->>>>>>>> feat/sessions-all:internal/web/public/assets/subset-worker.chunk-DUY5X-dz.js
