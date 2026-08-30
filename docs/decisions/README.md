@@ -28,3 +28,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
 | [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
+| [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted |
