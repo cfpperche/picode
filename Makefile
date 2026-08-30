@@ -36,11 +36,19 @@ restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 test: ## Run all Go tests
 	go test ./...
 
+# Both targets walk the package directories `go list` reports, not the tree.
+# `.` reaches into .worktrees/, where a sibling agent has its own checkout: fmt
+# would rewrite their uncommitted files and fmt-check would fail this gate on
+# their code. A worktree carries its own go.mod, so ./... already excludes it —
+# vet and test were always safe; these two were not.
 fmt: ## Format all Go code
-	gofmt -w .
+	@dirs=$$(go list -f '{{.Dir}}' ./...) || exit 1; \
+	gofmt -w $$dirs
 
 fmt-check: ## Fail if any file is unformatted
-	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
+	@dirs=$$(go list -f '{{.Dir}}' ./...) || exit 1; \
+	out=$$(gofmt -l $$dirs); \
+	if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 
 vet: ## Static analysis
 	go vet ./...
