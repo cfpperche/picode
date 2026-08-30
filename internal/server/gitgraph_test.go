@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -303,4 +304,109 @@ func gitOut(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %v: %v", args, err)
 	}
 	return string(out)
+}
+
+// The endpoint that adds an agent to a workspace used to hardcode an empty
+// work path, so the case ADR-0022 exists for — two agents in sibling worktrees
+// of one repo — could only be built out of free agents. This is that case,
+// through the API a workspace actually uses.
+func TestWorkspaceAgentCanLiveInASiblingWorktree(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+
+	st := testStore(t)
+	_, main, err := st.AddWorkspace("App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	sideID := addWorkspaceAgent(t, ts, main.WorkspaceID, map[string]any{
+		"name": "sider", "workPath": side,
+	})
+
+	g := getGraph(t, ts, "/api/agents/"+main.ID+"/git")
+	if len(g.Worktrees) != 2 {
+		t.Fatalf("expected 2 worktrees, got %+v", g.Worktrees)
+	}
+	for _, wt := range g.Worktrees {
+		want := main.ID
+		if wt.Branch == "side" {
+			want = sideID
+		}
+		if len(wt.Agents) != 1 || wt.Agents[0].ID != want {
+			t.Fatalf("worktree %s occupants = %+v, want %s", wt.Branch, wt.Agents, want)
+		}
+	}
+}
+
+func TestWorkspaceAgentWorkPathRules(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	_, first, err := st.AddWorkspace("App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	// Absent: unchanged behaviour — the agent lives on the workspace folder.
+	plainID := addWorkspaceAgent(t, ts, first.WorkspaceID, map[string]any{"name": "plain"})
+	plain, err := st.GetAgent(plainID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.WorkPath != nil && *plain.WorkPath != "" {
+		t.Fatalf("no workPath sent, agent must stay on the workspace: %v", *plain.WorkPath)
+	}
+
+	// Blank strings are the same as absent, not a request for a work dir.
+	blankID := addWorkspaceAgent(t, ts, first.WorkspaceID, map[string]any{"name": "blank", "workPath": "   "})
+	blank, err := st.GetAgent(blankID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blank.WorkPath != nil && *blank.WorkPath != "" {
+		t.Fatalf("blank workPath must not create a work dir: %v", *blank.WorkPath)
+	}
+
+	// A path that exists but is not a directory is refused, not swallowed.
+	file := filepath.Join(t.TempDir(), "a-file")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := postWorkspaceAgent(t, ts, first.WorkspaceID, map[string]any{"name": "bad", "workPath": file})
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", res.StatusCode)
+	}
+}
+
+func postWorkspaceAgent(t *testing.T, ts *httptest.Server, wsID string, body map[string]any) *http.Response {
+	t.Helper()
+	raw, _ := json.Marshal(body)
+	res, err := ts.Client().Post(ts.URL+"/api/workspaces/"+wsID+"/agents", "application/json", bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+func addWorkspaceAgent(t *testing.T, ts *httptest.Server, wsID string, body map[string]any) string {
+	t.Helper()
+	res := postWorkspaceAgent(t, ts, wsID, body)
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create agent = %d", res.StatusCode)
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.ID == "" {
+		t.Fatal("no agent id in response")
+	}
+	return out.ID
 }

@@ -517,6 +517,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 		}
 		var req struct {
 			Name     string `json:"name"`
+			WorkPath string `json:"workPath"`
 			Provider string `json:"provider"`
 			Model    string `json:"model"`
 			Thinking string `json:"thinking"`
@@ -525,7 +526,21 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		agent, err := deps.Store.AddAgent(wsID, req.Name, "")
+		// An empty workPath keeps the agent on the workspace folder, which is
+		// what store.AgentCwd does with "". A path sent explicitly goes through
+		// the same resolver free agents use — including its MkdirAll, so the
+		// two creation paths cannot drift apart. This is what lets a workspace
+		// hold agents in sibling worktrees (ADR-0022).
+		work := ""
+		if strings.TrimSpace(req.WorkPath) != "" {
+			resolved, rerr := resolveAgentWorkDir(deps, req.WorkPath, req.Name)
+			if rerr != nil {
+				writeErr(w, http.StatusBadRequest, rerr.Error())
+				return
+			}
+			work = resolved
+		}
+		agent, err := deps.Store.AddAgent(wsID, req.Name, work)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

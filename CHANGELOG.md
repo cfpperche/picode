@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- `POST /api/workspaces/{id}/agents` accepts `workPath`, so a workspace can
+  hold agents in sibling git worktrees. It was hardcoded empty, which meant the
+  case the git graph exists for — seeing which agent is on which branch — could
+  only be assembled out of free agents.
+
 ### Changed
 
 - The built UI is no longer committed to the repository (ADR-0023). Released

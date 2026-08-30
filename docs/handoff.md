@@ -107,13 +107,6 @@ Never exercised, because this machine was already past them:
 ## Known debts / open questions
 
 
-- `handleAddWorkspaceAgent` (`internal/server/agents.go:504`) hardcodes
-  `workPath` to `""`, so a **workspace** agent cannot be pointed at a worktree
-  through the API — only a free agent takes a path (`POST /api/agents?free=1`).
-  ADR-0022's centrepiece is agents in sibling worktrees, and today the only way
-  to get one is a free agent or a second workspace. Found while seeding the
-  visual check; not fixed here because it changes the agent-creation contract.
-
 - JS tests still do not run in `make ci`. `npm test` was widened from 2 files
   to all of `src/lib/*.test.js` (159 → 175 tests, all passing), but wiring it
   into `make test` would run it before `make build` installs `node_modules`,
@@ -149,6 +142,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — `POST /api/workspaces/{id}/agents` accepts `workPath`; it was hardcoded empty, so ADR-0022's centrepiece — two agents in sibling worktrees of one repo — could only be built from free agents. Reuses `resolveAgentWorkDir`, the same resolver free agents use, so the two creation paths cannot drift; blank stays blank and keeps the agent on the workspace folder. Verified the test has teeth: with the old hardcode both agents pile onto `main`. **API only — no UI was added**, since nothing asked for one.
 - **2026-08-30** — Clipboard validated in a browser, closing the ADR-0023-era debt. Text emitted as OSC 52 from inside a tmux pane came back out of the *system* clipboard via a real Ctrl+V — the whole chain, not an inference. Chrome refuses the write without a recent user gesture and accepts it right after a click; the handler's toast covers the refusal. That refusal path needed a synthetic probe to reach at all, so it is not being designed around. Firefox is still unchecked: the automation here only drives Chrome.
 - **2026-08-30** — `make fmt` and `make fmt-check` stop reaching into `.worktrees/`. Both walked the tree with `.`, so a sibling agent's uncommitted code failed this gate — and `fmt` was worse than reported: `gofmt -w .` would have *rewritten* their files. Both now walk the directories `go list ./...` reports, the same module boundary `vet` and `test` always respected. The `git ls-files` fix I had written in this file was wrong and is dropped: tested, it misses a new file not yet `git add`ed, so it would pass locally and fail in CI. `go list` catches it, and covers 204 of 204 `.go` files in the module including `//go:build ignore` ones. CI's inline gofmt step now calls the same target instead of repeating the command.
 - **2026-08-30** — ADR-0023 implemented. `internal/web` splits into a disk loader (default) and an embedded one (`-tags embedui`), which is what `make build`, `ci.yml` and `release.yml` now use; `internal/web/public/` is untracked and gitignored. The ADR's gating question is answered: over https the service worker registers, activates and fills `picode-assets-v1` with the hashed assets in disk mode, and both modes serve byte-identical asset URLs with identical Cache-Control (`immutable` for `/assets/`, `no-cache` elsewhere). The earlier `swRegs: 0` was a red herring — `main.jsx:16` only registers over https, so it was 0 in both modes. A disk build with no UI answers 503 with `run make web` instead of 404s, and starts serving the moment the files appear.
