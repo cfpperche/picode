@@ -6,7 +6,7 @@ import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, Icon
 import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
-import { repoLine } from "../lib/repoLine.js";
+import { repoLine, termLine } from "../lib/repoLine.js";
 import { workspaceAgents } from "../lib/providerIcon.js";
 import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
@@ -171,13 +171,17 @@ export default function Sidebar({
                   <span className="tree-icon"><IconTerminal size={14} /></span>
                   <span className="ws-name" title={t.cwd} onDoubleClick={(e) => { e.stopPropagation(); onRenameTerm && onRenameTerm(t); }}>{t.name}</span>
                 </div>
+                {(() => { const line = termLine(t); return (
                 <div className="ws-row2">
-                  <span className="ws-path" title={t.cwd}>{t.cwd}</span>
+                  {line.git ? (
+                    <button type="button" className="tree-icon tree-icon-btn" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}><IconGit size={14} /></button>
+                  ) : (
+                    <span className="tree-icon"><IconFolder size={14} /></span>
+                  )}
+                  <span className="ws-path" title={t.cwd}>{line.text}</span>
                 </div>
+                ); })()}
                 <span className="ws-actions">
-                  {t.git ? (
-                    <button type="button" className="ws-icon-btn" title={"Git graph" + (t.git.branch ? " — " + t.git.branch : "")} onClick={() => onGitGraph && onGitGraph("term", t.id, t.name)}><IconGit size={14} /></button>
-                  ) : null}
                   <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
                   <button type="button" className="ws-icon-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}><IconPencil /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>

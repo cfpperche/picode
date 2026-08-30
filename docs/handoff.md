@@ -187,6 +187,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Sidebar cards unified (terminals ↔ agents): second line is
+  icon + path, or git icon + `path / branch` in a repo. `GET /api/terminals`
+  now reports the live pane cwd (it printed the creation dir forever while
+  the git facts beside it were live — the two disagreed after any `cd`).
+  Workspace agent views carry per-agent git from the agent's effective dir;
+  `repoLine` returns the git object (fixing the tooltip that read `.branch`
+  off a boolean) and never pairs one directory's path with another's branch.
+
 - **2026-08-30** — **Compact status moved into the chat** (merged from
   `feat/compact-chat-line`, Claude Code-inspired, PiCode tokens). The
   “Compacting” segment is gone from the composer statusbar; in-flight
