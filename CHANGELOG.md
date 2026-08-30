@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Workspace Sessions view** (`#/sessions/<id>`, folder icon in the sidebar): every Pi session under the workspace folder — size, age, messages, cost, provider/model, and whether it is an agent's current session. Actions: Open with… (switches a workspace agent to that session, no copy), Compact (in-use), Delete (orphans only, with confirm; in-use is blocked and says why).
+- **Auto-clean orphans**: Off / 30 / 60 / 90 days in the Sessions view. Orphan sessions (not the current session of any agent) untouched for that long are deleted — swept at boot, daily, and right after the setting changes. Default Off.
+
+### Fixed
+
+- A workspace that never chatted showed a raw error in the Sessions view; a missing sessions directory now reads as zero sessions.
+
+### Added (prior)
+
 - **Git graph.** The repository icon beside an agent or a terminal in the
   sidebar opens the commit history as a tab: branches, merges, tags, and the
   agents living in each worktree shown on the branch they are on. One graph per

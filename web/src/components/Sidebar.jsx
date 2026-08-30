@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { parseRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconPencil } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconPencil, IconSession } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
@@ -24,7 +24,7 @@ export default function Sidebar({
   workingId,
   workingIds,
   waitingId,
-  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
   onGitGraph,
 }) {
   const [width, setWidth] = useState(() => {
@@ -222,6 +222,7 @@ export default function Sidebar({
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
+                  <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
                 </span>
               </div>

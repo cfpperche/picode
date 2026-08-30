@@ -56,6 +56,8 @@ function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
 }
 import { extraSlash } from "../lib/slash.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners } from "../lib/openTabs.js";
+import { sessionsHash, sessionsRoute } from "../lib/routes.js";
+import SessionsView from "../components/SessionsView.jsx";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
@@ -1184,6 +1186,27 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
+  // Compact from the Sessions view: same flow as the chat one, but feedback
+  // is the per-agent statusbar segment + toast (the conversation is not open).
+  async function compactAgentById(id) {
+    if (!id) return;
+    const ok = await askConfirm({
+      title: "Compact session",
+      message: "Older turns become a summary. This cannot be undone in the chat, and can take a few minutes on huge sessions.",
+      confirmLabel: "Compact",
+    });
+    if (!ok) return;
+    setCompact(id, Date.now());
+    try {
+      const res = await api("/api/agents/" + id + "/compact", { method: "POST" });
+      setCompact(id, null);
+      toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
+    } catch (e) {
+      // Keep the statusbar segment up: pi may still finish server-side.
+      toastError(e);
+    }
+  }
+
   async function compactSession() {
     if (!agent) return;
     const ok = await askConfirm({
@@ -1475,6 +1498,8 @@ export default function App() {
   }
 
   const onPane = route !== "workspace";
+  const sessionsWsId = route === "sessions" ? sessionsRoute() : null;
+  const sessionsWs = sessionsWsId ? workspaces.find((w) => w.id === sessionsWsId) : null;
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
 
@@ -1501,6 +1526,7 @@ export default function App() {
         onNewTerm={createTerminal}
         onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
         onRemoveTerm={removeTerminal}
+        onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
         onChat={(id) => {
@@ -1800,6 +1826,15 @@ export default function App() {
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
+        {sessionsWsId ? (
+          <SessionsView
+            wsId={sessionsWsId}
+            workspace={sessionsWs}
+            agents={(sessionsWs && sessionsWs.agents) || []}
+            onOpenAgent={(id) => revealAgent(id)}
+            onCompactAgent={compactAgentById}
+          />
+        ) : null}
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}

@@ -9,6 +9,7 @@ export const ROUTES = {
   packages: "/packages",
   devices: "/devices",
   pins: "/pins",
+  sessions: "/sessions/:id",
 };
 
 export function parseRoute(hash) {
@@ -21,6 +22,7 @@ export function parseRoute(hash) {
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
+  if (h.startsWith("/sessions/")) return "sessions";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
@@ -47,6 +49,17 @@ export function workspaceHash(agentId) {
 
 export function termHash(id) {
   return id ? "#/term/" + encodeURIComponent(id) : "#/";
+}
+
+export function sessionsHash(wsId) {
+  return wsId ? "#/sessions/" + encodeURIComponent(wsId) : "#/";
+}
+
+export function sessionsRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/sessions\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
 export function termTabId(id) {
