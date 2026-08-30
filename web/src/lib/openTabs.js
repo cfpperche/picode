@@ -34,3 +34,22 @@ export function filterOpenTabs(saved, exists) {
   const selected = saved.selected && ids.includes(saved.selected) ? saved.selected : (ids[0] || null);
   return { ids, selected };
 }
+
+const TERM_KEY = "picode-term-view";
+
+// Which agents were last viewed in the terminal (TUI dock), so a reload
+// lands back in the terminal instead of the chat.
+export function readTermWanted() {
+  try {
+    const j = JSON.parse(localStorage.getItem(TERM_KEY) || "[]");
+    if (!Array.isArray(j)) return [];
+    return j.map((x) => String(x || "")).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function writeTermWanted(ids) {
+  const clean = [...new Set((ids || []).map((x) => String(x || "")).filter(Boolean))];
+  localStorage.setItem(TERM_KEY, JSON.stringify(clean));
+}
