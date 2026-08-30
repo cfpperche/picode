@@ -47,7 +47,7 @@ What exists:
 
 ## In flight
 
-Nothing.
+Nothing. Session picker UI polish on `feat/session-picker-ui` (search, no x-scroll).
 
 ## Next up
 
