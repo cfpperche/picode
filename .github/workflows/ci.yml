@@ -41,7 +41,7 @@ jobs:
 
       - name: Format check
         if: matrix.os == 'ubuntu-latest'
-        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+        run: make fmt-check
 
       - name: Vet
         run: go vet ./...
