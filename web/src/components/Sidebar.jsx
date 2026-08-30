@@ -25,7 +25,6 @@ export default function Sidebar({
   workingIds,
   waitingId,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
-  onTermSettings,
   onGitGraph,
 }) {
   const [width, setWidth] = useState(() => {
@@ -155,7 +154,7 @@ export default function Sidebar({
       <div className="side-section side-terms">
         <div className="pins-head">
           <span className="pins-title">Terminals</span>
-          <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => onTermSettings && onTermSettings(null)}><IconSettings /></button>
+          <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
         </div>
         {(terminals || []).length === 0 ? (
@@ -179,7 +178,7 @@ export default function Sidebar({
                   {t.git ? (
                     <button type="button" className="ws-icon-btn" title={"Git graph" + (t.git.branch ? " — " + t.git.branch : "")} onClick={() => onGitGraph && onGitGraph("term", t.id, t.name)}><IconGit size={14} /></button>
                   ) : null}
-                  <button type="button" className="ws-icon-btn" title="Settings" onClick={() => onTermSettings && onTermSettings(t)}><IconSettings /></button>
+                  <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
                   <button type="button" className="ws-icon-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}><IconPencil /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
                 </span>

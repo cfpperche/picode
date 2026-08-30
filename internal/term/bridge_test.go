@@ -24,7 +24,7 @@ func startTestSession(t *testing.T, tm *tmux.Manager, name string) {
 
 // dial connects a test client to the bridge over an httptest server. resolve
 // is the session's managed tmux options; nil means PiCode manages none.
-func dial(t *testing.T, target string, resolve func(string) map[string]string) *websocket.Conn {
+func dial(t *testing.T, target string, resolve func(string) []tmux.ScopedValue) *websocket.Conn {
 	t.Helper()
 	ts := httptest.NewServer(Bridge(tmux.New(), resolve))
 	t.Cleanup(ts.Close)
@@ -142,11 +142,11 @@ func TestBridgeAppliesResolvedOptionsOnAttach(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	dial(t, name, func(session string) map[string]string {
+	dial(t, name, func(session string) []tmux.ScopedValue {
 		if session != name {
 			t.Errorf("resolver asked about %q, want %q", session, name)
 		}
-		return map[string]string{"mouse": "on"}
+		return []tmux.ScopedValue{{Scope: tmux.ScopeSession, Key: "mouse", Value: "on"}}
 	})
 
 	deadline := time.Now().Add(3 * time.Second)

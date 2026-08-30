@@ -47,6 +47,19 @@ What exists:
 
 ## In flight
 
+**ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
+The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
+all of tmux's options (142 on this machine's 3.6), read live from
+`show-options` across the three scopes, validated by tmux itself (scratch
+session for session/window values; server values apply for real). The old
+hardcoded forces — status off, allow-passthrough on, extended keys — are now
+curated *defaults* the user can override, consequence labelled. The dialog
+became a page (`#/termset`, `#/termset/<id>`): featured tier, search, scope
+sections, danger labels. Arrays are shown but edited via tmux.conf (V1).
+Caught in browser QA and fixed: the search now filters the featured tier too
+— unfiltered, a featured control sat where a result was expected and took the
+click meant for it.
+
 **ADR-0024 — terminal settings. Delivered except presets, which are held on
 purpose (see *Next up*).** `internal/termopts` is the registry of offered tmux
 options and the layering rule; `terminal_settings` holds one global row plus a

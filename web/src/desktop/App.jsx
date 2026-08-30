@@ -62,7 +62,7 @@ import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
 import LlamaDialog from "../components/LlamaDialog.jsx";
-import TermSettingsDialog from "../components/TermSettingsDialog.jsx";
+import TermSettingsPage from "../components/TermSettingsPage.jsx";
 import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
 import Toasts from "../components/Toasts.jsx";
 
@@ -115,7 +115,6 @@ export default function App() {
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [llamaOpen, setLlamaOpen] = useState(false);
-  const [termSettings, setTermSettings] = useState(null);
   const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
@@ -1526,7 +1525,6 @@ export default function App() {
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
-        onTermSettings={(t) => setTermSettings({ scope: t ? { id: t.id, name: t.name } : null })}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -1875,6 +1873,7 @@ export default function App() {
         />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={selectedId || ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
+        <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
 
@@ -1941,11 +1940,6 @@ export default function App() {
         onClose={() => setTreeOpen(false)}
         onFork={forkFrom}
         onClone={cloneSession}
-      />
-      <TermSettingsDialog
-        open={!!termSettings}
-        scope={termSettings ? termSettings.scope : null}
-        onClose={() => setTermSettings(null)}
       />
       <LlamaDialog open={llamaOpen} onClose={() => setLlamaOpen(false)} onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} />
       <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />

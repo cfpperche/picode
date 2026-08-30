@@ -58,3 +58,39 @@ export function withChoice(values, flagKey, value) {
   else next[flagKey] = value;
   return next;
 }
+
+// ---- full-catalog page helpers (ADR-0024, open catalog) --------------------
+
+// inheritedValueFor: what a field falls back to when this scope stores
+// nothing. For curated flags the settings payload's `inherited` map already
+// carries it; for the rest of the catalog the running tmux's global value is
+// the truth. The layering is: tmux default/global ← PiCode global ← override.
+export function inheritedValueFor(name, inherited, catalogValue) {
+  if (inherited && Object.prototype.hasOwnProperty.call(inherited, name)) return inherited[name];
+  return catalogValue ?? "";
+}
+
+// matchesQuery: the search box over 150+ options. Name match is what people
+// type; danger text is included so "clipboard" finds set-clipboard's warning.
+export function matchesQuery(row, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  return row.name.toLowerCase().includes(q) || String(row.danger || "").toLowerCase().includes(q);
+}
+
+// groupCatalog splits catalog rows for one page: curated rows are rendered by
+// the featured section, so they are excluded here; server rows are only
+// offered on the global page, labelled machine-wide.
+export function groupCatalog(rows, { isGlobal }) {
+  const perTerminal = [];
+  const server = [];
+  for (const row of rows || []) {
+    if (row.curated) continue;
+    if (row.scope === "server") {
+      if (isGlobal) server.push(row);
+      continue;
+    }
+    perTerminal.push(row);
+  }
+  return { perTerminal, server };
+}
