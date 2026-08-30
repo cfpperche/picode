@@ -117,5 +117,8 @@ func (s *Store) DeleteTerminal(id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	// The overrides are keyed by this id and nothing else refers to them, so
+	// they go with it. Ids are never reused, so a row left behind would only
+	// ever be dead weight — but dead weight that a future flag would read.
+	return s.DeleteTerminalSettings(id)
 }

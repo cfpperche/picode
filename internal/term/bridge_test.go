@@ -3,6 +3,7 @@ package term
 import (
 	"context"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -21,10 +22,11 @@ func startTestSession(t *testing.T, tm *tmux.Manager, name string) {
 	t.Cleanup(func() { _ = tm.KillSession(ctx, name) })
 }
 
-// dial connects a test client to the bridge over an httptest server.
-func dial(t *testing.T, target string) *websocket.Conn {
+// dial connects a test client to the bridge over an httptest server. resolve
+// is the session's managed tmux options; nil means PiCode manages none.
+func dial(t *testing.T, target string, resolve func(string) map[string]string) *websocket.Conn {
 	t.Helper()
-	ts := httptest.NewServer(Bridge(tmux.New()))
+	ts := httptest.NewServer(Bridge(tmux.New(), resolve))
 	t.Cleanup(ts.Close)
 	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/term?session=" + target
 	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
@@ -53,7 +55,7 @@ func TestBridgeEchoThroughTmux(t *testing.T) {
 	name := tmux.SessionName("bridge-echo")
 	startTestSession(t, tm, name)
 
-	ws := dial(t, name)
+	ws := dial(t, name, nil)
 
 	// tmux draws the pane content on attach; `cat` echoes stdin back.
 	// Send bytes and expect them to come back through the pty.
@@ -81,7 +83,7 @@ func TestBridgeResizeControl(t *testing.T) {
 	name := tmux.SessionName("bridge-resize")
 	startTestSession(t, tm, name)
 
-	ws := dial(t, name)
+	ws := dial(t, name, nil)
 	_ = readUntil(t, ws, 2*time.Second) // initial pane draw
 
 	ctrl := `{"type":"resize","cols":120,"rows":40}`
@@ -120,4 +122,49 @@ func TestBridgeRejectsForeignSessions(t *testing.T) {
 	if !tmux.OwnedSessionName("picode-ok") {
 		t.Error("OwnedSessionName(picode-ok) = false, want true")
 	}
+}
+
+// The options a session runs with are applied on attach, not only when it is
+// created. A setting changed while the terminal was closed has to take hold
+// when it is opened again, and a session that predates the setting entirely
+// has to heal itself rather than staying odd until it is killed.
+func TestBridgeAppliesResolvedOptionsOnAttach(t *testing.T) {
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	name := tmux.SessionName("bridge-opts")
+	startTestSession(t, tm, name)
+
+	// Start from the opposite value, so a bridge that applies nothing fails
+	// rather than coasting on a default that happens to match.
+	if err := tm.SetOption(context.Background(), name, "mouse", "off"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	dial(t, name, func(session string) map[string]string {
+		if session != name {
+			t.Errorf("resolver asked about %q, want %q", session, name)
+		}
+		return map[string]string{"mouse": "on"}
+	})
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if got := sessionOption(t, name, "mouse"); got == "on" {
+			return
+		} else if time.Now().After(deadline) {
+			t.Fatalf("mouse = %q after attach, want on", got)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func sessionOption(t *testing.T, session, option string) string {
+	t.Helper()
+	out, err := exec.Command("tmux", "show-options", "-t", session+":", "-v", option).Output()
+	if err != nil {
+		return "" // an unset option reports an error, and unset is not "on"
+	}
+	return strings.TrimSpace(string(out))
 }

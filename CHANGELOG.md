@@ -11,6 +11,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Terminal settings** (ADR-0024). A gear beside **+ New terminal** opens the
+  defaults every terminal inherits; a gear on a terminal's row opens what that
+  one changes. Each field is inherit / on / off, and the inherit segment shows
+  the value it falls back to. Changing a default reaches every terminal that
+  has not set its own, live and without reopening anything. Today the one
+  setting is whether the mouse belongs to the terminal — on, the wheel scrolls
+  a TUI that ignores the mouse; off, dragging selects text the usual way.
+
 ### Fixed
 
 - **The wheel scrolls again in a TUI that does not track the mouse** (Pi's).

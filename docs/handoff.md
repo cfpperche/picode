@@ -47,22 +47,28 @@ What exists:
 
 ## In flight
 
-**ADR-0024 — terminal settings. Step 0 shipped; the panel is not built.**
-`mouse on` is the default again at both call sites (`internal/term/bridge.go`,
-`ensureShell`), which is what restores the wheel in Pi's TUI. The test that
-pinned it off now pins it on, and it was checked failing without the change.
+**ADR-0024 — terminal settings. Delivered except presets, which are held on
+purpose (see *Next up*).** `internal/termopts` is the registry of offered tmux
+options and the layering rule; `terminal_settings` holds one global row plus a
+row per terminal carrying only what differs. `GET/PATCH /api/terminals/settings`
+and `.../{id}/settings` read and write it, `null` clears a field, and unknown
+keys or values are refused rather than dropped. Two gears in the Terminals
+list: beside **+** for the defaults, on a row for that terminal.
 
-The ADR's first open question is answered, measured rather than assumed:
-flipping `mouse` on a session that already has an attached client takes effect
-immediately, so a PATCH will be enough — no reattach, no telling the browser.
-The full chain is in the ADR. The one cost is real and known: while tracking
-is on, a drag belongs to the application, so native selection needs Shift, and
-a copy-mode drag reaches the clipboard as `OSC 52 ; ; <base64>` instead.
+Applied in three places, all resolving the same way: at creation, on every
+attach (so a session that predates a setting heals itself), and on PATCH. A
+global PATCH re-resolves **each** session on its own rather than pushing the
+new global at all of them — a test pins that, and it fails if you take the
+shortcut.
 
-Still to build: the store rows (global + per-terminal overrides), the PATCH
-endpoints, presets, and the two gears in the Terminals list. Nothing beyond
-`mouse` is exposed yet — the ADR says the flag list grows from real parity
-gaps, and `mouse` is the only one so far.
+Measured, not assumed: flipping `mouse` on a session with a client attached
+takes effect with no reattach, which is why a PATCH is enough. The chain is in
+the ADR. The known cost: while tracking is on the drag belongs to the
+application, so native selection needs Shift and a copy-mode drag reaches the
+clipboard as `OSC 52 ; ; <base64>`.
+
+Only `mouse` is offered. The ADR says the list grows from real parity gaps,
+and that is still the only one anybody has hit.
 
 **ADR-0022 — git graph. G1 (data), G2 (the graph) and G3 (commit diff) are
 built and visually verified. The ADR is delivered.**
@@ -79,6 +85,13 @@ pane opens, and a 59-file commit reports `truncated` rather than trying to
 render megabytes.
 
 ## Next up
+
+**ADR-0024 presets, held for the owner's call.** The ADR has the user creating,
+editing and deleting presets and stamping them onto a terminal. With exactly
+one flag offered, a preset would carry a single boolean — more clicks than the
+toggle it replaces. The recommendation given to the owner on 2026-08-30 was to
+build them once there are three or four flags, and the store shape is already
+ready for it (overrides are a map, not a column). Not refused, deferred.
 
 **Multi-runtime TUIs in terminals** (owner direction, research in flight in
 another session): the ADE will host TUIs from several agent runtimes — in

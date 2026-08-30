@@ -2651,3 +2651,74 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 @media (prefers-reduced-motion: reduce) {
   .gg-file-chev { transition: none; }
 }
+
+/* Terminal settings — behaviour that belongs to the terminal, global or for
+   one of them (ADR-0024). Separate from Preferences → Terminal, which is
+   appearance and belongs to the browser. */
+.dlg-termset {
+  width: min(500px, calc(100vw - 32px));
+  max-height: min(84vh, 760px);
+  overflow: auto;
+}
+.termset-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 18px; }
+.termset-head { display: flex; align-items: center; gap: 8px; }
+.termset-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.termset-chip {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 999px;
+  color: var(--accent); background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+/* The three states sit in one control so they read as one choice, not as
+   three switches that might disagree. Native radios underneath. */
+.termset-seg {
+  display: flex; width: fit-content; max-width: 100%; margin-top: 9px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;
+}
+/* The input covers its own segment rather than hiding in a 1px corner. A
+   hidden input keeps its static position, which for the first segment sits on
+   the control's border — a click landing there misses the label entirely and
+   silently does nothing. Covering the segment makes the hit area the segment. */
+.termset-seg-opt { display: flex; position: relative; }
+.termset-seg-opt input {
+  position: absolute; inset: 0; margin: 0;
+  opacity: 0; cursor: pointer;
+}
+.termset-seg-face {
+  display: inline-flex; align-items: center; height: var(--ctl-h);
+  padding: 0 14px; box-sizing: border-box;
+  border-right: 1px solid var(--border);
+  background: var(--bg-base); color: var(--text-secondary);
+  font-size: 12px; white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out),
+              color var(--motion-fast) var(--ease-out);
+}
+.termset-seg-opt:last-child .termset-seg-face { border-right: 0; }
+.termset-seg-opt:hover .termset-seg-face { background: var(--bg-hover); color: var(--text-primary); }
+.termset-seg-opt input:checked + .termset-seg-face {
+  background: var(--accent-soft); color: var(--accent); font-weight: 600;
+}
+.termset-seg-opt input:focus-visible + .termset-seg-face {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}
+.termset-help { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+/* Full --text-secondary, not a faded one: at 11px a washed-out grey drops
+   under 4.5:1 on both grounds. Separation comes from the gap, not contrast. */
+.termset-effect {
+  margin: 9px 0 0; font-size: 11px; line-height: 1.45;
+  color: var(--text-secondary);
+}
+.termset-seg-skel {
+  width: 260px; height: var(--ctl-h); border-color: transparent;
+  background: var(--bg-hover); animation: skel 1.15s ease-in-out infinite;
+}
+.termset-skel-help { margin-top: 10px; }
+.termset-foot {
+  margin: 20px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 11.5px; line-height: 1.5; color: var(--text-secondary);
+}
+.termset-foot a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .termset-seg-face { transition: none; }
+  .termset-seg-skel { animation: none; }
+}

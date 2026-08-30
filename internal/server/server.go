@@ -75,6 +75,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSlashRes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
+	registerTerminalSettingsRoutes(mux, deps)
 	mux.HandleFunc("GET /api/tui-working", handleTuiWorking(deps))
 	registerGitGraphRoutes(mux, deps)
 	registerAgentBash(mux, deps)
@@ -87,7 +88,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerOAuthRoutes(mux)
 	registerBackupRoutes(mux, deps)
 
-	mux.Handle("/ws/term", term.Bridge(deps.Tmux))
+	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
 
 	mux.Handle("/", cacheControl(uiHandler()))
