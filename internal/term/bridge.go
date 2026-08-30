@@ -71,6 +71,9 @@ func Bridge(tm *tmux.Manager) http.Handler {
 		// xterm.js#426: the outer tty must be in mouse mode or the wheel
 		// becomes Up/Down (#1310) and never reaches the TUI.
 		_ = tm.SetOption(r.Context(), name, "mouse", "on")
+		// No tmux status line: it shows as a green bar under the TUI. This
+		// also heals sessions created before it was set at creation time.
+		_ = tm.SetOption(r.Context(), name, "status", "off")
 		// Shift+Enter is CSI-u; without this tmux collapses it to Enter.
 		_ = tm.EnsureExtendedKeys(r.Context())
 

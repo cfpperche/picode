@@ -186,3 +186,27 @@ func TestPaneCwdFollowsProcess(t *testing.T) {
 	}
 	t.Fatalf("PaneCwd after cd = %q (err %v), want %q", got2, err, live)
 }
+
+// NewSession must create surfaces without the tmux status line (it renders
+// as a green bar at the bottom of the web terminal) — parity for agent TUI
+// sessions and first-class terminals.
+func TestNewSessionNoStatusBar(t *testing.T) {
+	m := New()
+	if !m.Available() {
+		t.Skip("tmux not installed")
+	}
+	ctx := context.Background()
+	name := SessionName("nostatus-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(ctx, name, t.TempDir(), "sleep", "30"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	// Session-scoped option (-v -t name:), not the global (-g) one.
+	out, err := m.run(ctx, "show-options", "-v", "-t", name+":", "status")
+	if err != nil {
+		t.Fatalf("show-options status: %v", err)
+	}
+	if got := strings.TrimSpace(out); got != "off" {
+		t.Errorf("session status = %q, want off", got)
+	}
+}
