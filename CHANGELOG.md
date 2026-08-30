@@ -32,6 +32,9 @@ to the `[Unreleased]` section. The repository's official language is English
   has not set its own, live and without reopening anything. Today the one
   setting is whether the mouse belongs to the terminal — on, the wheel scrolls
   a TUI that ignores the mouse; off, dragging selects text the usual way.
+  A change reaches only the terminals and agents this PiCode owns: the list
+  comes from its own records, never from `tmux list-sessions`, which answers
+  for the whole machine.
 
 ### Fixed
 

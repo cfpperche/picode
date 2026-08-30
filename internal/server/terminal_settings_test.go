@@ -221,3 +221,53 @@ func TestANewTerminalIsCreatedWithTheGlobalDefault(t *testing.T) {
 		t.Fatalf("mouse = %q on a terminal created after the global changed, want off", got)
 	}
 }
+
+// A global change must reach only the sessions this instance owns. tmux is
+// machine-wide: another PiCode, an older session, or a test with its own
+// database all carry the same `picode-` prefix. This is not hypothetical —
+// before the fix, running the test above flipped `mouse` on the developer's
+// own terminals, because the apply pass walked `tmux list-sessions`.
+func TestAGlobalChangeLeavesForeignSessionsAlone(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	ctx := context.Background()
+
+	// A PiCode-owned name this server's store knows nothing about.
+	foreign := tmux.ShellSessionName("foreign-" + t.Name())
+	if err := tm.NewSession(ctx, foreign, t.TempDir(), "cat"); err != nil {
+		t.Fatalf("seed foreign session: %v", err)
+	}
+	t.Cleanup(func() { _ = tm.KillSession(ctx, foreign) })
+	if err := tm.SetOption(ctx, foreign, "mouse", "on"); err != nil {
+		t.Fatalf("seed option: %v", err)
+	}
+
+	postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/settings", map[string]any{"mouse": "off"}).Body.Close()
+
+	if got := tmuxOption(t, foreign, "mouse"); got != "on" {
+		t.Fatalf("foreign session mouse = %q, want the untouched on — a global change reached a session this store does not own", got)
+	}
+}
+
+// The counterpart to the test above, so scoping the apply cannot quietly
+// become applying to nothing: a global change still reaches the live session
+// of a terminal this instance does own.
+func TestAGlobalChangeReachesAnOwnedLiveSession(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	_, session := newTerminal(t, ts)
+	if got := tmuxOption(t, session, "mouse"); got != "on" {
+		t.Fatalf("mouse = %q at creation, want the default on", got)
+	}
+
+	postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/settings", map[string]any{"mouse": "off"}).Body.Close()
+
+	if got := tmuxOption(t, session, "mouse"); got != "off" {
+		t.Fatalf("mouse = %q, want the global change to reach an owned session with no reattach", got)
+	}
+}

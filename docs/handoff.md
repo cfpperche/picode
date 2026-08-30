@@ -61,6 +61,14 @@ global PATCH re-resolves **each** session on its own rather than pushing the
 new global at all of them — a test pins that, and it fails if you take the
 shortcut.
 
+The session list comes from the **store**, not from `tmux list-sessions`.
+That distinction was learned the hard way on 2026-08-30: `list-sessions`
+answers for the whole machine, so a single `go test` with its own database in
+`/tmp` flipped `mouse` on the developer's live terminals, which wore the same
+prefix. A test now seeds a foreign session and asserts a global change leaves
+it alone; a second test asserts the change still reaches an owned one, so the
+scoping cannot quietly become applying to nothing.
+
 Measured, not assumed: flipping `mouse` on a session with a client attached
 takes effect with no reattach, which is why a PATCH is enough. The chain is in
 the ADR. The known cost: while tracking is on the drag belongs to the
