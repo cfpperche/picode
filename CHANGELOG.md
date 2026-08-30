@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Git graph.** The repository icon beside an agent or a terminal in the
+  sidebar opens the commit history as a tab: branches, merges, tags, and the
+  agents living in each worktree shown on the branch they are on. One graph per
+  repository, so two agents working in two worktrees of the same repo share a
+  single tab. Clicking a commit opens its diff below the graph, one card per
+  file. Read-only — nothing in it changes the repository (ADR-0022).
+
 ### Fixed
 
 - The agent's Pi TUI now renders through the same terminal surface as first-class terminals (one xterm.js engine, same padding, scrollbar, and fit) instead of the old dock wrapper; in managed mode the view shows a one-line hint with an Open TUI action.

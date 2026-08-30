@@ -23,6 +23,7 @@ export function parseRoute(hash) {
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
+  if (h.startsWith("/git/")) return "workspace";
   return "workspace";
 }
 
@@ -150,4 +151,35 @@ export function go(name, agentId) {
   }
   const path = ROUTES[name] || "/";
   location.hash = path === "/" ? "#/" : "#" + path;
+}
+
+// Git graph (ADR-0022). The hash names the *owner* that asked, because the
+// owner is what authorises the read; the tab id names the *repository*, so two
+// agents in two worktrees of one repo land on the same tab.
+export function gitHash(kind, id) {
+  const k = kind === "term" ? "t" : "a";
+  return "#/git/" + k + "/" + encodeURIComponent(id || "");
+}
+
+export function gitRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/git\/(t|a)\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try {
+    return { kind: m[1] === "t" ? "term" : "agent", id: decodeURIComponent(m[2]) };
+  } catch {
+    return null;
+  }
+}
+
+export function gitTabId(key) {
+  return key ? "g:" + key : "";
+}
+
+export function isGitTab(id) {
+  return String(id || "").startsWith("g:");
+}
+
+export function gitTabKey(id) {
+  return isGitTab(id) ? String(id).slice(2) : "";
 }

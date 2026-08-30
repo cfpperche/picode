@@ -25,6 +25,7 @@ export default function Sidebar({
   workingIds,
   waitingId,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm,
+  onGitGraph,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -107,7 +108,18 @@ export default function Sidebar({
         </div>
         <div className="ws-row2 tree-row">
           <span className="tree-spc" aria-hidden="true" />
-          <span className="tree-icon">{repo.git ? <IconGit size={14} /> : <IconFolder size={14} />}</span>
+          {repo.git ? (
+            <button
+              type="button"
+              className="tree-icon tree-icon-btn"
+              title={"Git graph" + (repo.git.branch ? " — " + repo.git.branch : "")}
+              onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("agent", ag.id, label); }}
+            >
+              <IconGit size={14} />
+            </button>
+          ) : (
+            <span className="tree-icon"><IconFolder size={14} /></span>
+          )}
           <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{repo.text}</span>
         </div>
         <span className="ws-actions">
@@ -162,6 +174,9 @@ export default function Sidebar({
                   <span className="ws-path" title={t.cwd}>{t.cwd}</span>
                 </div>
                 <span className="ws-actions">
+                  {t.git ? (
+                    <button type="button" className="ws-icon-btn" title={"Git graph" + (t.git.branch ? " — " + t.git.branch : "")} onClick={() => onGitGraph && onGitGraph("term", t.id, t.name)}><IconGit size={14} /></button>
+                  ) : null}
                   <button type="button" className="ws-icon-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}><IconPencil /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
                 </span>

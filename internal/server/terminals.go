@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -55,7 +56,12 @@ func handleListTerminals(deps Deps) http.HandlerFunc {
 			if deps.Tmux != nil && deps.Tmux.Available() {
 				live, _ = deps.Tmux.HasSession(r.Context(), name)
 			}
-			out = append(out, termView(t, name, live))
+			// The graph entry point is only offered where there is a repository
+			// to open, so the list carries the same git facts agents do — read
+			// from the pane's live cwd, not the record (ADR-0022).
+			view := termView(t, name, live)
+			view["git"] = gitinfo.Inspect(liveTermCwd(deps, r, t))
+			out = append(out, view)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"terminals": out})
 	}

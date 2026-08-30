@@ -75,6 +75,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
 	mux.HandleFunc("GET /api/tui-working", handleTuiWorking(deps))
+	registerGitGraphRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux)
 	registerSnippet(mux, deps)

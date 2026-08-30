@@ -5,6 +5,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { basename, statLabel, groupHunks, undoHunkInText } from "../lib/diff.js";
+import DiffLine from "./DiffLine.jsx";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex, pathsFromTurn } from "../lib/turns.js";
 import { IconCopy } from "./Icons.jsx";
 import PiSpinner from "./PiSpinner.jsx";
@@ -512,15 +513,6 @@ function DiffHunks({ hunks, path, agentId, onOpenFile }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function DiffLine({ h }) {
-  return (
-    <div className={"diff-line " + h.kind}>
-      <span className="diff-gutter">{h.kind === "add" ? "+" : h.kind === "del" ? "−" : h.kind === "gap" ? "·" : " "}</span>
-      <span className="diff-text">{h.text}</span>
     </div>
   );
 }
