@@ -145,6 +145,8 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Pi item reappeared in the user menu: **a parallel agent deployed a stale `bin/picode`** (built before `4913a3a5`), not a source regression — main was clean. Fixed by `make build` + deploy from current main. **Rule for every session: before `bin/picode deploy`, run `make build` on a tree at current main** — deploying an old binary silently reverts UI changes that are already merged.
+
 - **2026-08-30** — Removed the **Pi** item from the user menu (owner call): the update surface is the System card only. Also restored the pi-update CHANGELOG entry — it was lost in a conflicted merge earlier.
 - **2026-08-30** — **Pi update alert shipped** and proven on a real release: System card with installed → latest, Copy command, and **Update now** (`POST /api/system/pi-update` → `pi update --self`, background ctx so a client disconnect cannot kill the install). Live run updated pi 0.84.3 → 0.84.4 end to end. **Ops note:** deploying with a plain `go build` binary (no `-tags embedui`) installs a disk-mode server that serves "UI has not been built" — always `make build` before `bin/picode deploy` (this bit us once today; fixed by rebuilding embedded).
 
