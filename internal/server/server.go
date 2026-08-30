@@ -59,6 +59,7 @@ func New(addr string, deps Deps) *http.Server {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
+	mux.HandleFunc("POST /api/system/pi-update", handlePiSelfUpdate(deps))
 	mux.HandleFunc("GET /api/catalog", handleCatalog(deps))
 	mux.HandleFunc("GET /api/share", handleShare(deps))
 	registerMCPRoutes(mux, deps)

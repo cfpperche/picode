@@ -400,6 +400,13 @@ body {
 }
 .sessions-list { gap: 6px; }
 .sessions-group { margin: 0 0 10px; }
+.pi-update-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.pi-update-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0; }
+.pi-update-line > span:first-child { line-height: 36px; }
+.pi-update-actions { display: flex; align-items: center; gap: 8px; }
+.pi-update-note { margin: 8px 0 0; color: var(--text-secondary); font-size: 12.5px; }
+.pi-update-note.err { color: var(--danger); white-space: pre-wrap; }
+.pi-update-note.ok { color: var(--text-primary); }
 .sessions-group-head {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0 6px; min-height: 28px;
