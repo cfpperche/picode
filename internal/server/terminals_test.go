@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,4 +183,44 @@ func TestTerminalLiveCwd(t *testing.T) {
 	if esc.StatusCode != http.StatusNotFound && esc.StatusCode != http.StatusBadRequest {
 		t.Fatalf("start file after cd = %d", esc.StatusCode)
 	}
+}
+
+// PiCode used to force tmux's own mouse mode on every session so the wheel
+// would reach the TUI. termWheel.js synthesises those bytes now, and the
+// option's only remaining effect was putting tmux's copy-mode over every drag
+// — the browser terminal stopped being able to select text. This pins that it
+// stays off, and that passthrough (which carries OSC 52 out of the pane) stays
+// on. Both are set per session, so a regression here is silent.
+func TestTerminalSessionLeavesTheMouseAloneAndPassesThrough(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	created := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": t.TempDir()})
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d", created.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&page)
+	sess, _ := page["session"].(string)
+	if sess == "" {
+		t.Fatalf("no session in %+v", page)
+	}
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), sess) })
+
+	if got := tmuxOption(t, sess, "mouse"); got == "on" {
+		t.Fatalf("tmux must not own the mouse: mouse=%q", got)
+	}
+	if got := tmuxOption(t, sess, "allow-passthrough"); got != "on" {
+		t.Fatalf("allow-passthrough=%q, want on — OSC 52 cannot leave the pane without it", got)
+	}
+}
+
+func tmuxOption(t *testing.T, session, option string) string {
+	t.Helper()
+	out, err := exec.Command("tmux", "show-options", "-t", session+":", "-v", option).Output()
+	if err != nil {
+		return "" // unset reports an error; an unset option is not "on"
+	}
+	return strings.TrimSpace(string(out))
 }

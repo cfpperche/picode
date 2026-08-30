@@ -23,5 +23,6 @@ and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
 
 ## Studies
 
+- [2026-08-30 — Copying out of a browser terminal backed by tmux](2026-08-30-web-terminal-clipboard.md)
 - [2026-08-27 — Herdr](2026-08-27-herdr.md)
 - [2026-08-24 — Adopt t3code / paseo / Cursor](2026-08-24-adopt-t3code-paseo-cursor.md)
