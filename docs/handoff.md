@@ -87,6 +87,7 @@ Never exercised, because this machine was already past them:
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
 - Mobile parity (shell exists; not feature-complete).
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
+- Cold start parses the whole session JSONL (10 s on a 129 MB session) — draft for an upstream `earendil-works/pi` issue (lazy resume / load checkpoint) is at `/tmp/pi-lazy-session-issue.md`, waiting on `gh auth login`.
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
 
 ## Known debts / open questions
