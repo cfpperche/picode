@@ -107,15 +107,6 @@ Never exercised, because this machine was already past them:
 ## Known debts / open questions
 
 
-- OSC 52 reaching the *actual* system clipboard is unproven. The chain was
-  verified end to end in a headless browser — tmux passthrough → xterm.js →
-  handler → `navigator.clipboard.writeText` — but that last call is refused
-  there for lack of permission, so what was observed is the error path and its
-  toast. It needs one manual check in a real browser, and a second in Firefox,
-  which is stricter about writes without a user gesture. If it turns out a
-  gesture is always required, the honest fallback is copy-on-select rather than
-  a toast.
-
 - `handleAddWorkspaceAgent` (`internal/server/agents.go:504`) hardcodes
   `workPath` to `""`, so a **workspace** agent cannot be pointed at a worktree
   through the API — only a free agent takes a path (`POST /api/agents?free=1`).
@@ -158,6 +149,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Clipboard validated in a browser, closing the ADR-0023-era debt. Text emitted as OSC 52 from inside a tmux pane came back out of the *system* clipboard via a real Ctrl+V — the whole chain, not an inference. Chrome refuses the write without a recent user gesture and accepts it right after a click; the handler's toast covers the refusal. That refusal path needed a synthetic probe to reach at all, so it is not being designed around. Firefox is still unchecked: the automation here only drives Chrome.
 - **2026-08-30** — `make fmt` and `make fmt-check` stop reaching into `.worktrees/`. Both walked the tree with `.`, so a sibling agent's uncommitted code failed this gate — and `fmt` was worse than reported: `gofmt -w .` would have *rewritten* their files. Both now walk the directories `go list ./...` reports, the same module boundary `vet` and `test` always respected. The `git ls-files` fix I had written in this file was wrong and is dropped: tested, it misses a new file not yet `git add`ed, so it would pass locally and fail in CI. `go list` catches it, and covers 204 of 204 `.go` files in the module including `//go:build ignore` ones. CI's inline gofmt step now calls the same target instead of repeating the command.
 - **2026-08-30** — ADR-0023 implemented. `internal/web` splits into a disk loader (default) and an embedded one (`-tags embedui`), which is what `make build`, `ci.yml` and `release.yml` now use; `internal/web/public/` is untracked and gitignored. The ADR's gating question is answered: over https the service worker registers, activates and fills `picode-assets-v1` with the hashed assets in disk mode, and both modes serve byte-identical asset URLs with identical Cache-Control (`immutable` for `/assets/`, `no-cache` elsewhere). The earlier `swRegs: 0` was a red herring — `main.jsx:16` only registers over https, so it was 0 in both modes. A disk build with no UI answers 503 with `run make web` instead of 404s, and starts serving the moment the files appear.
 - **2026-08-30** — ADR-0023: the built UI stops being committed. It had been tracked since the bootstrap commit with no decision behind it — 330 files, 33 MB, 77% of the repo's commits, 133 files rewritten per UI change, and 335/334 `rename/rename` conflicts in two merges that day, every one resolved by rebuilding. Checked six peers (Grafana, Prometheus, Vault, Coder, Gitea, Syncthing): none commits it. Prometheus also answers the constraint that kept us — `//go:build !builtinassets` serves from disk and the default build does not embed at all. Decision recorded; the code change is not made yet.
