@@ -266,3 +266,187 @@ func run(t *testing.T, dir, name string, args ...string) {
 		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
 	}
 }
+
+func TestShowRefusesAnythingButAFullHash(t *testing.T) {
+	dir := repo(t)
+	// The hash is the only user-controlled part of the command line. A leading
+	// dash would be read by git as a flag, so nothing but hex may reach it.
+	for _, bad := range []string{"", "HEAD", "main", "--help", "-n1", "../etc", "abc123", strings.Repeat("z", 40)} {
+		if got := Show(dir, bad); got != nil {
+			t.Fatalf("Show(%q) must be refused, got %+v", bad, got)
+		}
+	}
+}
+
+func TestShowOrdinaryCommit(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "b.txt", "one\ntwo\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "add b\n\nA body line.\nAnd another.")
+
+	head := headHash(t, dir)
+	d := Show(dir, head)
+	if d == nil {
+		t.Fatal("nil detail")
+	}
+	if d.Subject != "add b" {
+		t.Fatalf("subject = %q", d.Subject)
+	}
+	if d.Body != "A body line.\nAnd another." {
+		t.Fatalf("body = %q", d.Body)
+	}
+	if d.Email == "" || d.At == 0 {
+		t.Fatalf("metadata missing: %+v", d)
+	}
+	if len(d.Files) != 1 || d.Files[0].Path != "b.txt" {
+		t.Fatalf("files = %+v", d.Files)
+	}
+	if !strings.Contains(d.Files[0].Patch, "+one") {
+		t.Fatalf("patch missing content: %q", d.Files[0].Patch)
+	}
+}
+
+// A merge must arrive as a plain patch against the first parent. Left alone,
+// git emits a combined diff (`diff --cc`, `@@@`) that a unified-diff reader
+// misreads line by line without ever failing.
+func TestShowMergeIsPlainNotCombined(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "checkout", "-q", "-b", "side")
+	write(t, dir, "side.txt", "side\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "side work")
+	run(t, dir, "git", "checkout", "-q", "main")
+	write(t, dir, "main.txt", "main\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "main work")
+	run(t, dir, "git", "merge", "--no-ff", "side", "-m", "merge side")
+
+	d := Show(dir, headHash(t, dir))
+	if d == nil || len(d.Parents) != 2 {
+		t.Fatalf("expected a merge: %+v", d)
+	}
+	if len(d.Files) == 0 {
+		t.Fatal("a merge against its first parent still has changes")
+	}
+	for _, f := range d.Files {
+		if strings.Contains(f.Patch, "diff --cc") || strings.Contains(f.Patch, "@@@") {
+			t.Fatalf("combined diff leaked into %s:\n%s", f.Path, f.Patch)
+		}
+	}
+	if d.Files[0].Path != "side.txt" {
+		t.Fatalf("first-parent diff should bring the side file, got %+v", d.Files)
+	}
+}
+
+func TestShowRootCommit(t *testing.T) {
+	dir := repo(t)
+	root := strings.TrimSpace(output(t, dir, "git", "rev-list", "--max-parents=0", "HEAD"))
+	d := Show(dir, root)
+	if d == nil || len(d.Parents) != 0 {
+		t.Fatalf("root commit: %+v", d)
+	}
+	if len(d.Files) != 1 || d.Files[0].Path != "a" {
+		t.Fatalf("root commit must still show its files: %+v", d.Files)
+	}
+}
+
+func TestShowRenameAndDelete(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "old.txt", strings.Repeat("stable line\n", 20))
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "add old")
+	run(t, dir, "git", "mv", "old.txt", "new.txt")
+	run(t, dir, "git", "rm", "-q", "a")
+	run(t, dir, "git", "commit", "-m", "rename and delete")
+
+	d := Show(dir, headHash(t, dir))
+	if d == nil {
+		t.Fatal("nil")
+	}
+	var renamed, deleted *FileDiff
+	for i := range d.Files {
+		switch d.Files[i].Path {
+		case "new.txt":
+			renamed = &d.Files[i]
+		case "a":
+			deleted = &d.Files[i]
+		}
+	}
+	if renamed == nil || renamed.OldPath != "old.txt" {
+		t.Fatalf("rename not carried: %+v", d.Files)
+	}
+	if deleted == nil {
+		t.Fatalf("delete missing: %+v", d.Files)
+	}
+}
+
+func TestSplitPatchShapes(t *testing.T) {
+	patch := strings.Join([]string{
+		"diff --git a/keep.txt b/keep.txt",
+		"index 1111111..2222222 100644",
+		"--- a/keep.txt",
+		"+++ b/keep.txt",
+		"@@ -1 +1 @@",
+		"-old",
+		"+new",
+		"diff --git a/gone.txt b/gone.txt",
+		"deleted file mode 100644",
+		"--- a/gone.txt",
+		"+++ /dev/null",
+		"diff --git a/pic.png b/pic.png",
+		"index 3333333..4444444 100644",
+		"Binary files a/pic.png and b/pic.png differ",
+	}, "\n")
+
+	files := splitPatch(patch)
+	if len(files) != 3 {
+		t.Fatalf("expected 3 files, got %d: %+v", len(files), files)
+	}
+	if files[0].Path != "keep.txt" || files[0].OldPath != "" {
+		t.Fatalf("unchanged path should not repeat as oldPath: %+v", files[0])
+	}
+	// A delete keeps its name from the --- line; +++ is /dev/null.
+	if files[1].Path != "gone.txt" && files[1].OldPath != "gone.txt" {
+		t.Fatalf("deleted file lost its name: %+v", files[1])
+	}
+	if !files[2].Binary {
+		t.Fatalf("binary not flagged: %+v", files[2])
+	}
+	if !strings.Contains(files[0].Patch, "+new") || strings.Contains(files[0].Patch, "gone.txt") {
+		t.Fatalf("file patches bled into each other: %q", files[0].Patch)
+	}
+	if len(splitPatch("")) != 0 {
+		t.Fatal("an empty patch has no files")
+	}
+}
+
+func TestHeaderPathsCutsAtTheLastMarker(t *testing.T) {
+	for _, c := range []struct{ in, old, new string }{
+		{"a/x.go b/x.go", "x.go", "x.go"},
+		{"a/old.go b/new.go", "old.go", "new.go"},
+		// A directory literally called "b" must not fool the split.
+		{"a/src/b/f.go b/src/b/f.go", "src/b/f.go", "src/b/f.go"},
+	} {
+		o, n := headerPaths(c.in)
+		if o != c.old || n != c.new {
+			t.Fatalf("headerPaths(%q) = %q,%q want %q,%q", c.in, o, n, c.old, c.new)
+		}
+	}
+}
+
+func headHash(t *testing.T, dir string) string {
+	t.Helper()
+	return strings.TrimSpace(output(t, dir, "git", "rev-parse", "HEAD"))
+}
+
+func output(t *testing.T, dir, name string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("%s %v: %v", name, args, err)
+	}
+	return string(out)
+}

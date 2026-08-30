@@ -260,3 +260,121 @@ func git(dir string, args ...string) string {
 	}
 	return strings.TrimRight(string(out), "\n")
 }
+
+// FileDiff is one file's patch inside a commit, already split out so the
+// browser renders one card per file instead of one wall.
+type FileDiff struct {
+	Path    string `json:"path"`
+	OldPath string `json:"oldPath,omitempty"`
+	Patch   string `json:"patch"`
+	Binary  bool   `json:"binary"`
+}
+
+// CommitDetail is one commit with its message body and its diff.
+type CommitDetail struct {
+	Hash      string     `json:"hash"`
+	Parents   []string   `json:"parents"`
+	Author    string     `json:"author"`
+	Email     string     `json:"email"`
+	At        int64      `json:"at"`
+	Subject   string     `json:"subject"`
+	Body      string     `json:"body"`
+	Files     []FileDiff `json:"files"`
+	Truncated bool       `json:"truncated"`
+}
+
+// maxPatchBytes caps one commit's diff. A generated-asset commit can run to
+// megabytes, and a browser that has to lay all of it out stops being useful
+// long before it runs out of memory.
+const maxPatchBytes = 2 << 20
+
+// Show reads one commit and its diff. hash must be a full object name: it is
+// the only user-supplied part of the git command line, so anything that is not
+// 40 or 64 hex characters is refused rather than passed to git, where a
+// leading dash would be read as a flag.
+func Show(dir, hash string) *CommitDetail {
+	if !isHash(hash) || Key(dir) == "" {
+		return nil
+	}
+	format := "--format=" + strings.Join([]string{"%H", "%P", "%an", "%ae", "%at", "%s", "%b"}, fieldSep)
+	meta := git(dir, "-c", "log.showSignature=false", "show", "-s", format, hash)
+	f := strings.SplitN(meta, fieldSep, 7)
+	if len(f) != 7 || !isHash(f[0]) {
+		return nil
+	}
+	at, _ := strconv.ParseInt(f[4], 10, 64)
+	d := &CommitDetail{
+		Hash: f[0], Author: f[2], Email: f[3], At: at,
+		Subject: f[5], Body: strings.TrimRight(f[6], "\n"),
+		Parents: []string{},
+	}
+	if p := strings.TrimSpace(f[1]); p != "" {
+		d.Parents = strings.Fields(p)
+	}
+
+	// -m --first-parent is not a preference. Without it a merge yields a
+	// combined diff (`diff --cc`, `@@@` hunks, two-column prefixes) that a
+	// plain unified-diff reader silently misreads. With it, every commit —
+	// merge, root or ordinary — comes back as one plain patch.
+	patch := git(dir, "-c", "log.showSignature=false", "show",
+		"--format=", "--patch", "--no-color", "-M", "-m", "--first-parent", hash, "--")
+	if len(patch) > maxPatchBytes {
+		patch = patch[:maxPatchBytes]
+		d.Truncated = true
+	}
+	d.Files = splitPatch(patch)
+	return d
+}
+
+// splitPatch cuts a unified diff into one entry per file. The `diff --git`
+// header opens a file; the `+++`/`---` lines are preferred for the name
+// because they carry it unadorned.
+func splitPatch(patch string) []FileDiff {
+	files := []FileDiff{}
+	var cur *FileDiff
+	var buf []string
+	flush := func() {
+		if cur != nil {
+			cur.Patch = strings.Join(buf, "\n")
+			files = append(files, *cur)
+		}
+		cur, buf = nil, nil
+	}
+	for _, line := range strings.Split(patch, "\n") {
+		if strings.HasPrefix(line, "diff --git ") {
+			flush()
+			a, b := headerPaths(strings.TrimPrefix(line, "diff --git "))
+			cur = &FileDiff{Path: b, OldPath: a}
+		}
+		if cur == nil {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "+++ b/"):
+			cur.Path = strings.TrimPrefix(line, "+++ b/")
+		case strings.HasPrefix(line, "--- a/"):
+			cur.OldPath = strings.TrimPrefix(line, "--- a/")
+		case strings.HasPrefix(line, "Binary files ") || strings.HasPrefix(line, "GIT binary patch"):
+			cur.Binary = true
+		}
+		buf = append(buf, line)
+	}
+	flush()
+	for i := range files {
+		if files[i].OldPath == files[i].Path {
+			files[i].OldPath = ""
+		}
+	}
+	return files
+}
+
+// headerPaths splits `a/<old> b/<new>`. A path containing " b/" would fool a
+// naive split, so the cut is made at the last occurrence — git writes the new
+// path last, and the `+++` line corrects the name anyway when there is one.
+func headerPaths(rest string) (oldPath, newPath string) {
+	i := strings.LastIndex(rest, " b/")
+	if i < 0 {
+		return "", strings.TrimPrefix(rest, "a/")
+	}
+	return strings.TrimPrefix(rest[:i], "a/"), rest[i+len(" b/"):]
+}

@@ -49,6 +49,8 @@ type graphView struct {
 func registerGitGraphRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/git", handleAgentGraph(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git", handleTerminalGraph(deps))
+	mux.HandleFunc("GET /api/agents/{id}/git/commit", handleAgentCommit(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/git/commit", handleTerminalCommit(deps))
 }
 
 func handleAgentGraph(deps Deps) http.HandlerFunc {
@@ -175,4 +177,43 @@ func deepestRoot(roots []string, cwd string) (root string, exact bool) {
 		}
 	}
 	return root, false
+}
+
+func handleAgentCommit(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeCommit(w, r, cwd)
+	}
+}
+
+func handleTerminalCommit(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeCommit(w, r, liveTermCwd(deps, r, term))
+	}
+}
+
+// writeCommit reads one commit through the owner's cwd. The hash is validated
+// inside gitgraph.Show, which refuses anything but a full object name — so a
+// caller cannot smuggle a flag or a ref into the git command line.
+func writeCommit(w http.ResponseWriter, r *http.Request, cwd string) {
+	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
+	if hash == "" {
+		writeErr(w, http.StatusBadRequest, "pass ?hash=<commit>")
+		return
+	}
+	detail := gitgraph.Show(cwd, hash)
+	if detail == nil {
+		writeErr(w, http.StatusNotFound, "no such commit in this repository")
+		return
+	}
+	writeJSON(w, http.StatusOK, detail)
 }

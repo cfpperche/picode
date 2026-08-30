@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { layout, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
 
 // One row per commit, with the branch lines drawn as a single SVG layer behind
@@ -23,6 +23,16 @@ function refKindClass(kind) {
 
 export default function GitGraph({ graph, selected, onSelect }) {
   const commits = graph.commits || [];
+  const listRef = useRef(null);
+
+  // Selecting a commit opens the diff pane, which shrinks this one. Without
+  // this the row you just clicked scrolls out of sight — you lose the thing
+  // you were reading about. "nearest" keeps an already-visible row still.
+  useEffect(() => {
+    if (!selected || !listRef.current) return;
+    const row = listRef.current.querySelector(".gg-row-on");
+    if (row) row.scrollIntoView({ block: "nearest" });
+  }, [selected]);
 
   const placed = useMemo(() => layout(commits), [commits]);
 
@@ -82,7 +92,7 @@ export default function GitGraph({ graph, selected, onSelect }) {
         ))}
       </svg>
 
-      <ol className="gg-list">
+      <ol className="gg-list" ref={listRef}>
         {commits.map((c) => {
           const refs = refsByHash.get(c.hash) || [];
           return (

@@ -47,20 +47,19 @@ What exists:
 
 ## In flight
 
-**ADR-0022 — git graph. G1 (data) and G2 (the graph) are built and visually
-verified; G3 (commit → diff) is not started.**
+**ADR-0022 — git graph. G1 (data), G2 (the graph) and G3 (commit diff) are
+built and visually verified. The ADR is delivered.**
 
-What works: the repository icon beside an agent or terminal in the sidebar
-opens `#/git/<t|a>/<id>`, the tab is `g:<git-common-dir>`, and two owners in
-two worktrees of one repo land on the same tab. Rows carry ref chips and, on a
-branch, the agents living in the worktree checked out on it. Verified on the
-real repo at 250 commits: `overlayAudit ok`, no horizontal scroll, 26px rows,
-dark and light both read.
+The repository icon beside an agent or terminal in the sidebar opens
+`#/git/<t|a>/<id>`; the tab is `g:<git-common-dir>`, so two owners in two
+worktrees of one repo land on the same tab. Rows carry ref chips and, on a
+branch, the agents living in the worktree checked out on it. Clicking a commit
+splits the surface and shows its message and patch, one card per file.
 
-G3 is the remaining track: clicking a commit should open its diff. The
-renderer already exists — `hunksFromDiff` (`web/src/lib/diff.js:58`) parses
-raw unified diff — so it needs `git show <hash>` behind an owner-scoped route
-and a split on `diff --git` for multi-file commits.
+Verified on the real repo at 250 commits, dark and light: `overlayAudit ok`,
+no horizontal scroll, 26px rows, the selected row stays in view when the diff
+pane opens, and a 59-file commit reports `truncated` rather than trying to
+render megabytes.
 
 ## Next up
 
@@ -140,6 +139,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Git graph G3 (ADR-0022): clicking a commit opens its diff. `git show -m --first-parent` is a correctness fix, not a preference — without it a merge arrives as a combined diff (`diff --cc`, `@@@`) that the unified-diff reader misreads silently; proved by removing the flags and watching the test go red. The hash is the only user-controlled part of the git command line, so anything but 40/64 hex is refused before it reaches git. `DiffLine` moved out of Conversation.jsx so the chat and the graph render diffs the same way. Screenshot caught the selected row scrolling out of sight when the pane opened.
 - **2026-08-30** — Git graph G1+G2 (ADR-0022). `internal/gitgraph` reads the DAG, refs and worktrees; the column allocator is ported from mhutchie's Git Graph (MIT, attributed in the file header) minus its uncommitted-changes row. Two parser bugs caught by tests with teeth: git hands back a literal 0x1f typed into a message, which a plain Split turned into a *dropped commit*, and a 0x1e split a record into a phantom commit whose hash was someone's subject. Verified on the real repo: 250 rows, `overlayAudit ok`, no h-scroll, 26px rows, dark and light both read, and the occupant chips show `default` on main beside `graph-impl` on its worktree.
 - **2026-08-30** — Terminal/chat view persists per agent across reload (localStorage `picode-term-view`).
 - **2026-08-30** — Transcript API paginated (`?tail=&skip=`): opening the 129.5 MB session loads a 200-event slice (~1 s server, small payload); Load earlier fetches older turns from the server with scroll anchoring.

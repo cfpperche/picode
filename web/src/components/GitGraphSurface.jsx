@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import GitGraph from "./GitGraph.jsx";
+import CommitDetail from "./CommitDetail.jsx";
 
 const SKELETON_ROWS = 14;
 
@@ -115,7 +116,12 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
           No commits yet. Make the first one, then Refresh.
         </p>
       ) : (
-        <GitGraph graph={graph} selected={selected} onSelect={setSelected} />
+        <div className={"gg-split" + (selected ? " gg-split-open" : "")}>
+          <GitGraph graph={graph} selected={selected} onSelect={(h) => setSelected(h === selected ? "" : h)} />
+          {selected ? (
+            <CommitDetail owner={owner} hash={selected} onClose={() => setSelected("")} />
+          ) : null}
+        </div>
       )}
     </section>
   );

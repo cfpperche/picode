@@ -209,6 +209,13 @@ HTTP API (Go 1.22 method patterns):
   worktree answers with the same key and collapses onto one tab. The route
   carries the *owner* because the owner is what authorises the read — the
   server never resolves a repository from a path in the URL (ADR-0022).
+- `GET /api/agents/{id}/git/commit?hash=` · `GET /api/terminals/{id}/git/commit?hash=`
+  — one commit with its message body and its patch, already split per file.
+  `hash` must be a full object name (40/64 hex): it is the only user-supplied
+  part of the git command line, so a ref or a leading dash is refused rather
+  than passed through. The patch is read with `-m --first-parent`, which is
+  what keeps a merge from arriving as a combined diff (`diff --cc`, `@@@`)
+  that a unified-diff reader misreads without ever failing.
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,

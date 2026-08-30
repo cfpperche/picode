@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -204,4 +205,102 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
+}
+
+func TestCommitRouteReadsThroughTheOwner(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	_, agent, err := st.AddWorkspace("App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	g := getGraph(t, ts, "/api/agents/"+agent.ID+"/git")
+	if len(g.Commits) == 0 {
+		t.Fatal("no commits to ask about")
+	}
+	hash := g.Commits[0].Hash
+
+	res, err := ts.Client().Get(ts.URL + "/api/agents/" + agent.ID + "/git/commit?hash=" + hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", res.StatusCode)
+	}
+	var d struct {
+		Hash    string `json:"hash"`
+		Subject string `json:"subject"`
+		Files   []struct {
+			Path  string `json:"path"`
+			Patch string `json:"patch"`
+		} `json:"files"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Hash != hash || d.Subject != "first" {
+		t.Fatalf("wrong commit: %+v", d)
+	}
+	if len(d.Files) != 1 || d.Files[0].Path != "a" || !strings.Contains(d.Files[0].Patch, "+a") {
+		t.Fatalf("files = %+v", d.Files)
+	}
+}
+
+// The route reads through the owner's cwd, so a real commit that lives in a
+// different repository is simply not there. That is the confinement working,
+// not an accident of naming.
+func TestCommitFromAnotherRepoIsNotFound(t *testing.T) {
+	mine := gitRepo(t)
+	theirs := gitRepo(t)
+	// gitRepo builds identical repositories, and git is content-addressed: same
+	// tree, same message, same second gives the *same* hash. Make theirs differ
+	// or this test proves nothing.
+	if err := os.WriteFile(filepath.Join(theirs, "only-theirs"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, theirs, "add", ".")
+	gitRun(t, theirs, "commit", "-m", "theirs alone")
+	theirHash := strings.TrimSpace(gitOut(t, theirs, "rev-parse", "HEAD"))
+	mineHash := strings.TrimSpace(gitOut(t, mine, "rev-parse", "HEAD"))
+	if theirHash == mineHash {
+		t.Fatal("the two repositories must not share a commit for this test to mean anything")
+	}
+
+	st := testStore(t)
+	_, agent, err := st.AddWorkspace("App", mine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	for _, q := range []string{
+		"?hash=" + theirHash,
+		"?hash=HEAD",
+		"?hash=--help",
+		"",
+	} {
+		res, err := ts.Client().Get(ts.URL + "/api/agents/" + agent.ID + "/git/commit" + q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode == http.StatusOK {
+			t.Fatalf("query %q must not succeed, got 200", q)
+		}
+	}
+}
+
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return string(out)
 }
