@@ -78,10 +78,11 @@ test("git tabs are distinct from file and terminal tabs", () => {
 });
 
 test("sessions route parses workspace id", () => {
+  assert.equal(parseRoute("#/sessions"), "sessions");
   assert.equal(parseRoute("#/sessions/ws-9"), "sessions");
   assert.equal(sessionsRoute("#/sessions/ws-9"), "ws-9");
+  assert.equal(sessionsRoute("#/sessions"), null);
   assert.equal(sessionsRoute("#/agent/opus"), null);
   assert.equal(sessionsHash("ws-9"), "#/sessions/ws-9");
   assert.equal(sessionsHash(""), "#/");
-  assert.equal(parseRoute("#/sessions/"), "sessions");
 });

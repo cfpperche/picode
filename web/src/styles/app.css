@@ -399,6 +399,16 @@ body {
   border: 1px solid var(--border); border-radius: 6px;
 }
 .sessions-list { gap: 6px; }
+.sessions-group { margin: 0 0 10px; }
+.sessions-group-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 6px; min-height: 28px;
+  color: var(--text-primary); font-size: 12.5px; font-weight: 600;
+}
+.sessions-group-head.unknown { color: var(--text-secondary); font-weight: 500; }
+.sessions-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-weight: 400; }
+.sessions-scope-link { font-size: 12.5px; color: var(--accent); text-decoration: none; line-height: 36px; display: inline-block; }
+.sessions-scope-link:hover { text-decoration: underline; }
 .sess-row { flex-wrap: wrap; row-gap: 6px; }
 .sess-name { font-family: var(--mono); font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
 .sess-badge {

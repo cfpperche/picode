@@ -211,6 +211,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
   (0 = off, default). Sweep runs at boot, daily, and after each change;
   it deletes only sessions no agent is bound to.
+- `GET/DELETE /api/sessions/all` — machine-wide view (`session.ListAll`):
+  every Pi session on the machine, each tagged with the workspace owning
+  its folder; delete validates against the sessions root. Powers the
+  `#/sessions` All-folders view.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX)
 - `GET /ws/term?session=<name>` — xterm.js bridge (Pi TUI or project shell).
