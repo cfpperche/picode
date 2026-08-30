@@ -741,9 +741,14 @@ export default function App() {
         queueMicrotask(scrollConv);
         break;
       }
+      case "compaction_end": {
+        // pi finished compacting (user-initiated or auto). Close the pending
+        // line if we own one; pi's TUI shows its own feedback otherwise.
+        setItems((cur) => cur.map((it) => (it.id === "compact-pending" ? { ...it, text: "Session compacted." } : it)));
+        break;
+      }
       case "auto_retry_start":
       case "auto_retry_end":
-      case "compaction_end":
       case "extension_error": {
         const a = alertFromPi(ev);
         if (a) {
@@ -1039,18 +1044,29 @@ export default function App() {
     if (!agent) return;
     const ok = await askConfirm({
       title: "Compact session",
-      message: "Older turns become a summary. This cannot be undone in the chat.",
+      message: "Older turns become a summary. This cannot be undone in the chat, and can take a few minutes on huge sessions.",
       confirmLabel: "Compact",
     });
     if (!ok) return;
+    const markId = "compact-pending";
+    const putLine = (text) => setItems((cur) => {
+      const rest = cur.filter((it) => it.id !== markId);
+      return [...rest, { kind: "alert", level: "info", id: markId, text, ts: Date.now() }];
+    });
+    putLine("Compacting session… this can take a few minutes.");
+    queueMicrotask(scrollConv);
     try {
       if (selectedId) setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
       const res = await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
+      putLine(res && res.already ? "Nothing left to compact." : "Session compacted.");
       toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
       await loadWorkspaces();
       await loadSessions(selectedId);
       await loadStatus();
-    } catch (e) { toastError(e); }
+    } catch (e) {
+      putLine("Compact failed — it may still be running; check the agent output.");
+      toastError(e);
+    }
   }
 
   async function runBash(command) {
