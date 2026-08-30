@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- `picode install` and `picode deploy` work when run outside a login shell — a
+  script, a cron job, an agent. They used to copy the new binary and then fail
+  to restart the service, leaving the old one running and the update looking
+  done. They now find the user's service manager on their own, and when they
+  genuinely cannot, they say what to do and stop **before** copying anything.
+
+### Fixed
+
 - `POST /api/workspaces/{id}/agents` accepts `workPath`, so a workspace can
   hold agents in sibling git worktrees. It was hardcoded empty, which meant the
   case the git graph exists for — seeing which agent is on which branch — could
