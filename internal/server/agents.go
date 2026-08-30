@@ -426,7 +426,7 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 		res, err := ma.Compact(ctx)
 		if err != nil {
 			low := strings.ToLower(err.Error())
-			if strings.Contains(low, "already compacted") {
+			if strings.Contains(low, "already compacted") || strings.Contains(low, "too small") {
 				writeJSON(w, http.StatusOK, map[string]any{"ok": true, "already": true})
 				return
 			}
