@@ -1237,11 +1237,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .sb-bad .sb-fill { background: var(--danger); }
 .sb-warn { color: var(--warn); }
 .sb-bad { color: var(--danger); }
-.sb-compact {
-  display: inline-flex; align-items: center; gap: 5px;
-  color: var(--accent); font-weight: 500;
-}
-.sb-compact .pi-spin { width: auto; height: auto; font-size: 11px; }
 .stopped-line {
   min-height: 52px; padding: 2px 4px 6px;
   color: var(--text-secondary); font-size: 14px; line-height: 1.45;
@@ -1359,6 +1354,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .work.live .work-head { color: var(--text-primary); cursor: default; }
 .work.live .work-dot { background: var(--accent); animation: pulse 1.4s ease infinite; }
+.compact-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 6px 0 10px;
+  font-size: 13px; color: var(--text-primary);
+}
+.compact-live .work-dot { background: var(--accent); animation: pulse 1.4s ease infinite; }
+.compact-live-time { color: var(--text-secondary); }
 .work-step.current .work-step-lab { color: var(--text-primary); }
 .work-steps {
   list-style: none; padding: 6px 0 0 10px; margin: 0;

@@ -40,17 +40,10 @@ test("formatSessionCost hides zero", () => {
   assert.equal(formatSessionCost(1.2), "$1.20");
 });
 
-test("compacting segment leads the bar with elapsed time", () => {
+test("compacting never surfaces in the composer bar (progress is a chat line)", () => {
   const parts = statusSegments({ compacting: Date.now() - 65000, cwd: "~/p", cost: 0.5 });
-  assert.equal(parts[0].key, "compact");
-  assert.equal(parts[0].kind, "compact");
-  assert.equal(parts[0].text, "Compacting 1:05");
-  assert.ok(parts.some((p) => p.key === "cwd"));
-});
-
-test("no compacting segment when idle", () => {
-  const parts = statusSegments({ cwd: "~/p" });
   assert.ok(!parts.some((p) => p.key === "compact"));
+  assert.ok(parts.some((p) => p.key === "cwd"));
 });
 
 test("fmtElapsed formats minutes and seconds", () => {

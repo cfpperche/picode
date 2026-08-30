@@ -1,9 +1,6 @@
 export function statusSegments(bar) {
   if (!bar) return [];
   const out = [];
-  if (bar.compacting) {
-    out.push({ key: "compact", kind: "compact", text: "Compacting " + fmtElapsed(Date.now() - bar.compacting) });
-  }
   if (bar.cwd) out.push({ key: "cwd", text: bar.cwd });
   if (bar.branch) {
     let g = bar.branch;

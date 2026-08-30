@@ -1,5 +1,4 @@
 import { statusSegments } from "../lib/statusbar.js";
-import PiSpinner from "./PiSpinner.jsx";
 
 export default function ComposerStatus({ bar, onCompact }) {
   const parts = statusSegments(bar);
@@ -9,19 +8,10 @@ export default function ComposerStatus({ bar, onCompact }) {
       {parts.map((p, i) => (
         <span key={p.key} className={"sb-seg" + (p.tone ? " sb-" + p.tone : "")}>
           {i > 0 ? <span className="sb-sep" aria-hidden="true">/</span> : null}
-          {p.kind === "bar" ? <CtxBar p={p} onCompact={onCompact} /> : p.kind === "compact" ? <CompactSeg p={p} /> : p.text}
+          {p.kind === "bar" ? <CtxBar p={p} onCompact={onCompact} /> : p.text}
         </span>
       ))}
     </div>
-  );
-}
-
-function CompactSeg({ p }) {
-  return (
-    <span className="sb-compact" title="Older turns are being summarized into a compact. Large sessions can take minutes.">
-      <PiSpinner title="Compacting" />
-      {p.text}
-    </span>
   );
 }
 

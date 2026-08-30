@@ -17,7 +17,7 @@ import FileCard from "./FileCard.jsx";
 
 const WINDOW_STEP = 60;
 
-function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
+function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
   const [preview, setPreview] = useState("");
   const [limit, setLimit] = useState(WINDOW_STEP);
   const growLock = useRef(false);
@@ -86,9 +86,29 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
           }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
+        {compactSince ? <CompactLive since={compactSince} /> : null}
         {after}
       </div>
       <ImageLightbox src={preview} onClose={() => setPreview("")} />
+    </div>
+  );
+}
+
+function CompactLive({ since }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [since]);
+  return (
+    <div
+      className="compact-live"
+      role="status"
+      title="Older turns are being summarized into a compact. Large sessions can take minutes."
+    >
+      <span className="work-dot" aria-hidden="true" />
+      <span className="compact-live-lab">Compacting session…</span>
+      <span className="compact-live-time">{fmtElapsed(now - since)}</span>
     </div>
   );
 }

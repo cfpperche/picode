@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
@@ -136,15 +136,6 @@ export default function App() {
     });
   }
 
-  // Tick every second while any compaction is in flight so the elapsed
-  // time in the statusbar moves.
-  const anyCompacting = Object.keys(compacting).length > 0;
-  const [tick, bumpTick] = useReducer((x) => x + 1, 0);
-  useEffect(() => {
-    if (!anyCompacting) return;
-    const t = setInterval(bumpTick, 1000);
-    return () => clearInterval(t);
-  }, [anyCompacting]);
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
@@ -164,11 +155,9 @@ export default function App() {
   const selected = located && located.workspace;
   const agent = located && located.agent;
   agentIdRef.current = (agent && agent.id) || null;
-  const statusBarView = useMemo(
-    () => (statusBar || Object.keys(compacting).length ? { ...statusBar, compacting: (agentIdRef.current && compacting[agentIdRef.current]) || null } : statusBar),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [statusBar, compacting, agent && agent.id, tick],
-  );
+  // Compaction progress is a live line at the end of the chat (not the
+  // composer statusbar); CompactLive owns its own per-second tick.
+  const compactSince = (agent && compacting[agent.id]) || null;
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selectedId && termWanted.has(selectedId));
@@ -886,11 +875,17 @@ export default function App() {
         break;
       }
       case "compaction_end": {
-        // pi finished compacting (user-initiated or auto). Clear the
-        // statusbar segment and close the pending line if we own one;
+        // pi finished compacting (user-initiated or auto). Clear the live
+        // chat line and fold the summary into the one-line compact card;
         // pi's TUI shows its own feedback otherwise.
         setCompact(agentIdRef.current, null);
-        setItems((cur) => cur.map((it) => (it.id === "compact-pending" ? { ...it, text: "Session compacted." } : it)));
+        const sum = !ev.aborted && ev.result && ev.result.summary ? String(ev.result.summary) : "";
+        if (sum) {
+          setItems((cur) => (cur.some((it) => it.kind === "compaction" && it.text === sum)
+            ? cur
+            : [...cur, { kind: "compaction", text: sum, ts: Date.now() }]));
+          queueMicrotask(scrollConv);
+        }
         break;
       }
       case "auto_retry_start":
@@ -1215,27 +1210,27 @@ export default function App() {
       confirmLabel: "Compact",
     });
     if (!ok) return;
-    const markId = "compact-pending";
-    const putLine = (text) => setItems((cur) => {
-      const rest = cur.filter((it) => it.id !== markId);
-      return [...rest, { kind: "alert", level: "info", id: markId, text, ts: Date.now() }];
-    });
-    // Progress lives in the composer statusbar (compacting segment), which
-    // survives the TUI→managed panel rebuild; no pending line here.
+    // Progress is the live compact line at the end of the chat, which
+    // survives the TUI→managed panel rebuild; the finished summary folds
+    // into the one-line compact card (compaction_end event or replay).
     setCompact(agent.id, Date.now());
     try {
       if (selectedId) setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
       const res = await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
       setCompact(agent.id, null);
-      putLine(res && res.already ? "Nothing left to compact." : "Session compacted.");
-      toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
+      if (res && res.already) {
+        setItems((cur) => [...cur, { kind: "alert", level: "info", text: "Nothing left to compact.", ts: Date.now() }]);
+        toast.ok("Nothing left to compact.");
+      } else {
+        toast.ok("Session compacted.");
+      }
       await loadWorkspaces();
       await loadSessions(selectedId);
       await loadStatus();
     } catch (e) {
-      // Leave the statusbar segment up: the compact may still be running
+      // Leave the live line up: the compact may still be running
       // server-side; compaction_end clears it when pi finishes.
-      putLine("Compact failed — it may still be running; check the agent output.");
+      setItems((cur) => [...cur, { kind: "alert", level: "error", text: "Compact failed — it may still be running; check the agent output.", ts: Date.now() }]);
       toastError(e);
     }
   }
@@ -1626,7 +1621,8 @@ export default function App() {
               const el = convRef.current;
               if (el) nearBottom.current = stuckToBottom(el);
             }}
-            statusBar={statusBarView}
+            statusBar={statusBar}
+            compactSince={compactSince}
             onCompact={compactSession}
             onAbortBash={abortBash}
             onReplyAsk={replyAsk}

@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Compaction progress moved from the composer statusbar into the chat**
+  (Claude Code pattern, PiCode tokens): a live line at the end of the
+  conversation — pulsing accent dot, “Compacting session…”, elapsed time in
+  the chat's own `1m 05s` format — replaces the “Compacting” segment under
+  the composer. The finished compact folds into the existing one-line
+  collapsible card, now also live for auto-compacts (`compaction_end` folds
+  pi's summary in without waiting for a reload), and “Nothing left to
+  compact.” / failure lines stay as chat alerts. `picode-compacting`
+  (localStorage) still survives reloads and panel rebuilds.
+
 ### Fixed
 
 - **The wheel scrolls again in a TUI that does not track the mouse** (Pi's).

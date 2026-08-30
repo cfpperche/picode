@@ -153,6 +153,23 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — **Compact status moved into the chat** (merged from
+  `feat/compact-chat-line`, Claude Code-inspired, PiCode tokens). The
+  “Compacting” segment is gone from the composer statusbar; in-flight
+  compaction is now a live line at the end of the conversation — pulsing
+  accent dot (`.work-dot`), “Compacting session…”, elapsed in the chat's
+  `turns.js` `1m 05s` format — and the finished compact folds into the
+  existing one-line collapsible `compaction-card`, which `compaction_end`
+  now fills from `ev.result.summary` so auto-compacts land live instead of
+  on next reload (dedup by summary text; user-initiated flow still replays
+  via `loadSessions`). “Nothing left to compact.” and failures are chat
+  alerts; `picode-compacting` localStorage survives reloads/rebuilds.
+  `make ci` green. **Visually verified** on an isolated scratch server
+  (8468) with a crafted session, screenshots read: light collapsed card +
+  live line, dark expanded markdown body, dark live line, collapse cycle
+  back to one line, `overlayAudit ok`, composer carries no compact
+  segment in any state.
+
 - **2026-08-30** — Two guards, both closing holes opened earlier today. `picode install`/`deploy` now refuse a binary with no embedded UI: one was deployed by a plain `go build` and the browser got the ADR-0023 "not built yet" page. The check sits in the command layer, not in `install.Deploy`, because `picode update` deploys a *downloaded* release where "does this binary embed the UI" is the wrong question. And the `node_modules` make guard now stamps on `node_modules/.package-lock.json` rather than the directory — an empty directory with a fresh mtime satisfied make and the build then died on `vite: not found`, which is what it did. Both verified in both directions.
 - **2026-08-30** — Pi item reappeared in the user menu: **a parallel agent deployed a stale `bin/picode`** (built before `4913a3a5`), not a source regression — main was clean. Fixed by `make build` + deploy from current main. **Rule for every session: before `bin/picode deploy`, run `make build` on a tree at current main** — deploying an old binary silently reverts UI changes that are already merged.
 

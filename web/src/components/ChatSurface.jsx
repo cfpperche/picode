@@ -12,7 +12,7 @@ import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
-  composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, onAbortBash, onReplyAsk,
+  composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, compactSince, onAbortBash, onReplyAsk,
   onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit,
   onOpenTab, earlierRemaining, onFetchEarlier,
 }) {
@@ -37,7 +37,7 @@ export default function ChatSurface({
             <p>Ask anything in this project, or type / for commands.</p>
           </div>
         ) : null}
-        <Conversation key={agentId} items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agentId} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} earlierRemaining={earlierRemaining} onFetchEarlier={onFetchEarlier} />
+        <Conversation key={agentId} items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agentId} compactSince={compactSince} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} earlierRemaining={earlierRemaining} onFetchEarlier={onFetchEarlier} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className={"composer-wrap" + (expanded ? " expanded" : "")}>
