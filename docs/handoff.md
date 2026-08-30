@@ -107,12 +107,15 @@ Never exercised, because this machine was already past them:
 ## Known debts / open questions
 
 
-- ADR-0022 leaves two costs unmeasured. **Occupant scan**: marking heads
-  means `ListAllAgents`, resolving each cwd, and a git call per agent to get
-  its common dir — `occupantsOf` (`internal/server/cleanup.go:88`) is the
-  shape to generalise, but nobody has timed it with many agents. **Commit
-  ceiling**: the SVG weight past which the graph stops being usable is
-  unknown; 250 with a load-more is a guess borrowed from Git Graph's 300.
+- ADR-0022's occupant scan has a cliff, now measured. With every agent's cwd
+  **at** a worktree root it is free — 2.7ms for 500 agents, no subprocesses.
+  With cwds **below** a root each agent costs a `gitgraph.Key` call, ~23ms:
+  10 agents → 274ms *per graph load*, 200 → 4.6s. Distinct directories and one
+  shared directory cost the same (4.7s vs 4.6s at 200), so it is the call
+  count, not the paths. Not fixed: the shape the product produces today is
+  agents at worktree roots, and no one has hit this. If it is worth insuring,
+  memoising `Key` per cwd inside one request collapses the shared-directory
+  case to a single call and costs about ten lines.
 
 - Machine state left by the ADR-0020 session: `~/.local/bin/picode` was
   replaced with a build of `main` (the old one is not kept in the repo — it
@@ -137,6 +140,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — ADR-0022's two unmeasured costs, measured. **Commit ceiling: there isn't one** within what the product allows — layout is 14ms for 10,000 commits, the server answers `?limit=2000` in 0.12s (408KB), and the browser holds 2,000 rows / 17k DOM nodes with a row click at 0.4ms and scrolling at 0.1ms. The 250 default is conservative, not a limit. **Occupant scan has a cliff**: free when agents sit at worktree roots, ~23ms per agent whose cwd is below one — see debts. Also worth recording: mid-measurement I nearly filed 'Load earlier is broken' as a bug. Instrumenting the button showed the clicks were never reaching it — `agent-browser click "text=…"` does not hit it, while dispatching on the element does. The feature works.
 - **2026-08-30** — `picode install` / `deploy` survive a non-login shell. `systemctl --user` needs `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS`, which a script, cron job or agent shell does not have; both commands copied the binary *before* calling it, so the failure left the new binary on disk with the old one running — hit exactly that during today's deploy, and only a hash comparison showed it. `install.Run` now fills the two variables from `/run/user/<own uid>` when the socket is there, and `EnsureUserSession` refuses before copying when it is not, naming `loginctl enable-linger`. Verified the injected values turn `systemctl --user is-system-running` from a bus error into `running`, and that the guard is what prevents the half-update: without it the test finds the installed binary replaced anyway.
 - **2026-08-30** — Frontend tests run in CI. 197 of them were passing where nothing watched. The blocker was ordering — `npm test` needed `node_modules`, which only `make build` installed — so installing moved into its own target gated on `web/package-lock.json`, and `web` and the new `test-js` both depend on it. That also removes a second full `npm ci` per `make ci`. Verified the gate can actually fail: a deliberately broken test takes `make ci` to exit 2, and the guard skips the install on a second run (10s → 2.7s) but reruns it when the lockfile is touched.
 - **2026-08-30** — `POST /api/workspaces/{id}/agents` accepts `workPath`; it was hardcoded empty, so ADR-0022's centrepiece — two agents in sibling worktrees of one repo — could only be built from free agents. Reuses `resolveAgentWorkDir`, the same resolver free agents use, so the two creation paths cannot drift; blank stays blank and keeps the agent on the workspace folder. Verified the test has teeth: with the old hardcode both agents pile onto `main`. **API only — no UI was added**, since nothing asked for one.
