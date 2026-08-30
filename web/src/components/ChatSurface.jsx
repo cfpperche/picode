@@ -14,7 +14,7 @@ export default function ChatSurface({
   hidden, stopped, items, onToggleTool, onToggleFiles, convRef, onScroll,
   composer, onRun, catalog, agent, onConfig, onSlash, statusBar, onCompact, onAbortBash, onReplyAsk,
   onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit,
-  onOpenTab,
+  onOpenTab, earlierRemaining, onFetchEarlier,
 }) {
   const [expanded, setExpanded] = useState(false);
   const agentId = agent && agent.id;
@@ -37,7 +37,7 @@ export default function ChatSurface({
             <p>Ask anything in this project, or type / for commands.</p>
           </div>
         ) : null}
-        <Conversation key={agentId} items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agentId} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} />
+        <Conversation key={agentId} items={items} onToggleTool={onToggleTool} onToggleFiles={onToggleFiles} convRef={convRef} onScroll={onScroll} hidden={stopped && !hasChat} streaming={!stopped && !!(composer && composer.streaming)} agentId={agentId} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} earlierRemaining={earlierRemaining} onFetchEarlier={onFetchEarlier} />
         {!(stopped && !hasChat) ? <ConversationRail items={items} convRef={convRef} /> : null}
         {stopped ? (
           <div className={"composer-wrap" + (expanded ? " expanded" : "")}>

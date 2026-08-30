@@ -119,7 +119,9 @@ this machine — not per agent. No native MCP.
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History
-is not copied into SQLite (ADR-0005). **From a Pi session** copies a JSONL
+is not copied into SQLite (ADR-0005). The transcript endpoint serves a
+window (`?tail=&skip=`) — the browser holds only the newest slice and
+fetches older turns on demand. **From a Pi session** copies a JSONL
 and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
 Entry: user menu (Settings, Preferences, Providers, MCPs) and `Ctrl+K`.

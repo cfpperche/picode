@@ -101,6 +101,9 @@ export default function App() {
   const [items, setItems] = useState([]);
   const itemsRef = useRef([]);
   itemsRef.current = items;
+  const [earlierRemaining, setEarlierRemaining] = useState(0);
+  const earlierSkipRef = useRef(0);
+  const earlierLoadingRef = useRef(false);
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
   const [slashExtra, setSlashExtra] = useState([]);
@@ -232,14 +235,42 @@ export default function App() {
       setSessionCurrent(cur);
       if (!cur) {
         setItems([]);
+        setEarlierRemaining(0);
         return;
       }
-      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : ""));
+      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : "") + "&tail=200");
       const ev = t.events || [];
+      earlierSkipRef.current = 0;
+      setEarlierRemaining(t.remaining || 0);
       setItems(ev.length ? eventsToItems(ev) : []);
       scrollToEnd();
+      if ((t.bytes || 0) > 32 * 1024 * 1024) {
+        toast.info("Huge session — run /compact to shrink future boots.");
+      }
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId, workspaces, freeAgents]);
+
+  const fetchEarlier = useCallback(async () => {
+    if (earlierLoadingRef.current || earlierSkipRef.current < 0) return;
+    const loc = locate(workspaces, freeAgents, selectedId);
+    const id = (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
+    if (!id || !selectedId) return;
+    earlierLoadingRef.current = true;
+    try {
+      const cur = sessionCurrent || "";
+      if (!cur) return;
+      const skip = earlierSkipRef.current + 200;
+      const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : "") + "&tail=200&skip=" + skip);
+      const ev = t.events || [];
+      if (ev.length) {
+        const older = eventsToItems(ev);
+        setItems((c) => older.concat(c));
+        earlierSkipRef.current = skip;
+      }
+      setEarlierRemaining(t.remaining || 0);
+    } catch { /* keep what we have */ }
+    finally { earlierLoadingRef.current = false; }
+  }, [selectedId, workspaces, freeAgents, sessionCurrent]);
 
   const pinNewestSession = useCallback(async () => {
     const loc = locate(workspaces, freeAgents, selectedId);
@@ -1383,6 +1414,8 @@ export default function App() {
             hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId)}
             stopped={stopped}
             items={items}
+            earlierRemaining={earlierRemaining}
+            onFetchEarlier={fetchEarlier}
             onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
             onToggleFiles={(idx) => setItems((cur) => cur.map((it, i) => i === idx && it.kind === "files" ? { ...it, expanded: !it.expanded } : it))}
             convRef={convRef}
