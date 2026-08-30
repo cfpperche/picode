@@ -5,7 +5,9 @@ bin/
 coverage.out
 
 # Frontend
-node_modules/
+# No trailing slash: `node_modules/` matches only directories, which is how a
+# symlink named node_modules once got committed by `git add -A`.
+node_modules
 dist/
 web/dist/
 www/.vitepress/cache/
