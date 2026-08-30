@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
@@ -8,6 +8,7 @@ import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
 import { eventsToItems } from "../lib/replay.js";
+import { readCompacting, writeCompacting } from "../lib/compact.js";
 import Sidebar from "../components/Sidebar.jsx";
 import AgentTabs from "../components/AgentTabs.jsx";
 import SessionBar from "../components/SessionBar.jsx";
@@ -115,6 +116,33 @@ export default function App() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
   const [statusBar, setStatusBar] = useState(null);
+  // Compaction in flight, per agent: { agentId: startedAtMs }. Lives outside
+  // the conversation items so a panel rebuild (TUI→managed switch) can't drop it.
+  const [compacting, setCompacting] = useState(readCompacting);
+  const compactingRef = useRef(compacting);
+  compactingRef.current = compacting;
+  const agentIdRef = useRef(null);
+
+  function setCompact(id, since) {
+    if (!id) return;
+    setCompacting((cur) => {
+      const n = { ...cur };
+      if (since == null) delete n[id];
+      else n[id] = since;
+      writeCompacting(n);
+      return n;
+    });
+  }
+
+  // Tick every second while any compaction is in flight so the elapsed
+  // time in the statusbar moves.
+  const anyCompacting = Object.keys(compacting).length > 0;
+  const [tick, bumpTick] = useReducer((x) => x + 1, 0);
+  useEffect(() => {
+    if (!anyCompacting) return;
+    const t = setInterval(bumpTick, 1000);
+    return () => clearInterval(t);
+  }, [anyCompacting]);
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
@@ -130,6 +158,12 @@ export default function App() {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  agentIdRef.current = (agent && agent.id) || null;
+  const statusBarView = useMemo(
+    () => (statusBar || Object.keys(compacting).length ? { ...statusBar, compacting: (agentIdRef.current && compacting[agentIdRef.current]) || null } : statusBar),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [statusBar, compacting, agent && agent.id, tick],
+  );
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selectedId && termWanted.has(selectedId));
@@ -246,7 +280,11 @@ export default function App() {
       setItems(ev.length ? eventsToItems(ev) : []);
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
-        toast.info("Huge session — run /compact to shrink future boots.");
+        if (t.compacted) {
+          toast.info("Compacted — the file stays large on disk, so cold boots stay slow until pi loads sessions lazily.");
+        } else {
+          toast.info("Huge session — run /compact to shrink future boots.");
+        }
       }
     } catch { setSessions([]); setSessionCurrent(""); }
   }, [selectedId, workspaces, freeAgents]);
@@ -760,8 +798,10 @@ export default function App() {
         break;
       }
       case "compaction_end": {
-        // pi finished compacting (user-initiated or auto). Close the pending
-        // line if we own one; pi's TUI shows its own feedback otherwise.
+        // pi finished compacting (user-initiated or auto). Clear the
+        // statusbar segment and close the pending line if we own one;
+        // pi's TUI shows its own feedback otherwise.
+        setCompact(agentIdRef.current, null);
         setItems((cur) => cur.map((it) => (it.id === "compact-pending" ? { ...it, text: "Session compacted." } : it)));
         break;
       }
@@ -1071,17 +1111,21 @@ export default function App() {
       const rest = cur.filter((it) => it.id !== markId);
       return [...rest, { kind: "alert", level: "info", id: markId, text, ts: Date.now() }];
     });
-    putLine("Compacting session… this can take a few minutes.");
-    queueMicrotask(scrollConv);
+    // Progress lives in the composer statusbar (compacting segment), which
+    // survives the TUI→managed panel rebuild; no pending line here.
+    setCompact(agent.id, Date.now());
     try {
       if (selectedId) setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
       const res = await api("/api/agents/" + agent.id + "/compact", { method: "POST" });
+      setCompact(agent.id, null);
       putLine(res && res.already ? "Nothing left to compact." : "Session compacted.");
       toast.ok(res && res.already ? "Nothing left to compact." : "Session compacted.");
       await loadWorkspaces();
       await loadSessions(selectedId);
       await loadStatus();
     } catch (e) {
+      // Leave the statusbar segment up: the compact may still be running
+      // server-side; compaction_end clears it when pi finishes.
       putLine("Compact failed — it may still be running; check the agent output.");
       toastError(e);
     }
@@ -1461,7 +1505,7 @@ export default function App() {
               const el = convRef.current;
               if (el) nearBottom.current = stuckToBottom(el);
             }}
-            statusBar={statusBar}
+            statusBar={statusBarView}
             onCompact={compactSession}
             onAbortBash={abortBash}
             onReplyAsk={replyAsk}

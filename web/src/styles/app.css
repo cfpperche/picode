@@ -1183,6 +1183,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .sb-bad .sb-fill { background: var(--danger); }
 .sb-warn { color: var(--warn); }
 .sb-bad { color: var(--danger); }
+.sb-compact {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--accent); font-weight: 500;
+}
+.sb-compact .pi-spin { width: auto; height: auto; font-size: 11px; }
 .stopped-line {
   min-height: 52px; padding: 2px 4px 6px;
   color: var(--text-secondary); font-size: 14px; line-height: 1.45;
@@ -1507,6 +1512,21 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .files-changed-head:hover { color: var(--text-primary); }
 .files-changed.expanded .tp-chevron { transform: rotate(90deg); }
+.compaction-card { margin: 10px 0; font-family: var(--mono); font-size: 11.5px; }
+.compaction-head {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; color: var(--text-secondary);
+  font: inherit; cursor: pointer; padding: 0;
+}
+.compaction-head:hover { color: var(--text-primary); }
+.compaction-card.open .tp-chevron { transform: rotate(90deg); }
+.compaction-meta { color: var(--text-secondary); opacity: 0.8; }
+.compaction-body {
+  margin-top: 6px; padding: 8px 10px;
+  border-left: 2px solid var(--border);
+  max-height: 40vh; overflow-y: auto;
+  font-size: 13px;
+}
 .files-changed-list {
   list-style: none; padding: 4px 0 0 18px; margin: 0;
   color: var(--text-secondary);

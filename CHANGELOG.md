@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- After /compact, reloading no longer resurrects pre-compaction history: the transcript window now starts at the last compaction boundary (exactly what pi replays), and the summary renders as a collapsible "Session compacted" card instead of a giant message.
+- The "run /compact" hint no longer nags a session that was already compacted; it now says plainly that the file stays large on disk (cold boots stay slow until pi loads sessions lazily).
+- /compact shows a live "Compacting m:ss" segment with spinner in the composer statusbar — it survives the TUI→managed switch, page reloads (persisted per agent), and closes on the server answer or `compaction_end`.
+
+### Changed
+
+- Transcript endpoint responses now include `compacted` (a boundary was found) and the window/`total`/`remaining` count only post-boundary events.
+
 - The sidebar spinner now also shows when the agent is working from the terminal (TUI), not only from chat.
 - /compact shows "Compacting session…" in the thread and closes the line when pi finishes — no more silent minutes on huge sessions.
 - Reload lands back in Terminal when the agent was being viewed in the terminal (view mode persists per agent).

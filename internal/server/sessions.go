@@ -58,7 +58,7 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 		}
 		tail := atoiOr(r.URL.Query().Get("tail"), 0)
 		skip := atoiOr(r.URL.Query().Get("skip"), 0)
-		ev, total, err := session.TranscriptWindow(path, tail, skip)
+		ev, total, compacted, err := session.TranscriptWindow(path, tail, skip)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -74,7 +74,7 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 		if st, err := os.Stat(path); err == nil {
 			bytes = st.Size()
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"events": ev, "path": path, "total": total, "remaining": remaining, "bytes": bytes})
+		writeJSON(w, http.StatusOK, map[string]any{"events": ev, "path": path, "total": total, "remaining": remaining, "bytes": bytes, "compacted": compacted})
 	}
 }
 

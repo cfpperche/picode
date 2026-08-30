@@ -121,6 +121,11 @@ Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`). PiCode lists,
 switches (`--session`), and **replays** them into the chat surface. History
 is not copied into SQLite (ADR-0005). The transcript endpoint serves a
 window (`?tail=&skip=`) — the browser holds only the newest slice and
+`Load earlier` pages older turns from the server. The window is cut at the
+last compaction boundary (what pi itself replays): pre-compaction history
+lives only inside the collapsible summary card, and the response reports
+`compacted` so the UI can tell "needs /compact" from "already compacted,
+file just stays large".
 fetches older turns on demand. **From a Pi session** copies a JSONL
 and creates a stopped agent (ADR-0021). The original TUI is not touched.
 

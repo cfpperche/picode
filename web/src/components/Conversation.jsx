@@ -105,7 +105,29 @@ function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, agentId, onO
   if (it.kind === "files") {
     return <FilesChanged it={it} items={items} onToggleFiles={onToggleFiles} agentId={agentId} onOpenTab={onOpenTab} />;
   }
+  if (it.kind === "compaction") {
+    return <CompactionCard it={it} />;
+  }
   return null;
+}
+
+function CompactionCard({ it }) {
+  const [open, setOpen] = useState(false);
+  const words = (it.text || "").trim().split(/\s+/).filter(Boolean).length;
+  return (
+    <div className={"compaction-card" + (open ? " open" : "")}>
+      <button type="button" className="compaction-head" onClick={() => setOpen((v) => !v)}>
+        <span className="tp-chevron" aria-hidden="true">›</span>
+        Session compacted
+        <span className="compaction-meta">{words ? words + "-word summary of earlier turns" : "earlier turns summarized"}</span>
+      </button>
+      {open ? (
+        <div className="block-content md compaction-body">
+          <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{it.text}</Markdown>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function AskCard({ it, onReply }) {

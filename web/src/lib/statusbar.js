@@ -1,6 +1,9 @@
 export function statusSegments(bar) {
   if (!bar) return [];
   const out = [];
+  if (bar.compacting) {
+    out.push({ key: "compact", kind: "compact", text: "Compacting " + fmtElapsed(Date.now() - bar.compacting) });
+  }
   if (bar.cwd) out.push({ key: "cwd", text: bar.cwd });
   if (bar.branch) {
     let g = bar.branch;
@@ -36,6 +39,12 @@ export function statusSegments(bar) {
     out.push({ key: "name", text: bar.sessionName });
   }
   return out;
+}
+
+export function fmtElapsed(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  return m + ":" + String(s % 60).padStart(2, "0");
 }
 
 export function formatSessionCost(n) {
