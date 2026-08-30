@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab } from "./openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -28,4 +28,16 @@ test("roundtrip", () => {
   const got = readOpenTabs();
   assert.deepEqual(got.ids, ["x", "y"]);
   assert.equal(got.selected, "y");
+});
+
+test("term view roundtrip and dedupe", () => {
+  const store = {};
+  globalThis.localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+  };
+  writeTermWanted(["a", "b", "a", ""]);
+  assert.deepEqual(readTermWanted(), ["a", "b"]);
+  writeTermWanted([]);
+  assert.deepEqual(readTermWanted(), []);
 });

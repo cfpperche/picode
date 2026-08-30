@@ -54,7 +54,7 @@ function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   return "/api/workspaces/" + id + suffix + q;
 }
 import { extraSlash } from "../lib/slash.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab } from "../lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted } from "../lib/openTabs.js";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
@@ -87,7 +87,7 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [piSessions, setPiSessions] = useState(null);
-  const [termWanted, setTermWanted] = useState(() => new Set());
+  const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const draftAgentRef = useRef(null);
@@ -375,6 +375,9 @@ export default function App() {
     if (!tabsReady) return;
     writeOpenTabs(tabs, selectedId);
   }, [tabs, selectedId, tabsReady]);
+  useEffect(() => {
+    writeTermWanted([...termWanted]);
+  }, [termWanted]);
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
