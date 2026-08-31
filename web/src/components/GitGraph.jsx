@@ -36,7 +36,9 @@ function refLabel(ref) {
   );
 }
 
-export default function GitGraph({ graph, selected, onSelect, detail, detailHeight, onSizerDown }) {
+export default function GitGraph({
+  graph, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
+}) {
   const commits = graph.commits || [];
   const listRef = useRef(null);
 
@@ -52,6 +54,14 @@ export default function GitGraph({ graph, selected, onSelect, detail, detailHeig
     // commits is a dependency because a parent link can select a row that only
     // exists after the window grows — the scroll has to wait for the data.
   }, [selected, commits]);
+
+  // Walking the matches jumps anywhere in the window, so centre the target;
+  // "nearest" would leave a far match glued to an edge.
+  useEffect(() => {
+    if (!activeMatch || !listRef.current) return;
+    const row = listRef.current.querySelector(".gg-row-match-on");
+    if (row) row.scrollIntoView({ block: "center" });
+  }, [activeMatch]);
 
   // A dirty working tree prepends a pseudo row over HEAD (ADR-0038). `rows` is
   // the single source for every index: dots, head dot, selection, expandAt —
@@ -96,6 +106,18 @@ export default function GitGraph({ graph, selected, onSelect, detail, detailHeig
 
   const width = Math.max(1, placed.columns) * GRID.x + GRID.offsetX;
   const height = Math.max(rows.length, 1) * GRID.y + expandY;
+
+  // With a query active every row still draws — non-matches dim, the walked
+  // match lights up. The uncommitted row is not a commit, so it only dims.
+  const rowClass = (hash, extra = "") => {
+    let cls = "gg-row" + extra;
+    if (selected === hash) cls += " gg-row-on";
+    if (matches) {
+      if (hash === activeMatch) cls += " gg-row-match-on";
+      else if (!matches.has(hash)) cls += " gg-row-dim";
+    }
+    return cls;
+  };
 
   const inlineDetail = (
     <li className="gg-inline" style={{ height: detailHeight }}>
@@ -154,7 +176,7 @@ export default function GitGraph({ graph, selected, onSelect, detail, detailHeig
                 <li>
                   <button
                     type="button"
-                    className={"gg-row gg-row-uncommitted" + (selected === UNCOMMITTED ? " gg-row-on" : "")}
+                    className={rowClass(UNCOMMITTED, " gg-row-uncommitted")}
                     aria-current={selected === UNCOMMITTED ? "true" : undefined}
                     onClick={() => onSelect && onSelect(UNCOMMITTED)}
                   >
@@ -171,7 +193,7 @@ export default function GitGraph({ graph, selected, onSelect, detail, detailHeig
             <li>
               <button
                 type="button"
-                className={"gg-row" + (selected === c.hash ? " gg-row-on" : "")}
+                className={rowClass(c.hash)}
                 aria-current={selected === c.hash ? "true" : undefined}
                 onClick={() => onSelect && onSelect(c.hash)}
               >
