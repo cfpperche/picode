@@ -208,6 +208,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — New workspace can clone a remote repo (ADR-0034):
+  "Local folder | Clone repository" switch in the same dialog, URL →
+  derived editable name/destination, blocking `POST /api/workspaces/clone`
+  with host git credentials and prompts disabled, same-origin destination
+  adopted. New `internal/gitclone` package; argv-injection defenses
+  sabotage-tested. QA on an isolated 8447 server: real clone of
+  octocat/Hello-World, `/tree/<branch>` honored, adopt, 409, classified
+  not-found error, dark + 480px drawer, overlayAudit ok.
+  **visual-review: PASS** (shots 01–09; card 5/5).
+
 - **2026-08-31** — **`/roles` chat stepper: adversarial review + redo**
   (`fix/roles-adversarial`, **merged to main and deployed to :8445**;
   running agents must be restarted to reload the path package). The

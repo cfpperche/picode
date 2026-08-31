@@ -67,7 +67,8 @@ import Changelog from "../components/Changelog.jsx";
 import ShareGist from "../components/ShareGist.jsx";
 import LlamaDialog from "../components/LlamaDialog.jsx";
 import TermSettingsPage from "../components/TermSettingsPage.jsx";
-import { createWorkspaceSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
+import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "../lib/schemas.js";
+import { parentDir } from "../lib/cloneUrl.js";
 import Toasts from "../components/Toasts.jsx";
 
 export default function App() {
@@ -94,6 +95,7 @@ export default function App() {
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
+  const [formBusy, setFormBusy] = useState(false);
   const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
   const [tuiWorking, setTuiWorking] = useState([]);
@@ -1319,6 +1321,32 @@ export default function App() {
     const fd = new FormData(e.target);
     const name = String(fd.get("name") || "");
     const path = String(fd.get("path") || "");
+    if (formKind === "workspace" && String(fd.get("source") || "") === "remote") {
+      // Clone mode (ADR-0034): one blocking request; the button says
+      // "Cloning…" until the server answers. Closing the dialog does not
+      // cancel the clone — the workspace shows up on the next load.
+      const url = String(fd.get("url") || "");
+      const parsedClone = parseForm(createWorkspaceCloneSchema, { url, name, path });
+      if (!parsedClone.ok) { setFormError(parsedClone.error); return; }
+      setFormBusy(true);
+      try {
+        await api("/api/workspaces/clone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parsedClone.value),
+        });
+        const parent = parentDir(parsedClone.value.path);
+        if (parent) { try { localStorage.setItem("picode.cloneParent", parent); } catch { /* per-viewer nicety */ } }
+        await loadWorkspaces();
+        e.target.reset();
+        setShowForm(false);
+      } catch (err) {
+        setFormError(humanizeError(err.message));
+      } finally {
+        setFormBusy(false);
+      }
+      return;
+    }
     const schema = formKind === "workspace" ? createWorkspaceSchema : formKind === "free" ? createFreeAgentSchema : createWsAgentSchema;
     const parsed = parseForm(schema, formKind === "workspace" ? { name, path } : { name, path, ...newCfg });
     if (!parsed.ok) { setFormError(parsed.error); return; }
@@ -2176,6 +2204,7 @@ export default function App() {
         }}
         onSubmit={submitNew}
         onClose={() => { setShowForm(false); setFormError(""); }}
+        busy={formBusy}
       />
       <SessionInfo
         open={sessionOpen}

@@ -2124,6 +2124,40 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dlg-create .form-new { padding: 12px 0 0; }
 .dlg-create .form-new input,
 .dlg-create .cfg-fields select { width: 100%; }
+/* Workspace source: one control, two origins (ADR-0034). Same native-radio
+   mechanics as .termset-seg — the input covers its whole segment so the hit
+   area is the segment, not a hidden 1px corner. */
+.create-seg {
+  display: flex; width: fit-content; max-width: 100%; margin-bottom: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;
+}
+.create-seg-opt { display: flex; position: relative; }
+/* Outspecify the dlg-create 100%-width input rule: the radio must cover
+   exactly its own segment. */
+.form-new .create-seg-opt input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer;
+}
+.create-seg-face {
+  display: inline-flex; align-items: center; height: var(--ctl-h);
+  padding: 0 14px; box-sizing: border-box;
+  border-right: 1px solid var(--border);
+  background: var(--bg-base); color: var(--text-secondary);
+  font-size: 12px; white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out),
+              color var(--motion-fast) var(--ease-out);
+}
+.create-seg-opt:last-child .create-seg-face { border-right: 0; }
+.create-seg-opt:hover .create-seg-face { background: var(--bg-hover); color: var(--text-primary); }
+.create-seg-opt input:checked + .create-seg-face {
+  background: var(--accent-soft); color: var(--accent); font-weight: 600;
+}
+.create-seg-opt input:focus-visible + .create-seg-face {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .create-seg-face { transition: none; }
+}
 .session-pick-filter {
   width: 100%; min-width: 0; height: var(--ctl-h); box-sizing: border-box;
   padding: 0 10px; margin: 0;

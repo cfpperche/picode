@@ -4,12 +4,31 @@ import { Drawer } from "vaul";
 import ConfigFields from "./ConfigFields.jsx";
 import FolderField from "./FolderField.jsx";
 import { useMedia } from "../lib/media.js";
+import { deriveRepo, cloneDest } from "../lib/cloneUrl.js";
 
 export default function CreateForm({
   open, kind, workspaceName, catalog, cfg, onCfg, error, onSubmit, onClose,
-  sessions, onAdopt, onKind,
+  sessions, onAdopt, onKind, busy,
 }) {
   const desktop = useMedia("(min-width: 720px)");
+  // A workspace comes from a local folder or a remote repository (ADR-0034):
+  // one choice inside the same form, not a second feature.
+  const [wsSrc, setWsSrc] = useState("local");
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [cloneName, setCloneName] = useState("");
+  const [nameDirty, setNameDirty] = useState(false);
+  const [clonePath, setClonePath] = useState("");
+  const [pathDirty, setPathDirty] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setWsSrc("local");
+    setCloneUrl(""); setCloneName(""); setNameDirty(false);
+    setClonePath(""); setPathDirty(false);
+  }, [open]);
+  const cloneParent = useMemo(() => {
+    try { return localStorage.getItem("picode.cloneParent") || "~/code"; } catch { return "~/code"; }
+  }, [open]);
+  const remote = kind === "workspace" && wsSrc === "remote";
   const title = kind === "workspace"
     ? "New workspace"
     : kind === "session"
@@ -18,18 +37,68 @@ export default function CreateForm({
         ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
         : "New agent";
   const desc = kind === "workspace"
-    ? "A project folder. Add agents and terminals inside it."
+    ? (remote
+      ? "Clone a repository into a new project folder."
+      : "A project folder. Add agents and terminals inside it.")
     : kind === "session"
       ? "A copy. The original stays."
       : "Provider, model, and thinking are required.";
+
+  function onCloneUrl(e) {
+    const v = e.target.value;
+    setCloneUrl(v);
+    // Derive name and destination from the URL while the user hasn't
+    // touched those fields; a manual edit stops the derivation.
+    const d = deriveRepo(v);
+    if (!d.name) return;
+    if (!nameDirty) setCloneName(d.name);
+    if (!pathDirty) setClonePath(cloneDest(cloneParent, d.name));
+  }
+  function onCloneName(e) {
+    const v = e.target.value;
+    setCloneName(v);
+    setNameDirty(true);
+    if (!pathDirty && v.trim()) setClonePath(cloneDest(cloneParent, v.trim()));
+  }
   const fields = kind === "session" ? (
     <SessionPicker sessions={sessions} error={error} onAdopt={onAdopt} onKind={onKind} onClose={onClose} />
   ) : (
     <form className="form-new create-form" noValidate onSubmit={onSubmit}>
       {kind === "workspace" ? (
         <>
-          <input name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" autoFocus />
-          <FolderField name="path" placeholder="Folder path (e.g. ~/code/my-app)" resetKey={open} />
+          <div className="create-seg" role="radiogroup" aria-label="Workspace source">
+            <label className="create-seg-opt">
+              <input type="radio" name="ws-src" value="local" checked={wsSrc === "local"} onChange={() => setWsSrc("local")} />
+              <span className="create-seg-face">Local folder</span>
+            </label>
+            <label className="create-seg-opt">
+              <input type="radio" name="ws-src" value="remote" checked={wsSrc === "remote"} onChange={() => setWsSrc("remote")} />
+              <span className="create-seg-face">Clone repository</span>
+            </label>
+          </div>
+          {wsSrc === "local" ? (
+            <>
+              <input name="name" type="text" placeholder="Name (e.g. My App)" autoComplete="off" autoFocus />
+              <FolderField name="path" placeholder="Folder path (e.g. ~/code/my-app)" resetKey={open} />
+            </>
+          ) : (
+            <>
+              <input
+                name="url" type="text" autoComplete="off" autoFocus spellCheck={false}
+                placeholder="https://github.com/org/repo or git@host:org/repo.git"
+                value={cloneUrl} onChange={onCloneUrl}
+              />
+              <input
+                name="name" type="text" placeholder="Name" autoComplete="off"
+                value={cloneName} onChange={onCloneName}
+              />
+              <FolderField
+                name="path" placeholder={"Destination (e.g. " + cloneParent + "/repo)"} resetKey={open}
+                value={clonePath} onChange={(v) => { setClonePath(v); setPathDirty(true); }}
+              />
+            </>
+          )}
+          <input type="hidden" name="source" value={wsSrc} />
         </>
       ) : kind === "free" ? (
         <>
@@ -50,7 +119,9 @@ export default function CreateForm({
       ) : null}
       <div className="dlg-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-primary btn-sm">Create</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={!!busy}>
+          {remote ? (busy ? "Cloning…" : "Clone") : "Create"}
+        </button>
       </div>
     </form>
   );

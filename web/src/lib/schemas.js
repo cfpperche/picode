@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { looksLikeRepoUrl } from "./cloneUrl.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -12,6 +13,13 @@ const modelPick = z.object({
 export const createWorkspaceSchema = z.object({
   name: required("Name"),
   path: required("Folder path"),
+});
+
+// Remote mode of the same form (ADR-0034): the server re-validates the URL.
+export const createWorkspaceCloneSchema = z.object({
+  url: required("Repository URL").refine(looksLikeRepoUrl, "That doesn't look like a git URL."),
+  name: required("Name"),
+  path: required("Destination"),
 });
 
 export const createFreeAgentSchema = modelPick.extend({

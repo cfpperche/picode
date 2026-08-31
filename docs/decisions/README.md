@@ -26,7 +26,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted, explorer refusal amended by 0030 |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
-| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted |
+| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034 |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
 | [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
 | [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
@@ -38,3 +38,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0031](0031-provider-usage-dialog.md) | Live provider usage dialog on `#/providers` | accepted |
 | [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted |
 | [0033](0033-roles-per-agent-overlay.md) | Model roles per-agent overlay (`PI_ROLES_AGENT` → `.pi/roles/<id>.json`) | accepted |
+| [0034](0034-clone-remote-repository-workspace.md) | Clone a remote repository into a new workspace | accepted |
