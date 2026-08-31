@@ -100,7 +100,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             <span className="um-item-name">Open on phone</span>
             <IconChevronRight />
           </DropdownMenu.Item>
-          <div style={{ padding: "8px 10px 10px" }}><InstallButton className="btn btn-primary btn-sm" /></div>
+          <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div>
           <DropdownMenu.Item asChild>
             <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer">
               <span>Documentation</span>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { canInstall, isStandalone, onInstallChange, promptInstall } from "../lib/install.js";
+import { IconDownload } from "./Icons.jsx";
 
 function isIOS() {
   return /iPhone|iPad|iPod/.test(navigator.userAgent)
@@ -26,7 +27,7 @@ export default function InstallButton({ className = "btn btn-primary" }) {
   return (
     <div>
       <button type="button" className={className} onClick={onClick}>
-        {ready ? "Install app" : "Add to Home Screen"}
+        <IconDownload /> {ready ? "Install app" : "Add to Home Screen"}
       </button>
       {coach && isIOS() && (
         <div className="a2hs-coach" onClick={() => setCoach(false)}>

@@ -207,6 +207,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — User menu fit: popover 236→268px so the Theme/Layout
+  segments ("Desktop · Auto · Mobile" + icons, mono 12px) stop clipping;
+  segments are equal-width and centered; Install app spans the row
+  (`.um-install`) and carries IconDownload (mobile drawer inherits the
+  icon). Isolated visual on :8507. **visual-review: PASS**.
+
 - **2026-08-31** — Merged `feat/model-roles` as ADR-0028/0029 (numbers
   shifted: main already had 0025 tmux catalog and 0026 sidebar). Isolated
   visual on :8477; installed :8445 untouched. **visual-review: PASS**.
