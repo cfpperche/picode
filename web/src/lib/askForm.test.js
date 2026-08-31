@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered } from "./askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, backAsk } from "./askForm.js";
 
 const user = { kind: "block", cls: "user", text: "/roles edit" };
 const sel = (id, title, options) => ({ id, method: "select", title, options });
@@ -74,6 +74,31 @@ test("answerAsk then stitch grows one card", () => {
   items = answerAsk(items, "c", "opus", false);
   assert.equal(items[1].steps.map((s) => s.answer).join(" · "), "default · anthropic · opus");
   assert.equal(askJustAnswered(items), true);
+});
+
+test("fieldLabel and summaryLine", () => {
+  assert.equal(fieldLabel("Edit which role?"), "Role");
+  assert.equal(fieldLabel("Model for vision — provider"), "Provider");
+  assert.equal(fieldLabel("Model for vision — model"), "Model");
+  assert.equal(fieldLabel("Thinking level"), "Thinking");
+  assert.equal(
+    summaryLine([
+      { status: "answered", answer: "vision" },
+      { status: "answered", answer: "xai" },
+      { status: "answered", answer: "grok-4.5" },
+      { status: "answered", answer: "medium" },
+    ]),
+    "vision — xai/grok-4.5 · medium",
+  );
+});
+
+test("backAsk keeps earlier pills", () => {
+  let items = putAsk([user], sel("a", "role", ["vision"]), "open");
+  items = answerAsk(items, "a", "vision", false);
+  items = putAsk(items, sel("b", "provider", ["xai"]), "open");
+  items = backAsk(items, "b", 0);
+  assert.equal(items[1].steps.length, 0);
+  assert.equal(items[1].status, "open");
 });
 
 test("timeout and cancel only close the open step", () => {

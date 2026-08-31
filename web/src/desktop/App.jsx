@@ -37,7 +37,8 @@ import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered } from "../lib/askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk } from "../lib/askForm.js";
+import { writeAskMemory, mergeAskMemory } from "../lib/askMemory.js";
 import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
@@ -276,7 +277,7 @@ export default function App() {
       const ev = t.events || [];
       earlierSkipRef.current = 0;
       setEarlierRemaining(t.remaining || 0);
-      setItems(ev.length ? eventsToItems(ev) : []);
+      setItems(mergeAskMemory(selectedId, cur, ev.length ? eventsToItems(ev) : []));
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
         if (t.compacted) {
@@ -302,7 +303,7 @@ export default function App() {
       const ev = t.events || [];
       if (ev.length) {
         const older = eventsToItems(ev);
-        setItems((c) => older.concat(c));
+        setItems((c) => mergeAskMemory(selectedId, cur, older.concat(c)));
         earlierSkipRef.current = skip;
       }
       setEarlierRemaining(t.remaining || 0);
@@ -336,6 +337,9 @@ export default function App() {
       .catch(() => setSlashExtra([]));
   }, [selectedId, agent && agent.mode]);
   useEffect(() => { scrollConv(); }, [items]);
+  useEffect(() => {
+    if (selectedId && sessionCurrent) writeAskMemory(selectedId, sessionCurrent, items);
+  }, [items, selectedId, sessionCurrent]);
 
   const loadStatus = useCallback(async (wsId) => {
     const loc = locate(workspaces, freeAgents, selectedId);
@@ -985,7 +989,14 @@ export default function App() {
           if (ev.notifyType === "error") toastError(msg);
           else {
             setItems((cur) => {
-              if (askJustAnswered(cur)) return cur;
+              if (askJustAnswered(cur)) {
+                queueMicrotask(() => {
+                  setStreaming(false);
+                  streamingRef.current = false;
+                  setStatus("idle");
+                });
+                return cur;
+              }
               queueMicrotask(() => toast.info(msg));
               return cur;
             });
@@ -1400,6 +1411,21 @@ export default function App() {
   async function replyAsk(askId, body) {
     if (!agent || !askId) return;
     const cancelled = !!body.cancelled;
+    const backTo = Number.isInteger(body.backTo) ? body.backTo : null;
+    const payload = { id: askId, cancelled: body.cancelled, value: body.value, confirmed: body.confirmed };
+    if (backTo != null) {
+      setItems((cur) => backAsk(cur, askId, backTo));
+      setWaiting(false);
+      waitingRef.current = false;
+      try {
+        await api("/api/agents/" + agent.id + "/ui", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: askId, cancelled: true }),
+        });
+      } catch (e) { toastError(e); }
+      return;
+    }
     const answer = cancelled ? "Cancelled"
       : body.confirmed === true ? "Yes"
       : body.confirmed === false ? "No"
@@ -1407,13 +1433,19 @@ export default function App() {
     setItems((cur) => answerAsk(cur, askId, answer, cancelled));
     setWaiting(false);
     waitingRef.current = false;
-    setStatus(streamingRef.current ? "streaming" : "idle");
+    if (cancelled) {
+      setStreaming(false);
+      streamingRef.current = false;
+      setStatus("idle");
+    } else {
+      setStatus(streamingRef.current ? "streaming" : "idle");
+    }
     queueMicrotask(() => flushFollowUp());
     try {
       await api("/api/agents/" + agent.id + "/ui", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: askId, ...body }),
+        body: JSON.stringify(payload),
       });
     } catch (e) {
       toastError(e);
