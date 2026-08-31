@@ -1922,6 +1922,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ask-pill { cursor: pointer; }
 .ask-pill:hover { background: var(--bg-hover); }
+.ask-pill-static { cursor: default; }
+.ask-pill-static:hover { background: var(--bg-base); }
 .ask-combo { cursor: pointer; min-width: 140px; max-width: 280px; }
 .ask-combo:hover { background: var(--bg-hover); }
 .ask-combo .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; }

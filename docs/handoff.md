@@ -32,7 +32,7 @@ What exists:
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
 - MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser. GUI `window.open`s the URL once. Overlay ends when the callback HTML is served (keyring write continues). OAuth rows with tokens show **Sign out** (forgets the keyring login on this machine). No extra “Signed in” label.
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
-- Track **C1 waiting**: confirm/select/input/editor is a chat card; sequential selects are a labeled stepper (back on prior pills); done is one definition line persisted in localStorage; `POST /api/agents/{id}/ui`. Mobile has no waiting card.
+- Track **C1 waiting**: confirm/select/input/editor is a chat card; sequential selects are a labeled stepper (back on prior pills via the extension's explicit `‹ back` option — ADR-0028 amendment; Cancel/Stop aborts); done is one definition line persisted in localStorage (per-agent live slot before the first session file exists); `POST /api/agents/{id}/ui`. Mobile has no waiting card.
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
 - Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
 - Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
@@ -208,8 +208,43 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **`/roles` chat stepper: adversarial review + redo**
+  (branch `fix/roles-adversarial`). The owner called the shipped stepper
+  broken; the review confirmed the cancel-as-back design was the root
+  cause and replaced it. What changed:
+  - **Extension (ADR-0028 amendment):** cancel aborts the whole flow;
+    going back is an explicit `‹ back` option on selects with a prior
+    field. `pickAssignment` is now a pure state machine in
+    `packages/pi-roles/src/logic.ts` (`pickStart`/`pickAnswer`, tested).
+    A lock that lands on the already-running model still notifies, so the
+    UI always gets a definition. pi-roles → 0.3.0.
+  - **Web:** optimistic Working ends at the first real signal (dialog,
+    notify, answer, `task_delivered` + 3s fallback) — never sticks;
+    the completion notify folds into the card as its definition line
+    (`default — xai/grok-4.6 · high`); back-walk answers `‹ back`
+    instead of auto-cancelling; ask-memory gained a per-agent live slot
+    (fresh agents persist across reload) and no longer cross-writes
+    slots on tab switch; process exit / agent stop closes open cards;
+    Stop shows while waiting, not only streaming; a queued follow-up is
+    marked sent at flush time (was delivered twice).
+  - **Go:** `deliver`/`SendTurn` no longer fail a task at the 60s
+    deadline while a dialog is pending (a human thinking in a picker is
+    delivery, not failure) — this was the red `context deadline
+    exceeded` bubble. Regression test `TestSlowDialogIsDeliveredNotFailed`.
+  - Decision table rows 1–9 verified in a scratch instance by browser
+    (screenshots read; overlayAudit ok). Row 10 (TUI) verified by the
+    package state machine tests + design (still one select at a time;
+    Esc now aborts instead of stepping back — documented in README/ADR).
+  - **Debt:** the TUI flow was not exercised interactively this session
+    (no tmux dogfood) — behavior change is Esc=abort + visible `‹ back`
+    rows. If the owner dislikes `‹ back` in the TUI list, the option can
+    be dropped there only at the cost of reintroducing cancel ambiguity.
+  - **Not done (refused per owner):** no `#/roles` page, no modal wizard;
+    the flow stays in the conversation (C1).
+
 - **2026-08-31** — Ask back-step: reopen the clicked pill, skip mismatched
-  dialogs. Merged and deployed. Reload the agent. **visual-review: UNVERIFIED**.
+  dialogs. Merged and deployed. Reload the agent. **superseded by the
+  adversarial redo above** (auto-cancel walk removed).
 
 - **2026-08-31** — Ask form UX: definition line persists, back on pills,
   compact stepper. Merged and deployed. Reload the agent for `/roles` back.
@@ -320,105 +355,3 @@ Never exercised, because this machine was already past them:
   Workspaces tab icon is lucide Folders, and the folder picker's address
   bar filters/navigates as you type (lib/pathFilter.js + useDebounced).
 
-
-- **2026-08-30** — **Sidebar restructured into four flat tabs** (ADR-0026):
-  Agents (free, flat, name-sorted), Workspaces (one collapsible card per
-  workspace — section collapses are gone), Terminals (free only), Pins.
-  Workspaces now own terminals: migration 013 adds
-  `terminals.workspace_id` (default `ws_free`, no FK — SQLite refuses ADD
-  COLUMN with REFERENCES + non-NULL default; cascade is app-driven),
-  `POST /api/terminals` takes `workspaceId` and a workspace terminal is
-  born in the workspace folder. Removing a workspace kills its terminals
-  (tmux best-effort, records + settings in one tx) and the cleanup dialog
-  warns with the preview's count. Wire stays flat; grouping is client-side
-  (`web/src/lib/termGroups.js`). Group hover actions became an absolute
-  overlay — four buttons reserving grid space squeezed the workspace name
-  to nothing at 180px. The brand version yields below 254px. Known
-  behaviors, by decision: a stored `picode-side-tab:"agents"` now shows
-  only free agents (no migration — indetectable; empty states carry the
-  action); V1 has no move-terminal-between-workspaces; a tmux kill that
-  fails after the DELETE leaves an orphan session recoverable via the tmux
-  catalog (ADR-0025).
-
-- **2026-08-30** — The last ADR-0025 debt is paid: tmux **array options are
-  editable** in `#/termset` (`command-alias`, `terminal-features`,
-  `terminal-overrides`, `status-format`, `update-environment`). They are
-  edited as text, one entry per line; **Start from inherited** copies the
-  inherited entries in; Apply rewrites the list per index and unsets whatever
-  the layer held past the new length — measured first: tmux leaves a stale
-  `name[2]` in place forever otherwise, and a whole-option unset before the
-  rewrite resurfaces the layer below. An empty block is refused (tmux keeps no
-  empty array layer, so it would be a pin that behaves as inherit).
-  Browser QA found a bug that predates arrays: the **global** panel dropped a
-  cleared non-curated key from the store but never unset it on the live
-  sessions, so it kept applying. Fixed with `unsetClearedEverywhere` and a
-  test that fails without it. Also fixed: `.dlg-input` pins height to one
-  control row, which collapsed every list editor to a single line.
-- **2026-08-30** — Agent cards got the terminal treatment: the name is the
-  rename control (hover accent + dotted underline, click opens "Rename
-  agent", `PATCH /api/agents/{id}`), prefilled with the shown name so a
-  workspace `default` agent never opens a blank field. **No gear was added**:
-  measured in the browser, the hover action row already spans x=120–230 of a
-  244px sidebar, so a fifth icon would have cut the name's clickable run from
-  49px to 23px. Debt (pre-existing, not from this change): with four actions
-  the overlay covers the tail of a long agent name on hover — "Claude Code"
-  reads "Claude". The full name is still in the `title`.
-
-- **2026-08-30** — Terminal rows in the sidebar lost the pencil: the name
-  itself is the rename control (hover paints it accent with a dotted
-  underline, click opens the rename dialog), and the hover action row is
-  now remove then settings, so the gear is the last icon on the line. The
-  rest of the row still selects the terminal; the name button claims only
-  its own text (`flex: 0 1 auto`), not the whole line. Owner's request from
-  a screenshot.
-
-- **2026-08-30** — Terminal appearance moved into `#/termset` ("Appearance —
-  this browser" section, global page only); Preferences lost its Terminal
-  tab and `#/preferences/terminal` degrades to Appearance. Storage homes
-  unchanged (ADR-0024 amended). Shared pieces extracted: `ThemeCard.jsx`,
-  `TermAppearance.jsx`.
-
-- **2026-08-30** — Follow-up caught by the owner's screenshot: the SELECTED
-  terminal showed `~ / main` — an impossible pair. `POST /open` still
-  answered with the record cwd and no git; the app merges that response into
-  its list, so the stale path overwrote the live one while the old git
-  survived. All four terminal-returning handlers now share `liveTermView`;
-  a test opens a terminal after a `cd` and asserts the live path comes back.
-- **2026-08-30** — Sidebar cards unified (terminals ↔ agents): second line is
-  icon + path, or git icon + `path / branch` in a repo. `GET /api/terminals`
-  now reports the live pane cwd (it printed the creation dir forever while
-  the git facts beside it were live — the two disagreed after any `cd`).
-  Workspace agent views carry per-agent git from the agent's effective dir;
-  `repoLine` returns the git object (fixing the tooltip that read `.branch`
-  off a boolean) and never pairs one directory's path with another's branch.
-
-- **2026-08-30** — **Compact status moved into the chat** (merged from
-  `feat/compact-chat-line`, Claude Code-inspired, PiCode tokens). The
-  “Compacting” segment is gone from the composer statusbar; in-flight
-  compaction is now a live line at the end of the conversation — pulsing
-  accent dot (`.work-dot`), “Compacting session…”, elapsed in the chat's
-  `turns.js` `1m 05s` format — and the finished compact folds into the
-  existing one-line collapsible `compaction-card`, which `compaction_end`
-  now fills from `ev.result.summary` so auto-compacts land live instead of
-  on next reload (dedup by summary text; user-initiated flow still replays
-  via `loadSessions`). “Nothing left to compact.” and failures are chat
-  alerts; `picode-compacting` localStorage survives reloads/rebuilds.
-  `make ci` green. **Visually verified** on an isolated scratch server
-  (8468) with a crafted session, screenshots read: light collapsed card +
-  live line, dark expanded markdown body, dark live line, collapse cycle
-  back to one line, `overlayAudit ok`, composer carries no compact
-  segment in any state.
-
-- **2026-08-30** — Two guards, both closing holes opened earlier today. `picode install`/`deploy` now refuse a binary with no embedded UI: one was deployed by a plain `go build` and the browser got the ADR-0023 "not built yet" page. The check sits in the command layer, not in `install.Deploy`, because `picode update` deploys a *downloaded* release where "does this binary embed the UI" is the wrong question. And the `node_modules` make guard now stamps on `node_modules/.package-lock.json` rather than the directory — an empty directory with a fresh mtime satisfied make and the build then died on `vite: not found`, which is what it did. Both verified in both directions.
-- **2026-08-30** — Pi item reappeared in the user menu: **a parallel agent deployed a stale `bin/picode`** (built before `4913a3a5`), not a source regression — main was clean. Fixed by `make build` + deploy from current main. **Rule for every session: before `bin/picode deploy`, run `make build` on a tree at current main** — deploying an old binary silently reverts UI changes that are already merged.
-
-- **2026-08-30** — Removed the **Pi** item from the user menu (owner call): the update surface is the System card only. Also restored the pi-update CHANGELOG entry — it was lost in a conflicted merge earlier.
-- **2026-08-30** — **Pi update alert shipped** and proven on a real release: System card with installed → latest, Copy command, and **Update now** (`POST /api/system/pi-update` → `pi update --self`, background ctx so a client disconnect cannot kill the install). Live run updated pi 0.84.3 → 0.84.4 end to end. **Ops note:** deploying with a plain `go build` binary (no `-tags embedui`) installs a disk-mode server that serves "UI has not been built" — always `make build` before `bin/picode deploy` (this bit us once today; fixed by rebuilding embedded).
-
-- **2026-08-30** — ADR-0024: terminal settings. Written after removing tmux's forced `mouse on` broke scrolling in Pi's TUI while leaving Claude Code's alone — Claude Code takes the mouse itself, Pi does not, and one constant cannot serve both. The shape is Windows Terminal's (`profiles.defaults` plus profiles declaring only what they change), extended with user presets. Two storage homes on purpose: tmux behaviour is per session and shared across devices, xterm appearance is per browser and should differ. Decision only; no code.
-- **2026-08-30** — **Pi update alert shipped** and proven on a real release: dot on the user-menu **Pi** item (registry check on /api/system, 6 h cache with stale-fallback for hiccups), System card with installed → latest, Copy command, and **Update now** (`POST /api/system/pi-update` → `pi update --self`, background ctx so a client disconnect cannot kill the install). Live run updated pi 0.84.3 → 0.84.4 end to end; dot cleared after. **Ops note:** deploying with a plain `go build` binary (no `-tags embedui`) installs a disk-mode server that serves "UI has not been built" — always `make build` before `bin/picode deploy` (this bit us once today; fixed by rebuilding embedded).
-
-- **2026-08-30** — Memoised the repository lookup in the occupant scan: 200 agents sharing a subfolder went from 4.6s to 22ms, and the cost stopped growing with the agent count. Implementing it uncovered a real bug shipped in ADR-0022 G1 — `gitgraph.Key` resolved git's relative answer (`../.git` one level down) against `--show-toplevel` instead of against the directory asked about, so any cwd below the repo root got a key one level too high. Effect: an agent in a subfolder was silently dropped from the graph. `TestNestedRepoIsNotAnOccupant` had been passing for the wrong reason and now passes for the right one.
-- **2026-08-30** — ADR-0022's two unmeasured costs, measured. **Commit ceiling: there isn't one** within what the product allows — layout is 14ms for 10,000 commits, the server answers `?limit=2000` in 0.12s (408KB), and the browser holds 2,000 rows / 17k DOM nodes with a row click at 0.4ms and scrolling at 0.1ms. The 250 default is conservative, not a limit. **Occupant scan has a cliff**: free when agents sit at worktree roots, ~23ms per agent whose cwd is below one — see debts. Also worth recording: mid-measurement I nearly filed 'Load earlier is broken' as a bug. Instrumenting the button showed the clicks were never reaching it — `agent-browser click "text=…"` does not hit it, while dispatching on the element does. The feature works.
-- **2026-08-30** — `picode install` / `deploy` survive a non-login shell. `systemctl --user` needs `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS`, which a script, cron job or agent shell does not have; both commands copied the binary *before* calling it, so the failure left the new binary on disk with the old one running — hit exactly that during today's deploy, and only a hash comparison showed it. `install.Run` now fills the two variables from `/run/user/<own uid>` when the socket is there, and `EnsureUserSession` refuses before copying when it is not, naming `loginctl enable-linger`. Verified the injected values turn `systemctl --user is-system-running` from a bus error into `running`, and that the guard is what prevents the half-update: without it the test finds the installed binary replaced anyway.
-- **2026-08-30** — Frontend tests run in CI. 197 of them were passing where nothing watched. The blocker was ordering — `npm test` needed `node_modules`, which only `make build` installed — so installing moved into its own target gated on `web/package-lock.json`, and `web` and the new `test-js` both depend on it. That also removes a second full `npm ci` per `make ci`. Verified the gate can actually fail: a deliberately broken test takes `make ci` to exit 2, and the guard skips the install on a second run (10s → 2.7s) but reruns it when the lockfile is touched.

@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -275,6 +276,10 @@ func (ma *ManagedAgent) deliverLoop() {
 	}
 }
 
+// deliverTimeout bounds how long a turn command may take to be accepted.
+// Overridden in tests.
+var deliverTimeout = 60 * time.Second
+
 // deliver maps a task kind to its rpc command and waits for acceptance.
 // prompt waits until settled (rpc rejects a concurrent prompt). steer and
 // follow_up are live-queue commands — send them while the turn is running.
@@ -291,11 +296,23 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	}
 
 	body := map[string]any{"message": task.Payload}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 
 	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
+	if err != nil && errors.Is(err, context.DeadlineExceeded) && ma.isWaitingUI() {
+		// An extension command (/roles …) answers its prompt only when the
+		// whole interactive flow ends. A pending dialog means the flow is
+		// alive and waiting on the user — that is delivery, not failure.
+		return nil
+	}
 	return err
+}
+
+func (ma *ManagedAgent) isWaitingUI() bool {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	return ma.waiting != nil
 }
 
 func (ma *ManagedAgent) isBusy() bool {
@@ -433,9 +450,14 @@ func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) 
 	if len(images) > 0 {
 		body["images"] = images
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
+	if err != nil && errors.Is(err, context.DeadlineExceeded) && ma.isWaitingUI() {
+		// See deliver: an extension command answers only when its
+		// interactive flow ends; a pending dialog is not a failure.
+		return nil
+	}
 	return err
 }
 

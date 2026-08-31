@@ -15,7 +15,7 @@ import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
 import SearchCombo from "./SearchCombo.jsx";
-import { fieldLabel, summaryLine } from "../lib/askForm.js";
+import { fieldLabel, summaryLine, BACK } from "../lib/askForm.js";
 
 const WINDOW_STEP = 60;
 
@@ -165,8 +165,10 @@ function AskCard({ it, onReply }) {
   const doneLabel = it.status === "cancelled" ? "Cancelled"
     : it.status === "timeout" ? "Timed out"
     : "";
-  const summary = !open && it.status === "answered" ? summaryLine(steps) : "";
+  const summary = !open && it.status === "answered" ? summaryLine(steps, it.note) : "";
   const currentLab = fieldLabel((current && current.title) || it.title || "");
+  // Pills go back only when the extension can (its select offers BACK).
+  const canBack = options.includes(BACK);
 
   function send(body) {
     if (!open || !onReply) return;
@@ -186,7 +188,7 @@ function AskCard({ it, onReply }) {
     }
   }
 
-  const comboOpts = options.map((opt) => ({ id: opt, label: opt }));
+  const comboOpts = options.filter((opt) => opt !== BACK).map((opt) => ({ id: opt, label: opt }));
 
   if (!open && summary) {
     const dash = summary.indexOf(" — ");
@@ -210,13 +212,17 @@ function AskCard({ it, onReply }) {
         {answered.map((s, i) => (
           <div key={s.id} className="ask-step">
             <span className="ask-step-lab">{fieldLabel(s.title)}</span>
-            <button type="button" className="ask-pill" onClick={() => send({ cancelled: true, backTo: i })}>{s.answer}</button>
+            {canBack ? (
+              <button type="button" className="ask-pill" title="Go back to this step" onClick={() => send({ backTo: i })}>{s.answer}</button>
+            ) : (
+              <span className="ask-pill ask-pill-static">{s.answer}</span>
+            )}
           </div>
         ))}
         {method === "select" ? (
           <div className="ask-step">
             <span className="ask-step-lab">{currentLab}</span>
-            {options.length ? (
+            {comboOpts.length ? (
               <SearchCombo
                 value=""
                 onChange={(id) => send({ value: id })}

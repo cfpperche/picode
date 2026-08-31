@@ -750,7 +750,7 @@ export default function Composer({
                 >
                   <IconWave />
                 </button>
-                {streaming ? (
+                {streaming || waiting ? (
                   <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
                     <IconStop size={16} />
                   </button>

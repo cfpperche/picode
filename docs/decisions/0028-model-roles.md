@@ -91,3 +91,23 @@ installed the package; we will not do that.
   override via env at spawn is deferred (M2.1).
 - **Fork oh-my-pi.** Rejected: we orchestrate pi, we do not fork it
   (architecture non-goal).
+
+## Amendment (2026-08-31): cancel aborts, back is explicit
+
+Dogfooding the PiCode chat stepper showed that cancel is ambiguous over
+the one-select-at-a-time extension protocol: the extension used it to
+mean "back one field", every GUI Cancel/Stop means "abort", and the web
+client had to guess which follow-up select to auto-cancel — producing
+stacked cards, dead flows, and steppers that lost earlier pills.
+
+Decision: in every `pi-roles` select that has a previous field, going
+back is an explicit `‹ back` **option** (a plain string in `options`, no
+pi API change). Cancel — Esc in the TUI, Cancel/Stop in a GUI — always
+aborts the whole flow. The PiCode stepper hides the `‹ back` row, makes
+prior pills clickable only when the open select offers it, and answers
+`‹ back` (repeatedly, if needed) to walk to the clicked field. Selects
+that would offer one choice are still skipped; a field that was skipped
+has no pill, so the walk can never dead-end.
+
+Consequence for the TUI: Esc no longer steps back one field — it ends
+the command; the `‹ back` row replaces it. One select at a time stands.

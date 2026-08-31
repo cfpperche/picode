@@ -37,7 +37,7 @@ import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, shouldSkipDialog } from "../lib/askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, BACK } from "../lib/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "../lib/askMemory.js";
 import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
@@ -104,9 +104,17 @@ export default function App() {
   const [streaming, setStreaming] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const streamingRef = useRef(false);
+  // Working shown before the server confirmed a turn (extension commands
+  // never confirm one) — cleared by the first event that says what is
+  // actually happening, or by a short fallback after task_delivered.
+  const optimisticRef = useRef(false);
   const waitingRef = useRef(false);
   waitingRef.current = waiting;
   const flushingRef = useRef(false);
+  // Which agent the items on screen belong to (guards ask-memory writes).
+  const itemsAgentRef = useRef("");
+  // Last snapshot per panel: reconciles restored open asks against reality.
+  const snapWaitingRef = useRef({ agentId: "", waiting: false });
   const [items, setItems] = useState([]);
   const itemsRef = useRef([]);
   itemsRef.current = items;
@@ -269,7 +277,13 @@ export default function App() {
       const cur = (opts && opts.preferNewest && newest) ? newest : (data.current || "");
       setSessionCurrent(cur);
       if (!cur) {
-        setItems([]);
+        // No session file yet (extension commands only) — the thread
+        // still restores from the agent's live ask-memory slot.
+        let live = mergeAskMemory(selectedId, "", []);
+        const snapLive = snapWaitingRef.current;
+        if (snapLive.agentId === selectedId && !snapLive.waiting) live = cancelOpenAsks(live);
+        itemsAgentRef.current = selectedId || "";
+        setItems(live);
         setEarlierRemaining(0);
         return;
       }
@@ -277,7 +291,13 @@ export default function App() {
       const ev = t.events || [];
       earlierSkipRef.current = 0;
       setEarlierRemaining(t.remaining || 0);
-      setItems(mergeAskMemory(selectedId, cur, ev.length ? eventsToItems(ev) : []));
+      let merged = mergeAskMemory(selectedId, cur, ev.length ? eventsToItems(ev) : []);
+      // A restored open stepper whose dialog died with the flow is a ghost:
+      // the snapshot said nothing is waiting, so close it quietly.
+      const snap = snapWaitingRef.current;
+      if (snap.agentId === selectedId && !snap.waiting) merged = cancelOpenAsks(merged);
+      itemsAgentRef.current = selectedId || "";
+      setItems(merged);
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
         if (t.compacted) {
@@ -338,7 +358,11 @@ export default function App() {
   }, [selectedId, agent && agent.mode]);
   useEffect(() => { scrollConv(); }, [items]);
   useEffect(() => {
-    if (selectedId && sessionCurrent) writeAskMemory(selectedId, sessionCurrent, items);
+    // Only when the items on screen belong to this agent — on a tab switch
+    // this effect fires with the previous agent's thread still in state.
+    if (selectedId && itemsAgentRef.current === selectedId) {
+      writeAskMemory(selectedId, sessionCurrent, items);
+    }
   }, [items, selectedId, sessionCurrent]);
 
   const loadStatus = useCallback(async (wsId) => {
@@ -792,6 +816,7 @@ export default function App() {
   function connectPanel(agentId) {
     closePanel();
     setStatus("idle");
+    optimisticRef.current = false;
     setStreaming(false);
     streamingRef.current = false;
     setWaiting(false);
@@ -817,19 +842,25 @@ export default function App() {
     const ev = env.event || {};
     switch (ev.type) {
       case "snapshot":
+        optimisticRef.current = false;
+        snapWaitingRef.current = { agentId: panel.agentId, waiting: !!ev.waiting };
         setStreaming(!!ev.streaming);
         streamingRef.current = !!ev.streaming;
         setWaiting(!!ev.waiting);
         setStatus(ev.waiting ? "waiting" : ev.streaming ? "streaming" : "idle");
         if (ev.waiting && ev.dialog) putAskItem(ev.dialog, "open");
+        // Nothing is waiting server-side: a restored open stepper is a ghost.
+        else setItems((cur) => cancelOpenAsks(cur));
         break;
       case "agent_start":
+        optimisticRef.current = false;
         setStreaming(true);
         streamingRef.current = true;
         setStatus((s) => (s === "waiting" ? "waiting" : "streaming"));
         scrollToEnd();
         break;
       case "agent_settled": {
+        optimisticRef.current = false;
         setStreaming(false);
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
@@ -903,6 +934,21 @@ export default function App() {
         break;
       }
       case "task_delivered":
+        // Extension commands (/roles …) never start a turn, so nothing would
+        // ever clear the optimistic Working. Once delivery is confirmed, a
+        // real turn announces itself within moments — if nothing does and no
+        // dialog is up, the command finished silently: go idle.
+        if (optimisticRef.current) {
+          setTimeout(() => {
+            if (!optimisticRef.current) return;
+            optimisticRef.current = false;
+            if (!waitingRef.current) {
+              setStreaming(false);
+              streamingRef.current = false;
+              setStatus("idle");
+            }
+          }, 3000);
+        }
         break;
       case "message_end": {
         const m = ev.message || {};
@@ -981,17 +1027,27 @@ export default function App() {
       case "extension_ui_request": {
         const method = ev.method || "";
         if (method === "select" || method === "confirm" || method === "input" || method === "editor") {
+          // A dialog means the extension is asking, not a turn running:
+          // an unconfirmed Working becomes the waiting state.
+          if (optimisticRef.current) {
+            optimisticRef.current = false;
+            setStreaming(false);
+            streamingRef.current = false;
+          }
           setWaiting(true);
           setStatus("waiting");
           setItems((cur) => {
-            if (shouldSkipDialog(cur, ev)) {
-              const aid = agent && agent.id;
+            // Going back to a clicked pill: answer BACK to the wrong fields
+            // instead of showing them; show the target when it arrives.
+            const back = walkReply(cur, ev);
+            if (back) {
+              const aid = panel && panel.agentId;
               if (aid && ev.id) {
                 queueMicrotask(() => {
                   api("/api/agents/" + aid + "/ui", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: ev.id, cancelled: true }),
+                    body: JSON.stringify({ id: ev.id, value: back }),
                   }).catch(() => {});
                 });
               }
@@ -1001,17 +1057,20 @@ export default function App() {
           });
         } else if (method === "notify") {
           const msg = ev.message || "Notice";
+          // Any notify from an extension command ends an unconfirmed Working.
+          if (optimisticRef.current) {
+            optimisticRef.current = false;
+            setStreaming(false);
+            streamingRef.current = false;
+            setStatus(waitingRef.current ? "waiting" : "idle");
+          }
           if (ev.notifyType === "error") toastError(msg);
           else {
             setItems((cur) => {
-              if (askJustAnswered(cur)) {
-                queueMicrotask(() => {
-                  setStreaming(false);
-                  streamingRef.current = false;
-                  setStatus("idle");
-                });
-                return cur;
-              }
+              // Right after a finished form the notify is its result
+              // (model · thinking · why) — fold it into the card's
+              // definition line instead of toasting.
+              if (askJustAnswered(cur)) return noteAsk(cur, msg);
               queueMicrotask(() => toast.info(msg));
               return cur;
             });
@@ -1024,6 +1083,15 @@ export default function App() {
         setWaiting(false);
         setStatus(streamingRef.current ? "streaming" : "idle");
         setItems((cur) => timeoutAsk(cur, ev.id));
+        break;
+      case "exit":
+        // The pi process is gone: any open ask card is dead — close it
+        // quietly so nothing clickable points at a dead dialog.
+        optimisticRef.current = false;
+        setStreaming(false);
+        streamingRef.current = false;
+        setWaiting(false);
+        setItems((cur) => cancelOpenAsks(cur));
         break;
       default:
         break;
@@ -1139,10 +1207,12 @@ export default function App() {
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
       closeShellTerm(loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
+      optimisticRef.current = false;
       setStreaming(false);
       streamingRef.current = false;
       setWaiting(false);
       setStatus("stopped");
+      setItems((cur) => cancelOpenAsks(cur));
       await loadWorkspaces();
     } catch (err) { toastError(err); }
   }
@@ -1408,6 +1478,7 @@ export default function App() {
 
   async function abortTurn() {
     if (!agent) return;
+    optimisticRef.current = false;
     setStreaming(false);
     streamingRef.current = false;
     setWaiting(false);
@@ -1429,14 +1500,15 @@ export default function App() {
     const backTo = Number.isInteger(body.backTo) ? body.backTo : null;
     const payload = { id: askId, cancelled: body.cancelled, value: body.value, confirmed: body.confirmed };
     if (backTo != null) {
+      // Going back: reopen the clicked pill and answer BACK to the open
+      // dialog. The extension steps back; the walk in extension_ui_request
+      // answers BACK again until the target field arrives. Still waiting.
       setItems((cur) => backAsk(cur, askId, backTo));
-      setWaiting(false);
-      waitingRef.current = false;
       try {
         await api("/api/agents/" + agent.id + "/ui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: askId, cancelled: true }),
+          body: JSON.stringify({ id: askId, value: BACK }),
         });
       } catch (e) { toastError(e); }
       return;
@@ -1448,13 +1520,14 @@ export default function App() {
     setItems((cur) => answerAsk(cur, askId, answer, cancelled));
     setWaiting(false);
     waitingRef.current = false;
-    if (cancelled) {
+    // Working stays only for a turn the server confirmed (agent_start);
+    // an optimistic one would never be cleared by an extension command.
+    if (optimisticRef.current) {
+      optimisticRef.current = false;
       setStreaming(false);
       streamingRef.current = false;
-      setStatus("idle");
-    } else {
-      setStatus(streamingRef.current ? "streaming" : "idle");
     }
+    setStatus(streamingRef.current ? "streaming" : "idle");
     queueMicrotask(() => flushFollowUp());
     try {
       await api("/api/agents/" + agent.id + "/ui", {
@@ -1463,6 +1536,8 @@ export default function App() {
         body: JSON.stringify(payload),
       });
     } catch (e) {
+      // The dialog is gone (walk race, restart): reopen the step honestly.
+      setItems((cur) => unanswerAsk(cur, askId));
       toastError(e);
     }
   }
@@ -1475,13 +1550,18 @@ export default function App() {
     flushingRef.current = true;
     const body = { kind: "prompt", message: next.text || "" };
     if (next.queueImages && next.queueImages.length) body.images = next.queueImages;
+    // Mark sent NOW: an extension command answers this POST only when its
+    // whole interactive flow ends, and a still-pending bubble would be
+    // flushed a second time meanwhile (duplicate /roles).
+    setItems((cur) => cur.map((it) => (it.qid === next.qid ? { ...it, pending: false, chip: "prompt" } : it)));
     api("/api/agents/" + id + "/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).then(() => {
-      setItems((cur) => cur.map((it) => (it.qid === next.qid ? { ...it, pending: false, chip: "prompt" } : it)));
-    }).catch((e) => toastError(e)).finally(() => { flushingRef.current = false; });
+    }).catch((e) => {
+      toastError(e);
+      setItems((cur) => cur.map((it) => (it.qid === next.qid ? { ...it, pending: true, chip: "follow_up" } : it)));
+    }).finally(() => { flushingRef.current = false; });
   }
 
   async function sendTask(text, images) {
@@ -1523,7 +1603,11 @@ export default function App() {
       clearDraft(agent.id);
       pendingPayload.current = "";
       scrollToEnd();
-      if (!busy) setStreaming(true);
+      if (!busy) {
+        setStreaming(true);
+        streamingRef.current = true;
+        optimisticRef.current = true;
+      }
       try {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
       } catch { /* already running or start failed; enqueue still */ }
@@ -1549,7 +1633,9 @@ export default function App() {
           });
         }
       } catch (e) {
+        optimisticRef.current = false;
         setStreaming(false);
+        streamingRef.current = false;
         setItems((cur) => cur.map((it) => (it.kind === "block" && it.cls === "user" && it.ts === sentTs ? { ...it, text: it.text + "\n\n— not delivered: " + (e && e.message ? e.message : e) } : it)));
         throw e;
       }

@@ -1,5 +1,12 @@
 /** Sequential extension_ui_request cards in one turn become one growing form. */
 
+/**
+ * Sentinel option an extension puts on a select to mean "go back one field"
+ * (packages/pi-roles does). Cancel always means abort. The UI hides this
+ * option from dropdowns and answers it when a prior pill is clicked.
+ */
+export const BACK = "‹ back";
+
 function isUser(it) {
   return it && it.kind === "block" && it.cls === "user";
 }
@@ -122,15 +129,12 @@ export function putAsk(items, dialog, status) {
   if (at >= 0) {
     const it = cur[at];
     const steps = stepsOf(it);
-    const lab = fieldLabel(dialog.title);
+    // One dialog is outstanding at a time, so an open step is always the
+    // one this dialog replaces (a back-walk target or a restored ghost);
+    // answered steps stay and the next field appends.
     const openI = steps.findIndex((s) => s.status === "open");
-    if (openI >= 0 && fieldLabel(steps[openI].title) === lab) {
-      steps[openI] = stepFromDialog(dialog, nextStatus);
-      const copy = cur.slice();
-      copy[at] = { ...applyDialog(it, dialog, nextStatus), steps, backTo: "" };
-      return copy;
-    }
-    steps.push(stepFromDialog(dialog, nextStatus));
+    if (openI >= 0) steps[openI] = stepFromDialog(dialog, nextStatus);
+    else steps.push(stepFromDialog(dialog, nextStatus));
     const copy = cur.slice();
     copy[at] = { ...applyDialog(it, dialog, nextStatus), steps, backTo: "" };
     return copy;
@@ -200,21 +204,68 @@ export function fieldLabel(title) {
   return "Choose";
 }
 
-/** One definition line from answered steps (vision — xai/grok-4.5 · medium). */
-export function summaryLine(steps) {
-  const answers = (steps || [])
-    .filter((s) => s.status === "answered" && s.answer)
-    .map((s) => s.answer);
+/**
+ * One definition line from answered steps (vision — xai/grok-4.5 · medium).
+ * `note` is the extension's completion notify (e.g. "xai/grok-4.6 · high ·
+ * lock /default"); it fills in what the answers alone cannot say — the model
+ * behind a role pick, or the provider when its select was skipped.
+ */
+export function summaryLine(steps, note) {
+  const by = {};
+  const answers = [];
+  for (const s of steps || []) {
+    if (s.status !== "answered" || !s.answer) continue;
+    answers.push(s.answer);
+    const lab = fieldLabel(s.title);
+    if (!(lab in by)) by[lab] = s.answer;
+  }
   if (!answers.length) return "";
-  const body = answers.slice();
-  let thinking = "";
-  if (body.length > 1 && THINKING.has(body[body.length - 1])) thinking = body.pop();
-  if (body.length >= 3) {
-    const line = body[0] + " — " + body[1] + "/" + body[2];
+  const role = by.Role || by.Name || "";
+  let thinking = by.Thinking && by.Thinking !== "none" ? by.Thinking : "";
+  let model = by.Provider && by.Model ? by.Provider + "/" + by.Model : "";
+  if (!model || !thinking) {
+    for (const t of String(note || "").split(/[\s·]+/)) {
+      if (!model && /^[\w.-]+\/\S+$/.test(t)) model = t;
+      else if (!thinking && THINKING.has(t)) thinking = t;
+    }
+  }
+  if (!model && by.Model) model = by.Model;
+  if (model) {
+    const line = (role ? role + " — " : "") + model;
     return thinking ? line + " · " + thinking : line;
   }
-  const main = body.join(" · ");
-  return thinking ? main + " · " + thinking : main;
+  if (role) return "Role — " + role;
+  const main = answers.join(" · ");
+  return thinking && !answers.includes(thinking) ? main + " · " + thinking : main;
+}
+
+/** Fold the extension's completion notify into the just-answered card. */
+export function noteAsk(items, text) {
+  const list = items || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const it = list[i];
+    if (isAsk(it)) {
+      if (it.status !== "answered" || it.note) return list;
+      const copy = list.slice();
+      copy[i] = { ...it, note: text };
+      return copy;
+    }
+    if (isUser(it) || it.kind === "block" || it.kind === "tool") return list;
+  }
+  return list;
+}
+
+/** Reopen an optimistically answered step when the server rejected the reply. */
+export function unanswerAsk(items, id) {
+  return (items || []).map((it) => {
+    if (!isAsk(it)) return it;
+    const steps = stepsOf(it);
+    if (!steps.some((s) => s.id === id && s.status === "answered")) return it;
+    const nextSteps = steps.map((s) => (
+      s.id === id ? { ...s, status: "open", answer: "" } : s
+    ));
+    return { ...it, status: "open", answer: "", id, steps: nextSteps };
+  });
 }
 
 /** Reopen the clicked pill as the current field; drop everything after it. */
@@ -244,15 +295,19 @@ export function backAsk(items, id, keepCount) {
   });
 }
 
-/** True when an incoming dialog is the wrong field while we are going back. */
-export function shouldSkipDialog(items, dialog) {
+/**
+ * While walking back to a clicked pill: the reply to auto-send for an
+ * incoming dialog. BACK when it is a wrong field that offers BACK; ""
+ * to show the dialog (target reached, or the extension cannot go back).
+ */
+export function walkReply(items, dialog) {
   const at = stitchIndex(items);
-  if (at < 0) return false;
+  if (at < 0) return "";
   const it = items[at];
-  if (!it) return false;
-  if (it.status === "cancelled") return true;
-  if (!it.backTo) return false;
-  return fieldLabel(dialog && dialog.title) !== it.backTo;
+  if (!it || !it.backTo) return "";
+  if (fieldLabel(dialog && dialog.title) === it.backTo) return "";
+  const opts = (dialog && dialog.options) || [];
+  return opts.includes(BACK) ? BACK : "";
 }
 
 /** True when the latest ask in this turn is answered (form finished or between steps). */

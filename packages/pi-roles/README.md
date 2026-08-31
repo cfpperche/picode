@@ -74,6 +74,11 @@ attaching the image; the path heuristic is a fallback.
 | `/roles add [name]` | Create a custom preset |
 | `/roles remove [name]` | Delete a custom preset |
 
+In the cascading selects, a `‹ back` option returns to the previous field
+(role name, provider, or model). Cancel (Esc in the TUI) aborts the whole
+flow — it never steps back. Selects that would offer a single choice are
+skipped.
+
 ## Tests
 
 ```bash

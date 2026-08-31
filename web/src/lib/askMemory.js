@@ -15,8 +15,11 @@ function saveAll(map) {
   } catch { /* quota / private mode */ }
 }
 
+// An agent whose only activity is extension commands has no session file
+// yet; its thread lives under the "@live" slot until a real turn creates
+// one (the write then migrates and drops the live slot).
 function slot(agentId, sessionPath) {
-  return String(agentId || "") + "\t" + String(sessionPath || "");
+  return String(agentId || "") + "\t" + String(sessionPath || "@live");
 }
 
 function isSlashUser(it) {
@@ -31,14 +34,23 @@ function keepExtra(it) {
 }
 
 export function writeAskMemory(agentId, sessionPath, items) {
-  if (!agentId || !sessionPath) return;
+  if (!agentId) return;
   const extras = (items || []).filter(keepExtra);
   const all = loadAll();
   const k = slot(agentId, sessionPath);
+  const live = slot(agentId, "");
+  let dirty = false;
+  if (sessionPath && live in all) {
+    // The thread now has a real session file; the live slot is stale.
+    delete all[live];
+    dirty = true;
+  }
   if (!extras.length) {
-    if (!(k in all)) return;
-    delete all[k];
-    saveAll(all);
+    if (k in all) {
+      delete all[k];
+      dirty = true;
+    }
+    if (dirty) saveAll(all);
     return;
   }
   all[k] = extras.slice(-40);
@@ -46,13 +58,16 @@ export function writeAskMemory(agentId, sessionPath, items) {
 }
 
 export function mergeAskMemory(agentId, sessionPath, items) {
-  if (!agentId || !sessionPath) return items || [];
+  if (!agentId) return items || [];
   const extras = loadAll()[slot(agentId, sessionPath)];
   if (!Array.isArray(extras) || extras.length === 0) return items || [];
   const out = (items || []).slice();
   for (const ex of extras) {
     if (isSlashUser(ex)) {
-      if (!out.some((it) => isSlashUser(it) && it.text === ex.text)) out.push(ex);
+      // ts + text: the same command typed twice is two real bubbles.
+      if (!out.some((it) => isSlashUser(it) && it.text === ex.text && (it.ts || 0) === (ex.ts || 0))) {
+        out.push(ex);
+      }
       continue;
     }
     if (ex.kind === "ask") {

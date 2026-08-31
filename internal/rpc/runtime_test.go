@@ -339,6 +339,65 @@ func TestAbortCancelsWaitingDialog(t *testing.T) {
 	}
 }
 
+// A slow human in an extension picker must not fail the task: the prompt
+// response only arrives when the whole /roles flow ends, so a pending
+// dialog at the delivery deadline counts as delivered.
+func TestSlowDialogIsDeliveredNotFailed(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "SlowDialog", t.TempDir())
+	if err != nil {
+		t.Fatalf("AddWorkspace: %v", err)
+	}
+	old := deliverTimeout
+	deliverTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { deliverTimeout = old })
+
+	rt := startRuntime(t, st)
+	if err := rt.Start(agent.ID, w.Path); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	ma := rt.Get(agent.ID)
+	hubCh, unsub := ma.hub.Subscribe()
+	defer unsub()
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:confirm", "user"); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+
+	// The fake answers the prompt only after the dialog reply, so the
+	// deadline passes while waiting — the task must still be delivered.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case msg := <-hubCh:
+			var env struct {
+				Event struct {
+					Type  string `json:"type"`
+					Error string `json:"error"`
+				} `json:"event"`
+			}
+			if err := json.Unmarshal(msg, &env); err != nil {
+				continue
+			}
+			if env.Event.Type == "task_failed" {
+				t.Fatalf("task_failed while a dialog was pending: %s", env.Event.Error)
+			}
+			if env.Event.Type == "task_delivered" {
+				if err := ma.ReplyUI("ui-ask", "", nil, true); err != nil {
+					t.Fatalf("cancel: %v", err)
+				}
+				return
+			}
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	t.Fatal("no task_delivered")
+}
+
 func TestDoubleStartRejected(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {

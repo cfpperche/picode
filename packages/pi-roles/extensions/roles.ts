@@ -14,22 +14,20 @@ import {
 	BUILTIN_ROLES,
 	decideOnInput,
 	emptyConfig,
-	idsForProvider,
 	lockRole,
 	mergeConfigs,
 	overlayRel,
 	parseAgentKey,
 	parseConfig,
 	parseModelId,
-	providersOf,
+	pickAnswer,
+	pickStart,
 	removeCustom,
 	serializeConfig,
 	upsertRole,
-	THINKING_LEVELS,
 	type Assignment,
 	type Mode,
 	type RolesConfig,
-	type ThinkingLevel,
 } from "../src/logic.ts";
 
 const WORKSPACE_REL = join(".pi", "roles.json");
@@ -175,32 +173,43 @@ export default function piRoles(pi: ExtensionAPI) {
 		return loaded.status === "ok";
 	}
 
-	async function apply(ctx: ExtensionContext, target: Assignment, why: string): Promise<void> {
+	function assignmentLine(target: Assignment, why: string): string {
+		const t = target.thinking ? ` · ${target.thinking}` : "";
+		return `${target.model}${t} · ${why}`;
+	}
+
+	/** Returns "applied" | "noop" | "failed". Notifies on change and on failure. */
+	async function apply(
+		ctx: ExtensionContext,
+		target: Assignment,
+		why: string,
+	): Promise<"applied" | "noop" | "failed"> {
 		const parsed = parseModelId(target.model);
 		if (!parsed) {
 			ctx.ui.notify(`Invalid model "${target.model}"`, "error");
-			return;
+			return "failed";
 		}
 		const current = ctx.model;
 		const sameModel = current?.provider === parsed.provider && current.id === parsed.id;
 		const thinkingOk =
 			target.thinking === undefined || pi.getThinkingLevel() === target.thinking;
-		if (sameModel && thinkingOk) return;
+		if (sameModel && thinkingOk) return "noop";
 
 		if (!sameModel) {
 			const found = ctx.modelRegistry.find(parsed.provider, parsed.id);
 			if (!found) {
 				ctx.ui.notify(`Model ${target.model} not found`, "error");
-				return;
+				return "failed";
 			}
 			const ok = await pi.setModel(found);
 			if (!ok) {
 				ctx.ui.notify(`No auth for ${target.model}`, "error");
-				return;
+				return "failed";
 			}
 		}
 		if (target.thinking) pi.setThinkingLevel(target.thinking);
-		ctx.ui.notify(`${target.model} · ${why}`, "info");
+		ctx.ui.notify(assignmentLine(target, why), "info");
+		return "applied";
 	}
 
 	async function applyDecision(
@@ -224,53 +233,34 @@ export default function piRoles(pi: ExtensionAPI) {
 		return unique(all.map((m) => `${m.provider}/${m.id}`));
 	}
 
-	async function pickThinking(ctx: ExtensionContext): Promise<ThinkingLevel | undefined | "cancel"> {
-		const choice = await ctx.ui.select("Thinking level", ["none", ...THINKING_LEVELS]);
-		if (!choice) return "cancel";
-		if (choice === "none") return undefined;
-		return choice as ThinkingLevel;
-	}
-
-	async function pickAssignment(ctx: ExtensionContext, title: string): Promise<Assignment | null> {
+	/**
+	 * Cascading provider → model → thinking selects. Every select that has a
+	 * previous field offers an explicit BACK option; cancel (Esc / Cancel)
+	 * aborts the whole flow. `hasPrior` adds BACK on the first field so the
+	 * caller can return to its own preceding question (role select / name).
+	 */
+	async function pickAssignment(
+		ctx: ExtensionContext,
+		title: string,
+		hasPrior: boolean,
+	): Promise<Assignment | "back" | null> {
 		const models = listModels(ctx);
 		if (models.length === 0) {
 			ctx.ui.notify("No models available. Sign in a provider first.", "error");
 			return null;
 		}
-		const providers = providersOf(models);
-		providerLoop: while (true) {
-			let provider = providers[0];
-			if (providers.length > 1) {
-				const picked = await ctx.ui.select(`${title} — provider`, providers);
-				if (!picked) return null;
-				provider = picked;
-			}
-			const ids = idsForProvider(models, provider);
-			if (ids.length === 0) {
-				ctx.ui.notify(`No models for ${provider}.`, "error");
-				return null;
-			}
-			modelLoop: while (true) {
-				let id = ids[0];
-				if (ids.length > 1) {
-					const picked = await ctx.ui.select(`${title} — model`, ids);
-					if (!picked) {
-						if (providers.length > 1) continue providerLoop;
-						return null;
-					}
-					id = picked;
-				}
-				const thinking = await pickThinking(ctx);
-				if (thinking === "cancel") {
-					if (ids.length > 1) continue modelLoop;
-					if (providers.length > 1) continue providerLoop;
-					return null;
-				}
-				const assignment: Assignment = { model: `${provider}/${id}` };
-				if (thinking) assignment.thinking = thinking;
-				return assignment;
-			}
+		let out = pickStart(models, hasPrior);
+		while (out.kind === "ask") {
+			const label =
+				out.state.stage === "thinking" ? "Thinking level" : `${title} — ${out.state.stage}`;
+			const choice = await ctx.ui.select(label, out.options);
+			if (!choice) return null;
+			out = pickAnswer(out.state, choice);
 		}
+		if (out.kind === "done") return out.assignment;
+		if (out.kind === "back") return "back";
+		ctx.ui.notify("No models available. Sign in a provider first.", "error");
+		return null;
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -312,7 +302,9 @@ export default function piRoles(pi: ExtensionAPI) {
 			return;
 		}
 		mode = { kind: "lock", role };
-		await apply(ctx, d.target, d.why);
+		const r = await apply(ctx, d.target, d.why);
+		// Already on that model: still confirm — a silent lock looks stuck.
+		if (r === "noop") ctx.ui.notify(assignmentLine(d.target, d.why), "info");
 	}
 
 	pi.registerCommand("auto", {
@@ -398,7 +390,7 @@ export default function piRoles(pi: ExtensionAPI) {
 		for (const c of loaded.config.custom) options.push(c.name);
 		const current = mode.kind === "auto" ? "auto" : mode.role;
 		const choice = await ctx.ui.select(`Roles (current: ${current})`, options);
-		if (!choice || choice === current) return;
+		if (!choice) return;
 		if (choice === "auto") {
 			mode = { kind: "auto" };
 			ctx.ui.notify("Auto: image → vision, text → default", "info");
@@ -420,11 +412,12 @@ export default function piRoles(pi: ExtensionAPI) {
 				...cur.effective.custom.map((c) => c.name),
 			]));
 			if (!role) return;
-			const assignment = await pickAssignment(ctx, `Model for ${role}`);
-			if (!assignment) {
+			const assignment = await pickAssignment(ctx, `Model for ${role}`, !named);
+			if (assignment === "back") {
 				if (named) return;
-				continue;
+				continue; // back to the role select
 			}
+			if (!assignment) return; // cancel aborts the whole flow
 			const result = upsertRole(cur.config, role, assignment);
 			if (!result.ok) {
 				ctx.ui.notify(result.error, "error");
@@ -442,22 +435,29 @@ export default function piRoles(pi: ExtensionAPI) {
 	async function addFlow(ctx: ExtensionContext, named: string) {
 		const cur = writable(ctx);
 		if (!cur) return;
-		const name = named || (await ctx.ui.input("Preset name", "fast"));
-		if (!name) return;
-		const trimmed = name.trim();
-		if (cur.effective.custom.some((c) => c.name === trimmed)) {
-			ctx.ui.notify(`"${trimmed}" already exists. Use /roles edit.`, "error");
+		while (true) {
+			const name = named || (await ctx.ui.input("Preset name", "fast"));
+			if (!name) return;
+			const trimmed = name.trim();
+			if (cur.effective.custom.some((c) => c.name === trimmed)) {
+				ctx.ui.notify(`"${trimmed}" already exists. Use /roles edit.`, "error");
+				return;
+			}
+			const assignment = await pickAssignment(ctx, `Model for ${trimmed}`, !named);
+			if (assignment === "back") {
+				if (named) return;
+				continue; // back to the name input
+			}
+			if (!assignment) return; // cancel aborts the whole flow
+			const result = addCustom(cur.config, trimmed, assignment);
+			if (!result.ok) {
+				ctx.ui.notify(result.error, "error");
+				return;
+			}
+			if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
+			ctx.ui.notify(`Added ${trimmed} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
 			return;
 		}
-		const assignment = await pickAssignment(ctx, `Model for ${trimmed}`);
-		if (!assignment) return;
-		const result = addCustom(cur.config, trimmed, assignment);
-		if (!result.ok) {
-			ctx.ui.notify(result.error, "error");
-			return;
-		}
-		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-		ctx.ui.notify(`Added ${trimmed} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
 	}
 
 	async function removeFlow(ctx: ExtensionContext, named: string) {

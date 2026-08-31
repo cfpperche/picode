@@ -18,6 +18,10 @@ import {
 	overlayRel,
 	serializeConfig,
 	emptyConfig,
+	BACK,
+	pickStart,
+	pickAnswer,
+	type PickOutcome,
 	type RolesConfig,
 	type Mode,
 } from "../src/logic.ts";
@@ -432,5 +436,96 @@ describe("serializeConfig", () => {
 			model: "xai/grok-4.5",
 			thinking: "low",
 		});
+	});
+});
+
+describe("pickStart / pickAnswer", () => {
+	const models = ["xai/grok-4.6", "xai/grok-4.5", "anthropic/opus", "anthropic/sonnet"];
+	const oneProvider = ["xai/grok-4.6", "xai/grok-4.5"];
+	const oneOfEach = ["xai/grok-4.6"];
+
+	function ask(out: PickOutcome): Extract<PickOutcome, { kind: "ask" }> {
+		assert.equal(out.kind, "ask");
+		return out as Extract<PickOutcome, { kind: "ask" }>;
+	}
+
+	it("walks provider → model → thinking → done", () => {
+		let out = ask(pickStart(models, false));
+		assert.equal(out.state.stage, "provider");
+		assert.deepEqual(out.options, ["anthropic", "xai"]);
+		out = ask(pickAnswer(out.state, "xai"));
+		assert.equal(out.state.stage, "model");
+		assert.deepEqual(out.options, ["grok-4.6", "grok-4.5", BACK]);
+		out = ask(pickAnswer(out.state, "grok-4.5"));
+		assert.equal(out.state.stage, "thinking");
+		assert.ok(out.options.includes(BACK));
+		const done = pickAnswer(out.state, "medium");
+		assert.deepEqual(done, {
+			kind: "done",
+			assignment: { model: "xai/grok-4.5", thinking: "medium" },
+		});
+	});
+
+	it("thinking 'none' omits the level", () => {
+		let out = ask(pickStart(oneOfEach, false));
+		assert.equal(out.state.stage, "thinking");
+		const done = pickAnswer(out.state, "none");
+		assert.deepEqual(done, { kind: "done", assignment: { model: "xai/grok-4.6" } });
+	});
+
+	it("single provider and model skip straight to thinking without BACK", () => {
+		const out = ask(pickStart(oneOfEach, false));
+		assert.equal(out.state.stage, "thinking");
+		assert.equal(out.options.includes(BACK), false);
+	});
+
+	it("row 4: BACK from thinking reaches model, then provider", () => {
+		let out = ask(pickStart(models, false));
+		out = ask(pickAnswer(out.state, "xai"));
+		out = ask(pickAnswer(out.state, "grok-4.6"));
+		assert.equal(out.state.stage, "thinking");
+		out = ask(pickAnswer(out.state, BACK));
+		assert.equal(out.state.stage, "model");
+		out = ask(pickAnswer(out.state, BACK));
+		assert.equal(out.state.stage, "provider");
+	});
+
+	it("row 5: BACK from thinking skips an unasked model select", () => {
+		let out = ask(pickStart(["xai/grok-4.6", "anthropic/opus"], false));
+		out = ask(pickAnswer(out.state, "xai"));
+		assert.equal(out.state.stage, "thinking"); // only one xai model
+		out = ask(pickAnswer(out.state, BACK));
+		assert.equal(out.state.stage, "provider");
+	});
+
+	it("BACK past the first field returns 'back' only with a prior field", () => {
+		let out = ask(pickStart(models, true));
+		assert.deepEqual(out.options, ["anthropic", "xai", BACK]);
+		assert.deepEqual(pickAnswer(out.state, BACK), { kind: "back" });
+		out = ask(pickStart(models, false));
+		assert.equal(out.options.includes(BACK), false);
+	});
+
+	it("hasPrior offers BACK even when the provider select is skipped", () => {
+		let out = ask(pickStart(oneProvider, true));
+		assert.equal(out.state.stage, "model");
+		assert.ok(out.options.includes(BACK));
+		out = ask(pickAnswer(out.state, "grok-4.5"));
+		assert.equal(out.state.stage, "thinking");
+		// BACK from thinking lands on the model select again…
+		out = ask(pickAnswer(out.state, BACK));
+		assert.equal(out.state.stage, "model");
+		// …and BACK from there (no provider select) steps out to the prior field.
+		assert.deepEqual(pickAnswer(out.state, BACK), { kind: "back" });
+	});
+
+	it("unknown answers re-ask the same stage", () => {
+		const out = ask(pickStart(models, false));
+		const again = ask(pickAnswer(out.state, "nope"));
+		assert.equal(again.state.stage, "provider");
+	});
+
+	it("no models yields none", () => {
+		assert.deepEqual(pickStart([], false), { kind: "none" });
 	});
 });

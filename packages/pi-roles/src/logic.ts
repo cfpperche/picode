@@ -338,3 +338,102 @@ export function serializeConfig(
 	out.custom = config.custom.map((c) => ({ name: c.name, ...assignmentJson(c) }));
 	return out;
 }
+
+/**
+ * Assignment picker as a pure state machine.
+ *
+ * Cancel is ambiguous over the one-select-at-a-time protocol (abort vs go
+ * back), so going back is an explicit `BACK` option on every select that has
+ * somewhere to go back to. Cancel always aborts the whole flow. GUIs render
+ * BACK their own way (pills); the TUI shows it as a row.
+ */
+export const BACK = "‹ back";
+
+export type PickStage = "provider" | "model" | "thinking";
+
+export type PickState = {
+	models: string[];
+	/** There is a field before this picker (role select / preset name). */
+	hasPrior: boolean;
+	provider: string;
+	id: string;
+	stage: PickStage;
+};
+
+export type PickOutcome =
+	| { kind: "ask"; state: PickState; options: string[] }
+	| { kind: "done"; assignment: Assignment }
+	| { kind: "back" }
+	| { kind: "none" };
+
+function providerAsked(st: PickState): boolean {
+	return providersOf(st.models).length > 1;
+}
+
+function modelAsked(st: PickState): boolean {
+	return idsForProvider(st.models, st.provider).length > 1;
+}
+
+function askProvider(st: PickState): PickOutcome {
+	const state = { ...st, stage: "provider" as const };
+	const options = [...providersOf(st.models)];
+	if (st.hasPrior) options.push(BACK);
+	return { kind: "ask", state, options };
+}
+
+function askModel(st: PickState): PickOutcome {
+	const state = { ...st, stage: "model" as const };
+	const options = [...idsForProvider(st.models, st.provider)];
+	if (providerAsked(st) || st.hasPrior) options.push(BACK);
+	return { kind: "ask", state, options };
+}
+
+function askThinking(st: PickState): PickOutcome {
+	const state = { ...st, stage: "thinking" as const };
+	const options: string[] = ["none", ...THINKING_LEVELS];
+	if (modelAsked(st) || providerAsked(st) || st.hasPrior) options.push(BACK);
+	return { kind: "ask", state, options };
+}
+
+function enterModel(st: PickState): PickOutcome {
+	const ids = idsForProvider(st.models, st.provider);
+	if (ids.length === 0) return { kind: "none" };
+	const next = { ...st, id: ids[0] };
+	if (ids.length > 1) return askModel(next);
+	return askThinking(next);
+}
+
+export function pickStart(models: string[], hasPrior: boolean): PickOutcome {
+	const providers = providersOf(models);
+	if (providers.length === 0) return { kind: "none" };
+	const st: PickState = { models, hasPrior, provider: providers[0], id: "", stage: "provider" };
+	if (providers.length > 1) return askProvider(st);
+	return enterModel(st);
+}
+
+export function pickAnswer(st: PickState, choice: string): PickOutcome {
+	if (choice === BACK) {
+		if (st.stage === "thinking" && modelAsked(st)) return askModel(st);
+		if (st.stage !== "provider" && providerAsked(st)) return askProvider(st);
+		return st.hasPrior ? { kind: "back" } : askCurrent(st);
+	}
+	if (st.stage === "provider") {
+		if (!providersOf(st.models).includes(choice)) return askProvider(st);
+		return enterModel({ ...st, provider: choice });
+	}
+	if (st.stage === "model") {
+		if (!idsForProvider(st.models, st.provider).includes(choice)) return askModel(st);
+		return askThinking({ ...st, id: choice });
+	}
+	const assignment: Assignment = { model: `${st.provider}/${st.id}` };
+	if (choice === "none") return { kind: "done", assignment };
+	if (!THINKING.has(choice)) return askThinking(st);
+	assignment.thinking = choice as ThinkingLevel;
+	return { kind: "done", assignment };
+}
+
+function askCurrent(st: PickState): PickOutcome {
+	if (st.stage === "provider") return askProvider(st);
+	if (st.stage === "model") return askModel(st);
+	return askThinking(st);
+}

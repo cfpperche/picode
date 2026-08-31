@@ -18,12 +18,39 @@ to the `[Unreleased]` section. The repository's official language is English
   Click a prior pill to go back and clear later steps. Done is one line
   (`vision — xai/grok-4.5 · medium`), kept across reload and tab switches.
   Cancel is a quiet line, not an empty card.
+- **pi-roles: cancel aborts, back is explicit** (ADR-0028 amendment).
+  Selects with a previous field carry a `‹ back` option; Esc/Cancel ends
+  the whole `/roles` flow instead of stepping back one field. The chat
+  stepper answers `‹ back` when a prior pill is clicked — no more
+  cancel-as-back guessing. The TUI keeps one select at a time.
+- **Stop is available while an extension is asking**, not only while
+  streaming, and it cleanly cancels the waiting dialog.
 
 ### Fixed
 
-- **Going back in `/roles edit` no longer drops prior pills or stuck on Thinking.**
-  Clicking a previous step reopens that field and ignores the wrong follow-up
-  selects until the matching one arrives.
+- **`/roles` no longer leaves the thread on Working forever.** An
+  optimistic Working now ends at the first real signal (dialog, notify,
+  answer, or a short post-delivery fallback) — including the silent case
+  where the picked role already matches the running model.
+- **Picking a role yields a real definition line** (`default —
+  xai/grok-4.6 · high`), not an orphan word; the extension's completion
+  notify folds into the card instead of vanishing as a toast.
+- **Going back one step keeps earlier pills.** Clicking Provider or Model
+  reopens that field and drops only later steps; wrong intermediate
+  selects are answered `‹ back` behind the scenes.
+- **Cancel mid-form no longer respawns pickers** as new stacked cards.
+- **A slow human in a picker no longer fails the task.** The 60s delivery
+  deadline treats a pending dialog as delivered, killing the red
+  `context deadline exceeded` bubble mid-`/roles edit`.
+- **Queued follow-up commands are sent once.** A `/roles` queued while
+  another was asking could be delivered twice; the bubble now marks
+  itself sent at flush time.
+- **The definition line survives reload for a fresh agent** (no session
+  file yet): ask-memory keeps a live slot per agent, migrated to the
+  session file once one exists; tab-switch no longer writes one agent's
+  thread into another's slot.
+- **Stopping the agent (or the process dying) closes any open ask card**
+  instead of leaving a clickable stepper pointing at a dead dialog.
 - **Z.AI Usage** (ADR-0031): GLM Coding Plan Pro reports `CREDIT_LIMIT`
   (5h + weekly credits) instead of `TOKENS_LIMIT`. The dialog showed the
   plan name and "No usage windows on this plan." It now draws those bars.
