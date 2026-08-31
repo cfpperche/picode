@@ -208,6 +208,9 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Stop during `/roles` cancels the dialog and clears Working.
+  Merged `fix/abort-clears-extension-wait`.
+
 - **2026-08-31** — **File tree V2** (ADR-0032): Changes rows expand into
   working-tree diffs (`gitgraph.WorkingDiff`; `gitLoose` keeps stdout on
   --no-index's exit 1, /dev/null fallback only for ls-files-empty paths —

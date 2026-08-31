@@ -1396,11 +1396,20 @@ export default function App() {
 
   async function abortTurn() {
     if (!agent) return;
-    setItems((cur) => cur.map((it) => (
-      it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped
-        ? { ...it, dropped: true }
-        : it
-    )));
+    setStreaming(false);
+    streamingRef.current = false;
+    setWaiting(false);
+    waitingRef.current = false;
+    setStatus("idle");
+    setItems((cur) => cur.map((it) => {
+      if (it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped) {
+        return { ...it, dropped: true };
+      }
+      if (it.kind === "ask" && it.status === "open") {
+        return { ...it, status: "cancelled", answer: "Cancelled" };
+      }
+      return it;
+    }));
     try {
       await api("/api/agents/" + agent.id + "/abort", { method: "POST" });
     } catch (e) { toastError(e); }

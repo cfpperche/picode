@@ -63,6 +63,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Stop ends a stuck Working after `/roles` (and other extension dialogs).**
+  The composer set Working as soon as the command was sent; a picker that
+  never drew a card left the turn open, and Stop did not cancel that wait.
 - **Packages still lists what is on this machine when a terminal is selected.**
   Opening `#/packages` from the Terminals tab sent the terminal id as an
   agent id, the API answered 404, and the Installed row vanished — the
