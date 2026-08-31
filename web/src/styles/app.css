@@ -2101,8 +2101,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   background: var(--bg-panel);
 }
 .folder-here-icon { display: flex; margin-top: 1px; color: var(--text-secondary); }
-.folder-here-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.folder-here-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 .folder-here-name { font-size: 13px; font-weight: 600; color: var(--text-primary); word-break: break-all; }
+.folder-here-input {
+  width: 100%; background: none; border: none; padding: 0; margin: 0;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.folder-here-input:focus { outline: none; }
 .folder-here-posix { font-size: 11px; color: var(--text-secondary); word-break: break-all; }
 .folder-places { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
 .folder-place {
