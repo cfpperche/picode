@@ -95,7 +95,17 @@ Only `mouse` is offered. The ADR says the list grows from real parity gaps,
 and that is still the only one anybody has hit.
 
 **ADR-0022 — git graph. G1 (data), G2 (the graph) and G3 (commit diff) are
-built and visually verified. The ADR is delivered.**
+built and visually verified. The ADR is delivered. ADR-0038 (v2) is also
+delivered:** inline resizable commit detail (the ported `expandAt`/`expandY`
+hooks finally run, tests first), the Uncommitted Changes row (pseudo-commit
+through the ordinary allocator, dashed trail to HEAD, gitstatus/gitdiff on
+click), client-side search (dim + walk, never hide), numstat + clickable
+parents in the detail, token-polled auto-refresh (5s, visible tab only —
+supersedes 0030's manual-refresh precedent for the graph), and remote pills
+that read as remote. QA'd on a scratch instance against this repo: inline
+panel below the clicked row with lines detouring, parent-link navigation,
+uncommitted 1→2 within 7s of an external touch, sizer drag persisting
+280→360px, file tree WorkingDiff untouched.
 
 The repository icon beside an agent or terminal in the sidebar opens
 `#/git/<t|a>/<id>`; the tab is `g:<git-common-dir>`, so two owners in two

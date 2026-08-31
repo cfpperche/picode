@@ -13,6 +13,21 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Git graph v2 (ADR-0038).** Clicking a commit now opens its detail
+  inline, directly below the clicked row — the graph lines detour around
+  the panel — and the panel is resizable by dragging its bottom edge
+  (height persists). A dirty working tree shows as an "Uncommitted
+  Changes (N)" first row: hollow dot, dashed trail to HEAD, click to see
+  the changed files and their diffs. A header search dims non-matching
+  commits and Enter walks the matches (message, author, hash prefix) —
+  rows are never hidden. Per-file `+N −M` now comes from `git --numstat`
+  (correct even on truncated patches) and parent hashes in the detail
+  are links that select the parent commit. The graph refreshes itself:
+  a 5s poll of a cheap `GET .../git/head` token reloads only when
+  HEAD, refs, or the dirty count actually changed, and only while the
+  tab is visible. Remote branch pills get a cloud icon and their own
+  colour, with the `origin/` prefix set off from the branch name.
+
 - **Apps host (ADR-0036).** A fifth sidebar tab shows a grid of app
   tiles drawn from `GET /api/apps` manifests; an app opens as a main
   tab (`#/app/<id>`) whose content is a versioned tree of UI primitives
