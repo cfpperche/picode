@@ -25,7 +25,7 @@ What exists:
 - `/llama` dialog on the **current view** (URL, Save, Retry, load/unload, HF download). Link **Set up llama.cpp** → `www/guide/llama.md`. **No GUI installer** (reverted).
 - Voice **V1 shipped** (dictation + Grok composer + browser TTS). Owner dogfood done (Chrome Windows mic).
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
-- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
+- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). A terminal tab (or gone agent) does not hide an installed adapter — same as Packages. Load error is Retry, not the install prompt. No npm/architecture in the view.
 - MCP / Packages / Settings name the selected agent (icon + name) as the first line in the card. Scope pills say **This agent**. Sidebar agent click from a pane goes to `#/`.
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
@@ -298,6 +298,19 @@ Never exercised, because this machine was already past them:
     note serialize through ask-memory; cancelled still drops by design),
     overlayAudit ok on the dropdown. Gates green (274 js + 60 + 60 pkg).
     P2 (slash-bubble compaction, spacing rhythm) not started — follow-up.
+
+- **2026-08-31** — MCP adapter detection from a terminal tab. `#/mcps`
+  passed `selectedId` (`t:…`) as `agent`, GET 404'd, and the catch painted
+  "Install the MCP adapter" even with `npm:pi-mcp-adapter` on the machine.
+  Same bug Packages already fixed (3b3713e3). Server ignores a non-agent
+  *and* a non-workspace id; a workspace terminal still carries that
+  folder as MCP/Packages context so the machine list stays; the pane
+  passes `agent.id`. A load error is Retry. Table-tested.
+  **visual-review: PASS** (empty+adapter, blocked Open packages, error
+  Retry; overlayAudit ok; card 5/5). First deploy was overwritten by
+  `main`'s binary — user still saw the bug on :8445 until redeploy.
+  That repeated on 08-31 evening: three more deploys from `main` (git
+  graph work) shipped without this branch until it was merged.
 
 - **2026-08-31** — Remove workspace can delete local data (ADR-0035):
   opt-in checkbox + GitHub-style typed folder-name confirmation; server

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { termWorkspaceId, freeTerminals, workspaceTerminals, sortTermsByName, FREE_WS } from "./termGroups.js";
+import { termWorkspaceId, freeTerminals, workspaceTerminals, workspaceForTerminal, sortTermsByName, FREE_WS } from "./termGroups.js";
 
 const terms = [
   { id: "t1", name: "zsh", workspaceId: "ws_free" },
@@ -24,4 +24,12 @@ test("treats missing workspaceId as free", () => {
 test("sorts by name, base sensitivity", () => {
   const out = sortTermsByName([{ name: "b" }, { name: "A" }, { name: "a2" }]);
   assert.deepEqual(out.map((t) => t.name), ["A", "a2", "b"]);
+});
+
+test("workspaceForTerminal returns the owning workspace, not a free one", () => {
+  const workspaces = [{ id: "w1", name: "PiCode" }, { id: "w2", name: "Other" }];
+  assert.equal(workspaceForTerminal(terms, workspaces, "t2").id, "w1");
+  assert.equal(workspaceForTerminal(terms, workspaces, "t1"), null);
+  assert.equal(workspaceForTerminal(terms, workspaces, "t4"), null);
+  assert.equal(workspaceForTerminal(terms, workspaces, "gone"), null);
 });

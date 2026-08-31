@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -332,13 +333,21 @@ func mcpPaths(deps Deps, workspaceID, agentID string) (mcp.Paths, []string, erro
 	if workspaceID != "" && deps.Store != nil {
 		ws, err := deps.Store.GetWorkspace(workspaceID)
 		if err != nil {
-			return p, sources, err
+			if !errors.Is(err, store.ErrNotFound) {
+				return p, sources, err
+			}
+			// A terminal tab (or a stale workspace) must not hide the adapter.
+		} else {
+			p.Cwd = ws.Path
 		}
-		p.Cwd = ws.Path
 	}
 	if agentID != "" && deps.Store != nil {
 		a, err := deps.Store.GetAgent(agentID)
 		if err != nil {
+			// A terminal tab (or a stale agent) must not hide the adapter.
+			if errors.Is(err, store.ErrNotFound) {
+				return p, sources, nil
+			}
 			return p, sources, err
 		}
 		if a.WorkPath != nil && strings.TrimSpace(*a.WorkPath) != "" {
