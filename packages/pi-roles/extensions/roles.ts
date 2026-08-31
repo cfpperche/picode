@@ -238,28 +238,36 @@ export default function piRoles(pi: ExtensionAPI) {
 			return null;
 		}
 		const providers = providersOf(models);
-		let provider = providers[0];
-		if (providers.length > 1) {
-			const picked = await ctx.ui.select(`${title} — provider`, providers);
-			if (!picked) return null;
-			provider = picked;
+		while (true) {
+			let provider = providers[0];
+			if (providers.length > 1) {
+				const picked = await ctx.ui.select(`${title} — provider`, providers);
+				if (!picked) return null;
+				provider = picked;
+			}
+			const ids = idsForProvider(models, provider);
+			if (ids.length === 0) {
+				ctx.ui.notify(`No models for ${provider}.`, "error");
+				return null;
+			}
+			let id = ids[0];
+			if (ids.length > 1) {
+				const picked = await ctx.ui.select(`${title} — model`, ids);
+				if (!picked) {
+					if (providers.length > 1) continue;
+					return null;
+				}
+				id = picked;
+			}
+			const thinking = await pickThinking(ctx);
+			if (thinking === "cancel") {
+				if (providers.length > 1 || ids.length > 1) continue;
+				return null;
+			}
+			const assignment: Assignment = { model: `${provider}/${id}` };
+			if (thinking) assignment.thinking = thinking;
+			return assignment;
 		}
-		const ids = idsForProvider(models, provider);
-		if (ids.length === 0) {
-			ctx.ui.notify(`No models for ${provider}.`, "error");
-			return null;
-		}
-		let id = ids[0];
-		if (ids.length > 1) {
-			const picked = await ctx.ui.select(`${title} — model`, ids);
-			if (!picked) return null;
-			id = picked;
-		}
-		const thinking = await pickThinking(ctx);
-		if (thinking === "cancel") return null;
-		const assignment: Assignment = { model: `${provider}/${id}` };
-		if (thinking) assignment.thinking = thinking;
-		return assignment;
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -403,22 +411,28 @@ export default function piRoles(pi: ExtensionAPI) {
 	async function editFlow(ctx: ExtensionContext, named: string) {
 		const cur = writable(ctx);
 		if (!cur) return;
-		const role = named || (await ctx.ui.select("Edit which role?", [
-			...BUILTIN_ROLES,
-			...cur.effective.custom.map((c) => c.name),
-		]));
-		if (!role) return;
-		const assignment = await pickAssignment(ctx, `Model for ${role}`);
-		if (!assignment) return;
-		const result = upsertRole(cur.config, role, assignment);
-		if (!result.ok) {
-			ctx.ui.notify(result.error, "error");
+		while (true) {
+			const role = named || (await ctx.ui.select("Edit which role?", [
+				...BUILTIN_ROLES,
+				...cur.effective.custom.map((c) => c.name),
+			]));
+			if (!role) return;
+			const assignment = await pickAssignment(ctx, `Model for ${role}`);
+			if (!assignment) {
+				if (named) return;
+				continue;
+			}
+			const result = upsertRole(cur.config, role, assignment);
+			if (!result.ok) {
+				ctx.ui.notify(result.error, "error");
+				return;
+			}
+			if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
+			ctx.ui.notify(`Saved ${role} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
+			if (mode.kind === "lock" && mode.role === role) {
+				await apply(ctx, assignment, `lock /${role}`);
+			}
 			return;
-		}
-		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-		ctx.ui.notify(`Saved ${role} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
-		if (mode.kind === "lock" && mode.role === role) {
-			await apply(ctx, assignment, `lock /${role}`);
 		}
 	}
 

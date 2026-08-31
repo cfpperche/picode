@@ -32,7 +32,7 @@ What exists:
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
 - MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser. GUI `window.open`s the URL once. Overlay ends when the callback HTML is served (keyring write continues). OAuth rows with tokens show **Sign out** (forgets the keyring login on this machine). No extra “Signed in” label.
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
-- Track **C1 waiting**: confirm/select/input/editor is a chat card; sequential selects in one turn stack as pills + one dropdown; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast unless the form just finished. Mobile has no waiting card.
+- Track **C1 waiting**: confirm/select/input/editor is a chat card; sequential selects are a labeled stepper (back on prior pills); done is one definition line persisted in localStorage; `POST /api/agents/{id}/ui`. Mobile has no waiting card.
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
 - Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
 - Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
@@ -207,6 +207,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — Ask form UX: definition line persists, back on pills,
+  compact stepper. Merged and deployed. Reload the agent for `/roles` back.
+  **visual-review: UNVERIFIED** (owner dogfood).
 
 - **2026-08-31** — File tree header shows the full folder path (mono,
   ellipsized, `title` tooltip) instead of just the basename — the owner

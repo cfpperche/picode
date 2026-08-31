@@ -14,10 +14,10 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Changed
 
 - **Extension questions stay in the thread as one form.** Sequential
-  selects (`/roles edit`, and any other picker) grow one card: answered
-  values as pills, the current field a filterable dropdown. When it
-  finishes, only the pills remain — not a stack of “the agent is asking
-  something” cards.
+  selects grow a compact stepper (labeled pills + filterable dropdown).
+  Click a prior pill to go back and clear later steps. Done is one line
+  (`vision — xai/grok-4.5 · medium`), kept across reload and tab switches.
+  Cancel is a quiet line, not an empty card.
 
 ### Fixed
 

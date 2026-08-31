@@ -171,6 +171,62 @@ export function cancelOpenAsks(items) {
   });
 }
 
+const THINKING = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+
+function cap(s) {
+  if (!s) return "Choose";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Short field name for a select title. */
+export function fieldLabel(title) {
+  const t = String(title || "").toLowerCase();
+  if (t.includes("which role") || /\broles?\b/.test(t)) return "Role";
+  if (t.includes("provider")) return "Provider";
+  if (t.includes("thinking")) return "Thinking";
+  if (t.includes("model")) return "Model";
+  if (t.includes("preset") || t.includes("name")) return "Name";
+  const parts = String(title || "").split("—");
+  if (parts.length > 1) return cap(parts[parts.length - 1].trim());
+  return "Choose";
+}
+
+/** One definition line from answered steps (vision — xai/grok-4.5 · medium). */
+export function summaryLine(steps) {
+  const answers = (steps || [])
+    .filter((s) => s.status === "answered" && s.answer)
+    .map((s) => s.answer);
+  if (!answers.length) return "";
+  const body = answers.slice();
+  let thinking = "";
+  if (body.length > 1 && THINKING.has(body[body.length - 1])) thinking = body.pop();
+  if (body.length >= 3) {
+    const line = body[0] + " — " + body[1] + "/" + body[2];
+    return thinking ? line + " · " + thinking : line;
+  }
+  const main = body.join(" · ");
+  return thinking ? main + " · " + thinking : main;
+}
+
+/** Drop the clicked step and everything after; keep earlier answers. */
+export function backAsk(items, id, keepCount) {
+  return (items || []).map((it) => {
+    if (!isAsk(it) || it.status !== "open") return it;
+    const steps = stepsOf(it);
+    const hit = it.id === id || steps.some((s) => s.id === id);
+    if (!hit) return it;
+    const n = Math.max(0, Math.min(keepCount, steps.length));
+    const kept = steps.slice(0, n);
+    return {
+      ...it,
+      status: "open",
+      answer: "",
+      steps: kept,
+      id: kept.length ? kept[kept.length - 1].id : it.id,
+    };
+  });
+}
+
 /** True when the latest ask in this turn is answered (form finished or between steps). */
 export function askJustAnswered(items) {
   const list = items || [];
