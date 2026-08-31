@@ -45,6 +45,23 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     load(limit);
   }, [load, limit]);
 
+  // A parent link can point below the loaded window. Growing it once is the
+  // polite attempt; past that, the answer is the Load earlier button, not a
+  // fetch loop.
+  const grewFor = useRef("");
+  const selectCommit = useCallback(
+    (h) => {
+      if (!h) return;
+      setSelected(h);
+      const commits = (graph && graph.commits) || [];
+      if (graph && graph.more && grewFor.current !== h && !commits.some((c) => c.hash === h)) {
+        grewFor.current = h;
+        setLimit((l) => l * 2);
+      }
+    },
+    [graph],
+  );
+
   if (!owner) return null;
 
   if (error && !graph) {
@@ -119,7 +136,12 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
         <div className={"gg-split" + (selected ? " gg-split-open" : "")}>
           <GitGraph graph={graph} selected={selected} onSelect={(h) => setSelected(h === selected ? "" : h)} />
           {selected ? (
-            <CommitDetail owner={owner} hash={selected} onClose={() => setSelected("")} />
+            <CommitDetail
+              owner={owner}
+              hash={selected}
+              onClose={() => setSelected("")}
+              onSelectCommit={selectCommit}
+            />
           ) : null}
         </div>
       )}

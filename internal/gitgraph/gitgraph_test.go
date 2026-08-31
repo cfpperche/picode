@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -473,5 +474,129 @@ func TestKeyIsTheSameFromAnyDepth(t *testing.T) {
 		if got := Key(d); got != want {
 			t.Fatalf("Key(%s) = %q, want %q", d, got, want)
 		}
+	}
+}
+
+// Numstat is what keeps the per-file counts honest: it is computed by git over
+// the whole diff, not by us over whatever survived the patch cap.
+func TestShowNumstatOrdinary(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "n.txt", "one\ntwo\nthree\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "add n")
+	write(t, dir, "n.txt", "one\nTWO\n")
+	run(t, dir, "git", "commit", "-am", "edit n")
+
+	d := Show(dir, headHash(t, dir))
+	if d == nil || len(d.Files) != 1 {
+		t.Fatalf("files = %+v", d)
+	}
+	if d.Files[0].Add != 1 || d.Files[0].Del != 2 {
+		t.Fatalf("numstat = +%d -%d, want +1 -2", d.Files[0].Add, d.Files[0].Del)
+	}
+}
+
+func TestShowNumstatMergeFollowsFirstParent(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "checkout", "-q", "-b", "side")
+	write(t, dir, "side.txt", "s1\ns2\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "side work")
+	run(t, dir, "git", "checkout", "-q", "main")
+	write(t, dir, "main.txt", "m\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "main work")
+	run(t, dir, "git", "merge", "--no-ff", "side", "-m", "merge side")
+
+	d := Show(dir, headHash(t, dir))
+	if d == nil || len(d.Parents) != 2 {
+		t.Fatalf("expected a merge: %+v", d)
+	}
+	var side *FileDiff
+	for i := range d.Files {
+		if d.Files[i].Path == "side.txt" {
+			side = &d.Files[i]
+		}
+	}
+	if side == nil || side.Add != 2 || side.Del != 0 {
+		t.Fatalf("first-parent numstat should count the side file: %+v", d.Files)
+	}
+}
+
+func TestShowNumstatRename(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "old.txt", strings.Repeat("stable line\n", 20))
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "add old")
+	run(t, dir, "git", "mv", "old.txt", "new.txt")
+	write(t, dir, "new.txt", strings.Repeat("stable line\n", 20)+"tail\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "rename with edit")
+
+	d := Show(dir, headHash(t, dir))
+	var renamed *FileDiff
+	for i := range d.Files {
+		if d.Files[i].Path == "new.txt" {
+			renamed = &d.Files[i]
+		}
+	}
+	if renamed == nil || renamed.OldPath != "old.txt" {
+		t.Fatalf("rename lost: %+v", d.Files)
+	}
+	if renamed.Add != 1 || renamed.Del != 0 {
+		t.Fatalf("rename numstat = +%d -%d, want +1 -0", renamed.Add, renamed.Del)
+	}
+}
+
+func TestShowNumstatBinaryStaysZero(t *testing.T) {
+	dir := repo(t)
+	if err := os.WriteFile(filepath.Join(dir, "blob.bin"), []byte{0, 1, 2, 3, 0, 255}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "binary")
+
+	d := Show(dir, headHash(t, dir))
+	var bin *FileDiff
+	for i := range d.Files {
+		if d.Files[i].Path == "blob.bin" {
+			bin = &d.Files[i]
+		}
+	}
+	if bin == nil || !bin.Binary {
+		t.Fatalf("binary file not flagged: %+v", d.Files)
+	}
+	if bin.Add != 0 || bin.Del != 0 {
+		t.Fatalf("binary numstat must stay 0/0, got +%d -%d", bin.Add, bin.Del)
+	}
+}
+
+// A truncated patch used to poison the counts, because the browser derived
+// them from patch lines. Numstat sees the whole diff regardless of the cap.
+func TestShowNumstatSurvivesTruncation(t *testing.T) {
+	dir := repo(t)
+	var b strings.Builder
+	for i := 0; b.Len() < maxPatchBytes+4096; i++ {
+		b.WriteString("line ")
+		b.WriteString(strconv.Itoa(i))
+		b.WriteString(" of a very repetitive generated asset\n")
+	}
+	lines := strings.Count(b.String(), "\n")
+	write(t, dir, "big.txt", b.String())
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "huge")
+
+	d := Show(dir, headHash(t, dir))
+	if d == nil || !d.Truncated {
+		t.Fatalf("expected a truncated detail, got %+v", d)
+	}
+	var big *FileDiff
+	for i := range d.Files {
+		if d.Files[i].Path == "big.txt" {
+			big = &d.Files[i]
+		}
+	}
+	if big == nil || big.Add != lines || big.Del != 0 {
+		t.Fatalf("numstat should count the whole file: got %+v, want +%d", big, lines)
 	}
 }

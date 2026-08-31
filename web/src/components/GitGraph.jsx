@@ -47,7 +47,9 @@ export default function GitGraph({ graph, selected, onSelect }) {
     if (!selected || !listRef.current) return;
     const row = listRef.current.querySelector(".gg-row-on");
     if (row) row.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+    // commits is a dependency because a parent link can select a row that only
+    // exists after the window grows — the scroll has to wait for the data.
+  }, [selected, commits]);
 
   const placed = useMemo(() => layout(commits), [commits]);
 

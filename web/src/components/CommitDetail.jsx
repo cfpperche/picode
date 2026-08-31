@@ -15,7 +15,7 @@ function when(at) {
   });
 }
 
-export default function CommitDetail({ owner, hash, onClose }) {
+export default function CommitDetail({ owner, hash, onClose, onSelectCommit }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState({});
@@ -76,6 +76,21 @@ export default function CommitDetail({ owner, hash, onClose }) {
       </header>
 
       <div className="gg-detail-body">
+        {(detail.parents || []).length > 0 ? (
+          <p className="gg-parents">
+            {detail.parents.length === 1 ? "Parent" : "Parents"}
+            {detail.parents.map((p) =>
+              onSelectCommit ? (
+                <button key={p} type="button" className="gg-parent" onClick={() => onSelectCommit(p)}>
+                  {p.slice(0, 7)}
+                </button>
+              ) : (
+                <span key={p} className="gg-hash">{p.slice(0, 7)}</span>
+              ),
+            )}
+          </p>
+        ) : null}
+
         {detail.body ? <pre className="gg-body">{detail.body}</pre> : null}
 
         {detail.truncated ? (
@@ -89,7 +104,11 @@ export default function CommitDetail({ owner, hash, onClose }) {
         ) : (
           files.map((f) => {
             const shown = open[f.path] !== false;
-            const { add, del } = countOf(f.patch);
+            // Prefer git's own numstat: it counts the whole diff even when the
+            // patch was capped. Counting patch lines is the fallback only.
+            const { add, del } = f.add != null || f.del != null
+              ? { add: f.add || 0, del: f.del || 0 }
+              : countOf(f.patch);
             return (
               <div key={f.path} className="gg-file">
                 <button
