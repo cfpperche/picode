@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, backAsk } from "./askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, backAsk, shouldSkipDialog } from "./askForm.js";
 
 const user = { kind: "block", cls: "user", text: "/roles edit" };
 const sel = (id, title, options) => ({ id, method: "select", title, options });
@@ -92,13 +92,26 @@ test("fieldLabel and summaryLine", () => {
   );
 });
 
-test("backAsk keeps earlier pills", () => {
-  let items = putAsk([user], sel("a", "role", ["vision"]), "open");
+test("backAsk reopens the clicked pill", () => {
+  let items = putAsk([user], sel("a", "Edit which role?", ["vision"]), "open");
   items = answerAsk(items, "a", "vision", false);
-  items = putAsk(items, sel("b", "provider", ["xai"]), "open");
-  items = backAsk(items, "b", 0);
-  assert.equal(items[1].steps.length, 0);
-  assert.equal(items[1].status, "open");
+  items = putAsk(items, sel("b", "Model for vision — provider", ["xai", "anthropic"]), "open");
+  items = answerAsk(items, "b", "xai", false);
+  items = putAsk(items, sel("c", "Model for vision — model", ["grok-4.6"]), "open");
+  items = answerAsk(items, "c", "grok-4.6", false);
+  items = putAsk(items, sel("d", "Thinking level", ["medium"]), "open");
+  items = backAsk(items, "d", 1);
+  assert.equal(items[1].backTo, "Provider");
+  assert.equal(items[1].steps.length, 2);
+  assert.equal(items[1].steps[0].answer, "vision");
+  assert.equal(items[1].steps[1].status, "open");
+  assert.equal(items[1].steps[1].answer, "");
+  assert.equal(shouldSkipDialog(items, sel("e", "Thinking level", ["medium"])), true);
+  assert.equal(shouldSkipDialog(items, sel("f", "Model for vision — provider", ["xai"])), false);
+  items = putAsk(items, sel("f", "Model for vision — provider", ["xai", "anthropic"]), "open");
+  assert.equal(items[1].steps.length, 2);
+  assert.equal(items[1].id, "f");
+  assert.equal(items[1].backTo, "");
 });
 
 test("timeout and cancel only close the open step", () => {

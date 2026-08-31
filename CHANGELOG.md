@@ -21,6 +21,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Going back in `/roles edit` no longer drops prior pills or stuck on Thinking.**
+  Clicking a previous step reopens that field and ignores the wrong follow-up
+  selects until the matching one arrives.
 - **Z.AI Usage** (ADR-0031): GLM Coding Plan Pro reports `CREDIT_LIMIT`
   (5h + weekly credits) instead of `TOKENS_LIMIT`. The dialog showed the
   plan name and "No usage windows on this plan." It now draws those bars.

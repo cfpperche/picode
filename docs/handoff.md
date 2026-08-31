@@ -208,6 +208,9 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Ask back-step: reopen the clicked pill, skip mismatched
+  dialogs. Branch `fix/ask-back-step`.
+
 - **2026-08-31** — Ask form UX: definition line persists, back on pills,
   compact stepper. Merged and deployed. Reload the agent for `/roles` back.
   **visual-review: UNVERIFIED** (owner dogfood).

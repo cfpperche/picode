@@ -37,7 +37,7 @@ import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk } from "../lib/askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, shouldSkipDialog } from "../lib/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "../lib/askMemory.js";
 import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
@@ -983,7 +983,22 @@ export default function App() {
         if (method === "select" || method === "confirm" || method === "input" || method === "editor") {
           setWaiting(true);
           setStatus("waiting");
-          putAskItem(ev, "open");
+          setItems((cur) => {
+            if (shouldSkipDialog(cur, ev)) {
+              const aid = agent && agent.id;
+              if (aid && ev.id) {
+                queueMicrotask(() => {
+                  api("/api/agents/" + aid + "/ui", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: ev.id, cancelled: true }),
+                  }).catch(() => {});
+                });
+              }
+              return cur;
+            }
+            return putAsk(cur, ev, "open");
+          });
         } else if (method === "notify") {
           const msg = ev.message || "Notice";
           if (ev.notifyType === "error") toastError(msg);

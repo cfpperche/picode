@@ -170,7 +170,8 @@ function AskCard({ it, onReply }) {
 
   function send(body) {
     if (!open || !onReply) return;
-    onReply(it.id, body);
+    const openId = (current && current.id) || it.id;
+    onReply(openId, body);
   }
 
   function onKey(e) {

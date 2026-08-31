@@ -238,7 +238,7 @@ export default function piRoles(pi: ExtensionAPI) {
 			return null;
 		}
 		const providers = providersOf(models);
-		while (true) {
+		providerLoop: while (true) {
 			let provider = providers[0];
 			if (providers.length > 1) {
 				const picked = await ctx.ui.select(`${title} — provider`, providers);
@@ -250,23 +250,26 @@ export default function piRoles(pi: ExtensionAPI) {
 				ctx.ui.notify(`No models for ${provider}.`, "error");
 				return null;
 			}
-			let id = ids[0];
-			if (ids.length > 1) {
-				const picked = await ctx.ui.select(`${title} — model`, ids);
-				if (!picked) {
-					if (providers.length > 1) continue;
+			modelLoop: while (true) {
+				let id = ids[0];
+				if (ids.length > 1) {
+					const picked = await ctx.ui.select(`${title} — model`, ids);
+					if (!picked) {
+						if (providers.length > 1) continue providerLoop;
+						return null;
+					}
+					id = picked;
+				}
+				const thinking = await pickThinking(ctx);
+				if (thinking === "cancel") {
+					if (ids.length > 1) continue modelLoop;
+					if (providers.length > 1) continue providerLoop;
 					return null;
 				}
-				id = picked;
+				const assignment: Assignment = { model: `${provider}/${id}` };
+				if (thinking) assignment.thinking = thinking;
+				return assignment;
 			}
-			const thinking = await pickThinking(ctx);
-			if (thinking === "cancel") {
-				if (providers.length > 1 || ids.length > 1) continue;
-				return null;
-			}
-			const assignment: Assignment = { model: `${provider}/${id}` };
-			if (thinking) assignment.thinking = thinking;
-			return assignment;
 		}
 	}
 

@@ -113,6 +113,7 @@ export function putAsk(items, dialog, status) {
       steps[si] = { ...steps[si], ...stepFromDialog(dialog, nextStatus), answer: steps[si].answer };
       copy[i] = { ...applyDialog(it, dialog, nextStatus), steps };
     } else {
+      steps.push(stepFromDialog(dialog, nextStatus));
       copy[i] = { ...applyDialog(it, dialog, nextStatus), steps };
     }
     return copy;
@@ -121,9 +122,17 @@ export function putAsk(items, dialog, status) {
   if (at >= 0) {
     const it = cur[at];
     const steps = stepsOf(it);
+    const lab = fieldLabel(dialog.title);
+    const openI = steps.findIndex((s) => s.status === "open");
+    if (openI >= 0 && fieldLabel(steps[openI].title) === lab) {
+      steps[openI] = stepFromDialog(dialog, nextStatus);
+      const copy = cur.slice();
+      copy[at] = { ...applyDialog(it, dialog, nextStatus), steps, backTo: "" };
+      return copy;
+    }
     steps.push(stepFromDialog(dialog, nextStatus));
     const copy = cur.slice();
-    copy[at] = { ...applyDialog(it, dialog, nextStatus), steps };
+    copy[at] = { ...applyDialog(it, dialog, nextStatus), steps, backTo: "" };
     return copy;
   }
   return [...cur, cardFromDialog(dialog, nextStatus)];
@@ -208,23 +217,42 @@ export function summaryLine(steps) {
   return thinking ? main + " · " + thinking : main;
 }
 
-/** Drop the clicked step and everything after; keep earlier answers. */
+/** Reopen the clicked pill as the current field; drop everything after it. */
 export function backAsk(items, id, keepCount) {
   return (items || []).map((it) => {
     if (!isAsk(it) || it.status !== "open") return it;
     const steps = stepsOf(it);
     const hit = it.id === id || steps.some((s) => s.id === id);
     if (!hit) return it;
-    const n = Math.max(0, Math.min(keepCount, steps.length));
-    const kept = steps.slice(0, n);
+    const answered = steps.filter((s) => s.status === "answered");
+    const clicked = answered[keepCount];
+    if (!clicked) return it;
+    const kept = [];
+    for (const s of steps) {
+      if (s.id === clicked.id) break;
+      if (s.status === "answered") kept.push(s);
+    }
+    const reopen = { ...clicked, status: "open", answer: "" };
     return {
       ...it,
       status: "open",
       answer: "",
-      steps: kept,
-      id: kept.length ? kept[kept.length - 1].id : it.id,
+      backTo: fieldLabel(clicked.title),
+      steps: [...kept, reopen],
+      id: reopen.id,
     };
   });
+}
+
+/** True when an incoming dialog is the wrong field while we are going back. */
+export function shouldSkipDialog(items, dialog) {
+  const at = stitchIndex(items);
+  if (at < 0) return false;
+  const it = items[at];
+  if (!it) return false;
+  if (it.status === "cancelled") return true;
+  if (!it.backTo) return false;
+  return fieldLabel(dialog && dialog.title) !== it.backTo;
 }
 
 /** True when the latest ask in this turn is answered (form finished or between steps). */
