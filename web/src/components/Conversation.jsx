@@ -14,6 +14,7 @@ import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
+import SearchCombo from "./SearchCombo.jsx";
 
 const WINDOW_STEP = 60;
 
@@ -154,12 +155,15 @@ function CompactionCard({ it }) {
 function AskCard({ it, onReply }) {
   const [text, setText] = useState(it.prefill || "");
   const open = it.status === "open";
-  const lines = String(it.title || "The agent is asking something").split("\n");
-  const title = lines[0] || "The agent is asking something";
-  const extra = it.message || lines.slice(1).join("\n");
-  const done = it.status === "cancelled" ? "Cancelled"
+  const steps = it.steps && it.steps.length ? it.steps : [it];
+  const current = steps.find((s) => s.status === "open") || (open ? it : null);
+  const title = String((current && current.title) || it.title || "").split("\n")[0];
+  const extra = (current && current.message) || it.message || "";
+  const method = (current && current.method) || it.method;
+  const options = (current && current.options) || it.options || [];
+  const answered = steps.filter((s) => s.answer && s.status === "answered");
+  const doneLabel = it.status === "cancelled" ? "Cancelled"
     : it.status === "timeout" ? "Timed out"
-    : it.status === "answered" ? (it.answer || "Answered")
     : "";
 
   function send(body) {
@@ -173,40 +177,57 @@ function AskCard({ it, onReply }) {
       e.preventDefault();
       send({ cancelled: true });
     }
-    if (e.key === "Enter" && (it.method === "input" || it.method === "editor") && !e.shiftKey) {
+    if (e.key === "Enter" && (method === "input" || method === "editor") && !e.shiftKey) {
       e.preventDefault();
       send({ value: text });
     }
   }
 
+  const comboOpts = options.map((opt) => ({ id: opt, label: opt }));
+
   return (
     <div className={"ask-card" + (open ? " open" : " done")} onKeyDown={onKey}>
-      <p className="ask-kicker">The agent is asking something</p>
-      <p className="ask-title">{title}</p>
-      {extra ? <p className="ask-msg">{extra}</p> : null}
-      {open && it.method === "select" ? (
-        <div className="ask-actions">
-          {(it.options || []).map((opt) => (
-            <button key={opt} type="button" className="btn btn-sm" onClick={() => send({ value: opt })}>{opt}</button>
-          ))}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
-        </div>
-      ) : null}
-      {open && it.method === "confirm" ? (
+      {open && title ? <p className="ask-title">{title}</p> : null}
+      {open && extra ? <p className="ask-msg">{extra}</p> : null}
+      {answered.length || (open && method !== "editor") || (!open && doneLabel) ? (
         <div className="ask-actions" data-align-row>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ confirmed: true })}>Yes</button>
-          <button type="button" className="btn btn-sm" onClick={() => send({ confirmed: false })}>No</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+          {answered.map((s) => (
+            <span key={s.id} className="ask-pill">{s.answer}</span>
+          ))}
+          {open && method === "select" ? (
+            options.length ? (
+              <SearchCombo
+                value=""
+                onChange={(id) => send({ value: id })}
+                options={comboOpts}
+                label="Choose"
+                searchPlaceholder="Filter"
+                triggerClassName="ask-combo"
+                side="bottom"
+              />
+            ) : (
+              <span className="ask-empty">No options.</span>
+            )
+          ) : null}
+          {open && method === "confirm" ? (
+            <>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ confirmed: true })}>Yes</button>
+              <button type="button" className="btn btn-sm" onClick={() => send({ confirmed: false })}>No</button>
+            </>
+          ) : null}
+          {open && method === "input" ? (
+            <>
+              <input className="ask-input" value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
+            </>
+          ) : null}
+          {open && method !== "editor" ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
+          ) : null}
+          {!open && doneLabel ? <span className="ask-done">{doneLabel}</span> : null}
         </div>
       ) : null}
-      {open && it.method === "input" ? (
-        <div className="ask-input-row" data-align-row>
-          <input className="ask-input" value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => send({ cancelled: true })}>Cancel</button>
-        </div>
-      ) : null}
-      {open && it.method === "editor" ? (
+      {open && method === "editor" ? (
         <>
           <textarea className="ask-input ask-area" rows={4} value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
           <div className="ask-actions" data-align-row>
@@ -215,7 +236,6 @@ function AskCard({ it, onReply }) {
           </div>
         </>
       ) : null}
-      {!open && done ? <p className="ask-done">{done}</p> : null}
     </div>
   );
 }

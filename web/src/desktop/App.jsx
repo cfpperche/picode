@@ -37,6 +37,7 @@ import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered } from "../lib/askForm.js";
 import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { stuckToBottom, pinToBottom } from "../lib/stickScroll.js";
@@ -781,28 +782,7 @@ export default function App() {
   }
 
   function putAskItem(d, status) {
-    const item = {
-      kind: "ask",
-      id: d.id,
-      method: d.method,
-      title: d.title || "",
-      message: d.message || "",
-      options: d.options || [],
-      placeholder: d.placeholder || "",
-      prefill: d.prefill || "",
-      timeout: d.timeout || 0,
-      status: status || "open",
-      ts: Date.now(),
-    };
-    setItems((cur) => {
-      const i = cur.findIndex((it) => it.kind === "ask" && it.id === item.id);
-      if (i >= 0) {
-        const next = cur.slice();
-        next[i] = { ...cur[i], ...item };
-        return next;
-      }
-      return [...cur, item];
-    });
+    setItems((cur) => putAsk(cur, d, status));
   }
 
   function connectPanel(agentId) {
@@ -1003,7 +983,13 @@ export default function App() {
         } else if (method === "notify") {
           const msg = ev.message || "Notice";
           if (ev.notifyType === "error") toastError(msg);
-          else toast.info(msg);
+          else {
+            setItems((cur) => {
+              if (askJustAnswered(cur)) return cur;
+              queueMicrotask(() => toast.info(msg));
+              return cur;
+            });
+          }
         }
         queueMicrotask(scrollConv);
         break;
@@ -1011,7 +997,7 @@ export default function App() {
       case "extension_ui_timeout":
         setWaiting(false);
         setStatus(streamingRef.current ? "streaming" : "idle");
-        setItems((cur) => cur.map((it) => (it.kind === "ask" && it.id === ev.id && it.status === "open" ? { ...it, status: "timeout" } : it)));
+        setItems((cur) => timeoutAsk(cur, ev.id));
         break;
       default:
         break;
@@ -1401,15 +1387,11 @@ export default function App() {
     setWaiting(false);
     waitingRef.current = false;
     setStatus("idle");
-    setItems((cur) => cur.map((it) => {
-      if (it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped) {
-        return { ...it, dropped: true };
-      }
-      if (it.kind === "ask" && it.status === "open") {
-        return { ...it, status: "cancelled", answer: "Cancelled" };
-      }
-      return it;
-    }));
+    setItems((cur) => cancelOpenAsks(cur).map((it) => (
+      it.kind === "block" && it.cls === "user" && it.chip === "steer" && !it.dropped
+        ? { ...it, dropped: true }
+        : it
+    )));
     try {
       await api("/api/agents/" + agent.id + "/abort", { method: "POST" });
     } catch (e) { toastError(e); }
@@ -1422,9 +1404,7 @@ export default function App() {
       : body.confirmed === true ? "Yes"
       : body.confirmed === false ? "No"
       : (body.value || "Answered");
-    setItems((cur) => cur.map((it) => (it.kind === "ask" && it.id === askId && it.status === "open"
-      ? { ...it, status: cancelled ? "cancelled" : "answered", answer }
-      : it)));
+    setItems((cur) => answerAsk(cur, askId, answer, cancelled));
     setWaiting(false);
     waitingRef.current = false;
     setStatus(streamingRef.current ? "streaming" : "idle");

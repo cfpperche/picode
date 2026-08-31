@@ -32,7 +32,7 @@ What exists:
 - MCP list live state: Idle / Live / Failed / Sign in when the GUI agent is running. File Off has no word.
 - MCP **Sign in** is automatic like providers: short `pi -e` runs headless `authenticate()` (no paste). Pi does not open the browser. GUI `window.open`s the URL once. Overlay ends when the callback HTML is served (keyring write continues). OAuth rows with tokens show **Sign out** (forgets the keyring login on this machine). No extra “Signed in” label.
 - Composer `@` / images / `!cmd` shipped. MCP list/add/toggle/remove/Use from/live/auth shipped.
-- Track **C1 waiting**: confirm/select/input/editor is a chat card; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast. Mobile has no waiting card.
+- Track **C1 waiting**: confirm/select/input/editor is a chat card; sequential selects in one turn stack as pills + one dropdown; `POST /api/agents/{id}/ui`; sidebar says Waiting. Notify is a toast unless the form just finished. Mobile has no waiting card.
 - Track **C3** queue: Send while busy/waiting is follow-up (or Steer from the kind chip). Follow-up is held until idle — Edit / Remove. Abort drops Steer.
 - Track **C2** draft: composer text + kind persist per agent (`picode-drafts`). Images do not.
 - Track **D1** `#/agent/<id>`: URL is the open agent. Missing id: “That agent is gone.”
@@ -49,6 +49,8 @@ What exists:
 
 ## In flight
 
+**Ask form in chat** — `feat/ask-cascade-form`. Sequential extension selects
+become one growing card, then a pill line. Visual review not done.
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -208,6 +210,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — Extension select in chat is one growing form (pills +
+  filter dropdown), then a pill line. Branch `feat/ask-cascade-form`.
+  **visual-review: not done**.
 
 - **2026-08-31** — Z.AI Usage parse: GLM Coding Plan now sends
   `CREDIT_LIMIT` (unit 3/5 = 5h, unit 6/1 = week) instead of

@@ -1899,11 +1899,21 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   animation: pop-in var(--motion-fast) var(--ease-out);
 }
 .ask-card.open { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-.ask-kicker {
-  margin: 0 0 4px; font-size: 11px; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--text-secondary);
+.ask-card.done {
+  margin: 6px 0 10px; padding: 0; border: none; background: transparent;
 }
 .ask-title { margin: 0; font-size: 13px; font-weight: 600; }
+.ask-pill, .ask-combo {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--ctl-h); padding: 0 10px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary);
+  font: inherit; font-size: 13px; white-space: nowrap;
+}
+.ask-combo { cursor: pointer; min-width: 140px; max-width: 280px; }
+.ask-combo:hover { background: var(--bg-hover); }
+.ask-combo .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; }
+.ask-empty { font-size: 13px; color: var(--text-secondary); }
 .ask-msg {
   margin: 6px 0 0; font-size: 13px; color: var(--text-secondary);
   white-space: pre-wrap; word-break: break-word;
@@ -1911,6 +1921,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ask-actions, .ask-input-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px;
 }
+.ask-card.done .ask-actions { margin-top: 0; }
 .ask-input {
   flex: 1; min-width: 120px; height: var(--ctl-h);
   padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-ctl);

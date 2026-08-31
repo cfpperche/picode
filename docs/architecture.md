@@ -346,8 +346,11 @@ claiming from the store (`prompt` waits for `agent_settled`; `steer` /
 event hub feeding `GET /ws/agent?agent=<id>` (events + `enqueue` input).
 Extension dialogs (`select`/`confirm`/`input`/`editor`) surface as RPC
 `extension_ui_request`. Managed snapshot includes `waiting` + `dialog`.
-The GUI shows a conversation card; **Yes / No / Cancel / type** POST
-`/api/agents/{id}/ui` (`ReplyUI`). Notify is a toast, not waiting.
+The GUI shows one conversation card per turn: sequential `select`s stack as
+pills plus a filterable dropdown (cmdk). After the last answer the card is
+just those pills — the definition stays in the thread. **Yes / No / Cancel /
+type** POST `/api/agents/{id}/ui` (`ReplyUI`). Notify is a toast, not waiting,
+unless a form just finished (the pills are the record).
 Timeout on the request dismisses the card (pi auto-resolves).
 Auto-approve policy stays undecided. Track C:
 [conversation-control-roadmap.md](design/conversation-control-roadmap.md).

@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Extension questions stay in the thread as one form.** Sequential
+  selects (`/roles edit`, and any other picker) grow one card: answered
+  values as pills, the current field a filterable dropdown. When it
+  finishes, only the pills remain — not a stack of “the agent is asking
+  something” cards.
+
 ### Fixed
 
 - **Z.AI Usage** (ADR-0031): GLM Coding Plan Pro reports `CREDIT_LIMIT`

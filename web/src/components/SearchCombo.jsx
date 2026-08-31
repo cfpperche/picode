@@ -4,13 +4,14 @@ import { Command } from "cmdk";
 
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
+  triggerClassName, side = "top",
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" id={id} className="cockpit-chip" disabled={disabled} aria-expanded={open}>
+        <button type="button" id={id} className={triggerClassName || "cockpit-chip"} disabled={disabled} aria-expanded={open}>
           {icon ? <span className="cockpit-chip-icon">{icon}</span> : null}
           <span className="cockpit-chip-label">{label}</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
@@ -21,7 +22,7 @@ export default function SearchCombo({
       <Popover.Portal>
         <Popover.Content
           className="cockpit-pop cockpit-combo-pop"
-          side="top"
+          side={side}
           align="start"
           sideOffset={6}
           collisionPadding={8}
