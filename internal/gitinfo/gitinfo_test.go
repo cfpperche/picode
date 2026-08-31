@@ -44,3 +44,27 @@ func run(t *testing.T, dir, name string, args ...string) {
 		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
 	}
 }
+
+func TestInspectCountsDirtyFiles(t *testing.T) {
+	dir := t.TempDir()
+	run(t, dir, "git", "init", "-b", "main")
+	run(t, dir, "git", "config", "user.email", "t@t")
+	run(t, dir, "git", "config", "user.name", "t")
+	if err := os.WriteFile(filepath.Join(dir, "a"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "i")
+	if got := Inspect(dir); got == nil || got.Dirty != 0 {
+		t.Fatalf("clean repo = %+v, want Dirty 0", got)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a"), []byte("changed"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "fresh"), []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Inspect(dir); got == nil || got.Dirty != 2 {
+		t.Fatalf("dirty repo = %+v, want Dirty 2", got)
+	}
+}

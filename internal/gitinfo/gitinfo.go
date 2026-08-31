@@ -13,6 +13,7 @@ import (
 type Info struct {
 	Branch   string `json:"branch,omitempty"`
 	Worktree string `json:"worktree,omitempty"`
+	Dirty    int    `json:"dirty,omitempty"`
 }
 
 // Inspect returns git identity for dir, or nil.
@@ -39,6 +40,12 @@ func Inspect(dir string) *Info {
 	}
 	if info.Branch == "" && info.Worktree == "" {
 		return nil
+	}
+	// One line per change (-uall so untracked count as files, matching the
+	// file tree's Changes list; a rename is one line in this format). The
+	// sidebar badge is this number.
+	if status := git(dir, "status", "--porcelain", "--untracked-files=all"); status != "" {
+		info.Dirty = len(strings.Split(status, "\n"))
 	}
 	return info
 }
