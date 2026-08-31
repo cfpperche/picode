@@ -45,11 +45,9 @@ What exists:
 - **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **M2–M5 shipped** (the ADR-0020 plan is complete): `picode provision` (6 steps, `--dry-run` / `--json`) and `picode-desktop.exe` (tray, logon task, keepalive, CA trust, clean-machine bootstrap). Neither has been **run for real** — dry-run only, by the owner's decision.
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
-- **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Not merged until this branch ships.
+- **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start.
 
 ## In flight
-
-**pi-roles v2** — `feat/roles-v2`. Overlay merge + spawn env. Path package needs agent reload after merge. Not deployed.
 
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
@@ -213,7 +211,8 @@ Never exercised, because this machine was already past them:
 
 - **2026-08-31** — pi-roles v2 (ADR-0033): per-agent overlay via `PI_ROLES_AGENT`.
   Workspace `.pi/roles.json` stays the default; `/roles` in a PiCode agent
-  writes `.pi/roles/<id>.json`. **visual-review: n/a** (no UI chrome).
+  writes `.pi/roles/<id>.json`. Merged and deployed. Reload the agent.
+  **visual-review: n/a** (no UI chrome).
 
 - **2026-08-31** — **Provider Usage V3** (ADR-0031). Usage is per vault
   account (`GET/POST /api/providers/{id}/accounts/{aid}/usage[/reset]`)
