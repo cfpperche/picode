@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // Active-role state published by the pi-roles extension (ADR-0033 amendment
@@ -32,6 +35,26 @@ func rolesStatePath(agentID string) string {
 	return filepath.Join(root, agentID+".json")
 }
 
+// agentHasRolesPackage reports whether pi-roles is on the agent's effective
+// package list. An uninstalled package leaves the state file orphaned on
+// disk — without this gate the chip would outlive the extension. Fails
+// open: a listing error must not hide live state.
+func agentHasRolesPackage(deps Deps, agent store.Agent) bool {
+	rep, err := loadPackageReport(deps, agent.WorkspaceID, agent.ID)
+	if err != nil {
+		return true
+	}
+	for _, p := range rep.Packages {
+		if rep.Isolated && p.Scope != "agent" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(p.Source), "pi-roles") {
+			return true
+		}
+	}
+	return false
+}
+
 func handleAgentRoleState(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agent, err := deps.Store.GetAgent(r.PathValue("id"))
@@ -39,8 +62,12 @@ func handleAgentRoleState(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "agent not found")
 			return
 		}
-		path := rolesStatePath(agent.ID)
 		none := map[string]any{"state": nil}
+		if !agentHasRolesPackage(deps, agent) {
+			writeJSON(w, http.StatusOK, none)
+			return
+		}
+		path := rolesStatePath(agent.ID)
 		if path == "" {
 			writeJSON(w, http.StatusOK, none)
 			return

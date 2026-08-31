@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/pipkg"
 )
 
 // Decision-table row 5: no file and broken JSON both answer {"state": null},
@@ -19,6 +21,17 @@ func TestAgentRoleState(t *testing.T) {
 
 	rolesStateRoot = t.TempDir()
 	t.Cleanup(func() { rolesStateRoot = "" })
+
+	// The gate: state only answers while pi-roles is on the agent's
+	// effective package list (here via machine settings).
+	userDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(userDir, "settings.json"),
+		[]byte(`{"packages":["/opt/picode/packages/pi-roles"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldUserDir := pipkg.UserDir
+	pipkg.UserDir = func() string { return userDir }
+	t.Cleanup(func() { pipkg.UserDir = oldUserDir })
 
 	get := func() map[string]any {
 		t.Helper()
@@ -64,6 +77,20 @@ func TestAgentRoleState(t *testing.T) {
 	}
 	if out := get(); out["state"] != nil {
 		t.Fatalf("future version should be null state, got %v", out)
+	}
+
+	// Uninstalling the package orphans the state file — the chip must go
+	// even though a valid v1 file is still on disk.
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pipkg.UserDir = func() string { return t.TempDir() }
+	if out := get(); out["state"] != nil {
+		t.Fatalf("no pi-roles installed should be null state, got %v", out)
+	}
+	pipkg.UserDir = func() string { return userDir }
+	if out := get(); out["state"] == nil {
+		t.Fatalf("reinstalling should serve the state again, got %v", out)
 	}
 
 	res, err := http.Get(ts.URL + "/api/agents/nope/role-state")
