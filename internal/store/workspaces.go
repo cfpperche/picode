@@ -46,28 +46,29 @@ func AgentCwd(w Workspace, a Agent) string {
 	return w.Path
 }
 
-// AddWorkspace registers a folder (idempotent by absolute path) and ensures
-// its default agent exists. Returns the workspace and its default agent.
-func (s *Store) AddWorkspace(name, path string) (Workspace, Agent, error) {
+// AddWorkspace registers a folder (idempotent by absolute path). The
+// workspace starts empty (ADR-0027): agents are added explicitly, and
+// re-adding a registered path does not resurrect a deleted agent.
+func (s *Store) AddWorkspace(name, path string) (Workspace, error) {
 	name = stringsTrimSpace(name)
 	if name == "" {
-		return Workspace{}, Agent{}, fmt.Errorf("store: name is required")
+		return Workspace{}, fmt.Errorf("store: name is required")
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return Workspace{}, Agent{}, fmt.Errorf("store: path: %w", err)
+		return Workspace{}, fmt.Errorf("store: path: %w", err)
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
-		return Workspace{}, Agent{}, fmt.Errorf("store: path %s: %w", abs, err)
+		return Workspace{}, fmt.Errorf("store: path %s: %w", abs, err)
 	}
 	if !info.IsDir() {
-		return Workspace{}, Agent{}, fmt.Errorf("store: path %s: not a directory", abs)
+		return Workspace{}, fmt.Errorf("store: path %s: not a directory", abs)
 	}
 
 	tx, err := s.db.Begin()
 	if err != nil {
-		return Workspace{}, Agent{}, err
+		return Workspace{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -76,35 +77,27 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, Agent, error) {
 	err = tx.QueryRow(`SELECT id, name, path, created_at FROM workspaces WHERE path = ?`, abs).
 		Scan(&existing.ID, &existing.Name, &existing.Path, &existing.CreatedAt)
 	if err == nil {
-		agent, err := ensureDefaultAgentTx(tx, existing.ID, existing.Name, existing.CreatedAt)
-		if err != nil {
-			return Workspace{}, Agent{}, err
-		}
 		if err := tx.Commit(); err != nil {
-			return Workspace{}, Agent{}, err
+			return Workspace{}, err
 		}
-		return existing, agent, nil
+		return existing, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return Workspace{}, Agent{}, fmt.Errorf("store: lookup: %w", err)
+		return Workspace{}, fmt.Errorf("store: lookup: %w", err)
 	}
 
 	w := Workspace{ID: newID(name, "workspace"), Name: name, Path: abs, CreatedAt: nowUTC()}
 	if _, err := tx.Exec(`INSERT INTO workspaces (id, name, path, created_at) VALUES (?, ?, ?, ?)`,
 		w.ID, w.Name, w.Path, w.CreatedAt); err != nil {
-		return Workspace{}, Agent{}, fmt.Errorf("store: insert workspace: %w", err)
-	}
-	agent, err := ensureDefaultAgentTx(tx, w.ID, w.Name, w.CreatedAt)
-	if err != nil {
-		return Workspace{}, Agent{}, err
+		return Workspace{}, fmt.Errorf("store: insert workspace: %w", err)
 	}
 	if err := s.AppendEventTx(tx, "workspace_added", nil, &w.ID, nil); err != nil {
-		return Workspace{}, Agent{}, err
+		return Workspace{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return Workspace{}, Agent{}, err
+		return Workspace{}, err
 	}
-	return w, agent, nil
+	return w, nil
 }
 
 // ListWorkspaces returns all workspaces ordered by name.

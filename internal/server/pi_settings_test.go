@@ -83,7 +83,7 @@ func TestPiSettingsProjectUntrusted(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	_, agent, err := st.AddWorkspace("App", proj)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", proj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestPiSettingsProjectWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	_, agent, err := st.AddWorkspace("App", proj)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", proj)
 	if err != nil {
 		t.Fatal(err)
 	}

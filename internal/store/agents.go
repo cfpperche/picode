@@ -69,8 +69,8 @@ func encodePackages(src []string) string {
 }
 
 // ensureDefaultAgentTx creates the workspace's default agent if missing.
-// v1 invariant: every workspace has exactly one agent named "default"
-// (display-named after the workspace); M3 relaxes this with the wizard.
+// Only the legacy JSON-registry import uses it now: pre-ADR-0027 registries
+// expect a usable workspace. New workspaces start empty (AddWorkspace).
 func ensureDefaultAgentTx(tx txRunner, workspaceID, wsName, createdAt string) (Agent, error) {
 	var count int
 	if err := tx.QueryRow(`SELECT COUNT(1) FROM agents WHERE workspace_id = ?`, workspaceID).Scan(&count); err != nil {

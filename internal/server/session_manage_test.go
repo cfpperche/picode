@@ -58,20 +58,8 @@ func TestSessionManageAndSweep(t *testing.T) {
 	if err := os.MkdirAll(proj, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	var wsv workspaceView
-	if err := json.NewDecoder(ws.Body).Decode(&wsv); err != nil {
-		t.Fatal(err)
-	}
+	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
 	base := "/api/workspaces/" + wsv.ID
-
-	agentID := wsv.Agent.ID
-	if agentID == "" && len(wsv.Agents) > 0 {
-		agentID = wsv.Agents[0].ID
-	}
-	if agentID == "" {
-		t.Fatal("no agent in workspace")
-	}
 
 	orphan := writeManageSession(t, proj, "orphan.jsonl", 0)
 	bound := writeManageSession(t, proj, "bound.jsonl", 0)
@@ -165,9 +153,7 @@ func TestManageViewNamesAgent(t *testing.T) {
 	if err := os.MkdirAll(proj, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Q", "path": proj})
-	var wsv workspaceView
-	_ = json.NewDecoder(ws.Body).Decode(&wsv)
+	wsv := addWorkspaceWithAgent(t, ts, "Q", proj)
 	p := writeManageSession(t, proj, "only.jsonl", 0)
 	_ = postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/sessions/resume", map[string]string{"path": p})
 

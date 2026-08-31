@@ -94,14 +94,7 @@ func TestAgentFilesHTTP(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "main.go"), []byte("pkg"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	if res.StatusCode != http.StatusCreated {
-		t.Fatalf("add = %d", res.StatusCode)
-	}
-	var wk workspaceView
-	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
-		t.Fatal(err)
-	}
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 	if id == "" {
 		t.Fatal("no agent")
@@ -208,14 +201,7 @@ func TestAgentTextHTTP(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "main.go"), []byte("pkg main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	if res.StatusCode != http.StatusCreated {
-		t.Fatalf("add = %d", res.StatusCode)
-	}
-	var wk workspaceView
-	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
-		t.Fatal(err)
-	}
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=main.go"))
 	if got.StatusCode != http.StatusOK {
@@ -276,11 +262,7 @@ func TestAgentTextPutHTTP(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "a.txt"), []byte("one\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	var wk workspaceView
-	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
-		t.Fatal(err)
-	}
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/text?path=a.txt"))
 	var page map[string]any

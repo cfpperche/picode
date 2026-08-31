@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -88,9 +87,7 @@ func TestBrowseHTTP(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "a.go"), []byte("pkg"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+id+"/browse"))
 	if got.StatusCode != http.StatusOK {

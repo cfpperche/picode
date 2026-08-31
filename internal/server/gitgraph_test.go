@@ -26,7 +26,7 @@ func TestGraphCollapsesWorktreesAndNamesOccupants(t *testing.T) {
 	gitRun(t, repo, "worktree", "add", "-b", "side", side)
 
 	st := testStore(t)
-	_, main, err := st.AddWorkspace("App", repo)
+	_, main, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestGraphCollapsesWorktreesAndNamesOccupants(t *testing.T) {
 // one — ADR-0022 hangs the entry point off exactly this answer.
 func TestGraphOfANonRepoIsNotFound(t *testing.T) {
 	st := testStore(t)
-	_, agent, err := st.AddWorkspace("Scratch", t.TempDir())
+	_, agent, err := storeWorkspaceWithAgent(st, "Scratch", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestNestedRepoIsNotAnOccupant(t *testing.T) {
 	gitRun(t, inner, "init", "-b", "main")
 
 	st := testStore(t)
-	_, outer, err := st.AddWorkspace("App", repo)
+	_, outer, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func gitRun(t *testing.T, dir string, args ...string) {
 func TestCommitRouteReadsThroughTheOwner(t *testing.T) {
 	repo := gitRepo(t)
 	st := testStore(t)
-	_, agent, err := st.AddWorkspace("App", repo)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestCommitFromAnotherRepoIsNotFound(t *testing.T) {
 	}
 
 	st := testStore(t)
-	_, agent, err := st.AddWorkspace("App", mine)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", mine)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestWorkspaceAgentCanLiveInASiblingWorktree(t *testing.T) {
 	gitRun(t, repo, "worktree", "add", "-b", "side", side)
 
 	st := testStore(t)
-	_, main, err := st.AddWorkspace("App", repo)
+	_, main, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestWorkspaceAgentCanLiveInASiblingWorktree(t *testing.T) {
 func TestWorkspaceAgentWorkPathRules(t *testing.T) {
 	repo := gitRepo(t)
 	st := testStore(t)
-	_, first, err := st.AddWorkspace("App", repo)
+	_, first, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,7 +424,7 @@ func TestOccupantScanAsksGitOncePerDirectory(t *testing.T) {
 	}
 
 	st := testStore(t)
-	ws, root, err := st.AddWorkspace("App", repo)
+	ws, root, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,7 +491,7 @@ func TestOccupantScanAsksGitOncePerDirectory(t *testing.T) {
 func TestOccupantScanAsksNothingForAgentsAtTheRoot(t *testing.T) {
 	repo := gitRepo(t)
 	st := testStore(t)
-	ws, _, err := st.AddWorkspace("App", repo)
+	ws, _, err := storeWorkspaceWithAgent(st, "App", repo)
 	if err != nil {
 		t.Fatal(err)
 	}

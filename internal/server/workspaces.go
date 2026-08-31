@@ -11,10 +11,12 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// workspaceView is a workspace plus its agents (ADR-0011).
+// workspaceView is a workspace plus its agents (ADR-0011). Agent is a
+// pointer on purpose: a workspace can be empty (ADR-0027), and a zero-value
+// object here would read as a truthy agent with an empty id in the UI.
 type workspaceView struct {
 	store.Workspace
-	Agent  agentView     `json:"agent"` // first agent; kept for older clients
+	Agent  *agentView    `json:"agent,omitempty"` // first agent; kept for older clients
 	Agents []agentView   `json:"agents"`
 	Git    *gitinfo.Info `json:"git,omitempty"`
 }
@@ -70,9 +72,9 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
 			Git: gitinfo.Inspect(store.AgentCwd(w, a))})
 	}
-	var first agentView
+	var first *agentView
 	if len(views) > 0 {
-		first = views[0]
+		first = &views[0]
 	}
 	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path)}, nil
 }
@@ -99,32 +101,28 @@ func handleList(deps Deps) http.HandlerFunc {
 
 func handleAdd(deps Deps) http.HandlerFunc {
 	var req struct {
-		Name     string `json:"name"`
-		Path     string `json:"path"`
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-		Thinking string `json:"thinking"`
+		Name string `json:"name"`
+		Path string `json:"path"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		wk, agent, err := deps.Store.AddWorkspace(req.Name, req.Path)
+		// The workspace starts empty (ADR-0027); agents come from
+		// POST /api/workspaces/{id}/agents. An idempotent re-add answers
+		// with the existing workspace and whatever agents it really has.
+		wk, err := deps.Store.AddWorkspace(req.Name, req.Path)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if req.Provider != "" || req.Model != "" || req.Thinking != "" {
-			agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{
-				Provider: &req.Provider, Model: &req.Model, Thinking: &req.Thinking,
-			})
-			if err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
-				return
-			}
+		v, err := deps.view(r, wk)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
 		}
-		writeJSON(w, http.StatusCreated, workspaceView{Workspace: wk, Agent: agentView{Agent: agent, Running: false, Mode: string(modeStopped)}})
+		writeJSON(w, http.StatusCreated, v)
 	}
 }
 
@@ -191,6 +189,10 @@ func handleOpen(deps Deps) http.HandlerFunc {
 			return
 		}
 		agent, err := deps.Store.DefaultAgent(wk.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusConflict, "workspace has no agents — add one first")
+			return
+		}
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -235,6 +237,10 @@ func handleClose(deps Deps) http.HandlerFunc {
 			return
 		}
 		agent, err := deps.Store.DefaultAgent(wk.ID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusConflict, "workspace has no agents — add one first")
+			return
+		}
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return

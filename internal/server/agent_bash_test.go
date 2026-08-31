@@ -160,12 +160,7 @@ func bashTestServer(t *testing.T) *httptest.Server {
 func TestAgentBashMatrix(t *testing.T) {
 	ts := bashTestServer(t)
 	proj := t.TempDir()
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	if res.StatusCode != http.StatusCreated {
-		t.Fatalf("add = %d", res.StatusCode)
-	}
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 
 	rows := []struct {
@@ -202,9 +197,7 @@ func TestAgentBashRunsWithFakeRPC(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(proj, "x.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 
 	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})

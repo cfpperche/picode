@@ -48,8 +48,14 @@ func TestWorkspaceAgentsCarryTheirOwnGit(t *testing.T) {
 	_ = json.NewDecoder(res.Body).Decode(&wk)
 	res.Body.Close()
 
-	// A second agent whose workPath is the other repository — the case the
-	// per-agent git exists for.
+	// The workspace starts empty (ADR-0027): a trunk agent in the workspace
+	// folder, then a second agent whose workPath is the other repository —
+	// the case the per-agent git exists for.
+	trunk := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"name": "trunk"})
+	if trunk.StatusCode != http.StatusCreated {
+		t.Fatalf("add trunk agent = %d", trunk.StatusCode)
+	}
+	trunk.Body.Close()
 	add := postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"name": "roamer", "workPath": otherRepo})
 	if add.StatusCode != http.StatusCreated {
 		t.Fatalf("add agent = %d", add.StatusCode)

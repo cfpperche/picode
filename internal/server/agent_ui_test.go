@@ -13,12 +13,7 @@ import (
 func TestAgentUIDecisionTable(t *testing.T) {
 	ts := bashTestServer(t)
 	proj := t.TempDir()
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Ask", "path": proj})
-	if res.StatusCode != http.StatusCreated {
-		t.Fatalf("add = %d", res.StatusCode)
-	}
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "Ask", proj)
 	id := wk.Agent.ID
 
 	// Row 8: stopped → no card / 409.
@@ -107,9 +102,7 @@ func TestAgentUIDecisionTable(t *testing.T) {
 
 func TestAgentQueueWhileWaiting(t *testing.T) {
 	ts := bashTestServer(t)
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Queue", "path": t.TempDir()})
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "Queue", t.TempDir())
 	id := wk.Agent.ID
 	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusCreated && start.StatusCode != http.StatusOK {

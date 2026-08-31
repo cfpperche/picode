@@ -76,7 +76,7 @@ func TestDue(t *testing.T) {
 func TestSnapshotRestoreMatrix(t *testing.T) {
 	e, data, pi := testEngine(t)
 	proj := t.TempDir()
-	if _, _, err := e.Store.AddWorkspace("App", proj); err != nil {
+	if _, err := e.Store.AddWorkspace("App", proj); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(data, "accounts.json"), []byte(`{"k":1}`), 0o600); err != nil {
