@@ -50,8 +50,9 @@ What exists:
 
 **ADR-0025/0026 — model roles + composer commands on `feat/model-roles`.**
 Package writes `.pi/roles.json`. Composer `/` lists live extension commands
-(ADR-0026) when the managed agent is running. Visual of the slash menu with
-`/roles` in it is not done this turn (needs a managed agent with `-e`).
+when the managed agent is running. Scratch visual on :8477 (`PICODE_DATA`
+temp dir; installed :8445 untouched): `/rol` shows `/role` and `/roles` with
+the package; stopped agent has no those rows. **visual-review: PASS**.
 Not published to npm. Per-agent roles config is v2.
 
 **ADR-0024 — terminal settings. Step 0 shipped; the panel is not built.**
@@ -87,8 +88,7 @@ render megabytes.
 
 ## Next up
 
-**ADR-0026 visual** — screenshot the composer `/` menu with a running
-agent that has `pi-roles` loaded, and without (no `/roles` row).
+**Merge `feat/model-roles`** when the owner wants it on main.
 
 **Multi-runtime TUIs in terminals** (owner direction, research in flight in
 another session): the ADE will host TUIs from several agent runtimes — in
@@ -164,9 +164,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — ADR-0026 visual on an isolated :8477 scratch app
+  (`PICODE_DATA=/tmp/picode-roles-qa`; :8445 left running). With package:
+  `/rol` lists `/role` and `/roles`, overlayAudit ok. Without (stopped):
+  no those rows, Run agent. **visual-review: PASS**.
+
 - **2026-08-31** — ADR-0026: composer `/` lists extension commands from the
   running managed agent (`get_commands`). Picking one sends `/name`.
-  **visual-review: UNVERIFIED** (code + unit tests only).
 
 - **2026-08-31** — ADR-0025 `/roles edit|add|remove` writes `.pi/roles.json`.
   Per-agent config deferred (v2). **visual-review: n/a** (extension dialogs).
