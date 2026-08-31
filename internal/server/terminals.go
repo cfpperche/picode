@@ -42,6 +42,20 @@ func termView(t store.Terminal, session string, live bool) map[string]any {
 	}
 }
 
+// liveTermView is termView with the truth layered on: the pane's live cwd
+// and the git facts read from it. EVERY handler that answers with a terminal
+// uses this one — the app merges any such response into its list, so a
+// response carrying the record cwd would overwrite the live one while the
+// stale git survived the merge, pairing one directory's path with another's
+// branch on the selected terminal.
+func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, live bool) map[string]any {
+	cwd := liveTermCwd(deps, r, t)
+	view := termView(t, session, live)
+	view["cwd"] = cwd
+	view["git"] = gitinfo.Inspect(cwd)
+	return view
+}
+
 func handleListTerminals(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		list, err := deps.Store.ListTerminals()
@@ -57,15 +71,8 @@ func handleListTerminals(deps Deps) http.HandlerFunc {
 				live, _ = deps.Tmux.HasSession(r.Context(), name)
 			}
 			// The list speaks about where the terminal IS, not where it was
-			// born: `cwd` is the pane's live path (falling back to the record
-			// when the session is gone), and the git facts are read from the
-			// same place (ADR-0022). Reporting the stored cwd next to live git
-			// info let the two disagree after a `cd`.
-			cwd := liveTermCwd(deps, r, t)
-			view := termView(t, name, live)
-			view["cwd"] = cwd
-			view["git"] = gitinfo.Inspect(cwd)
-			out = append(out, view)
+			// born (ADR-0022).
+			out = append(out, liveTermView(deps, r, t, name, live))
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"terminals": out})
 	}
@@ -102,7 +109,7 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusCreated, termView(t, name, true))
+		writeJSON(w, http.StatusCreated, liveTermView(deps, r, t, name, true))
 	}
 }
 
@@ -126,7 +133,7 @@ func handleOpenTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, termView(t, name, true))
+		writeJSON(w, http.StatusOK, liveTermView(deps, r, t, name, true))
 	}
 }
 
@@ -157,7 +164,7 @@ func handleRenameTerminal(deps Deps) http.HandlerFunc {
 		if deps.Tmux != nil && deps.Tmux.Available() {
 			live, _ = deps.Tmux.HasSession(r.Context(), name)
 		}
-		writeJSON(w, http.StatusOK, termView(t, name, live))
+		writeJSON(w, http.StatusOK, liveTermView(deps, r, t, name, live))
 	}
 }
 

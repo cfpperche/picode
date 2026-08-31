@@ -279,3 +279,47 @@ func TestListTerminalsReportsTheLivePaneCwd(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
+
+// Open answers with the same live view the list gives. The app merges the
+// open response into its terminal list, so a response carrying the record
+// cwd overwrote the live one while the stale git survived the merge — the
+// SELECTED terminal (the one thing the user is looking at) showed one
+// directory's path beside another directory's branch.
+func TestOpenTerminalReportsTheLiveViewToo(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	born := t.TempDir()
+	created := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": born})
+	var page map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&page)
+	created.Body.Close()
+	id, _ := page["id"].(string)
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), sess) })
+
+	elsewhere := t.TempDir()
+	if err := tm.SendKeys(context.Background(), sess, "cd "+elsewhere, "Enter"); err != nil {
+		t.Fatalf("cd: %v", err)
+	}
+
+	want, _ := filepath.EvalSymlinks(elsewhere)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		res := postJSON(t, ts, "/api/terminals/"+id+"/open", nil)
+		var view map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&view)
+		res.Body.Close()
+		cwd, _ := view["cwd"].(string)
+		got, _ := filepath.EvalSymlinks(cwd)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("open cwd = %q, want the live %q (record was %q)", cwd, elsewhere, born)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}

@@ -187,6 +187,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Follow-up caught by the owner's screenshot: the SELECTED
+  terminal showed `~ / main` — an impossible pair. `POST /open` still
+  answered with the record cwd and no git; the app merges that response into
+  its list, so the stale path overwrote the live one while the old git
+  survived. All four terminal-returning handlers now share `liveTermView`;
+  a test opens a terminal after a `cd` and asserts the live path comes back.
 - **2026-08-30** — Sidebar cards unified (terminals ↔ agents): second line is
   icon + path, or git icon + `path / branch` in a repo. `GET /api/terminals`
   now reports the live pane cwd (it printed the creation dir forever while
