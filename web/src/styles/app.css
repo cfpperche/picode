@@ -111,12 +111,14 @@ body {
 .brand-title {
   display: flex; align-items: baseline; gap: 8px; min-width: 0;
 }
-.brand-name { font-weight: 650; letter-spacing: .2px; white-space: nowrap; }
+.brand-name { font-weight: 650; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-ver { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); flex: none; }
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;
-  width: 36px; height: 100%; padding: 0;
+  /* Four tabs now — 36px each would leave 36px of title at the 180px
+     minimum width; 32px leaves room for "PiCode". */
+  width: 32px; height: 100%; padding: 0;
   border: 0; background: none; cursor: pointer;
   color: var(--text-secondary);
   border-bottom: 2px solid transparent;
@@ -164,6 +166,11 @@ body {
   padding-left: calc(var(--tree-chev) + var(--tree-gap) + var(--tree-icon) + var(--tree-gap));
   font-size: 12px; color: var(--text-secondary);
 }
+.side-empty-act {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: var(--accent); cursor: pointer;
+}
+.side-empty-act:hover { text-decoration: underline; }
 .pins-pane { padding: 8px 10px; }
 .pins-head {
   display: flex; align-items: center; gap: 8px;
@@ -741,7 +748,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-faces .ws-face:first-child { margin-left: 0; }
 .ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
-.ws-group-actions { display: flex; gap: 2px; flex: none; opacity: 0; }
+/* Overlay on hover like .ws-actions: four buttons reserving grid space
+   would squeeze the workspace name to nothing at narrow widths. */
+.ws-group-head { position: relative; }
+.ws-group-actions {
+  display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity .12s;
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  padding-left: 8px;
+  background: linear-gradient(90deg, transparent, var(--bg-panel) 8px);
+}
 .ws-group:hover .ws-group-actions { opacity: 1; }
 .ws-item {
   position: relative;

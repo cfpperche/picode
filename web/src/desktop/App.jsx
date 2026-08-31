@@ -4,6 +4,7 @@ import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../lib/terms.js";
+import { termWorkspaceId } from "../lib/termGroups.js";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -976,9 +977,10 @@ export default function App() {
     }
   }
 
-  async function createTerminal() {
+  async function createTerminal(wsId) {
     try {
-      const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const body = wsId ? JSON.stringify({ workspaceId: wsId }) : "{}";
+      const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body });
       setTerminals((cur) => [...cur, page]);
       await openTermTab(page.id);
     } catch (err) { toastError(err); }
@@ -1053,6 +1055,10 @@ export default function App() {
   async function confirmCleanup({ title, message, path }) {
     let preview = { lastOccupant: false, sessions: 0, sessionBytes: 0, canPurgeWork: false };
     try { preview = await api(path); } catch { /* unregister still allowed */ }
+    if (preview.terminals > 0) {
+      const n = preview.terminals;
+      message += ` This also removes ${n} terminal${n === 1 ? "" : "s"} and stops ${n === 1 ? "its" : "their"} tmux session${n === 1 ? "" : "s"}.`;
+    }
     const choices = [];
     if (preview.lastOccupant && preview.sessions > 0) {
       const n = preview.sessions;
@@ -1124,6 +1130,17 @@ export default function App() {
       for (const id of [...new Set(ids)]) {
         closeShellTerm(id);
         if (panelRef.current && panelRef.current.agentId === id) closePanel();
+      }
+      // The workspace's terminals died with it (ADR-0026): drop them from
+      // the list and close their tabs, like removeTerminal does.
+      const deadTerms = terminals.filter((t) => termWorkspaceId(t) === ws.id);
+      setTerminals((cur) => cur.filter((t) => termWorkspaceId(t) !== ws.id));
+      for (const t of deadTerms) {
+        setTabs((cur) => cur.filter((id) => {
+          const f = parseFileTab(id);
+          return !(f && f.kind === "term" && f.id === t.id);
+        }));
+        closeTab(termTabId(t.id));
       }
       setTabs((t) => t.filter((x) => x !== ws.id && !ids.includes(x)));
       if (selectedId === ws.id || ids.includes(selectedId)) setSelectedId(null);
