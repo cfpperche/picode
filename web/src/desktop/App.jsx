@@ -29,7 +29,9 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appTabId, isAppTab, tabAppId } from "../lib/routes.js";
+import AppSurface from "../components/AppSurface.jsx";
+import { normalizeManifests } from "../lib/appPrimitives.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
@@ -154,6 +156,9 @@ export default function App() {
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
+  // Apps host (ADR-0036): manifests + badges from GET /api/apps.
+  const [apps, setApps] = useState([]);
+  const [appsLoaded, setAppsLoaded] = useState(false);
   // A graph tab is named by its repository, but only an owner can be asked for
   // it, so remember which owner opened each one (ADR-0022).
   const [gitOwners, setGitOwners] = useState(() => readGitOwners());
@@ -398,6 +403,14 @@ export default function App() {
         let terms = [];
         try { terms = (await api("/api/terminals")).terminals || []; } catch { terms = []; }
         setTerminals(terms);
+        let appList = [];
+        let appsOk = false;
+        try {
+          appList = normalizeManifests(await api("/api/apps"));
+          appsOk = true;
+        } catch { appList = []; }
+        setApps(appList);
+        setAppsLoaded(appsOk);
         const owners = readGitOwners();
         const towners = readTreeOwners();
         const ownerAlive = (o) =>
@@ -409,6 +422,8 @@ export default function App() {
               : !!locate(list, free, o.id));
         const exists = (id) => {
           if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
+          // A failed /api/apps fetch must not wipe persisted app tabs.
+          if (isAppTab(id)) return appsOk ? appList.some((a) => a.id === tabAppId(id)) : true;
           if (isGitTab(id)) return ownerAlive(owners[id]);
           if (isTreeTab(id)) return ownerAlive(towners[id]);
           if (isFileTab(id)) {
@@ -425,7 +440,11 @@ export default function App() {
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        if (fromTree) {
+        const fromApp = parseRoute() === "workspace" ? appRoute() : null;
+        if (fromApp) {
+          if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
+          else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
+        } else if (fromTree) {
           if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
         } else if (fromGit) {
@@ -471,6 +490,21 @@ export default function App() {
     const t = setInterval(poll, 3000);
     return () => { stop = true; clearInterval(t); };
   }, [workspaces, freeAgents, selectedId]);
+  useEffect(() => {
+    // Badge refresh (ADR-0036). Gentler than the 3s tui-working loop; the
+    // ADR accepts seconds of badge latency. Boot did the first fetch;
+    // errors keep the last known list.
+    let stop = false;
+    async function poll() {
+      if (document.hidden) return;
+      try {
+        const d = await api("/api/apps");
+        if (!stop) { setApps(normalizeManifests(d)); setAppsLoaded(true); }
+      } catch { /* transient */ }
+    }
+    const t = setInterval(poll, 15000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
   }), []);
@@ -549,6 +583,20 @@ export default function App() {
       }
       return;
     }
+    const fromApp = appRoute(hash);
+    if (fromApp) {
+      const aid = appTabId(fromApp);
+      // Before /api/apps answers, trust the hash — the surface handles a
+      // manifest that never shows up.
+      if (apps.some((a) => a.id === fromApp) || !appsLoaded) {
+        setGoneId((g) => (g ? "" : g));
+        if (selectedRef.current !== aid) openTab(aid);
+      } else {
+        setGoneId((g) => (g === aid ? g : aid));
+        if (selectedRef.current) setSelectedId(null);
+      }
+      return;
+    }
     const id = agentRoute(hash);
     if (!id) {
       setGoneId((g) => (g ? "" : g));
@@ -582,7 +630,9 @@ export default function App() {
     if (isTreeTab(selectedId) && !treeOwner) return;
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
-      : gitOwner
+      : isAppTab(selectedId)
+        ? appHash(tabAppId(selectedId))
+        : gitOwner
         ? gitHash(gitOwner.kind, gitOwner.id)
         : treeOwner
           ? treeHash(treeOwner.kind, treeOwner.id)
@@ -590,7 +640,7 @@ export default function App() {
             ? fileHash(file.kind, file.id, file.path)
             : workspaceHash(selectedId);
     if (location.hash === want) return;
-    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && selectedId) {
+    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && !appRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
       setHash(want);
       return;
@@ -615,7 +665,7 @@ export default function App() {
 
   function openTab(id, list) {
     if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
-    if (isGitTab(id) || isTreeTab(id)) {
+    if (isGitTab(id) || isTreeTab(id) || isAppTab(id)) {
       setGoneId("");
       setSelectedId(id);
       setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -773,7 +823,7 @@ export default function App() {
         const next = t[t.length - 1];
         if (next) {
           if (isTermTab(next)) openTermTab(tabTermId(next));
-          else if (isFileTab(next) || isGitTab(next) || isTreeTab(next)) {
+          else if (isFileTab(next) || isGitTab(next) || isTreeTab(next) || isAppTab(next)) {
             setSelectedId(next);
           } else {
             setSelectedId(next);
@@ -1811,6 +1861,8 @@ export default function App() {
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
+        apps={apps}
+        onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -1832,12 +1884,13 @@ export default function App() {
       />
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "")} hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
             freeAgents={freeAgents}
             terminals={terminals}
+            apps={apps}
             selectedId={selectedId}
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
@@ -1848,7 +1901,7 @@ export default function App() {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>{isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : isTreeTab(goneId) && goneId.startsWith("d:@w:") ? "That workspace is gone." : "That agent is gone."}</h2>
+                  <h2>{isAppTab(goneId) ? "That app is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : isTreeTab(goneId) && goneId.startsWith("d:@w:") ? "That workspace is gone." : "That agent is gone."}</h2>
                   {(workspaces.length + freeAgents.length + terminals.length) > 0 ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
@@ -1907,8 +1960,16 @@ export default function App() {
               onClose={() => closeTab(selectedId)}
             />
           ) : null}
+          {isAppTab(selectedId) ? (
+            <AppSurface
+              key={selectedId}
+              appId={tabAppId(selectedId)}
+              manifest={apps.find((a) => a.id === tabAppId(selectedId)) || null}
+              onClose={() => closeTab(selectedId)}
+            />
+          ) : null}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
@@ -2185,9 +2246,11 @@ export default function App() {
       <Palette
         open={paletteOpen}
         workspaces={workspaces}
+        apps={apps}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
+          if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
           if (a.kind === "run") startManaged(a.wsId);

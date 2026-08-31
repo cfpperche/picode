@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { locate, displayAgentName } from "../lib/tree.js";
-import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot } from "../lib/routes.js";
+import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
 import { IconTerminal, IconFile, IconGit, IconFolders } from "./Icons.jsx";
+import AppIcon from "./AppIcon.jsx";
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
   const terms = terminals || [];
+  const appList = apps || [];
   return (
     <>
     <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0}>
@@ -55,6 +57,18 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
               </Tab>
             );
           }
+          if (isAppTab(id)) {
+            // The manifest may not have arrived yet — render the raw id
+            // rather than null (a null tab silently vanishes, ADR-0036).
+            const aid = tabAppId(id);
+            const m = appList.find((a) => a.id === aid);
+            return (
+              <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab">
+                <span className="mtab-term"><AppIcon name={m ? m.icon : ""} label={m ? m.name : aid} size={13} /></span>
+                <span>{m ? m.name : aid}</span>
+              </Tab>
+            );
+          }
           const loc = locate(workspaces, freeAgents, id);
           if (!loc || !loc.agent) return null;
           const mode = loc.agent.mode || "stopped";
@@ -67,7 +81,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
         })}
       </div>
     </div>
-    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) ? sessionSlot : null}
+    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}
     </>
   );
 }

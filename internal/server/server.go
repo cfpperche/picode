@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -49,6 +50,7 @@ type Deps struct {
 	Insecure     bool
 	Presence     *presence.Registry
 	Backup       *backup.Engine
+	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -91,6 +93,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerFolderRoutes(mux)
 	registerOAuthRoutes(mux)
 	registerBackupRoutes(mux, deps)
+	registerAppsRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
