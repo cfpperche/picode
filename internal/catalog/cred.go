@@ -14,15 +14,19 @@ type OAuthCred struct {
 	AccountID string
 }
 
-// QuotaKind is "oauth" when GET /api/providers/{id}/usage can fetch plan
-// windows for this signed-in method. Empty means hide the Usage button.
+// QuotaKind is "oauth" or "api_key" when GET /api/providers/{id}/usage can
+// fetch plan windows for this signed-in method. Empty means hide Usage.
 func QuotaKind(id, authType string) string {
-	if authType != LoginOAuth {
-		return ""
-	}
-	switch strings.ToLower(strings.TrimSpace(id)) {
+	id = strings.ToLower(strings.TrimSpace(id))
+	switch id {
 	case "anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai":
-		return LoginOAuth
+		if authType == LoginOAuth {
+			return LoginOAuth
+		}
+	case "zai", "zai-coding-cn", "opencode-go":
+		if authType == LoginAPIKey {
+			return LoginAPIKey
+		}
 	}
 	return ""
 }
@@ -77,6 +81,29 @@ func ActiveOAuth(provider string) (OAuthCred, bool) {
 		Expires:   int64(m.Expires),
 		AccountID: strings.TrimSpace(m.AccountID),
 	}, true
+}
+
+// ActiveAPIKey is the live auth.json key. false if missing or oauth.
+func ActiveAPIKey(provider string) (string, bool) {
+	raw := peekCred(provider)
+	if len(raw) == 0 {
+		return "", false
+	}
+	var m struct {
+		Type string `json:"type"`
+		Key  string `json:"key"`
+	}
+	if json.Unmarshal(raw, &m) != nil {
+		return "", false
+	}
+	if m.Type == LoginOAuth {
+		return "", false
+	}
+	k := strings.TrimSpace(m.Key)
+	if k == "" {
+		return "", false
+	}
+	return k, true
 }
 
 // UpdateOAuthTokens writes new access/refresh/expiry into the active slot,

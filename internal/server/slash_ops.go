@@ -19,10 +19,20 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("PATCH /api/providers/{id}/accounts/{aid}", handleAccountRename)
 	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
 	mux.HandleFunc("GET /api/providers/{id}/usage", handleProviderUsage)
+	mux.HandleFunc("POST /api/providers/{id}/usage/reset", handleProviderUsageReset)
 }
 
 func handleProviderUsage(w http.ResponseWriter, r *http.Request) {
 	rep := usage.Fetch(r.Context(), r.PathValue("id"))
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func handleProviderUsageReset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	rep := usage.Redeem(r.Context(), r.PathValue("id"), req.ID)
 	writeJSON(w, http.StatusOK, rep)
 }
 

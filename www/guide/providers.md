@@ -21,8 +21,11 @@ Account login opens a browser tab (Claude, Codex) or shows a device code (Copilo
 ## Usage
 
 Claude, Codex, Copilot, Kimi and xAI rows signed in with an **account** show
-**Usage**. The dialog is that plan's windows (5 hours, 7 days, week, extra)
-for the active login — the same slot pi uses. Sign in with an API key, or a
-provider without a plan meter, has no button.
+**Usage**. ZAI and OpenCode Go show it for an **API key**. The dialog is that
+plan's windows (5 hours, 7 days, week, extra) for the active login — the same
+slot pi uses. A provider without a plan meter has no button.
+
+If Codex or Grok has a banked reset, the dialog shows it. **Redeem** spends
+that credit (you confirm first) and clears the current window.
 
 Refresh reloads. The numbers are the provider's, not a guess from this session.

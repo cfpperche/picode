@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { showUsageButton, barTone, formatMoney, usageCopy, activeAccountLine } from "./providerUsage.js";
+import { showUsageButton, barTone, formatMoney, usageCopy, activeAccountLine, resetLine } from "./providerUsage.js";
 
 describe("showUsageButton", () => {
   it("hides when unsigned or wrong method", () => {
@@ -11,6 +11,7 @@ describe("showUsageButton", () => {
   });
   it("shows for oauth quota providers", () => {
     assert.equal(showUsageButton({ signedIn: true, quotaKind: "oauth", authType: "oauth" }), true);
+    assert.equal(showUsageButton({ signedIn: true, quotaKind: "api_key", authType: "api_key" }), true);
   });
 });
 
@@ -35,6 +36,17 @@ describe("usageCopy", () => {
     assert.equal(usageCopy({ status: "error", error: "Rate limited." }).line, "Rate limited.");
     assert.equal(usageCopy({ status: "ok", windows: [] }).line, "No usage windows on this plan.");
     assert.equal(usageCopy({ status: "ok", windows: [{ id: "5h" }] }).line, "");
+    assert.equal(usageCopy({ status: "ok", windows: [], resets: [{ id: "r1" }] }).line, "");
+  });
+});
+
+describe("resetLine", () => {
+  it("hides when empty", () => {
+    assert.equal(resetLine([]), "");
+    assert.equal(resetLine(null), "");
+  });
+  it("counts without inventing a bar", () => {
+    assert.match(resetLine([{ id: "a" }]), /1 reset available/);
   });
 });
 

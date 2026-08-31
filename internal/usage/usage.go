@@ -30,16 +30,24 @@ type Window struct {
 	ResetsAt    string   `json:"resetsAt,omitempty"`
 }
 
+// ResetCredit is a one-time banked usage-limit reset. id is needed to redeem;
+// it is a vendor credit id, not an auth token.
+type ResetCredit struct {
+	ID        string `json:"id"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
+}
+
 // Report is the GET /api/providers/{id}/usage body. No secrets.
 type Report struct {
-	Provider     string   `json:"provider"`
-	AccountLabel string   `json:"accountLabel,omitempty"`
-	AuthType     string   `json:"authType,omitempty"`
-	Plan         string   `json:"plan,omitempty"`
-	FetchedAt    string   `json:"fetchedAt"`
-	Status       string   `json:"status"`
-	Error        string   `json:"error,omitempty"`
-	Windows      []Window `json:"windows"`
+	Provider     string        `json:"provider"`
+	AccountLabel string        `json:"accountLabel,omitempty"`
+	AuthType     string        `json:"authType,omitempty"`
+	Plan         string        `json:"plan,omitempty"`
+	FetchedAt    string        `json:"fetchedAt"`
+	Status       string        `json:"status"`
+	Error        string        `json:"error,omitempty"`
+	Windows      []Window      `json:"windows"`
+	Resets       []ResetCredit `json:"resets,omitempty"`
 }
 
 // Client talks to vendor usage endpoints. Tests override Endpoints and HTTP.
@@ -90,6 +98,13 @@ func defaultEndpoints() map[string]string {
 		"xai.billing":       "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
 		"xai.settings":      "https://cli-chat-proxy.grok.com/v1/settings",
 		"xai.token":         "https://auth.x.ai/oauth2/token",
+		"xai.resets":        "https://grok.com/prod_mc_billing.ConsumerUiSvc/GetRemainingResets",
+		"xai.redeem":        "https://grok.com/prod_mc_billing.ConsumerUiSvc/RedeemReset",
+		"codex.resets":      "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+		"codex.redeem":      "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume",
+		"zai.quota":         "https://api.z.ai/api/monitor/usage/quota/limit",
+		"zai-cn.quota":      "https://open.bigmodel.cn/api/monitor/usage/quota/limit",
+		"opencode-go.usage": "https://opencode.ai/zen/go/v1/usage",
 	}
 }
 
@@ -116,8 +131,19 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 	authType := catalog.ActiveAuthType(id)
 	rep.AuthType = authType
 	rep.AccountLabel = catalog.ActiveLabel(id)
-	if catalog.QuotaKind(id, authType) == "" {
+	kind := catalog.QuotaKind(id, authType)
+	if kind == "" {
 		return rep
+	}
+	if kind == catalog.LoginAPIKey {
+		key, ok := catalog.ActiveAPIKey(id)
+		if !ok {
+			rep.Status = StatusAuthRequired
+			rep.Error = "Sign in again."
+			return rep
+		}
+		out, _ := c.fetchOnceKey(ctx, id, key)
+		return out
 	}
 	cred, ok := catalog.ActiveOAuth(id)
 	if !ok {
@@ -141,6 +167,7 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 			out.Status = StatusAuthRequired
 			out.Error = "Sign in again."
 			out.Windows = []Window{}
+			out.Resets = nil
 			return out
 		}
 		out, _ = c.fetchOnce(ctx, id, next)
@@ -189,10 +216,101 @@ func (c *Client) fetchOnce(ctx context.Context, provider string, cred catalog.OA
 		rep.Status = StatusError
 		rep.Error = "Couldn't load usage."
 		rep.Windows = []Window{}
+		rep.Resets = nil
 		return rep, false
 	}
-	if len(rep.Windows) == 0 && rep.Status == StatusOK {
-		// empty is a valid plan shape, not an error
+	return rep, false
+}
+
+func (c *Client) fetchOnceKey(ctx context.Context, provider, key string) (Report, bool) {
+	rep := Report{
+		Provider:     provider,
+		AccountLabel: catalog.ActiveLabel(provider),
+		AuthType:     catalog.LoginAPIKey,
+		FetchedAt:    c.now().UTC().Format(time.RFC3339),
+		Windows:      []Window{},
+		Status:       StatusOK,
+	}
+	var (
+		status int
+		err    error
+	)
+	switch provider {
+	case "zai":
+		status, err = c.zai(ctx, key, c.url("zai.quota", ""), &rep)
+	case "zai-coding-cn":
+		status, err = c.zai(ctx, key, c.url("zai-cn.quota", ""), &rep)
+	case "opencode-go":
+		status, err = c.opencodeGo(ctx, key, &rep)
+	default:
+		rep.Status = StatusUnsupported
+		return rep, false
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		rep.Status = StatusAuthRequired
+		rep.Error = "Sign in again."
+		rep.Windows = []Window{}
+		return rep, false
+	}
+	if status == http.StatusTooManyRequests {
+		rep.Status = StatusError
+		rep.Error = "Rate limited."
+		rep.Windows = []Window{}
+		return rep, false
+	}
+	if err != nil || (status > 0 && status >= 300) {
+		rep.Status = StatusError
+		rep.Error = "Couldn't load usage."
+		rep.Windows = []Window{}
+		return rep, false
 	}
 	return rep, false
+}
+
+// Redeem spends one banked usage-limit reset for the active account, then
+// refetches windows. Empty id picks the soonest available credit.
+func Redeem(ctx context.Context, provider, id string) Report {
+	return Default.Redeem(ctx, provider, id)
+}
+
+func (c *Client) Redeem(ctx context.Context, provider, id string) Report {
+	if c == nil {
+		c = Default
+	}
+	provider = strings.TrimSpace(provider)
+	rep := c.Fetch(ctx, provider)
+	if rep.Status != StatusOK {
+		return rep
+	}
+	if len(rep.Resets) == 0 {
+		rep.Status = StatusError
+		rep.Error = "No reset available."
+		return rep
+	}
+	if strings.TrimSpace(id) == "" {
+		id = rep.Resets[0].ID
+	}
+	cred, ok := catalog.ActiveOAuth(provider)
+	if !ok {
+		rep.Status = StatusAuthRequired
+		rep.Error = "Sign in again."
+		return rep
+	}
+	var err error
+	switch provider {
+	case "openai-codex":
+		err = c.redeemCodex(ctx, cred, id)
+	case "xai":
+		err = c.redeemXAI(ctx, cred, id)
+	default:
+		rep.Status = StatusError
+		rep.Error = "This provider has no reset."
+		return rep
+	}
+	if err != nil {
+		rep.Status = StatusError
+		rep.Error = "Couldn't redeem."
+		return rep
+	}
+	return c.Fetch(ctx, provider)
 }
