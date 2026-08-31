@@ -49,9 +49,6 @@ What exists:
 
 ## In flight
 
-**Ask form in chat** — `feat/ask-cascade-form`. Sequential extension selects
-become one growing card, then a pill line. Visual review not done.
-
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
 all of tmux's options (142 on this machine's 3.6), read live from
@@ -212,8 +209,8 @@ Never exercised, because this machine was already past them:
 ## Recent activity
 
 - **2026-08-31** — Extension select in chat is one growing form (pills +
-  filter dropdown), then a pill line. Branch `feat/ask-cascade-form`.
-  **visual-review: not done**.
+  filter dropdown), then a pill line. Merged and deployed.
+  **visual-review: UNVERIFIED** (owner dogfood on 8445).
 
 - **2026-08-31** — Z.AI Usage parse: GLM Coding Plan now sends
   `CREDIT_LIMIT` (unit 3/5 = 5h, unit 6/1 = week) instead of
