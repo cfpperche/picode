@@ -324,7 +324,17 @@ func (ma *ManagedAgent) SetSessionName(ctx context.Context, name string) error {
 }
 
 // Abort interrupts the current turn (RPC abort). The process stays up.
+// A blocking extension dialog is cancelled first so Stop works during /roles.
 func (ma *ManagedAgent) Abort(ctx context.Context) error {
+	ma.mu.Lock()
+	d := ma.waiting
+	ma.waiting = nil
+	ma.mu.Unlock()
+	if d != nil {
+		_ = ma.client.SendRaw(map[string]any{
+			"type": "extension_ui_response", "id": d.ID, "cancelled": true,
+		})
+	}
 	_, err := ma.client.Send(ctx, Command{Type: "abort"})
 	return err
 }

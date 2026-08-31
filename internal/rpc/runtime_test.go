@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -301,6 +302,40 @@ func TestQueueWhileWaiting(t *testing.T) {
 
 	if err := ma.ReplyUI("ui-ask", "", nil, true); err != nil {
 		t.Fatalf("cancel: %v", err)
+	}
+}
+
+func TestAbortCancelsWaitingDialog(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "AbortWait", t.TempDir())
+	if err != nil {
+		t.Fatalf("AddWorkspace: %v", err)
+	}
+	rt := startRuntime(t, st)
+	if err := rt.Start(agent.ID, w.Path); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	ma := rt.Get(agent.ID)
+	hubCh, unsub := ma.hub.Subscribe()
+	defer unsub()
+	if _, err := st.EnqueueTask(agent.ID, store.TaskPrompt, "ASK:confirm", "user"); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	_ = waitHub(t, hubCh, "extension_ui_request", 5*time.Second)
+	if !ma.Snapshot().Waiting {
+		t.Fatal("not waiting")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := ma.Abort(ctx); err != nil {
+		t.Fatalf("Abort: %v", err)
+	}
+	if ma.Snapshot().Waiting {
+		t.Fatal("abort left waiting")
 	}
 }
 

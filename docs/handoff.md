@@ -48,6 +48,9 @@ What exists:
 
 ## In flight
 
+**Stop stuck on `/roles`** — `fix/abort-clears-extension-wait`. Abort now
+cancels a blocking extension dialog and clears Working in the UI. Not merged.
+
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -207,6 +210,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — Stop during `/roles` left Working… forever. Abort now
+  cancels the dialog and clears the spinner (`fix/abort-clears-extension-wait`).
+  **visual-review: n/a** (not deployed).
 
 - **2026-08-31** — `/roles edit|add` picks provider, then model, then thinking.
   Merged and deployed. Reload the agent to load the path package. **visual-review: n/a**.
