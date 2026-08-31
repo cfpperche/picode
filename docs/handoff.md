@@ -218,6 +218,40 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **/roles: active-role chip, restored locks, rich
+  pickers, scoped remove** (`feat/roles-active`, planned + approved;
+  ADR-0033 amendment #2). pi-roles 0.5.0.
+  - **State contract v1**: extension writes
+    `~/.pi/agent/roles-state/<agent>.json` on mode/roles changes
+    (`stateJson`/`parseState` in logic.ts, tested); `session_start`
+    restores a lock whose role still resolves (model applies on next
+    input, never at startup). Server: `GET /api/agents/{id}/role-state`
+    (`roles_state.go`, null on missing/broken/future-version, tested).
+  - **Composer chip** (`RoleChip.jsx`, SearchCombo like the other chips;
+    presence-driven, no settings flag): `auto` quiet, lock in accent with
+    a Lock icon; dropdown = roles with definitions + Edit roles…;
+    picking sends `/role <name>`/`/auto` through sendTask. Refetch on
+    select/snapshot/settled/notify.
+  - **Rich select labels** (`roleOption`/`roleFromChoice`) in
+    `/roles` picker, edit and remove; web trims the decoration off pills
+    and definition lines.
+  - **Scoped remove** with smart-skip (`removeScopes`): one layer →
+    no question; both → `Remove from` select; without the env →
+    workspace, as always. `Removed x (scope)` renders as its own line.
+  - Bugs caught while verifying: missing `BACK` import in roles.ts
+    (remove crashed); RoleChip's `triggerClassName` replaced
+    `cockpit-chip` instead of extending it (squished chip). Also learned:
+    a follow_up carrying an extension command is rejected by pi — only
+    reachable via direct API posts (the web queues follow-ups locally).
+  - Decision table 1–14 verified on the scratch rig (state file content,
+    restore across restart, fallback-to-auto when the role vanishes,
+    chip present/absent/lock, dropdown pick, rich pickers, remove both
+    scopes, dark, reload); rows 13–14 by unit tests + design (TUI).
+    Gates green (286 js + 69 pkg + Go incl. new endpoint test).
+  - **Note (env)**: agent-browser now runs in a named session
+    (`AGENT_BROWSER_SESSION`) — the default shared browser was hijacked
+    mid-QA by another agent's session; use named sessions in dogfoods.
+
 - **2026-08-31** — **`/roles` empty-state copy + notify-as-thread-line**
   (`fix/roles-empty-copy`). Owner asked why `/vision` is listed with no
   roles configured — it is (commands register at package load; config is

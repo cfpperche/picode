@@ -84,7 +84,16 @@ Under `PI_ROLES_AGENT` (every PiCode agent, chat or TUI), `/roles edit` and
 `/roles add` end with a **Save to** select: *this agent* writes the overlay
 `.pi/roles/<id>.json`, *workspace* writes the shared `.pi/roles.json`. A pi
 without the env (a plain terminal) skips the question and writes the
-workspace file, as before.
+workspace file, as before. `/roles remove` asks **Remove from** only when
+both layers hold the preset.
+
+Role selects show each role's definition (`vision — xai/grok-4.5 · medium`).
+
+With `PI_ROLES_AGENT` set, the extension also publishes its active state to
+`~/.pi/agent/roles-state/<id>.json` (mode, locked role, effective role
+list — contract v1, ADR-0033 amendment #2). PiCode renders it as a composer
+chip; a lock is restored from this file when the session restarts. The file
+is ephemeral — deleting it only forgets the lock.
 
 ## Tests
 

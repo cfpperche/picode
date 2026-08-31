@@ -18,6 +18,7 @@ import {
   ExternalLink,
   File,
   Folder,
+  Lock,
   Folders,
   GitBranch,
   FlaskConical,
@@ -82,6 +83,7 @@ export const IconProvider = lucide(Cloud, 13);
 export const IconModel = lucide(Layers, 13);
 export const IconThink = lucide(Activity, 13);
 export const IconMode = lucide(SlidersHorizontal, 13);
+export const IconLock = lucide(Lock, 12);
 export const IconCopy = lucide(Copy, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);

@@ -325,3 +325,22 @@ test("slashNoteTarget: only a still-quiet slash segment claims the notify", () =
   assert.equal(slashNoteTarget([{ kind: "block", cls: "user", text: "hello" }]), "");
   assert.equal(slashNoteTarget([]), "");
 });
+
+test("decorated role options: only the name reaches the definition line", () => {
+  const parts = summaryParts([
+    { status: "answered", title: "Roles (current: auto)", answer: "vision — xai/grok-4.5 · medium" },
+  ], "xai/grok-4.5 · medium · lock /vision");
+  assert.equal(parts.kind, "definition");
+  assert.equal(parts.role, "vision");
+  assert.equal(parts.model, "xai/grok-4.5");
+});
+
+test("a Removed notify becomes the whole line", () => {
+  const parts = summaryParts([
+    { status: "answered", title: "Remove which preset?", answer: "fast — zai/glm-5.3" },
+    { status: "answered", title: "Remove from", answer: "workspace" },
+    { status: "answered", title: "Remove this preset?", answer: "Yes" },
+  ], "Removed fast (workspace)");
+  assert.deepEqual(parts, { kind: "text", text: "Removed fast (workspace)" });
+  assert.equal(fieldLabel("Remove from"), "From");
+});

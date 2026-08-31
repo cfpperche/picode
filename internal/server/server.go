@@ -76,6 +76,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
 	registerSlashRes(mux, deps)
+	registerRolesState(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
 	registerTerminalSettingsRoutes(mux, deps)

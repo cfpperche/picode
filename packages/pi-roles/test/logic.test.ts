@@ -21,8 +21,14 @@ import {
 	BACK,
 	SCOPE_AGENT,
 	SCOPE_WORKSPACE,
+	parseState,
 	pickStart,
 	pickAnswer,
+	removeScopes,
+	roleEntries,
+	roleFromChoice,
+	roleOption,
+	stateJson,
 	type PickOutcome,
 	type RolesConfig,
 	type Mode,
@@ -566,5 +572,60 @@ describe("pickStart / pickAnswer", () => {
 		const done = pickAnswer(out.state, "low");
 		assert.equal(done.kind, "done");
 		assert.equal("scope" in done && done.scope, false);
+	});
+});
+
+describe("roleOption / roleFromChoice / roleEntries", () => {
+	it("decorates with the definition and parses back", () => {
+		assert.equal(roleOption("vision", { model: "xai/grok-4.5", thinking: "medium" }), "vision — xai/grok-4.5 · medium");
+		assert.equal(roleOption("fast", { model: "zai/glm-5.3" }), "fast — zai/glm-5.3");
+		assert.equal(roleOption("plan"), "plan");
+		assert.equal(roleOption("auto"), "auto — route by content");
+		assert.equal(roleFromChoice("vision — xai/grok-4.5 · medium"), "vision");
+		assert.equal(roleFromChoice("plan"), "plan");
+	});
+	it("lists builtins in order then customs", () => {
+		assert.deepEqual(roleEntries(full).map((e) => e.name), ["default", "vision", "plan", "redteam"]);
+		assert.equal(roleEntries(full)[3].assignment?.model, "kimi-coding/k3");
+	});
+});
+
+describe("stateJson / parseState (ADR-0033 state contract v1)", () => {
+	it("lock carries the resolved assignment and the role list", () => {
+		const st = stateJson({ kind: "lock", role: "vision" }, full);
+		assert.equal(st.v, 1);
+		assert.equal(st.mode, "lock");
+		assert.equal(st.role, "vision");
+		assert.equal(st.model, "xai/grok-4.6");
+		assert.equal(st.thinking, "high");
+		assert.deepEqual(st.roles.map((r) => r.name), ["default", "vision", "plan", "redteam"]);
+	});
+	it("auto omits role/model; null config still lists nothing", () => {
+		const st = stateJson({ kind: "auto" }, null);
+		assert.deepEqual(st, { v: 1, mode: "auto", roles: [] });
+	});
+	it("round-trips through parseState; future versions are ignored", () => {
+		const st = stateJson({ kind: "lock", role: "redteam" }, full);
+		assert.deepEqual(parseState(JSON.parse(JSON.stringify(st))), st);
+		assert.equal(parseState({ v: 2, mode: "auto", roles: [] }), null);
+		assert.equal(parseState("junk"), null);
+		assert.equal(parseState({ v: 1, mode: "sideways", roles: [] }), null);
+	});
+});
+
+describe("removeScopes", () => {
+	const ws = cfg({ custom: [{ name: "fast", model: "zai/glm-5.3" }, { name: "both", model: "xai/grok-4.6" }] });
+	const ov = cfg({ custom: [{ name: "mine", model: "xai/grok-4.5" }, { name: "both", model: "xai/grok-4.5" }] });
+	it("row 11: overlay-only preset needs no question", () => {
+		assert.deepEqual(removeScopes(ws, ov, "mine"), ["agent"]);
+	});
+	it("row 13: workspace-only preset needs no question", () => {
+		assert.deepEqual(removeScopes(ws, ov, "fast"), ["workspace"]);
+	});
+	it("row 12: both layers → ask", () => {
+		assert.deepEqual(removeScopes(ws, ov, "both"), ["agent", "workspace"]);
+	});
+	it("unknown name → nothing", () => {
+		assert.deepEqual(removeScopes(ws, ov, "nope"), []);
 	});
 });

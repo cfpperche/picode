@@ -70,3 +70,30 @@ Owner-approved changes:
    a confirm. With no argument under the env it asks which; without the
    env it clears the workspace file. A lock whose role stops resolving
    falls back to `/auto`.
+
+## Amendment #2 (2026-08-31): active-role state file, restored locks, scoped remove, rich labels
+
+Nothing outside the chat said which role was active, and a lock died with
+the pi process. Per the ADR-0036 philosophy (extensions never paint PiCode
+chrome; first-party consumers mature a contract before it generalizes):
+
+1. **State contract v1.** Under `PI_ROLES_AGENT`, the extension writes
+   `~/.pi/agent/roles-state/<agentId>.json` on every mode change and
+   whenever the effective role list changes (never on per-input routing):
+   `{v:1, mode:"auto"|"lock", role?, model?, thinking?, roles:[{name,
+   model?, thinking?}]}` — `roles` is the merged list so the UI needs no
+   second source. The file is ephemeral and best-effort; deleting it only
+   forgets the lock. PiCode serves it at `GET /api/agents/{id}/role-state`
+   (`{"state": null}` when absent, unreadable, or from a future version)
+   and renders a composer chip from it — present only when the file is
+   (the package install is the feature toggle; no settings flag).
+2. **Locks survive restarts.** `session_start` restores `mode` from the
+   state file when the role still resolves; the model applies on the next
+   input (never at startup — that would fight `--model`, ADR-0009).
+3. **`/roles remove` gained the scope edit/add have** — with smart-skip:
+   a preset held by one layer is removed from it without a question; held
+   by both, a `Remove from` select (this agent / workspace / back) asks.
+   §3's "overlay customs only" rule is superseded.
+4. **Selects carry definitions.** Role pickers list
+   `vision — xai/grok-4.5 · medium` (extension-built labels, so the TUI
+   benefits too); the extension parses the name back out of the choice.
