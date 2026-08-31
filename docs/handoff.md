@@ -213,8 +213,10 @@ Never exercised, because this machine was already past them:
   derived editable name/destination, blocking `POST /api/workspaces/clone`
   with host git credentials and prompts disabled, same-origin destination
   adopted. New `internal/gitclone` package; argv-injection defenses
-  sabotage-tested. **visual-review: pending QA** (this entry updated after
-  the QA pass).
+  sabotage-tested. QA on an isolated 8447 server: real clone of
+  octocat/Hello-World, `/tree/<branch>` honored, adopt, 409, classified
+  not-found error, dark + 480px drawer, overlayAudit ok.
+  **visual-review: PASS** (shots 01–09; card 5/5).
 
 - **2026-08-31** — Ask back-step: reopen the clicked pill, skip mismatched
   dialogs. Merged and deployed. Reload the agent. **visual-review: UNVERIFIED**.
