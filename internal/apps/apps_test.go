@@ -16,8 +16,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	r := NewRegistry(BuiltIns(true)...)
-	if len(r.All()) != 1 {
-		t.Fatalf("demo registry has %d apps, want 1", len(r.All()))
+	if len(r.All()) != 2 {
+		t.Fatalf("demo registry has %d apps, want 2 (inbox + demo)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -30,8 +30,9 @@ func TestRegistry(t *testing.T) {
 	if _, ok := r.Find("nope"); ok {
 		t.Fatalf("Find(nope) = ok, want miss")
 	}
-	if got := BuiltIns(false); len(got) != 0 {
-		t.Fatalf("BuiltIns(false) = %d apps, want 0 (demo must stay hidden)", len(got))
+	prod := BuiltIns(false)
+	if len(prod) != 1 || prod[0].Manifest().ID != "inbox" {
+		t.Fatalf("BuiltIns(false) = %v, want just inbox (demo must stay hidden)", prod)
 	}
 }
 

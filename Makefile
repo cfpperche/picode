@@ -47,9 +47,10 @@ restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 test: ## Run all Go tests
 	go test ./...
 
-test-js: $(NODE_STAMP) ## Run the frontend unit tests and pi-roles decision table
+test-js: $(NODE_STAMP) ## Run the frontend unit tests and the pi package suites
 	cd web && npm test
 	node --test packages/pi-roles/test/*.test.ts
+	node --test packages/pi-inbox/test/*.test.ts
 
 # Both targets walk the package directories `go list` reports, not the tree.
 # `.` reaches into .worktrees/, where a sibling agent has its own checkout: fmt

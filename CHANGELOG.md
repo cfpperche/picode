@@ -20,6 +20,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inbox (ADR-0037).** The first real app on the apps host: a durable
+  mailbox where agents, terminals and PiCode itself message the human.
+  `POST /api/inbox` files items (fyi / question / approval / result,
+  with mandatory provenance); the Inbox app shows a needs-me queue and
+  a feed, with respond/accept/ignore, done and snooze — answering a
+  question forwards the reply to the agent as a durable follow-up task
+  that survives restarts (a stopped agent picks it up on next start).
+  PiCode files a `result` when a run finishes unobserved (carrying the
+  agent's actual final message) and an `fyi` when a pi process dies
+  unexpectedly. New opt-in pi package `packages/pi-inbox` (MIT) gives
+  agents `notify_human` and `ask_human` — asking ends the turn and the
+  reply arrives as a follow-up. Apps-tab badge counts blocking items.
+
 - **Git graph v2 (ADR-0038).** Clicking a commit now opens its detail
   inline, directly below the clicked row — the graph lines detour around
   the panel — and the panel is resizable by dragging its bottom edge

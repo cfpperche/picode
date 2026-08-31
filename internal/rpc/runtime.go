@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +37,15 @@ func (h *Hub) Subscribe() (<-chan []byte, func()) {
 	}
 }
 
+// Len is the live subscriber count. The SPA holds one /ws/agent socket
+// for the selected agent only, so 0 is the closest existing proxy for
+// "nobody is watching this agent" (ADR-0037's unobserved-run gate).
+func (h *Hub) Len() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.subs)
+}
+
 // Broadcast delivers to every subscriber, dropping for slow consumers.
 func (h *Hub) Broadcast(msg []byte) {
 	h.mu.Lock()
@@ -60,11 +70,13 @@ type ManagedAgent struct {
 	cancel context.CancelFunc
 	done   chan struct{}
 
-	mu        sync.Mutex
-	streaming bool
-	lastErr   error
-	settledCh chan struct{} // closed+replaced when agent_settled arrives
-	waiting   *UIDialog     // blocking extension_ui_request, if any
+	mu            sync.Mutex
+	streaming     bool
+	lastErr       error
+	settledCh     chan struct{} // closed+replaced when agent_settled arrives
+	waiting       *UIDialog     // blocking extension_ui_request, if any
+	lastFinal     string        // last assistant text from agent_end (inbox result body)
+	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
 }
 
 // Runtime owns all managed agents.
@@ -151,6 +163,9 @@ func (r *Runtime) Stop(agentID string) bool {
 	if ma == nil {
 		return false
 	}
+	ma.mu.Lock()
+	ma.stopRequested = true // expected exit: pumpEvents files no fyi
+	ma.mu.Unlock()
 	mcp.ClearLive(r.DataDir, agentID)
 	ma.cancel()
 	ma.client.Close()
@@ -212,8 +227,17 @@ func (ma *ManagedAgent) pumpEvents() {
 			// fresh wait channel: not settled anymore
 			ma.settledCh = make(chan struct{})
 			ma.mu.Unlock()
+		case "agent_end":
+			// Stash the agent's actual final message: ADR-0037 result items
+			// carry the real answer, never a generated wrapper.
+			if text := lastAssistantText(ev); text != "" {
+				ma.mu.Lock()
+				ma.lastFinal = text
+				ma.mu.Unlock()
+			}
 		case "agent_settled":
 			ma.markSettled()
+			ma.fileUnobservedResult()
 		case "extension_ui_request":
 			ma.noteUIRequest(ev)
 		}
@@ -236,7 +260,86 @@ func (ma *ManagedAgent) pumpEvents() {
 		_ = r.SetAgentRuntime(ma.AgentID, store.StatusStopped)
 		_ = r.AppendEvent("agent_process_exit", &ma.AgentID, nil, nil)
 	}
+	ma.mu.Lock()
+	expected := ma.stopRequested
+	ma.mu.Unlock()
+	if !expected && ma.store != nil {
+		// Unexpected death is worth an item even when watched — it fires
+		// once (one item per state change, ADR-0037).
+		name, wsID := ma.agentIdentity()
+		_, _ = ma.store.CreateInboxItem(store.InboxItemParams{
+			Kind: store.InboxFYI, SourceKind: store.InboxFromAgent,
+			SourceID: ma.AgentID, WorkspaceID: wsID,
+			Reason: "process exited", Title: name + " exited unexpectedly",
+			Body: "The pi process died outside a requested stop. Start the agent again to resume; queued messages deliver on the next start.",
+		})
+	}
 	close(ma.done)
+}
+
+// fileUnobservedResult files a `result` inbox item when a run settles
+// with nobody watching (hub empty — ADR-0037). One SQLite write on the
+// settle path, same latency class as AppendEvent; settles are rare. An
+// unread result from the same agent is superseded, not duplicated.
+func (ma *ManagedAgent) fileUnobservedResult() {
+	if ma.store == nil || ma.hub.Len() > 0 {
+		return
+	}
+	ma.mu.Lock()
+	body := ma.lastFinal
+	ma.mu.Unlock()
+	if body == "" {
+		body = "Run finished."
+	}
+	name, wsID := ma.agentIdentity()
+	_, _ = ma.store.FileAgentResult(ma.AgentID, wsID, name+" finished", body, "run finished unobserved")
+}
+
+// agentIdentity resolves display name and workspace off the hot path.
+func (ma *ManagedAgent) agentIdentity() (name, wsID string) {
+	name = ma.AgentID
+	if ma.store != nil {
+		if a, err := ma.store.GetAgent(ma.AgentID); err == nil {
+			if a.Name != "" {
+				name = a.Name
+			}
+			wsID = a.WorkspaceID
+		}
+	}
+	return name, wsID
+}
+
+// lastAssistantText extracts the final assistant message text from an
+// agent_end payload ({messages:[{role, content:[{type:"text",text}]}]}).
+// Best-effort: any parse miss returns "".
+func lastAssistantText(ev Event) string {
+	var end struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(ev, &end); err != nil {
+		return ""
+	}
+	for i := len(end.Messages) - 1; i >= 0; i-- {
+		if end.Messages[i].Role != "assistant" {
+			continue
+		}
+		var parts []string
+		for _, c := range end.Messages[i].Content {
+			if c.Type == "text" && strings.TrimSpace(c.Text) != "" {
+				parts = append(parts, c.Text)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "\n\n")
+		}
+	}
+	return ""
 }
 
 // deliverLoop is the task delivery engine: claim → send → finish.

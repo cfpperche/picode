@@ -71,6 +71,10 @@ func fakeMain() {
 			_ = enc.Encode(map[string]any{"type": "message_update", "assistantMessageEvent": map[string]any{
 				"type": "text_delta", "contentIndex": 0, "delta": "hello from fake",
 			}})
+			_ = enc.Encode(map[string]any{"type": "agent_end", "messages": []map[string]any{
+				{"role": "user", "content": []map[string]any{{"type": "text", "text": msg}}},
+				{"role": "assistant", "content": []map[string]any{{"type": "text", "text": "hello from fake"}}},
+			}})
 			_ = enc.Encode(map[string]any{"type": "agent_settled"})
 			_ = enc.Encode(map[string]any{
 				"id": id, "type": "response", "command": typ, "success": true,
@@ -239,7 +243,7 @@ func TestEventsFanOut(t *testing.T) {
 	}
 
 	seen := map[string]bool{}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ { // start, update, end, settled
 		select {
 		case ev := <-got:
 			seen[ev] = true
@@ -247,7 +251,7 @@ func TestEventsFanOut(t *testing.T) {
 			t.Fatalf("event %d not received; seen=%v", i, seen)
 		}
 	}
-	if !seen["agent_start"] || !seen["message_update"] || !seen["agent_settled"] {
+	if !seen["agent_start"] || !seen["message_update"] || !seen["agent_end"] || !seen["agent_settled"] {
 		t.Errorf("events seen = %v", seen)
 	}
 }

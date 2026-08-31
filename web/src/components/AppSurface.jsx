@@ -20,22 +20,23 @@ export default function AppSurface({ appId, manifest, onClose }) {
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
+  // Latest-wins, never skip: a click can navigate while a focus-triggered
+  // refresh is in flight — dropping that load would eat the navigation.
+  const seqRef = useRef(0);
 
   const load = useCallback(async (p) => {
-    if (busyRef.current) return;
-    busyRef.current = true;
+    const seq = ++seqRef.current;
     setBusy(true);
     try {
       const raw = await api("/api/apps/" + encodeURIComponent(appId) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
+      if (seq !== seqRef.current) return; // a newer load superseded this one
       const v = normalizeView(raw);
       if (v) { setView(v); setUnsupported(false); setError(""); }
       else { setView(null); setUnsupported(true); setError(""); }
     } catch (e) {
-      setError(humanizeError(e.message || String(e)));
+      if (seq === seqRef.current) setError(humanizeError(e.message || String(e)));
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (seq === seqRef.current) setBusy(false);
     }
   }, [appId]);
 
