@@ -260,7 +260,7 @@ export default function Sidebar({
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
                   <button type="button" className="ws-icon-btn" title="New terminal in this folder" onClick={() => onNewTerm && onNewTerm(ws.id)}><IconTerminal size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
-                  <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
+                  <button type="button" className="ws-icon-btn danger" title="Remove workspace" onClick={() => onRemove(ws)}><IconX size={12} /></button>
                 </span>
               </div>
               {isOpen(ws.id) ? (
