@@ -224,6 +224,11 @@ Never exercised, because this machine was already past them:
   `/api/version` (new `semver` field keeps comparisons pure), `picode
   update`, and the sidebar (ellipsis + title for narrow widths).
   install.Newer/backup keep plain `Version`. Tests in `version_test.go`.
+  Follow-up in the same session: the dirty `*` marker was dropped — Go
+  stamps `vcs.modified` against the primary checkout (not the linked
+  worktree being built), and with parallel agents that checkout is
+  routinely dirty, so the flag was pure noise; the revision alone is the
+  signal.
 
 - **2026-08-31** — roles follow-up (`fix/roles-gate`): the `role-state`
   endpoint is gated on pi-roles being in the agent's effective package
