@@ -58,3 +58,11 @@ test("slots are per agent and session", () => {
   assert.deepEqual(mergeAskMemory("ag2", "s.jsonl", []), []);
   assert.deepEqual(mergeAskMemory("ag1", "other.jsonl", []), []);
 });
+
+test("note lines persist and dedupe by ts", () => {
+  const note = { kind: "note", cmd: "/vision", level: "warning", text: "No roles yet", ts: 9 };
+  writeAskMemory("ag1", "s.jsonl", [slash("/vision", 8), note]);
+  const merged = mergeAskMemory("ag1", "s.jsonl", []);
+  assert.deepEqual(merged.map((it) => it.kind), ["block", "note"]);
+  assert.equal(mergeAskMemory("ag1", "s.jsonl", merged).length, merged.length);
+});

@@ -123,6 +123,9 @@ function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onPrefill, a
   if (it.kind === "ask") {
     return <AskCard it={it} onReply={onReplyAsk} onPrefill={onPrefill} />;
   }
+  if (it.kind === "note") {
+    return <NoteLine it={it} onPrefill={onPrefill} />;
+  }
   if (it.kind === "bash") {
     return <BashBlock it={it} onAbort={onAbortBash} />;
   }
@@ -225,6 +228,34 @@ function AskOutcome({ cmd, parts, onPrefill }) {
       <span className="ask-oc-mark" aria-hidden="true">{OUTCOME_MARK[kind] || "✓"}</span>
       {cmd ? <span className="ask-oc-badge">{cmd.name}</span> : null}
       {body}
+    </div>
+  );
+}
+
+const NOTE_MARK = { info: "✓", warning: "!", error: "✗" };
+
+/**
+ * A slash command's one-line result (its only notify): mark + command
+ * badge + the message. A "/roles …" fragment in the message becomes a
+ * chip that prefills the composer — the empty state carries its action.
+ */
+function NoteLine({ it, onPrefill }) {
+  const cmd = cmdParts(it.cmd);
+  const level = NOTE_MARK[it.level] ? it.level : "info";
+  const text = String(it.text || "");
+  const m = /(\/roles(?:\s+(?:edit|add)(?:\s+[\w-]+)?)?)/.exec(text);
+  const action = m && onPrefill ? m[1] : "";
+  const before = action ? text.slice(0, m.index).trim() : text;
+  const after = action ? text.slice(m.index + action.length).trim() : "";
+  return (
+    <div className={"ask-outcome oc-note oc-" + level}>
+      <span className="ask-oc-mark" aria-hidden="true">{NOTE_MARK[level]}</span>
+      {cmd ? <span className="ask-oc-badge">{cmd.name}</span> : null}
+      <span className="ask-oc-text">{before}</span>
+      {action ? (
+        <button type="button" className="ask-chip ask-chip-action" onClick={() => onPrefill(action)}>{action}</button>
+      ) : null}
+      {after ? <span className="ask-oc-text">{after}</span> : null}
     </div>
   );
 }

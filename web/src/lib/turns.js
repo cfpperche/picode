@@ -7,7 +7,7 @@ export function groupTurns(items) {
     cur = emptyTurn();
   }
   for (const it of items || []) {
-    if (it.kind === "sys" || it.kind === "files" || it.kind === "bash" || it.kind === "ask" || it.kind === "compaction") {
+    if (it.kind === "sys" || it.kind === "files" || it.kind === "bash" || it.kind === "ask" || it.kind === "note" || it.kind === "compaction") {
       if (cur.user || cur.work.length || cur.replies.length) flush();
       out.push({ kind: "loose", item: it });
       continue;

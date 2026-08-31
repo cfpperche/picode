@@ -372,6 +372,25 @@ export function walkReply(items, dialog) {
   return opts.includes(BACK) ? BACK : "";
 }
 
+/**
+ * The slash command of a still-quiet segment: the last item is a slash
+ * user bubble with nothing after it. A notify arriving now is that
+ * command's whole result and belongs in the thread, not in a toast.
+ */
+export function slashNoteTarget(items) {
+  const list = items || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const it = list[i];
+    if (isUser(it)) {
+      const text = String(it.text || "").trim().split("\n")[0];
+      return /^\//.test(text) ? text : "";
+    }
+    if (it.kind === "note") continue; // a second notify may follow the first
+    return "";
+  }
+  return "";
+}
+
 /** True when the latest ask in this turn is answered (form finished or between steps). */
 export function askJustAnswered(items) {
   const list = items || [];

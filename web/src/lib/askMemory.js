@@ -30,6 +30,7 @@ function keepExtra(it) {
   if (!it) return false;
   if (isSlashUser(it)) return true;
   if (it.kind === "ask" && it.status !== "cancelled" && it.status !== "timeout") return true;
+  if (it.kind === "note") return true; // a slash command's one-line result
   return false;
 }
 
@@ -70,8 +71,8 @@ export function mergeAskMemory(agentId, sessionPath, items) {
       }
       continue;
     }
-    if (ex.kind === "ask") {
-      const dup = out.some((it) => it.kind === "ask" && (it.id === ex.id || (it.ts && it.ts === ex.ts)));
+    if (ex.kind === "ask" || ex.kind === "note") {
+      const dup = out.some((it) => it.kind === ex.kind && ((ex.id && it.id === ex.id) || (it.ts && it.ts === ex.ts)));
       if (!dup) out.push(ex);
     }
   }

@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **A slash command's only notify lands in the thread, not in a toast.**
+  `/vision` with no roles, `/auto`, a cleared lock — the result renders as
+  a one-line note (mark + command badge + message) that survives reload.
+  Empty-state messages teach the next step, and the `/roles edit <role>`
+  fragment is a chip that prefills the composer. (The commands themselves
+  stay listed while the package is loaded — config is only read when they
+  run, ADR-0028's dormant contract.)
+
 - **`/roles` chat surfaces got an identity and a visual language.** The
   stepper card carries a `ROLES <args>` header with Cancel in the corner;
   answered pills connect with chevrons and the open field says what it

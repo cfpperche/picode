@@ -208,6 +208,22 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **`/roles` empty-state copy + notify-as-thread-line**
+  (`fix/roles-empty-copy`). Owner asked why `/vision` is listed with no
+  roles configured — it is (commands register at package load; config is
+  read at run time, ADR-0028 dormant contract) — and approved fixing what
+  it *answers* instead: lock commands with no config now say
+  `No roles yet — /roles edit vision creates the first one.` (logic.ts),
+  and a notify that answers a still-quiet slash segment becomes a thread
+  **note line** (new item kind `note`: mark + command badge + text, the
+  `/roles …` fragment as a prefill chip) instead of a fading toast —
+  `slashNoteTarget()` in askForm.js decides; ask-memory persists notes.
+  **Bug found while verifying**: `groupTurns` (turns.js:10) silently
+  swallowed the new item kind — the note rendered nowhere despite the
+  handler running; fixed by adding `note` to the loose kinds.
+  Verified on the scratch rig (line renders, chip prefills, reload keeps
+  2 notes); gates green (276 js + 60 pkg).
+
 - **2026-08-31** — **`/roles` chat UX pass** (`feat/roles-chat-ux`; owner
   verdict on the shipped surfaces: "que porcaria de UIUX … texto seco,
   zero identificação"). P0+P1 of the approved plan:

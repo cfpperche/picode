@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, summaryParts, backAsk, walkReply, noteAsk, unanswerAsk, BACK } from "./askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, summaryParts, backAsk, walkReply, noteAsk, unanswerAsk, slashNoteTarget, BACK } from "./askForm.js";
 
 const user = { kind: "block", cls: "user", text: "/roles edit" };
 const sel = (id, title, options) => ({ id, method: "select", title, options });
@@ -310,4 +310,18 @@ test("summaryParts types the outcome", () => {
   );
   assert.equal(rolePick.kind, "role");
   assert.equal(rolePick.role, "auto");
+});
+
+test("slashNoteTarget: only a still-quiet slash segment claims the notify", () => {
+  const cmdBubble = { kind: "block", cls: "user", text: "/vision" };
+  assert.equal(slashNoteTarget([cmdBubble]), "/vision");
+  // a second notify may follow the first note
+  assert.equal(slashNoteTarget([cmdBubble, { kind: "note", text: "x" }]), "/vision");
+  // an ask card means the fold path owns the notify
+  assert.equal(slashNoteTarget([cmdBubble, { kind: "ask", status: "open" }]), "");
+  // an assistant reply means a real turn ran — toast, not thread line
+  assert.equal(slashNoteTarget([cmdBubble, { kind: "block", cls: "", text: "hi" }]), "");
+  // prose prompts never claim notifies
+  assert.equal(slashNoteTarget([{ kind: "block", cls: "user", text: "hello" }]), "");
+  assert.equal(slashNoteTarget([]), "");
 });

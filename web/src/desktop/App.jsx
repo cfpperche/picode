@@ -37,7 +37,7 @@ import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "../lib/queue.js";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, BACK } from "../lib/askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, slashNoteTarget, BACK } from "../lib/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "../lib/askMemory.js";
 import { readDraft, writeDraft, clearDraft } from "../lib/draft.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
@@ -1066,17 +1066,23 @@ export default function App() {
             streamingRef.current = false;
             setStatus(waitingRef.current ? "waiting" : "idle");
           }
-          if (ev.notifyType === "error") toastError(msg);
-          else {
-            setItems((cur) => {
-              // Right after a finished form the notify is its result
-              // (model · thinking · why) — fold it into the card's
-              // definition line instead of toasting.
-              if (askJustAnswered(cur)) return noteAsk(cur, msg);
-              queueMicrotask(() => toast.info(msg));
-              return cur;
-            });
-          }
+          const noteTs = Date.now();
+          setItems((cur) => {
+            // Right after a finished form the notify is its result
+            // (model · thinking · why) — fold it into the card's
+            // definition line instead of toasting.
+            if (ev.notifyType !== "error" && askJustAnswered(cur)) return noteAsk(cur, msg);
+            // A command that asked nothing (/vision, /auto, missing
+            // config): its notify IS the result — keep it in the thread
+            // as a line, not as a toast that fades.
+            const cmd = slashNoteTarget(cur);
+            if (cmd) {
+              if (cur.some((n) => n.kind === "note" && n.ts === noteTs && n.text === msg)) return cur;
+              return [...cur, { kind: "note", cmd, level: ev.notifyType || "info", text: msg, ts: noteTs }];
+            }
+            queueMicrotask(() => (ev.notifyType === "error" ? toastError(msg) : toast.info(msg)));
+            return cur;
+          });
         }
         queueMicrotask(scrollConv);
         break;

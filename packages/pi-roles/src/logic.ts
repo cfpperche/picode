@@ -193,7 +193,10 @@ export function decideOnInput(args: {
 	if (args.mode.kind === "lock") {
 		const target = resolveRole(args.config, args.mode.role);
 		if (!target) {
-			return { kind: "error", message: `Role "${args.mode.role}" is not configured` };
+			return {
+				kind: "error",
+				message: `Role "${args.mode.role}" is not configured — /roles edit ${args.mode.role} creates it.`,
+			};
 		}
 		return { kind: "switch", target, why: `lock /${args.mode.role}` };
 	}
@@ -211,11 +214,11 @@ export function decideOnInput(args: {
 
 export function lockRole(config: RolesConfig | null, role: string): Decision {
 	if (!config) {
-		return { kind: "error", message: "No .pi/roles.json — create one or /auto does nothing" };
+		return { kind: "error", message: `No roles yet — /roles edit ${role} creates the first one.` };
 	}
 	const target = resolveRole(config, role);
 	if (!target) {
-		return { kind: "error", message: `Role "${role}" is not configured` };
+		return { kind: "error", message: `Role "${role}" is not configured — /roles edit ${role} creates it.` };
 	}
 	return { kind: "switch", target, why: `lock /${role}` };
 }
