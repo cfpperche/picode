@@ -105,7 +105,7 @@ func TestCreateTerminalDefaultsToFreeWorkspace(t *testing.T) {
 func TestCreateTerminalInWorkspaceDefaultsToItsFolder(t *testing.T) {
 	s := openTest(t)
 	proj := t.TempDir()
-	w, _, err := s.AddWorkspace("App", proj)
+	w, err := s.AddWorkspace("App", proj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestCreateTerminalInUnknownWorkspace(t *testing.T) {
 func TestListWorkspaceTerminals(t *testing.T) {
 	s := openTest(t)
 	proj := t.TempDir()
-	w, _, err := s.AddWorkspace("App", proj)
+	w, err := s.AddWorkspace("App", proj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestListWorkspaceTerminals(t *testing.T) {
 func TestRemoveWorkspaceDeletesItsTerminals(t *testing.T) {
 	s := openTest(t)
 	proj := t.TempDir()
-	w, _, err := s.AddWorkspace("App", proj)
+	w, err := s.AddWorkspace("App", proj)
 	if err != nil {
 		t.Fatal(err)
 	}

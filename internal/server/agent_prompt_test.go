@@ -43,9 +43,7 @@ func TestAgentPromptHTTP(t *testing.T) {
 	if err := os.WriteFile(proj+"/a.txt", []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	var wk workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	id := wk.Agent.ID
 
 	body, _ := json.Marshal(map[string]any{

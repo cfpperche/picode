@@ -35,14 +35,7 @@ func TestTranscriptTailWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := writeTailSession(t, proj, 6)
-	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
-	if ws.StatusCode != http.StatusCreated {
-		t.Fatalf("workspace = %d", ws.StatusCode)
-	}
-	var wsv workspaceView
-	if err := json.NewDecoder(ws.Body).Decode(&wsv); err != nil {
-		t.Fatal(err)
-	}
+	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
 	base := ts.URL + "/api/workspaces/" + wsv.ID + "/sessions/transcript?path=" + src
 
 	get := func(q string) map[string]any {
@@ -129,11 +122,7 @@ func TestTranscriptCompactionBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := writeCompactSession(t, proj)
-	ws := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App2", "path": proj})
-	var wsv workspaceView
-	if err := json.NewDecoder(ws.Body).Decode(&wsv); err != nil {
-		t.Fatal(err)
-	}
+	wsv := addWorkspaceWithAgent(t, ts, "App2", proj)
 	base := ts.URL + "/api/workspaces/" + wsv.ID + "/sessions/transcript?path=" + src
 	res := do(t, ts.Client(), mustGet(t, base))
 	if res.StatusCode != http.StatusOK {

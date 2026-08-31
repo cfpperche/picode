@@ -4,13 +4,14 @@ import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap,
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
-test("workspace needs name and path", () => {
-  const miss = parseForm(createWorkspaceSchema, { name: "  ", path: "", ...pick });
+test("workspace needs name and path, nothing else (ADR-0027)", () => {
+  const miss = parseForm(createWorkspaceSchema, { name: "  ", path: "" });
   assert.equal(miss.ok, false);
   assert.match(miss.error, /Name/);
-  const ok = parseForm(createWorkspaceSchema, { name: "App", path: "~/code/app", ...pick });
+  const ok = parseForm(createWorkspaceSchema, { name: "App", path: "~/code/app" });
   assert.equal(ok.ok, true);
   assert.equal(ok.value.name, "App");
+  assert.equal("provider" in ok.value, false);
 });
 
 test("free agent path is optional", () => {

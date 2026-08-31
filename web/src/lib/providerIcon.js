@@ -61,7 +61,7 @@ export function workspaceAgents(workspaces) {
   const out = [];
   for (const ws of workspaces || []) {
     const list = (ws && ws.agents && ws.agents.length) ? ws.agents : (ws && ws.agent ? [ws.agent] : []);
-    for (const a of list) out.push(a);
+    for (const a of list) if (a && a.id) out.push(a);
   }
   return out;
 }

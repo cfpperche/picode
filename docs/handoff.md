@@ -205,6 +205,20 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **Workspaces start empty** (ADR-0027): POST /api/workspaces
+  registers the folder only; the New-workspace form is name + folder
+  (Provider/Model/Thinking and the session shortcut stay on agent forms);
+  `workspaceView.Agent` is a pointer with omitempty (the zero-object read
+  as a truthy agent everywhere); empty-workspace open/close/sessions/status
+  answer 409. connectPanel now takes the agent id (fixed: with two agents
+  it connected to the workspace's first). Also shipped: workspace cards
+  wear the project favicon (`GET /api/workspaces/{id}/favicon`, confined,
+  sandbox CSP; fallback IconFolder — debt: a favicon added mid-session
+  shows only after reload, and faviconRels is a fixed list), the
+  Workspaces tab icon is lucide Folders, and the folder picker's address
+  bar filters/navigates as you type (lib/pathFilter.js + useDebounced).
+
+
 - **2026-08-30** — **Sidebar restructured into four flat tabs** (ADR-0026):
   Agents (free, flat, name-sorted), Workspaces (one collapsible card per
   workspace — section collapses are gone), Terminals (free only), Pins.

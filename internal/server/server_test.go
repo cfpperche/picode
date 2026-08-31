@@ -284,11 +284,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	client := ts.Client()
 	proj := t.TempDir()
 
-	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Lifecycle", proj)))
-	addReq.Header.Set("Content-Type", "application/json")
-	res := do(t, client, addReq)
-	var wk store.Workspace
-	_ = json.NewDecoder(res.Body).Decode(&wk)
+	wk := addWorkspaceWithAgent(t, ts, "Lifecycle", proj)
 
 	// Open.
 	resOpen := do(t, client, mustPost(t, ts.URL+"/api/workspaces/"+wk.ID+"/open"))
@@ -352,13 +348,7 @@ func TestTaskEndpoints(t *testing.T) {
 	client := ts.Client()
 	proj := t.TempDir()
 
-	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Tasks", proj)))
-	addReq.Header.Set("Content-Type", "application/json")
-	res := do(t, client, addReq)
-	var wsv workspaceView
-	if err := json.NewDecoder(res.Body).Decode(&wsv); err != nil {
-		t.Fatalf("decode add: %v", err)
-	}
+	wsv := addWorkspaceWithAgent(t, ts, "Tasks", proj)
 	agentID := wsv.Agent.ID
 	if agentID == "" {
 		t.Fatal("default agent missing from workspace view")
@@ -418,11 +408,7 @@ func TestManagedModeFlow(t *testing.T) {
 	client := ts.Client()
 	proj := t.TempDir()
 
-	addReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/workspaces", bytes.NewReader(mustJSONBody("Managed", proj)))
-	addReq.Header.Set("Content-Type", "application/json")
-	res := do(t, client, addReq)
-	var wsv workspaceView
-	_ = json.NewDecoder(res.Body).Decode(&wsv)
+	wsv := addWorkspaceWithAgent(t, ts, "Managed", proj)
 	agentID := wsv.Agent.ID
 
 	// Start managed.
@@ -483,5 +469,65 @@ func TestIndexServed(t *testing.T) {
 	}
 	if ct := res.Header.Get("Content-Type"); ct == "" {
 		t.Error("Content-Type header missing for index")
+	}
+}
+
+func TestAddWorkspaceStartsEmpty(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Empty", "path": proj})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("add = %d", res.StatusCode)
+	}
+	// The contract is the JSON itself: no "agent" key at all (omitempty),
+	// and agents is an empty array, not null.
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["agent"]; ok {
+		t.Fatalf("new workspace carries an agent key: %s", raw["agent"])
+	}
+	var agents []json.RawMessage
+	if err := json.Unmarshal(raw["agents"], &agents); err != nil || len(agents) != 0 {
+		t.Fatalf("agents = %s (%v), want []", raw["agents"], err)
+	}
+	var wk store.Workspace
+	_ = json.Unmarshal(raw["id"], new(string))
+	if err := json.Unmarshal(raw["id"], &wk.ID); err != nil || wk.ID == "" {
+		t.Fatalf("id missing: %s", raw["id"])
+	}
+
+	// Idempotent re-add: same workspace, still no agent created.
+	again := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Empty again", "path": proj})
+	if again.StatusCode != http.StatusCreated {
+		t.Fatalf("re-add = %d", again.StatusCode)
+	}
+	var wk2 workspaceView
+	_ = json.NewDecoder(again.Body).Decode(&wk2)
+	if wk2.ID != wk.ID || len(wk2.Agents) != 0 || wk2.Agent != nil {
+		t.Fatalf("re-add = %+v", wk2)
+	}
+}
+
+func TestEmptyWorkspaceNeedsAnAgent(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	wk := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Bare", "path": t.TempDir()})
+	var wsv workspaceView
+	_ = json.NewDecoder(wk.Body).Decode(&wsv)
+
+	for _, path := range []string{
+		"/api/workspaces/" + wsv.ID + "/open",
+		"/api/workspaces/" + wsv.ID + "/close",
+		"/api/workspaces/" + wsv.ID + "/sessions/new",
+	} {
+		res := postJSON(t, ts, path, map[string]string{})
+		if res.StatusCode != http.StatusConflict {
+			t.Fatalf("%s = %d, want 409", path, res.StatusCode)
+		}
+	}
+	list := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions"))
+	if list.StatusCode != http.StatusConflict {
+		t.Fatalf("sessions = %d, want 409", list.StatusCode)
 	}
 }

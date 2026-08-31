@@ -281,7 +281,7 @@ func TestCleanupMatrix(t *testing.T) {
 
 	t.Run("sibling workspace agent is not last occupant", func(t *testing.T) {
 		proj := t.TempDir()
-		wk := decodeWorkspace(t, postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Sibs", "path": proj}))
+		wk := addWorkspaceWithAgent(t, ts, "Sibs", proj)
 		sib := decodeAgent(t, postJSON(t, ts, "/api/workspaces/"+wk.ID+"/agents", map[string]string{"name": "review"}))
 		sess := writeSession(t, proj)
 		p := getCleanup(t, ts, "/api/agents/"+sib.ID+"/cleanup")
@@ -300,7 +300,7 @@ func TestCleanupMatrix(t *testing.T) {
 
 	t.Run("last workspace agent offers sessions not work", func(t *testing.T) {
 		proj := t.TempDir()
-		wk := decodeWorkspace(t, postJSON(t, ts, "/api/workspaces", map[string]string{"name": "Solo", "path": proj}))
+		wk := addWorkspaceWithAgent(t, ts, "Solo", proj)
 		sess := writeSession(t, proj)
 		p := getCleanup(t, ts, "/api/agents/"+wk.Agent.ID+"/cleanup")
 		if !p.LastOccupant || p.CanPurgeWork || p.Sessions != 1 {

@@ -192,10 +192,22 @@ func loadWS(deps Deps, r *http.Request) (store.Workspace, store.Agent, error) {
 		return wk, a, nil
 	}
 	agent, err := deps.Store.DefaultAgent(wk.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		// The workspace exists — it just has nobody in it (ADR-0027).
+		return wk, store.Agent{}, errNoAgents
+	}
 	return wk, agent, err
 }
 
+// errNoAgents marks a workspace-scoped request that needs an agent hitting
+// an empty workspace (ADR-0027) — a 409, not the misleading 404.
+var errNoAgents = errors.New("workspace has no agents")
+
 func writeStoreErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, errNoAgents) {
+		writeErr(w, http.StatusConflict, "workspace has no agents — add one first")
+		return
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "workspace not found")
 		return

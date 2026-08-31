@@ -18,6 +18,17 @@ func startRuntime(t *testing.T, st *store.Store) *Runtime {
 	return rt
 }
 
+// addWorkspaceWithAgent keeps the old AddWorkspace shape for tests:
+// workspaces start empty (ADR-0027), so the agent is explicit now.
+func addWorkspaceWithAgent(st *store.Store, name, path string) (store.Workspace, store.Agent, error) {
+	w, err := st.AddWorkspace(name, path)
+	if err != nil {
+		return store.Workspace{}, store.Agent{}, err
+	}
+	a, err := st.AddAgent(w.ID, "default", "")
+	return w, a, err
+}
+
 func TestManagedDeliveryEngine(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {
@@ -25,7 +36,7 @@ func TestManagedDeliveryEngine(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 
-	w, agent, err := st.AddWorkspace("Managed", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(st, "Managed", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
@@ -133,7 +144,7 @@ func TestWaitingDialog(t *testing.T) {
 		t.Fatalf("store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w, agent, err := st.AddWorkspace("Ask", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(st, "Ask", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
@@ -242,7 +253,7 @@ func TestQueueWhileWaiting(t *testing.T) {
 		t.Fatalf("store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w, agent, err := st.AddWorkspace("Queue", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(st, "Queue", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
@@ -299,7 +310,7 @@ func TestDoubleStartRejected(t *testing.T) {
 		t.Fatalf("store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w, agent, err := st.AddWorkspace("Dup", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(st, "Dup", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}

@@ -6,6 +6,17 @@ import (
 	"testing"
 )
 
+// addWorkspaceWithAgent keeps the old AddWorkspace shape for tests:
+// workspaces start empty (ADR-0027), so the agent is explicit now.
+func addWorkspaceWithAgent(s *Store, name, path string) (Workspace, Agent, error) {
+	w, err := s.AddWorkspace(name, path)
+	if err != nil {
+		return Workspace{}, Agent{}, err
+	}
+	a, err := s.AddAgent(w.ID, "default", "")
+	return w, a, err
+}
+
 func openTest(t *testing.T) *Store {
 	t.Helper()
 	s, err := Open(filepath.Join(t.TempDir(), "picode.db"))
@@ -20,30 +31,41 @@ func TestWorkspaceAndAgents(t *testing.T) {
 	s := openTest(t)
 	proj := t.TempDir()
 
-	w, agent, err := s.AddWorkspace("My App", proj)
+	w, err := s.AddWorkspace("My App", proj)
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
 	if w.ID == "" || w.Path != proj {
 		t.Fatalf("workspace = %+v", w)
 	}
+	// The workspace starts empty (ADR-0027); the agent is explicit.
+	if none, err := s.ListAgents(w.ID); err != nil || len(none) != 0 {
+		t.Fatalf("new workspace agents = %+v, %v", none, err)
+	}
+	agent, err := s.AddAgent(w.ID, "default", "")
+	if err != nil {
+		t.Fatalf("AddAgent: %v", err)
+	}
 	if agent.WorkspaceID != w.ID || agent.Name != "default" || agent.LastStatus != StatusNeverStarted {
-		t.Fatalf("default agent = %+v", agent)
+		t.Fatalf("agent = %+v", agent)
 	}
 
-	// Idempotent by path; same agent returned.
-	w2, agent2, err := s.AddWorkspace("My App again", proj)
+	// Idempotent by path; no agent created or resurrected on re-add.
+	w2, err := s.AddWorkspace("My App again", proj)
 	if err != nil {
 		t.Fatalf("re-add: %v", err)
 	}
-	if w2.ID != w.ID || agent2.ID != agent.ID {
-		t.Errorf("re-add created new rows: %+v/%+v", w2, agent2)
+	if w2.ID != w.ID {
+		t.Errorf("re-add created new workspace: %+v", w2)
+	}
+	if after, err := s.ListAgents(w.ID); err != nil || len(after) != 1 {
+		t.Fatalf("re-add changed agents: %+v, %v", after, err)
 	}
 
-	if _, _, err := s.AddWorkspace("", proj); err == nil {
+	if _, err := s.AddWorkspace("", proj); err == nil {
 		t.Error("empty name accepted")
 	}
-	if _, _, err := s.AddWorkspace("x", "/definitely/not/here"); err == nil {
+	if _, err := s.AddWorkspace("x", "/definitely/not/here"); err == nil {
 		t.Error("missing path accepted")
 	}
 	got, err := s.GetWorkspace(w.ID)
@@ -107,7 +129,7 @@ func TestWorkspaceAndAgents(t *testing.T) {
 
 func TestTasksLifecycle(t *testing.T) {
 	s := openTest(t)
-	w, agent, err := s.AddWorkspace("Tasks", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(s, "Tasks", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
@@ -166,7 +188,7 @@ func TestTasksLifecycle(t *testing.T) {
 
 func TestEventsAndSettings(t *testing.T) {
 	s := openTest(t)
-	w, agent, err := s.AddWorkspace("Evts", t.TempDir())
+	w, agent, err := addWorkspaceWithAgent(s, "Evts", t.TempDir())
 	if err != nil {
 		t.Fatalf("AddWorkspace: %v", err)
 	}
@@ -254,7 +276,7 @@ func TestLegacyJSONImport(t *testing.T) {
 
 func TestUpdateAgent(t *testing.T) {
 	s := openTest(t)
-	_, agent, err := s.AddWorkspace("Cfg", t.TempDir())
+	_, agent, err := addWorkspaceWithAgent(s, "Cfg", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +303,7 @@ func TestUpdateAgent(t *testing.T) {
 
 func TestOpModeCLIFlags(t *testing.T) {
 	s := openTest(t)
-	_, agent, err := s.AddWorkspace("Mode", t.TempDir())
+	_, agent, err := addWorkspaceWithAgent(s, "Mode", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +336,7 @@ func TestOpModeCLIFlags(t *testing.T) {
 
 func TestAgentPackagesCLIFlags(t *testing.T) {
 	s := openTest(t)
-	_, agent, err := s.AddWorkspace("Pkg", t.TempDir())
+	_, agent, err := addWorkspaceWithAgent(s, "Pkg", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +374,7 @@ func TestAgentPackagesCLIFlags(t *testing.T) {
 
 func TestSessionPathFlag(t *testing.T) {
 	s := openTest(t)
-	_, agent, err := s.AddWorkspace("Sess", t.TempDir())
+	_, agent, err := addWorkspaceWithAgent(s, "Sess", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

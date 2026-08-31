@@ -79,13 +79,13 @@ export default function MobileApp() {
     panelRef.current = null;
   }
 
-  function connectPanel(ws) {
+  function connectPanel(agentId) {
     closePanel();
     setItems([{ kind: "sys", text: "Connected. Send a task to start." }]);
     setStatus("idle");
     setStreaming(false);
-    const sock = new WebSocket(wsURL(`/ws/agent?agent=${ws.agent.id}`));
-    const panel = { agentId: ws.agent.id, sock, stopped: false };
+    const sock = new WebSocket(wsURL(`/ws/agent?agent=${agentId}`));
+    const panel = { agentId, sock, stopped: false };
     panelRef.current = panel;
     sock.onmessage = (ev) => {
       try { handleEvent(JSON.parse(ev.data)); } catch { /* ignore */ }
@@ -155,7 +155,7 @@ export default function MobileApp() {
   useEffect(() => {
     if (!selected || !agent) { closePanel(); return; }
     if (agent.mode === "managed") {
-      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(selected);
+      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(agent.id);
     } else closePanel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, agent && agent.id, agent && agent.mode]);

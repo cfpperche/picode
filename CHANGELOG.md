@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Creating a workspace no longer creates an agent** (ADR-0027). The
+  New-workspace form asks for a name and a folder — Provider, Model,
+  Thinking and the session shortcut moved out; a workspace can stay without
+  agents and terminals for as long as you like. Breaking for API readers:
+  `POST /api/workspaces` answers with `agents: []` and no `agent` key, the
+  `agent` field is omitted whenever a workspace is empty, re-adding a
+  registered folder no longer resurrects a deleted agent, and
+  workspace-scoped calls that need an agent (open, close, sessions, status)
+  answer 409 instead of a 500 or a misleading 404.
+
 ### Added
 
 - **Workspaces hold terminals.** The terminal button on a workspace card

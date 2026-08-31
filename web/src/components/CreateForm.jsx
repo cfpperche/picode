@@ -18,7 +18,7 @@ export default function CreateForm({
         ? ("New agent" + (workspaceName ? " in " + workspaceName : ""))
         : "New agent";
   const desc = kind === "workspace"
-    ? "A folder plus its first agent."
+    ? "A project folder. Add agents and terminals inside it."
     : kind === "session"
       ? "A copy. The original stays."
       : "Provider, model, and thinking are required.";
@@ -39,9 +39,11 @@ export default function CreateForm({
       ) : (
         <input name="name" type="text" placeholder="Agent name" autoComplete="off" autoFocus />
       )}
-      <ConfigFields catalog={catalog} provider={cfg.provider} model={cfg.model} thinking={cfg.thinking} onChange={onCfg} idPrefix="create" />
+      {kind !== "workspace" ? (
+        <ConfigFields catalog={catalog} provider={cfg.provider} model={cfg.model} thinking={cfg.thinking} onChange={onCfg} idPrefix="create" />
+      ) : null}
       <p className="form-error" hidden={!error}>{error}</p>
-      {onKind ? (
+      {onKind && kind !== "workspace" ? (
         <p className="dlg-body">
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => onKind("session")}>From a Pi session</button>
         </p>

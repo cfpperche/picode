@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api } from "../lib/api.js";
+import { splitPathQuery, filterDirs, bestMatch } from "../lib/pathFilter.js";
+import { useDebounced } from "../lib/useDebounced.js";
 import { IconDrive, IconFolder, IconHome, IconPlus } from "./Icons.jsx";
 
 export default function FolderPicker({ open, start, onPick, onClose }) {
@@ -11,14 +13,20 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
   const [places, setPlaces] = useState([]);
   const [err, setErr] = useState("");
   const [mkdir, setMkdir] = useState("");
+  // The address bar is editable: typing navigates to the deepest existing
+  // directory and the trailing fragment filters the listing (debounced).
+  const [typed, setTyped] = useState("");
+  const [notFound, setNotFound] = useState(false);
+  const lastNavRef = useRef("");
 
   useEffect(() => {
     if (!open) return;
     setMkdir("");
+    setNotFound(false);
     load(start || "");
   }, [open, start]);
 
-  async function load(path) {
+  async function load(path, { sync = true } = {}) {
     setErr("");
     try {
       const data = await api("/api/fs?path=" + encodeURIComponent(path || ""));
@@ -27,9 +35,49 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
       setParent(data.parent || "");
       setDirs(data.dirs || []);
       setPlaces(data.places || []);
+      setNotFound(false);
+      if (sync) {
+        setTyped(data.path || "");
+        lastNavRef.current = "";
+      }
+      return true;
     } catch (e) {
-      setErr(e.message || "Can't list that folder.");
+      if (sync) setErr(e.message || "Can't list that folder.");
+      else setNotFound(true);
+      return false;
     }
+  }
+
+  const debounced = useDebounced(typed, 220);
+  const q = useMemo(() => {
+    if (!debounced || debounced === cur) return "";
+    return splitPathQuery(debounced).q;
+  }, [debounced, cur]);
+  const filtered = useMemo(() => filterDirs(dirs, q), [dirs, q]);
+
+  useEffect(() => {
+    if (!open || !debounced || debounced === cur) return;
+    const { dir } = splitPathQuery(debounced);
+    const target = dir || debounced;
+    // Navigate only when the directory part changed; a failed GET filters
+    // nothing away and never navigates.
+    if (target && target !== cur && target !== lastNavRef.current) {
+      lastNavRef.current = target;
+      load(target, { sync: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced, open]);
+
+  function submitTyped() {
+    const m = bestMatch(dirs, q);
+    if (m) load(m.path);
+    else load(typed);
+  }
+
+  function clearFilter() {
+    setTyped(cur);
+    setNotFound(false);
+    lastNavRef.current = "";
   }
 
   async function createDir() {
@@ -49,16 +97,32 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
     }
   }
 
+  const filtering = !!q || notFound;
   return (
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay dlg-overlay-folder" />
-        <Dialog.Content className="dlg dlg-folder" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <Dialog.Content
+          className="dlg dlg-folder"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            // First Esc clears an active filter; the second one closes.
+            if (typed !== cur) { e.preventDefault(); clearFilter(); }
+          }}
+        >
           <Dialog.Title className="dlg-title">Choose folder</Dialog.Title>
           <Dialog.Description className="folder-here">
             <span className="folder-here-icon" aria-hidden="true">{placeIcon(label || cur)}</span>
             <span className="folder-here-text">
-              <span className="folder-here-name">{label || cur || "—"}</span>
+              <input
+                className="folder-here-input"
+                aria-label="Folder path — type to filter"
+                value={typed}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => setTyped(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submitTyped(); } }}
+              />
               {label && cur ? <span className="folder-here-posix">{cur}</span> : null}
             </span>
           </Dialog.Description>
@@ -73,11 +137,13 @@ export default function FolderPicker({ open, start, onPick, onClose }) {
             </div>
           ) : null}
           <div className="folder-list">
-            {parent ? (
+            {parent && !filtering ? (
               <button type="button" className="folder-row" onClick={() => load(parent)}>.. <span className="folder-row-meta">parent</span></button>
             ) : null}
-            {dirs.length === 0 ? <p className="side-empty">No subfolders</p> : null}
-            {dirs.map((d) => (
+            {filtered.length === 0 ? (
+              <p className="side-empty">{filtering ? "No folders match. Enter opens the exact path." : "No subfolders"}</p>
+            ) : null}
+            {filtered.map((d) => (
               <button type="button" key={d.path} className="folder-row" onClick={() => load(d.path)}>
                 <IconFolder size={14} /> {d.name}
               </button>
