@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The sidebar version tells the truth.** Source builds show the running
+  revision (`v0.1.0+0550fa2`, `*` when the tree was dirty) instead of a
+  frozen `v0.1.0`; stamped release builds stay clean (`Stamped` ldflag in
+  the release workflow). `/api/version` gains `semver` for comparisons;
+  `picode update` prints the full build identity.
+
+### Fixed
+
 - **The role chip dies with the package.** `role-state` now answers only
   while pi-roles is on the agent's effective package list — an
   uninstall no longer leaves an orphaned chip fed by a stale state file.

@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          ldflags="-s -w -X github.com/cfpperche/picode/internal/version.Version=${VERSION}"
+          ldflags="-s -w -X github.com/cfpperche/picode/internal/version.Version=${VERSION} -X github.com/cfpperche/picode/internal/version.Stamped=release"
 
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
             goos="${target%/*}"; goarch="${target#*/}"
