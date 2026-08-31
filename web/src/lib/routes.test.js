@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey } from "./routes.js";
+import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -97,4 +97,34 @@ test("go(sessions) lands on the machine-wide view, not the :id template", () => 
   } finally {
     globalThis.location = orig;
   }
+});
+
+test("tree hash names the owner, tab id names the root folder", () => {
+  assert.equal(parseRoute("#/tree/a/opus"), "workspace");
+  assert.equal(treeHash("agent", "opus"), "#/tree/a/opus");
+  assert.equal(treeHash("term", "sh1"), "#/tree/t/sh1");
+  assert.equal(treeHash("workspace", "ws-9"), "#/tree/w/ws-9");
+  assert.deepEqual(treeRoute("#/tree/w/ws-9"), { kind: "workspace", id: "ws-9" });
+  assert.deepEqual(treeRoute("#/tree/t/sh1"), { kind: "term", id: "sh1" });
+  assert.deepEqual(treeRoute("#/tree/a/opus"), { kind: "agent", id: "opus" });
+  assert.equal(treeRoute("#/git/a/opus"), null);
+  assert.equal(treeTabId("/home/u/proj"), "d:/home/u/proj");
+  assert.ok(isTreeTab("d:/home/u/proj"));
+  assert.equal(treeTabRoot("d:/home/u/proj"), "/home/u/proj");
+  assert.equal(treeTabRoot("g:/repo/.git"), "");
+});
+
+test("tree tabs are distinct from every other tab family", () => {
+  const tree = treeTabId("/home/u/proj");
+  assert.ok(!isFileTab(tree) && !isTermTab(tree) && !isGitTab(tree));
+  assert.ok(!isTreeTab(gitTabId("/repo/.git")));
+  assert.ok(!isTreeTab(termTabId("sh1")));
+});
+
+test("file tabs carry the workspace owner since ADR-0028", () => {
+  assert.equal(fileHash("workspace", "ws-9", "src/a.go"), "#/file/w/ws-9/src%2Fa.go");
+  assert.deepEqual(fileRoute("#/file/w/ws-9/src%2Fa.go"), { kind: "workspace", id: "ws-9", path: "src/a.go" });
+  assert.deepEqual(parseFileTab(fileTabId("workspace", "ws-9", "a.go")), { kind: "workspace", id: "ws-9", path: "a.go" });
+  // the old two-owner ids still parse
+  assert.deepEqual(parseFileTab("f:t:sh1:a.go"), { kind: "term", id: "sh1", path: "a.go" });
 });
