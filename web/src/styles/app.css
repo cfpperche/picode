@@ -857,6 +857,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-pill svg { flex: none; }
 .ws-pill + .ws-pill { flex: none; }
 .ws-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-pill-badge {
+  flex: none; min-width: 14px; padding: 0 4px; border-radius: 999px;
+  background: var(--bg-hover); color: var(--warn);
+  font-size: 10px; line-height: 14px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .ws-path {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
@@ -2720,6 +2726,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ft-dot-renamed { background: var(--accent); }
 .ft-dot-dir { background: var(--warn); opacity: .55; }
 .ft-loading { color: var(--text-secondary); font-size: 11px; }
+.ft-split { flex: 1; display: flex; min-height: 0; }
+/* Beside a diff the tree narrows to a rail; alone it keeps its column. */
+.ft-split-open .ft-body { flex: 0 0 320px; max-width: 320px; }
+.ft-split .gg-detail { border-top: 0; border-left: 1px solid var(--border); min-width: 0; }
+.ft-row-on { background: var(--bg-hover); }
 
 @media (prefers-reduced-motion: reduce) {
   .ft-chev { transition: none; }

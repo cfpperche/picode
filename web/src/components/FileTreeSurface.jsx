@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { changedDirs, changeKinds, flattenTree, mergeLevel, treeApiBase } from "../lib/fileTree.js";
-import { toast } from "../lib/toast.js";
+import { toast, toastError } from "../lib/toast.js";
 import FileTree from "./FileTree.jsx";
+import WorkingDiff from "./WorkingDiff.jsx";
 
 const SKELETON_ROWS = 12;
 
@@ -16,7 +17,12 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   const [gone, setGone] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [diffPath, setDiffPath] = useState("");
+  const [nonce, setNonce] = useState(0);
   const keyRef = useRef("");
+  const busyRef = useRef(false);
+  const loadRef = useRef(() => {});
+  const expandedRef = useRef(new Set());
 
   const base = treeApiBase(owner ? owner.kind : "agent");
   const ownerId = owner ? owner.id : "";
@@ -59,6 +65,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
         } catch {
           setStatus({ git: false, changes: [] });
         }
+        setNonce((n) => n + 1);
       } catch (e) {
         // Keep the last good tree on a refetch; only a first load goes blank.
         setError(e.message || "Could not read this folder.");
@@ -73,8 +80,13 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
     load([]);
     // A new owner is a new tree: collapse what the old one had open.
     setExpanded(new Set());
+    setDiffPath("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, ownerId]);
+
+  busyRef.current = busy;
+  expandedRef.current = expanded;
+  loadRef.current = load;
 
   const toggle = useCallback(
     async (path) => {
@@ -98,6 +110,34 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
     },
     [expanded, levels, fetchDir],
   );
+
+  // Coming back to the app is the moment the working tree most likely moved
+  // (an agent worked, a terminal committed) — refresh then, instead of
+  // polling (ADR-0032; ADR-0030 still refuses a watcher).
+  useEffect(() => {
+    const kick = () => {
+      if (document.hidden || busyRef.current) return;
+      loadRef.current([...expandedRef.current]);
+    };
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("focus", kick);
+    return () => {
+      document.removeEventListener("visibilitychange", kick);
+      window.removeEventListener("focus", kick);
+    };
+  }, []);
+
+  const reveal = useCallback(async () => {
+    try {
+      await api(`${base}${encodeURIComponent(ownerId)}/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    } catch (e) {
+      toastError(e);
+    }
+  }, [base, ownerId]);
 
   if (!owner) return null;
 
@@ -146,6 +186,9 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
           </span>
         ) : null}
         <span className="ft-spacer" />
+        <button type="button" className="btn btn-sm btn-ghost" title="Open this folder in your file manager" onClick={reveal}>
+          Reveal
+        </button>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => load([...expanded])} disabled={busy}>
           Refresh
         </button>
@@ -164,6 +207,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
           </button>
         </p>
       ) : (
+        <div className={"ft-split" + (diffPath ? " ft-split-open" : "")}>
         <div className="ft-body">
           {changes.length > 0 ? (
             <div className="ft-changes">
@@ -171,7 +215,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
               <ul className="ft-list">
                 {changes.map((c) => (
                   <li key={c.path}>
-                    <button type="button" className="ft-row" onClick={() => onOpenFile(c.path)} title={c.path}>
+                    <button type="button" className={"ft-row" + (diffPath === c.path ? " ft-row-on" : "")} onClick={() => setDiffPath(c.path === diffPath ? "" : c.path)} title={c.path}>
                       <span className={"ft-dot ft-dot-" + c.kind} title={c.kind} />
                       <span className="ft-name ft-name-path">{c.path}</span>
                     </button>
@@ -186,6 +230,16 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
           ) : (
             <FileTree rows={rows} kinds={kinds} dirtyDirs={dirtyDirs} onToggle={toggle} onOpen={onOpenFile} />
           )}
+        </div>
+        {diffPath ? (
+          <WorkingDiff
+            owner={owner}
+            path={diffPath}
+            nonce={nonce}
+            onClose={() => setDiffPath("")}
+            onOpenFile={onOpenFile}
+          />
+        ) : null}
         </div>
       )}
     </section>
