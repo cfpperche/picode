@@ -600,3 +600,24 @@ func TestShowNumstatSurvivesTruncation(t *testing.T) {
 		t.Fatalf("numstat should count the whole file: got %+v, want +%d", big, lines)
 	}
 }
+
+// The uncommitted summary rides in the graph payload so the row it draws is
+// atomic with Head from the same load (ADR-0038).
+func TestLoadReportsUncommitted(t *testing.T) {
+	dir := repo(t)
+	if g := Load(dir, 10); g == nil || g.Uncommitted != nil {
+		t.Fatalf("clean tree must carry no uncommitted info: %+v", g)
+	}
+
+	write(t, dir, "untracked.txt", "u\n")
+	if g := Load(dir, 10); g == nil || g.Uncommitted == nil || g.Uncommitted.Count != 1 {
+		t.Fatalf("one untracked file, got %+v", g.Uncommitted)
+	}
+
+	write(t, dir, "a", "edited\n")
+	run(t, dir, "git", "add", "a")
+	g := Load(dir, 10)
+	if g.Uncommitted == nil || g.Uncommitted.Count != 2 {
+		t.Fatalf("staged + untracked = 2, got %+v", g.Uncommitted)
+	}
+}

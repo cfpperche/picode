@@ -51,15 +51,24 @@ type Worktree struct {
 	Branch string `json:"branch,omitempty"`
 }
 
+// UncommittedInfo summarises the dirty working tree of the cwd the graph was
+// read through. It rides in the graph payload because the row it draws must
+// agree with Head from the same load; the content itself stays on the
+// gitstatus/gitdiff endpoints, fetched on click (ADR-0038).
+type UncommittedInfo struct {
+	Count int `json:"count"`
+}
+
 // Graph is everything the browser needs to draw in one payload.
 type Graph struct {
-	Key       string     `json:"key"`
-	Name      string     `json:"name"`
-	Head      string     `json:"head"`
-	Commits   []Commit   `json:"commits"`
-	Refs      []Ref      `json:"refs"`
-	Worktrees []Worktree `json:"worktrees"`
-	More      bool       `json:"more"`
+	Key         string           `json:"key"`
+	Name        string           `json:"name"`
+	Head        string           `json:"head"`
+	Commits     []Commit         `json:"commits"`
+	Refs        []Ref            `json:"refs"`
+	Worktrees   []Worktree       `json:"worktrees"`
+	Uncommitted *UncommittedInfo `json:"uncommitted,omitempty"`
+	More        bool             `json:"more"`
 }
 
 // Key is the repository identity: the common dir, absolute. Every worktree of
@@ -110,6 +119,10 @@ func Load(dir string, limit int) *Graph {
 	g.More = len(g.Commits) == limit
 	g.Refs = loadRefs(dir)
 	g.Worktrees = loadWorktrees(dir)
+	// Status guards the bare case itself: no toplevel, no changes, no row.
+	if _, changes := Status(dir); len(changes) > 0 {
+		g.Uncommitted = &UncommittedInfo{Count: len(changes)}
+	}
 	return g
 }
 

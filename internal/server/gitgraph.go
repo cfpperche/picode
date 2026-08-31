@@ -37,13 +37,14 @@ type worktreeView struct {
 }
 
 type graphView struct {
-	Key       string            `json:"key"`
-	Name      string            `json:"name"`
-	Head      string            `json:"head"`
-	Commits   []gitgraph.Commit `json:"commits"`
-	Refs      []gitgraph.Ref    `json:"refs"`
-	Worktrees []worktreeView    `json:"worktrees"`
-	More      bool              `json:"more"`
+	Key         string                    `json:"key"`
+	Name        string                    `json:"name"`
+	Head        string                    `json:"head"`
+	Commits     []gitgraph.Commit         `json:"commits"`
+	Refs        []gitgraph.Ref            `json:"refs"`
+	Worktrees   []worktreeView            `json:"worktrees"`
+	Uncommitted *gitgraph.UncommittedInfo `json:"uncommitted,omitempty"`
+	More        bool                      `json:"more"`
 }
 
 // gitKeyOf resolves a directory to its repository. A var so a test can count
@@ -106,7 +107,8 @@ func (deps Deps) graphView(g *gitgraph.Graph) graphView {
 	view := graphView{
 		Key: g.Key, Name: g.Name, Head: g.Head,
 		Commits: g.Commits, Refs: g.Refs, More: g.More,
-		Worktrees: make([]worktreeView, 0, len(g.Worktrees)),
+		Uncommitted: g.Uncommitted,
+		Worktrees:   make([]worktreeView, 0, len(g.Worktrees)),
 	}
 	byWorktree := deps.occupantsByWorktree(g)
 	for _, wt := range g.Worktrees {

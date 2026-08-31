@@ -513,3 +513,25 @@ func TestOccupantScanAsksNothingForAgentsAtTheRoot(t *testing.T) {
 		t.Fatalf("git asked %d times for agents that need no asking", calls)
 	}
 }
+
+// The uncommitted summary must survive the view envelope (ADR-0038).
+func TestGraphCarriesUncommitted(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	if g := getGraph(t, ts, "/api/agents/"+agent.ID+"/git"); g.Uncommitted != nil {
+		t.Fatalf("clean tree, got %+v", g.Uncommitted)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "wip.txt"), []byte("wip\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	g := getGraph(t, ts, "/api/agents/"+agent.ID+"/git")
+	if g.Uncommitted == nil || g.Uncommitted.Count != 1 {
+		t.Fatalf("one dirty file, got %+v", g.Uncommitted)
+	}
+}

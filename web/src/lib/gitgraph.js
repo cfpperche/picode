@@ -6,9 +6,10 @@
 // Method names are kept (determinePath, getAvailableColour,
 // registerUnavailablePoint) so this stays diffable against the original.
 //
-// What is dropped: the original also lays out an "Uncommitted Changes" row and
-// draws it dashed. PiCode's graph is history only (ADR-0022), so isCommitted,
-// numUncommitted and the path splitting they require are gone.
+// What is dropped: the original's isCommitted/numUncommitted plumbing. Its
+// "Uncommitted Changes" row came back in ADR-0038, but as a wrapper instead:
+// layoutUncommitted prepends a pseudo-commit whose parent is HEAD, runs the
+// ordinary layout, and splits the pseudo's trail out for dashed drawing.
 //
 // The layout is greedy and single-pass: walk the commits top to bottom, and on
 // each row a branch claims the leftmost column still free. There is no global
@@ -262,6 +263,37 @@ export function layout(commits, { onlyFollowFirstParent = false } = {}) {
 }
 
 export const GRID = { x: 14, y: 26, offsetX: 12, offsetY: 13 };
+
+// The hash of the pseudo-commit standing in for the dirty working tree. "*" can
+// never collide with an object name, and reads as "changes" on its own.
+export const UNCOMMITTED = "*";
+
+// layoutUncommitted lays out the history with an "Uncommitted Changes" row on
+// top: a pseudo-commit whose only parent is HEAD goes through the ordinary
+// allocator — exactly how the original handles it — and its trail down to the
+// HEAD row comes back separately so the caller can draw it dashed. When HEAD
+// is missing or outside the loaded window there is no row to anchor the trail,
+// so the plain layout comes back and rows === commits.
+export function layoutUncommitted(commits, head) {
+  const list = commits || [];
+  const headAt = head ? list.findIndex((c) => c.hash === head) : -1;
+  if (headAt < 0) {
+    return { placed: layout(list), rows: list, dashed: null };
+  }
+  const rows = [{ hash: UNCOMMITTED, parents: [head] }, ...list];
+  const placed = layout(rows);
+  const headRow = headAt + 1;
+  // The pseudo is vertex 0, so the first branch created starts at it; its
+  // lines down to the HEAD row are the trail. Whatever the branch draws below
+  // HEAD is real history and stays solid.
+  let dashed = null;
+  const first = placed.branches[0];
+  if (first) {
+    dashed = { colour: first.colour, lines: first.lines.filter((l) => l.p2.y <= headRow) };
+    first.lines = first.lines.filter((l) => l.p2.y > headRow);
+  }
+  return { placed, rows, dashed };
+}
 
 // simplifyLines merges consecutive collinear vertical segments. A branch that
 // runs straight down 200 rows becomes one segment, not 200 — this is what

@@ -2781,6 +2781,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gg-dot-head { stroke: var(--text-primary); stroke-width: 2px; }
 
 .gg-list { list-style: none; margin: 0; padding: 0 0 0 var(--gg-graph-w); }
+/* The dirty working tree as the first row (ADR-0038): a hollow dot in the
+   SVG, a dashed trail down to HEAD, and a label instead of commit columns. */
+.gg-line-dashed { stroke-dasharray: 4 3; }
+.gg-row-uncommitted {
+  display: flex; align-items: center;
+  font-style: italic; color: var(--text-secondary);
+}
+.gg-row-uncommitted.gg-row-on { color: var(--text-primary); }
 .gg-row {
   display: grid; width: 100%; box-sizing: border-box;
   grid-template-columns: auto minmax(0, 1fr) auto auto auto;
@@ -2986,6 +2994,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .gg-file-old { color: var(--text-secondary); }
 .gg-file-stat { font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gg-file-kind { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.gg-file-kind-untracked, .gg-file-kind-added { color: var(--ok); }
+.gg-file-kind-deleted, .gg-file-kind-conflicted { color: var(--danger); }
+.gg-file-kind-modified { color: var(--warn); }
+.gg-file-kind-renamed { color: var(--accent); }
 .gg-add { color: var(--ok); }
 .gg-del { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) {
