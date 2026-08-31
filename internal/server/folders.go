@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/osopen"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,16 +47,7 @@ func expandPath(p string) (string, error) {
 	return filepath.Abs(filepath.Clean(p))
 }
 
-func isWSL() bool {
-	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSL_INTEROP") != "" {
-		return true
-	}
-	b, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(string(b)), "microsoft")
-}
+func isWSL() bool { return osopen.RunningWSL() }
 
 // winPathToWSL maps "C:\Users\x" or "C:/Users/x" to "/mnt/c/Users/x".
 func winPathToWSL(p string) (string, bool) {
