@@ -34,6 +34,9 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   });
   const [query, setQuery] = useState("");
   const keyRef = useRef("");
+  const tokenRef = useRef("");
+  const busyRef = useRef(false);
+  busyRef.current = busy;
 
   // Search dims and highlights, never hides (ADR-0038): the lanes are
   // positional. Enter walks the matches without opening any of them — the
@@ -69,6 +72,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
         const g = await api(`${base}${encodeURIComponent(ownerId)}/git?limit=${want}`);
         setGraph(g);
         setError("");
+        if (g && g.token) tokenRef.current = g.token;
         if (g && g.key && g.key !== keyRef.current) {
           keyRef.current = g.key;
           if (onKey) onKey(g.key, g.name);
@@ -86,6 +90,34 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   useEffect(() => {
     load(limit);
   }, [load, limit]);
+
+  // Auto-refresh (ADR-0038, superseding 0030's manual-only for the graph):
+  // poll a cheap token and refetch only when it moves. The surface only
+  // mounts while its tab is selected, so unmounting stops the poll; the
+  // hidden-document guard covers a backgrounded browser. Errors are ignored —
+  // the Refresh button stays the valve.
+  useEffect(() => {
+    if (!ownerId) return undefined;
+    let stop = false;
+    const tick = async () => {
+      if (stop || document.hidden || busyRef.current) return;
+      try {
+        const h = await api(`${base}${encodeURIComponent(ownerId)}/git/head`);
+        if (!stop && h && h.token && tokenRef.current && h.token !== tokenRef.current) {
+          tokenRef.current = h.token;
+          load(limit);
+        }
+      } catch { /* ignore; manual Refresh still works */ }
+    };
+    const id = setInterval(tick, 5000);
+    const onVis = () => { if (!document.hidden) tick(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stop = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [base, ownerId, load, limit]);
 
   // A parent link can point below the loaded window. Growing it once is the
   // polite attempt; past that, the answer is the Load earlier button, not a

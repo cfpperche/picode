@@ -45,6 +45,15 @@ type graphView struct {
 	Worktrees   []worktreeView            `json:"worktrees"`
 	Uncommitted *gitgraph.UncommittedInfo `json:"uncommitted,omitempty"`
 	More        bool                      `json:"more"`
+	Token       string                    `json:"token,omitempty"`
+}
+
+// gitHeadView is the cheap poll target: the browser refetches the graph only
+// when Token changes (ADR-0038).
+type gitHeadView struct {
+	Key         string `json:"key"`
+	Token       string `json:"token"`
+	Uncommitted int    `json:"uncommitted"`
 }
 
 // gitKeyOf resolves a directory to its repository. A var so a test can count
@@ -56,6 +65,39 @@ func registerGitGraphRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/terminals/{id}/git", handleTerminalGraph(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/commit", handleAgentCommit(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/commit", handleTerminalCommit(deps))
+	mux.HandleFunc("GET /api/agents/{id}/git/head", handleAgentGitHead(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/git/head", handleTerminalGitHead(deps))
+}
+
+func handleAgentGitHead(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeGitHead(w, cwd)
+	}
+}
+
+func handleTerminalGitHead(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeGitHead(w, liveTermCwd(deps, r, term))
+	}
+}
+
+func writeGitHead(w http.ResponseWriter, cwd string) {
+	key, token, dirty := gitgraph.Token(cwd)
+	if key == "" {
+		writeErr(w, http.StatusNotFound, "not a git repository")
+		return
+	}
+	writeJSON(w, http.StatusOK, gitHeadView{Key: key, Token: token, Uncommitted: dirty})
 }
 
 func handleAgentGraph(deps Deps) http.HandlerFunc {
@@ -84,12 +126,19 @@ func handleTerminalGraph(deps Deps) http.HandlerFunc {
 }
 
 func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
+	// Token first, load second: if a commit lands in between, the token is
+	// older than the data and the next poll refetches once for nothing — the
+	// safe direction. The other order can hand out a token newer than the
+	// graph and go quiet on a stale picture.
+	_, token, _ := gitgraph.Token(cwd)
 	g := gitgraph.Load(cwd, graphLimit(r))
 	if g == nil {
 		writeErr(w, http.StatusNotFound, "not a git repository")
 		return
 	}
-	writeJSON(w, http.StatusOK, deps.graphView(g))
+	view := deps.graphView(g)
+	view.Token = token
+	writeJSON(w, http.StatusOK, view)
 }
 
 func graphLimit(r *http.Request) int {

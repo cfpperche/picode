@@ -621,3 +621,40 @@ func TestLoadReportsUncommitted(t *testing.T) {
 		t.Fatalf("staged + untracked = 2, got %+v", g.Uncommitted)
 	}
 }
+
+// The token moves exactly when something the graph draws moves: a commit, a
+// ref, a dirty file. Anything else polling it would be noise.
+func TestTokenTracksWhatTheGraphDraws(t *testing.T) {
+	dir := repo(t)
+	key, t0, dirty := Token(dir)
+	if key == "" || t0 == "" || dirty != 0 {
+		t.Fatalf("clean repo token: key=%q token=%q dirty=%d", key, t0, dirty)
+	}
+	if _, t1, _ := Token(dir); t1 != t0 {
+		t.Fatal("token must be stable while nothing changes")
+	}
+
+	write(t, dir, "wip.txt", "wip\n")
+	_, t2, dirty2 := Token(dir)
+	if t2 == t0 || dirty2 != 1 {
+		t.Fatalf("a dirty file must move the token: %q vs %q, dirty=%d", t2, t0, dirty2)
+	}
+
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "wip")
+	_, t3, dirty3 := Token(dir)
+	if t3 == t2 || dirty3 != 0 {
+		t.Fatalf("a commit must move the token and clean the count: dirty=%d", dirty3)
+	}
+
+	run(t, dir, "git", "tag", "v1")
+	if _, t4, _ := Token(dir); t4 == t3 {
+		t.Fatal("a new tag must move the token")
+	}
+}
+
+func TestTokenOutsideARepoIsEmpty(t *testing.T) {
+	if key, token, _ := Token(t.TempDir()); key != "" || token != "" {
+		t.Fatalf("non-repo token: %q %q", key, token)
+	}
+}
