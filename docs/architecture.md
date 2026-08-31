@@ -308,6 +308,14 @@ HTTP API (Go 1.22 method patterns):
   changes of the owner's repository, `git status --porcelain -z -uall`
   re-anchored from the repo toplevel to the owner's cwd (what falls outside
   is dropped). No repository is a state, not an error: `200 {"git": false}`.
+- `GET /api/{agents|terminals|workspaces}/{id}/gitdiff?path=` — one file's
+  working-tree-vs-HEAD patch (ADR-0032), confined by the same cwd rules;
+  untracked files arrive as whole-file additions, binary and truncation
+  flagged like the commit route. 404 when there is no difference.
+- `POST /api/{agents|terminals|workspaces}/{id}/reveal` — opens the owner's
+  folder (optional confined `{"path"}` body) in the host file manager via
+  `internal/osopen` (WSL → explorer.exe, darwin → open, else xdg-open).
+  Host-local by design: a remote browser opens it on the server's desktop.
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,

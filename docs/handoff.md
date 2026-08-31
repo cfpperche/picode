@@ -208,6 +208,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **File tree V2** (ADR-0032): Changes rows expand into
+  working-tree diffs (`gitgraph.WorkingDiff`; `gitLoose` keeps stdout on
+  --no-index's exit 1, /dev/null fallback only for ls-files-empty paths —
+  both sabotage-proven); `POST …/reveal` opens the folder in the host
+  file manager (`internal/osopen`, extracted from backup, WSL dedup);
+  focus/visibility refresh instead of polling; branch pill badges
+  `gitinfo.Dirty` (porcelain -uall count; cost: +1 subprocess per row per
+  list, recorded in the ADR with the ?dirty=1 fallback).
+
 - **2026-08-31** — **Provider Usage V2** (ADR-0031). ZAI and OpenCode Go
   API keys get Usage. Codex/Grok banked resets show in the dialog; Redeem
   confirms then `POST /usage/reset`. Grok reset row is omitted if the
