@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { changedDirs, changeKinds, flattenTree, mergeLevel, treeApiBase } from "../lib/fileTree.js";
+import { shortPath } from "../lib/repoLine.js";
 import { toast, toastError } from "../lib/toast.js";
 import FileTree from "./FileTree.jsx";
 import WorkingDiff from "./WorkingDiff.jsx";
@@ -170,7 +171,10 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   }
 
   const root = keyRef.current;
-  const name = root ? root.split("/").filter(Boolean).pop() || root : "";
+  // The tab strip already carries the folder's basename; the header is the
+  // one place a reader confirms EXACTLY which folder — that has to be the
+  // path, not the name a repo can share across worktrees and workspaces.
+  const name = root ? shortPath(root) : "";
   const changes = status.git ? status.changes || [] : [];
   const kinds = changeKinds(changes);
   const dirtyDirs = changedDirs(changes);
@@ -179,7 +183,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   return (
     <section className="ft-surface" aria-label={`Files in ${name}`}>
       <header className="ft-head">
-        <h2 className="ft-title">{name}</h2>
+        <h2 className="ft-title" title={name}>{name}</h2>
         {status.git ? (
           <span className="ft-count">
             {changes.length === 0 ? "clean" : changes.length === 1 ? "1 change" : `${changes.length} changes`}
