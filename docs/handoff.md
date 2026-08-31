@@ -44,6 +44,7 @@ What exists:
 - **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
 - **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **M2–M5 shipped** (the ADR-0020 plan is complete): `picode provision` (6 steps, `--dry-run` / `--json`) and `picode-desktop.exe` (tray, logon task, keepalive, CA trust, clean-machine bootstrap). Neither has been **run for real** — dry-run only, by the owner's decision.
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
+- **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
 
 ## In flight
 
@@ -175,7 +176,8 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
-
+- ADR-0028: npm publish for `pi-roles` is not wired (path-triggered workflow +
+  `pi-roles-v*` tag). Local path install only. Live RPC dogfood on Grok passed.
 - ADR-0022's occupant scan: the cliff is gone for agents sharing a directory
   (200 in one subfolder went from 4.6s to 22ms, and the cost is now flat in the
   number of agents). Agents in *distinct* subfolders still cost one git call
@@ -204,6 +206,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — Merged `feat/model-roles` as ADR-0028/0029 (numbers
+  shifted: main already had 0025 tmux catalog and 0026 sidebar). Isolated
+  visual on :8477; installed :8445 untouched. **visual-review: PASS**.
 
 - **2026-08-31** — **Workspaces start empty** (ADR-0027): POST /api/workspaces
   registers the folder only; the New-workspace form is name + folder

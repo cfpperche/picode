@@ -109,6 +109,7 @@ are a later surface, not a dump of the 29.
 | `/provider` | focus provider chip | **ui** | TUI folds this into `/model` |
 | `/skill:name` | insert, pi expands on send | **ui** | Picker from disk; not in the 24 |
 | `/templatename` | insert, pi expands on send | **ui** | Same |
+| `/ext` (live) | send `/name` to the running agent | **ui** | ADR-0029. Only while managed RPC is up. Not hardcoded. |
 
 ## Where it lives
 

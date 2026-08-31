@@ -28,7 +28,9 @@ export const SLASH = [
   { id: "llama", label: "/llama", hint: "llama.cpp router models", run: "llama" },
 ];
 
-export function extraSlash(skills, templates) {
+const CORE_NAMES = new Set(SLASH.map((c) => c.label.slice(1)));
+
+export function extraSlash(skills, templates, commands) {
   const out = [];
   for (const s of skills || []) {
     out.push({
@@ -47,6 +49,17 @@ export function extraSlash(skills, templates) {
       hint: t.hint || "Template",
       run: "insert",
       insert: "/" + t.name + " ",
+      docs: false,
+    });
+  }
+  for (const c of commands || []) {
+    const name = String(c.name || "").trim();
+    if (!name || CORE_NAMES.has(name)) continue;
+    out.push({
+      id: "ext:" + name,
+      label: "/" + name,
+      hint: c.hint || "Command",
+      run: "prompt",
       docs: false,
     });
   }

@@ -279,6 +279,10 @@ export default function Composer({
       requestAnimationFrame(() => ta.current?.focus());
       return;
     }
+    if (cmd.run === "prompt") {
+      fireSend(cmd.label);
+      return;
+    }
     setText("");
     if (cmd.run === "copy") {
       const t = lastReply || "";

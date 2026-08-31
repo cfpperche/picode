@@ -1,12 +1,15 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/slashres"
@@ -49,8 +52,61 @@ func handleAgentSlash(deps Deps) http.HandlerFunc {
 		if templates == nil {
 			templates = []slashres.Item{}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"skills": skills, "templates": templates})
+		commands := liveExtensionCommands(r.Context(), deps, agent.ID)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"skills":    skills,
+			"templates": templates,
+			"commands":  commands,
+		})
 	}
+}
+
+func liveExtensionCommands(parent context.Context, deps Deps, agentID string) []slashres.Item {
+	out := []slashres.Item{}
+	if deps.Runtime == nil {
+		return out
+	}
+	ma := deps.Runtime.Get(agentID)
+	if ma == nil {
+		return out
+	}
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+	defer cancel()
+	res, err := ma.GetCommands(ctx)
+	if err != nil || !res.Success {
+		return out
+	}
+	return extensionCommandsFromGetCommands(res.Data)
+}
+
+func extensionCommandsFromGetCommands(data json.RawMessage) []slashres.Item {
+	out := []slashres.Item{}
+	if len(data) == 0 {
+		return out
+	}
+	var payload struct {
+		Commands []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Source      string `json:"source"`
+		} `json:"commands"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return out
+	}
+	seen := map[string]bool{}
+	for _, c := range payload.Commands {
+		if c.Source != "extension" || c.Name == "" || seen[c.Name] {
+			continue
+		}
+		seen[c.Name] = true
+		hint := c.Description
+		if hint == "" {
+			hint = "Command"
+		}
+		out = append(out, slashres.Item{Name: c.Name, Hint: hint, Kind: "extension"})
+	}
+	return out
 }
 
 func handleAgentExport(deps Deps) http.HandlerFunc {

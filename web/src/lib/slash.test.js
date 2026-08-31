@@ -50,3 +50,20 @@ test("skills and templates insert into composer", () => {
   assert.ok(tpl);
   assert.equal(tpl.insert, "/review ");
 });
+
+test("extension commands appear only when listed", () => {
+  assert.equal(filterSlash("/roles").some((c) => c.id === "ext:roles"), false);
+  const extra = extraSlash([], [], [{ name: "roles", hint: "Pick a role" }, { name: "vision" }]);
+  const roles = filterSlash("/rol", extra)[0];
+  assert.equal(roles.id, "ext:roles");
+  assert.equal(roles.run, "prompt");
+  assert.equal(roles.hint, "Pick a role");
+  assert.equal(filterSlash("/vis", extra)[0].id, "ext:vision");
+});
+
+test("extension commands do not replace PiCode /compact", () => {
+  const extra = extraSlash([], [], [{ name: "compact", hint: "Nope" }]);
+  const hits = filterSlash("/compact", extra);
+  assert.equal(hits[0].run, "compact");
+  assert.ok(!hits.some((c) => c.id === "ext:compact"));
+});

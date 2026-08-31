@@ -329,9 +329,9 @@ export default function App() {
   useEffect(() => {
     if (!selectedId) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
-      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates)))
+      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));
-  }, [selectedId]);
+  }, [selectedId, agent && agent.mode]);
   useEffect(() => { scrollConv(); }, [items]);
 
   const loadStatus = useCallback(async (wsId) => {

@@ -367,6 +367,12 @@ func (ma *ManagedAgent) GetState(ctx context.Context) (Response, error) {
 	return ma.client.Send(ctx, Command{Type: "get_state"})
 }
 
+// GetCommands lists slash commands the live pi process knows (extensions,
+// skills, templates). Used by the composer picker (ADR-0029).
+func (ma *ManagedAgent) GetCommands(ctx context.Context) (Response, error) {
+	return ma.client.Send(ctx, Command{Type: "get_commands"})
+}
+
 // SendBash runs a shell command in the agent cwd (RPC bash). Output
 // streams as bash_execution_update events; the response carries the
 // final result. The next prompt folds it into context (pi behavior).

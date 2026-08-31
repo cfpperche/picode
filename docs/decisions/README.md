@@ -32,3 +32,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
 | [0026](0026-sidebar-tabs-and-workspace-terminals.md) | Four sidebar tabs; workspaces own terminals | accepted |
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
+| [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
+| [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |

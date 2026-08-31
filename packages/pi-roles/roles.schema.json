@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cfpperche/picode/tree/main/packages/pi-roles/roles.schema.json",
+  "title": "pi-roles config",
+  "description": "Workspace file .pi/roles.json. Unknown keys are ignored so the file can grow.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "builtin": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "default": { "$ref": "#/$defs/assignment" },
+        "vision": { "$ref": "#/$defs/assignment" },
+        "plan": { "$ref": "#/$defs/assignment" }
+      }
+    },
+    "custom": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "model"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+          },
+          "model": { "type": "string", "minLength": 1 },
+          "thinking": { "$ref": "#/$defs/thinking" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "thinking": {
+      "type": "string",
+      "enum": ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+    },
+    "assignment": {
+      "type": "object",
+      "required": ["model"],
+      "additionalProperties": true,
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "thinking": { "$ref": "#/$defs/thinking" }
+      }
+    }
+  }
+}

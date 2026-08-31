@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help dev ui web build restart deploy install test fmt fmt-check vet ci clean
+.PHONY: help dev ui web build restart deploy install test test-js fmt fmt-check vet ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -47,8 +47,9 @@ restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 test: ## Run all Go tests
 	go test ./...
 
-test-js: $(NODE_STAMP) ## Run the frontend unit tests
+test-js: $(NODE_STAMP) ## Run the frontend unit tests and pi-roles decision table
 	cd web && npm test
+	node --test packages/pi-roles/test/*.test.ts
 
 # Both targets walk the package directories `go list` reports, not the tree.
 # `.` reaches into .worktrees/, where a sibling agent has its own checkout: fmt
