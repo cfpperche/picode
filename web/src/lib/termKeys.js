@@ -5,6 +5,12 @@
 // reaches the same result via Kitty in its xterm fork; the OSS xterm.js
 // we embed has neither, so we encode here.
 //
+// Why this file exists at all (researched 2026-08-31): stable @xterm/xterm
+// encodes no modified-Enter protocol (kitty landed in 6.1-beta only,
+// xterm.js#5600), and tmux speaks only modifyOtherKeys to the outer terminal
+// (tmux#4038) — so no config or addon replaces this. What retires it: a
+// stable xterm.js ≥ 6.1 with kitty enabled and locally activated on attach.
+//
 // Three layers, because browsers disagree on what follows a canceled
 // keydown (keypress on Windows Chrome, input from IME, CDP…):
 //  1. customKeyEventHandler: keydown → send the sequence, block the rest;

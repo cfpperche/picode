@@ -108,6 +108,23 @@ render megabytes.
 
 ## Next up
 
+**Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
+2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
+configuration. Stable `@xterm/xterm` (6.0) encodes no modified-Enter protocol at
+all; the kitty keyboard protocol landed upstream (xterm.js#5600, Jan 2026) but
+only in 6.1.0-beta — and tmux deliberately speaks only modifyOtherKeys to the
+outer terminal (tmux#4038; kitty outward refused in tmux#3335), so the beta
+alone would not close our chain. Every xterm.js project ships the same
+customKeyEventHandler shim (e.g. Kilo-Org/cloud#963). Re-evaluate when
+`@xterm/xterm` ≥ 6.1 goes stable: enabling kitty via `vtExtensions` plus a
+local activation on attach (`term.write("\x1b[>1u")`) could retire the three
+layers — tmux accepts CSI u as input without negotiating — but measure first:
+flag 1 changes Esc/Ctrl+C encoding too. Also watch `coder/ghostty-web`
+(Ghostty's VT parser in WASM, xterm.js-compatible API, kitty encoder built in):
+the natural mid-term engine candidate, but born ~Nov 2025 with basic input gaps
+open (coder/ghostty-web#145) — and swapping engines does not remove the shim
+while tmux sits in the middle.
+
 **ADR-0024 presets, held for the owner's call.** The ADR has the user creating,
 editing and deleting presets and stamping them onto a terminal. With exactly
 one flag offered, a preset would carry a single boolean — more clicks than the
