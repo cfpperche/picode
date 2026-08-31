@@ -65,7 +65,7 @@ attaching the image; the path heuristic is a fallback.
 | `/plan` | Lock plan + system prompt |
 | `/role <name>` | Lock a preset (`auto` is accepted) |
 | `/roles` | Pick a configured role |
-| `/roles edit [name]` | Set model + thinking and save the file |
+| `/roles edit [name]` | Provider → model → thinking, then save |
 | `/roles add [name]` | Create a custom preset |
 | `/roles remove [name]` | Delete a custom preset |
 

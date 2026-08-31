@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **`/roles edit` and `/roles add` pick provider, then model, then thinking**
+  instead of dumping every `provider/id` in one list.
 - The second line of agent and terminal rows is now two pills: filesystem
   and repository, separated — `[folder icon + dir]` opens the file tree,
   `[git icon + branch]` opens the git graph. A non-repo row shows the dir

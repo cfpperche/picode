@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
 	parseConfig,
 	parseModelId,
+	providersOf,
+	idsForProvider,
 	wantsVision,
 	decideOnInput,
 	lockRole,
@@ -45,6 +47,25 @@ describe("parseModelId", () => {
 		assert.equal(parseModelId("glm-5.3"), null);
 		assert.equal(parseModelId("/id"), null);
 		assert.equal(parseModelId("prov/"), null);
+	});
+});
+
+describe("groupModels", () => {
+	const models = [
+		"xai/grok-4.6",
+		"xai/grok-4.5",
+		"anthropic/claude-sonnet-4-5",
+		"not-a-model",
+		"xai/grok-4.6",
+	];
+	it("lists providers sorted", () => {
+		assert.deepEqual(providersOf(models), ["anthropic", "xai"]);
+	});
+	it("lists ids for one provider, first-seen, no dupes", () => {
+		assert.deepEqual(idsForProvider(models, "xai"), ["grok-4.6", "grok-4.5"]);
+	});
+	it("empty for an unknown provider", () => {
+		assert.deepEqual(idsForProvider(models, "zai"), []);
 	});
 });
 

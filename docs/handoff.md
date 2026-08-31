@@ -48,6 +48,9 @@ What exists:
 
 ## In flight
 
+**`/roles` picker 3-step** on `fix/roles-picker-steps`: provider → model →
+thinking. Not merged.
+
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -207,6 +210,9 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — `/roles edit|add` picks provider, then model, then thinking
+  (`fix/roles-picker-steps`). **visual-review: n/a** (extension dialogs).
 
 - **2026-08-31** — **Provider Usage V2** (ADR-0031). ZAI and OpenCode Go
   API keys get Usage. Codex/Grok banked resets show in the dialog; Redeem

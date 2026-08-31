@@ -14,9 +14,11 @@ import {
 	decideOnInput,
 	editRole,
 	emptyConfig,
+	idsForProvider,
 	lockRole,
 	parseConfig,
 	parseModelId,
+	providersOf,
 	removeCustom,
 	serializeConfig,
 	THINKING_LEVELS,
@@ -141,15 +143,6 @@ export default function piRoles(pi: ExtensionAPI) {
 		return unique(all.map((m) => `${m.provider}/${m.id}`));
 	}
 
-	async function pickModel(ctx: ExtensionContext, title: string): Promise<string | undefined> {
-		const models = listModels(ctx);
-		if (models.length === 0) {
-			ctx.ui.notify("No models available. Sign in a provider first.", "error");
-			return;
-		}
-		return ctx.ui.select(title, models);
-	}
-
 	async function pickThinking(ctx: ExtensionContext): Promise<ThinkingLevel | undefined | "cancel"> {
 		const choice = await ctx.ui.select("Thinking level", ["none", ...THINKING_LEVELS]);
 		if (!choice) return "cancel";
@@ -158,11 +151,32 @@ export default function piRoles(pi: ExtensionAPI) {
 	}
 
 	async function pickAssignment(ctx: ExtensionContext, title: string): Promise<Assignment | null> {
-		const model = await pickModel(ctx, title);
-		if (!model) return null;
+		const models = listModels(ctx);
+		if (models.length === 0) {
+			ctx.ui.notify("No models available. Sign in a provider first.", "error");
+			return null;
+		}
+		const providers = providersOf(models);
+		let provider = providers[0];
+		if (providers.length > 1) {
+			const picked = await ctx.ui.select(`${title} — provider`, providers);
+			if (!picked) return null;
+			provider = picked;
+		}
+		const ids = idsForProvider(models, provider);
+		if (ids.length === 0) {
+			ctx.ui.notify(`No models for ${provider}.`, "error");
+			return null;
+		}
+		let id = ids[0];
+		if (ids.length > 1) {
+			const picked = await ctx.ui.select(`${title} — model`, ids);
+			if (!picked) return null;
+			id = picked;
+		}
 		const thinking = await pickThinking(ctx);
 		if (thinking === "cancel") return null;
-		const assignment: Assignment = { model };
+		const assignment: Assignment = { model: `${provider}/${id}` };
 		if (thinking) assignment.thinking = thinking;
 		return assignment;
 	}

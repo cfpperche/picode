@@ -62,6 +62,27 @@ const RESERVED = new Set(["auto", "default", "vision", "plan", "role", "roles"])
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp)(\b|$)/i;
 const BUILTIN = new Set<string>(BUILTIN_ROLES);
 
+/** Group `provider/id` strings. Providers sorted; ids keep first-seen order. */
+export function groupModels(models: string[]): Map<string, string[]> {
+	const map = new Map<string, string[]>();
+	for (const m of models) {
+		const parsed = parseModelId(m);
+		if (!parsed) continue;
+		const list = map.get(parsed.provider) ?? [];
+		if (!list.includes(parsed.id)) list.push(parsed.id);
+		map.set(parsed.provider, list);
+	}
+	return map;
+}
+
+export function providersOf(models: string[]): string[] {
+	return [...groupModels(models).keys()].sort();
+}
+
+export function idsForProvider(models: string[], provider: string): string[] {
+	return groupModels(models).get(provider) ?? [];
+}
+
 export function parseModelId(model: string): { provider: string; id: string } | null {
 	const i = model.indexOf("/");
 	if (i <= 0 || i === model.length - 1) return null;
