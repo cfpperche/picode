@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { layout, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
+import { IconRemote } from "./Icons.jsx";
 
 // One row per commit, with the branch lines drawn as a single SVG layer behind
 // them. Row height is GRID.y so the drawing and the text stay aligned without
@@ -19,6 +20,20 @@ function refKindClass(kind) {
   if (kind === "remote") return "gg-ref-remote";
   if (kind === "tag") return "gg-ref-tag";
   return "gg-ref-head";
+}
+
+// A remote name is "origin/feat-x": the remote is context, the branch is the
+// point. One span keeps them glued against the pill's flex gap.
+function refLabel(ref) {
+  if (ref.kind !== "remote") return ref.name;
+  const cut = ref.name.indexOf("/");
+  if (cut < 0) return ref.name;
+  return (
+    <span className="gg-ref-name">
+      <span className="gg-ref-origin">{ref.name.slice(0, cut)}</span>
+      {ref.name.slice(cut + 1)}
+    </span>
+  );
 }
 
 export default function GitGraph({ graph, selected, onSelect }) {
@@ -108,7 +123,8 @@ export default function GitGraph({ graph, selected, onSelect }) {
                     const agents = ref.kind === "head" ? agentsByBranch.get(ref.name) : null;
                     return (
                       <span key={ref.kind + ref.name} className={"gg-ref " + refKindClass(ref.kind)}>
-                        {ref.name}
+                        {ref.kind === "remote" ? <IconRemote /> : null}
+                        {refLabel(ref)}
                         {agents
                           ? agents.map((a) => (
                               <span key={a.id} className="gg-occupant" title={`Agent ${a.name} works here`}>

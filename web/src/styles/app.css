@@ -14,6 +14,7 @@
   --ok: #63d297;
   --warn: #e5c07b;
   --danger: #f7768e;
+  --remote: #7dcfff;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   --code: "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Code", Menlo, monospace;
   --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
@@ -41,6 +42,7 @@
   --ok: #2e7d32;
   --warn: #a16207;
   --danger: #cf3b54;
+  --remote: #0e7490;
 }
 * {
   box-sizing: border-box; margin: 0;
@@ -2809,7 +2811,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   border: 1px solid var(--border); white-space: nowrap;
 }
 .gg-ref-head { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-.gg-ref-remote { color: var(--text-secondary); }
+/* A remote pill has to read at a glance as "not yours": its own colour, a
+   cloud, and the remote name set off from the branch it tracks. */
+.gg-ref-remote { color: var(--remote); border-color: color-mix(in srgb, var(--remote) 45%, var(--border)); }
+.gg-ref-remote svg { flex: none; opacity: .8; }
+.gg-ref-origin { color: color-mix(in srgb, var(--remote) 60%, var(--text-secondary)); font-weight: 400; }
+.gg-ref-origin::after { content: "/"; opacity: .6; }
 .gg-ref-tag { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
 /* The agent living in the worktree checked out on this branch. */
 .gg-occupant {
