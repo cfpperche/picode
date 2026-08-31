@@ -16,7 +16,10 @@ to the `[Unreleased]` section. The repository's official language is English
 - **Terminal cards show where the terminal IS.** The sidebar printed the
   folder each terminal was created in, forever — a `cd` inside the pane
   never reached it, while the git info beside it was already read from the
-  live path. `GET /api/terminals` now reports the live pane cwd.
+  live path. Every endpoint that answers with a terminal (list, create,
+  open, rename) now reports the live pane cwd and the git facts read from
+  it — fixing the selected terminal too, whose open response used to
+  overwrite the live path with the stale record.
 - A workspace agent on its own workPath showed its workspace's branch
   instead of its own: agent views now carry git facts for the agent's
   effective directory, and the sidebar never pairs one directory's path with
