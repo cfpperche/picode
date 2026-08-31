@@ -189,14 +189,22 @@ once and retired (`workspaces.json.migrated`).
 
 ### AgentManager (M1 core shipped)
 Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
-each with a default agent; tmux session names derive from the agent id.
+workspaces start empty (ADR-0027) and own zero or more agents; tmux
+session names derive from the agent id.
 An agent runs as `pi` (ADR-0003, user-installed) in a named tmux session.
 Per-agent provider/model/thinking is stored on `agents` and passed as
 `pi --provider/--model/--thinking` on start (ADR-0009). Auth stays in
 `~/.pi/agent/auth.json`; PiCode never collects keys.
 
 HTTP API (Go 1.22 method patterns):
-- `GET/POST /api/workspaces` — list (with live `running` flag) / add
+- `GET/POST /api/workspaces` — list (with live `running` flag) / add.
+  Add registers the folder only (ADR-0027): the 201 carries `agents: []`
+  and no `agent` key; an idempotent re-add answers with the real agents
+  and never resurrects a deleted one. `agent` is omitted whenever a
+  workspace is empty.
+- `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
+  public/static/app/src/app/www/docs; svg > png > ico), read-only and
+  confined to the folder; the workspace card wears it.
 - `DELETE /api/workspaces/{id}` — remove (stops **all** agents first, then
   kills the workspace's terminals — sessions best-effort, records and
   settings overrides in one transaction; ADR-0026).
@@ -221,7 +229,9 @@ HTTP API (Go 1.22 method patterns):
   every Pi session on the machine, each tagged with the workspace owning
   its folder; delete validates against the sessions root. Powers the
   `#/sessions` All-folders view.
-- `POST /api/workspaces/{id}/open|close` — start/stop the pi agent (idempotent)
+- `POST /api/workspaces/{id}/open|close` — start/stop the pi agent
+  (idempotent); 409 on a workspace with no agents, like every
+  workspace-scoped call that needs one (sessions, status)
 - `GET /api/system` — pi/tmux detection + setup warnings (ADR-0003 UX).
   `pi.latest`/`pi.updateAvailable` ride along (registry check, 6 h cache);
   `POST /api/system/pi-update` runs `pi update --self`.
