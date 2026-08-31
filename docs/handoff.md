@@ -187,6 +187,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Terminal rows in the sidebar lost the pencil: the name
+  itself is the rename control (hover paints it accent with a dotted
+  underline, click opens the rename dialog), and the hover action row is
+  now remove then settings, so the gear is the last icon on the line. The
+  rest of the row still selects the terminal; the name button claims only
+  its own text (`flex: 0 1 auto`), not the whole line. Owner's request from
+  a screenshot.
+
 - **2026-08-30** — Terminal appearance moved into `#/termset` ("Appearance —
   this browser" section, global page only); Preferences lost its Terminal
   tab and `#/preferences/terminal` degrades to Appearance. Storage homes
