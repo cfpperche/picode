@@ -85,6 +85,7 @@ export const IconMode = lucide(SlidersHorizontal, 13);
 export const IconCopy = lucide(Copy, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
+export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
