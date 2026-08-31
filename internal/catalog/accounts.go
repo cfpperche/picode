@@ -12,10 +12,11 @@ import (
 
 // Account is one saved login for a provider (no secret material).
 type Account struct {
-	ID     string `json:"id"`
-	Label  string `json:"label"`
-	Type   string `json:"type"`
-	Active bool   `json:"active"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Type      string `json:"type"`
+	Active    bool   `json:"active"`
+	QuotaKind string `json:"quotaKind,omitempty"` // oauth | api_key when this row can fetch Usage
 }
 
 type vaultFile map[string]vaultProvider
@@ -39,6 +40,21 @@ func vaultPath() string {
 		return ""
 	}
 	return filepath.Join(home, ".picode", "accounts.json")
+}
+
+func peekVaultAccount(provider, accountID string) (vaultAccount, bool) {
+	provider = strings.TrimSpace(provider)
+	accountID = strings.TrimSpace(accountID)
+	if provider == "" || accountID == "" {
+		return vaultAccount{}, false
+	}
+	slot := loadVault()[provider]
+	for _, a := range slot.Accounts {
+		if a.ID == accountID {
+			return a, true
+		}
+	}
+	return vaultAccount{}, false
 }
 
 func peekCred(provider string) json.RawMessage {
@@ -202,7 +218,10 @@ func accountsOf(provider string) []Account {
 	slot := loadVault()[provider]
 	out := make([]Account, 0, len(slot.Accounts))
 	for _, a := range slot.Accounts {
-		out = append(out, Account{ID: a.ID, Label: a.Label, Type: a.Type, Active: a.ID == slot.Active})
+		out = append(out, Account{
+			ID: a.ID, Label: a.Label, Type: a.Type, Active: a.ID == slot.Active,
+			QuotaKind: QuotaKind(provider, a.Type),
+		})
 	}
 	return out
 }

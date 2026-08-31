@@ -17,7 +17,7 @@ const (
 	xaiClientID       = "b1a00492-073a-47ea-816f-4c329264a828"
 )
 
-func (c *Client) refresh(ctx context.Context, provider string, cred catalog.OAuthCred) (catalog.OAuthCred, error) {
+func (c *Client) refresh(ctx context.Context, provider string, cred catalog.OAuthCred, accountID string) (catalog.OAuthCred, error) {
 	if cred.Refresh == "" {
 		return cred, fmt.Errorf("no refresh token")
 	}
@@ -53,7 +53,7 @@ func (c *Client) refresh(ctx context.Context, provider string, cred catalog.OAut
 			"client_id":     xaiClientID,
 		}, nil)
 	case "github-copilot":
-		return c.refreshCopilot(ctx, cred)
+		return c.refreshCopilot(ctx, cred, accountID)
 	default:
 		return cred, fmt.Errorf("no refresh")
 	}
@@ -73,11 +73,11 @@ func (c *Client) refresh(ctx context.Context, provider string, cred catalog.OAut
 		next.Refresh = refresh
 	}
 	next.Expires = exp
-	_ = catalog.UpdateOAuthTokens(provider, next.Access, next.Refresh, next.Expires)
+	_ = catalog.UpdateOAuthTokensAccount(provider, accountID, next.Access, next.Refresh, next.Expires)
 	return next, nil
 }
 
-func (c *Client) refreshCopilot(ctx context.Context, cred catalog.OAuthCred) (catalog.OAuthCred, error) {
+func (c *Client) refreshCopilot(ctx context.Context, cred catalog.OAuthCred, accountID string) (catalog.OAuthCred, error) {
 	// Copilot stores the GitHub token as refresh; access is the short-lived Copilot token.
 	body, status, err := c.get(ctx, c.url("copilot.token", ""), cred.Refresh, map[string]string{
 		"User-Agent":             "GitHubCopilotChat/0.35.0",
@@ -103,7 +103,7 @@ func (c *Client) refreshCopilot(ctx context.Context, cred catalog.OAuthCred) (ca
 	if tok.ExpiresAt > 0 {
 		next.Expires = tok.ExpiresAt*1000 - 5*60*1000
 	}
-	_ = catalog.UpdateOAuthTokens("github-copilot", next.Access, next.Refresh, next.Expires)
+	_ = catalog.UpdateOAuthTokensAccount("github-copilot", accountID, next.Access, next.Refresh, next.Expires)
 	return next, nil
 }
 

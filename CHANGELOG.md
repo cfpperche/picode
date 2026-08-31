@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Provider Usage V3** (ADR-0031): Usage sits on each vault account, not
+  only the active one — no **Use** required. OpenRouter, MiniMax, MiniMax
+  CN, and Kimi API keys get meters. Grok reset credits also try the Grok
+  CLI session (`~/.grok/auth.json`) and an explicit `GROK_COOKIE`. Qwen
+  Token Plan has no API-key quota URL, so Usage stays hidden.
 - **File tree V2** (ADR-0032). Clicking a row in the tree's Changes section
   now opens that file's working-tree diff in a pane beside the tree (+n −n,
   binary and truncation handled; "Open file" jumps to the editor). The

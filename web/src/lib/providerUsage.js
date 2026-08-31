@@ -1,5 +1,16 @@
-export function showUsageButton(p) {
-  return Boolean(p && p.signedIn && p.quotaKind && p.authType === p.quotaKind);
+export function showUsageButton(p, account) {
+  if (!p) return false;
+  if (account) {
+    return Boolean(account.quotaKind && account.type && account.quotaKind === account.type);
+  }
+  return Boolean(p.signedIn && p.quotaKind && p.authType === p.quotaKind);
+}
+
+export function usagePath(providerId, accountId) {
+  const id = encodeURIComponent(providerId || "");
+  const aid = accountId && accountId !== "live" ? encodeURIComponent(accountId) : "";
+  if (aid) return "/api/providers/" + id + "/accounts/" + aid + "/usage";
+  return "/api/providers/" + id + "/usage";
 }
 
 export function barTone(used) {

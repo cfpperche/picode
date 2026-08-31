@@ -2,6 +2,7 @@ package usage
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -365,5 +366,266 @@ func TestRedeemNone(t *testing.T) {
 	rep := client.Redeem(context.Background(), "openai-codex", "")
 	if rep.Status != StatusError || rep.Error != "No reset available." {
 		t.Fatalf("%+v", rep)
+	}
+}
+
+func TestFetchAccountDoesNotSwapActive(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/anthropic/usage", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer oa" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"five_hour":{"utilization":4}}`))
+	})
+	mux.HandleFunc("/anthropic/profile", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/zai", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":1}]}}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"anthropic.usage":   ts.URL + "/anthropic/usage",
+		"anthropic.profile": ts.URL + "/anthropic/profile",
+		"zai.quota":         ts.URL + "/zai",
+	}
+	if err := catalog.PutOAuth("anthropic", map[string]any{
+		"type": "oauth", "access": "oa", "refresh": "or",
+		"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	oauthID := catalog.AccountsFor("anthropic")[0].ID
+	if err := catalog.PutAPIKey("anthropic", "sk-live"); err != nil {
+		t.Fatal(err)
+	}
+	if catalog.ActiveAuthType("anthropic") != catalog.LoginAPIKey {
+		t.Fatal("expected api key active")
+	}
+	rep := client.FetchAccount(context.Background(), "anthropic", oauthID)
+	if rep.Status != StatusOK || !hasWindow(rep.Windows, "5h") {
+		t.Fatalf("vault fetch %+v", rep)
+	}
+	if catalog.ActiveAuthType("anthropic") != catalog.LoginAPIKey {
+		t.Fatal("usage swapped auth.json")
+	}
+	unknown := client.FetchAccount(context.Background(), "anthropic", "no-such")
+	if unknown.Status != StatusAuthRequired {
+		t.Fatalf("unknown %+v", unknown)
+	}
+
+	if err := catalog.PutAPIKey("zai", "sk-one"); err != nil {
+		t.Fatal(err)
+	}
+	if err := catalog.PutAPIKey("zai", "sk-two"); err != nil {
+		t.Fatal(err)
+	}
+	var inactive string
+	for _, a := range catalog.AccountsFor("zai") {
+		if !a.Active {
+			inactive = a.ID
+		}
+	}
+	if inactive == "" {
+		t.Fatal("need inactive zai")
+	}
+	zrep := client.FetchAccount(context.Background(), "zai", inactive)
+	if zrep.Status != StatusOK {
+		t.Fatalf("zai inactive %+v", zrep)
+	}
+	key, _ := catalog.ActiveAPIKey("zai")
+	if key != "sk-two" {
+		t.Fatalf("active key %s", key)
+	}
+}
+
+func TestFetchAccountRefreshWritesVaultOnly(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/anthropic/usage", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer fresh" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"five_hour":{"utilization":1}}`))
+	})
+	mux.HandleFunc("/anthropic/profile", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	})
+	mux.HandleFunc("/anthropic/token", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"fresh","refresh_token":"r2","expires_in":3600}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Now = func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) }
+	client.Endpoints = map[string]string{
+		"anthropic.usage":   ts.URL + "/anthropic/usage",
+		"anthropic.profile": ts.URL + "/anthropic/profile",
+		"anthropic.token":   ts.URL + "/anthropic/token",
+	}
+	if err := catalog.PutOAuth("anthropic", map[string]any{
+		"type": "oauth", "access": "stale", "refresh": "r1", "expires": float64(1),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	oauthID := catalog.AccountsFor("anthropic")[0].ID
+	if err := catalog.PutAPIKey("anthropic", "sk-live"); err != nil {
+		t.Fatal(err)
+	}
+	rep := client.FetchAccount(context.Background(), "anthropic", oauthID)
+	if rep.Status != StatusOK {
+		t.Fatalf("%+v", rep)
+	}
+	if catalog.ActiveAuthType("anthropic") != catalog.LoginAPIKey {
+		t.Fatal("refresh activated oauth")
+	}
+	cred, ok := catalog.VaultOAuth("anthropic", oauthID)
+	if !ok || cred.Access != "fresh" {
+		t.Fatalf("vault %+v ok=%v", cred, ok)
+	}
+}
+
+func TestGrokResetFallsBackToCLIThenCookie(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	grokHome := t.TempDir()
+	t.Setenv("GROK_HOME", grokHome)
+	cliTok := map[string]any{
+		"https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828": map[string]any{
+			"key": "cli-key", "refresh_token": "rt",
+			"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+		},
+	}
+	raw, _ := json.Marshal(cliTok)
+	if err := os.WriteFile(filepath.Join(grokHome, "auth.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/xai/billing", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"config":{"creditUsagePercent":10,"currentPeriod":{"end":"2026-09-05T12:00:00Z"}}}`))
+	})
+	mux.HandleFunc("/xai/settings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"subscription_tier_display":"SuperGrok"}`))
+	})
+	mux.HandleFunc("/xai/resets", func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		cookie := r.Header.Get("Cookie")
+		w.Header().Set("Content-Type", "application/json")
+		if auth == "Bearer cli-key" || strings.Contains(cookie, "sso=abc") {
+			_, _ = w.Write([]byte(`{"tokens":[{"tokenId":"tok1","validityEnd":"2099-01-01T00:00:00Z"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"xai.billing":  ts.URL + "/xai/billing",
+		"xai.settings": ts.URL + "/xai/settings",
+		"xai.resets":   ts.URL + "/xai/resets",
+	}
+	if err := catalog.PutOAuth("xai", map[string]any{
+		"type": "oauth", "access": "picode-key", "refresh": "pr",
+		"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rep := client.Fetch(context.Background(), "xai")
+	if rep.Status != StatusOK || len(rep.Resets) != 1 || rep.Resets[0].ID != "tok1" {
+		t.Fatalf("cli fallback %+v", rep)
+	}
+
+	if err := os.Remove(filepath.Join(grokHome, "auth.json")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GROK_COOKIE", "sso=abc")
+	rep = client.Fetch(context.Background(), "xai")
+	if rep.Status != StatusOK || len(rep.Resets) != 1 {
+		t.Fatalf("cookie fallback %+v", rep)
+	}
+
+	t.Setenv("GROK_COOKIE", "")
+	rep = client.Fetch(context.Background(), "xai")
+	if rep.Status != StatusOK || len(rep.Resets) != 0 || len(rep.Windows) == 0 {
+		t.Fatalf("omit resets %+v", rep)
+	}
+}
+
+func TestFetchV3APIKeyMeters(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/or/key", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"limit_remaining":12.5,"limit":20}}`))
+	})
+	mux.HandleFunc("/mm", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"model_remains":[{"model_name":"general","current_interval_total_count":100,"current_interval_remaining_percent":70,"current_weekly_total_count":500,"current_weekly_remaining_percent":90}]}`))
+	})
+	mux.HandleFunc("/kimi", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"five_hour":{"used_percent":11},"weekly":{"used_percent":22}}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"openrouter.key": ts.URL + "/or/key",
+		"minimax.quota":  ts.URL + "/mm",
+		"kimi.usage":     ts.URL + "/kimi",
+	}
+	ctx := context.Background()
+
+	if err := catalog.PutAPIKey("openrouter", "sk-or"); err != nil {
+		t.Fatal(err)
+	}
+	rep := client.Fetch(ctx, "openrouter")
+	if rep.Status != StatusOK || len(rep.Windows) == 0 || *rep.Windows[0].Remaining != 12.5 {
+		t.Fatalf("openrouter %+v", rep)
+	}
+
+	if err := catalog.PutAPIKey("minimax", "sk-mm"); err != nil {
+		t.Fatal(err)
+	}
+	rep = client.Fetch(ctx, "minimax")
+	if rep.Status != StatusOK || !hasWindow(rep.Windows, "5h") || !hasWindow(rep.Windows, "7d") {
+		t.Fatalf("minimax %+v", rep)
+	}
+	if *rep.Windows[0].UsedPercent != 30 {
+		t.Fatalf("minimax used remaining-percent inverted %+v", rep.Windows[0])
+	}
+
+	if err := catalog.PutAPIKey("kimi-coding", "kimi-key"); err != nil {
+		t.Fatal(err)
+	}
+	rep = client.Fetch(ctx, "kimi-coding")
+	if rep.Status != StatusOK || !hasWindow(rep.Windows, "5h") {
+		t.Fatalf("kimi key %+v", rep)
+	}
+
+	if err := catalog.PutAPIKey("qwen-token-plan", "sk-sp"); err != nil {
+		t.Fatal(err)
+	}
+	rep = client.Fetch(ctx, "qwen-token-plan")
+	if rep.Status != StatusUnsupported {
+		t.Fatalf("qwen should stay unsupported %+v", rep)
 	}
 }

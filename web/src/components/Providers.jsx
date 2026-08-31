@@ -263,15 +263,12 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
         ) : (
           <ul className="prov-list">
             {signed.map((p) => {
-              const accs = p.accounts && p.accounts.length ? p.accounts : [{ id: "live", label: "Default", type: p.authType, active: true }];
+              const accs = p.accounts && p.accounts.length ? p.accounts : [{ id: "live", label: "Default", type: p.authType, active: true, quotaKind: p.quotaKind }];
               return (
                 <li key={p.id} className="prov-group">
                   <div className="prov-row">
                     <ProviderFace id={p.id} />
                     <span className="prov-id">{p.id}</span>
-                    {showUsageButton(p) ? (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor(p)}>Usage</button>
-                    ) : null}
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
                   </div>
                   <ul className="prov-accounts">
@@ -279,6 +276,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                       <li key={a.id} className={"prov-row" + (a.active ? "" : " muted")}>
                         <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
                         <span className={"prov-auth" + (a.active ? " in" : "")}>{a.type === "oauth" ? "account" : "api key"}{a.active ? " · active" : ""}</span>
+                        {showUsageButton(p, a) ? (
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor({ provider: p, account: a })}>Usage</button>
+                        ) : null}
                         {!a.active ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button> : null}
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeAccount(p.id, a)}>Sign out</button>
                       </li>
@@ -312,10 +312,11 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
       ) : null}
 
       <UsageDialog
-        provider={usageFor}
+        provider={usageFor && usageFor.provider}
+        account={usageFor && usageFor.account}
         onClose={() => setUsageFor(null)}
         onSignIn={() => {
-          const p = usageFor;
+          const p = usageFor && usageFor.provider;
           setUsageFor(null);
           if (p) replaceProvider(p);
         }}

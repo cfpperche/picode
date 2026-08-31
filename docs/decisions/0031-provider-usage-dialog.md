@@ -57,5 +57,26 @@ still show. No invented 0-reset badge.
 - **Vendor npm extensions in the GUI.** Refused: ADR-0003, extra runtime.
 - **Quota % on the roster or statusbar.** Refused: "0" badges and invented
   numbers; progressive disclosure is the Cursor/Stripe bar.
-- **Per-vault-account fetch without Use.** Deferred: pi still has one slot;
-  Use then Usage is the path.
+- **Qwen Token Plan meter.** Refused for V3: the plan has no API-key quota
+  JSON. Console usage needs a web session cookie (`GetSubscriptionSummary` /
+  zelda), not `sk-sp-`. Hide Usage rather than invent a bar.
+- **Chrome cookie dump for Grok resets.** Refused: the Grok CLI session
+  (`~/.grok/auth.json`) is the fallback; optional `GROK_COOKIE` is explicit.
+  Scraping the browser cookie jar is out of scope.
+
+## Amendment (2026-08-31) — V3 per-account, Grok session, more keys
+
+Usage is per vault row. `GET /api/providers/{id}/accounts/{aid}/usage`
+(and `POST …/reset`) reads that cred without writing it into `auth.json`.
+OAuth refresh writes the vault row; `auth.json` updates only if that row
+is active. `#/providers` puts Usage on each account that `quotaKind`
+matches. Group-level Usage is gone.
+
+Grok banked resets try, in order: PiCode OAuth bearer, Grok CLI
+`~/.grok/auth.json` `key` (refresh if `expires_at` is past), then
+`GROK_COOKIE`. A miss still omits `resets[]`; weekly windows stay.
+
+API-key meters: OpenRouter `GET /api/v1/key` (`limit_remaining`, then
+`/credits` if the key has no cap), MiniMax / MiniMax CN
+`/v1/token_plan/remains` (remaining-percent inverted to used), Kimi Code
+API key on the same `/coding/v1/usages` as OAuth.

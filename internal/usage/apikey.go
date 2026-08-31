@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -154,4 +155,179 @@ func parseOpenCodeGo(raw []byte, rep *Report) {
 	if !hasWindow(rep.Windows, "1m") {
 		add(inner["monthlyUsage"], "1m", "This month")
 	}
+}
+
+func (c *Client) kimiKey(ctx context.Context, key string, rep *Report) (int, error) {
+	body, status, err := c.get(ctx, c.url("kimi.usage", ""), key, nil)
+	if err != nil || status >= 300 {
+		return status, err
+	}
+	parseKimiUsage(body, rep)
+	return status, nil
+}
+
+func (c *Client) openrouter(ctx context.Context, key string, rep *Report) (int, error) {
+	body, status, err := c.get(ctx, c.url("openrouter.key", ""), key, nil)
+	if err != nil || status >= 300 {
+		return status, err
+	}
+	parseOpenRouterKey(body, rep)
+	if !hasWindow(rep.Windows, "credits") {
+		if cbody, cst, cerr := c.get(ctx, c.url("openrouter.credits", ""), key, nil); cerr == nil && cst == 200 {
+			parseOpenRouterCredits(cbody, rep)
+		}
+	}
+	return status, nil
+}
+
+func parseOpenRouterKey(raw []byte, rep *Report) {
+	var root map[string]any
+	if json.Unmarshal(raw, &root) != nil {
+		return
+	}
+	data := mapOf(root["data"])
+	if data == nil {
+		data = root
+	}
+	if s := str(data["label"]); s != "" && !strings.HasPrefix(strings.ToLower(s), "sk-") {
+		rep.Plan = s
+	}
+	remaining, rok := num(data["limit_remaining"])
+	if rok {
+		rep.Windows = append(rep.Windows, moneyWindow("credits", "Credits", remaining, "usd"))
+	}
+}
+
+func parseOpenRouterCredits(raw []byte, rep *Report) {
+	if hasWindow(rep.Windows, "credits") {
+		return
+	}
+	var root map[string]any
+	if json.Unmarshal(raw, &root) != nil {
+		return
+	}
+	data := mapOf(root["data"])
+	if data == nil {
+		data = root
+	}
+	total, tok := num(data["total_credits"])
+	used, uok := num(data["total_usage"])
+	if tok && uok {
+		left := total - used
+		if left < 0 {
+			left = 0
+		}
+		rep.Windows = append(rep.Windows, moneyWindow("credits", "Credits", left, "usd"))
+	}
+}
+
+func (c *Client) minimax(ctx context.Context, key, quotaURL, codingURL string, rep *Report) (int, error) {
+	body, status, err := c.get(ctx, quotaURL, key, nil)
+	if err == nil && status < 300 {
+		parseMiniMaxRemains(body, rep)
+		if len(rep.Windows) > 0 {
+			return status, nil
+		}
+	}
+	if codingURL != "" && codingURL != quotaURL {
+		b2, s2, e2 := c.get(ctx, codingURL, key, nil)
+		if e2 == nil && s2 < 300 {
+			parseMiniMaxRemains(b2, rep)
+			return s2, e2
+		}
+		if status >= 300 || err != nil {
+			return s2, e2
+		}
+	}
+	if err != nil || status >= 300 {
+		return status, err
+	}
+	return status, nil
+}
+
+func parseMiniMaxRemains(raw []byte, rep *Report) {
+	var root map[string]any
+	if json.Unmarshal(raw, &root) != nil {
+		return
+	}
+	data := mapOf(root["data"])
+	if data == nil {
+		data = root
+	}
+	arr, _ := data["model_remains"].([]any)
+	if arr == nil {
+		arr, _ = root["model_remains"].([]any)
+	}
+	var pick map[string]any
+	for _, item := range arr {
+		im := mapOf(item)
+		if im == nil {
+			continue
+		}
+		name := strings.ToLower(str(im["model_name"]))
+		total, _ := num(im["current_interval_total_count"])
+		if total <= 0 {
+			continue
+		}
+		if name == "general" || name == "" {
+			pick = im
+			break
+		}
+		if pick == nil {
+			pick = im
+		}
+	}
+	if pick == nil && len(arr) == 0 {
+		pick = data
+	}
+	if pick == nil {
+		return
+	}
+	addMiniMaxWindow(rep, pick, "5h", "5 hours",
+		"current_interval_remaining_percent", "current_interval_total_count", "current_interval_usage_count", "remains_time", "end_time")
+	addMiniMaxWindow(rep, pick, "7d", "7 days",
+		"current_weekly_remaining_percent", "current_weekly_total_count", "current_weekly_usage_count", "weekly_remains_time", "weekly_end_time")
+}
+
+func addMiniMaxWindow(rep *Report, m map[string]any, id, label, remPctKey, totalKey, remainCountKey, remainsTimeKey, endKey string) {
+	if hasWindow(rep.Windows, id) {
+		return
+	}
+	total, tok := num(m[totalKey])
+	if tok && total <= 0 {
+		return
+	}
+	var pct float64
+	var has bool
+	if n, ok := num(m[remPctKey]); ok {
+		pct = clampPct(100 - n)
+		has = true
+	} else if tok {
+		remain, rok := num(m[remainCountKey])
+		if rok && total > 0 {
+			used := total - remain
+			if used < 0 {
+				used = 0
+			}
+			pct = clampPct(used / total * 100)
+			has = true
+		}
+	}
+	if !has {
+		return
+	}
+	w := Window{ID: id, Label: label, UsedPercent: ptr(pct)}
+	if n, ok := num(m[remainsTimeKey]); ok && n > 0 {
+		d := time.Duration(n) * time.Millisecond
+		if n < 1e10 {
+			d = time.Duration(n) * time.Second
+		}
+		w.ResetsAt = time.Now().UTC().Add(d).Format(time.RFC3339)
+	}
+	if w.ResetsAt == "" {
+		if s := str(m[endKey]); s != "" {
+			w.ResetsAt = normalizeTime(s)
+		}
+	}
+	rep.Windows = append(rep.Windows, w)
 }

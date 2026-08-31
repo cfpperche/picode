@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
-import { activeAccountLine, barTone, formatMoney, formatReset, resetLine, usageCopy } from "../lib/providerUsage.js";
+import { activeAccountLine, barTone, formatMoney, formatReset, resetLine, usageCopy, usagePath } from "../lib/providerUsage.js";
 
-export default function UsageDialog({ provider, onClose, onSignIn }) {
+export default function UsageDialog({ provider, account, onClose, onSignIn }) {
   const open = !!provider;
+  const accountId = account && account.id;
   const [data, setData] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -18,7 +19,7 @@ export default function UsageDialog({ provider, onClose, onSignIn }) {
       return;
     }
     return load(false);
-  }, [open, provider && provider.id]);
+  }, [open, provider && provider.id, accountId]);
 
   function load(keep) {
     let cancelled = false;
@@ -27,7 +28,7 @@ export default function UsageDialog({ provider, onClose, onSignIn }) {
       setLoadErr("");
     }
     setBusy(true);
-    api("/api/providers/" + encodeURIComponent(provider.id) + "/usage")
+    api(usagePath(provider.id, accountId))
       .then((rep) => {
         if (cancelled) return;
         setData(rep);
@@ -55,7 +56,7 @@ export default function UsageDialog({ provider, onClose, onSignIn }) {
     setBusy(true);
     try {
       const rid = data && data.resets && data.resets[0] ? data.resets[0].id : "";
-      const rep = await api("/api/providers/" + encodeURIComponent(provider.id) + "/usage/reset", {
+      const rep = await api(usagePath(provider.id, accountId) + "/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: rid }),

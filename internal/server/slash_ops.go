@@ -20,6 +20,8 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
 	mux.HandleFunc("GET /api/providers/{id}/usage", handleProviderUsage)
 	mux.HandleFunc("POST /api/providers/{id}/usage/reset", handleProviderUsageReset)
+	mux.HandleFunc("GET /api/providers/{id}/accounts/{aid}/usage", handleAccountUsage)
+	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/usage/reset", handleAccountUsageReset)
 }
 
 func handleProviderUsage(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +35,20 @@ func handleProviderUsageReset(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	rep := usage.Redeem(r.Context(), r.PathValue("id"), req.ID)
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func handleAccountUsage(w http.ResponseWriter, r *http.Request) {
+	rep := usage.FetchAccount(r.Context(), r.PathValue("id"), r.PathValue("aid"))
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func handleAccountUsageReset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	rep := usage.RedeemAccount(r.Context(), r.PathValue("id"), r.PathValue("aid"), req.ID)
 	writeJSON(w, http.StatusOK, rep)
 }
 
