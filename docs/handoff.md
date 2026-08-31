@@ -19,7 +19,7 @@ What exists:
 - Public `cfpperche/picode`, PolyForm Noncommercial + commercial, CI linux/macos/windows.
 - HTTPS default `:8445` (ADR-0007). SW caches **only hashed `/assets/`**; HTML/API network.
 - Workspaces + many agents per folder (ADR-0011). Settings vs Preferences (ADR-0012). Packages: machine / workspace / **this agent**; optional isolate skips inherit (ADR-0010).
-- Providers: API key + OAuth. Claude/Codex loopback `53692`/`1455`. Copilot/Kimi/xAI **device-code**. Radius stays TUI (gateway URL). **Usage** (ADR-0031) on `#/providers` for OAuth plans plus ZAI / OpenCode Go keys — live 5h/7d/week/extra; Codex/Grok banked resets with confirm-to-redeem.
+- Providers: API key + OAuth. Claude/Codex loopback `53692`/`1455`. Copilot/Kimi/xAI **device-code**. Radius stays TUI (gateway URL). **Usage** (ADR-0031) on each vault account on `#/providers` (OAuth plans, ZAI / OpenCode Go / OpenRouter / MiniMax / Kimi keys) — live 5h/7d/week/extra/credits; Codex/Grok banked resets with confirm-to-redeem. Grok resets fall back to `~/.grok/auth.json` then `GROK_COOKIE`.
 - **ADR-0013** vault `~/.picode/accounts.json`; `auth.json` is the one slot pi reads. Add account / Use / Sign out; OAuth re-login updates the same account.
 - Composer `/` opens **PiCode UI** (never the dock). Skills/templates = picker insert; pi RPC expands. `/share` = secret gist (`gh`).
 - `/llama` dialog on the **current view** (URL, Save, Retry, load/unload, HF download). Link **Set up llama.cpp** → `www/guide/llama.md`. **No GUI installer** (reverted).
@@ -207,6 +207,15 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — **Provider Usage V3** (ADR-0031). Usage is per vault
+  account (`GET/POST /api/providers/{id}/accounts/{aid}/usage[/reset]`)
+  without swapping `auth.json`. OpenRouter / MiniMax / MiniMax CN / Kimi
+  API keys get meters. Grok resets try PiCode OAuth, then Grok CLI
+  `~/.grok/auth.json`, then `GROK_COOKIE`. Qwen Token Plan stays hidden
+  (no API-key quota JSON). Chrome cookie dump refused. QA on :8451 —
+  Usage on each account row, OpenRouter credits, empty/error/auth
+  overlays. **visual-review: PASS**.
 
 - **2026-08-31** — **Provider Usage V2** (ADR-0031). ZAI and OpenCode Go
   API keys get Usage. Codex/Grok banked resets show in the dialog; Redeem

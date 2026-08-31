@@ -20,6 +20,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Provider Usage V3** (ADR-0031): Usage sits on each vault account, not
+  only the active one — no **Use** required. OpenRouter, MiniMax, MiniMax
+  CN, and Kimi API keys get meters. Grok reset credits also try the Grok
+  CLI session (`~/.grok/auth.json`) and an explicit `GROK_COOKIE`. Qwen
+  Token Plan has no API-key quota URL, so Usage stays hidden.
+
 - **Provider Usage V2** (ADR-0031): Usage also covers ZAI and OpenCode Go
   API-key plans. Codex and Grok show banked **reset** credits when the
   vendor answers; Redeem asks first, then spends one. Grok omits the reset

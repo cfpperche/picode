@@ -1,6 +1,6 @@
 // Package usage fetches live provider plan windows (5h, 7d, weekly, extra)
-// using the active auth.json credential. Tokens never leave this package
-// in JSON returned to the browser (ADR-0031).
+// using a vault account or the active auth.json credential. Tokens never
+// leave this package in JSON returned to the browser (ADR-0031).
 package usage
 
 import (
@@ -86,39 +86,57 @@ func (c *Client) url(key, fallback string) string {
 
 func defaultEndpoints() map[string]string {
 	return map[string]string{
-		"anthropic.usage":   "https://api.anthropic.com/api/oauth/usage",
-		"anthropic.profile": "https://api.anthropic.com/api/oauth/profile",
-		"anthropic.token":   "https://platform.claude.com/v1/oauth/token",
-		"codex.usage":       "https://chatgpt.com/backend-api/wham/usage",
-		"codex.token":       "https://auth.openai.com/oauth/token",
-		"copilot.user":      "https://api.github.com/copilot_internal/user",
-		"copilot.token":     "https://api.github.com/copilot_internal/v2/token",
-		"kimi.usage":        "https://api.kimi.com/coding/v1/usages",
-		"kimi.token":        "https://auth.kimi.com/api/oauth/token",
-		"xai.billing":       "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
-		"xai.settings":      "https://cli-chat-proxy.grok.com/v1/settings",
-		"xai.token":         "https://auth.x.ai/oauth2/token",
-		"xai.resets":        "https://grok.com/prod_mc_billing.ConsumerUiSvc/GetRemainingResets",
-		"xai.redeem":        "https://grok.com/prod_mc_billing.ConsumerUiSvc/RedeemReset",
-		"codex.resets":      "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
-		"codex.redeem":      "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume",
-		"zai.quota":         "https://api.z.ai/api/monitor/usage/quota/limit",
-		"zai-cn.quota":      "https://open.bigmodel.cn/api/monitor/usage/quota/limit",
-		"opencode-go.usage": "https://opencode.ai/zen/go/v1/usage",
+		"anthropic.usage":    "https://api.anthropic.com/api/oauth/usage",
+		"anthropic.profile":  "https://api.anthropic.com/api/oauth/profile",
+		"anthropic.token":    "https://platform.claude.com/v1/oauth/token",
+		"codex.usage":        "https://chatgpt.com/backend-api/wham/usage",
+		"codex.token":        "https://auth.openai.com/oauth/token",
+		"copilot.user":       "https://api.github.com/copilot_internal/user",
+		"copilot.token":      "https://api.github.com/copilot_internal/v2/token",
+		"kimi.usage":         "https://api.kimi.com/coding/v1/usages",
+		"kimi.token":         "https://auth.kimi.com/api/oauth/token",
+		"xai.billing":        "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+		"xai.settings":       "https://cli-chat-proxy.grok.com/v1/settings",
+		"xai.token":          "https://auth.x.ai/oauth2/token",
+		"xai.resets":         "https://grok.com/prod_mc_billing.ConsumerUiSvc/GetRemainingResets",
+		"xai.redeem":         "https://grok.com/prod_mc_billing.ConsumerUiSvc/RedeemReset",
+		"codex.resets":       "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+		"codex.redeem":       "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume",
+		"zai.quota":          "https://api.z.ai/api/monitor/usage/quota/limit",
+		"zai-cn.quota":       "https://open.bigmodel.cn/api/monitor/usage/quota/limit",
+		"opencode-go.usage":  "https://opencode.ai/zen/go/v1/usage",
+		"openrouter.key":     "https://openrouter.ai/api/v1/key",
+		"openrouter.credits": "https://openrouter.ai/api/v1/credits",
+		"minimax.quota":      "https://www.minimax.io/v1/token_plan/remains",
+		"minimax.coding":     "https://www.minimax.io/v1/api/openplatform/coding_plan/remains",
+		"minimax-cn.quota":   "https://www.minimaxi.com/v1/token_plan/remains",
+		"minimax-cn.coding":  "https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains",
 	}
 }
 
-// Fetch is Default.Fetch.
+// Fetch is Default.Fetch (active auth.json slot).
 func Fetch(ctx context.Context, provider string) Report {
 	return Default.Fetch(ctx, provider)
 }
 
+// FetchAccount is Default.FetchAccount.
+func FetchAccount(ctx context.Context, provider, accountID string) Report {
+	return Default.FetchAccount(ctx, provider, accountID)
+}
+
 // Fetch reads the active cred and the vendor usage payload.
 func (c *Client) Fetch(ctx context.Context, provider string) Report {
+	return c.FetchAccount(ctx, provider, "")
+}
+
+// FetchAccount reads one vault row (or the active slot when accountID is empty)
+// without swapping auth.json.
+func (c *Client) FetchAccount(ctx context.Context, provider, accountID string) Report {
 	if c == nil {
 		c = Default
 	}
 	id := strings.TrimSpace(provider)
+	accountID = strings.TrimSpace(accountID)
 	rep := Report{
 		Provider:  id,
 		FetchedAt: c.now().UTC().Format(time.RFC3339),
@@ -128,31 +146,34 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 	if id == "" {
 		return rep
 	}
-	authType := catalog.ActiveAuthType(id)
+	authType, label, key, cred, okKey, okOAuth := c.resolveCred(id, accountID)
 	rep.AuthType = authType
-	rep.AccountLabel = catalog.ActiveLabel(id)
+	rep.AccountLabel = label
+	if accountID != "" && authType == "" && !okKey && !okOAuth {
+		rep.Status = StatusAuthRequired
+		rep.Error = "Sign in again."
+		return rep
+	}
 	kind := catalog.QuotaKind(id, authType)
 	if kind == "" {
 		return rep
 	}
 	if kind == catalog.LoginAPIKey {
-		key, ok := catalog.ActiveAPIKey(id)
-		if !ok {
+		if !okKey {
 			rep.Status = StatusAuthRequired
 			rep.Error = "Sign in again."
 			return rep
 		}
-		out, _ := c.fetchOnceKey(ctx, id, key)
+		out, _ := c.fetchOnceKey(ctx, id, key, label)
 		return out
 	}
-	cred, ok := catalog.ActiveOAuth(id)
-	if !ok {
+	if !okOAuth {
 		rep.Status = StatusAuthRequired
 		rep.Error = "Sign in again."
 		return rep
 	}
 	if cred.Expires > 0 && c.now().UnixMilli() >= cred.Expires {
-		next, err := c.refresh(ctx, id, cred)
+		next, err := c.refresh(ctx, id, cred, accountID)
 		if err != nil {
 			rep.Status = StatusAuthRequired
 			rep.Error = "Sign in again."
@@ -160,9 +181,9 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 		}
 		cred = next
 	}
-	out, retry := c.fetchOnce(ctx, id, cred)
+	out, retry := c.fetchOnce(ctx, id, cred, label)
 	if retry {
-		next, err := c.refresh(ctx, id, cred)
+		next, err := c.refresh(ctx, id, cred, accountID)
 		if err != nil {
 			out.Status = StatusAuthRequired
 			out.Error = "Sign in again."
@@ -170,15 +191,36 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 			out.Resets = nil
 			return out
 		}
-		out, _ = c.fetchOnce(ctx, id, next)
+		out, _ = c.fetchOnce(ctx, id, next, label)
 	}
 	return out
 }
 
-func (c *Client) fetchOnce(ctx context.Context, provider string, cred catalog.OAuthCred) (Report, bool) {
+func (c *Client) resolveCred(provider, accountID string) (authType, label, key string, cred catalog.OAuthCred, okKey, okOAuth bool) {
+	if accountID == "" {
+		authType = catalog.ActiveAuthType(provider)
+		label = catalog.ActiveLabel(provider)
+		key, okKey = catalog.ActiveAPIKey(provider)
+		cred, okOAuth = catalog.ActiveOAuth(provider)
+		return
+	}
+	authType = catalog.VaultAuthType(provider, accountID)
+	label = catalog.VaultLabel(provider, accountID)
+	key, okKey = catalog.VaultAPIKey(provider, accountID)
+	cred, okOAuth = catalog.VaultOAuth(provider, accountID)
+	if authType == "" && !okKey && !okOAuth {
+		return "", "Default", "", catalog.OAuthCred{}, false, false
+	}
+	return
+}
+
+func (c *Client) fetchOnce(ctx context.Context, provider string, cred catalog.OAuthCred, label string) (Report, bool) {
+	if label == "" {
+		label = catalog.ActiveLabel(provider)
+	}
 	rep := Report{
 		Provider:     provider,
-		AccountLabel: catalog.ActiveLabel(provider),
+		AccountLabel: label,
 		AuthType:     catalog.LoginOAuth,
 		FetchedAt:    c.now().UTC().Format(time.RFC3339),
 		Windows:      []Window{},
@@ -222,10 +264,13 @@ func (c *Client) fetchOnce(ctx context.Context, provider string, cred catalog.OA
 	return rep, false
 }
 
-func (c *Client) fetchOnceKey(ctx context.Context, provider, key string) (Report, bool) {
+func (c *Client) fetchOnceKey(ctx context.Context, provider, key, label string) (Report, bool) {
+	if label == "" {
+		label = catalog.ActiveLabel(provider)
+	}
 	rep := Report{
 		Provider:     provider,
-		AccountLabel: catalog.ActiveLabel(provider),
+		AccountLabel: label,
 		AuthType:     catalog.LoginAPIKey,
 		FetchedAt:    c.now().UTC().Format(time.RFC3339),
 		Windows:      []Window{},
@@ -242,6 +287,14 @@ func (c *Client) fetchOnceKey(ctx context.Context, provider, key string) (Report
 		status, err = c.zai(ctx, key, c.url("zai-cn.quota", ""), &rep)
 	case "opencode-go":
 		status, err = c.opencodeGo(ctx, key, &rep)
+	case "openrouter":
+		status, err = c.openrouter(ctx, key, &rep)
+	case "minimax":
+		status, err = c.minimax(ctx, key, c.url("minimax.quota", ""), c.url("minimax.coding", ""), &rep)
+	case "minimax-cn":
+		status, err = c.minimax(ctx, key, c.url("minimax-cn.quota", ""), c.url("minimax-cn.coding", ""), &rep)
+	case "kimi-coding":
+		status, err = c.kimiKey(ctx, key, &rep)
 	default:
 		rep.Status = StatusUnsupported
 		return rep, false
@@ -273,12 +326,22 @@ func Redeem(ctx context.Context, provider, id string) Report {
 	return Default.Redeem(ctx, provider, id)
 }
 
+// RedeemAccount is Default.RedeemAccount.
+func RedeemAccount(ctx context.Context, provider, accountID, id string) Report {
+	return Default.RedeemAccount(ctx, provider, accountID, id)
+}
+
 func (c *Client) Redeem(ctx context.Context, provider, id string) Report {
+	return c.RedeemAccount(ctx, provider, "", id)
+}
+
+func (c *Client) RedeemAccount(ctx context.Context, provider, accountID, id string) Report {
 	if c == nil {
 		c = Default
 	}
 	provider = strings.TrimSpace(provider)
-	rep := c.Fetch(ctx, provider)
+	accountID = strings.TrimSpace(accountID)
+	rep := c.FetchAccount(ctx, provider, accountID)
 	if rep.Status != StatusOK {
 		return rep
 	}
@@ -290,8 +353,8 @@ func (c *Client) Redeem(ctx context.Context, provider, id string) Report {
 	if strings.TrimSpace(id) == "" {
 		id = rep.Resets[0].ID
 	}
-	cred, ok := catalog.ActiveOAuth(provider)
-	if !ok {
+	_, _, _, cred, _, okOAuth := c.resolveCred(provider, accountID)
+	if !okOAuth {
 		rep.Status = StatusAuthRequired
 		rep.Error = "Sign in again."
 		return rep
@@ -312,5 +375,5 @@ func (c *Client) Redeem(ctx context.Context, provider, id string) Report {
 		rep.Error = "Couldn't redeem."
 		return rep
 	}
-	return c.Fetch(ctx, provider)
+	return c.FetchAccount(ctx, provider, accountID)
 }

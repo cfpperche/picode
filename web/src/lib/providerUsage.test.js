@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { showUsageButton, barTone, formatMoney, usageCopy, activeAccountLine, resetLine } from "./providerUsage.js";
+import { showUsageButton, barTone, formatMoney, usageCopy, activeAccountLine, resetLine, usagePath } from "./providerUsage.js";
 
 describe("showUsageButton", () => {
   it("hides when unsigned or wrong method", () => {
@@ -12,6 +12,20 @@ describe("showUsageButton", () => {
   it("shows for oauth quota providers", () => {
     assert.equal(showUsageButton({ signedIn: true, quotaKind: "oauth", authType: "oauth" }), true);
     assert.equal(showUsageButton({ signedIn: true, quotaKind: "api_key", authType: "api_key" }), true);
+  });
+  it("shows per vault account without Use", () => {
+    const p = { signedIn: true, quotaKind: "api_key", authType: "api_key" };
+    assert.equal(showUsageButton(p, { type: "oauth", quotaKind: "oauth" }), true);
+    assert.equal(showUsageButton(p, { type: "api_key", quotaKind: "api_key" }), true);
+    assert.equal(showUsageButton(p, { type: "api_key", quotaKind: "" }), false);
+  });
+});
+
+describe("usagePath", () => {
+  it("scopes vault accounts", () => {
+    assert.equal(usagePath("xai"), "/api/providers/xai/usage");
+    assert.equal(usagePath("xai", "live"), "/api/providers/xai/usage");
+    assert.equal(usagePath("xai", "abc"), "/api/providers/xai/accounts/abc/usage");
   });
 });
 

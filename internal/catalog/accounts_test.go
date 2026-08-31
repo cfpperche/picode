@@ -151,6 +151,45 @@ func TestSameKeyDoesNotDuplicate(t *testing.T) {
 	}
 }
 
+func TestVaultCredWithoutSwap(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := PutOAuth("anthropic", map[string]any{"type": "oauth", "access": "oa", "refresh": "or", "expires": 9}); err != nil {
+		t.Fatal(err)
+	}
+	oauthID := AccountsFor("anthropic")[0].ID
+	if err := PutAPIKey("anthropic", "sk-live"); err != nil {
+		t.Fatal(err)
+	}
+	if ActiveAuthType("anthropic") != LoginAPIKey {
+		t.Fatalf("active %s", ActiveAuthType("anthropic"))
+	}
+	cred, ok := VaultOAuth("anthropic", oauthID)
+	if !ok || cred.Access != "oa" {
+		t.Fatalf("vault oauth %+v ok=%v", cred, ok)
+	}
+	if err := UpdateOAuthTokensAccount("anthropic", oauthID, "oa2", "or2", 11); err != nil {
+		t.Fatal(err)
+	}
+	if key := mustKey(t, home, "anthropic"); key != "sk-live" {
+		t.Fatalf("auth.json swapped to %s", key)
+	}
+	cred, ok = VaultOAuth("anthropic", oauthID)
+	if !ok || cred.Access != "oa2" || cred.Refresh != "or2" || cred.Expires != 11 {
+		t.Fatalf("updated %+v ok=%v", cred, ok)
+	}
+	accs := AccountsFor("anthropic")
+	var oauthKind string
+	for _, a := range accs {
+		if a.ID == oauthID {
+			oauthKind = a.QuotaKind
+		}
+	}
+	if oauthKind != LoginOAuth {
+		t.Fatalf("quotaKind %q", oauthKind)
+	}
+}
+
 func mustKey(t *testing.T, home, provider string) string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(home, ".pi", "agent", "auth.json"))

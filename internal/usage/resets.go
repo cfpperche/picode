@@ -109,59 +109,108 @@ func timeUnixNano() int64 {
 }
 
 func (c *Client) fetchXAIResets(ctx context.Context, cred catalog.OAuthCred, rep *Report) {
-	hdr := map[string]string{
-		"content-type":             "application/grpc-web+proto",
-		"connect-protocol-version": "1",
-		"x-grpc-web":               "1",
-		"Authorization":            "Bearer " + cred.Access,
-		"x-xai-token-auth":         "xai-grok-cli",
-	}
-	body, status, err := c.postBytes(ctx, c.url("xai.resets", ""), []byte{0, 0, 0, 0, 0}, hdr)
-	if err == nil && status < 300 {
-		if toks := parseRemainingResets(body); len(toks) > 0 {
+	for _, auth := range c.xaiResetAuths(ctx, cred) {
+		if toks := c.tryXAIResets(ctx, auth); len(toks) > 0 {
 			rep.Resets = toks
 			return
 		}
 	}
-	jhdr := map[string]string{
-		"content-type":     "application/json",
-		"Accept":           "application/json",
-		"Authorization":    "Bearer " + cred.Access,
-		"x-xai-token-auth": "xai-grok-cli",
+}
+
+type xaiAuth struct {
+	bearer string
+	cookie string
+}
+
+func (c *Client) xaiResetAuths(ctx context.Context, cred catalog.OAuthCred) []xaiAuth {
+	out := []xaiAuth{}
+	seen := map[string]bool{}
+	add := func(a xaiAuth) {
+		k := a.bearer + "\n" + a.cookie
+		if k == "\n" || seen[k] {
+			return
+		}
+		seen[k] = true
+		out = append(out, a)
 	}
+	add(xaiAuth{bearer: cred.Access})
+	if k := c.grokCLIAccess(ctx); k != "" {
+		add(xaiAuth{bearer: k})
+	}
+	if ck := grokCLICookie(); ck != "" {
+		add(xaiAuth{cookie: ck})
+	}
+	return out
+}
+
+func (c *Client) tryXAIResets(ctx context.Context, auth xaiAuth) []ResetCredit {
+	hdr := c.xaiResetHeaders(auth, true)
+	body, status, err := c.postBytes(ctx, c.url("xai.resets", ""), []byte{0, 0, 0, 0, 0}, hdr)
+	if err == nil && status < 300 {
+		if toks := parseRemainingResets(body); len(toks) > 0 {
+			return toks
+		}
+	}
+	jhdr := c.xaiResetHeaders(auth, false)
 	jbody, jstatus, jerr := c.postJSON(ctx, c.url("xai.resets", ""), "{}", jhdr)
 	if jerr != nil || jstatus >= 300 {
-		return
+		return nil
 	}
-	rep.Resets = parseRemainingResetsJSON(jbody)
+	return parseRemainingResetsJSON(jbody)
+}
+
+func (c *Client) xaiResetHeaders(auth xaiAuth, grpc bool) map[string]string {
+	hdr := map[string]string{}
+	if grpc {
+		hdr["content-type"] = "application/grpc-web+proto"
+		hdr["connect-protocol-version"] = "1"
+		hdr["x-grpc-web"] = "1"
+	} else {
+		hdr["content-type"] = "application/json"
+		hdr["Accept"] = "application/json"
+	}
+	if auth.bearer != "" {
+		hdr["Authorization"] = "Bearer " + auth.bearer
+		hdr["x-xai-token-auth"] = "xai-grok-cli"
+	}
+	if auth.cookie != "" {
+		hdr["Cookie"] = auth.cookie
+	}
+	return hdr
 }
 
 func (c *Client) redeemXAI(ctx context.Context, cred catalog.OAuthCred, tokenID string) error {
-	hdr := map[string]string{
-		"content-type":             "application/grpc-web+proto",
-		"connect-protocol-version": "1",
-		"x-grpc-web":               "1",
-		"Authorization":            "Bearer " + cred.Access,
-		"x-xai-token-auth":         "xai-grok-cli",
+	var last error
+	for _, auth := range c.xaiResetAuths(ctx, cred) {
+		if err := c.tryRedeemXAI(ctx, auth, tokenID); err != nil {
+			last = err
+			continue
+		}
+		return nil
 	}
+	if last != nil {
+		return last
+	}
+	return fmt.Errorf("redeem failed")
+}
+
+func (c *Client) tryRedeemXAI(ctx context.Context, auth xaiAuth, tokenID string) error {
+	hdr := c.xaiResetHeaders(auth, true)
 	_, status, err := c.postBytes(ctx, c.url("xai.redeem", ""), encodeRedeemResetRequest(tokenID), hdr)
 	if err != nil {
 		return err
 	}
-	if status >= 300 {
-		jhdr := map[string]string{
-			"content-type":     "application/json",
-			"Authorization":    "Bearer " + cred.Access,
-			"x-xai-token-auth": "xai-grok-cli",
-		}
-		payload, _ := json.Marshal(map[string]string{"tokenId": tokenID})
-		_, jstatus, jerr := c.postJSON(ctx, c.url("xai.redeem", ""), string(payload), jhdr)
-		if jerr != nil {
-			return jerr
-		}
-		if jstatus >= 300 {
-			return fmt.Errorf("redeem http %d", jstatus)
-		}
+	if status < 300 {
+		return nil
+	}
+	jhdr := c.xaiResetHeaders(auth, false)
+	payload, _ := json.Marshal(map[string]string{"tokenId": tokenID})
+	_, jstatus, jerr := c.postJSON(ctx, c.url("xai.redeem", ""), string(payload), jhdr)
+	if jerr != nil {
+		return jerr
+	}
+	if jstatus >= 300 {
+		return fmt.Errorf("redeem http %d", jstatus)
 	}
 	return nil
 }

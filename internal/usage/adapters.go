@@ -59,6 +59,8 @@ func parseAnthropicUsage(raw []byte, rep *Report) {
 				if s := str(im["name"]); s != "" {
 					label = s
 					id = strings.ToLower(strings.ReplaceAll(s, " ", "-"))
+				} else {
+					continue
 				}
 			}
 			if w, ok := windowFrom(item, id, label); ok {

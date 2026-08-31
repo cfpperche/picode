@@ -38,6 +38,20 @@ func TestParseAnthropicUsage(t *testing.T) {
 	}
 }
 
+func TestParseAnthropicSkipsUnnamedLimit(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{
+		"five_hour": {"utilization": 98, "resets_at": "2026-08-31T19:00:00Z"},
+		"seven_day": {"utilization": 36},
+		"limits": [{"utilization": 98, "resets_at": "2026-08-31T19:00:00Z"}]
+	}`)
+	var rep Report
+	parseAnthropicUsage(raw, &rep)
+	if len(rep.Windows) != 2 {
+		t.Fatalf("windows %d: %+v", len(rep.Windows), rep.Windows)
+	}
+}
+
 func TestParseCodexUsage(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{
