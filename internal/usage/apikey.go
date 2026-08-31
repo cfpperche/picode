@@ -69,7 +69,8 @@ func parseZAIQuota(raw []byte, rep *Report) {
 			rep.Windows = append(rep.Windows, w)
 			continue
 		}
-		if typ == "TOKENS_LIMIT" {
+		// GLM Coding Plan reports CREDIT_LIMIT (credits); older payloads used TOKENS_LIMIT.
+		if typ == "TOKENS_LIMIT" || typ == "CREDIT_LIMIT" {
 			tokens = append(tokens, tok{pct: clampPct(pct), reset: reset, unit: u, num: n, kind: typ})
 		}
 	}
@@ -78,7 +79,9 @@ func parseZAIQuota(raw []byte, rep *Report) {
 	})
 	for i, t := range tokens {
 		id, label := "5h", "5 hours"
-		if t.unit == 6 && t.num == 7 {
+		if t.unit == 3 && t.num == 5 {
+			id, label = "5h", "5 hours"
+		} else if t.unit == 6 && (t.num == 7 || t.num == 1) {
 			id, label = "7d", "7 days"
 		} else if i == 1 && (t.unit != 3 || t.num != 5) {
 			id, label = "7d", "7 days"

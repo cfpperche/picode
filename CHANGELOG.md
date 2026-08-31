@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Z.AI Usage** (ADR-0031): GLM Coding Plan Pro reports `CREDIT_LIMIT`
+  (5h + weekly credits) instead of `TOKENS_LIMIT`. The dialog showed the
+  plan name and "No usage windows on this plan." It now draws those bars.
+
 ### Added
 
 - **pi-roles v2** (ADR-0033): a PiCode agent sets `PI_ROLES_AGENT` and can

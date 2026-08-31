@@ -209,6 +209,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Z.AI Usage parse: GLM Coding Plan now sends
+  `CREDIT_LIMIT` (unit 3/5 = 5h, unit 6/1 = week) instead of
+  `TOKENS_LIMIT`. Live Pro payload (0% / 100%) is the test fixture.
+  Merged `fix/zai-credit-limit`.
+
 - **2026-08-31** — pi-roles v2 (ADR-0033): per-agent overlay via `PI_ROLES_AGENT`.
   Workspace `.pi/roles.json` stays the default; `/roles` in a PiCode agent
   writes `.pi/roles/<id>.json`. Merged and deployed. Reload the agent.
