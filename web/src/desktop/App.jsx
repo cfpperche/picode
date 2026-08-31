@@ -4,7 +4,7 @@ import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../lib/terms.js";
-import { termWorkspaceId } from "../lib/termGroups.js";
+import { termWorkspaceId, workspaceForTerminal } from "../lib/termGroups.js";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -170,6 +170,9 @@ export default function App() {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  // A workspace terminal tab still has that folder as the packages/MCP context
+  // (machine list must not disappear — same rule as GET /api/packages).
+  const paneWs = selected || (isTermTab(selectedId) ? workspaceForTerminal(terminals, workspaces, tabTermId(selectedId)) : null);
   agentIdRef.current = (agent && agent.id) || null;
   // Compaction progress is a live line at the end of the chat (not the
   // composer statusbar); CompactLive owns its own per-second tick.
@@ -209,7 +212,7 @@ export default function App() {
     };
   }, []);
 
-  const pkgWs = selected ? selected.id : "";
+  const pkgWs = paneWs ? paneWs.id : "";
   useEffect(() => {
     let stop = false;
     async function load() {
@@ -2154,9 +2157,9 @@ export default function App() {
         />
         <Mcps
           hidden={route !== "mcps"}
-          workspaceId={selected ? selected.id : ""}
-          workspaceName={selected ? selected.name : ""}
-          workspacePath={selected ? selected.path : ""}
+          workspaceId={paneWs ? paneWs.id : ""}
+          workspaceName={paneWs ? paneWs.name : ""}
+          workspacePath={paneWs ? paneWs.path : ""}
           agentId={agent ? agent.id : ""}
           agentName={displayAgentName(agent, selected)}
           agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
@@ -2169,7 +2172,7 @@ export default function App() {
             else await startManaged(agent.id);
           }}
         />
-        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
+        <Packages hidden={route !== "packages"} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}

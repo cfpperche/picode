@@ -103,13 +103,16 @@ func TestMCPUnknownAgentStillReportsAdapter(t *testing.T) {
 		name      string
 		install   bool
 		agent     string
+		workspace string
 		installed bool
 	}{
-		{"no adapter, no agent", false, "", false},
-		{"no adapter, terminal tab", false, "t:terminal-4-027c76", false},
-		{"adapter, no agent", true, "", true},
-		{"adapter, terminal tab", true, "t:terminal-4-027c76", true},
-		{"adapter, stale agent", true, "gone-agent", true},
+		{"no adapter, no agent", false, "", "", false},
+		{"no adapter, terminal tab", false, "t:terminal-4-027c76", "", false},
+		{"adapter, no agent", true, "", "", true},
+		{"adapter, terminal tab", true, "t:terminal-4-027c76", "", true},
+		{"adapter, stale agent", true, "gone-agent", "", true},
+		{"adapter, terminal as workspace", true, "", "t:terminal-4-027c76", true},
+		{"adapter, workspace+terminal agent", true, "t:terminal-4-027c76", "t:terminal-4-027c76", true},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -124,8 +127,13 @@ func TestMCPUnknownAgentStillReportsAdapter(t *testing.T) {
 				_ = os.Remove(settings)
 			}
 			q := ts.URL + "/api/mcp"
+			sep := "?"
 			if row.agent != "" {
-				q += "?agent=" + row.agent
+				q += sep + "agent=" + row.agent
+				sep = "&"
+			}
+			if row.workspace != "" {
+				q += sep + "workspace=" + row.workspace
 			}
 			res, err := ts.Client().Get(q)
 			if err != nil {

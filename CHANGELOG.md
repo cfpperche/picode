@@ -54,7 +54,9 @@ to the `[Unreleased]` section. The repository's official language is English
 - **MCP page detects the adapter from a terminal tab.** Opening `#/mcps`
   with a terminal (or a gone agent) selected no longer 404s and pretends
   `pi-mcp-adapter` is missing. Same rule as Packages: a tab that is not
-  an agent is ignored. A load error is Retry, not the install prompt.
+  an agent is ignored, and a workspace terminal still carries that
+  folder as context so machine packages stay visible. A load error is
+  Retry, not the install prompt.
 - **`/roles` no longer leaves the thread on Working forever.** An
   optimistic Working now ends at the first real signal (dialog, notify,
   answer, or a short post-delivery fallback) — including the silent case

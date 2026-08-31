@@ -19,3 +19,11 @@ export function freeTerminals(terminals) {
 export function workspaceTerminals(terminals, wsId) {
   return sortTermsByName((terminals || []).filter((t) => termWorkspaceId(t) === wsId));
 }
+
+// Workspace a terminal tab belongs to. Free terminals (and unknown ids) yield null.
+export function workspaceForTerminal(terminals, workspaces, termId) {
+  const t = (terminals || []).find((x) => x && x.id === termId);
+  const wsId = termWorkspaceId(t);
+  if (!t || wsId === FREE_WS) return null;
+  return (workspaces || []).find((w) => w && w.id === wsId) || null;
+}

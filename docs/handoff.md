@@ -211,10 +211,13 @@ Never exercised, because this machine was already past them:
 - **2026-08-31** — MCP adapter detection from a terminal tab. `#/mcps`
   passed `selectedId` (`t:…`) as `agent`, GET 404'd, and the catch painted
   "Install the MCP adapter" even with `npm:pi-mcp-adapter` on the machine.
-  Server now ignores a non-agent id (packages already did); the pane
-  passes `agent.id` like Packages; a load error is Retry. Table-tested.
+  Same bug Packages already fixed (3b3713e3). Server ignores a non-agent
+  *and* a non-workspace id; a workspace terminal still carries that
+  folder as MCP/Packages context so the machine list stays; the pane
+  passes `agent.id`. A load error is Retry. Table-tested.
   **visual-review: PASS** (empty+adapter, blocked Open packages, error
-  Retry; overlayAudit ok; card 5/5).
+  Retry; overlayAudit ok; card 5/5). First deploy was overwritten by
+  `main`'s binary — user still saw the bug on :8445 until redeploy.
 
 - **2026-08-31** — Remove workspace can delete local data (ADR-0035):
   opt-in checkbox + GitHub-style typed folder-name confirmation; server
