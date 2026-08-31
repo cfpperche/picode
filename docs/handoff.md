@@ -48,6 +48,7 @@ What exists:
 
 ## In flight
 
+
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
 all of tmux's options (142 on this machine's 3.6), read live from
@@ -206,6 +207,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — Packages Installed row is back when opened from a
+  terminal tab (machine packages were never deleted). Merged
+  `fix/packages-list-when-terminal`.
 
 - **2026-08-31** — **Provider Usage dialog** (ADR-0031). `#/providers` shows
   **Usage** only when `quotaKind` matches the active oauth slot (Claude,

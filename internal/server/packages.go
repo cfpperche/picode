@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -72,6 +73,10 @@ func loadPackageReport(deps Deps, workspaceID, agentID string) (pipkg.Report, er
 	}
 	a, err := deps.Store.GetAgent(agentID)
 	if err != nil {
+		// A terminal id (or a stale agent) must not hide machine packages.
+		if errors.Is(err, store.ErrNotFound) {
+			return rep, nil
+		}
 		return pipkg.Report{}, err
 	}
 	rep = pipkg.WithAgent(rep, a.Packages)

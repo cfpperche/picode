@@ -37,6 +37,13 @@ to the `[Unreleased]` section. The repository's official language is English
   (`/api/workspaces/{id}/browse|text|blob|file|gitstatus`), so an empty
   workspace can browse and open its files with no agent in it.
 
+### Fixed
+
+- **Packages still lists what is on this machine when a terminal is selected.**
+  Opening `#/packages` from the Terminals tab sent the terminal id as an
+  agent id, the API answered 404, and the Installed row vanished — the
+  packages themselves were never removed.
+
 ### Changed
 
 - **Creating a workspace no longer creates an agent** (ADR-0027). The
