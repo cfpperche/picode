@@ -1147,10 +1147,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .term-surface .xterm-screen { margin-right: 10px; }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
+/* Same header UI as the file tree's .ft-head — one look across surfaces. */
 .file-pane-bar {
-  display: flex; align-items: center; gap: 6px;
-  height: 32px; min-height: 32px;
-  padding: 0 8px 0 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel); flex: 0 0 auto;
+}
+.file-pane-bar .file-pane-name {
+  font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
 }
 .file-pane-tabs {
   display: flex; align-items: stretch; flex: 1; min-width: 0; overflow: hidden;
@@ -1177,13 +1181,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-pane-page[hidden] { display: none !important; }
 .file-shell { flex: 1; min-height: 0; position: relative; background: var(--bg-base); }
 .file-shell .term-pane { padding: 0; }
-.file-pane-bar .btn {
-  height: 24px; min-height: 24px; padding: 0 8px; font-size: 12px;
-}
-.file-pane-bar .chip-group { height: 24px; }
-.file-pane-bar .chip-group .cockpit-chip {
-  height: 24px; font-size: 12px; padding: 0 8px; color: var(--text-secondary);
-}
 .file-pane-bar .chip-group .cockpit-chip[aria-checked="true"] {
   color: var(--text-primary); background: var(--bg-hover);
 }

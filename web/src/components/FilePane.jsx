@@ -212,7 +212,9 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
     setMode(next);
   }
 
-  const title = view.name || view.path || path || "File";
+  // Like the tree header: the tab strip carries the basename, the header
+  // confirms exactly which file — so it shows the path, not just the name.
+  const title = view.path || path || "File";
   const canSave = view.kind === "text";
   const showPreview = !!kind && (view.kind === "text" || view.kind === "bin");
   const tab = variant === "tab";
