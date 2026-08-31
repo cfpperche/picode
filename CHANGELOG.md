@@ -36,6 +36,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- The user menu no longer clips its Theme and Layout segments: the popover
+  widened to fit "Desktop · Auto · Mobile" with their icons, segments share
+  equal widths with centered content, and the Install app button spans the
+  full row with a download icon.
+
 - The workspace card's header hugs the left edge: the chevron sits on the
   section title's column and the workspace name lands on the same column
   as its cards' names — the container no longer sat further right than
