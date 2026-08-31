@@ -49,11 +49,12 @@ What exists:
 ## In flight
 
 **ADR-0025 — model roles. M1 shipped on `feat/model-roles`; not merged.**
-Package at `packages/pi-roles/` (MIT). Decision table in `test/logic.test.ts`
-(13 input rows + parse/lock). Install: `pi install -l <repo>/packages/pi-roles`
-then write `.pi/roles.json`. Untested in a live pi session this session —
-logic tests only. Not published to npm (debt: path-triggered workflow +
-`pi-roles-v*` tag). M2 GUI that edits the file is not started.
+Package at `packages/pi-roles/` (MIT). Decision table in `test/logic.test.ts`.
+**Live RPC dogfood on xAI Grok passed** (`/tmp/pi-roles-dogfood`, `-e` path,
+`--no-extensions`): `/vision` → grok-4.5, `/plan` → grok-4.3, `/role fast` →
+grok-build-0.1, auto text → grok-4.6 thinking low, auto image → grok-4.5
+(`image detected`). Turns aborted after the switch notify. Not published to
+npm. M2 GUI is not started.
 
 **ADR-0024 — terminal settings. Step 0 shipped; the panel is not built.**
 `mouse on` is the default again at both call sites (`internal/term/bridge.go`,
@@ -88,9 +89,8 @@ render megabytes.
 
 ## Next up
 
-**ADR-0025 M1 dogfood** — install the package in a real workspace, paste an
-image, confirm Grok/vision switch and text switch-back, `/plan` injects the
-system prompt. Then M2: GUI editor for `.pi/roles.json` (file, not SQLite).
+**ADR-0025 M2** — GUI editor for `.pi/roles.json` (file, not SQLite). M1 live
+RPC dogfood on Grok already passed.
 
 **Multi-runtime TUIs in terminals** (owner direction, research in flight in
 another session): the ADE will host TUIs from several agent runtimes — in
@@ -136,7 +136,7 @@ Never exercised, because this machine was already past them:
 ## Known debts / open questions
 
 - ADR-0025: npm publish for `pi-roles` is not wired (path-triggered workflow +
-  `pi-roles-v*` tag). Local path install only. Live pi session untested.
+  `pi-roles-v*` tag). Local path install only. Live RPC dogfood on Grok passed.
 - ADR-0022's occupant scan: the cliff is gone for agents sharing a directory
   (200 in one subfolder went from 4.6s to 22ms, and the cost is now flat in the
   number of agents). Agents in *distinct* subfolders still cost one git call
@@ -165,6 +165,10 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — ADR-0025 M1 **dogfood on xAI Grok** via `pi --mode rpc -e`:
+  locks and auto text/image routing all switched the live model. Turns aborted
+  after the notify. **visual-review: n/a**.
 
 - **2026-08-30** — **ADR-0025 M1**: `packages/pi-roles/` opt-in MIT extension
   (carve-out in LICENSING.md). Three builtins (`default`/`vision`/`plan`) +
