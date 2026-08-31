@@ -51,3 +51,22 @@ can be deleted by hand.
   forever. Merge keeps shared `vision`/`plan` unless overridden.
 - **`PI_ROLES_FILE` absolute path.** Useful later; not needed to ship
   M2.1. The slug path is enough and stays inside the workspace.
+
+## Amendment (2026-08-31): save-to select and /roles clear
+
+Dogfooding showed the fixed write target (§3: env ⇒ overlay, always) made
+the workspace file unreachable from any PiCode surface — chat and agent
+TUIs both carry `PI_ROLES_AGENT`, so only a plain terminal `pi` could
+write `.pi/roles.json`.
+
+Owner-approved changes:
+
+1. Under `PI_ROLES_AGENT`, `/roles edit` and `/roles add` end with a
+   **Save to** select — *this agent* (overlay, the old behavior and the
+   first option) or *workspace* (`.pi/roles.json`). Without the env the
+   question is skipped and the workspace file is written, as before.
+   `/roles remove` still deletes overlay customs only.
+2. **`/roles clear [agent|workspace]`** deletes a whole roles file after
+   a confirm. With no argument under the env it asks which; without the
+   env it clears the workspace file. A lock whose role stops resolving
+   falls back to `/auto`.

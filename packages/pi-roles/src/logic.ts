@@ -349,20 +349,29 @@ export function serializeConfig(
  */
 export const BACK = "‹ back";
 
-export type PickStage = "provider" | "model" | "thinking";
+/** Options for the save-scope select (shown only under PI_ROLES_AGENT). */
+export const SCOPE_AGENT = "this agent";
+export const SCOPE_WORKSPACE = "workspace";
+
+export type PickScope = "agent" | "workspace";
+
+export type PickStage = "provider" | "model" | "thinking" | "scope";
 
 export type PickState = {
 	models: string[];
 	/** There is a field before this picker (role select / preset name). */
 	hasPrior: boolean;
+	/** Ask where to save (overlay processes only). */
+	askScope: boolean;
 	provider: string;
 	id: string;
+	thinking?: ThinkingLevel;
 	stage: PickStage;
 };
 
 export type PickOutcome =
 	| { kind: "ask"; state: PickState; options: string[] }
-	| { kind: "done"; assignment: Assignment }
+	| { kind: "done"; assignment: Assignment; scope?: PickScope }
 	| { kind: "back" }
 	| { kind: "none" };
 
@@ -395,6 +404,18 @@ function askThinking(st: PickState): PickOutcome {
 	return { kind: "ask", state, options };
 }
 
+function askScopeStage(st: PickState): PickOutcome {
+	const state = { ...st, stage: "scope" as const };
+	// Thinking is always asked, so scope can always step back.
+	return { kind: "ask", state, options: [SCOPE_AGENT, SCOPE_WORKSPACE, BACK] };
+}
+
+function doneWith(st: PickState, scope?: PickScope): PickOutcome {
+	const assignment: Assignment = { model: `${st.provider}/${st.id}` };
+	if (st.thinking) assignment.thinking = st.thinking;
+	return scope ? { kind: "done", assignment, scope } : { kind: "done", assignment };
+}
+
 function enterModel(st: PickState): PickOutcome {
 	const ids = idsForProvider(st.models, st.provider);
 	if (ids.length === 0) return { kind: "none" };
@@ -403,16 +424,27 @@ function enterModel(st: PickState): PickOutcome {
 	return askThinking(next);
 }
 
-export function pickStart(models: string[], hasPrior: boolean): PickOutcome {
+export function pickStart(
+	models: string[],
+	opts: { hasPrior?: boolean; askScope?: boolean } = {},
+): PickOutcome {
 	const providers = providersOf(models);
 	if (providers.length === 0) return { kind: "none" };
-	const st: PickState = { models, hasPrior, provider: providers[0], id: "", stage: "provider" };
+	const st: PickState = {
+		models,
+		hasPrior: !!opts.hasPrior,
+		askScope: !!opts.askScope,
+		provider: providers[0],
+		id: "",
+		stage: "provider",
+	};
 	if (providers.length > 1) return askProvider(st);
 	return enterModel(st);
 }
 
 export function pickAnswer(st: PickState, choice: string): PickOutcome {
 	if (choice === BACK) {
+		if (st.stage === "scope") return askThinking(st);
 		if (st.stage === "thinking" && modelAsked(st)) return askModel(st);
 		if (st.stage !== "provider" && providerAsked(st)) return askProvider(st);
 		return st.hasPrior ? { kind: "back" } : askCurrent(st);
@@ -425,11 +457,18 @@ export function pickAnswer(st: PickState, choice: string): PickOutcome {
 		if (!idsForProvider(st.models, st.provider).includes(choice)) return askModel(st);
 		return askThinking({ ...st, id: choice });
 	}
-	const assignment: Assignment = { model: `${st.provider}/${st.id}` };
-	if (choice === "none") return { kind: "done", assignment };
-	if (!THINKING.has(choice)) return askThinking(st);
-	assignment.thinking = choice as ThinkingLevel;
-	return { kind: "done", assignment };
+	if (st.stage === "scope") {
+		if (choice === SCOPE_AGENT) return doneWith(st, "agent");
+		if (choice === SCOPE_WORKSPACE) return doneWith(st, "workspace");
+		return askScopeStage(st);
+	}
+	let next = { ...st, thinking: undefined as ThinkingLevel | undefined };
+	if (choice !== "none") {
+		if (!THINKING.has(choice)) return askThinking(st);
+		next = { ...st, thinking: choice as ThinkingLevel };
+	}
+	if (st.askScope) return askScopeStage(next);
+	return doneWith(next);
 }
 
 function askCurrent(st: PickState): PickOutcome {

@@ -194,7 +194,17 @@ function cap(s) {
 /** Short field name for a select title. */
 export function fieldLabel(title) {
   const t = String(title || "").toLowerCase();
-  if (t.includes("which role") || /\broles?\b/.test(t)) return "Role";
+  if (t.includes("save to")) return "Save";
+  // Both the scope select ("Clear which config?") and the confirm that
+  // follows it ("Delete this roles file?") — the confirm is the only step
+  // when the scope came as a command argument, so it alone must still
+  // mark the flow as a clear (else the note-parsing fallback below
+  // mistakes a file path for a provider/id pair).
+  if (t.includes("clear which") || t.includes("delete this roles file")) return "Clear";
+  // Only the role *picker* titles ("Edit which role?", "Roles (current:
+  // …)") — not every dialog that happens to mention "roles" in passing
+  // (e.g. "Delete this roles file?").
+  if (t.includes("which role") || /^roles\b/.test(t)) return "Role";
   if (t.includes("provider")) return "Provider";
   if (t.includes("thinking")) return "Thinking";
   if (t.includes("model")) return "Model";
@@ -220,7 +230,10 @@ export function summaryLine(steps, note) {
     if (!(lab in by)) by[lab] = s.answer;
   }
   if (!answers.length) return "";
+  // A finished clear flow reads as its result line, not as a definition.
+  if (by.Clear) return note || answers.join(" · ");
   const role = by.Role || by.Name || "";
+  const scope = by.Save === "workspace" ? " (workspace)" : "";
   let thinking = by.Thinking && by.Thinking !== "none" ? by.Thinking : "";
   let model = by.Provider && by.Model ? by.Provider + "/" + by.Model : "";
   if (!model || !thinking) {
@@ -232,7 +245,7 @@ export function summaryLine(steps, note) {
   if (!model && by.Model) model = by.Model;
   if (model) {
     const line = (role ? role + " — " : "") + model;
-    return thinking ? line + " · " + thinking : line;
+    return (thinking ? line + " · " + thinking : line) + scope;
   }
   if (role) return "Role — " + role;
   const main = answers.join(" · ");

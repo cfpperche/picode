@@ -19,6 +19,8 @@ import {
 	serializeConfig,
 	emptyConfig,
 	BACK,
+	SCOPE_AGENT,
+	SCOPE_WORKSPACE,
 	pickStart,
 	pickAnswer,
 	type PickOutcome,
@@ -450,7 +452,7 @@ describe("pickStart / pickAnswer", () => {
 	}
 
 	it("walks provider → model → thinking → done", () => {
-		let out = ask(pickStart(models, false));
+		let out = ask(pickStart(models));
 		assert.equal(out.state.stage, "provider");
 		assert.deepEqual(out.options, ["anthropic", "xai"]);
 		out = ask(pickAnswer(out.state, "xai"));
@@ -467,20 +469,20 @@ describe("pickStart / pickAnswer", () => {
 	});
 
 	it("thinking 'none' omits the level", () => {
-		let out = ask(pickStart(oneOfEach, false));
+		let out = ask(pickStart(oneOfEach));
 		assert.equal(out.state.stage, "thinking");
 		const done = pickAnswer(out.state, "none");
 		assert.deepEqual(done, { kind: "done", assignment: { model: "xai/grok-4.6" } });
 	});
 
 	it("single provider and model skip straight to thinking without BACK", () => {
-		const out = ask(pickStart(oneOfEach, false));
+		const out = ask(pickStart(oneOfEach));
 		assert.equal(out.state.stage, "thinking");
 		assert.equal(out.options.includes(BACK), false);
 	});
 
 	it("row 4: BACK from thinking reaches model, then provider", () => {
-		let out = ask(pickStart(models, false));
+		let out = ask(pickStart(models));
 		out = ask(pickAnswer(out.state, "xai"));
 		out = ask(pickAnswer(out.state, "grok-4.6"));
 		assert.equal(out.state.stage, "thinking");
@@ -491,7 +493,7 @@ describe("pickStart / pickAnswer", () => {
 	});
 
 	it("row 5: BACK from thinking skips an unasked model select", () => {
-		let out = ask(pickStart(["xai/grok-4.6", "anthropic/opus"], false));
+		let out = ask(pickStart(["xai/grok-4.6", "anthropic/opus"]));
 		out = ask(pickAnswer(out.state, "xai"));
 		assert.equal(out.state.stage, "thinking"); // only one xai model
 		out = ask(pickAnswer(out.state, BACK));
@@ -499,15 +501,15 @@ describe("pickStart / pickAnswer", () => {
 	});
 
 	it("BACK past the first field returns 'back' only with a prior field", () => {
-		let out = ask(pickStart(models, true));
+		let out = ask(pickStart(models, { hasPrior: true }));
 		assert.deepEqual(out.options, ["anthropic", "xai", BACK]);
 		assert.deepEqual(pickAnswer(out.state, BACK), { kind: "back" });
-		out = ask(pickStart(models, false));
+		out = ask(pickStart(models));
 		assert.equal(out.options.includes(BACK), false);
 	});
 
 	it("hasPrior offers BACK even when the provider select is skipped", () => {
-		let out = ask(pickStart(oneProvider, true));
+		let out = ask(pickStart(oneProvider, { hasPrior: true }));
 		assert.equal(out.state.stage, "model");
 		assert.ok(out.options.includes(BACK));
 		out = ask(pickAnswer(out.state, "grok-4.5"));
@@ -520,12 +522,49 @@ describe("pickStart / pickAnswer", () => {
 	});
 
 	it("unknown answers re-ask the same stage", () => {
-		const out = ask(pickStart(models, false));
+		const out = ask(pickStart(models));
 		const again = ask(pickAnswer(out.state, "nope"));
 		assert.equal(again.state.stage, "provider");
 	});
 
 	it("no models yields none", () => {
-		assert.deepEqual(pickStart([], false), { kind: "none" });
+		assert.deepEqual(pickStart([]), { kind: "none" });
+	});
+
+	it("askScope: thinking leads to the Save to select, and BACK returns to thinking", () => {
+		let out = ask(pickStart(oneOfEach, { askScope: true }));
+		assert.equal(out.state.stage, "thinking");
+		out = ask(pickAnswer(out.state, "high"));
+		assert.equal(out.state.stage, "scope");
+		assert.deepEqual(out.options, [SCOPE_AGENT, SCOPE_WORKSPACE, BACK]);
+		// BACK re-asks thinking; answering again returns to scope
+		out = ask(pickAnswer(out.state, BACK));
+		assert.equal(out.state.stage, "thinking");
+		out = ask(pickAnswer(out.state, "none"));
+		assert.equal(out.state.stage, "scope");
+		const done = pickAnswer(out.state, SCOPE_WORKSPACE);
+		assert.deepEqual(done, {
+			kind: "done",
+			assignment: { model: "xai/grok-4.6" },
+			scope: "workspace",
+		});
+	});
+
+	it("askScope: 'this agent' resolves to the agent scope with the chosen thinking", () => {
+		let out = ask(pickStart(oneOfEach, { askScope: true }));
+		out = ask(pickAnswer(out.state, "medium"));
+		const done = pickAnswer(out.state, SCOPE_AGENT);
+		assert.deepEqual(done, {
+			kind: "done",
+			assignment: { model: "xai/grok-4.6", thinking: "medium" },
+			scope: "agent",
+		});
+	});
+
+	it("no askScope: thinking still finishes the flow directly", () => {
+		let out = ask(pickStart(oneOfEach));
+		const done = pickAnswer(out.state, "low");
+		assert.equal(done.kind, "done");
+		assert.equal("scope" in done && done.scope, false);
 	});
 });

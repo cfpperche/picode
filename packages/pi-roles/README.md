@@ -73,11 +73,18 @@ attaching the image; the path heuristic is a fallback.
 | `/roles edit [name]` | Provider → model → thinking, then save |
 | `/roles add [name]` | Create a custom preset |
 | `/roles remove [name]` | Delete a custom preset |
+| `/roles clear [agent\|workspace]` | Delete a whole roles file (confirmed) |
 
 In the cascading selects, a `‹ back` option returns to the previous field
 (role name, provider, or model). Cancel (Esc in the TUI) aborts the whole
 flow — it never steps back. Selects that would offer a single choice are
 skipped.
+
+Under `PI_ROLES_AGENT` (every PiCode agent, chat or TUI), `/roles edit` and
+`/roles add` end with a **Save to** select: *this agent* writes the overlay
+`.pi/roles/<id>.json`, *workspace* writes the shared `.pi/roles.json`. A pi
+without the env (a plain terminal) skips the question and writes the
+workspace file, as before.
 
 ## Tests
 
