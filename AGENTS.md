@@ -47,6 +47,9 @@ moment of creation**. Read [README.md](README.md) and
    After the branch merges: `git worktree remove .worktrees/<name>` and
    delete the branch. Leave `main` clean for the next session. A dirty
    shared tree that blocks another agent is FAIL.
+   **Never run `git clean -fdx` (or `-fdX`) in the primary checkout:**
+   `.worktrees/` is git-ignored, so clean deletes every agent's working
+   tree in one stroke. Untracked leftovers are removed by name, or not at all.
 
 6. **Decisions are provisional.** Every ADR, "Refuse" table and architectural
    constraint here records a choice that was right when it was made — not a
