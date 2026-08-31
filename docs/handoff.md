@@ -478,3 +478,12 @@ Never exercised, because this machine was already past them:
   gone card, no-env placeholder + empty `apps: []`. `make ci` green.
   Note: first screenshot at 1.5s settle caught boot mid-flight —
   use `--wait-ms 4000` for boot-dependent shots.
+
+- **2026-08-31** — **ADR-0036 amended** (owner decision after the host
+  shipped): in the marketplace era the sandboxed iframe (separate
+  origin + bridge + published tokens/component package) is the
+  first-class body surface for third-party apps; primitives stay as the
+  cheap default, the host-chrome tissue, and the ONLY surface for
+  sensitive actions (agent approvals, destructive confirms — tokens
+  don't stop phishing, host-rendered controls do); the primitive
+  vocabulary is frozen at the four blocks. v1 refusals unchanged.

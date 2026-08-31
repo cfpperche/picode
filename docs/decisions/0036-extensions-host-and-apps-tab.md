@@ -127,6 +127,39 @@ UI**, never code loaded into the PiCode process or page.
   reliable way to know the app API is sufficient (the dogfooding evidence
   above), and the owner's stated goal is the platform, not one inbox.
 
+## Amendment 2026-08-31 — iframe is the marketplace's first-class body; primitives freeze
+
+Decided with the owner the same day the host shipped, settling the
+third-party question ahead of time:
+
+1. **When the marketplace era arrives, the sandboxed iframe is the
+   first-class surface for an app's body** — not a reluctant escape
+   hatch. Built once, properly: separate origin (the Figma/VS Code
+   non-negotiable), strict CSP, postMessage bridge with an audited API,
+   and an official published tokens + component package so third-party
+   apps can *choose* to look native. A manifest will declare its surface
+   (primitives view vs. frame). The "iframe apps in v1" refusal above
+   stands unchanged; this fixes the v2+ direction.
+2. **Primitives stay, with a narrower and permanent role**: the cheap
+   default for simple apps (the Raycast evidence: most tool apps are
+   CRUD and their authors prefer writing no frontend), the connective
+   tissue in host chrome where an iframe cannot go (inbox items, sidebar
+   rows, palette entries, notifications), and the **only** valid surface
+   for sensitive actions — approving an agent's action, destructive
+   confirms. Tokens don't stop phishing; host-rendered controls do: a
+   third-party frame never draws the button that authorizes anything.
+3. **The primitive vocabulary is frozen** at list / detail / form /
+   actions plus what a first-party app concretely forces. It has no
+   ambition to become a UI framework — expressiveness beyond it is what
+   the frame surface is for. This supersedes the "forcing function that
+   grows it" line under Consequences: the Inbox may still add a block it
+   genuinely needs, but growth-by-default is over.
+
+The layered end-state is VS Code's: declarative contributions and
+webviews coexisting for a decade, each in its role, neither legacy.
+Everything shipped in v1 — manifest, registry, tab, grid, badges, tab
+family, routes — is surface-agnostic and carries over unchanged.
+
 ## Sources
 
 - VS Code built-in extensions: <https://github.com/microsoft/vscode/tree/main/extensions>;
