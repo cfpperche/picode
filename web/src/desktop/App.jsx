@@ -722,14 +722,14 @@ export default function App() {
     });
   }
 
-  function connectPanel(ws) {
+  function connectPanel(agentId) {
     closePanel();
     setStatus("idle");
     setStreaming(false);
     streamingRef.current = false;
     setWaiting(false);
-    const sock = new WebSocket(wsURL(`/ws/agent?agent=${ws.agent.id}`));
-    const panel = { agentId: ws.agent.id, sock, stopped: false };
+    const sock = new WebSocket(wsURL(`/ws/agent?agent=${agentId}`));
+    const panel = { agentId, sock, stopped: false };
     panelRef.current = panel;
     sock.onmessage = (ev) => {
       try { handleEvent(JSON.parse(ev.data), panel); } catch { /* ignore */ }
@@ -938,7 +938,7 @@ export default function App() {
   useEffect(() => {
     if (!selected || !agent) { closePanel(); return; }
     if (agent.mode === "managed") {
-      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(selected);
+      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(agent.id);
     } else {
       closePanel();
     }
@@ -1155,19 +1155,18 @@ export default function App() {
     const name = String(fd.get("name") || "");
     const path = String(fd.get("path") || "");
     const schema = formKind === "workspace" ? createWorkspaceSchema : formKind === "free" ? createFreeAgentSchema : createWsAgentSchema;
-    const parsed = parseForm(schema, { name, path, ...newCfg });
+    const parsed = parseForm(schema, formKind === "workspace" ? { name, path } : { name, path, ...newCfg });
     if (!parsed.ok) { setFormError(parsed.error); return; }
     const body = parsed.value;
     try {
       if (formKind === "workspace") {
-        const ws = await api("/api/workspaces", {
+        // The workspace starts empty (ADR-0027): nothing to open yet.
+        await api("/api/workspaces", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const list = await loadWorkspaces();
-        const aid = (ws.agents && ws.agents[0] && ws.agents[0].id) || (ws.agent && ws.agent.id);
-        if (aid) openTab(aid, list);
+        await loadWorkspaces();
       } else if (formKind === "free") {
         const ag = await api("/api/agents", {
           method: "POST",
@@ -1281,8 +1280,7 @@ export default function App() {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
       } catch { /* already running or start failed; the bash call will say */ }
       if (!panelRef.current || panelRef.current.agentId !== agent.id || (panelRef.current.sock && panelRef.current.sock.readyState !== 1)) {
-        const loc = locate(workspaces, freeAgents, agent.id);
-        if (loc) connectPanel(loc);
+        connectPanel(agent.id);
       }
       setItems((cur) => [...cur, { kind: "bash", id: itemId, command, output: "", status: "run", ts: Date.now() }]);
       setDraft("");
@@ -1411,8 +1409,7 @@ export default function App() {
         await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
       } catch { /* already running or start failed; enqueue still */ }
       if (!panelRef.current || panelRef.current.agentId !== agent.id || (panelRef.current.sock && panelRef.current.sock.readyState !== 1)) {
-        const loc = locate(workspaces, freeAgents, agent.id);
-        if (loc) connectPanel(loc);
+        connectPanel(agent.id);
       }
       try {
         if (pics.length || busy || sendKind === "steer" || sendKind === "follow_up") {

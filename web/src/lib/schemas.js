@@ -8,7 +8,8 @@ const modelPick = z.object({
   thinking: required("Thinking"),
 });
 
-export const createWorkspaceSchema = modelPick.extend({
+// A workspace is just a folder (ADR-0027): no agent, so no model pick.
+export const createWorkspaceSchema = z.object({
   name: required("Name"),
   path: required("Folder path"),
 });

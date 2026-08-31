@@ -24,3 +24,8 @@ test("workspaceAgents follows sidebar order", () => {
   ];
   assert.deepEqual(workspaceAgents(ws).map((a) => a.id), ["a", "b", "c"]);
 });
+
+test("workspaceAgents drops the id-less fallback agent (empty workspace)", () => {
+  assert.deepEqual(workspaceAgents([{ id: "w", agents: [], agent: {} }]), []);
+  assert.deepEqual(workspaceAgents([{ id: "w" }]), []);
+});
