@@ -23,6 +23,13 @@ to the `[Unreleased]` section. The repository's official language is English
   workspace-scoped calls that need an agent (open, close, sessions, status)
   answer 409 instead of a 500 or a misleading 404.
 
+### Fixed
+
+- The workspace favicon lookup now checks a frontend living in a subfolder
+  (`web/public`, `www/public`, `ui/public`, `frontend/public`,
+  `client/public`) — PiCode's own repo keeps its favicon in `web/public/`
+  and the card showed a plain folder.
+
 ### Added
 
 - **Workspaces hold terminals.** The terminal button on a workspace card

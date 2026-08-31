@@ -12,16 +12,29 @@ import (
 
 const maxFavicon = 1 << 20 // favicons are tiny; anything bigger is not one
 
-// faviconRels is ordered: project root first, then the common build-tool
-// spots. Within each dir svg > png > ico — the 16px sidebar slot renders
-// vectors crispest.
-var faviconRels = []string{
-	"favicon.svg", "favicon.png", "favicon.ico",
-	"public/favicon.svg", "public/favicon.png", "public/favicon.ico",
-	"static/favicon.svg", "static/favicon.png", "static/favicon.ico",
-	"app/favicon.ico", "src/app/favicon.ico",
-	"www/favicon.svg", "www/favicon.png", "www/favicon.ico",
-	"docs/favicon.svg", "docs/favicon.png", "docs/favicon.ico",
+// faviconDirs is ordered: project root first, then the common build-tool
+// spots, then the public/ dir of a frontend living in a subfolder (the
+// monorepo shape — PiCode itself keeps its favicon in web/public/).
+// Within each dir svg > png > ico — the 16px slot renders vectors crispest.
+var faviconDirs = []string{
+	"", "public", "static", "app", "src/app", "www", "docs",
+	"web/public", "www/public", "ui/public", "frontend/public", "client/public",
+}
+
+var faviconNames = []string{"favicon.svg", "favicon.png", "favicon.ico"}
+
+func faviconRels() []string {
+	out := make([]string, 0, len(faviconDirs)*len(faviconNames))
+	for _, d := range faviconDirs {
+		for _, n := range faviconNames {
+			if d == "" {
+				out = append(out, n)
+			} else {
+				out = append(out, d+"/"+n)
+			}
+		}
+	}
+	return out
 }
 
 // A local map, not imageMIME: that one feeds the composer's image attach,
@@ -45,7 +58,7 @@ func handleWorkspaceFavicon(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		for _, rel := range faviconRels {
+		for _, rel := range faviconRels() {
 			abs, _, err := relUnderCwd(wk.Path, rel)
 			if err != nil {
 				continue

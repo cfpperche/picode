@@ -63,3 +63,21 @@ func TestWorkspaceFavicon(t *testing.T) {
 		t.Fatalf("missing workspace = %d", res.StatusCode)
 	}
 }
+
+// A frontend living in a subfolder (PiCode's own shape: web/public/) still
+// gets its favicon found.
+func TestWorkspaceFaviconNestedFrontend(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Mono", proj)
+	if err := os.MkdirAll(filepath.Join(proj, "web", "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(proj, "web", "public", "favicon.svg"), []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wk.ID+"/favicon"))
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("nested favicon = %d %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+}
