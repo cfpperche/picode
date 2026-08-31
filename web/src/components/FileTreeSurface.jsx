@@ -7,6 +7,9 @@ import FileTree from "./FileTree.jsx";
 import WorkingDiff from "./WorkingDiff.jsx";
 
 const SKELETON_ROWS = 12;
+const TREE_MIN = 220;
+const TREE_MAX = 720;
+const TREE_KEY = "picode-ft-w";
 
 // The file tree of one folder (ADR-0030). The owner is what the server reads
 // through; the folder it answers with is what the tab is. No polling — the
@@ -20,6 +23,11 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   const [busy, setBusy] = useState(false);
   const [diffPath, setDiffPath] = useState("");
   const [nonce, setNonce] = useState(0);
+  const [treeW, setTreeW] = useState(() => {
+    const n = parseInt(localStorage.getItem(TREE_KEY) || "", 10);
+    return Number.isFinite(n) ? Math.min(TREE_MAX, Math.max(TREE_MIN, n)) : 320;
+  });
+  const [resizing, setResizing] = useState(false);
   const keyRef = useRef("");
   const busyRef = useRef(false);
   const loadRef = useRef(() => {});
@@ -140,6 +148,26 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
     }
   }, [base, ownerId]);
 
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = treeW;
+    let latest = startW;
+    setResizing(true);
+    const move = (ev) => {
+      latest = Math.min(TREE_MAX, Math.max(TREE_MIN, Math.round(startW + (ev.clientX - startX))));
+      setTreeW(latest);
+    };
+    const up = () => {
+      setResizing(false);
+      try { localStorage.setItem(TREE_KEY, String(latest)); } catch { /* ignore */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   if (!owner) return null;
 
   if (error && !levels) {
@@ -211,8 +239,8 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
           </button>
         </p>
       ) : (
-        <div className={"ft-split" + (diffPath ? " ft-split-open" : "")}>
-        <div className="ft-body">
+        <div className={"ft-split" + (diffPath ? " ft-split-open" : "") + (resizing ? " resizing" : "")}>
+        <div className="ft-body" style={diffPath ? { width: treeW } : undefined}>
           {changes.length > 0 ? (
             <div className="ft-changes">
               <h3 className="ft-sect">Changes ({changes.length})</h3>
@@ -235,6 +263,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
             <FileTree rows={rows} kinds={kinds} dirtyDirs={dirtyDirs} onToggle={toggle} onOpen={onOpenFile} />
           )}
         </div>
+        {diffPath ? <div className="ft-sizer" title="Drag to resize" onPointerDown={onSizerDown} /> : null}
         {diffPath ? (
           <WorkingDiff
             owner={owner}
