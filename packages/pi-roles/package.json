@@ -1,0 +1,29 @@
+{
+  "name": "pi-roles",
+  "version": "0.1.0",
+  "description": "Opt-in model roles for pi: vision/plan routing plus named presets.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode"],
+  "files": [
+    "extensions",
+    "src",
+    "roles.schema.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/roles.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-roles"
+  }
+}

@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-28.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-30.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -285,6 +285,15 @@ Agents communicate through their native protocol — no internals hacked.
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
+
+### Model roles (ADR-0025)
+
+Opt-in pi package at `packages/pi-roles/` (MIT; the rest of this tree is
+PolyForm Noncommercial). Users install it with `pi install -l` / `#/packages`;
+a missing `<cwd>/.pi/roles.json` leaves it dormant. Three builtin behaviours
+(`default`, `vision`, `plan`) plus named custom presets. `default` is the
+switch-back target, not a startup override — per-agent `--model` stays with
+ADR-0009. The GUI that edits the file is M2 and is not in this tree yet.
 
 ### MCP (Model Context Protocol) support
 

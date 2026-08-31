@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **`packages/pi-roles`**: opt-in pi extension that routes models by role
+  (vision on images, plan on `/plan`, named presets via `/role`). Workspace
+  file `.pi/roles.json`; MIT in that directory only (ADR-0025). Not installed
+  by default. No GUI yet.
+
 ### Changed
 
 - **Compaction progress moved from the composer statusbar into the chat**

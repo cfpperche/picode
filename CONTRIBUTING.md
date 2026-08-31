@@ -28,6 +28,8 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
 4. **Work in an isolated git worktree** (AGENTS.md non-negotiable 5).
    Do not edit `main` in the primary checkout in parallel with another
    agent. After merge, remove the worktree and the branch.
+5. Code under `packages/pi-roles/` is MIT; everything else is PolyForm
+   Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0025.
 
 ## The documentation contract (applies to everyone)
 
