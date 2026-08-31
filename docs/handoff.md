@@ -55,7 +55,8 @@ session for session/window values; server values apply for real). The old
 hardcoded forces — status off, allow-passthrough on, extended keys — are now
 curated *defaults* the user can override, consequence labelled. The dialog
 became a page (`#/termset`, `#/termset/<id>`): featured tier, search, scope
-sections, danger labels. Arrays are shown but edited via tmux.conf (V1).
+sections, danger labels. Arrays are editable as a block since 2026-08-30 —
+one entry per line, line *n* is `name[n]` (ADR-0025 amendment).
 Caught in browser QA and fixed: the search now filters the featured tier too
 — unfiltered, a featured control sat where a result was expected and took the
 click meant for it.
@@ -186,6 +187,21 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-30** — The last ADR-0025 debt is paid: tmux **array options are
+  editable** in `#/termset` (`command-alias`, `terminal-features`,
+  `terminal-overrides`, `status-format`, `update-environment`). They are
+  edited as text, one entry per line; **Start from inherited** copies the
+  inherited entries in; Apply rewrites the list per index and unsets whatever
+  the layer held past the new length — measured first: tmux leaves a stale
+  `name[2]` in place forever otherwise, and a whole-option unset before the
+  rewrite resurfaces the layer below. An empty block is refused (tmux keeps no
+  empty array layer, so it would be a pin that behaves as inherit).
+  Browser QA found a bug that predates arrays: the **global** panel dropped a
+  cleared non-curated key from the store but never unset it on the live
+  sessions, so it kept applying. Fixed with `unsetClearedEverywhere` and a
+  test that fails without it. Also fixed: `.dlg-input` pins height to one
+  control row, which collapsed every list editor to a single line.
 
 - **2026-08-30** — Terminal appearance moved into `#/termset` ("Appearance —
   this browser" section, global page only); Preferences lost its Terminal

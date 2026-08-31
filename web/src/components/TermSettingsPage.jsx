@@ -7,6 +7,7 @@ import { termsetRoute } from "../lib/routes.js";
 import {
   INHERIT, selectedKey, choicesFor, effectText,
   inheritedValueFor, matchesQuery, groupCatalog, withChoice,
+  entryCount, blockRows,
 } from "../lib/termSettings.js";
 
 // Terminal behaviour over the FULL tmux option space (ADR-0024). Two tiers:
@@ -231,7 +232,28 @@ function CatalogRow({ row, data, catalogValue, onPatch }) {
       </div>
 
       {isArray ? (
-        <p className="termset-row-note">A list ({row.name}[0], [1], …) — editable in tmux.conf; shown here so it is not hidden.</p>
+        <div className="termset-row-edit termset-row-edit-block">
+          <textarea
+            className="dlg-input termset-row-area"
+            value={draft ?? (stored ?? "")}
+            placeholder={inherited === "" ? "Inherit: (empty list)" : `Inherit: ${entryCount(inherited)} entries`}
+            rows={blockRows(draft ?? (stored ?? ""))}
+            disabled={busy}
+            spellCheck={false}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-label={row.name}
+          />
+          <div className="termset-row-blockbtns">
+            <button type="button" className="btn btn-sm" disabled={busy || draft === null} onClick={() => submit(draft)}>Apply</button>
+            {overridden ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy} title="Back to inherited" onClick={() => { setDraft(null); submit(null); }}>Reset</button>
+            ) : null}
+            {draft === null && !overridden && inherited !== "" ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy} title="Copy the inherited entries in to edit them" onClick={() => setDraft(inherited)}>Start from inherited</button>
+            ) : null}
+          </div>
+          <p className="termset-row-note">One entry per line — line <i>n</i> is {row.name}[<i>n</i>], blank lines are ignored. Applying replaces the whole list; Reset falls back to the inherited one.</p>
+        </div>
       ) : row.kind === "bool" ? (
         <div className="termset-seg termset-seg-sm" role="radiogroup" aria-label={row.name}>
           {[[INHERIT, `Inherit (${inherited === "on" ? "On" : "Off"})`], ["on", "On"], ["off", "Off"]].map(([val, label]) => {

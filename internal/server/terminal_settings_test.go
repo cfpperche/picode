@@ -354,3 +354,106 @@ func TestAGlobalChangeReachesAnOwnedLiveSession(t *testing.T) {
 		t.Fatalf("mouse = %q, want the global change to reach an owned session with no reattach", got)
 	}
 }
+
+// An array option round-trips as a block: one entry per line in, per-index
+// values on the live session out, and clearing removes the whole layer so
+// the session inherits the global list again.
+func TestAnArrayOptionRoundTripsAsABlock(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	id, session := newTerminal(t, ts)
+
+	res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings",
+		map[string]any{"update-environment": "PICODE_AAA\n\nPICODE_BBB"})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("patch update-environment = %d", res.StatusCode)
+	}
+	res.Body.Close()
+
+	out, err := exec.Command("tmux", "show-options", "-t", session+":", "update-environment").Output()
+	if err != nil {
+		t.Fatalf("show-options: %v", err)
+	}
+	got := string(out)
+	if !strings.Contains(got, "update-environment[0] PICODE_AAA") || !strings.Contains(got, "update-environment[1] PICODE_BBB") {
+		t.Fatalf("session layer = %q, want the two entries at [0] and [1] (blank line dropped)", got)
+	}
+
+	// Clearing must unset the layer, not pin an empty one.
+	postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings",
+		map[string]any{"update-environment": nil}).Body.Close()
+	out, _ = exec.Command("tmux", "show-options", "-t", session+":", "update-environment").Output()
+	if strings.Contains(string(out), "PICODE_AAA") {
+		t.Fatalf("cleared array still on the session layer: %q", string(out))
+	}
+}
+
+// An empty block cannot be pinned — tmux keeps no empty array layer, so
+// accepting it would store an override that silently behaves as inherit.
+func TestAnEmptyArrayBlockIsRefused(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	id, _ := newTerminal(t, ts)
+	res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/"+id+"/settings",
+		map[string]any{"update-environment": "  \n\n"})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty block = %d, want 400", res.StatusCode)
+	}
+	res.Body.Close()
+}
+
+// The catalog carries array entries as the block the editor shows —
+// command-alias ships defaults on every tmux, so its row must not be empty.
+func TestCatalogCarriesArrayEntries(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	got := termSettings(t, ts, "/api/terminals/settings/catalog")
+	for _, r := range got["catalog"].([]any) {
+		row := r.(map[string]any)
+		if row["name"] == "command-alias" {
+			v, _ := row["value"].(string)
+			if !strings.Contains(v, "=") {
+				t.Fatalf("command-alias value = %q, want its entries as a block", v)
+			}
+			return
+		}
+	}
+	t.Fatal("command-alias is not in the catalog")
+}
+
+// Clearing a non-curated option in the GLOBAL panel must unset it on the
+// sessions it reached. Storing nothing is not enough: with no PiCode default
+// underneath, the re-resolve never overwrites the value, so it would live on
+// the session forever. Found in browser QA on 2026-08-30 with an array; the
+// same hole applied to every non-curated key.
+func TestClearingAGlobalOptionUnsetsItOnLiveSessions(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	_, session := newTerminal(t, ts)
+
+	res := postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/settings",
+		map[string]any{"update-environment": "PICODE_GLOBAL_ONE"})
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("patch = %d", res.StatusCode)
+	}
+	res.Body.Close()
+	out, _ := exec.Command("tmux", "show-options", "-t", session+":", "update-environment").Output()
+	if !strings.Contains(string(out), "PICODE_GLOBAL_ONE") {
+		t.Fatalf("global list never reached the session: %q", string(out))
+	}
+
+	postJSONMethod(t, ts, http.MethodPatch, "/api/terminals/settings",
+		map[string]any{"update-environment": nil}).Body.Close()
+	out, _ = exec.Command("tmux", "show-options", "-t", session+":", "update-environment").Output()
+	if strings.Contains(string(out), "PICODE_GLOBAL_ONE") {
+		t.Fatalf("cleared global option is still pinned on the session: %q", string(out))
+	}
+}

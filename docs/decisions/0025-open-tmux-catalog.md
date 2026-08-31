@@ -75,4 +75,34 @@ Two facts measured on the owner's machine (tmux 3.6) shaped the design:
 | Curated-only registry (ADR-0024's original rule) | the owner asked for the whole space, and the registry was already wrong once (`yes` as a boolean) |
 | Compiled-in catalog with types | drifts from the installed tmux; the live server is the only honest source |
 | Hiding dangerous options | contradicts the decision; labelling keeps agency with the user |
-| Editable arrays in V1 | indexed writes (`name[2]`) need list UI; deferred, shown read-only so nothing is hidden |
+| Editable arrays in V1 | indexed writes (`name[2]`) need list UI; deferred, shown read-only so nothing is hidden — **paid off 2026-08-30, see the amendment below** |
+
+## Amendment — 2026-08-30: arrays are editable, as a block
+
+The read-only debt above is paid. An array option is edited as **text, one
+entry per line**: line *n* is `name[n]`, blank lines are ignored, and Apply
+replaces the whole list. The block is what the catalog already carried —
+`show-options` reports the entries in index order, so joining them with
+newlines loses nothing and needs no list widget.
+
+Two things were measured on tmux 3.6 before the code was written, and both
+shape it:
+
+**Shrinking a list needs per-index unsets.** Writing `name[0]` and `name[1]`
+over a three-entry layer leaves `name[2]` exactly where it was — it survives
+every rewrite. So `SetArrayOption` writes the new entries and then unsets each
+index the layer had beyond the new length. Unsetting the whole option first
+would be worse, not better: it resurfaces the layer underneath (for a server
+option, tmux's own defaults) between the two writes.
+
+**An empty list cannot be pinned.** tmux keeps no empty array layer — removing
+the last index removes the override itself. An empty block is therefore
+refused with a message pointing at Reset, rather than stored as a pin that
+silently behaves as inherit.
+
+One bug surfaced in the browser QA that had nothing to do with arrays and
+everything to do with clearing: the **global** panel dropped a cleared
+non-curated key from the store but never unset it on the live sessions, so it
+stayed applied forever. The per-terminal path had always done this
+(`applyPatchLive`); the global one now does too (`unsetClearedEverywhere`),
+with a test that fails without it.
