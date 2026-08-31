@@ -127,7 +127,10 @@ export function pinRoute(hash) {
   return { mode: "", id: "" };
 }
 
-const PREF_SECTIONS = ["appearance", "terminal", "notifications", "server", "backup"];
+// "terminal" left this list on 2026-08-30: terminal appearance lives on the
+// terminal settings page now (#/termset), beside the behaviour it belongs
+// with. An old #/preferences/terminal link falls back to Appearance.
+const PREF_SECTIONS = ["appearance", "notifications", "server", "backup"];
 
 export function prefSection(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");

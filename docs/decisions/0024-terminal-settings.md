@@ -67,6 +67,15 @@ presets, which it does not have.
 Entry points, both in the Terminals list: a gear beside **+ New terminal**
 opens the global panel; a gear on a terminal's row opens that terminal's.
 
+**Amended 2026-08-30**: the two *storage* homes stand; the two *UI* homes
+did not survive contact with users. Having `#/preferences/terminal` and
+`#/termset` both answer "configure the terminal" needed a footnote on each
+page pointing at the other — the sign the split was a tax, not a structure.
+Appearance now renders as the first section of the global `#/termset` page,
+labelled "this browser" the same way server options are labelled
+"machine-wide"; Preferences lost its Terminal section. Storage is untouched:
+appearance still lives in `localStorage`, per browser.
+
 ## Consequences
 
 - **Easier**: a parity gap becomes a setting instead of a commit. The owner

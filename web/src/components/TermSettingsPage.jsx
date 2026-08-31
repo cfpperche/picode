@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api.js";
 import { toastError } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
+import TermAppearance from "./TermAppearance.jsx";
 import { termsetRoute } from "../lib/routes.js";
 import {
   INHERIT, selectedKey, choicesFor, effectText,
@@ -84,6 +85,17 @@ export default function TermSettingsPage({ hidden, terminals }) {
     <PageFrame id="termset-view" title={title} context={context} hidden={hidden} wide>
       {!data || !catalog ? <PageSkeleton /> : (
         <div className="termset-page">
+          {isGlobal ? (
+            <section className="termset-cat">
+              <h3 className="termset-cat-title">Appearance — this browser</h3>
+              <p className="termset-cat-note">
+                Font, colors and cursor are remembered by this browser, so each
+                device can look its own way. Everything below travels with the
+                terminal instead.
+              </p>
+              <TermAppearance active={!hidden} />
+            </section>
+          ) : null}
           <section className="termset-fields">
             {(data.flags || [])
               .filter((f) => isGlobal || f.scope !== "server")
@@ -130,14 +142,16 @@ export default function TermSettingsPage({ hidden, terminals }) {
             />
           ) : (
             <p className="termset-foot">
-              Server-wide options live in the <a href="#/termset">global panel</a> — tmux keeps them per machine, so promising them per terminal would be false.
+              Appearance (font, colors, cursor) and server-wide options live in
+              the <a href="#/termset">global panel</a> — the first belongs to
+              the browser, the second to the whole machine, so neither can be
+              promised per terminal.
             </p>
           )}
 
           <p className="termset-foot">
-            Font, colours and cursor are in <a href="#/preferences/terminal">Preferences</a>.
-            Those are remembered by this browser; the settings here travel with the terminal.
-            Values are checked by tmux itself — an entry it refuses is reported in its own words.
+            Values in the sections above Appearance are checked by tmux itself —
+            an entry it refuses is reported in its own words.
           </p>
         </div>
       )}

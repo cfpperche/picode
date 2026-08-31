@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **One place to configure terminals.** The appearance controls (font,
+  colors, cursor, padding, keys) moved from Preferences → Terminal into the
+  terminal settings page, as an "Appearance — this browser" section above
+  the behaviour sections — every scope on one page, each labelled with its
+  reach. Preferences lost its Terminal tab; old links fall back gracefully.
+  Nothing moved in storage: appearance is still remembered per browser.
+
 ### Fixed
 
 - **Terminal cards show where the terminal IS.** The sidebar printed the
