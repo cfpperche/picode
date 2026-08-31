@@ -209,7 +209,9 @@ Never exercised, because this machine was already past them:
 ## Recent activity
 
 - **2026-08-31** — **`/roles` chat stepper: adversarial review + redo**
-  (branch `fix/roles-adversarial`). The owner called the shipped stepper
+  (`fix/roles-adversarial`, **merged to main and deployed to :8445**;
+  running agents must be restarted to reload the path package). The
+  owner called the shipped stepper
   broken; the review confirmed the cancel-as-back design was the root
   cause and replaced it. What changed:
   - **Extension (ADR-0028 amendment):** cancel aborts the whole flow;
