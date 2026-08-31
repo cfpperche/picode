@@ -377,7 +377,7 @@ type browseHit struct {
 func browseAgentDir(cwd, rel string) (map[string]any, error) {
 	st, err := os.Stat(cwd)
 	if err != nil || !st.IsDir() {
-		return map[string]any{"cwdOk": false, "dirs": []browseHit{}, "files": []browseHit{}}, nil
+		return map[string]any{"cwdOk": false, "root": "", "dirs": []browseHit{}, "files": []browseHit{}}, nil
 	}
 	abs, outRel, err := relUnderCwd(cwd, rel)
 	if err != nil {
@@ -418,8 +418,11 @@ func browseAgentDir(cwd, rel string) (map[string]any, error) {
 			parent = ""
 		}
 	}
+	// root names the tree's identity: the same canonical answer for every
+	// owner whose reads are confined to this folder, so the app can fold
+	// their tabs into one (ADR-0028).
 	return map[string]any{
-		"cwdOk": true, "dir": outRel, "parent": parent,
+		"cwdOk": true, "root": canonDir(cwd), "dir": outRel, "parent": parent,
 		"dirs": dirs, "files": files,
 	}, nil
 }

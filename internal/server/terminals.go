@@ -22,6 +22,7 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/cwd", handleGetTerminalCwd(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/browse", handleTerminalBrowse(deps))
 }
 
 func defaultShell() string {
@@ -211,6 +212,22 @@ func handleGetTerminalCwd(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"cwd": liveTermCwd(deps, r, term)})
+	}
+}
+
+func handleTerminalBrowse(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		out, err := browseAgentDir(liveTermCwd(deps, r, term), r.URL.Query().Get("dir"))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 
