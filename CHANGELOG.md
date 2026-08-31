@@ -22,6 +22,13 @@ to the `[Unreleased]` section. The repository's official language is English
   file `.pi/roles.json`; MIT in that directory only (ADR-0028). Not installed
   by default. `/roles edit|add|remove` writes that file (no PiCode page).
 
+### Fixed
+
+- **Packages still lists what is on this machine when a terminal is selected.**
+  Opening `#/packages` from the Terminals tab sent the terminal id as an
+  agent id, the API answered 404, and the Installed row vanished — the
+  packages themselves were never removed.
+
 ### Changed
 
 - **Creating a workspace no longer creates an agent** (ADR-0027). The

@@ -222,6 +222,9 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
         <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
       </section>
 
+      {list.length === 0 && data ? (
+        <p className="pkg-fine">None on this machine.</p>
+      ) : null}
       {list.length > 0 ? (
         <section className="pkg-installed">
           <h3>Installed</h3>

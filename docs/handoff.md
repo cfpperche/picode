@@ -48,6 +48,11 @@ What exists:
 
 ## In flight
 
+**Packages Installed row missing from Terminals tab** — on
+`fix/packages-list-when-terminal`. Cause: `agentId={selectedId}` 404s.
+Not merged yet.
+
+
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
 all of tmux's options (142 on this machine's 3.6), read live from
