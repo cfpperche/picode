@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { layout, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
 import { IconRemote } from "./Icons.jsx";
 
@@ -36,15 +36,17 @@ function refLabel(ref) {
   );
 }
 
-export default function GitGraph({ graph, selected, onSelect }) {
+export default function GitGraph({ graph, selected, onSelect, detail, detailHeight, onSizerDown }) {
   const commits = graph.commits || [];
   const listRef = useRef(null);
 
-  // Selecting a commit opens the diff pane, which shrinks this one. Without
-  // this the row you just clicked scrolls out of sight — you lose the thing
-  // you were reading about. "nearest" keeps an already-visible row still.
+  // The detail opens below the clicked row, possibly past the bottom edge.
+  // Panel first, row second: if both cannot fit, the row wins — it is the
+  // thing the reader clicked. "nearest" keeps an already-visible row still.
   useEffect(() => {
     if (!selected || !listRef.current) return;
+    const inline = listRef.current.querySelector(".gg-inline");
+    if (inline) inline.scrollIntoView({ block: "nearest" });
     const row = listRef.current.querySelector(".gg-row-on");
     if (row) row.scrollIntoView({ block: "nearest" });
     // commits is a dependency because a parent link can select a row that only
@@ -52,6 +54,12 @@ export default function GitGraph({ graph, selected, onSelect }) {
   }, [selected, commits]);
 
   const placed = useMemo(() => layout(commits), [commits]);
+
+  // The inline detail is a row in the flow, so the list below it moves by
+  // itself; the SVG is absolute, so every line and dot below the selected row
+  // detours by the same amount through expandAt/expandY.
+  const selIdx = detail ? commits.findIndex((c) => c.hash === selected) : -1;
+  const expandY = selIdx > -1 ? detailHeight : 0;
 
   // A commit carries every ref that points at it, and a branch carries the
   // agents living in the worktree checked out on it — the one thing this graph
@@ -77,7 +85,7 @@ export default function GitGraph({ graph, selected, onSelect }) {
   }, [graph.worktrees]);
 
   const width = Math.max(1, placed.columns) * GRID.x + GRID.offsetX;
-  const height = Math.max(commits.length, 1) * GRID.y;
+  const height = Math.max(commits.length, 1) * GRID.y + expandY;
 
   return (
     <div className="gg-rows" style={{ "--gg-graph-w": width + "px", "--gg-row-h": GRID.y + "px" }}>
@@ -93,7 +101,7 @@ export default function GitGraph({ graph, selected, onSelect }) {
           <path
             key={i}
             className="gg-line"
-            d={branchPath(branch.lines)}
+            d={branchPath(branch.lines, { expandAt: selIdx, expandY })}
             stroke={colourAt(branch.colour)}
           />
         ))}
@@ -102,7 +110,7 @@ export default function GitGraph({ graph, selected, onSelect }) {
             key={i}
             className={"gg-dot" + (commits[i].hash === graph.head ? " gg-dot-head" : "")}
             cx={v.x * GRID.x + GRID.offsetX}
-            cy={i * GRID.y + GRID.offsetY}
+            cy={i * GRID.y + GRID.offsetY + (selIdx > -1 && i > selIdx ? expandY : 0)}
             r={commits[i].hash === graph.head ? 4.5 : 3.5}
             fill={colourAt(v.colour)}
           />
@@ -110,10 +118,11 @@ export default function GitGraph({ graph, selected, onSelect }) {
       </svg>
 
       <ol className="gg-list" ref={listRef}>
-        {commits.map((c) => {
+        {commits.map((c, i) => {
           const refs = refsByHash.get(c.hash) || [];
           return (
-            <li key={c.hash}>
+            <Fragment key={c.hash}>
+            <li>
               <button
                 type="button"
                 className={"gg-row" + (selected === c.hash ? " gg-row-on" : "")}
@@ -144,6 +153,13 @@ export default function GitGraph({ graph, selected, onSelect }) {
                 <span className="gg-hash">{c.hash.slice(0, 7)}</span>
               </button>
             </li>
+            {i === selIdx ? (
+              <li className="gg-inline" style={{ height: detailHeight }}>
+                {detail}
+                <div className="gg-inline-sizer" onPointerDown={onSizerDown} aria-hidden="true" />
+              </li>
+            ) : null}
+            </Fragment>
           );
         })}
       </ol>

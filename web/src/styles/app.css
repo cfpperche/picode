@@ -2917,10 +2917,21 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .tree-icon-btn:hover { color: var(--accent); }
 .tree-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Selecting a commit splits the surface: the graph keeps its place above so
-   the selected row stays in view while the diff is read below. */
-.gg-split { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.gg-split-open .gg-rows { flex: 0 0 45%; }
+/* Selecting a commit opens its detail inline, directly below the clicked row
+   (ADR-0038): the row stays put, the rows below move down, and the SVG lines
+   detour by the same amount through expandAt/expandY. The list is padded left
+   for the graph; the panel takes the full width — nothing draws under it. */
+.gg-inline {
+  position: relative; overflow: hidden;
+  margin-left: calc(-1 * var(--gg-graph-w));
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.gg-inline .gg-detail { height: 100%; border-top: 0; }
+.gg-inline-sizer {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  cursor: row-resize; z-index: 6;
+}
+.gg-inline-sizer:hover, .gg-inline-sizer:active { background: var(--accent); opacity: .45; }
 
 .gg-detail {
   flex: 1; min-height: 0; display: flex; flex-direction: column;

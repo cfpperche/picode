@@ -5,6 +5,16 @@ import CommitDetail from "./CommitDetail.jsx";
 
 const SKELETON_ROWS = 14;
 
+// The inline detail keeps its height across commits and sessions; below the
+// minimum it is a sliver, above the ceiling it is the old bottom split again.
+const DETAIL_KEY = "picode.gg.detail-h";
+const DETAIL_MIN = 160;
+
+function clampDetail(n) {
+  const max = Math.max(DETAIL_MIN, Math.round(window.innerHeight * 0.7));
+  return Math.min(max, Math.max(DETAIL_MIN, n));
+}
+
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
@@ -14,6 +24,10 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState("");
   const [limit, setLimit] = useState(250);
+  const [detailH, setDetailH] = useState(() => {
+    const n = parseInt(localStorage.getItem(DETAIL_KEY) || "", 10);
+    return Number.isFinite(n) ? clampDetail(n) : 280;
+  });
   const keyRef = useRef("");
 
   const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
@@ -62,6 +76,24 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     [graph],
   );
 
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = detailH;
+    let latest = startH;
+    const move = (ev) => {
+      latest = clampDetail(Math.round(startH + (ev.clientY - startY)));
+      setDetailH(latest);
+    };
+    const up = () => {
+      try { localStorage.setItem(DETAIL_KEY, String(latest)); } catch { /* ignore */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   if (!owner) return null;
 
   if (error && !graph) {
@@ -101,6 +133,10 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   }
 
   const count = (graph.commits || []).length;
+  // A parent link can land outside the loaded window even after growing it
+  // once; the anchor row does not exist, so there is nowhere to open inline.
+  const selectedMissing =
+    Boolean(selected) && count > 0 && !(graph.commits || []).some((c) => c.hash === selected);
 
   return (
     <section className="gg-surface" aria-label={`Git graph for ${graph.name}`}>
@@ -127,23 +163,34 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
       </header>
 
       {error ? <p className="gg-warn">{error}</p> : null}
+      {selectedMissing ? (
+        <p className="gg-warn">
+          That commit is earlier than the loaded window — Load earlier to reach it.
+        </p>
+      ) : null}
 
       {count === 0 ? (
         <p className="gg-msg">
           No commits yet. Make the first one, then Refresh.
         </p>
       ) : (
-        <div className={"gg-split" + (selected ? " gg-split-open" : "")}>
-          <GitGraph graph={graph} selected={selected} onSelect={(h) => setSelected(h === selected ? "" : h)} />
-          {selected ? (
-            <CommitDetail
-              owner={owner}
-              hash={selected}
-              onClose={() => setSelected("")}
-              onSelectCommit={selectCommit}
-            />
-          ) : null}
-        </div>
+        <GitGraph
+          graph={graph}
+          selected={selected}
+          onSelect={(h) => setSelected(h === selected ? "" : h)}
+          detailHeight={detailH}
+          onSizerDown={onSizerDown}
+          detail={
+            selected && !selectedMissing ? (
+              <CommitDetail
+                owner={owner}
+                hash={selected}
+                onClose={() => setSelected("")}
+                onSelectCommit={selectCommit}
+              />
+            ) : null
+          }
+        />
       )}
     </section>
   );

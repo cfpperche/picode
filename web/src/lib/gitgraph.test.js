@@ -164,3 +164,53 @@ test("the repository name comes out of the key, matching the server", () => {
   assert.equal(repoNameFromKey(""), "");
   assert.equal(repoNameFromKey(null), "");
 });
+
+// expandAt/expandY came with the port and had never been called: they shift
+// everything drawn below an expanded row so an inline panel can open there.
+// These tests run that code for the first time, before any pixel depends on it.
+
+test("a vertical line crossing the expanded row stretches only its lower end", () => {
+  const line = [{ p1: { x: 0, y: 0 }, p2: { x: 0, y: 2 }, lockedFirst: true }];
+  const plain = branchPath(line);
+  const opened = branchPath(line, { expandAt: 1, expandY: 100 });
+  assert.equal(plain, `M${GRID.offsetX},${GRID.offsetY.toFixed(1)}L${GRID.offsetX},${(GRID.offsetY + 2 * GRID.y).toFixed(1)}`);
+  assert.equal(opened, `M${GRID.offsetX},${GRID.offsetY.toFixed(1)}L${GRID.offsetX},${(GRID.offsetY + 2 * GRID.y + 100).toFixed(1)}`);
+});
+
+test("a line entirely below the expanded row shifts both ends", () => {
+  const line = [{ p1: { x: 0, y: 2 }, p2: { x: 0, y: 3 }, lockedFirst: true }];
+  const opened = branchPath(line, { expandAt: 1, expandY: 50 });
+  assert.equal(
+    opened,
+    `M${GRID.offsetX},${(GRID.offsetY + 2 * GRID.y + 50).toFixed(1)}L${GRID.offsetX},${(GRID.offsetY + 3 * GRID.y + 50).toFixed(1)}`,
+  );
+});
+
+test("a line entirely above the expanded row does not move", () => {
+  const line = [{ p1: { x: 0, y: 0 }, p2: { x: 0, y: 1 }, lockedFirst: true }];
+  assert.equal(branchPath(line, { expandAt: 1, expandY: 300 }), branchPath(line));
+});
+
+test("a branch stays continuous across the expansion boundary", () => {
+  // A vertical run into a sideways merge curve. Wherever the boundary falls,
+  // the path must stay one stroke: a second M means the shifted start of one
+  // segment no longer meets the shifted end of the one before it.
+  const lines = [
+    { p1: { x: 0, y: 0 }, p2: { x: 0, y: 1 }, lockedFirst: true },
+    { p1: { x: 0, y: 1 }, p2: { x: 1, y: 2 }, lockedFirst: false },
+    { p1: { x: 1, y: 2 }, p2: { x: 1, y: 3 }, lockedFirst: true },
+  ];
+  for (let at = 0; at <= 3; at++) {
+    const path = branchPath(lines, { expandAt: at, expandY: 120 });
+    assert.equal(path.match(/M/g).length, 1, `expandAt ${at} split the stroke: ${path}`);
+    assert.ok(!/NaN|undefined/.test(path), `expandAt ${at} has holes: ${path}`);
+  }
+});
+
+test("expanding at the last row is a no-op for every line", () => {
+  const lines = [
+    { p1: { x: 0, y: 0 }, p2: { x: 0, y: 1 }, lockedFirst: true },
+    { p1: { x: 0, y: 1 }, p2: { x: 1, y: 2 }, lockedFirst: false },
+  ];
+  assert.equal(branchPath(lines, { expandAt: 2, expandY: 500 }), branchPath(lines));
+});
