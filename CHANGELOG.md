@@ -19,6 +19,10 @@ to the `[Unreleased]` section. The repository's official language is English
   the behaviour sections — every scope on one page, each labelled with its
   reach. Preferences lost its Terminal tab; old links fall back gracefully.
   Nothing moved in storage: appearance is still remembered per browser.
+  Follow-up from the owner's screenshot: the page uses the same 1080px width
+  as the other wide pages (it sat at 760 in a sea of margin), and the live
+  preview pins to a sane height and sticks while the form scrolls instead of
+  stretching to the form's full height.
 
 ### Fixed
 
