@@ -187,6 +187,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Agent cards got the terminal treatment: the name is the
+  rename control (hover accent + dotted underline, click opens "Rename
+  agent", `PATCH /api/agents/{id}`), prefilled with the shown name so a
+  workspace `default` agent never opens a blank field. **No gear was added**:
+  measured in the browser, the hover action row already spans x=120–230 of a
+  244px sidebar, so a fifth icon would have cut the name's clickable run from
+  49px to 23px. Debt (pre-existing, not from this change): with four actions
+  the overlay covers the tail of a long agent name on hover — "Claude Code"
+  reads "Claude". The full name is still in the `title`.
+
 - **2026-08-30** — Terminal rows in the sidebar lost the pencil: the name
   itself is the rename control (hover paints it accent with a dotted
   underline, click opens the rename dialog), and the hover action row is

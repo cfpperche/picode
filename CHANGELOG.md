@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Agent cards rename the same way terminals do.** Hovering an agent's name
+  in the sidebar paints it accent with a dotted underline; clicking it opens
+  "Rename agent" and saves through `PATCH /api/agents/{id}`. A workspace
+  agent still carrying the default name opens the field on the name the card
+  shows, never blank. The model suffix and the rest of the row are untouched,
+  so clicking anywhere else still selects the agent.
+
 - **Renaming a terminal lives on its name.** Hovering a terminal's name in
   the sidebar now shows it as editable (accent color, dotted underline) and
   clicking it opens the rename prompt — the pencil button is gone. The
