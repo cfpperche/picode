@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { layout, simplifyLines, branchPath, colourAt, COLOURS, GRID, repoNameFromKey } from "./gitgraph.js";
+import {
+  layout, layoutUncommitted, UNCOMMITTED, simplifyLines, branchPath,
+  colourAt, COLOURS, GRID, repoNameFromKey,
+} from "./gitgraph.js";
 
 const commit = (hash, ...parents) => ({ hash, parents });
 
@@ -213,4 +216,72 @@ test("expanding at the last row is a no-op for every line", () => {
     { p1: { x: 0, y: 1 }, p2: { x: 1, y: 2 }, lockedFirst: false },
   ];
   assert.equal(branchPath(lines, { expandAt: 2, expandY: 500 }), branchPath(lines));
+});
+
+// The Uncommitted Changes row (ADR-0038): a pseudo-commit through the ordinary
+// allocator, with its trail split out for dashed drawing.
+
+test("a dirty tree over HEAD at the top yields a one-row dashed trail", () => {
+  const { placed, rows, dashed } = layoutUncommitted(
+    [commit("h"), commit("g")], // g is unreachable from h here; keep it simple
+    "h",
+  );
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].hash, UNCOMMITTED);
+  assert.equal(placed.vertices.length, 3);
+  assert.ok(dashed, "a trail must come back");
+  assert.equal(dashed.lines.length, 1);
+  assert.deepEqual(dashed.lines[0].p1, { x: 0, y: 0 });
+  assert.deepEqual(dashed.lines[0].p2, { x: 0, y: 1 });
+});
+
+test("the dashed trail reaches a HEAD further down and stops there", () => {
+  //  *      uncommitted
+  //  A      a branch tip above HEAD
+  //  H      HEAD
+  //  B
+  const { placed, rows, dashed } = layoutUncommitted(
+    [commit("A", "B"), commit("H", "B"), commit("B")],
+    "H",
+  );
+  assert.equal(rows.length, 4);
+  const headRow = rows.findIndex((r) => r.hash === "H");
+  assert.equal(headRow, 2);
+  assert.ok(dashed.lines.length >= 1);
+  const last = dashed.lines[dashed.lines.length - 1];
+  assert.equal(last.p2.y, headRow, "the trail must end at the HEAD row");
+  for (const l of dashed.lines) {
+    assert.ok(l.p2.y <= headRow, "no dashed line may pass HEAD");
+  }
+  // The solid remainder of that branch continues below HEAD (H → B).
+  const first = placed.branches[0];
+  for (const l of first.lines) {
+    assert.ok(l.p2.y > headRow, "solid lines start below the HEAD row");
+  }
+  assert.ok(first.lines.length >= 1, "history below HEAD stays solid");
+});
+
+test("a HEAD outside the loaded window means no pseudo row at all", () => {
+  const commits = [commit("A", "B"), commit("B")];
+  const { placed, rows, dashed } = layoutUncommitted(commits, "not-loaded");
+  assert.equal(rows, commits);
+  assert.equal(dashed, null);
+  assert.equal(placed.vertices.length, 2);
+  const noHead = layoutUncommitted(commits, "");
+  assert.equal(noHead.dashed, null);
+});
+
+test("the pseudo row does not disturb where the history lands", () => {
+  const commits = [
+    commit("A", "B", "C"),
+    commit("B", "D"),
+    commit("C", "D"),
+    commit("D"),
+  ];
+  const plain = layout(commits);
+  const { placed } = layoutUncommitted(commits, "A");
+  // Same columns for every real commit, one row down.
+  for (let i = 0; i < commits.length; i++) {
+    assert.equal(placed.vertices[i + 1].x, plain.vertices[i].x, `commit ${commits[i].hash} moved`);
+  }
 });

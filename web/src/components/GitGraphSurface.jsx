@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import GitGraph from "./GitGraph.jsx";
 import CommitDetail from "./CommitDetail.jsx";
+import UncommittedDetail from "./UncommittedDetail.jsx";
+import { UNCOMMITTED } from "../lib/gitgraph.js";
 
 const SKELETON_ROWS = 14;
 
@@ -136,7 +138,8 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   // A parent link can land outside the loaded window even after growing it
   // once; the anchor row does not exist, so there is nowhere to open inline.
   const selectedMissing =
-    Boolean(selected) && count > 0 && !(graph.commits || []).some((c) => c.hash === selected);
+    Boolean(selected) && selected !== UNCOMMITTED && count > 0 &&
+    !(graph.commits || []).some((c) => c.hash === selected);
 
   return (
     <section className="gg-surface" aria-label={`Git graph for ${graph.name}`}>
@@ -181,7 +184,9 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
           detailHeight={detailH}
           onSizerDown={onSizerDown}
           detail={
-            selected && !selectedMissing ? (
+            selected === UNCOMMITTED ? (
+              <UncommittedDetail owner={owner} onClose={() => setSelected("")} />
+            ) : selected && !selectedMissing ? (
               <CommitDetail
                 owner={owner}
                 hash={selected}
