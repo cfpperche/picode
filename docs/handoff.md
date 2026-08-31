@@ -212,6 +212,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Packages Installed row vanished from the Terminals tab:
+  `agentId={selectedId}` sent a terminal id, GET 404, UI swallowed it as
+  zero packages. Files on disk unchanged. Fix on
+  `fix/packages-list-when-terminal`. **visual-review: n/a** (not deployed).
+
 - **2026-08-31** — Merged `feat/model-roles` as ADR-0028/0029 (numbers
   shifted: main already had 0025 tmux catalog and 0026 sidebar). Isolated
   visual on :8477; installed :8445 untouched. **visual-review: PASS**.
