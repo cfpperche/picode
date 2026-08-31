@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api.js";
+import { useDebounced } from "../lib/useDebounced.js";
+import { matchCommits, MIN_QUERY } from "../lib/gitgraphSearch.js";
 import GitGraph from "./GitGraph.jsx";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
@@ -30,7 +32,31 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     const n = parseInt(localStorage.getItem(DETAIL_KEY) || "", 10);
     return Number.isFinite(n) ? clampDetail(n) : 280;
   });
+  const [query, setQuery] = useState("");
   const keyRef = useRef("");
+
+  // Search dims and highlights, never hides (ADR-0038): the lanes are
+  // positional. Enter walks the matches without opening any of them — the
+  // click stays the one gesture that opens a detail.
+  const debouncedQuery = useDebounced(query);
+  const searching = debouncedQuery.trim().length >= MIN_QUERY;
+  const matches = useMemo(
+    () => matchCommits(graph ? graph.commits : [], debouncedQuery),
+    [graph, debouncedQuery],
+  );
+  const matchList = useMemo(
+    () => (graph ? graph.commits || [] : []).filter((c) => matches.has(c.hash)).map((c) => c.hash),
+    [graph, matches],
+  );
+  const [matchIdx, setMatchIdx] = useState(0);
+  useEffect(() => { setMatchIdx(0); }, [debouncedQuery]);
+  const activeMatch = searching && matchList.length ? matchList[matchIdx % matchList.length] : "";
+
+  const onSearchKey = (e) => {
+    if (e.key !== "Enter" || matchList.length === 0) return;
+    e.preventDefault();
+    setMatchIdx((i) => (i + (e.shiftKey ? -1 : 1) + matchList.length) % matchList.length);
+  };
 
   const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
   const ownerId = owner ? owner.id : "";
@@ -150,6 +176,24 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
           {graph.more ? "+" : ""} {count === 1 ? "commit" : "commits"}
         </span>
         <span className="gg-spacer" />
+        {count > 0 ? (
+          <span className="gg-search-wrap">
+            <input
+              type="search"
+              className="gg-search"
+              placeholder="Search commits"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKey}
+              aria-label="Search commits by message, author or hash"
+            />
+            {searching ? (
+              <span className="gg-search-count">
+                {matchList.length ? `${(matchIdx % matchList.length) + 1}/${matchList.length}` : "0"}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
         {graph.more ? (
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setLimit(limit * 2)} disabled={busy}>
             Load earlier
@@ -181,6 +225,8 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
           graph={graph}
           selected={selected}
           onSelect={(h) => setSelected(h === selected ? "" : h)}
+          matches={searching ? matches : null}
+          activeMatch={activeMatch}
           detailHeight={detailH}
           onSizerDown={onSizerDown}
           detail={
