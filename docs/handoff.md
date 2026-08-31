@@ -205,6 +205,22 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **File tree per workspace/terminal/agent** (ADR-0028):
+  `#/tree/<w|t|a>/<id>` opens a read-only tree of the owner's folder, tab
+  deduped by canonical root (`d:<root>`, owners in `picode-tree-owners`).
+  A **Changes** section on top lists `…/gitstatus` (porcelain `-z -uall`,
+  re-anchored to the owner's cwd; rename records consume two NUL fields —
+  sabotage-proven); changed files and ancestor folders carry kind dots.
+  Workspaces became file-reading owners (`browse|text|blob|file|gitstatus`,
+  `ws_free` refused) so empty workspaces (ADR-0027) browse too; terminals
+  gained `/browse` at the live pane cwd; `browseAgentDir` answers `root`.
+  Entry points: row2 folder icon (agents/terminals), Files on the
+  workspace card + palette. Terminal trees pin; manual Refresh after a
+  `cd` renames/merges the tab. Known limit inherited from the git graph:
+  navigating by URL to an owner created seconds ago can flash "gone"
+  until the app's list refreshes. QA: dedupe, cd+rename, empty/non-repo/
+  deleted-folder states, dark/light, overlayAudit ok.
+
 - **2026-08-31** — **Workspaces start empty** (ADR-0027): POST /api/workspaces
   registers the folder only; the New-workspace form is name + folder
   (Provider/Model/Thinking and the session shortcut stay on agent forms);

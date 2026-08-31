@@ -11,6 +11,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **A file tree per workspace, terminal and agent** (ADR-0028). A folder
+  icon on any sidebar row (and a Files action on the workspace card and in
+  the palette) opens `#/tree/…`: a read-only tree of that owner's folder,
+  with a **Changes** section on top listing what the working tree touched —
+  modified, untracked, added, deleted, renamed, conflicted — and dots on
+  changed files and their folders. Clicking a file opens the normal file
+  tab. Two owners of one folder share one tab; Refresh is manual, like the
+  git graph. Workspaces became file-reading owners for this
+  (`/api/workspaces/{id}/browse|text|blob|file|gitstatus`), so an empty
+  workspace can browse and open its files with no agent in it.
+
 ### Changed
 
 - **Creating a workspace no longer creates an agent** (ADR-0027). The
