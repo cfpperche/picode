@@ -7,6 +7,8 @@ package gitgraph
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -124,6 +126,24 @@ func Load(dir string, limit int) *Graph {
 		g.Uncommitted = &UncommittedInfo{Count: len(changes)}
 	}
 	return g
+}
+
+// Token summarises everything the graph draws — HEAD, every ref, the dirty
+// count — into one comparable string. Three cheap execs and no log walk: the
+// poll that compares tokens costs milliseconds, so the browser reloads the
+// graph only when something it would draw has actually changed (ADR-0038).
+func Token(dir string) (key, token string, dirty int) {
+	key = Key(dir)
+	if key == "" {
+		return "", "", 0
+	}
+	head := git(dir, "rev-parse", "HEAD")
+	refs := git(dir, "for-each-ref", "--format=%(objectname)"+fieldSep+"%(refname)",
+		"refs/heads", "refs/remotes", "refs/tags")
+	_, changes := Status(dir)
+	dirty = len(changes)
+	sum := sha256.Sum256([]byte(head + "\n" + refs + "\n" + strconv.Itoa(dirty)))
+	return key, hex.EncodeToString(sum[:]), dirty
 }
 
 // repoName is the working name of the repository: the directory holding the

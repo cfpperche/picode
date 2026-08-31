@@ -535,3 +535,47 @@ func TestGraphCarriesUncommitted(t *testing.T) {
 		t.Fatalf("one dirty file, got %+v", g.Uncommitted)
 	}
 }
+
+// The poll target answers through the owner like its sibling routes, and the
+// graph payload carries the same style of token so the poll has a baseline.
+func TestGitHeadRoute(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, free, err := storeWorkspaceWithAgent(st, "Scratch", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+
+	res, err := ts.Client().Get(ts.URL + "/api/agents/" + agent.ID + "/git/head")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var head gitHeadView
+	if err := json.NewDecoder(res.Body).Decode(&head); err != nil {
+		t.Fatal(err)
+	}
+	if head.Key == "" || head.Token == "" {
+		t.Fatalf("head = %+v", head)
+	}
+	if g := getGraph(t, ts, "/api/agents/"+agent.ID+"/git"); g.Token != head.Token {
+		t.Fatalf("graph token %q must match the poll's %q while nothing changes", g.Token, head.Token)
+	}
+
+	res2, err := ts.Client().Get(ts.URL + "/api/agents/" + free.ID + "/git/head")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res2.Body.Close()
+	if res2.StatusCode != http.StatusNotFound {
+		t.Fatalf("non-repo status = %d, want 404", res2.StatusCode)
+	}
+}
