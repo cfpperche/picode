@@ -207,7 +207,7 @@ export default function Sidebar({
           {/* Five tabs eat the header (ADR-0036); below ~286px the version
               would push the name into ellipsis, so it yields (it lives in
               the user menu too). The name never truncates. */}
-          {width >= 286 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
+          {width >= 286 ? <span className="brand-ver" id="ver" title={version ? "v" + version : ""}>{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className={"brand-tabs" + (width < 240 ? " brand-tabs-tight" : "")} role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>

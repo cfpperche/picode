@@ -131,8 +131,11 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":    "picode",
-		"version": version.Version,
+		"name": "picode",
+		// The running build's identity ("0.1.0+0550fa2" on source builds);
+		// semver-only consumers use "semver".
+		"version": version.Build(),
+		"semver":  version.Version,
 	})
 }
 

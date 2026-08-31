@@ -177,7 +177,7 @@ func runDeploy() {
 }
 
 func runUpdate() {
-	fmt.Printf("This build is %s.\n", version.Version)
+	fmt.Printf("This build is %s.\n", version.Build())
 	rel, err := install.LatestRelease()
 	if err != nil {
 		if err.Error() == "no published release" {

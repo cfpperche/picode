@@ -218,6 +218,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — sidebar version reflects the build (`fix/version-truth`):
+  `version.Build()` appends the Go-embedded `vcs.revision` (+ dirty `*`)
+  unless the release workflow stamped `version.Stamped`; wired into
+  `/api/version` (new `semver` field keeps comparisons pure), `picode
+  update`, and the sidebar (ellipsis + title for narrow widths).
+  install.Newer/backup keep plain `Version`. Tests in `version_test.go`.
+
 - **2026-08-31** — roles follow-up (`fix/roles-gate`): the `role-state`
   endpoint is gated on pi-roles being in the agent's effective package
   list (`agentHasRolesPackage` over `loadPackageReport`; honors
