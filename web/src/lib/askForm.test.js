@@ -122,6 +122,58 @@ test("skipped provider select: the note fills the provider in", () => {
   assert.equal(summaryLine(steps), "vision — grok-4.5 · medium");
 });
 
+test("Save to step: labeled Save, workspace suffix on the definition line", () => {
+  assert.equal(fieldLabel("Save to"), "Save");
+  const steps = [
+    { status: "answered", title: "Edit which role?", answer: "vision" },
+    { status: "answered", title: "Model for vision — provider", answer: "xai" },
+    { status: "answered", title: "Model for vision — model", answer: "grok-4.5" },
+    { status: "answered", title: "Thinking level", answer: "medium" },
+  ];
+  assert.equal(
+    summaryLine([...steps, { status: "answered", title: "Save to", answer: "workspace" }]),
+    "vision — xai/grok-4.5 · medium (workspace)",
+  );
+  assert.equal(
+    summaryLine([...steps, { status: "answered", title: "Save to", answer: "this agent" }]),
+    "vision — xai/grok-4.5 · medium",
+  );
+});
+
+test("clear flow: labeled Clear, line is the extension's result", () => {
+  assert.equal(fieldLabel("Clear which config?"), "Clear");
+  const steps = [
+    { status: "answered", title: "Clear which config?", answer: "workspace" },
+    { status: "answered", title: "Delete this roles file?", answer: "Yes" },
+  ];
+  assert.equal(summaryLine(steps, "Cleared .pi/roles.json"), "Cleared .pi/roles.json");
+  assert.equal(summaryLine(steps), "workspace · Yes");
+});
+
+test("regression: 'Delete this roles file?' must not read as the Role field", () => {
+  // fieldLabel's role-picker match ("roles?") once also matched any title
+  // that merely mentions "roles" in passing — the delete-confirm title —
+  // mislabeling its "Yes" answer as a role name and corrupting the line.
+  assert.equal(fieldLabel("Delete this roles file?"), "Clear");
+  assert.notEqual(fieldLabel("Delete this roles file?"), "Role");
+});
+
+test("/roles clear <scope> (arg form, no select step) still folds the note", () => {
+  // /roles clear agent skips the "Clear which config?" select and goes
+  // straight to confirm — one step only, and it alone must mark the flow
+  // as a clear so the note (not a note/model false-positive) wins.
+  const steps = [{ status: "answered", title: "Delete this roles file?", answer: "Yes" }];
+  assert.equal(
+    summaryLine(steps, "Cleared .pi/roles/qa-213680.json"),
+    "Cleared .pi/roles/qa-213680.json",
+  );
+});
+
+test("role picker titles are unaffected by the narrower regex", () => {
+  assert.equal(fieldLabel("Roles (current: auto)"), "Role");
+  assert.equal(fieldLabel("Edit which role?"), "Role");
+});
+
 test("noteAsk folds the completion notify into the answered card once", () => {
   let items = putAsk([user], sel("a", "Roles (current: auto)", ["auto", "default"]), "open");
   items = answerAsk(items, "a", "default", false);

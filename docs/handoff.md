@@ -45,7 +45,7 @@ What exists:
 - **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **M2–M5 shipped** (the ADR-0020 plan is complete): `picode provision` (6 steps, `--dry-run` / `--json`) and `picode-desktop.exe` (tray, logon task, keepalive, CA trust, clean-machine bootstrap). Neither has been **run for real** — dry-run only, by the owner's decision.
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
-- **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start.
+- **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
 
 ## In flight
 
@@ -215,6 +215,44 @@ Never exercised, because this machine was already past them:
   folder/git icons. QA on 8448: wrong name keeps Remove disabled, right
   name deletes the folder from disk, plain remove keeps it; light+dark
   read, overlayAudit ok. **visual-review: PASS** (shots 10-13; card 5/5).
+
+- **2026-08-31** — **pi-roles: choose the save target; `/roles clear`**
+  (`feat/roles-scope`, ADR-0033 amendment). Owner asked how the chat
+  session picker scopes (folder, confirmed by reading `session.List` /
+  `AgentCwd` — sessions and roles are both per-cwd, not per-agent; only
+  `agent.SessionPath` differs) and then approved this instead of only
+  documenting the workaround (`cp` the overlay to the workspace file, or
+  edit from a plain terminal).
+  - `pickStart`/`pickAnswer` (`packages/pi-roles/src/logic.ts`) gained a
+    `scope` stage: under `PI_ROLES_AGENT`, thinking is followed by a
+    **Save to** select (*this agent* / *workspace* / `‹ back`); without
+    the env the question is skipped, as before. `editFlow`/`addFlow` in
+    `extensions/roles.ts` resolve a `layerFor()` (agent overlay vs.
+    `.pi/roles.json`) from the answer.
+  - New command **`/roles clear [agent|workspace]`**: confirm, then
+    delete the whole file. No arg under the env asks which; a lock whose
+    role stops resolving falls back to `/auto`.
+  - Chat: `fieldLabel`/`summaryLine` (`web/src/lib/askForm.js`) learned
+    the `Save`/`Clear` labels and the `(workspace)` suffix on the
+    definition line.
+  - **Bug caught in the same dogfood pass, fixed before shipping**: the
+    existing role-picker regex (`/\broles?\b/`) also matched "Delete
+    this roles file?", mislabeling the confirm's "Yes" as a role name —
+    `/roles clear agent` rendered `Yes — .pi/roles/qa-213680.json`
+    instead of `Cleared …`. Narrowed to `/^roles\b/` (only the role
+    *picker* titles) and made the delete-confirm title itself carry the
+    `Clear` label too, since the arg form (`clear agent`) skips the
+    select step and needs the confirm alone to still gate the
+    note-vs-fallback branch in `summaryLine`. Regression tests added
+    (`askForm.test.js`, `logic.test.ts`).
+  - Verified live on the roles-adversarial scratch rig (`PICODE_DATA`
+    + port 8471, scratch `HOME` pointed at this worktree's package):
+    Save-to appears/steps back correctly, workspace vs. agent writes
+    land in the right file, `/roles clear` (both arg and no-arg forms,
+    both scopes) deletes and reports correctly, "nothing to clear" warns
+    without a stuck card, the ordinary `/roles` role picker still labels
+    "Role". Gates: fmt/vet/test/test-js green, `npm test` 60/60,
+    `make build` ok. **Merged to main and deployed to :8445.**
 
 - **2026-08-31** — New workspace can clone a remote repo (ADR-0034):
   "Local folder | Clone repository" switch in the same dialog, URL →

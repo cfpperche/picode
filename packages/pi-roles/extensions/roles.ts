@@ -6,7 +6,7 @@
  * Default is the switch-back target, not a startup override — PiCode already
  * passes --model/--thinking per agent.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
@@ -23,10 +23,14 @@ import {
 	pickAnswer,
 	pickStart,
 	removeCustom,
+	resolveRole,
+	SCOPE_AGENT,
+	SCOPE_WORKSPACE,
 	serializeConfig,
 	upsertRole,
 	type Assignment,
 	type Mode,
+	type PickScope,
 	type RolesConfig,
 } from "../src/logic.ts";
 
@@ -234,33 +238,56 @@ export default function piRoles(pi: ExtensionAPI) {
 	}
 
 	/**
-	 * Cascading provider → model → thinking selects. Every select that has a
-	 * previous field offers an explicit BACK option; cancel (Esc / Cancel)
-	 * aborts the whole flow. `hasPrior` adds BACK on the first field so the
-	 * caller can return to its own preceding question (role select / name).
+	 * Cascading provider → model → thinking (→ save-to) selects. Every select
+	 * that has a previous field offers an explicit BACK option; cancel
+	 * (Esc / Cancel) aborts the whole flow. `hasPrior` adds BACK on the first
+	 * field so the caller can return to its own preceding question (role
+	 * select / name). `askScope` appends the "Save to" select — offered when
+	 * the process has an agent overlay (PI_ROLES_AGENT).
 	 */
 	async function pickAssignment(
 		ctx: ExtensionContext,
 		title: string,
 		hasPrior: boolean,
-	): Promise<Assignment | "back" | null> {
+		askScope: boolean,
+	): Promise<{ assignment: Assignment; scope?: PickScope } | "back" | null> {
 		const models = listModels(ctx);
 		if (models.length === 0) {
 			ctx.ui.notify("No models available. Sign in a provider first.", "error");
 			return null;
 		}
-		let out = pickStart(models, hasPrior);
+		let out = pickStart(models, { hasPrior, askScope });
 		while (out.kind === "ask") {
 			const label =
-				out.state.stage === "thinking" ? "Thinking level" : `${title} — ${out.state.stage}`;
+				out.state.stage === "thinking" ? "Thinking level"
+				: out.state.stage === "scope" ? "Save to"
+				: `${title} — ${out.state.stage}`;
 			const choice = await ctx.ui.select(label, out.options);
 			if (!choice) return null;
 			out = pickAnswer(out.state, choice);
 		}
-		if (out.kind === "done") return out.assignment;
+		if (out.kind === "done") return { assignment: out.assignment, scope: out.scope };
 		if (out.kind === "back") return "back";
 		ctx.ui.notify("No models available. Sign in a provider first.", "error");
 		return null;
+	}
+
+	/** The config layer + file a save should land on for the chosen scope. */
+	function layerFor(
+		ctx: ExtensionContext,
+		cur: NonNullable<ReturnType<typeof writable>>,
+		scope: PickScope,
+	): { config: RolesConfig; raw: Record<string, unknown>; rel: string } | null {
+		if (scope === "agent" || !cur.overlay) {
+			return { config: cur.config, raw: cur.raw, rel: cur.writeRel };
+		}
+		const ws = readFileAt(join(ctx.cwd, WORKSPACE_REL), WORKSPACE_REL);
+		if (ws.status === "invalid") {
+			ctx.ui.notify(ws.error, "error");
+			return null;
+		}
+		if (ws.status === "missing") return { config: emptyConfig(), raw: {}, rel: WORKSPACE_REL };
+		return { config: ws.config, raw: ws.raw, rel: WORKSPACE_REL };
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -347,7 +374,7 @@ export default function piRoles(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("roles", {
-		description: "Pick a role, or: edit / add / remove",
+		description: "Pick a role, or: edit / add / remove / clear",
 		handler: async (args, ctx) => {
 			const trimmed = (args ?? "").trim();
 			if (!trimmed) {
@@ -369,7 +396,11 @@ export default function piRoles(pi: ExtensionAPI) {
 				await removeFlow(ctx, rest);
 				return;
 			}
-			ctx.ui.notify("Use /roles, /roles edit, /roles add, or /roles remove", "error");
+			if (verb === "clear") {
+				await clearFlow(ctx, rest);
+				return;
+			}
+			ctx.ui.notify("Use /roles, /roles edit, /roles add, /roles remove, or /roles clear", "error");
 		},
 	});
 
@@ -399,8 +430,9 @@ export default function piRoles(pi: ExtensionAPI) {
 		await lock(ctx, choice);
 	}
 
-	function savedNote(overlay: boolean): string {
-		return overlay ? " (this agent)" : "";
+	function savedNote(overlay: boolean, scope: PickScope): string {
+		if (!overlay) return "";
+		return scope === "workspace" ? " (workspace)" : " (this agent)";
 	}
 
 	async function editFlow(ctx: ExtensionContext, named: string) {
@@ -412,21 +444,27 @@ export default function piRoles(pi: ExtensionAPI) {
 				...cur.effective.custom.map((c) => c.name),
 			]));
 			if (!role) return;
-			const assignment = await pickAssignment(ctx, `Model for ${role}`, !named);
-			if (assignment === "back") {
+			const picked = await pickAssignment(ctx, `Model for ${role}`, !named, cur.overlay);
+			if (picked === "back") {
 				if (named) return;
 				continue; // back to the role select
 			}
-			if (!assignment) return; // cancel aborts the whole flow
-			const result = upsertRole(cur.config, role, assignment);
+			if (!picked) return; // cancel aborts the whole flow
+			const scope: PickScope = picked.scope ?? (cur.overlay ? "agent" : "workspace");
+			const target = layerFor(ctx, cur, scope);
+			if (!target) return;
+			const result = upsertRole(target.config, role, picked.assignment);
 			if (!result.ok) {
 				ctx.ui.notify(result.error, "error");
 				return;
 			}
-			if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-			ctx.ui.notify(`Saved ${role} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
+			if (!save(ctx, result.config, target.raw, target.rel)) return;
+			ctx.ui.notify(
+				`Saved ${role} → ${picked.assignment.model}${savedNote(cur.overlay, scope)}`,
+				"info",
+			);
 			if (mode.kind === "lock" && mode.role === role) {
-				await apply(ctx, assignment, `lock /${role}`);
+				await apply(ctx, picked.assignment, `lock /${role}`);
 			}
 			return;
 		}
@@ -443,19 +481,25 @@ export default function piRoles(pi: ExtensionAPI) {
 				ctx.ui.notify(`"${trimmed}" already exists. Use /roles edit.`, "error");
 				return;
 			}
-			const assignment = await pickAssignment(ctx, `Model for ${trimmed}`, !named);
-			if (assignment === "back") {
+			const picked = await pickAssignment(ctx, `Model for ${trimmed}`, !named, cur.overlay);
+			if (picked === "back") {
 				if (named) return;
 				continue; // back to the name input
 			}
-			if (!assignment) return; // cancel aborts the whole flow
-			const result = addCustom(cur.config, trimmed, assignment);
+			if (!picked) return; // cancel aborts the whole flow
+			const scope: PickScope = picked.scope ?? (cur.overlay ? "agent" : "workspace");
+			const target = layerFor(ctx, cur, scope);
+			if (!target) return;
+			const result = addCustom(target.config, trimmed, picked.assignment);
 			if (!result.ok) {
 				ctx.ui.notify(result.error, "error");
 				return;
 			}
-			if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-			ctx.ui.notify(`Added ${trimmed} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
+			if (!save(ctx, result.config, target.raw, target.rel)) return;
+			ctx.ui.notify(
+				`Added ${trimmed} → ${picked.assignment.model}${savedNote(cur.overlay, scope)}`,
+				"info",
+			);
 			return;
 		}
 	}
@@ -487,8 +531,52 @@ export default function piRoles(pi: ExtensionAPI) {
 			return;
 		}
 		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-		ctx.ui.notify(`Removed ${name}${savedNote(cur.overlay)}`, "info");
+		ctx.ui.notify(`Removed ${name}${savedNote(cur.overlay, "agent")}`, "info");
 		if (mode.kind === "lock" && mode.role === name) {
+			mode = { kind: "auto" };
+			ctx.ui.notify("Auto: image → vision, text → default", "info");
+		}
+	}
+
+	/** /roles clear [agent|workspace] — delete a whole roles file. */
+	async function clearFlow(ctx: ExtensionContext, named: string) {
+		const target = writeTarget();
+		let scope = named.trim().toLowerCase();
+		if (scope && scope !== "agent" && scope !== "workspace") {
+			ctx.ui.notify("Use /roles clear, /roles clear agent, or /roles clear workspace", "error");
+			return;
+		}
+		if (scope === "agent" && !target.overlay) {
+			ctx.ui.notify("No agent overlay here — this pi has no PI_ROLES_AGENT.", "error");
+			return;
+		}
+		if (!scope) {
+			if (target.overlay) {
+				const c = await ctx.ui.select("Clear which config?", [SCOPE_AGENT, SCOPE_WORKSPACE]);
+				if (!c) return;
+				scope = c === SCOPE_AGENT ? "agent" : "workspace";
+			} else {
+				scope = "workspace";
+			}
+		}
+		const rel = scope === "agent" ? target.rel : WORKSPACE_REL;
+		const read = readFileAt(join(ctx.cwd, rel), rel);
+		if (read.status === "missing") {
+			ctx.ui.notify(`Nothing to clear — ${rel} does not exist.`, "warning");
+			return;
+		}
+		const ok = await ctx.ui.confirm("Delete this roles file?", rel);
+		if (!ok) return;
+		try {
+			unlinkSync(join(ctx.cwd, rel));
+		} catch (err) {
+			ctx.ui.notify(`Could not delete ${rel}: ${(err as Error).message}`, "error");
+			return;
+		}
+		loaded = reload(ctx.cwd);
+		ctx.ui.notify(`Cleared ${rel}`, "info");
+		// A lock whose role no longer resolves would error on every input.
+		if (mode.kind === "lock" && !resolveRole(configOrNull() ?? emptyConfig(), mode.role)) {
 			mode = { kind: "auto" };
 			ctx.ui.notify("Auto: image → vision, text → default", "info");
 		}

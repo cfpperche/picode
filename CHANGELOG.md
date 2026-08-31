@@ -19,7 +19,13 @@ to the `[Unreleased]` section. The repository's official language is English
   and refuses root/home. A remote repository is never touched
   (ADR-0035). The workspace-source switch in the New-workspace dialog
   now spans the full row with folder/git icons.
-
+- **pi-roles: choose where a role is saved** (ADR-0033 amendment). Under
+  `PI_ROLES_AGENT` the `/roles edit` / `/roles add` stepper ends with a
+  **Save to** select — *this agent* (overlay) or *workspace*
+  (`.pi/roles.json`). The chat definition line marks workspace saves
+  (`vision — xai/grok-4.5 · medium (workspace)`).
+- **`/roles clear [agent|workspace]`** deletes a whole roles file after a
+  confirm; a lock whose role disappears falls back to `/auto`.
 - **New workspace can clone a remote repository.** The New-workspace
   dialog gains a "Local folder | Clone repository" switch: paste an
   https/ssh URL (a `/tree/<branch>` link pasted from the browser works),
