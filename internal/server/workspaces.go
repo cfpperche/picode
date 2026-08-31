@@ -37,6 +37,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces", handleAdd(deps))
 	mux.HandleFunc("DELETE /api/workspaces/{id}", handleRemove(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/cleanup", handleWorkspaceCleanup(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/favicon", handleWorkspaceFavicon(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/open", handleOpen(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/close", handleClose(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/status", handleWorkspaceStatus(deps))

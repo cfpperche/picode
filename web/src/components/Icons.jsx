@@ -17,6 +17,7 @@ import {
   ExternalLink,
   File,
   Folder,
+  Folders,
   GitBranch,
   HardDrive,
   Home,
@@ -79,6 +80,7 @@ export const IconMode = lucide(SlidersHorizontal, 13);
 export const IconCopy = lucide(Copy, 13);
 export const IconGit = lucide(GitBranch, 12);
 export const IconFolder = lucide(Folder, 13);
+export const IconFolders = lucide(Folders, 13);
 export const IconFile = lucide(File, 13);
 export const IconMore = lucide(EllipsisVertical, 14);
 export const IconEllipsis = lucide(Ellipsis, 14);

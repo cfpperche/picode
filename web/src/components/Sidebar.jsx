@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { parseRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
@@ -10,6 +10,22 @@ import { repoLine, termLine } from "../lib/repoLine.js";
 import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
 import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
+
+// Workspace cards wear the project's favicon when it has one (ADR-0027).
+// Failures are remembered per page-load so a card without a favicon costs
+// one 404, not one per render; a favicon added mid-session shows on reload.
+const faviconFailed = new Set();
+function WsFavicon({ ws }) {
+  const [failed, setFailed] = useState(faviconFailed.has(ws.id));
+  if (failed) return <IconFolder size={16} />;
+  return (
+    <img
+      className="ws-favicon" width={16} height={16} alt="" loading="lazy"
+      src={"/api/workspaces/" + encodeURIComponent(ws.id) + "/favicon"}
+      onError={() => { faviconFailed.add(ws.id); setFailed(true); }}
+    />
+  );
+}
 
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
@@ -178,7 +194,7 @@ export default function Sidebar({
           {width >= 254 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolder size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
@@ -228,7 +244,7 @@ export default function Sidebar({
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head tree-row" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
-                <span className="tree-icon"><IconFolder size={16} /></span>
+                <span className="tree-icon"><WsFavicon ws={ws} /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>

@@ -141,6 +141,7 @@ body {
   width: var(--tree-icon); height: var(--tree-icon);
   display: grid; place-items: center; color: var(--text-secondary); flex: none;
 }
+.ws-favicon { width: 16px; height: 16px; border-radius: 3px; object-fit: contain; display: block; }
 .tree-meta { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
 .side-head {
   padding: 4px 4px 6px;
