@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- The second line of agent and terminal rows is now two pills: filesystem
+  and repository, separated — `[folder icon + dir]` opens the file tree,
+  `[git icon + branch]` opens the git graph. A non-repo row shows the dir
+  pill alone; a narrow sidebar ellipsizes the dir and keeps the branch.
+
 ### Added
 
 - **Composer `/` lists commands from the running agent** (ADR-0029): extension

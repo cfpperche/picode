@@ -207,6 +207,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Sidebar row2 refined into pills (owner feedback after
+  testing the file tree): `.ws-pill` — [folder + dir] opens the tree,
+  [git + branch] opens the graph; repoLine/termLine expose `dir` alone.
+  QA on :8501 — repo/non-repo rows, dark, 180px narrow. **visual-review:
+  PASS**.
+
 - **2026-08-31** — **File tree per workspace/terminal/agent** (ADR-0030):
   `#/tree/<w|t|a>/<id>` opens a read-only tree of the owner's folder, tab
   deduped by canonical root (`d:<root>`, owners in `picode-tree-owners`).
