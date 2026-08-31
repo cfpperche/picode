@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Renaming a terminal lives on its name.** Hovering a terminal's name in
+  the sidebar now shows it as editable (accent color, dotted underline) and
+  clicking it opens the rename prompt — the pencil button is gone. The
+  hover action row keeps two icons, remove first and the settings gear
+  last, so the gear no longer sits over the pencil's old spot.
+
 - **One place to configure terminals.** The appearance controls (font,
   colors, cursor, padding, keys) moved from Preferences → Terminal into the
   terminal settings page, as an "Appearance — this browser" section above

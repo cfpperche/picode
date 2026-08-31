@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { parseRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconPencil, IconSession, IconSettings } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
@@ -169,7 +169,7 @@ export default function Sidebar({
               >
                 <div className="ws-row1">
                   <span className="tree-icon"><IconTerminal size={14} /></span>
-                  <span className="ws-name" title={t.cwd} onDoubleClick={(e) => { e.stopPropagation(); onRenameTerm && onRenameTerm(t); }}>{t.name}</span>
+                  <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
                 </div>
                 {(() => { const line = termLine(t); return (
                 <div className="ws-row2">
@@ -182,9 +182,8 @@ export default function Sidebar({
                 </div>
                 ); })()}
                 <span className="ws-actions">
-                  <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
-                  <button type="button" className="ws-icon-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}><IconPencil /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
+                  <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
                 </span>
               </li>
             ))}
