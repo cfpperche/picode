@@ -1,4 +1,7 @@
-package backup
+// Package osopen opens paths in the host operating system's own UI —
+// the file manager today. It knows the WSL bridge (explorer.exe with a
+// converted or UNC path); plain Linux, macOS and Windows are one exec each.
+package osopen
 
 import (
 	"fmt"
@@ -30,7 +33,7 @@ func WSLToWin(p string) (string, bool) {
 	return drive + strings.ReplaceAll(rest[1:], "/", `\`), true
 }
 
-func runningWSL() bool {
+func RunningWSL() bool {
 	if os.Getenv("WSL_DISTRO_NAME") != "" || os.Getenv("WSL_INTEROP") != "" {
 		return true
 	}
@@ -70,7 +73,7 @@ func wslUNC(linuxPath string) string {
 func Reveal(path string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return fmt.Errorf("backup: no path")
+		return fmt.Errorf("osopen: no path")
 	}
 	st, err := os.Stat(path)
 	if err != nil {
@@ -79,7 +82,7 @@ func Reveal(path string) error {
 	if !st.IsDir() {
 		path = filepath.Dir(path)
 	}
-	if runningWSL() {
+	if RunningWSL() {
 		exe := windowsExplorer()
 		if exe == "" {
 			return fmt.Errorf("can't find Windows Explorer")

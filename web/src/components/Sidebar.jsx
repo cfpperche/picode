@@ -141,7 +141,7 @@ export default function Sidebar({
               title={"Git graph" + (repo.git.branch ? " — " + repo.git.branch : "")}
               onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("agent", ag.id, label); }}
             >
-              <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>
+              <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>{repo.git.dirty ? <span className="ws-pill-badge">{repo.git.dirty}</span> : null}
             </button>
           ) : null}
         </div>
@@ -175,7 +175,7 @@ export default function Sidebar({
           </button>
           {line.git ? (
             <button type="button" className="ws-pill" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}>
-              <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>
+              <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>{line.git.dirty ? <span className="ws-pill-badge">{line.git.dirty}</span> : null}
             </button>
           ) : null}
         </div>

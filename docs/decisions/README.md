@@ -34,5 +34,6 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
 | [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
 | [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |
-| [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted |
+| [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted, diff refusal amended by 0032 |
 | [0031](0031-provider-usage-dialog.md) | Live provider usage dialog on `#/providers` | accepted |
+| [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted |

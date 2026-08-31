@@ -1,4 +1,4 @@
-import { fileChangeFromTool, normalizeEdits, parseOfficialDiff, hunksFromDiff, groupHunks, undoHunkInText } from "./diff.js";
+import { fileChangeFromTool, normalizeEdits, parseOfficialDiff, hunksFromDiff, groupHunks, undoHunkInText, countOf } from "./diff.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -77,4 +77,19 @@ test("undoHunkInText whole write is not applied", () => {
   const r = undoHunkInText("one\ntwo", g);
   assert.equal(r.ok, false);
   assert.equal(r.whole, true);
+});
+
+test("countOf counts +/- lines but never the file headers", () => {
+  const patch = [
+    "diff --git a/x b/x",
+    "--- a/x",
+    "+++ b/x",
+    "@@ -1,2 +1,2 @@",
+    "-old line",
+    "+new line",
+    "+another",
+    " context",
+  ].join("\n");
+  assert.deepEqual(countOf(patch), { add: 2, del: 1 });
+  assert.deepEqual(countOf(""), { add: 0, del: 0 });
 });

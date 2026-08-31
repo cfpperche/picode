@@ -11,6 +11,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **File tree V2** (ADR-0032). Clicking a row in the tree's Changes section
+  now opens that file's working-tree diff in a pane beside the tree (+n −n,
+  binary and truncation handled; "Open file" jumps to the editor). The
+  header gains **Reveal** — opens the folder in your OS file manager
+  (Linux, Windows+WSL, macOS). The surface refreshes when you come back to
+  the app (focus/visibility), and the sidebar's branch pill shows a count
+  of uncommitted changes.
+
 ### Changed
 
 - **`/roles edit` and `/roles add` pick provider, then model, then thinking**

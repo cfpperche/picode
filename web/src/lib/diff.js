@@ -168,3 +168,14 @@ export function statLabel(change) {
   if (change.del) parts.push("−" + change.del);
   return parts.join(" ");
 }
+
+// countOf tallies a raw unified diff's added/removed lines, skipping the
+// +++/--- headers. CommitDetail and WorkingDiff both label files with it.
+export function countOf(patch) {
+  let add = 0, del = 0;
+  for (const line of String(patch || "").split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) add++;
+    else if (line.startsWith("-") && !line.startsWith("---")) del++;
+  }
+  return { add, del };
+}

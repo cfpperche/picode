@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/osopen"
 )
 
 func registerBackupRoutes(mux *http.ServeMux, deps Deps) {
@@ -164,7 +165,7 @@ func handleBackupReveal(deps Deps) http.HandlerFunc {
 			}
 			path = found
 		}
-		if err := backup.Reveal(path); err != nil {
+		if err := osopen.Reveal(path); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}

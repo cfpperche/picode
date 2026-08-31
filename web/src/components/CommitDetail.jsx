@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
-import { hunksFromDiff } from "../lib/diff.js";
+import { hunksFromDiff, countOf } from "../lib/diff.js";
 import DiffLine from "./DiffLine.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 
@@ -13,15 +13,6 @@ function when(at) {
   return new Date(at * 1000).toLocaleString(undefined, {
     year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
   });
-}
-
-function countOf(patch) {
-  let add = 0, del = 0;
-  for (const line of String(patch || "").split("\n")) {
-    if (line.startsWith("+") && !line.startsWith("+++")) add++;
-    else if (line.startsWith("-") && !line.startsWith("---")) del++;
-  }
-  return { add, del };
 }
 
 export default function CommitDetail({ owner, hash, onClose }) {
