@@ -208,6 +208,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — File tree header shows the full folder path (mono,
+  ellipsized, `title` tooltip) instead of just the basename — the owner
+  noted the tab strip already carries the name, the header is where you
+  confirm which folder. `.ft-title` gained `min-width:0` so a long path
+  can no longer push Reveal/Refresh/Close off the header.
+
 - **2026-08-31** — Stop during `/roles` cancels the dialog and clears Working.
   Merged `fix/abort-clears-extension-wait`.
 
