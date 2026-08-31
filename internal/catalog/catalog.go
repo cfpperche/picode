@@ -28,7 +28,7 @@ type Provider struct {
 	SignedIn  bool      `json:"signedIn"`
 	AuthType  string    `json:"authType,omitempty"`  // api_key | oauth
 	Login     string    `json:"login"`               // api_key | oauth | both
-	QuotaKind string    `json:"quotaKind,omitempty"` // oauth when Usage can fetch
+	QuotaKind string    `json:"quotaKind,omitempty"` // oauth | api_key when Usage can fetch
 	Accounts  []Account `json:"accounts,omitempty"`
 	Models    []Model   `json:"models"`
 }

@@ -20,6 +20,14 @@ export function formatReset(iso) {
   return mm + "/" + dd + " " + hh + ":" + mi;
 }
 
+export function resetLine(resets) {
+  const n = Array.isArray(resets) ? resets.length : 0;
+  if (!n) return "";
+  const exp = resets[0] && resets[0].expiresAt ? formatReset(resets[0].expiresAt) : "";
+  const count = n === 1 ? "1 reset available" : n + " resets available";
+  return exp ? count + " · expires " + exp : count;
+}
+
 export function formatMoney(n, unit) {
   if (n == null || Number.isNaN(Number(n))) return "";
   const v = Number(n);
@@ -46,7 +54,8 @@ export function usageCopy(report) {
   if (report.status === "error") {
     return { line: report.error || "Couldn't load usage.", action: "retry" };
   }
-  if (report.status === "ok" && !(report.windows && report.windows.length)) {
+  const has = (report.windows && report.windows.length) || (report.resets && report.resets.length);
+  if (report.status === "ok" && !has) {
     return { line: "No usage windows on this plan.", action: "retry" };
   }
   return { line: "", action: "" };

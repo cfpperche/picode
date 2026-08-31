@@ -111,6 +111,7 @@ func (c *Client) codex(ctx context.Context, cred catalog.OAuthCred, rep *Report)
 		return status, err
 	}
 	parseCodexUsage(body, rep)
+	c.fetchCodexResets(ctx, cred, rep)
 	return status, nil
 }
 
@@ -272,6 +273,7 @@ func (c *Client) xai(ctx context.Context, cred catalog.OAuthCred, rep *Report) (
 			rep.Plan = plan
 		}
 	}
+	c.fetchXAIResets(ctx, cred, rep)
 	return status, nil
 }
 

@@ -1,6 +1,7 @@
 package usage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -63,6 +64,23 @@ func (c *Client) postJSON(ctx context.Context, rawURL, jsonBody string, extra ma
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	for k, v := range extra {
+		req.Header.Set(k, v)
+	}
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer res.Body.Close()
+	body, _ = io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	return body, res.StatusCode, nil
+}
+
+func (c *Client) postBytes(ctx context.Context, rawURL string, payload []byte, extra map[string]string) (body []byte, status int, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(payload))
+	if err != nil {
+		return nil, 0, err
+	}
 	for k, v := range extra {
 		req.Header.Set(k, v)
 	}

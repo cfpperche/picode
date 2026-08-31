@@ -202,7 +202,9 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 `~/.pi/agent/auth.json`; PiCode never collects keys.
 `GET /api/providers/{id}/usage` (ADR-0031) reads that active slot and
 returns live plan windows (no tokens in the JSON). Catalog `quotaKind`
-tells `#/providers` when to show Usage.
+tells `#/providers` when to show Usage (`oauth` or `api_key`). Banked
+resets (Codex, Grok) ride `resets[]`; `POST /api/providers/{id}/usage/reset`
+redeems one after the UI confirms.
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.

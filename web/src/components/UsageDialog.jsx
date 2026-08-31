@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { api } from "../lib/api.js";
-import { activeAccountLine, barTone, formatMoney, formatReset, usageCopy } from "../lib/providerUsage.js";
+import { askConfirm } from "../lib/confirm.js";
+import { activeAccountLine, barTone, formatMoney, formatReset, resetLine, usageCopy } from "../lib/providerUsage.js";
 
 export default function UsageDialog({ provider, onClose, onSignIn }) {
   const open = !!provider;
@@ -43,6 +44,32 @@ export default function UsageDialog({ provider, onClose, onSignIn }) {
     return () => { cancelled = true; };
   }
 
+  async function redeem() {
+    const ok = await askConfirm({
+      title: "Redeem reset",
+      message: "This clears the current usage window. The credit is used up.",
+      confirmLabel: "Redeem",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const rid = data && data.resets && data.resets[0] ? data.resets[0].id : "";
+      const rep = await api("/api/providers/" + encodeURIComponent(provider.id) + "/usage/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rid }),
+      });
+      setData(rep);
+      if (rep && rep.status === "error") setLoadErr(rep.error || "Couldn't redeem.");
+      else setLoadErr("");
+    } catch {
+      setLoadErr("Couldn't redeem.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const copy = loadErr ? { line: loadErr, action: "retry" } : usageCopy(data);
   const windows = (data && data.windows) || [];
   const showBars = data && data.status === "ok" && windows.length > 0;
@@ -75,6 +102,13 @@ export default function UsageDialog({ provider, onClose, onSignIn }) {
           ) : null}
 
           {copy.line && !showSkel ? <p className="usage-empty">{copy.line}</p> : null}
+
+          {data && data.resets && data.resets.length > 0 && !showSkel ? (
+            <div className="usage-reset">
+              <span>{resetLine(data.resets)}</span>
+              <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={redeem}>Redeem</button>
+            </div>
+          ) : null}
 
           <div className="dlg-actions">
             {copy.action === "signin" ? (

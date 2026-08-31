@@ -100,6 +100,51 @@ func TestParseXAIBilling(t *testing.T) {
 	}
 }
 
+func TestParseZAIQuota(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{"success":true,"data":{"level":"pro","limits":[
+		{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":15,"nextResetTime":1770648402389},
+		{"type":"TOKENS_LIMIT","unit":6,"number":7,"percentage":44,"nextResetTime":1771253202389},
+		{"type":"TIME_LIMIT","percentage":12}
+	]}}`)
+	var rep Report
+	parseZAIQuota(raw, &rep)
+	if rep.Plan != "pro" || !hasWindow(rep.Windows, "5h") || !hasWindow(rep.Windows, "7d") || !hasWindow(rep.Windows, "mcp") {
+		t.Fatalf("%+v", rep)
+	}
+}
+
+func TestParseOpenCodeGo(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{"rolling":{"usagePercent":19.5,"resetInSec":7200},"weekly":{"percent":29.7,"resetsAt":"2026-09-05T12:00:00Z"},"monthly":{"usagePercent":25}}`)
+	var rep Report
+	parseOpenCodeGo(raw, &rep)
+	if !hasWindow(rep.Windows, "5h") || !hasWindow(rep.Windows, "7d") || !hasWindow(rep.Windows, "1m") {
+		t.Fatalf("%+v", rep.Windows)
+	}
+}
+
+func TestParseCodexResets(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{"available_count":2,"credits":[
+		{"id":"RateLimitResetCredit_a","status":"available","expires_at":"2026-09-12T00:00:00Z"},
+		{"id":"RateLimitResetCredit_b","status":"used","expires_at":"2026-09-01T00:00:00Z"}
+	]}`)
+	got := parseCodexResets(raw)
+	if len(got) != 1 || got[0].ID != "RateLimitResetCredit_a" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestParseRemainingResetsJSON(t *testing.T) {
+	t.Parallel()
+	raw := []byte(`{"tokens":[{"tokenId":"tok_1","validityEnd":"2099-09-12T00:00:00Z"}]}`)
+	got := parseRemainingResetsJSON(raw)
+	if len(got) != 1 || got[0].ID != "tok_1" {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestParseKimiUsage(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{

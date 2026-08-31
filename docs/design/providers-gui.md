@@ -48,7 +48,8 @@ Some ids support **both** (xAI, OpenRouter, Anthropic).
 | **P0** | Add provider; full list; method picker; API key save; roster + type badge; `/login` opens Add | OAuth |
 | **P1** | llama.cpp row (path, optional key) on this page | — |
 | **P2** | Account login via our HTTPS callback into `auth.json` | OpenRouter (API key in P0). xAI/Grok skipped. |
-| **P3** | **Usage** dialog for OAuth plans (5h / 7d / week / extra). `GET /api/providers/{id}/usage`. Button only when `quotaKind` matches the active method (ADR-0031) | API-key meters (ZAI, OpenCode Go); per-vault-account fetch without Use; statusbar quotas |
+| **P3** | **Usage** dialog for OAuth plans (5h / 7d / week / extra). `GET /api/providers/{id}/usage`. Button only when `quotaKind` matches the active method (ADR-0031) | per-vault-account fetch without Use; statusbar quotas |
+| **P4** | API-key meters (`zai`, `opencode-go`) + banked reset credits (Codex, Grok) with confirm-to-redeem | OpenRouter prepaid; Grok reset if grok.com cookies are required |
 
 ## Constraints
 

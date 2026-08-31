@@ -19,6 +19,10 @@ func TestQuotaKind(t *testing.T) {
 		{"openai", "api_key", ""},
 		{"llama.cpp", "api_key", ""},
 		{"openrouter", "oauth", ""},
+		{"zai", "api_key", "api_key"},
+		{"zai", "oauth", ""},
+		{"zai-coding-cn", "api_key", "api_key"},
+		{"opencode-go", "api_key", "api_key"},
 		{"", "oauth", ""},
 	}
 	for _, c := range cases {

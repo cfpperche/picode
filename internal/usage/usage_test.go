@@ -244,3 +244,126 @@ func TestFetchDecisionTable(t *testing.T) {
 
 	_ = anthropicHits
 }
+
+func TestFetchAPIKeyMeters(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/zai", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer sk-zai" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"level":"pro","limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":10}]}}`))
+	})
+	mux.HandleFunc("/ocg", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"rolling":{"usagePercent":5},"weekly":{"usagePercent":8},"monthly":{"usagePercent":12}}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"zai.quota":         ts.URL + "/zai",
+		"opencode-go.usage": ts.URL + "/ocg",
+	}
+	ctx := context.Background()
+
+	if err := catalog.PutAPIKey("zai", "sk-zai"); err != nil {
+		t.Fatal(err)
+	}
+	rep := client.Fetch(ctx, "zai")
+	if rep.Status != StatusOK || rep.AuthType != "api_key" || !hasWindow(rep.Windows, "5h") {
+		t.Fatalf("%+v", rep)
+	}
+
+	if err := catalog.PutAPIKey("opencode-go", "sk-go"); err != nil {
+		t.Fatal(err)
+	}
+	rep = client.Fetch(ctx, "opencode-go")
+	if rep.Status != StatusOK || len(rep.Windows) != 3 {
+		t.Fatalf("%+v", rep)
+	}
+}
+
+func TestCodexResetsAndRedeem(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	consumed := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("/usage", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"plan_type":"plus","five_hour":{"used_percent":90}}`))
+	})
+	mux.HandleFunc("/resets", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if consumed {
+			_, _ = w.Write([]byte(`{"credits":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"credits":[{"id":"RateLimitResetCredit_1","status":"available","expires_at":"2099-01-01T00:00:00Z"}]}`))
+	})
+	mux.HandleFunc("/redeem", func(w http.ResponseWriter, r *http.Request) {
+		consumed = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"codex.usage":  ts.URL + "/usage",
+		"codex.resets": ts.URL + "/resets",
+		"codex.redeem": ts.URL + "/redeem",
+	}
+	if err := catalog.PutOAuth("openai-codex", map[string]any{
+		"type": "oauth", "access": "live", "refresh": "r", "accountId": "acct",
+		"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	rep := client.Fetch(ctx, "openai-codex")
+	if rep.Status != StatusOK || len(rep.Resets) != 1 {
+		t.Fatalf("fetch %+v", rep)
+	}
+	out := client.Redeem(ctx, "openai-codex", "")
+	if out.Status != StatusOK {
+		t.Fatalf("redeem %+v", out)
+	}
+	if !consumed || len(out.Resets) != 0 {
+		t.Fatalf("after %+v consumed=%v", out, consumed)
+	}
+}
+
+func TestRedeemNone(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/usage", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"five_hour":{"used_percent":10}}`))
+	})
+	mux.HandleFunc("/resets", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"credits":[]}`))
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	client := NewClient(ts.Client())
+	client.Endpoints = map[string]string{
+		"codex.usage":  ts.URL + "/usage",
+		"codex.resets": ts.URL + "/resets",
+	}
+	if err := catalog.PutOAuth("openai-codex", map[string]any{
+		"type": "oauth", "access": "live", "refresh": "r",
+		"expires": float64(time.Now().Add(time.Hour).UnixMilli()),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rep := client.Redeem(context.Background(), "openai-codex", "")
+	if rep.Status != StatusError || rep.Error != "No reset available." {
+		t.Fatalf("%+v", rep)
+	}
+}

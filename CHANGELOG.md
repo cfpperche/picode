@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Provider Usage V2** (ADR-0031): Usage also covers ZAI and OpenCode Go
+  API-key plans. Codex and Grok show banked **reset** credits when the
+  vendor answers; Redeem asks first, then spends one. Grok omits the reset
+  row if that call needs a grok.com cookie and fails — weekly usage still
+  shows.
 - **Provider Usage dialog** (ADR-0031): on `#/providers`, a **Usage** button
   appears on signed-in Claude, Codex, Copilot, Kimi and xAI accounts. It
   opens live 5-hour / 7-day / weekly / extra windows for the active login.

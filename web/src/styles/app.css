@@ -487,6 +487,12 @@ body {
   height: 28px; border-radius: 6px;
   background: var(--border); animation: pulse 1.4s ease infinite;
 }
+.usage-reset {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.usage-reset .btn { flex: none; }
 .pkg-toolbar {
   --pkg-ctl-h: 36px;
   display: grid; grid-template-columns: 1fr auto auto;

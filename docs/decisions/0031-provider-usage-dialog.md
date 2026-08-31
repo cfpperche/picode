@@ -42,6 +42,16 @@ a one-line message, never a guessed 0%. OAuth refresh happens in-process when
   Tests pin the decision table (hide vs fetch vs empty vs 401/429/5xx).
 - V2 can add API-key meters (`zai`, `opencode-go`) on the same interface.
 
+## Amendment (2026-08-31) — V2 meters and banked resets
+
+Usage also covers **API-key plans** whose vendors publish a quota endpoint:
+`zai`, `zai-coding-cn`, `opencode-go`. Catalog `quotaKind` is `api_key` for
+those. Banked one-time **usage-limit resets** (Codex `wham/rate-limit-reset-credits`,
+Grok `GetRemainingResets`) appear in `resets[]` when the vendor answers.
+Redeem is `POST /api/providers/{id}/usage/reset` after a confirm. A Grok
+reset fetch that needs grok.com cookies and fails is omitted — weekly windows
+still show. No invented 0-reset badge.
+
 ## Alternatives considered
 
 - **Vendor npm extensions in the GUI.** Refused: ADR-0003, extra runtime.
