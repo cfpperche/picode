@@ -413,3 +413,12 @@ Never exercised, because this machine was already past them:
   Workspaces tab icon is lucide Folders, and the folder picker's address
   bar filters/navigates as you type (lib/pathFilter.js + useDebounced).
 
+
+- **2026-08-31** — **ADR-0036 + ADR-0037 accepted** (docs only, no code
+  yet): extensions host — apps as manifest + schema-driven primitives
+  (no in-process JS ever, iframe deferred to v2, WASM deferred), fifth
+  sidebar tab with an app grid seeded first-party; and the Inbox — core
+  data plane (SQLite mailbox, `POST /api/inbox`, blocking-count badge)
+  with the view as the first app, `packages/pi-inbox` giving agents
+  async `notify_human`/`ask_human`. Web-benchmark research with sources
+  in both ADRs. Next step: implementation plan for the 0036 pipeline.
