@@ -9,7 +9,7 @@ make build
 ./bin/picode install    # systemd --user; starts when this Linux session starts
 ```
 
-Open https://localhost:8445. Add a workspace (your project folder) or a free agent, click **Run**. Close the tab; the agent keeps running.
+Open https://localhost:8445. The sidebar has a tab per kind: **Agents** (agents without a project), **Workspaces** (your project folders — each card holds its agents and terminals, and its buttons create them right there), **Terminals** (loose shells) and **Pins**. Add a workspace or an agent, click **Run**. Close the browser tab; the agent keeps running.
 
 `make deploy` rebuilds this repo and restarts the service. `picode update` checks GitHub for a newer release. `picode uninstall` removes the service. `--purge` also deletes `~/.picode`.
 

@@ -98,7 +98,7 @@ stay on their own routes.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear beside **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
+The sidebar has four flat tabs, one kind each (ADR-0026): **Agents** (free agents, name-sorted, no hierarchy), **Workspaces** (one collapsible card per workspace holding its agents and its terminals; no section-level collapse), **Terminals** (free terminals only) and **Pins**. Nothing appears in two tabs. Terminals are first-class shells (ADR-0017): **+** on the Terminals tab creates a free one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`); the terminal button on a workspace card creates one owned by it, born in the workspace folder (`workspaceId` in the POST body). Either opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux; removing a workspace kills its terminals with it (the cleanup dialog warns with the count from the preview). Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear beside **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
@@ -140,7 +140,8 @@ list the action; a QR is only drawn when every check passes.
 ┌────────────────────────────────────────────────────────────┐
 │ Browser                                                     │
 │  ├─ Rich UI (React + Vite + Tailwind — ADR-0008)           │
-│  │   agents panel · tasks · diffs · sessions tree · auth   │
+│  │   sidebar tabs (agents·workspaces·terminals·pins)      │
+│  │   tasks · diffs · sessions tree · auth                 │
 │  └─ xterm.js terminals (the real Pi TUI, 1:1)              │
 └───────────────┬────────────────────────────────────────────┘
                 │ HTTP /api/*  +  WebSocket /ws/*
@@ -180,6 +181,7 @@ SQLite (pure-Go driver) at `~/.picode/picode.db` — **orchestration overlay
 only**. Pi's own files remain the source of truth for sessions, credentials,
 MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
 `agents` (many per workspace, own model/config; free agents in `ws_free` — ADR-0011),
+`terminals` (each owned by a workspace, `ws_free` for free ones — ADR-0026; no FK, cascade is app-driven),
 `tasks` (prompt/steer/follow_up queue with a delivery state machine),
 `messages` (reserved M4 broker inbox), `events` (orchestration audit),
 `settings`. Embedded sequential migrations; the M1 JSON registry is imported
@@ -195,9 +197,13 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add
-- `DELETE /api/workspaces/{id}` — remove (stops **all** agents first).
+- `DELETE /api/workspaces/{id}` — remove (stops **all** agents first, then
+  kills the workspace's terminals — sessions best-effort, records and
+  settings overrides in one transaction; ADR-0026).
   Optional `?sessions=1` deletes the pi session dir when this workspace is
-  the last occupant of that cwd. Project folders are never deleted.
+  the last occupant of that cwd. Project folders are never deleted. The
+  cleanup preview (`GET /api/workspaces/{id}/cleanup`) counts the terminals
+  so the dialog can warn.
 - `GET /api/workspaces/{id}/cleanup` / `GET /api/agents/{id}/cleanup` —
   preview for the delete dialog (session count, last occupant, owned work folder).
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
@@ -228,7 +234,7 @@ HTTP API (Go 1.22 method patterns):
   refused) so a copy made in the pane reaches the system clipboard — which is
   what keeps copying possible now that `mouse on` gives the drag to tmux.
   Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
-- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). The list's `cwd` and its git facts both come from the live tmux pane path (record as fallback) — the sidebar says where the terminal is, not where it was born. Workspace agent views carry per-agent git from the agent's effective directory (workPath, else the workspace path).
+- `GET/POST /api/terminals` · `POST /api/terminals/{id}/open` · `DELETE /api/terminals/{id}` · `GET /api/terminals/{id}/cwd` — first-class shells (ADR-0017). Each row carries `workspaceId` (`ws_free` = free; ADR-0026) — the wire stays flat and the sidebar groups client-side. `POST` accepts `workspaceId`; a workspace terminal with no cwd starts in the workspace folder. The list's `cwd` and its git facts both come from the live tmux pane path (record as fallback) — the sidebar says where the terminal is, not where it was born. Workspace agent views carry per-agent git from the agent's effective directory (workPath, else the workspace path).
 - `GET/PATCH /api/terminals/settings` · `GET/PATCH /api/terminals/{id}/settings`
   — terminal **behaviour** (ADR-0024). One global row plus a row per terminal
   holding only the fields that differ; `internal/termopts` is the registry of

@@ -15,17 +15,19 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
 | [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted |
 | [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted |
-| [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted |
+| [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted, amended by 0026 |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
 | [0013](0013-provider-accounts.md) | Extra logins in `~/.picode/accounts.json`; `auth.json` is the active slot | accepted |
 | [0014](0014-local-backup.md) | Local directory snapshots of the PiCode environment | accepted |
 | [0015](0015-browser-file-editor.md) | Browser file editor for the agent cwd (not an IDE) | accepted |
 | [0016](0016-project-shells.md) | Project shells in tmux, as editor tabs | superseded by 0017 |
-| [0017](0017-first-class-terminals.md) | First-class terminals (sidebar + main tabs) | accepted |
+| [0017](0017-first-class-terminals.md) | First-class terminals (sidebar + main tabs) | accepted, amended by 0026 |
 | [0018](0018-systemd-user-install.md) | `picode install` — systemd user unit, not Windows | superseded by 0020 |
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
 | [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
-| [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted |
+| [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
+| [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
+| [0026](0026-sidebar-tabs-and-workspace-terminals.md) | Four sidebar tabs; workspaces own terminals | accepted |

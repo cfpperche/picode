@@ -188,6 +188,25 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — **Sidebar restructured into four flat tabs** (ADR-0026):
+  Agents (free, flat, name-sorted), Workspaces (one collapsible card per
+  workspace — section collapses are gone), Terminals (free only), Pins.
+  Workspaces now own terminals: migration 013 adds
+  `terminals.workspace_id` (default `ws_free`, no FK — SQLite refuses ADD
+  COLUMN with REFERENCES + non-NULL default; cascade is app-driven),
+  `POST /api/terminals` takes `workspaceId` and a workspace terminal is
+  born in the workspace folder. Removing a workspace kills its terminals
+  (tmux best-effort, records + settings in one tx) and the cleanup dialog
+  warns with the preview's count. Wire stays flat; grouping is client-side
+  (`web/src/lib/termGroups.js`). Group hover actions became an absolute
+  overlay — four buttons reserving grid space squeezed the workspace name
+  to nothing at 180px. The brand version yields below 254px. Known
+  behaviors, by decision: a stored `picode-side-tab:"agents"` now shows
+  only free agents (no migration — indetectable; empty states carry the
+  action); V1 has no move-terminal-between-workspaces; a tmux kill that
+  fails after the DELETE leaves an orphan session recoverable via the tmux
+  catalog (ADR-0025).
+
 - **2026-08-30** — The last ADR-0025 debt is paid: tmux **array options are
   editable** in `#/termset` (`command-alias`, `terminal-features`,
   `terminal-overrides`, `status-format`, `update-environment`). They are
