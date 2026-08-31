@@ -1035,7 +1035,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .term-pref .theme-cards.two { max-width: none; }
 .term-pref .set-rows { gap: 8px; }
 .term-pref .set-row select.set-wide { min-width: 0; max-width: 12rem; }
-.term-pref-preview-slot { position: relative; min-height: 240px; }
+/* The preview answers "what will my terminal look like" — a dozen lines is
+   the whole answer. It pins to a sane height and sticks while the form
+   scrolls, instead of stretching to the form's full height, which drew a
+   comically tall terminal beside the Keys list. */
+.term-pref-preview-slot {
+  position: sticky; top: 8px;
+  align-self: start;
+  height: 320px;
+}
 .term-preview {
   position: absolute; inset: 0;
   border: 1px solid var(--border);
@@ -2728,7 +2736,10 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 
 /* Full-catalog terminal settings page (ADR-0024, open catalog). Extends the
    termset dialog styles above; the page reuses field/seg/chip/danger rules. */
-#termset-view .settings-wrap.wide { max-width: 760px; }
+/* Same width as the other wide pages: the catalog rows and the appearance
+   grid both breathe at 1080, and 760 left the card floating in a sea of
+   margin on a wide monitor. */
+#termset-view .settings-wrap.wide { max-width: 1080px; }
 .termset-page { display: flex; flex-direction: column; gap: 22px; }
 .termset-danger { margin: 8px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--warn); }
 .termset-chip-server {
