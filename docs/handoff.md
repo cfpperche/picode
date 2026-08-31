@@ -48,13 +48,12 @@ What exists:
 
 ## In flight
 
-**ADR-0025 — model roles. M1 shipped on `feat/model-roles`; not merged.**
-Package at `packages/pi-roles/` (MIT). Decision table in `test/logic.test.ts`.
-**Live RPC dogfood on xAI Grok passed** (`/tmp/pi-roles-dogfood`, `-e` path,
-`--no-extensions`): `/vision` → grok-4.5, `/plan` → grok-4.3, `/role fast` →
-grok-build-0.1, auto text → grok-4.6 thinking low, auto image → grok-4.5
-(`image detected`). Turns aborted after the switch notify. Not published to
-npm. M2 GUI is not started.
+**ADR-0025 — model roles. M1 + file editor on `feat/model-roles`; not merged.**
+Package at `packages/pi-roles/` (MIT). `/roles edit|add|remove` writes
+`.pi/roles.json` (one file per folder; per-agent config is v2). Live RPC
+dogfood: `/roles add grokfast` wrote the file, `/roles remove grokfast`
+cleared it. Composer menu listing extension commands is not done. Not
+published to npm.
 
 **ADR-0024 — terminal settings. Step 0 shipped; the panel is not built.**
 `mouse on` is the default again at both call sites (`internal/term/bridge.go`,
@@ -89,8 +88,9 @@ render megabytes.
 
 ## Next up
 
-**ADR-0025 M2** — GUI editor for `.pi/roles.json` (file, not SQLite). M1 live
-RPC dogfood on Grok already passed.
+**ADR-0025** — PiCode composer `/` menu lists commands from the running
+agent (so `/roles` appears only when the package is installed). Editor lives
+in the package, not a Roles page.
 
 **Multi-runtime TUIs in terminals** (owner direction, research in flight in
 another session): the ADE will host TUIs from several agent runtimes — in
@@ -165,6 +165,9 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — ADR-0025 `/roles edit|add|remove` writes `.pi/roles.json`.
+  Per-agent config deferred (v2). **visual-review: n/a** (extension dialogs).
 
 - **2026-08-31** — ADR-0025 M1 **dogfood on xAI Grok** via `pi --mode rpc -e`:
   locks and auto text/image routing all switched the live model. Turns aborted

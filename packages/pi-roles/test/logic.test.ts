@@ -7,6 +7,11 @@ import {
 	decideOnInput,
 	lockRole,
 	resolveRole,
+	editRole,
+	addCustom,
+	removeCustom,
+	serializeConfig,
+	emptyConfig,
 	type RolesConfig,
 	type Mode,
 } from "../src/logic.ts";
@@ -269,5 +274,65 @@ describe("resolveRole", () => {
 		assert.equal(resolveRole(full, "default")?.model, "zai/glm-5.3");
 		assert.equal(resolveRole(full, "redteam")?.model, "kimi-coding/k3");
 		assert.equal(resolveRole(full, "missing"), undefined);
+	});
+});
+
+describe("editRole", () => {
+	it("fills an unset builtin", () => {
+		const r = editRole(emptyConfig(), "vision", { model: "xai/grok-4.6", thinking: "high" });
+		assert.equal(r.ok, true);
+		if (r.ok) assert.equal(r.config.builtin.vision?.model, "xai/grok-4.6");
+	});
+	it("replaces a custom assignment", () => {
+		const r = editRole(full, "redteam", { model: "xai/grok-4.5" });
+		assert.equal(r.ok, true);
+		if (r.ok) {
+			assert.equal(r.config.custom[0].model, "xai/grok-4.5");
+			assert.equal(r.config.custom[0].thinking, undefined);
+		}
+	});
+	it("errors on a missing custom role", () => {
+		assert.equal(editRole(full, "nope", { model: "xai/grok-4.6" }).ok, false);
+	});
+	it("errors on a model without provider/id", () => {
+		assert.equal(editRole(full, "default", { model: "glm-5.3" }).ok, false);
+	});
+});
+
+describe("addCustom / removeCustom", () => {
+	it("adds a preset", () => {
+		const r = addCustom(emptyConfig(), "fast", { model: "xai/grok-build-0.1", thinking: "low" });
+		assert.equal(r.ok, true);
+		if (r.ok) assert.equal(r.config.custom[0].name, "fast");
+	});
+	it("rejects reserved, duplicate, and bad names", () => {
+		assert.equal(addCustom(full, "vision", { model: "xai/grok-4.6" }).ok, false);
+		assert.equal(addCustom(full, "redteam", { model: "xai/grok-4.6" }).ok, false);
+		assert.equal(addCustom(full, "red team", { model: "xai/grok-4.6" }).ok, false);
+	});
+	it("removes a custom role", () => {
+		const r = removeCustom(full, "redteam");
+		assert.equal(r.ok, true);
+		if (r.ok) assert.equal(r.config.custom.length, 0);
+	});
+	it("cannot remove a builtin or a missing name", () => {
+		assert.equal(removeCustom(full, "plan").ok, false);
+		assert.equal(removeCustom(full, "nope").ok, false);
+	});
+});
+
+describe("serializeConfig", () => {
+	it("keeps unknown root keys", () => {
+		const raw = { extra: true, builtin: { default: { model: "xai/grok-4.6" } } };
+		const parsed = cfg(raw);
+		const edited = editRole(parsed, "default", { model: "xai/grok-4.5", thinking: "low" });
+		assert.equal(edited.ok, true);
+		if (!edited.ok) return;
+		const out = serializeConfig(edited.config, raw);
+		assert.equal(out.extra, true);
+		assert.deepEqual((out.builtin as { default: unknown }).default, {
+			model: "xai/grok-4.5",
+			thinking: "low",
+		});
 	});
 });

@@ -46,10 +46,21 @@ const THINKING = new Set<string>([
 	"max",
 ]);
 
+export const THINKING_LEVELS: ThinkingLevel[] = [
+	"off",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+];
+export const BUILTIN_ROLES = ["default", "vision", "plan"] as const;
+
 const NAME_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 const RESERVED = new Set(["auto", "default", "vision", "plan", "role", "roles"]);
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp)(\b|$)/i;
-const BUILTIN = new Set(["default", "vision", "plan"]);
+const BUILTIN = new Set<string>(BUILTIN_ROLES);
 
 export function parseModelId(model: string): { provider: string; id: string } | null {
 	const i = model.indexOf("/");
@@ -186,4 +197,88 @@ export function lockRole(config: RolesConfig | null, role: string): Decision {
 		return { kind: "error", message: `Role "${role}" is not configured` };
 	}
 	return { kind: "switch", target, why: `lock /${role}` };
+}
+
+export type MutateResult =
+	| { ok: true; config: RolesConfig }
+	| { ok: false; error: string };
+
+export function emptyConfig(): RolesConfig {
+	return { builtin: {}, custom: [] };
+}
+
+function validAssignment(assignment: Assignment): string | null {
+	if (!parseModelId(assignment.model)) return `model "${assignment.model}" must be provider/id`;
+	if (assignment.thinking !== undefined && !THINKING.has(assignment.thinking)) {
+		return `thinking "${assignment.thinking}" is not a valid thinking level`;
+	}
+	return null;
+}
+
+export function editRole(config: RolesConfig, role: string, assignment: Assignment): MutateResult {
+	const bad = validAssignment(assignment);
+	if (bad) return { ok: false, error: bad };
+	if (role === "default" || role === "vision" || role === "plan") {
+		return { ok: true, config: { builtin: { ...config.builtin, [role]: assignment }, custom: config.custom } };
+	}
+	const idx = config.custom.findIndex((c) => c.name === role);
+	if (idx < 0) return { ok: false, error: `Role "${role}" is not configured` };
+	const custom = config.custom.slice();
+	custom[idx] = { name: role, ...assignment };
+	return { ok: true, config: { builtin: config.builtin, custom } };
+}
+
+export function addCustom(config: RolesConfig, name: string, assignment: Assignment): MutateResult {
+	const bad = validAssignment(assignment);
+	if (bad) return { ok: false, error: bad };
+	if (!NAME_RE.test(name)) return { ok: false, error: `"${name}" is not a valid role name` };
+	if (RESERVED.has(name) || BUILTIN.has(name)) {
+		return { ok: false, error: `"${name}" is reserved` };
+	}
+	if (config.custom.some((c) => c.name === name)) {
+		return { ok: false, error: `custom role "${name}" already exists` };
+	}
+	return {
+		ok: true,
+		config: { builtin: config.builtin, custom: [...config.custom, { name, ...assignment }] },
+	};
+}
+
+export function removeCustom(config: RolesConfig, name: string): MutateResult {
+	if (BUILTIN.has(name) || name === "auto") {
+		return { ok: false, error: `Cannot remove builtin role "${name}"` };
+	}
+	if (!config.custom.some((c) => c.name === name)) {
+		return { ok: false, error: `Role "${name}" is not configured` };
+	}
+	return {
+		ok: true,
+		config: { builtin: config.builtin, custom: config.custom.filter((c) => c.name !== name) },
+	};
+}
+
+function assignmentJson(a: Assignment): Record<string, unknown> {
+	const row: Record<string, unknown> = { model: a.model };
+	if (a.thinking) row.thinking = a.thinking;
+	return row;
+}
+
+/** Merge the parsed config back onto the original JSON so unknown keys survive. */
+export function serializeConfig(
+	config: RolesConfig,
+	raw?: Record<string, unknown>,
+): Record<string, unknown> {
+	const out: Record<string, unknown> = { ...(raw ?? {}) };
+	const prevBuiltin =
+		raw && typeof raw.builtin === "object" && raw.builtin && !Array.isArray(raw.builtin)
+			? { ...(raw.builtin as Record<string, unknown>) }
+			: {};
+	const builtin: Record<string, unknown> = { ...prevBuiltin };
+	for (const key of BUILTIN_ROLES) {
+		if (config.builtin[key]) builtin[key] = assignmentJson(config.builtin[key]!);
+		else delete builtin[key];
+	}
+	out.builtin = builtin;
+	out.custom = config.custom.map((c) => ({ name: c.name, ...assignmentJson(c) }));
+	return out;
 }

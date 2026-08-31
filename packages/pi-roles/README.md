@@ -21,7 +21,8 @@ npm publish is not wired yet. Local path is the supported M1 install.
 
 ## Configure
 
-Create `<workspace>/.pi/roles.json`. Missing file = the extension is dormant.
+Create `<workspace>/.pi/roles.json`, or let `/roles add` / `/roles edit` write it.
+Missing file = routing is dormant until the file exists.
 
 ```json
 {
@@ -63,7 +64,10 @@ attaching the image; the path heuristic is a fallback.
 | `/vision` | Lock vision |
 | `/plan` | Lock plan + system prompt |
 | `/role <name>` | Lock a preset (`auto` is accepted) |
-| `/roles` | Dialog listing configured roles |
+| `/roles` | Pick a configured role |
+| `/roles edit [name]` | Set model + thinking and save the file |
+| `/roles add [name]` | Create a custom preset |
+| `/roles remove [name]` | Delete a custom preset |
 
 ## Tests
 

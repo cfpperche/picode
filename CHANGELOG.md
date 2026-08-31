@@ -16,7 +16,7 @@ to the `[Unreleased]` section. The repository's official language is English
 - **`packages/pi-roles`**: opt-in pi extension that routes models by role
   (vision on images, plan on `/plan`, named presets via `/role`). Workspace
   file `.pi/roles.json`; MIT in that directory only (ADR-0025). Not installed
-  by default. No GUI yet.
+  by default. `/roles edit|add|remove` writes that file (no PiCode page).
 
 ### Changed
 
