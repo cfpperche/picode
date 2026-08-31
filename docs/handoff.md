@@ -208,6 +208,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Remove workspace can delete local data (ADR-0035):
+  opt-in checkbox + GitHub-style typed folder-name confirmation; server
+  re-verifies the name and refuses root/home (guard sabotage-tested);
+  remote repo never touched. Clone-form segmented now full-width with
+  folder/git icons. **visual-review: pending QA** (updated below after
+  the pass).
+
 - **2026-08-31** — New workspace can clone a remote repo (ADR-0034):
   "Local folder | Clone repository" switch in the same dialog, URL →
   derived editable name/destination, blocking `POST /api/workspaces/clone`

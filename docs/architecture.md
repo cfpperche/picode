@@ -225,7 +225,10 @@ HTTP API (Go 1.22 method patterns):
   confined to the folder; the workspace card wears it.
 - `DELETE /api/workspaces/{id}` — remove (stops **all** agents first, then
   kills the workspace's terminals — sessions best-effort, records and
-  settings overrides in one transaction; ADR-0026).
+  settings overrides in one transaction; ADR-0026). With
+  `?files=1&confirm=<folder name>` it also deletes the project folder
+  from disk (ADR-0035): the confirm must match the folder's basename,
+  root/home are refused, and validation runs before anything is removed.
   Optional `?sessions=1` deletes the pi session dir when this workspace is
   the last occupant of that cwd. Project folders are never deleted. The
   cleanup preview (`GET /api/workspaces/{id}/cleanup`) counts the terminals
