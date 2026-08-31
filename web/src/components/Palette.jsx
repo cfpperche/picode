@@ -59,6 +59,7 @@ function buildActions(workspaces) {
   for (const ws of workspaces) {
     const mode = ws.agent ? ws.agent.mode : "stopped";
     out.push({ id: "open-" + ws.id, label: "Open " + ws.name, group: ws.name, kind: "open", wsId: ws.id });
+    out.push({ id: "files-" + ws.id, label: "Files · " + ws.name, group: ws.name, kind: "files", wsId: ws.id, wsName: ws.name });
     if (mode === "stopped") {
       out.push({ id: "run-" + ws.id, label: "Run " + ws.name, group: ws.name, kind: "run", wsId: ws.id });
       out.push({ id: "term-" + ws.id, label: "Open terminal · " + ws.name, group: ws.name, kind: "term", wsId: ws.id });

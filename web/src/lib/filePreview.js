@@ -50,9 +50,11 @@ export function previewEmpty(text) {
   return !String(text || "").trim();
 }
 
-export function fileBlobUrl(agentId, termId, path) {
+export function fileBlobUrl(agentId, termId, wsId, path) {
   const base = termId
     ? "/api/terminals/" + encodeURIComponent(termId) + "/blob"
-    : "/api/agents/" + encodeURIComponent(agentId) + "/blob";
+    : wsId
+      ? "/api/workspaces/" + encodeURIComponent(wsId) + "/blob"
+      : "/api/agents/" + encodeURIComponent(agentId) + "/blob";
   return base + "?path=" + encodeURIComponent(path);
 }

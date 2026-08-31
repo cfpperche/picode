@@ -13,14 +13,16 @@ const FILE_MIN = 240;
 const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
 
-function fileTextUrl(agentId, termId, path) {
+function fileTextUrl(agentId, termId, wsId, path) {
   const base = termId
     ? "/api/terminals/" + encodeURIComponent(termId) + "/text"
-    : "/api/agents/" + encodeURIComponent(agentId) + "/text";
+    : wsId
+      ? "/api/workspaces/" + encodeURIComponent(wsId) + "/text"
+      : "/api/agents/" + encodeURIComponent(agentId) + "/text";
   return base + "?path=" + encodeURIComponent(path);
 }
 
-export default function FilePane({ agentId, termId, path, onClose, variant }) {
+export default function FilePane({ agentId, termId, wsId, path, onClose, variant }) {
   const [view, setView] = useState({ kind: "load" });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,7 +41,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
   const saveRef = useRef(async () => {});
   dirtyRef.current = dirty;
 
-  const ownerId = termId || agentId;
+  const ownerId = termId || wsId || agentId;
   useEffect(() => {
     if (!ownerId || !path) return;
     let stop = false;
@@ -49,7 +51,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
     dirtyRef.current = false;
     const name = path.split("/").pop() || path;
     if (isBlobKind(previewKind(path))) {
-      fetch(fileBlobUrl(agentId, termId, path))
+      fetch(fileBlobUrl(agentId, termId, wsId, path))
         .then(async (res) => {
           if (stop) return;
           if (!res.ok) {
@@ -68,7 +70,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
           setView({ kind: "msg", path, name, text: fileMsg(raw) });
         });
     } else {
-      api(fileTextUrl(agentId, termId, path))
+      api(fileTextUrl(agentId, termId, wsId, path))
         .then((page) => {
           if (stop) return;
           mtimeRef.current = Number(page.mtime) || 0;
@@ -118,7 +120,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
     if (text == null) return;
     setSaving(true);
     try {
-      const page = await api(fileTextUrl(agentId, termId, path).split("?")[0], {
+      const page = await api(fileTextUrl(agentId, termId, wsId, path).split("?")[0], {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: view.path || path, text, mtime: mtimeRef.current }),
@@ -148,7 +150,7 @@ export default function FilePane({ agentId, termId, path, onClose, variant }) {
     setView({ kind: "load" });
     setDirty(false);
     dirtyRef.current = false;
-    api(fileTextUrl(agentId, termId, path))
+    api(fileTextUrl(agentId, termId, wsId, path))
       .then((page) => {
         mtimeRef.current = Number(page.mtime) || 0;
         setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });

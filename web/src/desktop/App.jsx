@@ -17,6 +17,7 @@ import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
 import FileSurface from "../components/FileSurface.jsx";
 import GitGraphSurface from "../components/GitGraphSurface.jsx";
+import FileTreeSurface from "../components/FileTreeSurface.jsx";
 import Settings from "../components/Settings.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import System from "../components/System.jsx";
@@ -28,7 +29,7 @@ import Palette from "../components/Palette.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab } from "../lib/routes.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
@@ -56,7 +57,7 @@ function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   return "/api/workspaces/" + id + suffix + q;
 }
 import { extraSlash } from "../lib/slash.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners } from "../lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "../lib/openTabs.js";
 import { sessionsHash, sessionsRoute } from "../lib/routes.js";
 import SessionsView from "../components/SessionsView.jsx";
 import Hotkeys from "../components/Hotkeys.jsx";
@@ -144,6 +145,7 @@ export default function App() {
   // A graph tab is named by its repository, but only an owner can be asked for
   // it, so remember which owner opened each one (ADR-0022).
   const [gitOwners, setGitOwners] = useState(() => readGitOwners());
+  const [treeOwners, setTreeOwners] = useState(() => readTreeOwners());
   const [termError, setTermError] = useState("");
   const convRef = useRef(null);
   const nearBottom = useRef(true);
@@ -366,16 +368,22 @@ export default function App() {
         try { terms = (await api("/api/terminals")).terminals || []; } catch { terms = []; }
         setTerminals(terms);
         const owners = readGitOwners();
+        const towners = readTreeOwners();
         const ownerAlive = (o) =>
-          !!o && (o.kind === "term" ? terms.some((t) => t.id === o.id) : !!locate(list, free, o.id));
+          !!o &&
+          (o.kind === "term"
+            ? terms.some((t) => t.id === o.id)
+            : o.kind === "workspace"
+              ? list.some((w) => w.id === o.id)
+              : !!locate(list, free, o.id));
         const exists = (id) => {
           if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
           if (isGitTab(id)) return ownerAlive(owners[id]);
+          if (isTreeTab(id)) return ownerAlive(towners[id]);
           if (isFileTab(id)) {
             const f = parseFileTab(id);
             if (!f) return false;
-            if (f.kind === "term") return terms.some((t) => t.id === f.id);
-            return !!locate(list, free, f.id);
+            return ownerAlive(f);
           }
           return !!locate(list, free, id);
         };
@@ -384,8 +392,12 @@ export default function App() {
         const fromTerm = parseRoute() === "workspace" ? termRoute() : null;
         const fromFile = parseRoute() === "workspace" ? fileRoute() : null;
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
+        const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        if (fromGit) {
+        if (fromTree) {
+          if (ownerAlive(fromTree)) openTreeTab(fromTree.kind, fromTree.id);
+          else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
+        } else if (fromGit) {
           if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id);
           else { setGoneId(provisionalGitId(fromGit.kind, fromGit.id)); setSelectedId(null); }
         } else if (fromTerm) {
@@ -457,7 +469,9 @@ export default function App() {
       const fid = fileTabId(fromFile.kind, fromFile.id, fromFile.path);
       const ok = fromFile.kind === "term"
         ? terminals.some((t) => t.id === fromFile.id)
-        : !!locate(workspaces, freeAgents, fromFile.id);
+        : fromFile.kind === "workspace"
+          ? workspaces.some((w) => w.id === fromFile.id)
+          : !!locate(workspaces, freeAgents, fromFile.id);
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         if (selectedRef.current !== fid) {
@@ -482,6 +496,24 @@ export default function App() {
       } else {
         const gid = provisionalGitId(fromGit.kind, fromGit.id);
         setGoneId((g) => (g === gid ? g : gid));
+        if (selectedRef.current) setSelectedId(null);
+      }
+      return;
+    }
+    const fromTree = treeRoute(hash);
+    if (fromTree) {
+      const ok = fromTree.kind === "term"
+        ? terminals.some((t) => t.id === fromTree.id)
+        : fromTree.kind === "workspace"
+          ? workspaces.some((w) => w.id === fromTree.id)
+          : !!locate(workspaces, freeAgents, fromTree.id);
+      if (ok) {
+        setGoneId((g) => (g ? "" : g));
+        const known = Object.entries(treeOwners).find(([, o]) => o && o.kind === fromTree.kind && o.id === fromTree.id);
+        if (!known || selectedRef.current !== known[0]) openTreeTab(fromTree.kind, fromTree.id);
+      } else {
+        const tid = provisionalTreeId(fromTree.kind, fromTree.id);
+        setGoneId((g) => (g === tid ? g : tid));
         if (selectedRef.current) setSelectedId(null);
       }
       return;
@@ -512,24 +544,28 @@ export default function App() {
     if (goneId) return;
     const file = isFileTab(selectedId) ? parseFileTab(selectedId) : null;
     const gitOwner = isGitTab(selectedId) ? gitOwners[selectedId] : null;
+    const treeOwner = isTreeTab(selectedId) ? treeOwners[selectedId] : null;
     // Without the owner there is no hash to write, and guessing one would send
     // the router to #/agent/g:… — wait for the map instead.
     if (isGitTab(selectedId) && !gitOwner) return;
+    if (isTreeTab(selectedId) && !treeOwner) return;
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : gitOwner
         ? gitHash(gitOwner.kind, gitOwner.id)
-        : file
-          ? fileHash(file.kind, file.id, file.path)
-          : workspaceHash(selectedId);
+        : treeOwner
+          ? treeHash(treeOwner.kind, treeOwner.id)
+          : file
+            ? fileHash(file.kind, file.id, file.path)
+            : workspaceHash(selectedId);
     if (location.hash === want) return;
-    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && selectedId) {
+    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
       setHash(want);
       return;
     }
     location.hash = want;
-  }, [selectedId, tabsReady, goneId, route, gitOwners]);
+  }, [selectedId, tabsReady, goneId, route, gitOwners, treeOwners]);
   useEffect(() => {
     const prev = draftAgentRef.current;
     if (prev && prev !== selectedId) writeDraft(prev, draft, kind);
@@ -548,7 +584,7 @@ export default function App() {
 
   function openTab(id, list) {
     if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
-    if (isGitTab(id)) {
+    if (isGitTab(id) || isTreeTab(id)) {
       setGoneId("");
       setSelectedId(id);
       setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -639,6 +675,45 @@ export default function App() {
     setSelectedId((s) => (s === fromId ? real : s));
   }
 
+  function provisionalTreeId(kind, ownerId) {
+    return treeTabId("@" + (kind === "term" ? "t" : kind === "workspace" ? "w" : "a") + ":" + ownerId);
+  }
+
+  // The root folder is unknown until the server answers, so a tree tab opens
+  // under a provisional id and onTreeKey renames it to d:<root> — which is
+  // also where two owners of the same folder collapse onto one tab (ADR-0028).
+  function openTreeTab(kind, ownerId, ownerName) {
+    if (!ownerId) return;
+    const known = Object.entries(treeOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
+    const id = known ? known[0] : provisionalTreeId(kind, ownerId);
+    setTreeOwners((m) => {
+      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "" } };
+      writeTreeOwners(next);
+      return next;
+    });
+    setGoneId("");
+    setSelectedId(id);
+    setTabs((t) => (t.includes(id) ? t : [...t, id]));
+  }
+
+  function onTreeKey(fromId, root) {
+    const real = treeTabId(root);
+    if (!root || real === fromId) return;
+    setTreeOwners((m) => {
+      const owner = m[fromId];
+      const next = { ...m };
+      delete next[fromId];
+      if (owner && !next[real]) next[real] = owner;
+      writeTreeOwners(next);
+      return next;
+    });
+    setTabs((t) => {
+      const swapped = t.map((x) => (x === fromId ? real : x));
+      return swapped.filter((x, i) => swapped.indexOf(x) === i);
+    });
+    setSelectedId((s) => (s === fromId ? real : s));
+  }
+
   function closeTab(id) {
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
@@ -646,6 +721,14 @@ export default function App() {
         const next = { ...m };
         delete next[id];
         writeGitOwners(next);
+        return next;
+      });
+    }
+    if (isTreeTab(id)) {
+      setTreeOwners((m) => {
+        const next = { ...m };
+        delete next[id];
+        writeTreeOwners(next);
         return next;
       });
     }
@@ -659,7 +742,7 @@ export default function App() {
         const next = t[t.length - 1];
         if (next) {
           if (isTermTab(next)) openTermTab(tabTermId(next));
-          else if (isFileTab(next) || isGitTab(next)) {
+          else if (isFileTab(next) || isGitTab(next) || isTreeTab(next)) {
             setSelectedId(next);
           } else {
             setSelectedId(next);
@@ -1560,6 +1643,7 @@ export default function App() {
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
+        onFileTree={openTreeTab}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -1581,7 +1665,7 @@ export default function App() {
       />
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "")} hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
@@ -1597,7 +1681,7 @@ export default function App() {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>{isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) ? "That terminal is gone." : "That agent is gone."}</h2>
+                  <h2>{isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : isTreeTab(goneId) && goneId.startsWith("d:@w:") ? "That workspace is gone." : "That agent is gone."}</h2>
                   {(workspaces.length + freeAgents.length + terminals.length) > 0 ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
@@ -1644,8 +1728,20 @@ export default function App() {
               onClose={() => closeTab(selectedId)}
             />
           ) : null}
+          {isTreeTab(selectedId) && treeOwners[selectedId] ? (
+            <FileTreeSurface
+              key={selectedId}
+              owner={treeOwners[selectedId]}
+              onKey={(root) => onTreeKey(selectedId, root)}
+              onOpenFile={(p) => {
+                const o = treeOwners[selectedId];
+                if (o) openFileTab(o.kind, o.id, p);
+              }}
+              onClose={() => closeTab(selectedId)}
+            />
+          ) : null}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
@@ -1919,6 +2015,7 @@ export default function App() {
         onRun={(a) => {
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
           if (a.kind === "open") revealAgent(a.wsId);
+          if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
           if (a.kind === "run") startManaged(a.wsId);
           if (a.kind === "term") openInteractive(a.wsId);
           if (a.kind === "stop") stopAgent(a.wsId);
