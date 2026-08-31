@@ -214,6 +214,12 @@ HTTP API (Go 1.22 method patterns):
   and no `agent` key; an idempotent re-add answers with the real agents
   and never resurrects a deleted one. `agent` is omitted whenever a
   workspace is empty.
+- `POST /api/workspaces/clone` — `{url, name, path}` clones a remote
+  repository into a fresh/empty destination and registers it as a
+  workspace (ADR-0034). Blocking, 10-minute cap; host credentials, all
+  interactive prompts disabled. A destination already cloned from the
+  same origin is adopted (`200 {adopted:true}`); occupied by anything
+  else → 409. The one git write reachable from the GUI.
 - `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
   public/static/app/src/app/www/docs; svg > png > ico), read-only and
   confined to the folder; the workspace card wears it.

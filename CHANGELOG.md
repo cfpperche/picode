@@ -11,6 +11,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **New workspace can clone a remote repository.** The New-workspace
+  dialog gains a "Local folder | Clone repository" switch: paste an
+  https/ssh URL (a `/tree/<branch>` link pasted from the browser works),
+  name and destination derive from the repo and stay editable, and the
+  clone runs with the machine's own git credentials — no tokens, no
+  OAuth. A destination already holding the same repo is adopted instead
+  of re-cloned (ADR-0034).
+
 ### Changed
 
 - **Extension questions stay in the thread as one form.** Sequential

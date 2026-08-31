@@ -208,6 +208,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — New workspace can clone a remote repo (ADR-0034):
+  "Local folder | Clone repository" switch in the same dialog, URL →
+  derived editable name/destination, blocking `POST /api/workspaces/clone`
+  with host git credentials and prompts disabled, same-origin destination
+  adopted. New `internal/gitclone` package; argv-injection defenses
+  sabotage-tested. **visual-review: pending QA** (this entry updated after
+  the QA pass).
+
 - **2026-08-31** — Ask back-step: reopen the clicked pill, skip mismatched
   dialogs. Merged and deployed. Reload the agent. **visual-review: UNVERIFIED**.
 
