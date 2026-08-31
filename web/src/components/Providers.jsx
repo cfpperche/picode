@@ -10,6 +10,8 @@ import LlamaPanel from "./LlamaPanel.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 import { askConfirm } from "../lib/confirm.js";
+import { showUsageButton } from "../lib/providerUsage.js";
+import UsageDialog from "./UsageDialog.jsx";
 
 function AccountName({ provider, acc, onSaved }) {
   const [editing, setEditing] = useState(false);
@@ -63,6 +65,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [replacing, setReplacing] = useState(false);
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   const [recents, setRecents] = useState(readRecents);
+  const [usageFor, setUsageFor] = useState(null);
 
   useEffect(() => {
     if (hidden || !wantAdd) return;
@@ -266,6 +269,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                   <div className="prov-row">
                     <ProviderFace id={p.id} />
                     <span className="prov-id">{p.id}</span>
+                    {showUsageButton(p) ? (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor(p)}>Usage</button>
+                    ) : null}
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
                   </div>
                   <ul className="prov-accounts">
@@ -305,6 +311,15 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
         </section>
       ) : null}
 
+      <UsageDialog
+        provider={usageFor}
+        onClose={() => setUsageFor(null)}
+        onSignIn={() => {
+          const p = usageFor;
+          setUsageFor(null);
+          if (p) replaceProvider(p);
+        }}
+      />
       <Dialog.Root open={add} onOpenChange={(o) => { if (!o) closeAdd(); }}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />

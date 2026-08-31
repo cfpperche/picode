@@ -19,7 +19,7 @@ What exists:
 - Public `cfpperche/picode`, PolyForm Noncommercial + commercial, CI linux/macos/windows.
 - HTTPS default `:8445` (ADR-0007). SW caches **only hashed `/assets/`**; HTML/API network.
 - Workspaces + many agents per folder (ADR-0011). Settings vs Preferences (ADR-0012). Packages: machine / workspace / **this agent**; optional isolate skips inherit (ADR-0010).
-- Providers: API key + OAuth. Claude/Codex loopback `53692`/`1455`. Copilot/Kimi/xAI **device-code**. Radius stays TUI (gateway URL).
+- Providers: API key + OAuth. Claude/Codex loopback `53692`/`1455`. Copilot/Kimi/xAI **device-code**. Radius stays TUI (gateway URL). **Usage** (ADR-0031) on `#/providers` for those OAuth plans — live 5h/7d/week/extra; API keys have no button.
 - **ADR-0013** vault `~/.picode/accounts.json`; `auth.json` is the one slot pi reads. Add account / Use / Sign out; OAuth re-login updates the same account.
 - Composer `/` opens **PiCode UI** (never the dock). Skills/templates = picker insert; pi RPC expands. `/share` = secret gist (`gh`).
 - `/llama` dialog on the **current view** (URL, Save, Retry, load/unload, HF download). Link **Set up llama.cpp** → `www/guide/llama.md`. **No GUI installer** (reverted).
@@ -206,6 +206,13 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — **Provider Usage dialog** (ADR-0031). `#/providers` shows
+  **Usage** only when `quotaKind` matches the active oauth slot (Claude,
+  Codex, Copilot, Kimi, xAI). `GET /api/providers/{id}/usage` fetches vendor
+  windows in-process; tokens stay on the server. Dialog: skeleton → bars /
+  empty / error / Sign in. Statusbar still does not invent quotas.
+  visual-review: PASS (usage-windows/empty/error/loading/auth, overlayAudit ok).
 
 - **2026-08-31** — **File tree per workspace/terminal/agent** (ADR-0030):
   `#/tree/<w|t|a>/<id>` opens a read-only tree of the owner's folder, tab

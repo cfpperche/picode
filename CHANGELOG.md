@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Provider Usage dialog** (ADR-0031): on `#/providers`, a **Usage** button
+  appears on signed-in Claude, Codex, Copilot, Kimi and xAI accounts. It
+  opens live 5-hour / 7-day / weekly / extra windows for the active login.
+  API keys and providers without a plan meter stay without the button. The
+  composer statusbar is still session tokens and cost only.
 - **Composer `/` lists commands from the running agent** (ADR-0029): extension
   commands such as `/roles` appear only while that agent is in managed mode
   and the package is loaded. Picking one sends the command; it does not open
