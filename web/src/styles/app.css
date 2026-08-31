@@ -136,14 +136,7 @@ body {
   column-gap: var(--tree-gap);
   align-items: center;
 }
-.ws-row1.tree-row, .ws-row2.tree-row {
-  grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr);
-}
-.ws-row1.tree-row {
-  grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr) auto;
-}
 .tree-children { padding-left: var(--tree-indent); }
-.tree-spc { display: block; width: var(--tree-chev); height: var(--tree-chev); }
 .tree-icon {
   width: var(--tree-icon); height: var(--tree-icon);
   display: grid; place-items: center; color: var(--text-secondary); flex: none;
@@ -182,11 +175,12 @@ body {
   color: var(--text-secondary);
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
-.side-terms .ws-row1, .side-terms .ws-row2 {
+/* Agent and terminal cards share one flat row shape (no chevron column):
+   row 2 carries a real icon (git or folder), aligned under row 1's glyph
+   by the shared flex + gap. */
+.ws-row1, .ws-row2 {
   display: flex; align-items: center; gap: 8px;
 }
-/* No fake indent: row 2 carries a real icon now (git or folder), aligned
-   under row 1's terminal glyph by the shared flex + gap. */
 .pin-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .pin-card {
   padding: 8px 8px; border-radius: 8px; cursor: pointer;

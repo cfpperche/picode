@@ -21,9 +21,9 @@ not a section); t3code routes environment → thread, a two-level URL that is
 
 ## Decision
 
-The sidebar has four flat tabs: **Agents** (free agents, name-sorted, flat
-— the Terminals shape), **Workspaces**, **Terminals** (free terminals
-only), **Pins**. No tab duplicates another: what lives in a workspace
+The sidebar has four flat tabs, in order: **Workspaces** (the landing
+tab), **Agents** (free agents, name-sorted, flat — the Terminals shape,
+no chevron column), **Terminals** (free terminals only), **Pins**. No tab duplicates another: what lives in a workspace
 appears only inside its card. The Workspaces tab has no section-level
 collapse; each workspace card collapses individually.
 

@@ -37,14 +37,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
-- **The sidebar is four flat tabs — Agents, Workspaces, Terminals, Pins.**
+- **The sidebar is four flat tabs — Workspaces, Agents, Terminals, Pins.**
   One kind per tab, no duplication: the Agents tab is a flat name-sorted
   list of free agents (the Terminals shape), the Workspaces tab holds one
   collapsible card per workspace with its agents and terminals inside, and
   the Terminals tab lists only loose terminals. The section-level collapses
   are gone — only workspace cards collapse. Every tab's empty state is one
-  line plus one action. Below 254px the header drops the version number so
-  four tabs never truncate the name (ADR-0026).
+  line plus one action. Workspaces is the first tab and the first-run
+  landing; agent cards share the terminal card's flat shape (no chevron
+  indent), and the gear is the last icon on the Terminals header. Below
+  254px the header drops the version number so four tabs never truncate
+  the name (ADR-0026).
 - **Removing a workspace removes its terminals** — tmux sessions killed,
   records and settings overrides deleted with it, their tabs closed. The
   confirm dialog says how many terminals are going.

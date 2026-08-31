@@ -36,9 +36,9 @@ export default function Sidebar({
   const [tab, setTab] = useState(() => {
     try {
       const v = localStorage.getItem(TAB_KEY);
-      if (v === "pins" || v === "terms" || v === "workspaces") return v;
-      return "agents";
-    } catch { return "agents"; }
+      if (v === "pins" || v === "terms" || v === "agents") return v;
+      return "workspaces";
+    } catch { return "workspaces"; }
   });
   function selectTab(next) {
     setTab(next);
@@ -100,8 +100,7 @@ export default function Sidebar({
         className={"ws-item" + (ag.id === selectedId ? " active" : "")}
         onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
       >
-        <div className="ws-row1 tree-row">
-          <span className="tree-spc" aria-hidden="true" />
+        <div className="ws-row1">
           {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
           <span className="ws-name" title={title}>
             <button type="button" className="ws-name-btn" title="Rename" onClick={() => onRenameAgent && onRenameAgent(ag, label)}>{label}</button>
@@ -109,8 +108,7 @@ export default function Sidebar({
           </span>
           {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
         </div>
-        <div className="ws-row2 tree-row">
-          <span className="tree-spc" aria-hidden="true" />
+        <div className="ws-row2">
           {repo.git ? (
             <button
               type="button"
@@ -180,8 +178,8 @@ export default function Sidebar({
           {width >= 254 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolder size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
@@ -190,11 +188,11 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "terms" ? (
-      <div className="side-section side-terms">
+      <div className="side-section">
         <div className="pins-head">
           <span className="pins-title">Terminals</span>
-          <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
+          <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
         </div>
         {freeTerminals(terminals).length === 0 ? (
           <p className="side-empty pins-empty">No terminals yet. <button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm()}>New terminal</button></p>
@@ -244,7 +242,7 @@ export default function Sidebar({
                 (agentsOf(ws).length || wsTerms.length) ? (
                   <>
                     {agentsOf(ws).length ? <ul className="ws-list tree-children">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul> : null}
-                    {wsTerms.length ? <ul className="ws-list tree-children side-terms">{wsTerms.map(termRow)}</ul> : null}
+                    {wsTerms.length ? <ul className="ws-list tree-children">{wsTerms.map(termRow)}</ul> : null}
                   </>
                 ) : <p className="side-empty">Empty — add an agent or a terminal.</p>
               ) : null}
