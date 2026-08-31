@@ -837,7 +837,20 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
 .ws-icon-btn.danger:hover { color: var(--danger); }
 .ws-item:hover .ws-actions { opacity: 1; }
-.ws-row2 { margin-top: 1px; }
+.ws-row2 { margin-top: 2px; gap: 6px; }
+/* Filesystem and repository as two pills: [folder dir] [git branch]. The
+   dir pill shrinks and ellipsizes; the branch pill holds its size. */
+.ws-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 18px; padding: 0 7px; min-width: 0;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: none; color: var(--text-secondary); cursor: pointer;
+  font-family: var(--mono); font-size: 11px; line-height: 1;
+}
+.ws-pill:hover { color: var(--text-primary); background: var(--bg-hover); }
+.ws-pill svg { flex: none; }
+.ws-pill + .ws-pill { flex: none; }
+.ws-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-path {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;

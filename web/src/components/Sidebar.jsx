@@ -126,25 +126,24 @@ export default function Sidebar({
           {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
         </div>
         <div className="ws-row2">
+          <button
+            type="button"
+            className="ws-pill"
+            title={"Files — " + (ws ? ws.path : (ag.workPath || ""))}
+            onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("agent", ag.id, label); }}
+          >
+            <IconFolder size={12} /><span className="ws-pill-text">{repo.dir}</span>
+          </button>
           {repo.git ? (
             <button
               type="button"
-              className="tree-icon tree-icon-btn"
+              className="ws-pill"
               title={"Git graph" + (repo.git.branch ? " — " + repo.git.branch : "")}
               onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("agent", ag.id, label); }}
             >
-              <IconGit size={14} />
+              <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            className="tree-icon tree-icon-btn"
-            title="Files"
-            onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("agent", ag.id, label); }}
-          >
-            <IconFolder size={14} />
-          </button>
-          <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{repo.text}</span>
         </div>
         <span className="ws-actions">
           {mode === "stopped"
@@ -171,11 +170,14 @@ export default function Sidebar({
         </div>
         {(() => { const line = termLine(t); return (
         <div className="ws-row2">
+          <button type="button" className="ws-pill" title={"Files — " + t.cwd} onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}>
+            <IconFolder size={12} /><span className="ws-pill-text">{line.dir}</span>
+          </button>
           {line.git ? (
-            <button type="button" className="tree-icon tree-icon-btn" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}><IconGit size={14} /></button>
+            <button type="button" className="ws-pill" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}>
+              <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>
+            </button>
           ) : null}
-          <button type="button" className="tree-icon tree-icon-btn" title="Files" onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}><IconFolder size={14} /></button>
-          <span className="ws-path" title={t.cwd}>{line.text}</span>
         </div>
         ); })()}
         <span className="ws-actions">

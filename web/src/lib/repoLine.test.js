@@ -5,6 +5,7 @@ import { repoLine, termLine, shortPath } from "./repoLine.js";
 test("a repo shows path / branch, spaced", () => {
   const r = repoLine({ workPath: "/home/goat/picode", git: { branch: "main" } }, null);
   assert.equal(r.text, "~/picode / main");
+  assert.equal(r.dir, "~/picode"); // the dir pill renders this alone
   assert.equal(r.git.branch, "main"); // the object, not a boolean — tooltips read it
 });
 
@@ -21,7 +22,7 @@ test("workspace git backs an agent without its own", () => {
 test("not a repo shows the dir alone", () => {
   assert.deepEqual(
     repoLine({ workPath: "/home/goat/.picode/work/grok" }, null),
-    { git: null, text: "~/.picode/work/grok" },
+    { git: null, dir: "~/.picode/work/grok", text: "~/.picode/work/grok" },
   );
 });
 
@@ -33,7 +34,7 @@ test("a detached head still reads as git (branch is the short hash)", () => {
 
 test("termLine mirrors the agent line, from the live cwd", () => {
   assert.equal(termLine({ cwd: "/home/goat/picode", git: { branch: "main" } }).text, "~/picode / main");
-  assert.deepEqual(termLine({ cwd: "/tmp/scratch" }), { git: null, text: "/tmp/scratch" });
+  assert.deepEqual(termLine({ cwd: "/tmp/scratch" }), { git: null, dir: "/tmp/scratch", text: "/tmp/scratch" });
   assert.equal(termLine({ cwd: "/home/goat" }).text, "~");
 });
 
@@ -42,7 +43,7 @@ test("an agent on a non-repo workPath never borrows the workspace's branch", () 
     { workPath: "/home/goat/notes" },                     // its dir, not a repo
     { path: "/home/goat/picode", git: { branch: "main" } }, // the workspace is
   );
-  assert.deepEqual(r, { git: null, text: "~/notes" });
+  assert.deepEqual(r, { git: null, dir: "~/notes", text: "~/notes" });
 });
 
 test("shortPath", () => {

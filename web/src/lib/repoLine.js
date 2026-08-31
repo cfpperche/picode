@@ -1,5 +1,7 @@
 // The sidebar's second line: where this thing lives, and on what branch.
-// One shape for agents and terminals, so the two lists read the same.
+// One shape for agents and terminals, so the two lists read the same. The
+// line renders as two pills — dir (opens the file tree) and branch (opens
+// the git graph) — so `dir` is exposed on its own beside the joined text.
 
 export function shortPath(p) {
   const s = String(p || "").replace(/\\/g, "/").replace(/\/+$/, "");
@@ -28,9 +30,9 @@ export function repoLine(ag, ws) {
   const g = (ownPath ? ag.git : (ag && ag.git) || (ws && ws.git)) || null;
   const path = ownPath || (ws && ws.path) || "";
   if (g && (g.branch || g.worktree)) {
-    return { git: g, text: gitText(path, g) };
+    return { git: g, dir: shortPath(path), text: gitText(path, g) };
   }
-  return { git: null, text: shortPath(path) };
+  return { git: null, dir: shortPath(path), text: shortPath(path) };
 }
 
 // termLine is the same line for a terminal, whose path is its live pane cwd.
@@ -38,7 +40,7 @@ export function termLine(t) {
   const g = (t && t.git) || null;
   const path = (t && t.cwd) || "";
   if (g && (g.branch || g.worktree)) {
-    return { git: g, text: gitText(path, g) };
+    return { git: g, dir: shortPath(path), text: gitText(path, g) };
   }
-  return { git: null, text: shortPath(path) };
+  return { git: null, dir: shortPath(path), text: shortPath(path) };
 }
