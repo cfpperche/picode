@@ -128,6 +128,38 @@ func TestParseZAIQuota(t *testing.T) {
 	}
 }
 
+func TestParseZAICreditLimit(t *testing.T) {
+	t.Parallel()
+	// Live GLM Coding Plan Pro payload: CREDIT_LIMIT, weekly unit=6 number=1.
+	raw := []byte(`{"code":200,"success":true,"data":{"level":"pro","limits":[
+		{"type":"CREDIT_LIMIT","unit":3,"number":5,"usage":12000,"currentValue":0,"remaining":12000,"percentage":0},
+		{"type":"CREDIT_LIMIT","unit":6,"number":1,"usage":60000,"currentValue":60001,"remaining":0,"percentage":100,"nextResetTime":1788374449998}
+	]}}`)
+	var rep Report
+	parseZAIQuota(raw, &rep)
+	if rep.Plan != "pro" || !hasWindow(rep.Windows, "5h") || !hasWindow(rep.Windows, "7d") {
+		t.Fatalf("%+v", rep)
+	}
+	var five, week Window
+	for _, w := range rep.Windows {
+		if w.ID == "5h" {
+			five = w
+		}
+		if w.ID == "7d" {
+			week = w
+		}
+	}
+	if five.UsedPercent == nil || *five.UsedPercent != 0 {
+		t.Fatalf("5h %+v", five)
+	}
+	if week.UsedPercent == nil || *week.UsedPercent != 100 {
+		t.Fatalf("7d %+v", week)
+	}
+	if week.ResetsAt == "" {
+		t.Fatal("weekly reset")
+	}
+}
+
 func TestParseOpenCodeGo(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"rolling":{"usagePercent":19.5,"resetInSec":7200},"weekly":{"percent":29.7,"resetsAt":"2026-09-05T12:00:00Z"},"monthly":{"usagePercent":25}}`)

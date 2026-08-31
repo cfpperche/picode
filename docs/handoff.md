@@ -208,6 +208,10 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — Z.AI Usage parse: GLM Coding Plan now sends
+  `CREDIT_LIMIT` (unit 3/5 = 5h, unit 6/1 = week) instead of
+  `TOKENS_LIMIT`. Live Pro payload (0% / 100%) is the test fixture.
+
 - **2026-08-31** — **Provider Usage V3** (ADR-0031). Usage is per vault
   account (`GET/POST /api/providers/{id}/accounts/{aid}/usage[/reset]`)
   without swapping `auth.json`. OpenRouter / MiniMax / MiniMax CN / Kimi
