@@ -262,12 +262,15 @@ func git(dir string, args ...string) string {
 }
 
 // FileDiff is one file's patch inside a commit, already split out so the
-// browser renders one card per file instead of one wall.
+// browser renders one card per file instead of one wall. Add and Del come from
+// --numstat, so they stay right even when the patch itself is truncated.
 type FileDiff struct {
 	Path    string `json:"path"`
 	OldPath string `json:"oldPath,omitempty"`
 	Patch   string `json:"patch"`
 	Binary  bool   `json:"binary"`
+	Add     int    `json:"add"`
+	Del     int    `json:"del"`
 }
 
 // CommitDetail is one commit with its message body and its diff.
@@ -323,7 +326,46 @@ func Show(dir, hash string) *CommitDetail {
 		d.Truncated = true
 	}
 	d.Files = splitPatch(patch)
+	applyNumstat(d.Files, git(dir, "-c", "log.showSignature=false", "show",
+		"--format=", "--numstat", "-z", "--no-color", "-M", "-m", "--first-parent", hash, "--"))
 	return d
+}
+
+// applyNumstat fills Add/Del from `--numstat -z` output. -z is what makes a
+// rename parseable: instead of the brace shorthand (`dir/{old => new}/f`) the
+// record ends with an empty path and the two names follow as their own
+// NUL-separated tokens, old then new.
+func applyNumstat(files []FileDiff, out string) {
+	idx := make(map[string]int, len(files))
+	for i := range files {
+		idx[files[i].Path] = i
+	}
+	tok := strings.Split(out, "\x00")
+	for i := 0; i < len(tok); i++ {
+		f := strings.SplitN(tok[i], "\t", 3)
+		if len(f) != 3 {
+			continue
+		}
+		path := f[2]
+		if path == "" {
+			if i+2 >= len(tok) {
+				break
+			}
+			path = tok[i+2]
+			i += 2
+		}
+		j, ok := idx[path]
+		if !ok {
+			continue
+		}
+		// A binary file counts as "-": Add/Del stay 0, and Binary says why.
+		if n, err := strconv.Atoi(f[0]); err == nil {
+			files[j].Add = n
+		}
+		if n, err := strconv.Atoi(f[1]); err == nil {
+			files[j].Del = n
+		}
+	}
 }
 
 // splitPatch cuts a unified diff into one entry per file. The `diff --git`
