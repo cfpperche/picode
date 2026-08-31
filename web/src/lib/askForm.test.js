@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, backAsk, walkReply, noteAsk, unanswerAsk, BACK } from "./askForm.js";
+import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, stitchIndex, askJustAnswered, fieldLabel, summaryLine, summaryParts, backAsk, walkReply, noteAsk, unanswerAsk, BACK } from "./askForm.js";
 
 const user = { kind: "block", cls: "user", text: "/roles edit" };
 const sel = (id, title, options) => ({ id, method: "select", title, options });
@@ -258,4 +258,56 @@ test("timeout and cancel only close the open step", () => {
   items = cancelOpenAsks(items);
   assert.equal(items[1].status, "cancelled");
   assert.equal(stitchIndex(items), -1);
+});
+
+test("a new card remembers the slash command that opened it", () => {
+  const items = putAsk(
+    [{ kind: "block", cls: "user", text: "/roles clear agent" }],
+    sel("a", "Delete this roles file?", []),
+    "open",
+  );
+  assert.equal(items[1].cmd, "/roles clear agent");
+  // a plain-prose turn yields no command identity
+  const plain = putAsk(
+    [{ kind: "block", cls: "user", text: "please do things" }],
+    sel("b", "Pick one", ["x"]),
+    "open",
+  );
+  assert.equal(plain[1].cmd, "");
+});
+
+test("summaryParts types the outcome", () => {
+  const def = summaryParts([
+    { status: "answered", title: "Edit which role?", answer: "vision" },
+    { status: "answered", title: "Model for vision — provider", answer: "xai" },
+    { status: "answered", title: "Model for vision — model", answer: "grok-4.5" },
+    { status: "answered", title: "Thinking level", answer: "medium" },
+    { status: "answered", title: "Save to", answer: "workspace" },
+  ]);
+  assert.deepEqual(def, {
+    kind: "definition", role: "vision", model: "xai/grok-4.5",
+    provider: "xai", modelId: "grok-4.5", thinking: "medium",
+    scope: "workspace", text: "",
+  });
+  const cleared = summaryParts(
+    [{ status: "answered", title: "Delete this roles file?", answer: "Yes" }],
+    "Cleared .pi/roles.json",
+  );
+  assert.deepEqual(cleared, { kind: "cleared", file: ".pi/roles.json", text: "Cleared .pi/roles.json" });
+  const kept = summaryParts(
+    [{ status: "answered", title: "Delete this roles file?", answer: "No" }],
+    "Kept .pi/roles/qa.json",
+  );
+  assert.deepEqual(kept, { kind: "kept", file: ".pi/roles/qa.json", text: "Kept .pi/roles/qa.json" });
+  const empty = summaryParts(
+    [{ status: "answered", title: "Clear which config?", answer: "workspace" }],
+    "Nothing to clear — .pi/roles.json does not exist.",
+  );
+  assert.equal(empty.kind, "empty");
+  const rolePick = summaryParts(
+    [{ status: "answered", title: "Roles (current: auto)", answer: "auto" }],
+    "Auto: image → vision, text → default",
+  );
+  assert.equal(rolePick.kind, "role");
+  assert.equal(rolePick.role, "auto");
 });

@@ -208,6 +208,29 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — **`/roles` chat UX pass** (`feat/roles-chat-ux`; owner
+  verdict on the shipped surfaces: "que porcaria de UIUX … texto seco,
+  zero identificação"). P0+P1 of the approved plan:
+  - Ask cards remember the slash command that opened them (`cmd` on the
+    card, `cmdOf()` in `askForm.js`) — the open stepper now has a
+    `ROLES <args>` header with Cancel in the corner; pills connect with
+    `›`; the combo trigger names the field ("Choose provider…").
+  - Confirms are a block (question + file chip + verbs); titles starting
+    Delete/Remove get **Delete** (danger-at-rest, scoped to `.ask-confirm`)
+    / **Keep** instead of Yes/No.
+  - `summaryLine` refactored over a typed `summaryParts()` (definition /
+    role / cleared / kept / empty / text); `AskOutcome` renders finished
+    flows as one-liners with mark + `ROLES` badge + chips (provider icon
+    via `ProviderFace`, thinking, scope, file). The nothing-to-clear line
+    carries a "Set one up → /roles add" chip that prefills the composer
+    (`onPrefill` threaded App → ChatSurface → Conversation).
+  - Extension 0.4.1: confirm-No notifies `Kept <rel>` so the line stops
+    degrading to "this agent · No". TUI otherwise untouched.
+  - Verified on the scratch rig, light+dark, reload persistence (cmd and
+    note serialize through ask-memory; cancelled still drops by design),
+    overlayAudit ok on the dropdown. Gates green (274 js + 60 + 60 pkg).
+    P2 (slash-bubble compaction, spacing rhythm) not started — follow-up.
+
 - **2026-08-31** — Remove workspace can delete local data (ADR-0035):
   opt-in checkbox + GitHub-style typed folder-name confirmation; server
   re-verifies the name and refuses root/home (guard sabotage-tested);

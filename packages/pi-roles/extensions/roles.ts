@@ -566,7 +566,12 @@ export default function piRoles(pi: ExtensionAPI) {
 			return;
 		}
 		const ok = await ctx.ui.confirm("Delete this roles file?", rel);
-		if (!ok) return;
+		if (!ok) {
+			// A "No" is a decision too — without this the chat line degrades
+			// to the raw answers ("this agent · No").
+			ctx.ui.notify(`Kept ${rel}`, "info");
+			return;
+		}
 		try {
 			unlinkSync(join(ctx.cwd, rel));
 		} catch (err) {

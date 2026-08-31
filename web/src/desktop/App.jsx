@@ -1925,6 +1925,13 @@ export default function App() {
             onCompact={compactSession}
             onAbortBash={abortBash}
             onReplyAsk={replyAsk}
+            onPrefill={(t) => {
+              setDraft(t);
+              queueMicrotask(() => {
+                const el = document.getElementById("task-input");
+                if (el) el.focus();
+              });
+            }}
             onQueueRemove={(qid) => setItems((cur) => dropQueued(cur, qid))}
             onQueueEdit={(qid) => setItems((cur) => startEditQueued(cur, qid))}
             onQueueSave={(qid, text) => setItems((cur) => saveEditQueued(cur, qid, text))}

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -7,7 +7,8 @@ import "katex/dist/katex.min.css";
 import { basename, statLabel, groupHunks, undoHunkInText } from "../lib/diff.js";
 import DiffLine from "./DiffLine.jsx";
 import { groupTurns, fmtWorked, fmtElapsed, stepLabel, turnDurationMs, firstTs, dayKey, fmtDayMark, workingIndex, pathsFromTurn } from "../lib/turns.js";
-import { IconCopy } from "./Icons.jsx";
+import { IconCopy, IconFile } from "./Icons.jsx";
+import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
 import { mdComponents } from "./SourceBlock.jsx";
@@ -15,11 +16,11 @@ import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
 import FileCard from "./FileCard.jsx";
 import SearchCombo from "./SearchCombo.jsx";
-import { fieldLabel, summaryLine, BACK } from "../lib/askForm.js";
+import { fieldLabel, summaryParts, BACK } from "../lib/askForm.js";
 
 const WINDOW_STEP = 60;
 
-function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
+function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onPrefill, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
   const [preview, setPreview] = useState("");
   const [limit, setLimit] = useState(WINDOW_STEP);
   const growLock = useRef(false);
@@ -71,7 +72,7 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
         {turns.reduce((acc, t, i) => {
           if (i < hiddenCount && i !== busy) return acc;
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} agentId={agentId} onOpenTab={onOpenTab} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onPrefill={onPrefill} agentId={agentId} onOpenTab={onOpenTab} />);
 
           } else {
             const n = acc.n++;
@@ -115,12 +116,12 @@ function CompactLive({ since }) {
   );
 }
 
-function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, agentId, onOpenTab }) {
+function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onPrefill, agentId, onOpenTab }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
   }
   if (it.kind === "ask") {
-    return <AskCard it={it} onReply={onReplyAsk} />;
+    return <AskCard it={it} onReply={onReplyAsk} onPrefill={onPrefill} />;
   }
   if (it.kind === "bash") {
     return <BashBlock it={it} onAbort={onAbortBash} />;
@@ -153,7 +154,82 @@ function CompactionCard({ it }) {
   );
 }
 
-function AskCard({ it, onReply }) {
+/** "/roles clear agent" → { name: "roles", args: "clear agent" }. */
+function cmdParts(cmd) {
+  const t = String(cmd || "").trim();
+  if (!t.startsWith("/")) return null;
+  const words = t.slice(1).split(/\s+/).filter(Boolean);
+  if (!words.length || !words[0]) return null;
+  return { name: words[0], args: words.slice(1).join(" ") };
+}
+
+function looksLikePath(text) {
+  const t = String(text || "").trim();
+  return t.includes("/") && /^[\w.~/-]+$/.test(t);
+}
+
+const OUTCOME_MARK = {
+  definition: "✓", role: "✓", cleared: "⌫", kept: "○",
+  empty: "!", cancelled: "⊘", timeout: "◔", text: "✓",
+};
+
+/** One finished-flow line: mark + command badge + typed content chips. */
+function AskOutcome({ cmd, parts, onPrefill }) {
+  const kind = parts.kind;
+  let body = null;
+  if (kind === "definition") {
+    body = (
+      <>
+        {parts.role ? <span className="ask-oc-role">{parts.role}</span> : null}
+        <span className="ask-chip ask-chip-model" title={parts.model}>
+          {parts.provider ? <ProviderFace id={parts.provider} /> : null}
+          {parts.modelId}
+        </span>
+        {parts.thinking ? <span className="ask-chip">{parts.thinking}</span> : null}
+        {parts.scope ? <span className="ask-chip ask-chip-scope">{parts.scope}</span> : null}
+      </>
+    );
+  } else if (kind === "role") {
+    body = (
+      <>
+        <span className="ask-oc-role">{parts.role}</span>
+        {parts.text ? <span className="ask-oc-sub">{parts.text}</span> : null}
+      </>
+    );
+  } else if (kind === "cleared" || kind === "kept") {
+    body = (
+      <>
+        <span className="ask-oc-verb">{kind}</span>
+        <span className="ask-chip ask-chip-file"><IconFile />{parts.file}</span>
+        {kind === "kept" ? <span className="ask-oc-sub">nothing deleted</span> : null}
+      </>
+    );
+  } else if (kind === "empty") {
+    body = (
+      <>
+        <span className="ask-oc-text">{parts.text}</span>
+        {cmd && cmd.name === "roles" && onPrefill ? (
+          <button type="button" className="ask-chip ask-chip-action" onClick={() => onPrefill("/roles add")}>
+            Set one up → /roles add
+          </button>
+        ) : null}
+      </>
+    );
+  } else if (kind === "cancelled" || kind === "timeout") {
+    body = <span className="ask-oc-text">{kind === "timeout" ? "timed out" : "cancelled"}</span>;
+  } else {
+    body = <span className="ask-oc-text">{parts.text}</span>;
+  }
+  return (
+    <div className={"ask-outcome oc-" + kind}>
+      <span className="ask-oc-mark" aria-hidden="true">{OUTCOME_MARK[kind] || "✓"}</span>
+      {cmd ? <span className="ask-oc-badge">{cmd.name}</span> : null}
+      {body}
+    </div>
+  );
+}
+
+function AskCard({ it, onReply, onPrefill }) {
   const [text, setText] = useState(it.prefill || "");
   const open = it.status === "open";
   const steps = it.steps && it.steps.length ? it.steps : [it];
@@ -162,10 +238,7 @@ function AskCard({ it, onReply }) {
   const method = current ? current.method : "";
   const options = (current && current.options) || [];
   const answered = steps.filter((s) => s.answer && s.status === "answered");
-  const doneLabel = it.status === "cancelled" ? "Cancelled"
-    : it.status === "timeout" ? "Timed out"
-    : "";
-  const summary = !open && it.status === "answered" ? summaryLine(steps, it.note) : "";
+  const cmd = cmdParts(it.cmd);
   const currentLab = fieldLabel((current && current.title) || it.title || "");
   // Pills go back only when the extension can (its select offers BACK).
   const canBack = options.includes(BACK);
@@ -190,75 +263,95 @@ function AskCard({ it, onReply }) {
 
   const comboOpts = options.filter((opt) => opt !== BACK).map((opt) => ({ id: opt, label: opt }));
 
-  if (!open && summary) {
-    const dash = summary.indexOf(" — ");
-    const main = dash >= 0 ? summary.slice(0, dash) : summary;
-    const rest = dash >= 0 ? summary.slice(dash + 3) : "";
-    return (
-      <p className="ask-summary">
-        <span className="ask-summary-main">{main}</span>
-        {rest ? <span className="ask-summary-rest"> — {rest}</span> : null}
-      </p>
-    );
+  if (!open) {
+    if (it.status === "answered") {
+      const parts = summaryParts(steps, it.note);
+      if (parts) return <AskOutcome cmd={cmd} parts={parts} onPrefill={onPrefill} />;
+      return <p className="ask-done">Answered</p>;
+    }
+    if (it.status === "cancelled" || it.status === "timeout") {
+      return <AskOutcome cmd={cmd} parts={{ kind: it.status }} />;
+    }
+    return null;
   }
-  if (!open && doneLabel) {
-    return <p className="ask-done">{doneLabel}</p>;
-  }
+
+  const confirmDanger = method === "confirm" && /^(delete|remove)/i.test((current && current.title) || "");
+  const pills = answered.map((s, i) => (
+    <Fragment key={s.id}>
+      {i > 0 ? <span className="ask-arrow" aria-hidden="true">›</span> : null}
+      <div className="ask-step">
+        <span className="ask-step-lab">{fieldLabel(s.title)}</span>
+        {canBack ? (
+          <button type="button" className="ask-pill" title="Go back to this step" onClick={() => send({ backTo: i })}>{s.answer}</button>
+        ) : (
+          <span className="ask-pill ask-pill-static">{s.answer}</span>
+        )}
+      </div>
+    </Fragment>
+  ));
 
   return (
     <div className="ask-card open" onKeyDown={onKey}>
-      {extra ? <p className="ask-msg">{extra}</p> : null}
-      <div className="ask-actions">
-        {answered.map((s, i) => (
-          <div key={s.id} className="ask-step">
-            <span className="ask-step-lab">{fieldLabel(s.title)}</span>
-            {canBack ? (
-              <button type="button" className="ask-pill" title="Go back to this step" onClick={() => send({ backTo: i })}>{s.answer}</button>
-            ) : (
-              <span className="ask-pill ask-pill-static">{s.answer}</span>
-            )}
-          </div>
-        ))}
-        {method === "select" ? (
-          <div className="ask-step">
-            <span className="ask-step-lab">{currentLab}</span>
-            {comboOpts.length ? (
-              <SearchCombo
-                value=""
-                onChange={(id) => send({ value: id })}
-                options={comboOpts}
-                label="Select"
-                searchPlaceholder="Filter"
-                triggerClassName="ask-combo"
-                side="bottom"
-              />
-            ) : (
-              <span className="ask-empty">No options.</span>
-            )}
-          </div>
-        ) : null}
-        {method === "confirm" ? (
-          <>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ confirmed: true })}>Yes</button>
-            <button type="button" className="btn btn-sm" onClick={() => send({ confirmed: false })}>No</button>
-          </>
-        ) : null}
-        {method === "input" ? (
-          <>
-            <input className="ask-input" value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
-          </>
-        ) : null}
-        {method !== "editor" ? (
-          <button type="button" className="ask-cancel" onClick={() => send({ cancelled: true })}>Cancel</button>
-        ) : null}
+      <div className="ask-head">
+        <span className="ask-head-cmd">{cmd ? cmd.name : "agent"}</span>
+        {cmd && cmd.args ? <span className="ask-head-args">{cmd.args}</span> : null}
+        <span className="ask-head-gap" />
+        <button type="button" className="ask-cancel" onClick={() => send({ cancelled: true })}>Cancel</button>
       </div>
+      {extra && method !== "confirm" ? <p className="ask-msg">{extra}</p> : null}
+      {method === "confirm" ? (
+        <div className="ask-confirm">
+          {answered.length ? <div className="ask-actions">{pills}</div> : null}
+          <p className="ask-q">{(current && current.title) || "Confirm?"}</p>
+          {extra ? (
+            looksLikePath(extra)
+              ? <span className="ask-chip ask-chip-file"><IconFile />{extra}</span>
+              : <p className="ask-msg">{extra}</p>
+          ) : null}
+          <div className="ask-actions" data-align-row>
+            <button type="button" className={"btn btn-sm " + (confirmDanger ? "btn-danger" : "btn-primary")} onClick={() => send({ confirmed: true })}>
+              {confirmDanger ? "Delete" : "Yes"}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => send({ confirmed: false })}>
+              {confirmDanger ? "Keep" : "No"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="ask-actions">
+          {pills}
+          {answered.length && (method === "select" || method === "input") ? <span className="ask-arrow" aria-hidden="true">›</span> : null}
+          {method === "select" ? (
+            <div className="ask-step ask-step-open">
+              <span className="ask-step-lab">{currentLab}</span>
+              {comboOpts.length ? (
+                <SearchCombo
+                  value=""
+                  onChange={(id) => send({ value: id })}
+                  options={comboOpts}
+                  label={currentLab !== "Choose" ? "Choose " + currentLab.toLowerCase() + "…" : "Select"}
+                  searchPlaceholder="Filter"
+                  triggerClassName="ask-combo"
+                  side="bottom"
+                />
+              ) : (
+                <span className="ask-empty">No options.</span>
+              )}
+            </div>
+          ) : null}
+          {method === "input" ? (
+            <>
+              <input className="ask-input" value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
+            </>
+          ) : null}
+        </div>
+      )}
       {method === "editor" ? (
         <>
           <textarea className="ask-input ask-area" rows={4} value={text} placeholder={it.placeholder || ""} autoFocus onChange={(e) => setText(e.target.value)} />
           <div className="ask-actions" data-align-row>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => send({ value: text })}>Send</button>
-            <button type="button" className="ask-cancel" onClick={() => send({ cancelled: true })}>Cancel</button>
           </div>
         </>
       ) : null}
