@@ -11,6 +11,25 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **tmux list options are editable in the settings page** (`#/termset`). The
+  five array options this tmux carries — `command-alias`, `terminal-features`,
+  `terminal-overrides`, `status-format`, `update-environment` — are edited as
+  text, one entry per line: line *n* is `name[n]`, blank lines are ignored,
+  and Apply replaces the whole list. **Start from inherited** copies the
+  entries you are inheriting into the editor to edit them; Reset drops the
+  override. Shrinking a list unsets the indexes it no longer has, so a removed
+  entry stays removed. This closes the last "shown but not editable" gap in
+  ADR-0025.
+
+### Fixed
+
+- **Clearing an option in the global panel now unsets it on the terminals it
+  reached.** The store forgot the value but nothing removed it from the live
+  tmux sessions, so a cleared option kept applying until the session died. The
+  per-terminal panel had always done this; the global one had not.
+
 ### Changed
 
 - **Agent cards rename the same way terminals do.** Hovering an agent's name

@@ -21,6 +21,8 @@ const (
 // scope, current global value, and a coarse kind inferred from that value so
 // a UI can pick an editor. tmux does not expose types, so the kind is a guess
 // good enough for rendering — validation is tmux's own, at set-option time.
+// An array option's Value is its entries joined with newlines — the block
+// form the editor shows and SplitArray takes back apart.
 type CatalogEntry struct {
 	Name  string `json:"name"`
 	Scope string `json:"scope"`
@@ -43,6 +45,7 @@ var numeric = regexp.MustCompile(`^-?\d+$`)
 func (m *Manager) OptionCatalog(ctx context.Context) ([]CatalogEntry, error) {
 	var out []CatalogEntry
 	seen := map[string]bool{}
+	arrayAt := map[string]int{} // scope/base -> position in out
 	for flag, scope := range map[string]string{
 		"-sg": ScopeServer,
 		"-g":  ScopeSession,
@@ -59,14 +62,16 @@ func (m *Manager) OptionCatalog(ctx context.Context) ([]CatalogEntry, error) {
 			}
 			name, value, _ := strings.Cut(line, " ")
 			// Indexed entries (command-alias[0], status-format[1]...) fold
-			// into one array-kind row; their elements are edited as a block.
+			// into one array-kind row whose Value is the entries as a block,
+			// in the order show-options reports them (index order).
 			if mtch := arrayIndex.FindStringSubmatch(name); mtch != nil {
 				base := mtch[1]
-				if seen[scope+"/"+base] {
+				if at, ok := arrayAt[scope+"/"+base]; ok {
+					out[at].Value += "\n" + unquote(value)
 					continue
 				}
-				seen[scope+"/"+base] = true
-				out = append(out, CatalogEntry{Name: base, Scope: scope, Kind: "array"})
+				arrayAt[scope+"/"+base] = len(out)
+				out = append(out, CatalogEntry{Name: base, Scope: scope, Kind: "array", Value: unquote(value)})
 				continue
 			}
 			if seen[scope+"/"+name] {
@@ -153,11 +158,89 @@ func (m *Manager) UnsetScopedOption(ctx context.Context, scope, session, key str
 	}
 }
 
+// SplitArray turns the block form of an array option back into entries: one
+// per line, blank lines dropped. Line order is index order — entry i becomes
+// name[i] — so the block IS the array, with nothing hidden in between.
+func SplitArray(block string) []string {
+	var out []string
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+// SetArrayOption makes the array option at this layer exactly `values`:
+// entry i is written as key[i], and indexes the layer already had beyond the
+// new length are unset ONE BY ONE. A whole-option unset first would not do:
+// it resurfaces the layer below — for a server option, tmux's own default
+// entries — and the leftovers past the new length would survive the rewrite.
+// Measured on tmux 3.6 before this was written.
+func (m *Manager) SetArrayOption(ctx context.Context, scope, session, key string, values []string) error {
+	old, _ := m.layerIndexes(ctx, scope, session, key)
+	for i, v := range values {
+		if err := m.SetScopedOption(ctx, scope, session, fmt.Sprintf("%s[%d]", key, i), v); err != nil {
+			return err
+		}
+	}
+	for _, idx := range old {
+		if idx >= len(values) {
+			_ = m.UnsetScopedOption(ctx, scope, session, fmt.Sprintf("%s[%d]", key, idx))
+		}
+	}
+	return nil
+}
+
+// layerIndexes reports which indexes of an array option are present at this
+// layer (server: the one layer there is; session/window: that session's own,
+// not what it inherits — show-options without -g answers exactly that).
+func (m *Manager) layerIndexes(ctx context.Context, scope, session, key string) ([]int, error) {
+	args := []string{"show-options"}
+	switch scope {
+	case ScopeServer:
+		args = append(args, "-s")
+	case ScopeWindow:
+		args = append(args, "-w", "-t", session+":")
+	default:
+		args = append(args, "-t", session+":")
+	}
+	args = append(args, key)
+	raw, err := m.run(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+	var out []int
+	for _, line := range strings.Split(raw, "\n") {
+		name, _, _ := strings.Cut(line, " ")
+		if mtch := arrayIndex.FindStringSubmatch(name); mtch != nil && mtch[1] == key {
+			var idx int
+			if _, err := fmt.Sscanf(name[len(key):], "[%d]", &idx); err == nil {
+				out = append(out, idx)
+			}
+		}
+	}
+	return out, nil
+}
+
+// ApplyValue writes one resolved value, dispatching arrays to their
+// per-index form. Every applier goes through here so an array stored as a
+// block never reaches set-option as one newline-ridden string.
+func (m *Manager) ApplyValue(ctx context.Context, session string, sv ScopedValue) error {
+	if sv.Array {
+		return m.SetArrayOption(ctx, sv.Scope, session, sv.Key, SplitArray(sv.Value))
+	}
+	return m.SetScopedOption(ctx, sv.Scope, session, sv.Key, sv.Value)
+}
+
 // ScopedValue is one option resolved for application: which scope to write
 // it at, and what to write. The server layer builds these; Bridge applies
-// them on attach.
+// them on attach. Array marks a block value written per-index.
 type ScopedValue struct {
 	Scope string
 	Key   string
 	Value string
+	Array bool
 }

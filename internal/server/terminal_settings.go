@@ -67,18 +67,26 @@ func ownSessions(deps Deps) []string {
 	return out
 }
 
-// scopeLookup answers "which tmux scope does this key live at". Curated flags
-// know; anything else is looked up in the live catalog, fetched once and only
-// when actually needed. Unknown keys land at session scope, where tmux will
+// optShape is what the settings layer must know about a key before tmux sees
+// it: which scope to write at, and whether it is an array — written per-index
+// from its one-entry-per-line block form rather than as a single string.
+type optShape struct {
+	Scope string
+	Array bool
+}
+
+// scopeLookup answers "what shape does this key have". Curated flags know;
+// anything else is looked up in the live catalog, fetched once and only when
+// actually needed. Unknown keys land at session scope, where tmux will
 // refuse them with its own message.
-func scopeLookup(ctx context.Context, deps Deps) func(key string) string {
-	var catalog map[string]string // name -> scope, lazily fetched
-	return func(key string) string {
+func scopeLookup(ctx context.Context, deps Deps) func(key string) optShape {
+	var catalog map[string]optShape // lazily fetched
+	return func(key string) optShape {
 		if f, ok := termopts.Find(key); ok {
-			return f.Scope
+			return optShape{Scope: f.Scope}
 		}
 		if catalog == nil {
-			catalog = map[string]string{}
+			catalog = map[string]optShape{}
 			if deps.Tmux != nil && deps.Tmux.Available() {
 				if entries, err := deps.Tmux.OptionCatalog(ctx); err == nil {
 					for _, e := range entries {
@@ -86,7 +94,7 @@ func scopeLookup(ctx context.Context, deps Deps) func(key string) string {
 						// scopes and the narrower (earlier-sorted) is server —
 						// harmless either way for set-option.
 						if _, seen := catalog[e.Name]; !seen {
-							catalog[e.Name] = e.Scope
+							catalog[e.Name] = optShape{Scope: e.Scope, Array: e.Kind == "array"}
 						}
 					}
 				}
@@ -95,7 +103,7 @@ func scopeLookup(ctx context.Context, deps Deps) func(key string) string {
 		if s, ok := catalog[key]; ok {
 			return s
 		}
-		return tmux.ScopeSession
+		return optShape{Scope: tmux.ScopeSession}
 	}
 }
 
@@ -104,7 +112,8 @@ func resolveScoped(ctx context.Context, deps Deps, opts map[string]string) []tmu
 	scopeOf := scopeLookup(ctx, deps)
 	out := make([]tmux.ScopedValue, 0, len(opts))
 	for k, v := range opts {
-		out = append(out, tmux.ScopedValue{Scope: scopeOf(k), Key: k, Value: v})
+		shape := scopeOf(k)
+		out = append(out, tmux.ScopedValue{Scope: shape.Scope, Key: k, Value: v, Array: shape.Array})
 	}
 	return out
 }
@@ -144,7 +153,41 @@ func applyScoped(ctx context.Context, deps Deps, session string, values []tmux.S
 		return
 	}
 	for _, sv := range values {
-		_ = deps.Tmux.SetScopedOption(ctx, sv.Scope, session, sv.Key, sv.Value)
+		_ = deps.Tmux.ApplyValue(ctx, session, sv)
+	}
+}
+
+// unsetClearedEverywhere removes, from every owned live session, the keys a
+// global patch cleared that nothing resolves to any more. Session-scoped only:
+// a server option has no per-session layer, and the caller already unset it
+// once, machine-wide.
+func unsetClearedEverywhere(ctx context.Context, deps Deps, patch map[string]*string, resolved map[string]string) {
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return
+	}
+	scopeOf := scopeLookup(ctx, deps)
+	var gone []tmux.ScopedValue
+	for key, val := range patch {
+		if val != nil {
+			continue
+		}
+		if _, still := resolved[key]; still {
+			continue
+		}
+		if shape := scopeOf(key); shape.Scope != tmux.ScopeServer {
+			gone = append(gone, tmux.ScopedValue{Scope: shape.Scope, Key: key})
+		}
+	}
+	if len(gone) == 0 {
+		return
+	}
+	for _, name := range ownSessions(deps) {
+		if live, err := deps.Tmux.HasSession(ctx, name); err != nil || !live {
+			continue
+		}
+		for _, sv := range gone {
+			_ = deps.Tmux.UnsetScopedOption(ctx, sv.Scope, name, sv.Key)
+		}
 	}
 }
 
@@ -197,11 +240,19 @@ func validatePatch(ctx context.Context, deps Deps, patch map[string]*string) err
 		if deps.Tmux == nil || !deps.Tmux.Available() {
 			return fmt.Errorf("need tmux to change terminal settings")
 		}
-		scope := scopeOf(key)
+		shape := scopeOf(key)
 		if !knownToCatalog(ctx, deps, key) {
 			return fmt.Errorf("%q is not an option this tmux knows", key)
 		}
-		if val == nil || scope == tmux.ScopeServer {
+		if val == nil {
+			continue
+		}
+		// An array with no entries cannot be pinned: tmux keeps no empty
+		// layer — unsetting the last index removes the whole override.
+		if shape.Array && len(tmux.SplitArray(*val)) == 0 {
+			return fmt.Errorf("%s is a list, one entry per line — an empty list cannot be pinned; clear the field to inherit instead", key)
+		}
+		if shape.Scope == tmux.ScopeServer {
 			continue
 		}
 		if scratch == "" {
@@ -210,7 +261,7 @@ func validatePatch(ctx context.Context, deps Deps, patch map[string]*string) err
 				return fmt.Errorf("cannot validate the value: %v", err)
 			}
 		}
-		if err := deps.Tmux.SetScopedOption(ctx, scope, scratch, key, *val); err != nil {
+		if err := deps.Tmux.ApplyValue(ctx, scratch, tmux.ScopedValue{Scope: shape.Scope, Key: key, Value: *val, Array: shape.Array}); err != nil {
 			return fmt.Errorf("tmux refused %s: %s", key, tmuxWords(err))
 		}
 	}
@@ -241,7 +292,7 @@ func applyPatchLive(ctx context.Context, deps Deps, session string, patch map[st
 	for key, val := range patch {
 		if val == nil {
 			if _, still := resolved[key]; !still {
-				_ = deps.Tmux.UnsetScopedOption(ctx, scopeOf(key), session, key)
+				_ = deps.Tmux.UnsetScopedOption(ctx, scopeOf(key).Scope, session, key)
 			}
 			continue
 		}
@@ -339,16 +390,23 @@ func handlePatchGlobalTermSettings(deps Deps) http.HandlerFunc {
 		// panel's labelling promises. tmux errors here surface to the user.
 		scopeOf := scopeLookup(r.Context(), deps)
 		for key, val := range patch {
-			if scopeOf(key) != tmux.ScopeServer || deps.Tmux == nil || !deps.Tmux.Available() {
+			shape := scopeOf(key)
+			if shape.Scope != tmux.ScopeServer || deps.Tmux == nil || !deps.Tmux.Available() {
 				continue
 			}
 			if val == nil {
 				_ = deps.Tmux.UnsetScopedOption(r.Context(), tmux.ScopeServer, "", key)
-			} else if err := deps.Tmux.SetScopedOption(r.Context(), tmux.ScopeServer, "", key, *val); err != nil {
+			} else if err := deps.Tmux.ApplyValue(r.Context(), "", tmux.ScopedValue{Scope: shape.Scope, Key: key, Value: *val, Array: shape.Array}); err != nil {
 				writeErr(w, http.StatusBadRequest, fmt.Sprintf("tmux refused %s: %s", key, tmuxWords(err)))
 				return
 			}
 		}
+		// Clearing a key with no PiCode default underneath has to be UNSET on
+		// every owned session, not merely dropped from the store: nothing in
+		// the re-resolve below would ever overwrite it, so it would stay on
+		// the live sessions forever. The per-terminal path has always done
+		// this (applyPatchLive); the global one had not.
+		unsetClearedEverywhere(r.Context(), deps, patch, termopts.Resolve(next))
 		applyTermOptionsEverywhere(r.Context(), deps)
 		writeJSON(w, http.StatusOK, termSettingsView(termopts.GlobalScope, next, termopts.Defaults(), nil))
 	}
@@ -390,7 +448,7 @@ func handlePatchTermSettings(deps Deps) http.HandlerFunc {
 		// offers it only globally and the API holds the same line.
 		scopeOf := scopeLookup(r.Context(), deps)
 		for key := range patch {
-			if scopeOf(key) == tmux.ScopeServer {
+			if scopeOf(key).Scope == tmux.ScopeServer {
 				writeErr(w, http.StatusBadRequest, fmt.Sprintf("%s is server-wide — set it in the global panel", key))
 				return
 			}

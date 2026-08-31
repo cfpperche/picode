@@ -94,3 +94,18 @@ export function groupCatalog(rows, { isGlobal }) {
   }
   return { perTerminal, server };
 }
+
+// ---- array options (edited as a block, one entry per line) -----------------
+
+// entryCount: how many real entries a block holds — blank lines are ignored
+// by the server's SplitArray, so they are not counted here either.
+export function entryCount(block) {
+  return String(block || "").split("\n").filter((l) => l.trim() !== "").length;
+}
+
+// blockRows sizes the array editor to its content: one row per line within
+// sane bounds, so status-format gets room and a two-entry list stays small.
+export function blockRows(text) {
+  const n = String(text || "").split("\n").length;
+  return Math.min(10, Math.max(3, n + 1));
+}

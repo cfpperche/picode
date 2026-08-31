@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { INHERIT, selectedKey, choicesFor, effectText, isOverridden, withChoice, inheritedValueFor, matchesQuery, groupCatalog } from "./termSettings.js";
+import { INHERIT, selectedKey, choicesFor, effectText, isOverridden, withChoice, inheritedValueFor, matchesQuery, groupCatalog, entryCount, blockRows } from "./termSettings.js";
 
 const MOUSE = { key: "mouse", label: "Mouse", values: ["on", "off"], effect: "live" };
 
@@ -89,4 +89,16 @@ test("groupCatalog keeps server options off a terminal's page", () => {
   assert.deepEqual(term.server, []);
   const glob = groupCatalog(rows, { isGlobal: true });
   assert.deepEqual(glob.server.map((r) => r.name), ["escape-time"]);
+});
+
+test("entryCount ignores blank lines, the same rule as the server", () => {
+  assert.equal(entryCount("a\n\nb\n   \nc"), 3);
+  assert.equal(entryCount(""), 0);
+  assert.equal(entryCount(null), 0);
+});
+
+test("blockRows sizes the array editor within bounds", () => {
+  assert.equal(blockRows(""), 3); // floor: an empty editor still looks like a list
+  assert.equal(blockRows("a\nb\nc\nd\ne"), 6); // content plus a spare line
+  assert.equal(blockRows(Array(30).fill("x").join("\n")), 10); // ceiling
 });

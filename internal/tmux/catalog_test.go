@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +51,10 @@ func TestOptionCatalogFoldsArraysAndInfersKinds(t *testing.T) {
 	}
 	if e := byName[ScopeServer+"/command-alias"]; e.Kind != "array" {
 		t.Errorf("command-alias kind = %q, want array (indexed rows folded)", e.Kind)
+	} else if !strings.Contains(e.Value, "\n") || !strings.Contains(e.Value, "=") {
+		// tmux ships several default aliases, so the folded row must carry
+		// them as a block — an empty Value means the fold dropped the entries.
+		t.Errorf("command-alias value = %q, want the entries joined as a block", e.Value)
 	}
 	if _, ok := byName[ScopeServer+"/command-alias[0]"]; ok {
 		t.Error("an indexed row leaked into the catalog")
@@ -128,5 +133,64 @@ func TestTmuxRejectsABadValueWithItsOwnWords(t *testing.T) {
 	err := m.SetScopedOption(ctx, ScopeSession, name, "mouse", "sideways")
 	if err == nil {
 		t.Fatal("tmux accepted mouse=sideways; expected its validation error")
+	}
+}
+
+func TestSplitArrayDropsBlanksAndKeepsOrder(t *testing.T) {
+	got := SplitArray("one\n\ntwo\r\n   \nthree\n")
+	want := []string{"one", "two", "three"}
+	if len(got) != len(want) {
+		t.Fatalf("SplitArray = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("SplitArray[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if out := SplitArray("  \n\n"); len(out) != 0 {
+		t.Fatalf("blank block = %v, want no entries", out)
+	}
+}
+
+// Rewriting an array must make the layer EXACTLY the new list: shrinking from
+// three entries to two has to unset the third, or it survives every rewrite
+// forever. This is the trap the per-index unsets exist for.
+func TestSetArrayOptionReplacesTheLayerList(t *testing.T) {
+	m := New()
+	if !m.Available() {
+		t.Skip("tmux not installed")
+	}
+	ctx := context.Background()
+	name := SessionName("catalog-array")
+	if err := m.NewSession(ctx, name, t.TempDir(), "cat"); err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+
+	layer := func() []int {
+		idx, _ := m.layerIndexes(ctx, ScopeSession, name, "update-environment")
+		return idx
+	}
+	if err := m.SetArrayOption(ctx, ScopeSession, name, "update-environment", []string{"AAA", "BBB", "CCC"}); err != nil {
+		t.Fatalf("set 3: %v", err)
+	}
+	if got := layer(); len(got) != 3 {
+		t.Fatalf("after set 3, layer holds %v", got)
+	}
+	if err := m.SetArrayOption(ctx, ScopeSession, name, "update-environment", []string{"DDD", "EEE"}); err != nil {
+		t.Fatalf("set 2: %v", err)
+	}
+	if got := layer(); len(got) != 2 {
+		t.Fatalf("after shrinking to 2, layer holds %v — the stale index survived", got)
+	}
+	out, _ := m.run(ctx, "show-options", "-t", name+":", "update-environment")
+	if !strings.Contains(out, "update-environment[0] DDD") || strings.Contains(out, "CCC") {
+		t.Fatalf("layer content = %q, want DDD/EEE and no CCC", out)
+	}
+	if err := m.UnsetScopedOption(ctx, ScopeSession, name, "update-environment"); err != nil {
+		t.Fatalf("unset: %v", err)
+	}
+	if got := layer(); len(got) != 0 {
+		t.Fatalf("after unset, layer still holds %v", got)
 	}
 }

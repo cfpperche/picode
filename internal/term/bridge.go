@@ -83,7 +83,7 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue) h
 		// is documented on the flag itself (internal/termopts).
 		if resolve != nil {
 			for _, sv := range resolve(name) {
-				_ = tm.SetScopedOption(r.Context(), sv.Scope, name, sv.Key, sv.Value)
+				_ = tm.ApplyValue(r.Context(), name, sv)
 			}
 		}
 

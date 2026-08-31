@@ -249,7 +249,12 @@ HTTP API (Go 1.22 method patterns):
   it can be stored and applied, validated by tmux itself (scratch session for
   session/window values; server values apply for real) with its refusal
   surfaced in its own words. Server-scoped keys are refused on a per-terminal
-  PATCH — tmux keeps them per machine and the UI labels them so. The page is
+  PATCH — tmux keeps them per machine and the UI labels them so. Array
+  options travel as ONE string, entries joined by newlines: line *n* is
+  `name[n]`, and applying rewrites the list per index, unsetting whatever the
+  layer held past the new length (tmux leaves stale indexes in place
+  otherwise). An empty block is refused — tmux keeps no empty array layer, so
+  it could only behave as inherit while claiming to be a pin. The page is
   `#/termset` (global) and `#/termset/<id>` (one terminal).
   Appearance (font, colours, cursor) stays in `localStorage`, per browser.
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
