@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Workspaces hold terminals.** The terminal button on a workspace card
+  creates a terminal owned by that workspace, born in the workspace folder.
+  Terminals carry a `workspaceId` (`ws_free` for the loose ones); existing
+  terminals stay loose (ADR-0026).
+
 - **tmux list options are editable in the settings page** (`#/termset`). The
   five array options this tmux carries — `command-alias`, `terminal-features`,
   `terminal-overrides`, `status-format`, `update-environment` — are edited as
@@ -31,6 +36,18 @@ to the `[Unreleased]` section. The repository's official language is English
   per-terminal panel had always done this; the global one had not.
 
 ### Changed
+
+- **The sidebar is four flat tabs — Agents, Workspaces, Terminals, Pins.**
+  One kind per tab, no duplication: the Agents tab is a flat name-sorted
+  list of free agents (the Terminals shape), the Workspaces tab holds one
+  collapsible card per workspace with its agents and terminals inside, and
+  the Terminals tab lists only loose terminals. The section-level collapses
+  are gone — only workspace cards collapse. Every tab's empty state is one
+  line plus one action. Below 254px the header drops the version number so
+  four tabs never truncate the name (ADR-0026).
+- **Removing a workspace removes its terminals** — tmux sessions killed,
+  records and settings overrides deleted with it, their tabs closed. The
+  confirm dialog says how many terminals are going.
 
 - **Agent cards rename the same way terminals do.** Hovering an agent's name
   in the sidebar paints it accent with a dotted underline; clicking it opens

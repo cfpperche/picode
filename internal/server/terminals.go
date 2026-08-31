@@ -33,12 +33,13 @@ func defaultShell() string {
 
 func termView(t store.Terminal, session string, live bool) map[string]any {
 	return map[string]any{
-		"id":        t.ID,
-		"name":      t.Name,
-		"cwd":       t.Cwd,
-		"createdAt": t.CreatedAt,
-		"session":   session,
-		"running":   live,
+		"id":          t.ID,
+		"name":        t.Name,
+		"cwd":         t.Cwd,
+		"workspaceId": t.WorkspaceID,
+		"createdAt":   t.CreatedAt,
+		"session":     session,
+		"running":     live,
 	}
 }
 
@@ -85,8 +86,9 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Name string `json:"name"`
-			Cwd  string `json:"cwd"`
+			Name        string `json:"name"`
+			Cwd         string `json:"cwd"`
+			WorkspaceID string `json:"workspaceId"`
 		}
 		if r.Body != nil && r.ContentLength != 0 {
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -94,8 +96,10 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		t, err := deps.Store.CreateTerminal(req.Name, req.Cwd)
+		t, err := deps.Store.CreateTerminalIn(req.WorkspaceID, req.Name, req.Cwd)
 		if err != nil {
+			// Covers both store messages on purpose: "that folder doesn't
+			// exist" and "that workspace doesn't exist" are user errors.
 			if strings.Contains(err.Error(), "doesn't exist") {
 				writeErr(w, http.StatusBadRequest, err.Error())
 				return

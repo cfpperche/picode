@@ -2,25 +2,33 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 )
 
 // Terminal is a first-class shell (ADR-0017): a tmux session, not an agent.
+// It lives in a workspace, or in ws_free when it belongs to nobody (ADR-0026).
 type Terminal struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Cwd       string `json:"cwd"`
-	CreatedAt string `json:"createdAt"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Cwd         string `json:"cwd"`
+	WorkspaceID string `json:"workspaceId"`
+	CreatedAt   string `json:"createdAt"`
 }
+
+const terminalCols = `id, name, cwd, workspace_id, created_at`
 
 func scanTerminal(row interface{ Scan(...any) error }, t *Terminal) error {
-	return row.Scan(&t.ID, &t.Name, &t.Cwd, &t.CreatedAt)
+	return row.Scan(&t.ID, &t.Name, &t.Cwd, &t.WorkspaceID, &t.CreatedAt)
 }
 
+// ListTerminals returns every terminal regardless of workspace. Settings
+// scoping (scopeBySession / ownSessions) relies on that — a filtered list
+// would silently stop tmux overrides from applying to workspace terminals.
 func (s *Store) ListTerminals() ([]Terminal, error) {
-	rows, err := s.db.Query(`SELECT id, name, cwd, created_at FROM terminals ORDER BY name COLLATE NOCASE, id`)
+	rows, err := s.db.Query(`SELECT ` + terminalCols + ` FROM terminals ORDER BY name COLLATE NOCASE, id`)
 	if err != nil {
 		return nil, fmt.Errorf("store: list terminals: %w", err)
 	}
@@ -36,8 +44,25 @@ func (s *Store) ListTerminals() ([]Terminal, error) {
 	return out, rows.Err()
 }
 
+func (s *Store) ListWorkspaceTerminals(workspaceID string) ([]Terminal, error) {
+	rows, err := s.db.Query(`SELECT `+terminalCols+` FROM terminals WHERE workspace_id = ? ORDER BY name COLLATE NOCASE, id`, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("store: list workspace terminals: %w", err)
+	}
+	defer rows.Close()
+	out := []Terminal{}
+	for rows.Next() {
+		var t Terminal
+		if err := scanTerminal(rows, &t); err != nil {
+			return nil, fmt.Errorf("store: scan terminal: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) GetTerminal(id string) (Terminal, error) {
-	row := s.db.QueryRow(`SELECT id, name, cwd, created_at FROM terminals WHERE id = ?`, id)
+	row := s.db.QueryRow(`SELECT `+terminalCols+` FROM terminals WHERE id = ?`, id)
 	var t Terminal
 	if err := scanTerminal(row, &t); err != nil {
 		if err == sql.ErrNoRows {
@@ -48,7 +73,32 @@ func (s *Store) GetTerminal(id string) (Terminal, error) {
 	return t, nil
 }
 
+// CreateTerminal keeps the old shape: a free terminal.
 func (s *Store) CreateTerminal(name, cwd string) (Terminal, error) {
+	return s.CreateTerminalIn(FreeWorkspaceID, name, cwd)
+}
+
+// CreateTerminalIn creates a terminal owned by the given workspace (ADR-0026).
+// A blank workspace means free. A workspace terminal with no cwd starts in
+// the workspace folder; the $HOME default belongs to free terminals only.
+func (s *Store) CreateTerminalIn(workspaceID, name, cwd string) (Terminal, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		workspaceID = FreeWorkspaceID
+	}
+	cwd = strings.TrimSpace(cwd)
+	if workspaceID != FreeWorkspaceID {
+		wk, err := s.GetWorkspace(workspaceID)
+		if errors.Is(err, ErrNotFound) {
+			return Terminal{}, fmt.Errorf("that workspace doesn't exist")
+		}
+		if err != nil {
+			return Terminal{}, err
+		}
+		if cwd == "" {
+			cwd = wk.Path
+		}
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		n, err := s.CountTerminals()
@@ -60,7 +110,6 @@ func (s *Store) CreateTerminal(name, cwd string) (Terminal, error) {
 			name = fmt.Sprintf("Terminal %d", n+1)
 		}
 	}
-	cwd = strings.TrimSpace(cwd)
 	if cwd == "" {
 		h, err := os.UserHomeDir()
 		if err != nil {
@@ -74,11 +123,11 @@ func (s *Store) CreateTerminal(name, cwd string) (Terminal, error) {
 	}
 	id := newID(name, "term")
 	now := nowUTC()
-	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, created_at) VALUES (?, ?, ?, ?)`,
-		id, name, cwd, now); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO terminals (id, name, cwd, workspace_id, created_at) VALUES (?, ?, ?, ?, ?)`,
+		id, name, cwd, workspaceID, now); err != nil {
 		return Terminal{}, fmt.Errorf("store: insert terminal: %w", err)
 	}
-	return Terminal{ID: id, Name: name, Cwd: cwd, CreatedAt: now}, nil
+	return Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now}, nil
 }
 
 func (s *Store) CountTerminals() (int, error) {

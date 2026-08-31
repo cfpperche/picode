@@ -154,6 +154,19 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			dying[a.ID] = true
 			deps.stopAgent(r.Context(), a.ID)
 		}
+		// The workspace's terminals go with it (ADR-0026): kill their tmux
+		// sessions best-effort, like handleDeleteTerminal does; the records
+		// and their settings overrides fall in RemoveWorkspace's transaction.
+		terms, err := deps.Store.ListWorkspaceTerminals(wk.ID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if deps.Tmux != nil && deps.Tmux.Available() {
+			for _, t := range terms {
+				_ = deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(t.ID))
+			}
+		}
 		preview := deps.previewCleanup(wk.Path, dying)
 		removed, err := deps.Store.RemoveWorkspace(wk.ID)
 		if err != nil || !removed {

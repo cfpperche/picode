@@ -139,16 +139,33 @@ func (s *Store) GetWorkspace(id string) (Workspace, error) {
 	return w, nil
 }
 
-// RemoveWorkspace deletes a workspace and (via cascade) its agents, tasks
-// and events. The project folder on disk is untouched.
+// RemoveWorkspace deletes a workspace, (via cascade) its agents, tasks and
+// events, and its terminals with their settings overrides — the terminals
+// table has no FK (ADR-0026), so that cascade is spelled out here. The
+// project folder on disk is untouched; killing the tmux sessions is the
+// server's job before this runs.
 func (s *Store) RemoveWorkspace(id string) (removed bool, err error) {
-	res, err := s.db.Exec(`DELETE FROM workspaces WHERE id = ?`, id)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, fmt.Errorf("store: remove workspace: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM terminal_settings WHERE scope IN (SELECT id FROM terminals WHERE workspace_id = ?)`, id); err != nil {
+		return false, fmt.Errorf("store: remove workspace terminal settings: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM terminals WHERE workspace_id = ?`, id); err != nil {
+		return false, fmt.Errorf("store: remove workspace terminals: %w", err)
+	}
+	res, err := tx.Exec(`DELETE FROM workspaces WHERE id = ?`, id)
 	if err != nil {
 		return false, fmt.Errorf("store: remove workspace: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
 		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("store: remove workspace: %w", err)
 	}
 	return n > 0, nil
 }

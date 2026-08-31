@@ -7,7 +7,7 @@ import Pins from "./Pins.jsx";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine, termLine } from "../lib/repoLine.js";
-import { workspaceAgents } from "../lib/providerIcon.js";
+import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
 import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 
@@ -36,7 +36,7 @@ export default function Sidebar({
   const [tab, setTab] = useState(() => {
     try {
       const v = localStorage.getItem(TAB_KEY);
-      if (v === "pins" || v === "terms") return v;
+      if (v === "pins" || v === "terms" || v === "workspaces") return v;
       return "agents";
     } catch { return "agents"; }
   });
@@ -137,15 +137,51 @@ export default function Sidebar({
     );
   }
 
+  function termRow(t) {
+    return (
+      <li
+        key={t.id}
+        className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
+        onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
+      >
+        <div className="ws-row1">
+          <span className="tree-icon"><IconTerminal size={14} /></span>
+          <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
+        </div>
+        {(() => { const line = termLine(t); return (
+        <div className="ws-row2">
+          {line.git ? (
+            <button type="button" className="tree-icon tree-icon-btn" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}><IconGit size={14} /></button>
+          ) : (
+            <span className="tree-icon"><IconFolder size={14} /></span>
+          )}
+          <span className="ws-path" title={t.cwd}>{line.text}</span>
+        </div>
+        ); })()}
+        <span className="ws-actions">
+          <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
+          <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
+        </span>
+      </li>
+    );
+  }
+
+  const sortedFreeAgents = [...(freeAgents || [])].sort((a, b) =>
+    displayAgentName(a, null).localeCompare(displayAgentName(b, null), undefined, { sensitivity: "base" }));
+
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
         <span className="brand-title">
           <span className="brand-name">PiCode</span>
-          <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span>
+          {/* Four tabs eat the header; below ~254px the version would push
+              the name into ellipsis, so it yields (it lives in the user
+              menu too). The name never truncates. */}
+          {width >= 254 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolder size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
@@ -160,68 +196,37 @@ export default function Sidebar({
           <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
         </div>
-        {(terminals || []).length === 0 ? (
-          <p className="side-empty pins-empty">No terminals yet</p>
+        {freeTerminals(terminals).length === 0 ? (
+          <p className="side-empty pins-empty">No terminals yet. <button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm()}>New terminal</button></p>
         ) : (
-          <ul className="ws-list">
-            {[...(terminals || [])].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" })).map((t) => (
-              <li
-                key={t.id}
-                className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
-                onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
-              >
-                <div className="ws-row1">
-                  <span className="tree-icon"><IconTerminal size={14} /></span>
-                  <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
-                </div>
-                {(() => { const line = termLine(t); return (
-                <div className="ws-row2">
-                  {line.git ? (
-                    <button type="button" className="tree-icon tree-icon-btn" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}><IconGit size={14} /></button>
-                  ) : (
-                    <span className="tree-icon"><IconFolder size={14} /></span>
-                  )}
-                  <span className="ws-path" title={t.cwd}>{line.text}</span>
-                </div>
-                ); })()}
-                <span className="ws-actions">
-                  <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
-                  <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <ul className="ws-list">{freeTerminals(terminals).map(termRow)}</ul>
+        )}
+      </div>
+      ) : tab === "agents" ? (
+      <div className="side-section">
+        <div className="pins-head">
+          <span className="pins-title">Agents</span>
+          <button type="button" className="ws-icon-btn" title="New agent" onClick={() => onNewFree()}><IconPlus /></button>
+        </div>
+        {sortedFreeAgents.length === 0 ? (
+          <p className="side-empty pins-empty">No free agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
+        ) : (
+          <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null))}</ul>
         )}
       </div>
       ) : (
       <div className="side-section">
-        <div className="side-head tree-row" onClick={() => toggleWs("sec-agents")}>
-          <span className={"ws-chev" + (isOpen("sec-agents") ? " open" : "")}><IconChevronRight /></span>
-          <span className="tree-icon"><IconAgent size={16} /></span>
-          <span className="side-title">Agents</span>
-          <span className="tree-meta">{!isOpen("sec-agents") ? collapsedMark(freeAgents) : null}</span>
-          <button type="button" className="ws-icon-btn" title="New agent" onClick={(e) => { e.stopPropagation(); onNewFree(); }}><IconPlus /></button>
+        <div className="pins-head">
+          <span className="pins-title">Workspaces</span>
+          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={() => onNew()}><IconPlus /></button>
         </div>
-        {isOpen("sec-agents") ? (
-          (freeAgents || []).length
-            ? <ul className="ws-list tree-children">{(freeAgents || []).map((ag) => agentRow(ag, null))}</ul>
-            : <p className="side-empty">No agents</p>
-        ) : null}
-
-        <div className="side-head tree-row" style={{ marginTop: 14 }} onClick={() => toggleWs("sec-workspaces")}>
-          <span className={"ws-chev" + (isOpen("sec-workspaces") ? " open" : "")}><IconChevronRight /></span>
-          <span className="tree-icon"><IconFolder size={16} /></span>
-          <span className="side-title">Workspaces</span>
-          <span className="tree-meta">{!isOpen("sec-workspaces") ? collapsedMark(workspaceAgents(workspaces)) : null}</span>
-          <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={(e) => { e.stopPropagation(); onNew(); }}><IconPlus /></button>
-        </div>
-
-        {isOpen("sec-workspaces") ? (
-        workspaces.length === 0 ? (
-          <p className="side-empty">No workspaces</p>
+        {workspaces.length === 0 ? (
+          <p className="side-empty pins-empty">No workspaces yet. <button type="button" className="side-empty-act" onClick={() => onNew()}>Add workspace</button></p>
         ) : (
-        <ul id="ws-list" className="ws-list tree-children">
-          {workspaces.map((ws) => (
+        <ul id="ws-list" className="ws-list">
+          {workspaces.map((ws) => {
+            const wsTerms = workspaceTerminals(terminals, ws.id);
+            return (
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head tree-row" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
@@ -230,20 +235,24 @@ export default function Sidebar({
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
+                  <button type="button" className="ws-icon-btn" title="New terminal in this folder" onClick={() => onNewTerm && onNewTerm(ws.id)}><IconTerminal size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace (files untouched)" onClick={() => onRemove(ws)}><IconX size={12} /></button>
                 </span>
               </div>
               {isOpen(ws.id) ? (
-                agentsOf(ws).length
-                  ? <ul className="ws-list tree-children">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul>
-                  : <p className="side-empty">No agents</p>
+                (agentsOf(ws).length || wsTerms.length) ? (
+                  <>
+                    {agentsOf(ws).length ? <ul className="ws-list tree-children">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul> : null}
+                    {wsTerms.length ? <ul className="ws-list tree-children side-terms">{wsTerms.map(termRow)}</ul> : null}
+                  </>
+                ) : <p className="side-empty">Empty — add an agent or a terminal.</p>
               ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
-        )
-        ) : null}
+        )}
       </div>
       )}
 

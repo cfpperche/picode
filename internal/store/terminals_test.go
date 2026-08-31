@@ -2,6 +2,7 @@ package store
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,103 @@ func TestCreateTerminalBadCwd(t *testing.T) {
 	s := openTest(t)
 	if _, err := s.CreateTerminal("x", "/no/such/picode-term-cwd"); err == nil {
 		t.Fatal("want error")
+	}
+}
+
+func TestCreateTerminalDefaultsToFreeWorkspace(t *testing.T) {
+	s := openTest(t)
+	a, err := s.CreateTerminal("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.WorkspaceID != FreeWorkspaceID {
+		t.Fatalf("workspace=%q", a.WorkspaceID)
+	}
+}
+
+func TestCreateTerminalInWorkspaceDefaultsToItsFolder(t *testing.T) {
+	s := openTest(t)
+	proj := t.TempDir()
+	w, _, err := s.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm, err := s.CreateTerminalIn(w.ID, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tm.WorkspaceID != w.ID || tm.Cwd != w.Path {
+		t.Fatalf("terminal=%+v want workspace=%q cwd=%q", tm, w.ID, w.Path)
+	}
+	got, err := s.GetTerminal(tm.ID)
+	if err != nil || got.WorkspaceID != w.ID {
+		t.Fatalf("get=%+v %v", got, err)
+	}
+}
+
+func TestCreateTerminalInUnknownWorkspace(t *testing.T) {
+	s := openTest(t)
+	_, err := s.CreateTerminalIn("ws-nope", "", "")
+	if err == nil || !strings.Contains(err.Error(), "doesn't exist") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestListWorkspaceTerminals(t *testing.T) {
+	s := openTest(t)
+	proj := t.TempDir()
+	w, _, err := s.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateTerminal("free one", ""); err != nil {
+		t.Fatal(err)
+	}
+	owned, err := s.CreateTerminalIn(w.ID, "owned", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListWorkspaceTerminals(w.ID)
+	if err != nil || len(list) != 1 || list[0].ID != owned.ID {
+		t.Fatalf("workspace list=%+v %v", list, err)
+	}
+	all, err := s.ListTerminals()
+	if err != nil || len(all) != 2 {
+		t.Fatalf("all=%+v %v", all, err)
+	}
+}
+
+func TestRemoveWorkspaceDeletesItsTerminals(t *testing.T) {
+	s := openTest(t)
+	proj := t.TempDir()
+	w, _, err := s.AddWorkspace("App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owned, err := s.CreateTerminalIn(w.ID, "owned", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetTerminalSettings(owned.ID, map[string]string{"mouse": "off"}); err != nil {
+		t.Fatal(err)
+	}
+	free, err := s.CreateTerminal("free one", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, err := s.RemoveWorkspace(w.ID)
+	if err != nil || !removed {
+		t.Fatalf("remove=%v %v", removed, err)
+	}
+	if _, err := s.GetTerminal(owned.ID); err != ErrNotFound {
+		t.Fatalf("owned terminal survived: %v", err)
+	}
+	if v, err := s.TerminalSettings(owned.ID); err != nil || len(v) != 0 {
+		t.Fatalf("owned settings survived: %+v %v", v, err)
+	}
+	// The free terminal must survive — a filtered ListTerminals or an
+	// over-eager cascade here would break tmux overrides for everyone.
+	if _, err := s.GetTerminal(free.ID); err != nil {
+		t.Fatalf("free terminal gone: %v", err)
 	}
 }
