@@ -25,7 +25,7 @@ What exists:
 - `/llama` dialog on the **current view** (URL, Save, Retry, load/unload, HF download). Link **Set up llama.cpp** → `www/guide/llama.md`. **No GUI installer** (reverted).
 - Voice **V1 shipped** (dictation + Grok composer + browser TTS). Owner dogfood done (Chrome Windows mic).
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
-- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
+- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). A terminal tab (or gone agent) does not hide an installed adapter — same as Packages. Load error is Retry, not the install prompt. No npm/architecture in the view.
 - MCP / Packages / Settings name the selected agent (icon + name) as the first line in the card. Scope pills say **This agent**. Sidebar agent click from a pane goes to `#/`.
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
@@ -207,6 +207,14 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-08-31** — MCP adapter detection from a terminal tab. `#/mcps`
+  passed `selectedId` (`t:…`) as `agent`, GET 404'd, and the catch painted
+  "Install the MCP adapter" even with `npm:pi-mcp-adapter` on the machine.
+  Server now ignores a non-agent id (packages already did); the pane
+  passes `agent.id` like Packages; a load error is Retry. Table-tested.
+  **visual-review: PASS** (empty+adapter, blocked Open packages, error
+  Retry; overlayAudit ok; card 5/5).
 
 - **2026-08-31** — Remove workspace can delete local data (ADR-0035):
   opt-in checkbox + GitHub-style typed folder-name confirmation; server

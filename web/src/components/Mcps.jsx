@@ -10,6 +10,7 @@ import PiSpinner from "./PiSpinner.jsx";
 
 export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload }) {
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [scope, setScope] = useState("user");
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
@@ -17,6 +18,8 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const [pickOpen, setPickOpen] = useState(false);
   const [justSigned, setJustSigned] = useState({});
   const signCtl = useRef({ id: "", stop: false });
+  const dataRef = useRef(null);
+  dataRef.current = data;
 
   function listURL() {
     const q = [];
@@ -26,11 +29,25 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   async function load() {
-    try { setData(await api(listURL())); }
-    catch { setData({ adapter: { installed: false }, servers: [], presets: [], layers: [] }); }
+    try {
+      setData(await api(listURL()));
+      setLoadError("");
+    } catch (err) {
+      if (dataRef.current) return;
+      setLoadError(humanizeError(err.message || String(err)));
+    }
   }
 
-  useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId, agentRunning]);
+  useEffect(() => {
+    if (hidden) return;
+    setData(null);
+    setLoadError("");
+    load();
+  }, [hidden, workspaceId, agentId]);
+  useEffect(() => {
+    if (hidden) return;
+    load();
+  }, [agentRunning]);
   useEffect(() => {
     if (hidden || !agentRunning) return;
     const t = setInterval(() => { load(); }, 2500);
@@ -41,7 +58,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     if (!agentWorkPath && scope === "agent") setScope("user");
   }, [workspaceId, agentWorkPath, scope]);
 
-  const loading = !hidden && data === null;
+  const loading = !hidden && data === null && !loadError;
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
@@ -288,6 +305,11 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         <div className="mcp-skel" aria-hidden="true">
           <div className="skel-line w-70" />
           <div className="skel-line w-40" />
+        </div>
+      ) : loadError && !data ? (
+        <div className="mcp-empty">
+          <p>Couldn't load MCPs.</p>
+          <button type="button" className="btn btn-primary" onClick={() => { setLoadError(""); load(); }}>Retry</button>
         </div>
       ) : !installed ? (
         <div className="mcp-empty">

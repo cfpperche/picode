@@ -2157,16 +2157,16 @@ export default function App() {
           workspaceId={selected ? selected.id : ""}
           workspaceName={selected ? selected.name : ""}
           workspacePath={selected ? selected.path : ""}
-          agentId={selectedId || ""}
+          agentId={agent ? agent.id : ""}
           agentName={displayAgentName(agent, selected)}
           agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
           agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
           onReload={async () => {
             if (!agent || agent.mode === "stopped") return;
             const was = agent.mode;
-            await stopAgent(selectedId);
-            if (was === "interactive") await openInteractive(selectedId);
-            else await startManaged(selectedId);
+            await stopAgent(agent.id);
+            if (was === "interactive") await openInteractive(agent.id);
+            else await startManaged(agent.id);
           }}
         />
         <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />

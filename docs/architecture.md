@@ -107,7 +107,9 @@ The sidebar has four flat tabs, one kind each (ADR-0026), in order: **Workspaces
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
-(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). Add accepts
+(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`
+that is not an agent (terminal tab `t:…`, stale id) is ignored — same as
+packages — so adapter status still comes from machine packages. Add accepts
 optional `env`, `headers`, `auth` (`oauth`|`bearer`) and `bearerToken`.
 Live status (`idle`/`live`/`failed`/`signin`) comes from the adapter snapshot when
 the GUI agent is running (`-e` silent bridge). OAuth rows with tokens in the OS

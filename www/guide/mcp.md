@@ -25,3 +25,4 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 | Import Cursor/Claude/Codex | adapter CLI | **Use from…** (mirror, pick servers) |
 
 No adapter → `#/mcps` is one line and **Open packages**. It does not write files.
+The page works with a terminal selected; it does not need an agent open.
