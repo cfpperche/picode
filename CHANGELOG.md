@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **The role chip dies with the package.** `role-state` now answers only
+  while pi-roles is on the agent's effective package list — an
+  uninstall no longer leaves an orphaned chip fed by a stale state file.
+- **`/roles auto`** is accepted as an alias for `/auto`.
+
 ### Added
 
 - **Git graph v2 (ADR-0038).** Clicking a commit now opens its detail

@@ -218,6 +218,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-31** — roles follow-up (`fix/roles-gate`): the `role-state`
+  endpoint is gated on pi-roles being in the agent's effective package
+  list (`agentHasRolesPackage` over `loadPackageReport`; honors
+  `PackagesIsolated`, fails open on listing errors) — an uninstall no
+  longer leaves an orphaned composer chip. `/roles auto` accepted as an
+  alias for `/auto` (pi-roles 0.5.1). Gate covered in
+  `roles_state_test.go` (valid v1 file + no package → null; back → state).
+
 - **2026-08-31** — **/roles: active-role chip, restored locks, rich
   pickers, scoped remove** (`feat/roles-active`, planned + approved;
   ADR-0033 amendment #2). pi-roles 0.5.0.

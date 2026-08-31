@@ -454,6 +454,13 @@ export default function piRoles(pi: ExtensionAPI) {
 				await clearFlow(ctx, rest);
 				return;
 			}
+			if (verb === "auto") {
+				// Alias for /auto — people type it here first.
+				mode = { kind: "auto" };
+				publishState();
+				ctx.ui.notify("Auto: image → vision, text → default", "info");
+				return;
+			}
 			ctx.ui.notify("Use /roles, /roles edit, /roles add, /roles remove, or /roles clear", "error");
 		},
 	});
