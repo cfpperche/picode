@@ -91,7 +91,7 @@ stay on their own routes.
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
-| `#/providers` | Pi providers | catalog + signed-in state; Sign in → TUI `/login` |
+| `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** dialog (ADR-0030) for subscription windows |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
@@ -199,6 +199,9 @@ An agent runs as `pi` (ADR-0003, user-installed) in a named tmux session.
 Per-agent provider/model/thinking is stored on `agents` and passed as
 `pi --provider/--model/--thinking` on start (ADR-0009). Auth stays in
 `~/.pi/agent/auth.json`; PiCode never collects keys.
+`GET /api/providers/{id}/usage` (ADR-0030) reads that active slot and
+returns live plan windows (no tokens in the JSON). Catalog `quotaKind`
+tells `#/providers` when to show Usage.
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.

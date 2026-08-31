@@ -18,3 +18,4 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 ## Current state
 
 Working captures stay in `var/screenshots/`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
+Provider Usage (ADR-0030): `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-loading.png`, `usage-auth.png`.

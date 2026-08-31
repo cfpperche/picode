@@ -24,12 +24,13 @@ type Model struct {
 
 // Provider is a catalog group plus auth.json presence (never key values).
 type Provider struct {
-	ID       string    `json:"id"`
-	SignedIn bool      `json:"signedIn"`
-	AuthType string    `json:"authType,omitempty"` // api_key | oauth
-	Login    string    `json:"login"`              // api_key | oauth | both
-	Accounts []Account `json:"accounts,omitempty"`
-	Models   []Model   `json:"models"`
+	ID        string    `json:"id"`
+	SignedIn  bool      `json:"signedIn"`
+	AuthType  string    `json:"authType,omitempty"`  // api_key | oauth
+	Login     string    `json:"login"`               // api_key | oauth | both
+	QuotaKind string    `json:"quotaKind,omitempty"` // oauth when Usage can fetch
+	Accounts  []Account `json:"accounts,omitempty"`
+	Models    []Model   `json:"models"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -82,6 +83,7 @@ func Load(piCmd string) (Report, error) {
 			p.SignedIn = true
 			p.AuthType = a
 			p.Accounts = accountsOf(id)
+			p.QuotaKind = QuotaKind(id, a)
 		}
 		rep.Providers = append(rep.Providers, *p)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 func registerSlashOps(mux *http.ServeMux, deps Deps) {
@@ -17,6 +18,12 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
 	mux.HandleFunc("PATCH /api/providers/{id}/accounts/{aid}", handleAccountRename)
 	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
+	mux.HandleFunc("GET /api/providers/{id}/usage", handleProviderUsage)
+}
+
+func handleProviderUsage(w http.ResponseWriter, r *http.Request) {
+	rep := usage.Fetch(r.Context(), r.PathValue("id"))
+	writeJSON(w, http.StatusOK, rep)
 }
 
 func handleAgentTrust(deps Deps) http.HandlerFunc {
