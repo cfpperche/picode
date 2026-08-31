@@ -71,7 +71,19 @@ export function stitchIndex(items) {
   return -1;
 }
 
-function cardFromDialog(d, status) {
+/** The slash command whose flow this card belongs to ("/roles clear"). */
+function cmdOf(items) {
+  const list = items || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (isUser(list[i])) {
+      const text = String(list[i].text || "").trim().split("\n")[0];
+      return /^\//.test(text) ? text : "";
+    }
+  }
+  return "";
+}
+
+function cardFromDialog(d, status, cmd) {
   const step = stepFromDialog(d, status);
   return {
     kind: "ask",
@@ -85,6 +97,7 @@ function cardFromDialog(d, status) {
     timeout: d.timeout || 0,
     status: status || "open",
     answer: "",
+    cmd: cmd || "",
     steps: [step],
     ts: Date.now(),
   };
@@ -139,7 +152,7 @@ export function putAsk(items, dialog, status) {
     copy[at] = { ...applyDialog(it, dialog, nextStatus), steps, backTo: "" };
     return copy;
   }
-  return [...cur, cardFromDialog(dialog, nextStatus)];
+  return [...cur, cardFromDialog(dialog, nextStatus, cmdOf(cur))];
 }
 
 export function answerAsk(items, id, answer, cancelled) {
@@ -215,12 +228,15 @@ export function fieldLabel(title) {
 }
 
 /**
- * One definition line from answered steps (vision — xai/grok-4.5 · medium).
- * `note` is the extension's completion notify (e.g. "xai/grok-4.6 · high ·
- * lock /default"); it fills in what the answers alone cannot say — the model
- * behind a role pick, or the provider when its select was skipped.
+ * Structured outcome of a finished form. `note` is the extension's
+ * completion notify (e.g. "xai/grok-4.6 · high · lock /default"); it fills
+ * in what the answers alone cannot say — the model behind a role pick, the
+ * provider when its select was skipped, or a clear/kept result.
+ *
+ * kind: "definition" (role/model chips) | "role" (role only) |
+ *       "cleared" | "kept" | "empty" (nothing to act on) | "text".
  */
-export function summaryLine(steps, note) {
+export function summaryParts(steps, note) {
   const by = {};
   const answers = [];
   for (const s of steps || []) {
@@ -229,27 +245,60 @@ export function summaryLine(steps, note) {
     const lab = fieldLabel(s.title);
     if (!(lab in by)) by[lab] = s.answer;
   }
-  if (!answers.length) return "";
-  // A finished clear flow reads as its result line, not as a definition.
-  if (by.Clear) return note || answers.join(" · ");
+  if (!answers.length) return null;
+  const text = String(note || "");
+  // A finished clear flow reads as its result, not as a definition.
+  if (by.Clear) {
+    let m = /^Cleared\s+(\S+)/.exec(text);
+    if (m) return { kind: "cleared", file: m[1], text };
+    m = /^Kept\s+(\S+)/.exec(text);
+    if (m) return { kind: "kept", file: m[1], text };
+    if (/^Nothing to clear/.test(text)) return { kind: "empty", text };
+    return { kind: "text", text: text || answers.join(" · ") };
+  }
   const role = by.Role || by.Name || "";
-  const scope = by.Save === "workspace" ? " (workspace)" : "";
+  const scope = by.Save === "workspace" ? "workspace" : "";
   let thinking = by.Thinking && by.Thinking !== "none" ? by.Thinking : "";
   let model = by.Provider && by.Model ? by.Provider + "/" + by.Model : "";
   if (!model || !thinking) {
-    for (const t of String(note || "").split(/[\s·]+/)) {
+    for (const t of text.split(/[\s·]+/)) {
       if (!model && /^[\w.-]+\/\S+$/.test(t)) model = t;
       else if (!thinking && THINKING.has(t)) thinking = t;
     }
   }
   if (!model && by.Model) model = by.Model;
   if (model) {
-    const line = (role ? role + " — " : "") + model;
-    return (thinking ? line + " · " + thinking : line) + scope;
+    const slash = model.indexOf("/");
+    return {
+      kind: "definition",
+      role,
+      model,
+      provider: slash > 0 ? model.slice(0, slash) : "",
+      modelId: slash > 0 ? model.slice(slash + 1) : model,
+      thinking,
+      scope,
+      text,
+    };
   }
-  if (role) return "Role — " + role;
+  if (role) return { kind: "role", role, text };
   const main = answers.join(" · ");
-  return thinking && !answers.includes(thinking) ? main + " · " + thinking : main;
+  return {
+    kind: "text",
+    text: thinking && !answers.includes(thinking) ? main + " · " + thinking : main,
+  };
+}
+
+/** summaryParts flattened to one line (persistence, tests, fallbacks). */
+export function summaryLine(steps, note) {
+  const p = summaryParts(steps, note);
+  if (!p) return "";
+  if (p.kind === "cleared" || p.kind === "kept" || p.kind === "empty") return p.text;
+  if (p.kind === "definition") {
+    const line = (p.role ? p.role + " — " : "") + p.model;
+    return (p.thinking ? line + " · " + p.thinking : line) + (p.scope ? " (" + p.scope + ")" : "");
+  }
+  if (p.kind === "role") return "Role — " + p.role;
+  return p.text;
 }
 
 /** Fold the extension's completion notify into the just-answered card. */

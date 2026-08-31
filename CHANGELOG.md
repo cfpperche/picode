@@ -11,6 +11,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **`/roles` chat surfaces got an identity and a visual language.** The
+  stepper card carries a `ROLES <args>` header with Cancel in the corner;
+  answered pills connect with chevrons and the open field says what it
+  wants ("Choose provider…"). Delete confirms are their own block —
+  bold question, file chip, **Delete** (danger) / **Keep**. Finished
+  flows render as typed one-liners: ✓ definition with provider-icon
+  model chip + thinking + scope chips, ⌫ cleared / ○ kept with the file
+  chip, ⊘ cancelled, and ! nothing-to-clear with a one-click
+  "Set one up → /roles add" that prefills the composer. Answering No to
+  a delete now says `Kept <file>` instead of degrading to raw answers.
+
 ### Added
 
 - **Remove workspace can also delete the folder on disk.** An opt-in

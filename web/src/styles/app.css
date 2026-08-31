@@ -1952,6 +1952,90 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   margin-top: 10px; resize: vertical; line-height: 1.45;
 }
 .ask-done { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+
+/* Stepper header: which command is asking, and the one way out. */
+.ask-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.ask-head-cmd {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 11px;
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.ask-head-args {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 11px;
+  color: var(--text-secondary);
+}
+.ask-head-gap { flex: 1; }
+.ask-head .ask-cancel { align-self: center; height: auto; padding: 0 2px; }
+
+/* Connectors between the answered pills and the open field. */
+.ask-arrow {
+  align-self: flex-end; height: var(--ctl-h);
+  display: inline-flex; align-items: center;
+  color: var(--text-secondary); font-size: 13px; user-select: none;
+}
+.ask-step-open .ask-combo {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* Confirm as its own block: question, target, then the verbs. */
+.ask-confirm { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.ask-confirm .btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+.ask-confirm .btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-base));
+}
+.ask-confirm .ask-actions { margin-top: 0; }
+.ask-q { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+
+/* Shared chips (model, file, thinking, scope, action). */
+.ask-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg-base);
+  font-family: var(--mono, ui-monospace, monospace); font-size: 12px;
+  color: var(--text-primary); white-space: nowrap;
+}
+.ask-chip img.ws-face, .ask-chip .ws-face {
+  width: 13px; height: 13px; border-radius: 3px; font-size: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ask-chip-scope { color: var(--text-secondary); }
+.ask-chip-file { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.ask-chip-file svg { flex: none; color: var(--text-secondary); }
+.ask-chip-action {
+  cursor: pointer; color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  font-family: inherit;
+}
+.ask-chip-action:hover { background: var(--bg-hover); }
+
+/* One finished-flow line: mark + command badge + typed content. */
+.ask-outcome {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 8px 0 0; font-size: 13px;
+}
+.ask-oc-mark {
+  width: 16px; text-align: center; flex: none;
+  color: var(--ok, #3fb950); font-size: 12px;
+}
+.oc-cleared .ask-oc-mark { color: var(--danger); }
+.oc-cancelled .ask-oc-mark, .oc-kept .ask-oc-mark, .oc-timeout .ask-oc-mark { color: var(--text-secondary); }
+.oc-empty .ask-oc-mark { color: var(--warn, #d29922); font-weight: 700; }
+.ask-oc-badge {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 10px;
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 2px 6px; flex: none;
+}
+.ask-oc-role { font-weight: 600; color: var(--text-primary); }
+.ask-oc-verb { color: var(--text-primary); }
+.ask-oc-sub, .ask-oc-text { color: var(--text-secondary); }
+.oc-cancelled, .oc-timeout { color: var(--text-secondary); }
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
