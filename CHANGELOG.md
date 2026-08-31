@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Composer `/` lists commands from the running agent** (ADR-0026): extension
+  commands such as `/roles` appear only while that agent is in managed mode
+  and the package is loaded. Picking one sends the command; it does not open
+  a PiCode page.
 - **`packages/pi-roles`**: opt-in pi extension that routes models by role
   (vision on images, plan on `/plan`, named presets via `/role`). Workspace
   file `.pi/roles.json`; MIT in that directory only (ADR-0025). Not installed

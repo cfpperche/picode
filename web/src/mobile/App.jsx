@@ -26,6 +26,7 @@ import { toastError } from "../lib/toast.js";
 import { mergeAssistant } from "../lib/assistantMsg.js";
 import { isSearchTool, hitsFromResult } from "../lib/searchCards.js";
 import { stuckToBottom } from "../lib/stickScroll.js";
+import { extraSlash } from "../lib/slash.js";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
@@ -42,6 +43,7 @@ export default function MobileApp() {
   const [shareOpen, setShareOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
   const [more, setMore] = useState("menu");
+  const [slashExtra, setSlashExtra] = useState([]);
   const convRef = useRef(null);
   const nearBottom = useRef(true);
   const panelRef = useRef(null);
@@ -51,6 +53,14 @@ export default function MobileApp() {
   const agent = selected && selected.agent;
   const stopped = !agent || agent.mode === "stopped";
   const interactive = !!(agent && agent.mode === "interactive");
+
+  useEffect(() => {
+    const id = agent && agent.id;
+    if (!id) { setSlashExtra([]); return; }
+    api("/api/agents/" + id + "/slash")
+      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
+      .catch(() => setSlashExtra([]));
+  }, [agent && agent.id, agent && agent.mode]);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
@@ -300,7 +310,7 @@ export default function MobileApp() {
                 <Composer kind={kind} onKind={setKind} value={draft} onChange={setDraft} onSend={sendTask}
                   status={status} streaming={streaming} stopped={stopped}
                   onToggleDock={() => setTab("term")} onStop={() => stopAgent(selectedId)}
-                  agentId={selectedId} />
+                  agentId={agent && agent.id} slashExtra={slashExtra} />
               </>
             )}
           </section>

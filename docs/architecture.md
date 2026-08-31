@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-30.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-31.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -97,6 +97,10 @@ stay on their own routes.
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
+Composer `/` also lists **extension commands** from the running managed agent
+(`GET /api/agents/{id}/slash` → RPC `get_commands`, ADR-0026). Picking one
+sends `/name` as a prompt. Stopped agents omit that list. Names that collide
+with a PiCode command are dropped.
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
 The sidebar **Terminals** icon lists first-class shells (ADR-0017). **+** creates one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`). It opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux. Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
