@@ -37,7 +37,10 @@ func TestStatusCleanRepo(t *testing.T) {
 func TestStatusKindsAndRenameRecord(t *testing.T) {
 	dir := repo(t)
 	write(t, dir, "b", "b")
-	write(t, dir, "gone", "x")
+	// Distinct bodies: git pairs renames by content similarity, and two
+	// identical one-byte files would let it match the wrong pair.
+	write(t, dir, "gone", "the deleted file's own body\n")
+	write(t, dir, "xy old", "the spaced rename's own body\n")
 	run(t, dir, "git", "add", ".")
 	run(t, dir, "git", "commit", "-m", "base")
 
@@ -45,8 +48,13 @@ func TestStatusKindsAndRenameRecord(t *testing.T) {
 	write(t, dir, "fresh", "new")    // untracked
 	write(t, dir, "staged-new", "s") // added (staged)
 	run(t, dir, "git", "add", "staged-new")
-	run(t, dir, "git", "rm", "-q", "gone")     // deleted
+	run(t, dir, "git", "rm", "-q", "gone") // deleted
+	// The rename's OLD path is chosen to LOOK like a status header
+	// ("xy old": two letters, a space) — if the parser fails to consume
+	// the second NUL field, this is the shape that turns into a phantom
+	// "old" change instead of being silently skipped.
 	run(t, dir, "git", "mv", "b", "b-renamed") // renamed
+	run(t, dir, "git", "mv", "xy old", "spaced-renamed")
 
 	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -59,20 +67,23 @@ func TestStatusKindsAndRenameRecord(t *testing.T) {
 	}
 	got := changeByPath(changes)
 	want := map[string]string{
-		"a":          "modified",
-		"fresh":      "untracked",
-		"staged-new": "added",
-		"gone":       "deleted",
-		"b-renamed":  "renamed",
-		"sub/deep":   "untracked",
+		"a":              "modified",
+		"fresh":          "untracked",
+		"staged-new":     "added",
+		"gone":           "deleted",
+		"b-renamed":      "renamed",
+		"spaced-renamed": "renamed",
+		"sub/deep":       "untracked",
 	}
 	for path, kind := range want {
 		if got[path] != kind {
 			t.Errorf("%s = %q, want %q (all: %v)", path, got[path], kind, got)
 		}
 	}
-	if _, ok := got["b"]; ok {
-		t.Error("the rename's OLD path leaked in as its own record")
+	for _, leak := range []string{"b", "xy old", "old"} {
+		if _, ok := got[leak]; ok {
+			t.Errorf("the rename's OLD path leaked in as %q", leak)
+		}
 	}
 	if len(got) != len(want) {
 		t.Errorf("got %d changes, want %d: %v", len(got), len(want), got)
