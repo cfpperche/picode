@@ -130,14 +130,25 @@ func (m *Manager) HasSession(ctx context.Context, name string) (bool, error) {
 // NewSession creates a detached session named name, rooted at cwd, running
 // the given command. It errors if the session already exists.
 func (m *Manager) NewSession(ctx context.Context, name, cwd string, command string, args ...string) error {
+	return m.NewSessionEnv(ctx, name, cwd, nil, command, args...)
+}
+
+// NewSessionEnv is NewSession plus extra KEY=VALUE entries (tmux -e).
+func (m *Manager) NewSessionEnv(ctx context.Context, name, cwd string, extraEnv []string, command string, args ...string) error {
 	if exists, err := m.HasSession(ctx, name); err != nil {
 		return err
 	} else if exists {
 		return fmt.Errorf("tmux session %q already exists", name)
 	}
 	full := []string{"new-session", "-d", "-s", name, "-c", cwd,
-		"-e", "TERM=xterm-256color", "-e", "COLORTERM=truecolor",
-		"--", command}
+		"-e", "TERM=xterm-256color", "-e", "COLORTERM=truecolor"}
+	for _, e := range extraEnv {
+		if e == "" || !strings.Contains(e, "=") || strings.ContainsAny(e, "\n\x00") {
+			continue
+		}
+		full = append(full, "-e", e)
+	}
+	full = append(full, "--", command)
 	full = append(full, args...)
 	if _, err := m.run(ctx, full...); err != nil {
 		return err

@@ -1,6 +1,6 @@
 {
   "name": "pi-roles",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Opt-in model roles for pi: vision/plan routing plus named presets.",
   "license": "MIT",
   "type": "module",

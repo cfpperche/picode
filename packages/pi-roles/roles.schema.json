@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/cfpperche/picode/tree/main/packages/pi-roles/roles.schema.json",
   "title": "pi-roles config",
-  "description": "Workspace file .pi/roles.json. Unknown keys are ignored so the file can grow.",
+  "description": "Workspace .pi/roles.json or per-agent overlay .pi/roles/<id>.json. Unknown keys are ignored so the file can grow.",
   "type": "object",
   "additionalProperties": true,
   "properties": {

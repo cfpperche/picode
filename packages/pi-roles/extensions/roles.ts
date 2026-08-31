@@ -1,9 +1,10 @@
 /**
  * Opt-in model roles for pi.
  *
- * Reads and writes <cwd>/.pi/roles.json. Missing file = dormant routing;
- * /roles add|edit can create it. Default is the switch-back target, not a
- * startup override — PiCode already passes --model/--thinking per agent.
+ * Reads <cwd>/.pi/roles.json. With PI_ROLES_AGENT=<id>, also reads/writes
+ * <cwd>/.pi/roles/<id>.json (overlay). Missing files = dormant routing.
+ * Default is the switch-back target, not a startup override — PiCode already
+ * passes --model/--thinking per agent.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,15 +13,18 @@ import {
 	addCustom,
 	BUILTIN_ROLES,
 	decideOnInput,
-	editRole,
 	emptyConfig,
 	idsForProvider,
 	lockRole,
+	mergeConfigs,
+	overlayRel,
+	parseAgentKey,
 	parseConfig,
 	parseModelId,
 	providersOf,
 	removeCustom,
 	serializeConfig,
+	upsertRole,
 	THINKING_LEVELS,
 	type Assignment,
 	type Mode,
@@ -28,35 +32,46 @@ import {
 	type ThinkingLevel,
 } from "../src/logic.ts";
 
-const CONFIG_REL = join(".pi", "roles.json");
+const WORKSPACE_REL = join(".pi", "roles.json");
 const PLAN_PROMPT =
 	"You are in plan mode. Propose a plan. Do not edit files or run mutating commands until the user approves the plan.";
 
-type Loaded =
+type FileRead =
 	| { status: "missing" }
 	| { status: "invalid"; error: string }
 	| { status: "ok"; config: RolesConfig; raw: Record<string, unknown> };
 
+type Loaded =
+	| { status: "missing"; writeRel: string; overlay: boolean }
+	| { status: "invalid"; error: string }
+	| {
+			status: "ok";
+			config: RolesConfig;
+			layer: RolesConfig;
+			raw: Record<string, unknown>;
+			writeRel: string;
+			overlay: boolean;
+	  };
+
 export default function piRoles(pi: ExtensionAPI) {
 	let mode: Mode = { kind: "auto" };
-	let loaded: Loaded = { status: "missing" };
+	let loaded: Loaded = { status: "missing", writeRel: WORKSPACE_REL, overlay: false };
 	let warnedInvalid = false;
 
-	function reload(cwd: string): Loaded {
-		const path = join(cwd, CONFIG_REL);
+	function readFileAt(abs: string, rel: string): FileRead {
 		let text: string;
 		try {
-			text = readFileSync(path, "utf8");
+			text = readFileSync(abs, "utf8");
 		} catch (err) {
 			const code = (err as NodeJS.ErrnoException).code;
 			if (code === "ENOENT") return { status: "missing" };
-			return { status: "invalid", error: `Cannot read ${CONFIG_REL}: ${(err as Error).message}` };
+			return { status: "invalid", error: `Cannot read ${rel}: ${(err as Error).message}` };
 		}
 		let raw: unknown;
 		try {
 			raw = JSON.parse(text);
 		} catch (err) {
-			return { status: "invalid", error: `${CONFIG_REL} is not valid JSON: ${(err as Error).message}` };
+			return { status: "invalid", error: `${rel} is not valid JSON: ${(err as Error).message}` };
 		}
 		const parsed = parseConfig(raw);
 		if (!parsed.ok) return { status: "invalid", error: parsed.error };
@@ -67,27 +82,93 @@ export default function piRoles(pi: ExtensionAPI) {
 		return { status: "ok", config: parsed.config, raw: rawObj };
 	}
 
+	function writeTarget(): { rel: string; overlay: boolean } {
+		const key = parseAgentKey(process.env.PI_ROLES_AGENT);
+		if (key) return { rel: overlayRel(key), overlay: true };
+		return { rel: WORKSPACE_REL, overlay: false };
+	}
+
+	function reload(cwd: string): Loaded {
+		const target = writeTarget();
+		const ws = readFileAt(join(cwd, WORKSPACE_REL), WORKSPACE_REL);
+		if (ws.status === "invalid") return ws;
+		if (!target.overlay) {
+			if (ws.status === "missing") return { status: "missing", writeRel: target.rel, overlay: false };
+			return {
+				status: "ok",
+				config: ws.config,
+				layer: ws.config,
+				raw: ws.raw,
+				writeRel: target.rel,
+				overlay: false,
+			};
+		}
+		const ov = readFileAt(join(cwd, target.rel), target.rel);
+		if (ov.status === "invalid") return ov;
+		if (ws.status === "missing" && ov.status === "missing") {
+			return { status: "missing", writeRel: target.rel, overlay: true };
+		}
+		const base = ws.status === "ok" ? ws.config : emptyConfig();
+		const over = ov.status === "ok" ? ov.config : emptyConfig();
+		const raw = ov.status === "ok" ? ov.raw : {};
+		return {
+			status: "ok",
+			config: mergeConfigs(base, over),
+			layer: over,
+			raw,
+			writeRel: target.rel,
+			overlay: true,
+		};
+	}
+
 	function configOrNull(): RolesConfig | null {
 		return loaded.status === "ok" ? loaded.config : null;
 	}
 
-	function writable(ctx: ExtensionContext): { config: RolesConfig; raw: Record<string, unknown> } | null {
+	function writable(
+		ctx: ExtensionContext,
+	): {
+		config: RolesConfig;
+		raw: Record<string, unknown>;
+		writeRel: string;
+		overlay: boolean;
+		effective: RolesConfig;
+	} | null {
 		loaded = reload(ctx.cwd);
 		if (loaded.status === "invalid") {
 			ctx.ui.notify(loaded.error, "error");
 			return null;
 		}
-		if (loaded.status === "missing") return { config: emptyConfig(), raw: {} };
-		return { config: loaded.config, raw: loaded.raw };
+		if (loaded.status === "missing") {
+			return {
+				config: emptyConfig(),
+				raw: {},
+				writeRel: loaded.writeRel,
+				overlay: loaded.overlay,
+				effective: emptyConfig(),
+			};
+		}
+		return {
+			config: loaded.layer,
+			raw: loaded.raw,
+			writeRel: loaded.writeRel,
+			overlay: loaded.overlay,
+			effective: loaded.config,
+		};
 	}
 
-	function save(ctx: ExtensionContext, config: RolesConfig, raw: Record<string, unknown>): boolean {
-		const path = join(ctx.cwd, CONFIG_REL);
+	function save(
+		ctx: ExtensionContext,
+		config: RolesConfig,
+		raw: Record<string, unknown>,
+		writeRel: string,
+	): boolean {
+		const path = join(ctx.cwd, writeRel);
 		try {
 			mkdirSync(dirname(path), { recursive: true });
 			writeFileSync(path, JSON.stringify(serializeConfig(config, raw), null, 2) + "\n", "utf8");
 		} catch (err) {
-			ctx.ui.notify(`Could not write ${CONFIG_REL}: ${(err as Error).message}`, "error");
+			ctx.ui.notify(`Could not write ${writeRel}: ${(err as Error).message}`, "error");
 			return false;
 		}
 		loaded = reload(ctx.cwd);
@@ -292,7 +373,7 @@ export default function piRoles(pi: ExtensionAPI) {
 	async function pickRole(ctx: ExtensionContext) {
 		loaded = reload(ctx.cwd);
 		if (loaded.status === "missing") {
-			ctx.ui.notify("No .pi/roles.json. /roles add creates one.", "warning");
+			ctx.ui.notify("No roles yet. /roles add creates one.", "warning");
 			return;
 		}
 		if (loaded.status === "invalid") {
@@ -315,23 +396,27 @@ export default function piRoles(pi: ExtensionAPI) {
 		await lock(ctx, choice);
 	}
 
+	function savedNote(overlay: boolean): string {
+		return overlay ? " (this agent)" : "";
+	}
+
 	async function editFlow(ctx: ExtensionContext, named: string) {
 		const cur = writable(ctx);
 		if (!cur) return;
 		const role = named || (await ctx.ui.select("Edit which role?", [
 			...BUILTIN_ROLES,
-			...cur.config.custom.map((c) => c.name),
+			...cur.effective.custom.map((c) => c.name),
 		]));
 		if (!role) return;
 		const assignment = await pickAssignment(ctx, `Model for ${role}`);
 		if (!assignment) return;
-		const result = editRole(cur.config, role, assignment);
+		const result = upsertRole(cur.config, role, assignment);
 		if (!result.ok) {
 			ctx.ui.notify(result.error, "error");
 			return;
 		}
-		if (!save(ctx, result.config, cur.raw)) return;
-		ctx.ui.notify(`Saved ${role} → ${assignment.model}`, "info");
+		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
+		ctx.ui.notify(`Saved ${role} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
 		if (mode.kind === "lock" && mode.role === role) {
 			await apply(ctx, assignment, `lock /${role}`);
 		}
@@ -342,27 +427,41 @@ export default function piRoles(pi: ExtensionAPI) {
 		if (!cur) return;
 		const name = named || (await ctx.ui.input("Preset name", "fast"));
 		if (!name) return;
-		const assignment = await pickAssignment(ctx, `Model for ${name}`);
+		const trimmed = name.trim();
+		if (cur.effective.custom.some((c) => c.name === trimmed)) {
+			ctx.ui.notify(`"${trimmed}" already exists. Use /roles edit.`, "error");
+			return;
+		}
+		const assignment = await pickAssignment(ctx, `Model for ${trimmed}`);
 		if (!assignment) return;
-		const result = addCustom(cur.config, name.trim(), assignment);
+		const result = addCustom(cur.config, trimmed, assignment);
 		if (!result.ok) {
 			ctx.ui.notify(result.error, "error");
 			return;
 		}
-		if (!save(ctx, result.config, cur.raw)) return;
-		ctx.ui.notify(`Added ${name.trim()} → ${assignment.model}`, "info");
+		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
+		ctx.ui.notify(`Added ${trimmed} → ${assignment.model}${savedNote(cur.overlay)}`, "info");
 	}
 
 	async function removeFlow(ctx: ExtensionContext, named: string) {
 		const cur = writable(ctx);
 		if (!cur) return;
 		if (cur.config.custom.length === 0) {
-			ctx.ui.notify("No custom roles.", "warning");
+			ctx.ui.notify(
+				cur.overlay && cur.effective.custom.length > 0
+					? "No custom roles on this agent. Workspace presets stay in .pi/roles.json."
+					: "No custom roles.",
+				"warning",
+			);
 			return;
 		}
 		const name =
 			named || (await ctx.ui.select("Remove which preset?", cur.config.custom.map((c) => c.name)));
 		if (!name) return;
+		if (cur.overlay && !cur.config.custom.some((c) => c.name === name)) {
+			ctx.ui.notify(`"${name}" is in .pi/roles.json (workspace). This agent can /roles edit it.`, "error");
+			return;
+		}
 		const ok = await ctx.ui.confirm("Remove this preset?", name);
 		if (!ok) return;
 		const result = removeCustom(cur.config, name);
@@ -370,8 +469,8 @@ export default function piRoles(pi: ExtensionAPI) {
 			ctx.ui.notify(result.error, "error");
 			return;
 		}
-		if (!save(ctx, result.config, cur.raw)) return;
-		ctx.ui.notify(`Removed ${name}`, "info");
+		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
+		ctx.ui.notify(`Removed ${name}${savedNote(cur.overlay)}`, "info");
 		if (mode.kind === "lock" && mode.role === name) {
 			mode = { kind: "auto" };
 			ctx.ui.notify("Auto: image → vision, text → default", "info");

@@ -12,6 +12,10 @@ import {
 	editRole,
 	addCustom,
 	removeCustom,
+	upsertRole,
+	mergeConfigs,
+	parseAgentKey,
+	overlayRel,
 	serializeConfig,
 	emptyConfig,
 	type RolesConfig,
@@ -339,6 +343,79 @@ describe("addCustom / removeCustom", () => {
 	it("cannot remove a builtin or a missing name", () => {
 		assert.equal(removeCustom(full, "plan").ok, false);
 		assert.equal(removeCustom(full, "nope").ok, false);
+	});
+});
+
+describe("parseAgentKey", () => {
+	it("accepts a slug", () => {
+		assert.equal(parseAgentKey("picode-agent-a1b2c3"), "picode-agent-a1b2c3");
+	});
+	it("rejects empty, path, and overlong values", () => {
+		assert.equal(parseAgentKey(undefined), null);
+		assert.equal(parseAgentKey(""), null);
+		assert.equal(parseAgentKey("../etc"), null);
+		assert.equal(parseAgentKey("a/b"), null);
+		assert.equal(parseAgentKey("a".repeat(65)), null);
+	});
+	it("builds the overlay path", () => {
+		assert.equal(overlayRel("writer"), ".pi/roles/writer.json");
+	});
+});
+
+describe("mergeConfigs", () => {
+	it("overlay wins builtin slots; workspace slots stay", () => {
+		const base = cfg({
+			builtin: {
+				default: { model: "zai/glm-5.3" },
+				vision: { model: "xai/grok-4.6" },
+			},
+		});
+		const overlay = cfg({
+			builtin: { default: { model: "anthropic/claude-sonnet-4-5", thinking: "high" } },
+		});
+		const m = mergeConfigs(base, overlay);
+		assert.deepEqual(m.builtin.default, {
+			model: "anthropic/claude-sonnet-4-5",
+			thinking: "high",
+		});
+		assert.deepEqual(m.builtin.vision, { model: "xai/grok-4.6" });
+		assert.equal(m.builtin.plan, undefined);
+	});
+	it("overlay replaces a custom by name and appends new ones", () => {
+		const base = cfg({
+			custom: [
+				{ name: "redteam", model: "kimi-coding/k3" },
+				{ name: "fast", model: "zai/glm-5.3" },
+			],
+		});
+		const overlay = cfg({
+			custom: [
+				{ name: "redteam", model: "xai/grok-4.6", thinking: "low" },
+				{ name: "writer", model: "anthropic/claude-sonnet-4-5" },
+			],
+		});
+		const m = mergeConfigs(base, overlay);
+		assert.deepEqual(
+			m.custom.map((c) => c.name),
+			["redteam", "fast", "writer"],
+		);
+		assert.deepEqual(m.custom[0], { name: "redteam", model: "xai/grok-4.6", thinking: "low" });
+	});
+	it("empty overlay is a no-op", () => {
+		assert.deepEqual(mergeConfigs(full, emptyConfig()), full);
+	});
+});
+
+describe("upsertRole", () => {
+	it("adds a custom that this layer does not have yet", () => {
+		const r = upsertRole(emptyConfig(), "redteam", { model: "xai/grok-4.6" });
+		assert.equal(r.ok, true);
+		if (r.ok) assert.equal(r.config.custom[0].name, "redteam");
+	});
+	it("edits a builtin on an empty layer", () => {
+		const r = upsertRole(emptyConfig(), "default", { model: "zai/glm-5.3" });
+		assert.equal(r.ok, true);
+		if (r.ok) assert.deepEqual(r.config.builtin.default, { model: "zai/glm-5.3" });
 	});
 });
 

@@ -24,6 +24,11 @@ npm publish is not wired yet. Local path is the supported M1 install.
 Create `<workspace>/.pi/roles.json`, or let `/roles add` / `/roles edit` write it.
 Missing file = routing is dormant until the file exists.
 
+PiCode agents also get `PI_ROLES_AGENT=<agent-id>`. Then `/roles` reads the
+workspace file and overlays `<cwd>/.pi/roles/<id>.json` (slots in the overlay
+win). A `pi` you start yourself in a terminal has no overlay unless you export
+that env. `/roles remove` in an overlay only deletes presets this agent added.
+
 ```json
 {
   "builtin": {

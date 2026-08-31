@@ -362,15 +362,18 @@ Agents communicate through their native protocol — no internals hacked.
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
 
-### Model roles (ADR-0030)
+### Model roles (ADR-0028, ADR-0033)
 
 Opt-in pi package at `packages/pi-roles/` (MIT; the rest of this tree is
 PolyForm Noncommercial). Users install it with `pi install -l` / `#/packages`;
 a missing `<cwd>/.pi/roles.json` leaves it dormant. Three builtin behaviours
 (`default`, `vision`, `plan`) plus named custom presets. `default` is the
 switch-back target, not a startup override — per-agent `--model` stays with
-ADR-0009. `/roles edit|add|remove` writes the file. Composer `/` lists those
-commands only while the agent is running (ADR-0029).
+ADR-0009. `/roles edit|add|remove` writes the workspace file, or
+`<cwd>/.pi/roles/<id>.json` when `PI_ROLES_AGENT` is set (PiCode puts the
+agent id in that env on RPC and TUI start). Overlay slots win; the rest is
+inherited. Composer `/` lists those commands only while the agent is running
+(ADR-0029).
 
 ### MCP (Model Context Protocol) support
 

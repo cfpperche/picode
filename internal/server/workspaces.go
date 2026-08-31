@@ -214,7 +214,7 @@ func handleOpen(deps Deps) http.HandlerFunc {
 				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 			return
 		}
-		if err := deps.Tmux.NewSession(r.Context(), name, wk.Path, deps.AgentCmd, agent.CLIFlags()...); err != nil {
+		if err := deps.Tmux.NewSessionEnv(r.Context(), name, wk.Path, agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...); err != nil {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return

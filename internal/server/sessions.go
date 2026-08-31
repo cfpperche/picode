@@ -235,7 +235,7 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 		if err != nil {
 			return err
 		}
-		return deps.Tmux.NewSession(ctx, tmux.SessionName(agentID), wk.Path, deps.AgentCmd, agent.CLIFlags()...)
+		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), wk.Path, agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...)
 	default:
 		return nil
 	}

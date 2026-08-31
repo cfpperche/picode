@@ -228,6 +228,41 @@ export function emptyConfig(): RolesConfig {
 	return { builtin: {}, custom: [] };
 }
 
+/** Overlay filename for PI_ROLES_AGENT=<key> → .pi/roles/<key>.json */
+export function overlayRel(key: string): string {
+	return `.pi/roles/${key}.json`;
+}
+
+/** Accept a process env value as an overlay key, or null if unsafe/empty. */
+export function parseAgentKey(raw: string | undefined): string | null {
+	if (!raw) return null;
+	const s = raw.trim();
+	if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(s)) return null;
+	return s;
+}
+
+/** Overlay wins per builtin slot and per custom name. Workspace customs stay unless replaced. */
+export function mergeConfigs(base: RolesConfig, overlay: RolesConfig): RolesConfig {
+	const builtin: RolesConfig["builtin"] = { ...base.builtin };
+	if (overlay.builtin.default) builtin.default = overlay.builtin.default;
+	if (overlay.builtin.vision) builtin.vision = overlay.builtin.vision;
+	if (overlay.builtin.plan) builtin.plan = overlay.builtin.plan;
+	const custom = base.custom.map((c) => overlay.custom.find((o) => o.name === c.name) ?? c);
+	for (const o of overlay.custom) {
+		if (!base.custom.some((c) => c.name === o.name)) custom.push(o);
+	}
+	return { builtin, custom };
+}
+
+/** Edit a role, or add it to this layer so an agent can override a workspace preset. */
+export function upsertRole(config: RolesConfig, role: string, assignment: Assignment): MutateResult {
+	if (role === "default" || role === "vision" || role === "plan") {
+		return editRole(config, role, assignment);
+	}
+	if (config.custom.some((c) => c.name === role)) return editRole(config, role, assignment);
+	return addCustom(config, role, assignment);
+}
+
 function validAssignment(assignment: Assignment): string | null {
 	if (!parseModelId(assignment.model)) return `model "${assignment.model}" must be provider/id`;
 	if (assignment.thinking !== undefined && !THINKING.has(assignment.thinking)) {

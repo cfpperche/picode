@@ -103,16 +103,17 @@ func (r *Runtime) Start(agentID, path string) error {
 	r.mu.Unlock()
 
 	args := []string{"--mode", "rpc"}
+	var extraEnv []string
 	if r.store != nil {
 		if a, err := r.store.GetAgent(agentID); err == nil {
 			args = append(args, a.CLIFlags()...)
+			extraEnv = append(extraEnv, a.SpawnEnv()...)
 		}
 	}
 	mcp.ClearLive(r.DataDir, agentID)
-	var extraEnv []string
 	if liveArgs, liveEnv := mcp.AttachLive(r.DataDir, agentID); len(liveArgs) > 0 {
 		args = append(args, liveArgs...)
-		extraEnv = liveEnv
+		extraEnv = append(extraEnv, liveEnv...)
 	}
 	client, err := Start(r.AgentCmd, args, path, extraEnv...)
 	if err != nil {

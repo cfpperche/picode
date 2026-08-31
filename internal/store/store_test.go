@@ -334,6 +334,22 @@ func TestOpModeCLIFlags(t *testing.T) {
 	}
 }
 
+func TestAgentSpawnEnv(t *testing.T) {
+	s := openTest(t)
+	_, agent, err := addWorkspaceWithAgent(s, "Env", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := agent.SpawnEnv()
+	want := RolesAgentEnv + "=" + agent.ID
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("SpawnEnv = %v, want [%s]", got, want)
+	}
+	if (Agent{}).SpawnEnv() != nil {
+		t.Fatal("empty agent must not set env")
+	}
+}
+
 func TestAgentPackagesCLIFlags(t *testing.T) {
 	s := openTest(t)
 	_, agent, err := addWorkspaceWithAgent(s, "Pkg", t.TempDir())

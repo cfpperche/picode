@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **pi-roles v2** (ADR-0033): a PiCode agent sets `PI_ROLES_AGENT` and can
+  overlay `<cwd>/.pi/roles/<id>.json` on the workspace `.pi/roles.json`.
+  Sibling agents keep different defaults; a `pi` in a terminal still uses
+  only the workspace file. `/roles edit|add` in that agent writes the overlay.
 - **Provider Usage V3** (ADR-0031): Usage sits on each vault account, not
   only the active one — no **Use** required. OpenRouter, MiniMax, MiniMax
   CN, and Kimi API keys get meters. Grok reset credits also try the Grok
