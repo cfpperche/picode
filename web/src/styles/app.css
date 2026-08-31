@@ -2039,6 +2039,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .oc-warning .ask-oc-mark { color: var(--warn, #d29922); font-weight: 700; }
 .oc-error .ask-oc-mark { color: var(--danger); }
 .oc-info .ask-oc-mark { color: var(--ok, #3fb950); }
+
+/* Active-role chip in the composer (presence-driven; lock reads accent). */
+.role-chip-lock {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }

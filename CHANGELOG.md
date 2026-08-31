@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **The composer shows the active role.** A chip before Provider —
+  `auto`, or a locked `vision · grok-4.5` in accent — appears whenever
+  pi-roles publishes its state (no package, no chip). Its dropdown lists
+  every role with its definition; picking one sends `/role <name>` (or
+  `/auto`), and **Edit roles…** opens the in-thread stepper. Locks now
+  **survive agent restarts** (state file contract v1, ADR-0033
+  amendment #2; `GET /api/agents/{id}/role-state`).
+- **Role selects show definitions** (`vision — xai/grok-4.5 · medium`)
+  in `/roles`, `/roles edit` and `/roles remove` — in chat and TUI
+  alike; and **`/roles remove` asks the scope only when it must** (one
+  layer → no question; both → a `Remove from` select).
 - **Apps host (ADR-0036).** A fifth sidebar tab shows a grid of app
   tiles drawn from `GET /api/apps` manifests; an app opens as a main
   tab (`#/app/<id>`) whose content is a versioned tree of UI primitives

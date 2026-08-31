@@ -7,10 +7,12 @@
  * passes --model/--thinking per agent.
  */
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	addCustom,
+	BACK,
 	BUILTIN_ROLES,
 	decideOnInput,
 	emptyConfig,
@@ -20,12 +22,18 @@ import {
 	parseAgentKey,
 	parseConfig,
 	parseModelId,
+	parseState,
 	pickAnswer,
 	pickStart,
 	removeCustom,
+	removeScopes,
 	resolveRole,
+	roleEntries,
+	roleFromChoice,
+	roleOption,
 	SCOPE_AGENT,
 	SCOPE_WORKSPACE,
+	stateJson,
 	serializeConfig,
 	upsertRole,
 	type Assignment,
@@ -88,6 +96,43 @@ export default function piRoles(pi: ExtensionAPI) {
 		const key = parseAgentKey(process.env.PI_ROLES_AGENT);
 		if (key) return { rel: overlayRel(key), overlay: true };
 		return { rel: WORKSPACE_REL, overlay: false };
+	}
+
+	/** ~/.pi/agent/roles-state/<agent>.json, or "" without PI_ROLES_AGENT. */
+	function statePath(): string {
+		const key = parseAgentKey(process.env.PI_ROLES_AGENT);
+		if (!key) return "";
+		return join(homedir(), ".pi", "agent", "roles-state", `${key}.json`);
+	}
+
+	/**
+	 * Publish the active-role state (ADR-0033 amendment #2) — the contract
+	 * PiCode's composer chip reads. Called on every mode change and whenever
+	 * the effective role list changes; never on per-input routing.
+	 */
+	function publishState() {
+		const path = statePath();
+		if (!path) return;
+		try {
+			mkdirSync(dirname(path), { recursive: true });
+			writeFileSync(path, JSON.stringify(stateJson(mode, configOrNull()), null, 2) + "\n", "utf8");
+		} catch { /* state is best-effort; routing must not fail on it */ }
+	}
+
+	/** Restore a locked mode from the state file (survives restarts). */
+	function restoreState() {
+		const path = statePath();
+		if (!path) return;
+		let raw: unknown;
+		try {
+			raw = JSON.parse(readFileSync(path, "utf8"));
+		} catch {
+			return;
+		}
+		const st = parseState(raw);
+		if (st && st.mode === "lock" && st.role && resolveRole(configOrNull() ?? emptyConfig(), st.role)) {
+			mode = { kind: "lock", role: st.role };
+		}
 	}
 
 	function reload(cwd: string): Loaded {
@@ -174,6 +219,7 @@ export default function piRoles(pi: ExtensionAPI) {
 			return false;
 		}
 		loaded = reload(ctx.cwd);
+		publishState();
 		return loaded.status === "ok";
 	}
 
@@ -294,6 +340,11 @@ export default function piRoles(pi: ExtensionAPI) {
 		loaded = reload(ctx.cwd);
 		warnedInvalid = false;
 		mode = { kind: "auto" };
+		// A lock outlives the process: restore it when its role still
+		// resolves — the next input applies the model (never at startup,
+		// which would fight --model / ADR-0009).
+		restoreState();
+		publishState();
 		if (loaded.status === "invalid" && !warnedInvalid) {
 			warnedInvalid = true;
 			ctx.ui.notify(`pi-roles: ${loaded.error}`, "error");
@@ -329,6 +380,7 @@ export default function piRoles(pi: ExtensionAPI) {
 			return;
 		}
 		mode = { kind: "lock", role };
+		publishState();
 		const r = await apply(ctx, d.target, d.why);
 		// Already on that model: still confirm — a silent lock looks stuck.
 		if (r === "noop") ctx.ui.notify(assignmentLine(d.target, d.why), "info");
@@ -338,6 +390,7 @@ export default function piRoles(pi: ExtensionAPI) {
 		description: "Auto: image → vision role, text → default role",
 		handler: async (_args, ctx) => {
 			mode = { kind: "auto" };
+			publishState();
 			ctx.ui.notify("Auto: image → vision, text → default", "info");
 		},
 	});
@@ -366,6 +419,7 @@ export default function piRoles(pi: ExtensionAPI) {
 			}
 			if (name === "auto") {
 				mode = { kind: "auto" };
+				publishState();
 				ctx.ui.notify("Auto: image → vision, text → default", "info");
 				return;
 			}
@@ -414,14 +468,12 @@ export default function piRoles(pi: ExtensionAPI) {
 			ctx.ui.notify(loaded.error, "error");
 			return;
 		}
-		const options: string[] = ["auto"];
-		if (loaded.config.builtin.default) options.push("default");
-		if (loaded.config.builtin.vision) options.push("vision");
-		if (loaded.config.builtin.plan) options.push("plan");
-		for (const c of loaded.config.custom) options.push(c.name);
+		const options: string[] = [roleOption("auto")];
+		for (const e of roleEntries(loaded.config)) options.push(roleOption(e.name, e.assignment));
 		const current = mode.kind === "auto" ? "auto" : mode.role;
-		const choice = await ctx.ui.select(`Roles (current: ${current})`, options);
-		if (!choice) return;
+		const rawChoice = await ctx.ui.select(`Roles (current: ${current})`, options);
+		if (!rawChoice) return;
+		const choice = roleFromChoice(rawChoice);
 		if (choice === "auto") {
 			mode = { kind: "auto" };
 			ctx.ui.notify("Auto: image → vision, text → default", "info");
@@ -439,11 +491,13 @@ export default function piRoles(pi: ExtensionAPI) {
 		const cur = writable(ctx);
 		if (!cur) return;
 		while (true) {
-			const role = named || (await ctx.ui.select("Edit which role?", [
-				...BUILTIN_ROLES,
-				...cur.effective.custom.map((c) => c.name),
+			const roleChoice = named || (await ctx.ui.select("Edit which role?", [
+				...BUILTIN_ROLES.map((name) => roleOption(name, cur.effective.builtin[name])),
+				...cur.effective.custom.map((c) =>
+					roleOption(c.name, { model: c.model, ...(c.thinking ? { thinking: c.thinking } : {}) })),
 			]));
-			if (!role) return;
+			if (!roleChoice) return;
+			const role = roleFromChoice(roleChoice);
 			const picked = await pickAssignment(ctx, `Model for ${role}`, !named, cur.overlay);
 			if (picked === "back") {
 				if (named) return;
@@ -507,34 +561,62 @@ export default function piRoles(pi: ExtensionAPI) {
 	async function removeFlow(ctx: ExtensionContext, named: string) {
 		const cur = writable(ctx);
 		if (!cur) return;
-		if (cur.config.custom.length === 0) {
-			ctx.ui.notify(
-				cur.overlay && cur.effective.custom.length > 0
-					? "No custom roles on this agent. Workspace presets stay in .pi/roles.json."
-					: "No custom roles.",
-				"warning",
+		if (cur.effective.custom.length === 0) {
+			ctx.ui.notify("No custom presets yet — /roles add creates one.", "warning");
+			return;
+		}
+		const ws = readFileAt(join(ctx.cwd, WORKSPACE_REL), WORKSPACE_REL);
+		if (ws.status === "invalid") {
+			ctx.ui.notify(ws.error, "error");
+			return;
+		}
+		const wsConfig = ws.status === "ok" ? ws.config : emptyConfig();
+		const overlayConfig = cur.overlay ? cur.config : emptyConfig();
+		while (true) {
+			const choice = named || (await ctx.ui.select(
+				"Remove which preset?",
+				cur.effective.custom.map((c) =>
+					roleOption(c.name, { model: c.model, ...(c.thinking ? { thinking: c.thinking } : {}) })),
+			));
+			if (!choice) return;
+			const name = roleFromChoice(choice);
+			const scopes = removeScopes(wsConfig, overlayConfig, name);
+			if (scopes.length === 0) {
+				ctx.ui.notify(`Role "${name}" is not configured — /roles edit ${name} creates it.`, "error");
+				return;
+			}
+			// One layer holds it: no question. Both: ask which copy goes.
+			let scope: PickScope = scopes[0];
+			if (scopes.length > 1) {
+				const from = await ctx.ui.select("Remove from", [SCOPE_AGENT, SCOPE_WORKSPACE, BACK]);
+				if (!from) return;
+				if (from === BACK) {
+					if (named) return;
+					continue;
+				}
+				scope = from === SCOPE_AGENT ? "agent" : "workspace";
+			}
+			const target = layerFor(ctx, cur, scope);
+			if (!target) return;
+			const ok = await ctx.ui.confirm(
+				"Remove this preset?",
+				`${name}${savedNote(cur.overlay, scope)}`,
 			);
+			if (!ok) return;
+			const result = removeCustom(target.config, name);
+			if (!result.ok) {
+				ctx.ui.notify(result.error, "error");
+				return;
+			}
+			if (!save(ctx, result.config, target.raw, target.rel)) return;
+			ctx.ui.notify(`Removed ${name}${savedNote(cur.overlay, scope)}`, "info");
+			if (mode.kind === "lock" && mode.role === name
+				&& !resolveRole(configOrNull() ?? emptyConfig(), name)) {
+				mode = { kind: "auto" };
+				publishState();
+				ctx.ui.notify("Auto: image → vision, text → default", "info");
+			}
 			return;
-		}
-		const name =
-			named || (await ctx.ui.select("Remove which preset?", cur.config.custom.map((c) => c.name)));
-		if (!name) return;
-		if (cur.overlay && !cur.config.custom.some((c) => c.name === name)) {
-			ctx.ui.notify(`"${name}" is in .pi/roles.json (workspace). This agent can /roles edit it.`, "error");
-			return;
-		}
-		const ok = await ctx.ui.confirm("Remove this preset?", name);
-		if (!ok) return;
-		const result = removeCustom(cur.config, name);
-		if (!result.ok) {
-			ctx.ui.notify(result.error, "error");
-			return;
-		}
-		if (!save(ctx, result.config, cur.raw, cur.writeRel)) return;
-		ctx.ui.notify(`Removed ${name}${savedNote(cur.overlay, "agent")}`, "info");
-		if (mode.kind === "lock" && mode.role === name) {
-			mode = { kind: "auto" };
-			ctx.ui.notify("Auto: image → vision, text → default", "info");
 		}
 	}
 
@@ -585,6 +667,7 @@ export default function piRoles(pi: ExtensionAPI) {
 			mode = { kind: "auto" };
 			ctx.ui.notify("Auto: image → vision, text → default", "info");
 		}
+		publishState();
 	}
 }
 

@@ -307,19 +307,24 @@ function AskCard({ it, onReply, onPrefill }) {
   }
 
   const confirmDanger = method === "confirm" && /^(delete|remove)/i.test((current && current.title) || "");
-  const pills = answered.map((s, i) => (
-    <Fragment key={s.id}>
-      {i > 0 ? <span className="ask-arrow" aria-hidden="true">›</span> : null}
-      <div className="ask-step">
-        <span className="ask-step-lab">{fieldLabel(s.title)}</span>
-        {canBack ? (
-          <button type="button" className="ask-pill" title="Go back to this step" onClick={() => send({ backTo: i })}>{s.answer}</button>
-        ) : (
-          <span className="ask-pill ask-pill-static">{s.answer}</span>
-        )}
-      </div>
-    </Fragment>
-  ));
+  const pills = answered.map((s, i) => {
+    const lab = fieldLabel(s.title);
+    // Decorated role options ("vision — xai/… · medium") pill as the name.
+    const shown = lab === "Role" || lab === "Name" ? String(s.answer).split(" — ")[0] : s.answer;
+    return (
+      <Fragment key={s.id}>
+        {i > 0 ? <span className="ask-arrow" aria-hidden="true">›</span> : null}
+        <div className="ask-step">
+          <span className="ask-step-lab">{lab}</span>
+          {canBack ? (
+            <button type="button" className="ask-pill" title="Go back to this step" onClick={() => send({ backTo: i })}>{shown}</button>
+          ) : (
+            <span className="ask-pill ask-pill-static">{shown}</span>
+          )}
+        </div>
+      </Fragment>
+    );
+  });
 
   return (
     <div className="ask-card open" onKeyDown={onKey}>

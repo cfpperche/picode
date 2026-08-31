@@ -2,6 +2,7 @@ import { useState } from "react";
 import Conversation from "./Conversation.jsx";
 import ConversationRail from "./ConversationRail.jsx";
 import Composer from "./Composer.jsx";
+import RoleChip from "./RoleChip.jsx";
 import ProviderChip from "./ProviderChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
@@ -63,6 +64,7 @@ export default function ChatSurface({
               <p className="stopped-line">Agent is stopped. Run it to send a message.</p>
               <div className="composer-controls">
                 <div className="composer-left chip-group">
+                  <RoleChip state={composer && composer.roleState} onCommand={composer && composer.onRoleCommand} />
                   <ProviderChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ModelChip catalog={catalog} cfg={cfg} onChange={onCfg} />
                   <ThinkingChip catalog={catalog} cfg={cfg} onChange={onCfg} />

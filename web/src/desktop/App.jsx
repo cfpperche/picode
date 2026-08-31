@@ -117,6 +117,8 @@ export default function App() {
   const flushingRef = useRef(false);
   // Which agent the items on screen belong to (guards ask-memory writes).
   const itemsAgentRef = useRef("");
+  // Active pi-roles state for the composer chip (null = no chip).
+  const [roleState, setRoleState] = useState(null);
   // Last snapshot per panel: reconciles restored open asks against reality.
   const snapWaitingRef = useRef({ agentId: "", waiting: false });
   const [items, setItems] = useState([]);
@@ -355,6 +357,19 @@ export default function App() {
       });
     } catch { /* live chat stays */ }
   }, [selectedId, workspaces, freeAgents]);
+
+  const fetchRoleState = useCallback(async () => {
+    const id = selectedRef.current;
+    if (!id) { setRoleState(null); return; }
+    try {
+      const d = await api("/api/agents/" + id + "/role-state");
+      if (selectedRef.current === id) setRoleState((d && d.state) || null);
+    } catch { /* keep the last known state */ }
+  }, []);
+  useEffect(() => {
+    setRoleState(null);
+    if (selectedId) fetchRoleState();
+  }, [selectedId, fetchRoleState]);
 
   useEffect(() => { loadSessions(); }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
@@ -895,6 +910,7 @@ export default function App() {
     switch (ev.type) {
       case "snapshot":
         optimisticRef.current = false;
+        fetchRoleState();
         snapWaitingRef.current = { agentId: panel.agentId, waiting: !!ev.waiting };
         setStreaming(!!ev.streaming);
         streamingRef.current = !!ev.streaming;
@@ -917,6 +933,7 @@ export default function App() {
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
         if (selectedId) loadStatus();
+        fetchRoleState();
         pinNewestSession();
         queueMicrotask(() => flushFollowUp());
         break;
@@ -1109,6 +1126,8 @@ export default function App() {
           });
         } else if (method === "notify") {
           const msg = ev.message || "Notice";
+          // Any roles/extension notify may mean the mode changed.
+          fetchRoleState();
           // Any notify from an extension command ends an unconfirmed Working.
           if (optimisticRef.current) {
             optimisticRef.current = false;
@@ -2119,6 +2138,7 @@ export default function App() {
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
+              roleState, onRoleCommand: (cmd) => sendTask(cmd),
               slashExtra, atAgents, onAgentPage: go, pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,

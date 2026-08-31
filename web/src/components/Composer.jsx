@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import ProviderChip from "./ProviderChip.jsx";
+import RoleChip from "./RoleChip.jsx";
 import ModelChip from "./ModelChip.jsx";
 import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
@@ -27,7 +28,7 @@ import { toast } from "../lib/toast.js";
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 
 export default function Composer({
-  kind, onKind, value, onChange, onSend, status, streaming, waiting,
+  kind, onKind, value, onChange, onSend, status, streaming, waiting, roleState, onRoleCommand,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
   slashExtra, atAgents, agentId, onAgentPage, pkgUpdates,
 }) {
@@ -685,6 +686,7 @@ export default function Composer({
             </div>
           ) : (
             <div className="composer-left chip-group">
+              <RoleChip state={roleState} onCommand={onRoleCommand} />
               <ProviderChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
               <ModelChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
               <ThinkingChip catalog={catalog} cfg={cfg} onChange={onConfig || (() => {})} />
