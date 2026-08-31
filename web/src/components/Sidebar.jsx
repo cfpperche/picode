@@ -242,7 +242,7 @@ export default function Sidebar({
             const wsTerms = workspaceTerminals(terminals, ws.id);
             return (
             <li key={ws.id} className="ws-group">
-              <div className="ws-group-head tree-row" onClick={() => toggleWs(ws.id)}>
+              <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="tree-icon"><WsFavicon ws={ws} /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
