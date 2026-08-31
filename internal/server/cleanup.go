@@ -13,7 +13,9 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// cleanupPreview is the opt-in purge offer shown before delete.
+// cleanupPreview is the opt-in purge offer shown before delete. Terminals is
+// filled only for workspace previews (ADR-0026): removing a workspace kills
+// its terminals, and the dialog says so; an agent preview leaves it zero.
 type cleanupPreview struct {
 	Cwd          string `json:"cwd"`
 	LastOccupant bool   `json:"lastOccupant"`
@@ -21,6 +23,7 @@ type cleanupPreview struct {
 	SessionBytes int64  `json:"sessionBytes"`
 	CanPurgeWork bool   `json:"canPurgeWork"`
 	WorkPath     string `json:"workPath,omitempty"`
+	Terminals    int    `json:"terminals,omitempty"`
 }
 
 func queryFlag(r *http.Request, key string) bool {
@@ -215,6 +218,13 @@ func handleWorkspaceCleanup(deps Deps) http.HandlerFunc {
 		for _, a := range agents {
 			dying[a.ID] = true
 		}
-		writeJSON(w, http.StatusOK, deps.previewCleanup(wk.Path, dying))
+		terms, err := deps.Store.ListWorkspaceTerminals(wk.ID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		p := deps.previewCleanup(wk.Path, dying)
+		p.Terminals = len(terms)
+		writeJSON(w, http.StatusOK, p)
 	}
 }

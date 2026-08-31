@@ -323,3 +323,115 @@ func TestOpenTerminalReportsTheLiveViewToo(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
+
+func TestCreateTerminalInWorkspaceUsesItsFolder(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	proj := t.TempDir()
+	created := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "App", "path": proj})
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("workspace = %d", created.StatusCode)
+	}
+	var ws map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&ws)
+	created.Body.Close()
+	wsID, _ := ws["id"].(string)
+	wsPath, _ := ws["path"].(string)
+
+	made := postJSON(t, ts, "/api/terminals", map[string]any{"workspaceId": wsID})
+	if made.StatusCode != http.StatusCreated {
+		t.Fatalf("terminal = %d", made.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(made.Body).Decode(&page)
+	made.Body.Close()
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), sess) })
+	if page["workspaceId"] != wsID {
+		t.Fatalf("workspaceId=%v want %q", page["workspaceId"], wsID)
+	}
+	got, _ := filepath.EvalSymlinks(page["cwd"].(string))
+	want, _ := filepath.EvalSymlinks(wsPath)
+	if got != want {
+		t.Fatalf("cwd=%q want %q", got, want)
+	}
+
+	listed := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+	var out struct {
+		Terminals []map[string]any `json:"terminals"`
+	}
+	_ = json.NewDecoder(listed.Body).Decode(&out)
+	listed.Body.Close()
+	if len(out.Terminals) != 1 || out.Terminals[0]["workspaceId"] != wsID {
+		t.Fatalf("list=%+v want one row owned by %q", out.Terminals, wsID)
+	}
+}
+
+func TestCreateTerminalRejectsUnknownWorkspace(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	res := postJSON(t, ts, "/api/terminals", map[string]any{"workspaceId": "ws-nope"})
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("create = %d, want 400", res.StatusCode)
+	}
+}
+
+func TestDeleteWorkspaceKillsItsTerminals(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	proj := t.TempDir()
+	created := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "App", "path": proj})
+	var ws map[string]any
+	_ = json.NewDecoder(created.Body).Decode(&ws)
+	created.Body.Close()
+	wsID, _ := ws["id"].(string)
+
+	made := postJSON(t, ts, "/api/terminals", map[string]any{"workspaceId": wsID})
+	var page map[string]any
+	_ = json.NewDecoder(made.Body).Decode(&page)
+	made.Body.Close()
+	termID, _ := page["id"].(string)
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), sess) })
+	if live, _ := tm.HasSession(context.Background(), sess); !live {
+		t.Fatal("session should be live before the delete")
+	}
+
+	preview := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsID+"/cleanup"))
+	var p map[string]any
+	_ = json.NewDecoder(preview.Body).Decode(&p)
+	preview.Body.Close()
+	if n, _ := p["terminals"].(float64); n != 1 {
+		t.Fatalf("cleanup preview terminals=%v want 1", p["terminals"])
+	}
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/workspaces/"+wsID, nil)
+	if res := do(t, ts.Client(), req); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete = %d", res.StatusCode)
+	}
+	if live, _ := tm.HasSession(context.Background(), sess); live {
+		t.Fatal("terminal session survived the workspace delete")
+	}
+	listed := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+	var out struct {
+		Terminals []map[string]any `json:"terminals"`
+	}
+	_ = json.NewDecoder(listed.Body).Decode(&out)
+	listed.Body.Close()
+	for _, row := range out.Terminals {
+		if row["id"] == termID {
+			t.Fatal("terminal record survived the workspace delete")
+		}
+		if _, ok := row["workspaceId"]; !ok {
+			t.Fatalf("row without workspaceId: %+v", row)
+		}
+	}
+}
