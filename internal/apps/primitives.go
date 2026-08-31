@@ -1,0 +1,140 @@
+package apps
+
+import "fmt"
+
+// The primitive vocabulary (ADR-0036): a View is a JSON tree the PiCode
+// UI renders with its own components. Form fields reuse rpc.UIDialog's
+// field names and method enum (select|confirm|input|editor) so app forms
+// and pi extension dialogs stay one language.
+
+// View is one screen of an app.
+type View struct {
+	APIVersion int     `json:"apiVersion"`
+	Title      string  `json:"title"`
+	Blocks     []Block `json:"blocks"`
+}
+
+// Block is one vertical section of a view. Type picks which field is
+// meaningful; the rest stay empty.
+type Block struct {
+	Type     string     `json:"type"`               // "list" | "detail" | "form" | "actions"
+	Items    []ListItem `json:"items,omitempty"`    // list
+	Markdown string     `json:"markdown,omitempty"` // detail
+	Form     *Form      `json:"form,omitempty"`     // form
+	Actions  []Action   `json:"actions,omitempty"`  // actions
+}
+
+// ListItem is one row. Path, when set, navigates the view there on click.
+type ListItem struct {
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Subtitle string   `json:"subtitle,omitempty"`
+	Icon     string   `json:"icon,omitempty"`
+	Badge    string   `json:"badge,omitempty"` // short pill text on the row
+	Path     string   `json:"path,omitempty"`
+	Actions  []Action `json:"actions,omitempty"`
+}
+
+// Form posts its field values as the args of one action.
+type Form struct {
+	ID     string  `json:"id"`               // action id fired on submit
+	Submit string  `json:"submit,omitempty"` // submit button label
+	Fields []Field `json:"fields"`
+}
+
+// Field mirrors rpc.UIDialog.
+type Field struct {
+	Name        string   `json:"name"`
+	Method      string   `json:"method"` // select | confirm | input | editor
+	Title       string   `json:"title,omitempty"`
+	Message     string   `json:"message,omitempty"`
+	Options     []string `json:"options,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
+	Prefill     string   `json:"prefill,omitempty"`
+}
+
+// Action is a button. Confirm, when set, prompts before firing; Danger
+// styles it destructive.
+type Action struct {
+	ID      string            `json:"id"`
+	Label   string            `json:"label"`
+	Confirm string            `json:"confirm,omitempty"`
+	Danger  bool              `json:"danger,omitempty"`
+	Args    map[string]string `json:"args,omitempty"`
+}
+
+// ActionRequest is the body of POST /api/apps/{id}/action.
+type ActionRequest struct {
+	Action string            `json:"action"`
+	Path   string            `json:"path,omitempty"` // view path it was fired from
+	Args   map[string]string `json:"args,omitempty"` // includes form field values
+}
+
+// ActionResult tells the client what to do next: show a toast, replace
+// the current view, and/or navigate to a path (refetch).
+type ActionResult struct {
+	Toast string `json:"toast,omitempty"`
+	View  *View  `json:"view,omitempty"`
+	Path  string `json:"path,omitempty"`
+}
+
+func validMethod(m string) bool {
+	switch m {
+	case "select", "confirm", "input", "editor":
+		return true
+	}
+	return false
+}
+
+// Validate enforces the vocabulary so a bad tree fails in tests, not in
+// the renderer.
+func (v View) Validate() error {
+	if v.APIVersion != APIVersion {
+		return fmt.Errorf("view: apiVersion %d, want %d", v.APIVersion, APIVersion)
+	}
+	for i, b := range v.Blocks {
+		switch b.Type {
+		case "list":
+			for j, it := range b.Items {
+				if it.ID == "" || it.Title == "" {
+					return fmt.Errorf("view: block %d item %d needs id and title", i, j)
+				}
+				if err := validActions(it.Actions); err != nil {
+					return fmt.Errorf("view: block %d item %d: %w", i, j, err)
+				}
+			}
+		case "detail":
+			if b.Markdown == "" {
+				return fmt.Errorf("view: block %d detail needs markdown", i)
+			}
+		case "form":
+			if b.Form == nil || b.Form.ID == "" {
+				return fmt.Errorf("view: block %d form needs an id", i)
+			}
+			for j, f := range b.Form.Fields {
+				if f.Name == "" {
+					return fmt.Errorf("view: block %d field %d needs a name", i, j)
+				}
+				if !validMethod(f.Method) {
+					return fmt.Errorf("view: block %d field %d method %q unknown", i, j, f.Method)
+				}
+			}
+		case "actions":
+			if err := validActions(b.Actions); err != nil {
+				return fmt.Errorf("view: block %d: %w", i, err)
+			}
+		default:
+			return fmt.Errorf("view: block %d type %q unknown", i, b.Type)
+		}
+	}
+	return nil
+}
+
+func validActions(list []Action) error {
+	for _, a := range list {
+		if a.ID == "" || a.Label == "" {
+			return fmt.Errorf("action needs id and label")
+		}
+	}
+	return nil
+}

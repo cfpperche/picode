@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { parseRoute } from "../lib/routes.js";
+import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings } from "./Icons.jsx";
+import { IconChat, IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
+import AppsGrid from "./AppsGrid.jsx";
+import { aggregateBadge } from "../lib/appPrimitives.js";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine, termLine } from "../lib/repoLine.js";
@@ -43,6 +45,7 @@ export default function Sidebar({
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
   onGitGraph,
   onFileTree,
+  apps, onOpenApp,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -53,7 +56,7 @@ export default function Sidebar({
   const [tab, setTab] = useState(() => {
     try {
       const v = localStorage.getItem(TAB_KEY);
-      if (v === "pins" || v === "terms" || v === "agents") return v;
+      if (v === "pins" || v === "terms" || v === "agents" || v === "apps") return v;
       return "workspaces";
     } catch { return "workspaces"; }
   });
@@ -62,7 +65,10 @@ export default function Sidebar({
     try { localStorage.setItem(TAB_KEY, next); } catch { /* ignore */ }
   }
   useEffect(() => {
-    const sync = () => { if (parseRoute() === "pins") selectTab("pins"); };
+    const sync = () => {
+      if (parseRoute() === "pins") selectTab("pins");
+      else if (appRoute()) selectTab("apps");
+    };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
@@ -191,26 +197,34 @@ export default function Sidebar({
   const sortedFreeAgents = [...(freeAgents || [])].sort((a, b) =>
     displayAgentName(a, null).localeCompare(displayAgentName(b, null), undefined, { sensitivity: "base" }));
 
+  const appBadge = aggregateBadge(apps);
+
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
         <span className="brand-title">
           <span className="brand-name">PiCode</span>
-          {/* Four tabs eat the header; below ~254px the version would push
-              the name into ellipsis, so it yields (it lives in the user
-              menu too). The name never truncates. */}
-          {width >= 254 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
+          {/* Five tabs eat the header (ADR-0036); below ~286px the version
+              would push the name into ellipsis, so it yields (it lives in
+              the user menu too). The name never truncates. */}
+          {width >= 286 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
         </span>
-        <nav className="brand-tabs" role="tablist" aria-label="Sidebar">
+        <nav className={"brand-tabs" + (width < 240 ? " brand-tabs-tight" : "")} role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
+          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "apps"} title="Apps" aria-label="Apps" onClick={() => selectTab("apps")}>
+            <IconGrid size={16} />
+            {appBadge.count > 0 ? <span className="brand-tab-badge">{appBadge.count > 99 ? "99+" : appBadge.count}</span> : appBadge.dot ? <span className="brand-tab-dot" /> : null}
+          </button>
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
       </header>
 
       {tab === "pins" ? (
         <Pins />
+      ) : tab === "apps" ? (
+        <AppsGrid apps={apps} onOpen={onOpenApp} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">

@@ -461,3 +461,20 @@ Never exercised, because this machine was already past them:
   with the view as the first app, `packages/pi-inbox` giving agents
   async `notify_human`/`ask_human`. Web-benchmark research with sources
   in both ADRs. Next step: implementation plan for the 0036 pipeline.
+
+- **2026-08-31** — **Apps host pipeline (ADR-0036)** on branch
+  `worktree-feat-apps-host`: `internal/apps` (Manifest/Badge/Host,
+  primitives View/Block/ListItem/Form/Field/Action + Validate, explicit
+  Registry, hidden demo app), routes `GET /api/apps` (badges inline,
+  failure-proof), `GET /api/apps/{id}/view?path=`, `POST
+  /api/apps/{id}/action`; `Deps.Apps` nil-safe; env read in cmd only.
+  Web: `x:<id>` tabs + `#/app/<id>` (all six dispatch points), fifth
+  sidebar tab with grid/badges (tabs tighten to 26px under 240px so
+  PiCode fits at 180px), AppSurface renderer (Field methods mirror
+  rpc.UIDialog; Confirm→ConfirmDialog, toast/view/path results),
+  palette entries, `lib/appPrimitives.js` normalizers. QA on isolated
+  :8611 with PICODE_DEMO_APP=1: grid+badge, list→detail→danger
+  confirm→toast+replaced view, path navigation, form (4 methods),
+  gone card, no-env placeholder + empty `apps: []`. `make ci` green.
+  Note: first screenshot at 1.5s settle caught boot mid-flight —
+  use `--wait-ms 4000` for boot-dependent shots.

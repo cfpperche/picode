@@ -20,8 +20,11 @@ import {
   Folder,
   Folders,
   GitBranch,
+  FlaskConical,
   HardDrive,
   Home,
+  Inbox,
+  LayoutGrid,
   Heading2,
   Italic,
   Layers,
@@ -69,6 +72,7 @@ export const IconMonitor = lucide(Monitor, 13);
 export const IconPhone = lucide(Smartphone, 13);
 export const IconMoon = lucide(Moon, 13);
 export const IconChevronRight = lucide(ChevronRight, 13);
+export const IconChevronLeft = lucide(ChevronLeft, 13);
 export const IconDocs = lucide(Book, 12);
 export const IconExternal = lucide(ExternalLink, 13);
 export const IconTerminal = lucide(Terminal, 14);
@@ -83,6 +87,9 @@ export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
+export const IconGrid = lucide(LayoutGrid, 13);
+export const IconFlask = lucide(FlaskConical, 13);
+export const IconInbox = lucide(Inbox, 13);
 export const IconFile = lucide(File, 13);
 export const IconMore = lucide(EllipsisVertical, 14);
 export const IconEllipsis = lucide(Ellipsis, 14);

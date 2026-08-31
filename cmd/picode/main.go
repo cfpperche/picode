@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/config"
@@ -312,6 +313,9 @@ func serve() {
 			}
 		},
 		PortSnapshot: state.snapshot,
+		// Apps host (ADR-0036). PICODE_DEMO_APP=1 adds the hidden QA app;
+		// the env read lives here, never inside internal/apps.
+		Apps: apps.NewRegistry(apps.BuiltIns(os.Getenv("PICODE_DEMO_APP") == "1")...),
 	}
 
 	sigs := make(chan os.Signal, 1)

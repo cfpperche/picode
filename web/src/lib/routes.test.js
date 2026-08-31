@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot } from "./routes.js";
+import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -127,4 +127,24 @@ test("file tabs carry the workspace owner since ADR-0030", () => {
   assert.deepEqual(parseFileTab(fileTabId("workspace", "ws-9", "a.go")), { kind: "workspace", id: "ws-9", path: "a.go" });
   // the old two-owner ids still parse
   assert.deepEqual(parseFileTab("f:t:sh1:a.go"), { kind: "term", id: "sh1", path: "a.go" });
+});
+
+test("app tabs (ADR-0036) are self-describing", () => {
+  assert.equal(appTabId("demo"), "x:demo");
+  assert.ok(isAppTab("x:demo"));
+  assert.equal(tabAppId("x:demo"), "demo");
+  assert.equal(tabAppId("t:demo"), "");
+  assert.equal(appHash("demo"), "#/app/demo");
+  assert.equal(appRoute("#/app/demo"), "demo");
+  assert.equal(appRoute("#/app/a%20b"), "a b");
+  assert.equal(appRoute("#/agent/demo"), null);
+  assert.equal(parseRoute("#/app/demo"), "workspace");
+});
+
+test("app tabs are distinct from every other tab family", () => {
+  const app = appTabId("demo");
+  assert.ok(!isFileTab(app) && !isTermTab(app) && !isGitTab(app) && !isTreeTab(app));
+  assert.ok(!isAppTab(termTabId("demo")));
+  assert.ok(!isAppTab(gitTabId("/repo/.git")));
+  assert.ok(!isAppTab(treeTabId("/home/u/proj")));
 });

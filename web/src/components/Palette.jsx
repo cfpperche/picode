@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 
-export default function Palette({ open, workspaces, onClose, onRun }) {
-  const actions = useMemo(() => buildActions(workspaces), [workspaces]);
+export default function Palette({ open, workspaces, apps, onClose, onRun }) {
+  const actions = useMemo(() => buildActions(workspaces, apps), [workspaces, apps]);
   const groups = useMemo(() => {
     const m = new Map();
     for (const a of actions) {
@@ -46,7 +46,7 @@ export default function Palette({ open, workspaces, onClose, onRun }) {
   );
 }
 
-function buildActions(workspaces) {
+function buildActions(workspaces, apps) {
   const out = [
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
@@ -56,6 +56,9 @@ function buildActions(workspaces) {
     { id: "packages", label: "Packages", group: "app", kind: "packages" },
     { id: "devices", label: "Devices", group: "app", kind: "devices" },
   ];
+  for (const a of apps || []) {
+    out.push({ id: "app-" + a.id, label: "Open " + a.name, group: "apps", kind: "app", appId: a.id });
+  }
   for (const ws of workspaces) {
     const mode = ws.agent ? ws.agent.mode : "stopped";
     out.push({ id: "open-" + ws.id, label: "Open " + ws.name, group: ws.name, kind: "open", wsId: ws.id });

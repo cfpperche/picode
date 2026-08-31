@@ -116,8 +116,9 @@ body {
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;
-  /* Four tabs now — 36px each would leave 36px of title at the 180px
-     minimum width; 32px leaves room for "PiCode". */
+  /* Five tabs since ADR-0036. 32px each when the sidebar is comfortable;
+     below 240px the tabs tighten to 26px (five ≈ the old four at 32px)
+     so "PiCode" keeps its room at the 180px minimum. */
   width: 32px; height: 100%; padding: 0;
   border: 0; background: none; cursor: pointer;
   color: var(--text-secondary);
@@ -3072,3 +3073,101 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .termset-row-blockbtns { display: flex; align-items: center; gap: 8px; }
 .termset-seg-sm { margin-top: 8px; }
 .termset-seg-sm .termset-seg-face { height: 28px; padding: 0 11px; font-size: 11.5px; }
+
+/* ============ apps host (ADR-0036) ============ */
+.brand-tabs-tight .brand-tab { width: 26px; }
+/* Sidebar tab badge: numeric pill for actionable counts, dot for
+   activity. The tab is a 32px grid cell, so the badge floats. */
+.brand-tab { position: relative; }
+.brand-tab-badge {
+  position: absolute; top: 2px; right: 0;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px; background: var(--accent); color: var(--bg-base);
+  font-size: 9px; font-weight: 700; line-height: 14px; text-align: center;
+}
+.brand-tab-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Phone-style grid of app tiles, drawn from manifests only. */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px; padding: 4px;
+}
+.app-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 4px; border: 0; background: none; cursor: pointer;
+  border-radius: var(--radius-ctl); color: var(--text-primary);
+}
+.app-tile:hover { background: var(--bg-hover); }
+.app-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.app-tile-unsupported { opacity: 0.45; cursor: default; }
+.app-tile-unsupported:hover { background: none; }
+.app-tile-face {
+  position: relative;
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: 12px; background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.app-tile-badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px; background: var(--accent); color: var(--bg-base);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+.app-tile-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); border: 1px solid var(--bg-base);
+}
+.app-tile-name {
+  font-size: 11px; color: var(--text-secondary);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-icon-letter { font-weight: 700; line-height: 1; }
+
+/* The open app: host chrome (reuses .ft-head/.ft-title/.ft-msg), app
+   content as primitive blocks. */
+.app-surface {
+  flex: 1; display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; overflow: hidden;
+  background: var(--bg-base);
+}
+.app-surface .ft-title { font-family: var(--sans); }
+.app-head-icon { display: grid; place-items: center; color: var(--text-secondary); }
+.app-back { padding: 0 6px; }
+.app-body {
+  flex: 1; overflow-y: auto; padding: 12px;
+  max-width: 640px; display: flex; flex-direction: column; gap: 14px;
+}
+.app-detail { font-size: 13px; line-height: 1.55; }
+.app-detail > :first-child { margin-top: 0; }
+.app-detail > :last-child { margin-bottom: 0; }
+.app-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.app-list-row { display: flex; align-items: center; gap: 8px; }
+.app-row-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: 0; background: none; text-align: left;
+  border-radius: var(--radius-ctl); color: var(--text-primary);
+}
+.app-row-link { cursor: pointer; }
+.app-row-link:hover { background: var(--bg-hover); }
+.app-row-icon { display: grid; place-items: center; color: var(--text-secondary); flex: 0 0 auto; }
+.app-row-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.app-row-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-row-sub { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-row-badge {
+  flex: 0 0 auto; padding: 1px 6px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 10.5px; font-weight: 600;
+}
+.app-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.app-form { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+.app-field { display: flex; flex-direction: column; gap: 4px; }
+.app-field-title { font-size: 12px; font-weight: 600; }
+.app-field-msg { font-size: 12px; color: var(--text-secondary); }
+.app-field-confirm { display: flex; align-items: center; min-height: 20px; }
+.app-field-editor { resize: vertical; font-family: var(--mono); }

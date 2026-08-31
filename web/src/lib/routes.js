@@ -29,6 +29,7 @@ export function parseRoute(hash) {
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
   if (h.startsWith("/tree/")) return "workspace";
+  if (h.startsWith("/app/")) return "workspace";
   return "workspace";
 }
 
@@ -256,4 +257,29 @@ export function isTreeTab(id) {
 
 export function treeTabRoot(id) {
   return isTreeTab(id) ? String(id).slice(2) : "";
+}
+
+// Apps host (ADR-0036). One identity only: the tab id and the hash both
+// name the app — no owner sidecar, an app tab is self-describing.
+export function appTabId(id) {
+  return id ? "x:" + id : "";
+}
+
+export function isAppTab(id) {
+  return String(id || "").startsWith("x:");
+}
+
+export function tabAppId(id) {
+  return isAppTab(id) ? String(id).slice(2) : "";
+}
+
+export function appHash(id) {
+  return id ? "#/app/" + encodeURIComponent(id) : "#/";
+}
+
+export function appRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/app\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }

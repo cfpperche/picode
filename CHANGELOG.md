@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Apps host (ADR-0036).** A fifth sidebar tab shows a grid of app
+  tiles drawn from `GET /api/apps` manifests; an app opens as a main
+  tab (`#/app/<id>`) whose content is a versioned tree of UI primitives
+  (list, markdown detail, form, actions) rendered by PiCode's own
+  components — no third-party code in the process or page. Badges:
+  numeric for actionable items, dot for activity, aggregated on the tab
+  icon. v1 ships no visible apps: the grid carries a placeholder and
+  `PICODE_DEMO_APP=1` enables a hidden QA app exercising every
+  primitive. The Inbox (ADR-0037) lands as the first real app.
+
 ### Changed
 
 - **A slash command's only notify lands in the thread, not in a toast.**
