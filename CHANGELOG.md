@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Remove workspace can also delete the folder on disk.** An opt-in
+  checkbox in the Remove dialog reveals a GitHub-style typed
+  confirmation (type the folder name); the server re-verifies the name
+  and refuses root/home. A remote repository is never touched
+  (ADR-0035). The workspace-source switch in the New-workspace dialog
+  now spans the full row with folder/git icons.
+
 - **New workspace can clone a remote repository.** The New-workspace
   dialog gains a "Local folder | Clone repository" switch: paste an
   https/ssh URL (a `/tree/<branch>` link pasted from the browser works),

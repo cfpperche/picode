@@ -2092,6 +2092,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 13px; color: var(--text-primary); line-height: 1.35;
 }
 .dlg-choice input { margin-top: 2px; accent-color: var(--danger); }
+/* Typed confirmation under a destructive choice (ADR-0035): GitHub-style
+   "type the name to delete". The input reuses .dlg-input. */
+.dlg-typed { margin: 6px 0 0 22px; }
+.dlg-typed-hint { margin: 0; font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.dlg-typed .dlg-input { margin-top: 8px; font-family: var(--mono); }
 .dlg-input {
   display: block; width: 100%; margin-top: 12px; padding: 0 10px;
   height: var(--ctl-h); box-sizing: border-box;
@@ -2128,10 +2133,10 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
    mechanics as .termset-seg — the input covers its whole segment so the hit
    area is the segment, not a hidden 1px corner. */
 .create-seg {
-  display: flex; width: fit-content; max-width: 100%; margin-bottom: 4px;
+  display: flex; width: 100%; margin-bottom: 4px; box-sizing: border-box;
   border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;
 }
-.create-seg-opt { display: flex; position: relative; }
+.create-seg-opt { display: flex; position: relative; flex: 1; min-width: 0; }
 /* Outspecify the dlg-create 100%-width input rule: the radio must cover
    exactly its own segment. */
 .form-new .create-seg-opt input {
@@ -2139,7 +2144,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   opacity: 0; cursor: pointer;
 }
 .create-seg-face {
-  display: inline-flex; align-items: center; height: var(--ctl-h);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1; min-width: 0; height: var(--ctl-h);
   padding: 0 14px; box-sizing: border-box;
   border-right: 1px solid var(--border);
   background: var(--bg-base); color: var(--text-secondary);

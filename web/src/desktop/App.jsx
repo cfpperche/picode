@@ -1219,7 +1219,7 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
-  async function confirmCleanup({ title, message, path }) {
+  async function confirmCleanup({ title, message, path, extraChoices }) {
     let preview = { lastOccupant: false, sessions: 0, sessionBytes: 0, canPurgeWork: false };
     try { preview = await api(path); } catch { /* unregister still allowed */ }
     if (preview.terminals > 0) {
@@ -1237,12 +1237,17 @@ export default function App() {
     if (preview.canPurgeWork) {
       choices.push({ id: "work", label: "Also delete the work folder" });
     }
+    for (const c of extraChoices || []) choices.push(c);
     const ok = await askConfirm({ title, message, confirmLabel: "Remove", danger: true, choices });
     if (!ok) return null;
     const picked = ok === true ? {} : ok;
     const q = new URLSearchParams();
     if (picked.sessions) q.set("sessions", "1");
     if (picked.work) q.set("work", "1");
+    for (const c of extraChoices || []) {
+      if (!picked[c.id]) continue;
+      for (const [k, v] of Object.entries(c.params || {})) q.set(k, v);
+    }
     const qs = q.toString();
     return { query: qs ? "?" + qs : "" };
   }
@@ -1284,10 +1289,22 @@ export default function App() {
   }
 
   async function removeWorkspace(ws) {
+    // Opt-in local deletion (ADR-0035): GitHub-style typed confirmation.
+    // The remote repository (if any) is never touched.
+    const folderName = String(ws.path || "").split("/").filter(Boolean).pop() || "";
     const choice = await confirmCleanup({
       title: "Remove workspace",
-      message: `Remove "${ws.name}"? The project folder is not deleted.`,
+      message: `Remove "${ws.name}"? The project folder is kept unless you say otherwise below.`,
       path: "/api/workspaces/" + ws.id + "/cleanup",
+      extraChoices: folderName ? [{
+        id: "files",
+        label: `Also delete the project folder on disk (${ws.path})`,
+        typed: {
+          expected: folderName,
+          hint: `This permanently deletes local files. Type "${folderName}" to confirm — a remote repository is not touched.`,
+        },
+        params: { files: "1", confirm: folderName },
+      }] : [],
     });
     if (!choice) return;
     try {

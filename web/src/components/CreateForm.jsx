@@ -5,6 +5,7 @@ import ConfigFields from "./ConfigFields.jsx";
 import FolderField from "./FolderField.jsx";
 import { useMedia } from "../lib/media.js";
 import { deriveRepo, cloneDest } from "../lib/cloneUrl.js";
+import { IconFolder, IconGit } from "./Icons.jsx";
 
 export default function CreateForm({
   open, kind, workspaceName, catalog, cfg, onCfg, error, onSubmit, onClose,
@@ -69,11 +70,11 @@ export default function CreateForm({
           <div className="create-seg" role="radiogroup" aria-label="Workspace source">
             <label className="create-seg-opt">
               <input type="radio" name="ws-src" value="local" checked={wsSrc === "local"} onChange={() => setWsSrc("local")} />
-              <span className="create-seg-face">Local folder</span>
+              <span className="create-seg-face"><IconFolder size={13} /> Local folder</span>
             </label>
             <label className="create-seg-opt">
               <input type="radio" name="ws-src" value="remote" checked={wsSrc === "remote"} onChange={() => setWsSrc("remote")} />
-              <span className="create-seg-face">Clone repository</span>
+              <span className="create-seg-face"><IconGit size={13} /> Clone repository</span>
             </label>
           </div>
           {wsSrc === "local" ? (
