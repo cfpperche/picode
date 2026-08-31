@@ -1074,6 +1074,26 @@ export default function App() {
     return { query: qs ? "?" + qs : "" };
   }
 
+  async function renameAgent(ag, shown) {
+    if (!ag) return;
+    // A workspace agent still called "default" shows its workspace's name;
+    // the field opens on what the card says, never blank.
+    const name = await askPrompt({
+      title: "Rename agent",
+      defaultValue: ag.name && ag.name !== "default" ? ag.name : (shown || ""),
+      confirmLabel: "Save",
+    });
+    if (!name) return;
+    try {
+      await api("/api/agents/" + ag.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      await loadWorkspaces();
+    } catch (err) { toastError(err); }
+  }
+
   async function removeAgent(ag) {
     const choice = await confirmCleanup({
       title: "Remove agent",
@@ -1513,6 +1533,7 @@ export default function App() {
         onStop={stopAgent}
         onRemove={removeWorkspace}
         onRemoveAgent={removeAgent}
+        onRenameAgent={renameAgent}
         freeAgents={freeAgents}
         workingId={(streaming || waiting) ? selectedId : null}
         workingIds={tuiWorking}

@@ -20,7 +20,7 @@ export default function Sidebar({
   version, workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
-  freeAgents, onNewFree, onNewAgent, onRemoveAgent,
+  freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
   workingId,
   workingIds,
   waitingId,
@@ -103,7 +103,10 @@ export default function Sidebar({
         <div className="ws-row1 tree-row">
           <span className="tree-spc" aria-hidden="true" />
           {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
-          <span className="ws-name" title={title}>{label}{model ? <span className="ws-model"> - {model}</span> : null}</span>
+          <span className="ws-name" title={title}>
+            <button type="button" className="ws-name-btn" title="Rename" onClick={() => onRenameAgent && onRenameAgent(ag, label)}>{label}</button>
+            {model ? <span className="ws-model"> - {model}</span> : null}
+          </span>
           {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
         </div>
         <div className="ws-row2 tree-row">
