@@ -1,0 +1,28 @@
+{
+  "name": "pi-inbox",
+  "version": "0.1.0",
+  "description": "Opt-in inbox tools for pi: notify_human and ask_human file items into PiCode's inbox (ADR-0037).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/inbox.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-inbox"
+  }
+}

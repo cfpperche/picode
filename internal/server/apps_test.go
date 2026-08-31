@@ -61,12 +61,27 @@ func TestListAppsWithBadge(t *testing.T) {
 	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
 		t.Fatalf("GET /api/apps = %d", code)
 	}
-	if body.APIVersion != apps.APIVersion || len(body.Apps) != 1 {
+	if body.APIVersion != apps.APIVersion || len(body.Apps) != 2 {
 		t.Fatalf("list = %+v", body)
 	}
-	a := body.Apps[0]
-	if a.ID != "demo" || a.Icon == "" || a.APIVersion != apps.APIVersion || a.Badge.Count != 3 {
+	byID := map[string]int{}
+	for i, a := range body.Apps {
+		byID[a.ID] = i
+	}
+	demoRow, ok := byID["demo"]
+	if !ok {
+		t.Fatalf("demo missing: %+v", body.Apps)
+	}
+	a := body.Apps[demoRow]
+	if a.Icon == "" || a.APIVersion != apps.APIVersion || a.Badge.Count != 3 {
 		t.Fatalf("demo row = %+v", a)
+	}
+	inboxRow, ok := byID["inbox"]
+	if !ok {
+		t.Fatalf("inbox missing: %+v", body.Apps)
+	}
+	if b := body.Apps[inboxRow].Badge; b.Count != 0 || b.Dot {
+		t.Fatalf("empty inbox badge = %+v", b)
 	}
 }
 

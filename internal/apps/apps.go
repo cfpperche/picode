@@ -80,7 +80,7 @@ func (r *Registry) Find(id string) (App, bool) {
 // BuiltIns assembles the first-party apps. demo adds the hidden QA app
 // (the caller reads PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
-	var list []App
+	list := []App{inboxApp{}} // ADR-0037: the Inbox is the first production app
 	if demo {
 		list = append(list, demoApp{})
 	}

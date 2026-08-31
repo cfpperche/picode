@@ -224,12 +224,31 @@ HTTP API (Go 1.22 method patterns):
   apiVersion}` plus a live `badge` (`count` = actionable, `dot` =
   activity) per app; the poll target for the Apps tab. A badge failure
   degrades to no badge, never a failed list. First-party apps only,
-  assembled in `cmd/picode` (`PICODE_DEMO_APP=1` adds a hidden QA app).
+  assembled in `cmd/picode`; the registry seeds the **Inbox** (ADR-0037)
+  and `PICODE_DEMO_APP=1` adds a hidden QA app.
 - `GET /api/apps/{id}/view?path=…` — one screen of an app as a tree of
   UI primitives (list / detail-markdown / form / actions) the SPA
   renders with host components; `apiVersion` gates rendering on both
   sides. `POST /api/apps/{id}/action` — `{action, path, args}` →
   `{toast?, view?, path?}`.
+- `POST /api/inbox` — file an inbox item (ADR-0037): `{kind:
+  fyi|question|approval|result, sourceKind: agent|terminal|system,
+  sourceId?, workspaceId?, reason, title, body?, blocking?,
+  allowedResponses?}`. Localhost trust model (ADR-0007); provenance is
+  mandatory and bodies render as markdown, never HTML. Questions and
+  approvals block by nature. `GET /api/inbox?state=&blocking=` lists
+  (snoozed hidden until due). `POST /api/inbox/{id}/respond` `{verb:
+  accept|edit|respond|ignore, text}` answers and marks done; an
+  agent-sourced question forwards the reply as a durable `follow_up`
+  task (source `inbox`) — a stopped agent drains it on next start, a
+  deleted agent yields 409 and the item stays open, annotated. `POST
+  /api/inbox/{id}/state` triages (`unread|read|done`, `snoozedUntil`).
+  PiCode itself files items from the RPC pump: a run that settles with
+  no `/ws/agent` subscriber becomes a `result` carrying the agent's
+  final message (an unread result per agent is superseded, not piled);
+  an unexpected process exit becomes an `fyi` (a requested Stop files
+  nothing). Agents file via `packages/pi-inbox` (`notify_human`,
+  `ask_human`), identified by `PICODE_AGENT_ID` set on every spawn.
 - `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
   public/static/app/src/app/www/docs; svg > png > ico), read-only and
   confined to the folder; the workspace card wears it.

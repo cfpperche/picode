@@ -7,6 +7,7 @@ PiCode is **source-available**, not OSI open source.
 | Personal, hobby, education, research, charities, government | [PolyForm Noncommercial 1.0.0](LICENSE) |
 | Commercial / enterprise (including internal use at a company) | Paid license — see [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) |
 | `packages/pi-roles/` (the installable pi package) | [MIT](packages/pi-roles/LICENSE) — see [ADR-0028](docs/decisions/0028-model-roles.md) |
+| `packages/pi-inbox/` (the installable pi package) | [MIT](packages/pi-inbox/LICENSE) — see [ADR-0037](docs/decisions/0037-inbox-async-agent-human-messages.md) |
 
 Copyright stays with the author. A license is a **grant of permission**,
 not a transfer of ownership. MIT/Apache would give enterprise an
@@ -33,7 +34,7 @@ Noncommercial 1.0.0 **and** grant the copyright holder the right to
 offer that contribution under a commercial license. Do not contribute
 code you cannot offer on those terms.
 
-**Exception:** contributions under `packages/pi-roles/` are licensed MIT.
+**Exception:** contributions under `packages/pi-roles/` and `packages/pi-inbox/` are licensed MIT.
 Do not contribute code there you cannot offer under MIT. The same carve-out
 applies to any future installable pi extension we author in this tree
 (ADR-0028).

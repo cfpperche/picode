@@ -497,3 +497,22 @@ Never exercised, because this machine was already past them:
   sensitive actions (agent approvals, destructive confirms — tokens
   don't stop phishing, host-rendered controls do); the primitive
   vocabulary is frozen at the four blocks. v1 refusals unchanged.
+
+- **2026-08-31** — **Inbox (ADR-0037)** on branch `worktree-feat-inbox`:
+  migration 014 `inbox_items` (no FKs — items outlive sources), store
+  CRUD + `RespondAndForward` (verb/state validated BEFORE forwarding —
+  a rejected verb must never enqueue; caught by test), runtime filing
+  in `pumpEvents` (`Hub.Len()` unobserved gate, `lastFinal` from
+  agent_end, `stopRequested` so manual Stop files nothing), routes
+  `POST/GET /api/inbox` + respond (409 + annotation on dead agent) +
+  state/snooze, `internal/apps/inbox.go` seeded in `BuiltIns` (grid no
+  longer empty), `packages/pi-inbox` (MIT; notify_human/ask_human with
+  terminate:true, node:https loopback, soft failure when PiCode is
+  down), `PICODE_AGENT_ID` in SpawnEnv. Fixed in passing: AppSurface
+  load race (busyRef ate a navigation racing a focus refetch —
+  latest-wins seq now). QA on :8612: 4 kinds via curl, badge 2+dot,
+  needs-me/feed, question detail form → reply → toast → follow_up task
+  `queued/source=inbox` verified in SQLite, dead agent 409 + body
+  annotation + item open. `make ci` green. Live pi smoke of pi-inbox
+  (`pi -e packages/pi-inbox/extensions/inbox.ts` + ask_human) left for
+  the owner — spends provider credits.
