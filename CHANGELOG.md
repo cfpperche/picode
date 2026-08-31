@@ -14,10 +14,11 @@ to the `[Unreleased]` section. The repository's official language is English
 ### Fixed
 
 - **The sidebar version tells the truth.** Source builds show the running
-  revision (`v0.1.0+0550fa2`, `*` when the tree was dirty) instead of a
-  frozen `v0.1.0`; stamped release builds stay clean (`Stamped` ldflag in
-  the release workflow). `/api/version` gains `semver` for comparisons;
-  `picode update` prints the full build identity.
+  revision (`v0.1.0+0550fa2`) instead of a frozen `v0.1.0`; stamped
+  release builds stay clean (`Stamped` ldflag in the release workflow).
+  `/api/version` gains `semver` for comparisons; `picode update` prints
+  the full build identity. (No dirty marker: Go stamps `vcs.modified`
+  from the primary checkout, not the worktree being built.)
 
 ### Fixed
 

@@ -20,8 +20,13 @@ var Stamped = ""
 
 // Build is the display identity: the stamped release version as-is, or —
 // for a source build — Version plus the VCS revision Go embedded at build
-// time ("0.1.0+0550fa2", with a trailing * when the tree was dirty).
-// A binary with no VCS info falls back to plain Version.
+// time ("0.1.0+0550fa2"). A binary with no VCS info falls back to plain
+// Version.
+//
+// vcs.modified is deliberately ignored: Go computes it against the
+// repository's primary checkout, not the (linked) worktree being built,
+// and this repo's primary checkout is routinely dirty with other agents'
+// work — the flag would be noise, while the revision is exact.
 func Build() string {
 	if Stamped != "" {
 		return Version
@@ -30,28 +35,20 @@ func Build() string {
 	if !ok {
 		return Version
 	}
-	rev, modified := "", false
 	for _, s := range bi.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			rev = s.Value
-		case "vcs.modified":
-			modified = s.Value == "true"
+		if s.Key == "vcs.revision" {
+			return build(Version, s.Value)
 		}
 	}
-	return build(Version, rev, modified)
+	return Version
 }
 
-func build(v, rev string, modified bool) string {
+func build(v, rev string) string {
 	if rev == "" {
 		return v
 	}
 	if len(rev) > 7 {
 		rev = rev[:7]
 	}
-	s := v + "+" + rev
-	if modified {
-		s += "*"
-	}
-	return s
+	return v + "+" + rev
 }

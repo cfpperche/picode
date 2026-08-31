@@ -2,22 +2,21 @@ package version
 
 import "testing"
 
-// The display identity: source builds carry the revision (and a dirty
-// marker); missing VCS info degrades to the plain version.
+// The display identity: source builds carry the revision; missing VCS
+// info degrades to the plain version. (vcs.modified is ignored — see
+// Build's comment.)
 func TestBuild(t *testing.T) {
 	rows := []struct {
-		v, rev   string
-		modified bool
-		want     string
+		v, rev string
+		want   string
 	}{
-		{"0.1.0", "0550fa29aabbcc", false, "0.1.0+0550fa2"},
-		{"0.1.0", "0550fa29aabbcc", true, "0.1.0+0550fa2*"},
-		{"0.1.0", "", false, "0.1.0"},
-		{"2.3.4", "abc", false, "2.3.4+abc"},
+		{"0.1.0", "0550fa29aabbcc", "0.1.0+0550fa2"},
+		{"0.1.0", "", "0.1.0"},
+		{"2.3.4", "abc", "2.3.4+abc"},
 	}
 	for _, r := range rows {
-		if got := build(r.v, r.rev, r.modified); got != r.want {
-			t.Errorf("build(%q,%q,%v) = %q, want %q", r.v, r.rev, r.modified, got, r.want)
+		if got := build(r.v, r.rev); got != r.want {
+			t.Errorf("build(%q,%q) = %q, want %q", r.v, r.rev, got, r.want)
 		}
 	}
 }
