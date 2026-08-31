@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
@@ -143,6 +146,15 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		// Opt-in local deletion (ADR-0035): validated before anything is
+		// stopped or removed, so a refused delete leaves the workspace whole.
+		deleteFiles := queryFlag(r, "files")
+		if deleteFiles {
+			if err := checkFolderDeletable(wk.Path, r.URL.Query().Get("confirm")); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 		agents, err := deps.Store.ListAgents(wk.ID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -173,8 +185,41 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			return
 		}
 		deps.applyCleanup(preview, queryFlag(r, "sessions"), queryFlag(r, "work"))
+		if deleteFiles {
+			// The record is gone either way; a failed delete reports what is
+			// left on disk instead of pretending. The remote repository (if
+			// any) is never touched — this is a local rm only.
+			if err := os.RemoveAll(wk.Path); err != nil {
+				writeErr(w, http.StatusInternalServerError,
+					"workspace removed, but deleting the folder failed: "+err.Error())
+				return
+			}
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// checkFolderDeletable is the server-side gate for deleting a workspace's
+// folder: the typed confirmation must match the folder's name, and a few
+// paths are never deletable no matter what was typed.
+func checkFolderDeletable(path, confirm string) error {
+	abs, err := filepath.Abs(strings.TrimSpace(path))
+	if err != nil || abs == "" {
+		return errors.New("workspace path is not usable")
+	}
+	base := filepath.Base(abs)
+	if abs == string(filepath.Separator) || base == string(filepath.Separator) || base == "." {
+		return errors.New("refusing to delete the filesystem root")
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if h, err := filepath.Abs(home); err == nil && h == abs {
+			return errors.New("refusing to delete the home folder")
+		}
+	}
+	if strings.TrimSpace(confirm) != base {
+		return errors.New("type the folder name (" + base + ") to confirm deleting local data")
+	}
+	return nil
 }
 
 func handleOpen(deps Deps) http.HandlerFunc {
