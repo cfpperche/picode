@@ -187,6 +187,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-08-30** — Terminal appearance moved into `#/termset` ("Appearance —
+  this browser" section, global page only); Preferences lost its Terminal
+  tab and `#/preferences/terminal` degrades to Appearance. Storage homes
+  unchanged (ADR-0024 amended). Shared pieces extracted: `ThemeCard.jsx`,
+  `TermAppearance.jsx`.
+
 - **2026-08-30** — Follow-up caught by the owner's screenshot: the SELECTED
   terminal showed `~ / main` — an impossible pair. `POST /open` still
   answered with the record cwd and no git; the app merges that response into

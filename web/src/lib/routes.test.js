@@ -6,7 +6,8 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
   assert.equal(parseRoute("#/preferences/backup"), "preferences");
   assert.equal(prefSection("#/preferences"), "appearance");
-  assert.equal(prefSection("#/preferences/terminal"), "terminal");
+  // terminal appearance moved to #/termset; the old link degrades gracefully
+  assert.equal(prefSection("#/preferences/terminal"), "appearance");
   assert.equal(prefSection("#/preferences/backup"), "backup");
   assert.equal(parseRoute("#/settings"), "settings");
   assert.equal(ROUTES.preferences, "/preferences");

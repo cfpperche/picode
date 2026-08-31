@@ -40,7 +40,7 @@ export default function Hotkeys({ open, onClose }) {
             </ul>
           </div>
           <div className="dlg-actions">
-            <a className="btn btn-ghost btn-sm" href="#/preferences/terminal" onClick={onClose}>Terminal prefs</a>
+            <a className="btn btn-ghost btn-sm" href="#/termset" onClick={onClose}>Terminal prefs</a>
             <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Close</button>
           </div>
         </Dialog.Content>
