@@ -714,13 +714,18 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-list { list-style: none; margin: 0; padding: 0; }
 .ws-list.tree-children { padding-left: var(--tree-indent); }
 .ws-group { margin-bottom: 6px; }
+/* Flex, flush left: the chevron hangs at the section edge and the name
+   lands on the same column as the child cards' names — the container must
+   not sit further right than its content. */
 .ws-group-head {
-  padding: 4px 4px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 4px 4px 0;
   border: 1px solid transparent;
   color: var(--text-secondary); font-size: 11px;
   letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
 }
-.ws-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-group-head .ws-chev { width: 13px; }
+.ws-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-chev {
   display: grid; place-items: center; flex: none;
   width: var(--tree-chev); height: var(--tree-chev);

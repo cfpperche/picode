@@ -25,6 +25,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- The workspace card's header hugs the left edge: the chevron sits on the
+  section title's column and the workspace name lands on the same column
+  as its cards' names — the container no longer sat further right than
+  its content.
+
 - The workspace favicon lookup now checks a frontend living in a subfolder
   (`web/public`, `www/public`, `ui/public`, `frontend/public`,
   `client/public`) — PiCode's own repo keeps its favicon in `web/public/`
