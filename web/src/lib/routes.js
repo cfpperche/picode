@@ -28,6 +28,7 @@ export function parseRoute(hash) {
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
+  if (h.startsWith("/tree/")) return "workspace";
   return "workspace";
 }
 
@@ -76,9 +77,22 @@ export function tabTermId(id) {
   return isTermTab(id) ? String(id).slice(2) : "";
 }
 
+// Owner kinds encode as one letter: t = terminal, a = agent, and since
+// ADR-0030 w = workspace (a folder can be read with nobody in it, ADR-0027).
+function ownerLetter(kind) {
+  if (kind === "term") return "t";
+  if (kind === "workspace") return "w";
+  return "a";
+}
+
+function ownerKind(letter) {
+  if (letter === "t") return "term";
+  if (letter === "w") return "workspace";
+  return "agent";
+}
+
 export function fileTabId(kind, id, path) {
-  const k = kind === "term" ? "t" : "a";
-  return "f:" + k + ":" + String(id || "") + ":" + encodeURIComponent(path || "");
+  return "f:" + ownerLetter(kind) + ":" + String(id || "") + ":" + encodeURIComponent(path || "");
 }
 
 export function isFileTab(id) {
@@ -86,26 +100,25 @@ export function isFileTab(id) {
 }
 
 export function parseFileTab(id) {
-  const m = /^f:(t|a):([^:]+):(.+)$/.exec(String(id || ""));
+  const m = /^f:(t|a|w):([^:]+):(.+)$/.exec(String(id || ""));
   if (!m) return null;
   try {
-    return { kind: m[1] === "t" ? "term" : "agent", id: m[2], path: decodeURIComponent(m[3]) };
+    return { kind: ownerKind(m[1]), id: m[2], path: decodeURIComponent(m[3]) };
   } catch {
     return null;
   }
 }
 
 export function fileHash(kind, id, path) {
-  const k = kind === "term" ? "t" : "a";
-  return "#/file/" + k + "/" + encodeURIComponent(id || "") + "/" + encodeURIComponent(path || "");
+  return "#/file/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "") + "/" + encodeURIComponent(path || "");
 }
 
 export function fileRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  const m = /^\/file\/(t|a)\/([^/]+)\/(.+)$/.exec(h);
+  const m = /^\/file\/(t|a|w)\/([^/]+)\/(.+)$/.exec(h);
   if (!m) return null;
   try {
-    return { kind: m[1] === "t" ? "term" : "agent", id: decodeURIComponent(m[2]), path: decodeURIComponent(m[3]) };
+    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]), path: decodeURIComponent(m[3]) };
   } catch {
     return null;
   }
@@ -213,4 +226,34 @@ export function isGitTab(id) {
 
 export function gitTabKey(id) {
   return isGitTab(id) ? String(id).slice(2) : "";
+}
+
+// File tree (ADR-0030). Same two identities as the git graph: the hash names
+// the owner that authorises the read, the tab id names the canonical root
+// folder, so every owner confined to one folder shares one tab.
+export function treeHash(kind, id) {
+  return "#/tree/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "");
+}
+
+export function treeRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/tree\/(t|a|w)\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try {
+    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]) };
+  } catch {
+    return null;
+  }
+}
+
+export function treeTabId(root) {
+  return root ? "d:" + root : "";
+}
+
+export function isTreeTab(id) {
+  return String(id || "").startsWith("d:");
+}
+
+export function treeTabRoot(id) {
+  return isTreeTab(id) ? String(id).slice(2) : "";
 }

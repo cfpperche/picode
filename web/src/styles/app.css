@@ -2632,7 +2632,57 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+/* ---- File tree (ADR-0030): one folder as a surface. Layout mirrors the
+   git graph; row geometry is its own — the sidebar's .tree-row grid is
+   sized by #sidebar's vars and this surface lives outside it. ---- */
+.ft-surface {
+  flex: 1; display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; overflow: hidden;
+  background: var(--bg-base);
+}
+.ft-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel); flex: 0 0 auto;
+}
+.ft-title { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.ft-count { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ft-spacer { flex: 1; }
+.ft-msg { padding: 16px 12px; color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.ft-body { flex: 1; overflow-y: auto; padding: 8px; max-width: 560px; display: flex; flex-direction: column; gap: 2px; }
+.ft-sect {
+  margin: 0; padding: 6px 8px 2px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--text-secondary);
+}
+.ft-list { list-style: none; margin: 0; padding: 0; }
+.ft-row {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-height: 24px; padding: 2px 8px;
+  border: 0; border-radius: var(--radius-ctl); background: none;
+  color: var(--text-primary); font: inherit; font-size: 13px;
+  cursor: pointer; text-align: left;
+}
+.ft-row:hover { background: var(--bg-hover); }
+.ft-chev {
+  width: 14px; height: 14px; display: grid; place-items: center;
+  color: var(--text-secondary); flex: none;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.ft-chev-open { transform: rotate(90deg); }
+.ft-icon { width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-secondary); flex: none; }
+.ft-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-name-path { font-family: var(--mono); font-size: 12px; }
+.ft-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ft-dot-modified { background: var(--warn); }
+.ft-dot-untracked, .ft-dot-added { background: var(--ok); }
+.ft-dot-deleted, .ft-dot-conflicted { background: var(--danger); }
+.ft-dot-renamed { background: var(--accent); }
+.ft-dot-dir { background: var(--warn); opacity: .55; }
+.ft-loading { color: var(--text-secondary); font-size: 11px; }
+
 @media (prefers-reduced-motion: reduce) {
+  .ft-chev { transition: none; }
   .gg-skel { animation: none; }
 }
 

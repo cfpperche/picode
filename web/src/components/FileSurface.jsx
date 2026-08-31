@@ -17,6 +17,7 @@ export default function FileSurface({ owner, path, error, onClose }) {
       <FilePane
         agentId={owner.kind === "agent" ? owner.id : ""}
         termId={owner.kind === "term" ? owner.id : ""}
+        wsId={owner.kind === "workspace" ? owner.id : ""}
         path={path}
         onClose={onClose}
         variant="tab"

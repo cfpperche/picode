@@ -87,7 +87,8 @@ stay on their own routes.
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load) |
-| `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock. Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
+| `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
+| `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
@@ -292,6 +293,16 @@ HTTP API (Go 1.22 method patterns):
   than passed through. The patch is read with `-m --first-parent`, which is
   what keeps a merge from arriving as a combined diff (`diff --cc`, `@@@`)
   that a unified-diff reader misreads without ever failing.
+- `GET /api/{agents|terminals|workspaces}/{id}/browse?dir=` — one directory
+  level under the owner's folder (terminals read the live pane cwd; a
+  workspace reads its registered folder, `ws_free` refused — ADR-0030). The
+  answer carries `root`, the canonical folder, which is the tree tab's
+  identity. Workspaces also mirror `text` (GET/PUT), `blob` and `file`, so
+  an empty workspace (ADR-0027) can open files with nobody in it.
+- `GET /api/{agents|terminals|workspaces}/{id}/gitstatus` — the working-tree
+  changes of the owner's repository, `git status --porcelain -z -uall`
+  re-anchored from the repo toplevel to the owner's cwd (what falls outside
+  is dropped). No repository is a state, not an error: `200 {"git": false}`.
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,
@@ -336,7 +347,7 @@ Agents communicate through their native protocol — no internals hacked.
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
 
-### Model roles (ADR-0028)
+### Model roles (ADR-0030)
 
 Opt-in pi package at `packages/pi-roles/` (MIT; the rest of this tree is
 PolyForm Noncommercial). Users install it with `pi install -l` / `#/packages`;

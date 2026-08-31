@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { locate, displayAgentName } from "../lib/tree.js";
-import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey } from "../lib/routes.js";
+import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
-import { IconTerminal, IconFile, IconGit } from "./Icons.jsx";
+import { IconTerminal, IconFile, IconGit, IconFolders } from "./Icons.jsx";
 
 export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
   const terms = terminals || [];
@@ -44,6 +44,17 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
               </Tab>
             );
           }
+          if (isTreeTab(id)) {
+            // The tab is the folder (ADR-0030); its name is the folder's own.
+            const root = treeTabRoot(id);
+            const name = root.startsWith("@") ? "Files" : root.split("/").filter(Boolean).pop() || root;
+            return (
+              <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab">
+                <span className="mtab-term"><IconFolders size={13} /></span>
+                <span title={root}>{name}</span>
+              </Tab>
+            );
+          }
           const loc = locate(workspaces, freeAgents, id);
           if (!loc || !loc.agent) return null;
           const mode = loc.agent.mode || "stopped";
@@ -56,7 +67,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, sel
         })}
       </div>
     </div>
-    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) ? sessionSlot : null}
+    {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) ? sessionSlot : null}
     </>
   );
 }

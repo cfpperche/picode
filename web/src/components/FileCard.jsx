@@ -20,7 +20,7 @@ export default function FileCard({ agentId, path, onClose, onOpenTab }) {
     const blobRef = { current: "" };
     setView({ kind: "load" });
     if (isBlobKind(kind)) {
-      fetch(fileBlobUrl(agentId, "", path))
+      fetch(fileBlobUrl(agentId, "", "", path))
         .then(async (res) => {
           if (stop) return;
           if (!res.ok) {

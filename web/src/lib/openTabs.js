@@ -83,3 +83,32 @@ export function writeGitOwners(map) {
     /* private mode, quota — the tab simply will not survive a reload */
   }
 }
+
+const TREE_KEY = "picode-tree-owners";
+
+// Same shape as the git owners, for the file tree (ADR-0030): the tab is a
+// folder, the reload needs an owner to re-authorise reading it.
+export function readTreeOwners() {
+  try {
+    const j = JSON.parse(localStorage.getItem(TREE_KEY) || "{}");
+    if (!j || typeof j !== "object" || Array.isArray(j)) return {};
+    const out = {};
+    for (const [tab, owner] of Object.entries(j)) {
+      if (!owner || typeof owner !== "object") continue;
+      const kind = owner.kind === "term" || owner.kind === "workspace" ? owner.kind : "agent";
+      const id = String(owner.id || "");
+      if (id) out[tab] = { kind, id, name: String(owner.name || "") };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function writeTreeOwners(map) {
+  try {
+    localStorage.setItem(TREE_KEY, JSON.stringify(map || {}));
+  } catch {
+    /* private mode, quota — the tab simply will not survive a reload */
+  }
+}

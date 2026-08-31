@@ -19,11 +19,11 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
 | [0013](0013-provider-accounts.md) | Extra logins in `~/.picode/accounts.json`; `auth.json` is the active slot | accepted |
 | [0014](0014-local-backup.md) | Local directory snapshots of the PiCode environment | accepted |
-| [0015](0015-browser-file-editor.md) | Browser file editor for the agent cwd (not an IDE) | accepted |
+| [0015](0015-browser-file-editor.md) | Browser file editor for the agent cwd (not an IDE) | accepted, explorer refusal amended by 0030 |
 | [0016](0016-project-shells.md) | Project shells in tmux, as editor tabs | superseded by 0017 |
 | [0017](0017-first-class-terminals.md) | First-class terminals (sidebar + main tabs) | accepted, amended by 0026 |
 | [0018](0018-systemd-user-install.md) | `picode install` — systemd user unit, not Windows | superseded by 0020 |
-| [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted |
+| [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted, explorer refusal amended by 0030 |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
 | [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted |
@@ -34,3 +34,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
 | [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
 | [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |
+| [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted |

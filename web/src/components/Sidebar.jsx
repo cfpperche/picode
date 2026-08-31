@@ -42,6 +42,7 @@ export default function Sidebar({
   waitingId,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
   onGitGraph,
+  onFileTree,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -134,9 +135,15 @@ export default function Sidebar({
             >
               <IconGit size={14} />
             </button>
-          ) : (
-            <span className="tree-icon"><IconFolder size={14} /></span>
-          )}
+          ) : null}
+          <button
+            type="button"
+            className="tree-icon tree-icon-btn"
+            title="Files"
+            onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("agent", ag.id, label); }}
+          >
+            <IconFolder size={14} />
+          </button>
           <span className="ws-path" title={ws ? ws.path : (ag.workPath || "")}>{repo.text}</span>
         </div>
         <span className="ws-actions">
@@ -166,9 +173,8 @@ export default function Sidebar({
         <div className="ws-row2">
           {line.git ? (
             <button type="button" className="tree-icon tree-icon-btn" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}><IconGit size={14} /></button>
-          ) : (
-            <span className="tree-icon"><IconFolder size={14} /></span>
-          )}
+          ) : null}
+          <button type="button" className="tree-icon tree-icon-btn" title="Files" onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}><IconFolder size={14} /></button>
           <span className="ws-path" title={t.cwd}>{line.text}</span>
         </div>
         ); })()}
@@ -248,6 +254,7 @@ export default function Sidebar({
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
                 <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="ws-icon-btn" title="Files in this folder" onClick={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
                   <button type="button" className="ws-icon-btn" title="New terminal in this folder" onClick={() => onNewTerm && onNewTerm(ws.id)}><IconTerminal size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
