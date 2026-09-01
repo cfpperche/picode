@@ -50,8 +50,12 @@ to the `[Unreleased]` section. The repository's official language is English
   **Agents** (free agents only) and **Terminals** (free terminals only,
   New / Remove — a workspace's terminal shows once, on its card). Tapping a terminal pushes `#/term/<id>`: the same xterm the
   desktop attaches, with a **key bar** for what a soft keyboard lacks
-  (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`). Live terminals show under
-  Running on Now.
+  (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`) behind a floating keyboard
+  button, so the pane keeps the whole screen until the keys are wanted.
+  Live terminals show under Running on Now. Pushed screens (agent,
+  terminal, a More section) hide the tab bar — Back is the way out — and
+  the phone shell locks zoom. Row actions are icons: ▶ start, ■ stop,
+  🗑 remove.
 - **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or

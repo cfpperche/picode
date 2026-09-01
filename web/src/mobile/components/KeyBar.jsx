@@ -10,7 +10,9 @@ const KEYS = [
   ],
 ];
 
-export default function KeyBar({ onKey }) {
+import { IconX } from "../../components/Icons.jsx";
+
+export default function KeyBar({ onKey, onClose }) {
   return (
     <div className="m-keybar" role="toolbar" aria-label="Terminal keys">
       {KEYS.map((row, i) => (
@@ -18,6 +20,9 @@ export default function KeyBar({ onKey }) {
           {row.map(([label, seq]) => (
             <button key={label} type="button" className="m-key" onPointerDown={(e) => e.preventDefault()} onClick={() => onKey(seq)}>{label}</button>
           ))}
+          {i === 0 && onClose ? (
+            <button type="button" className="m-key m-key-close" title="Hide keys" aria-label="Hide terminal keys" onPointerDown={(e) => e.preventDefault()} onClick={onClose}><IconX size={14} /></button>
+          ) : null}
         </div>
       ))}
     </div>

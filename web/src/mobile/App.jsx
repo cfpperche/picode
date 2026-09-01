@@ -59,6 +59,23 @@ export default function MobileApp() {
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
+  // Zoom lock (owner): a supervision console is read at one scale. The
+  // meta is rewritten here, not in index.html, so the desktop shell keeps
+  // the browser's default; iOS ignores user-scalable, so pinch is also
+  // cancelled at the gesture level and double-tap by touch-action in CSS.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    const prev = meta ? meta.getAttribute("content") : "";
+    if (meta) meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content");
+    const stop = (e) => e.preventDefault();
+    document.addEventListener("gesturestart", stop, { passive: false });
+    document.addEventListener("gesturechange", stop, { passive: false });
+    return () => {
+      if (meta && prev) meta.setAttribute("content", prev);
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("gesturechange", stop);
+    };
+  }, []);
   useEffect(() => startReconnectWatch({ onState: (s) => { if (s === "down") setReconnect(true); } }), []);
 
   async function loadCatalog() {
@@ -208,6 +225,9 @@ export default function MobileApp() {
   }
 
   const tab = tabOf(route);
+  // A pushed screen (it has the ← header) owns the whole height: the tab
+  // bar goes away, Back is the way out.
+  const pushed = route.screen === "agent" || route.screen === "term" || (route.screen === "more" && !!route.section);
   let body = null;
   if (route.screen === "term") {
     body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} />;
@@ -249,9 +269,9 @@ export default function MobileApp() {
   }
 
   return (
-    <div id="m-app" data-screen={route.screen}>
+    <div id="m-app" data-screen={route.screen} className={pushed ? "is-pushed" : ""}>
       <div className="m-body">{body}</div>
-      <TabBar active={tab} badges={badges} />
+      {pushed ? null : <TabBar active={tab} badges={badges} />}
       <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}
         onClose={() => setCreate(null)} onCreated={onCreated} />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />

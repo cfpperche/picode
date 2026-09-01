@@ -45,6 +45,7 @@ import {
   Pencil,
   Pin,
   Play,
+  Keyboard,
   Plug,
   Plus,
   QrCode,
@@ -82,6 +83,7 @@ export const IconDocs = lucide(Book, 12);
 export const IconExternal = lucide(ExternalLink, 13);
 export const IconTerminal = lucide(Terminal, 14);
 export const IconPlay = lucide(Play, 12);
+export const IconKeyboard = lucide(Keyboard, 18);
 export const IconStop = lucide(Square, 12);
 export const IconProvider = lucide(Cloud, 13);
 export const IconModel = lucide(Layers, 13);

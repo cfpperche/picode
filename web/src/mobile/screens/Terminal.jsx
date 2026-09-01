@@ -5,13 +5,16 @@ import TermSurface from "../../components/TermSurface.jsx";
 import { terms } from "../../lib/terms.js";
 import { api, humanizeError } from "../../lib/api.js";
 import { termLine } from "../../lib/repoLine.js";
+import { IconKeyboard, IconX } from "../../components/Icons.jsx";
 
 // The pushed terminal screen (#/term/<id>, the desktop's route): the same
-// xterm the desktop attaches to the tmux session, plus the key bar a soft
-// keyboard lacks. Opening (re)creates the tmux session if it was closed.
+// xterm the desktop attaches to the tmux session. The keys a soft keyboard
+// lacks live behind a floating button so the pane keeps the whole screen
+// until they are wanted. Opening (re)creates the tmux session if closed.
 export default function TerminalScreen({ term, onBack, onRemove, busy }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
+  const [keys, setKeys] = useState(false);
   const id = term && term.id;
 
   useEffect(() => {
@@ -59,7 +62,12 @@ export default function TerminalScreen({ term, onBack, onRemove, busy }) {
           <p className="m-empty-line m-pad">Attaching…</p>
         )}
       </div>
-      {page && !error ? <KeyBar onKey={sendKey} /> : null}
+      {page && !error && keys ? <KeyBar onKey={sendKey} onClose={() => setKeys(false)} /> : null}
+      {page && !error && !keys ? (
+        <button type="button" className="m-fab" title="Keys" aria-label="Show terminal keys" onPointerDown={(e) => e.preventDefault()} onClick={() => setKeys(true)}>
+          <IconKeyboard size={20} />
+        </button>
+      ) : null}
     </div>
   );
 }

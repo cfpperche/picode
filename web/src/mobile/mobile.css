@@ -12,7 +12,10 @@
   height: 100dvh; max-height: 100dvh; overflow: hidden;
   background: var(--bg-base); color: var(--text-primary);
   font-size: 14px;
+  touch-action: manipulation; /* no double-tap zoom; pinch is cancelled in App.jsx */
 }
+#m-app.is-pushed .m-screen { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+#m-app.is-pushed .m-agent, #m-app.is-pushed .m-term-screen { padding-bottom: 0; }
 #m-app .btn { min-height: var(--m-tap); font-size: 14px; }
 #m-app .btn-sm { min-height: 36px; font-size: 13px; }
 #m-app input, #m-app select, #m-app textarea { font-size: 16px; } /* no iOS zoom on focus */
@@ -100,11 +103,14 @@
 .m-row-chev { flex: none; color: var(--text-secondary); opacity: .6; }
 .m-row.is-unread .m-row-title::before { content: "● "; color: var(--accent); font-size: 9px; vertical-align: 2px; }
 .m-row-act {
-  flex: none; min-width: 60px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center;
-  border: 0; border-left: 1px solid var(--border); background: none; color: var(--accent); cursor: pointer;
-  font: inherit; font-size: 13px; font-weight: 600;
+  flex: none; width: 52px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-left: 1px solid var(--border); background: none; color: var(--text-secondary); cursor: pointer;
 }
-.m-row-act.is-stop { color: var(--text-secondary); font-weight: 500; }
+.m-row-act.is-start { color: var(--accent); }
+.m-row-act.is-start svg { fill: currentColor; }
+.m-row-act.is-stop svg { fill: currentColor; opacity: .75; }
+.m-row-act.is-remove { color: var(--text-secondary); }
+.m-row-act.is-remove:active { color: var(--danger); }
 .m-row-act:active { background: var(--bg-hover); }
 .m-row-act:disabled { opacity: .4; }
 .m-menu .m-row-main { padding-left: 14px; }
@@ -170,7 +176,17 @@
 /* ---- terminal screen: xterm + the keys a soft keyboard lacks ---- */
 .m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; }
 .m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; }
-.m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px; }
+.m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+.m-fab {
+  position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 6;
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-strong);
+  background: var(--bg-elevated); color: var(--text-primary); display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 35%, transparent); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-fab:active { background: var(--bg-hover); }
+.m-term-screen { position: relative; }
+.m-keybar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+.m-key-close { flex: 0 0 44px; color: var(--text-secondary); }
 .m-keybar { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 0 8px; margin: 0 calc(-1 * var(--m-pad)); padding-left: 6px; padding-right: 6px; background: var(--bg-panel); border-top: 1px solid var(--border); }
 .m-keybar-row { display: flex; gap: 4px; }
 .m-key {

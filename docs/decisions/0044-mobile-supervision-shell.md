@@ -129,5 +129,13 @@ Two findings from the phone, both accepted:
   read-only. Live terminals join Running on Now.
 
 Routes: `#/work[/section]`, `#/term/<id>` (the desktop's); `#/agents` and
-`#/terminals` map onto Work. Back from an agent lands on Work; from a
+`#/terminals` map onto Work.
+
+Second pass, same day: pushed screens (agent, terminal, a More section)
+hide the tab bar — the ← header is the way out, and the pane or the
+conversation gets the height; the terminal's key bar sits behind a
+floating keyboard button rather than always on; the phone shell locks
+zoom (viewport meta rewritten on mount so the desktop keeps the browser
+default, `touch-action: manipulation`, pinch gestures cancelled); row
+actions are icons (▶ ■ 🗑) with `aria-label`s, not words. Back from an agent lands on Work; from a
 terminal on Work → Terminals.

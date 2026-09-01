@@ -288,7 +288,12 @@ Never exercised, because this machine was already past them:
   phone, shell prompt rendered (34 rows), key bar clicks reach the pane,
   Remove stops the session. Owner: a workspace's terminal must not repeat
   in the Terminals segment — it now lists free terminals only
-  (`freeTerminals`), like the desktop rail.
+  (`freeTerminals`), like the desktop rail. Third pass (`feat/mobile-
+  polish`): zoom lock (meta rewritten on mobile mount + `gesturestart`
+  cancel + `touch-action: manipulation`), tab bar hidden on pushed screens
+  (`#m-app.is-pushed`), key bar behind a floating `.m-fab` keyboard button
+  with a close key, row actions as icons (`IconPlay`/`IconStop`/`IconTrash`,
+  new `IconKeyboard` in Icons.jsx).
 
 - **2026-09-01** — **Chrome extension Track B**, on branch `feat/ext-track-b`.
   `make desktop` builds `picode-nmh.exe`; `picode-desktop extension-install`

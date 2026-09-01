@@ -1,5 +1,5 @@
 import { ProviderFace } from "../../components/ProviderFaces.jsx";
-import { IconChevronRight } from "../../components/Icons.jsx";
+import { IconChevronRight, IconPlay, IconStop } from "../../components/Icons.jsx";
 import { displayAgentName } from "../../lib/tree.js";
 import { shortModel } from "../../lib/chip.js";
 import StateChip, { agentState } from "./StateChip.jsx";
@@ -23,9 +23,9 @@ export default function AgentRow({ agent, workspace, workingIds, onOpen, onStart
         <IconChevronRight size={16} className="m-row-chev" />
       </button>
       {stopped ? (
-        <button type="button" className="m-row-act" aria-label={"Start " + name} disabled={busy} onClick={() => onStart(agent, workspace)}>Start</button>
+        <button type="button" className="m-row-act is-start" title="Start" aria-label={"Start " + name} disabled={busy} onClick={() => onStart(agent, workspace)}><IconPlay size={18} /></button>
       ) : (
-        <button type="button" className="m-row-act is-stop" aria-label={"Stop " + name} disabled={busy} onClick={() => onStop(agent, workspace)}>Stop</button>
+        <button type="button" className="m-row-act is-stop" title="Stop" aria-label={"Stop " + name} disabled={busy} onClick={() => onStop(agent, workspace)}><IconStop size={16} /></button>
       )}
     </li>
   );

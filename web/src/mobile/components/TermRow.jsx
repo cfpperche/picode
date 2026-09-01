@@ -1,4 +1,4 @@
-import { IconTerminal, IconChevronRight } from "../../components/Icons.jsx";
+import { IconTerminal, IconChevronRight, IconTrash } from "../../components/Icons.jsx";
 import { termLine } from "../../lib/repoLine.js";
 
 // One terminal, same 56px row as an agent: name, where it is (live cwd
@@ -16,7 +16,7 @@ export default function TermRow({ term, onOpen, onRemove, busy }) {
         {term.running ? <span className="m-state is-working">Live</span> : null}
         <IconChevronRight size={16} className="m-row-chev" />
       </button>
-      <button type="button" className="m-row-act is-stop" aria-label={"Remove " + (term.name || "terminal")} disabled={busy} onClick={() => onRemove(term)}>Remove</button>
+      <button type="button" className="m-row-act is-remove" title="Remove" aria-label={"Remove " + (term.name || "terminal")} disabled={busy} onClick={() => onRemove(term)}><IconTrash size={17} /></button>
     </li>
   );
 }
