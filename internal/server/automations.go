@@ -19,6 +19,7 @@ import (
 // other tools and therefore carries its own per-automation secret.
 func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/automations", handleListAutomations(deps))
+	mux.HandleFunc("GET /api/automations/templates", handleAutomationTemplates)
 	mux.HandleFunc("POST /api/automations", handleCreateAutomation(deps))
 	mux.HandleFunc("GET /api/automations/{id}", handleGetAutomation(deps))
 	mux.HandleFunc("PATCH /api/automations/{id}", handlePatchAutomation(deps))
@@ -31,6 +32,11 @@ func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {
 
 // maxWebhookPayload bounds what a webhook may append to the prompt.
 const maxWebhookPayload = 64 << 10
+
+// handleAutomationTemplates serves the built-in suggestions (ADR-0045 v2).
+func handleAutomationTemplates(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"items": automate.Templates()})
+}
 
 type automationView struct {
 	store.Automation

@@ -229,3 +229,20 @@ func TestAutomationRunNowBusyAndMessage(t *testing.T) {
 		t.Fatalf("target gone = %d %v", res.StatusCode, out)
 	}
 }
+
+func TestAutomationTemplates(t *testing.T) {
+	ts, _ := newAutomationServer(t)
+	res, out := doJSON(t, "GET", ts.URL+"/api/automations/templates", "", nil)
+	items, _ := out["items"].([]any)
+	if res.StatusCode != 200 || len(items) < 6 {
+		t.Fatalf("templates = %d %v", res.StatusCode, out)
+	}
+	first := items[0].(map[string]any)
+	if first["id"] == "" || first["cron"] == "" || first["prompt"] == "" {
+		t.Fatalf("template shape: %v", first)
+	}
+	// The templates route must not be shadowed by the {id} route.
+	if res, _ := doJSON(t, "GET", ts.URL+"/api/automations/templates", "", nil); res.StatusCode == http.StatusNotFound {
+		t.Fatal("templates route shadowed")
+	}
+}
