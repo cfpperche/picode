@@ -21,6 +21,21 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
+// fakeBlockingAgentCmd is a tiny script that ignores argv and blocks
+// reading stdin, like bare `cat` — but unlike `cat`, tolerant of whatever
+// flags PiCode passes (e.g. --session-id, ADR-0039), so tmux/interactive
+// lifecycle tests don't depend on CLIFlags() happening to be empty. (tmux
+// execs the command directly with no shell, so a bare env var set on the
+// test process would not reach it — this sidesteps that entirely.)
+func fakeBlockingAgentCmd(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "fake-pi")
+	if err := os.WriteFile(p, []byte("#!/bin/sh\nexec cat\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
 // newTestServer builds a server with a temp registry. agentCmd defaults to
 // a harmless long-running process for spawn tests ("cat").
 func newTestServer(t *testing.T, agentCmd string) *httptest.Server {
@@ -280,7 +295,7 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff.md)")
 	}
-	ts := newTestServer(t, "cat")
+	ts := newTestServer(t, fakeBlockingAgentCmd(t))
 	client := ts.Client()
 	proj := t.TempDir()
 

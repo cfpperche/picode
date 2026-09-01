@@ -46,6 +46,7 @@ What exists:
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
+- **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 
 ## In flight
 
@@ -217,6 +218,66 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-01** — **Per-agent session ownership (ADR-0039)**, on branch
+  `worktree-session-ownership`. Owner reported (screenshot) an Agent tab's
+  Search sessions picker showing a session that actually belonged to a
+  Terminal in the same folder. Root cause traced to
+  `handleListSessions` (`internal/server/sessions.go`): `agent=<id>` only
+  resolved a cwd, then listed every `.jsonl` pi had written there,
+  unfiltered — confirmed against live code, not just the report.
+  - New `agent_sessions` table (migration `014_agent_session_history.sql`)
+    historizes every session id/path an agent is pointed at.
+    `store.UpdateAgent` historizes on every `SessionPath` write (resume/
+    fork/clone/adopt/import, one hook, not nine call sites).
+  - Fresh spawns pre-mint a pi `--session-id` (confirmed live against the
+    installed `pi 0.84.4`: creates-if-missing, reuses on repeat, not
+    gated behind `--mode`) so a brand-new session is attributable from
+    the moment it exists — `Agent.CLIFlagsForSpawn`, wired at the two
+    real spawn chokepoints: `rpc.Runtime.Start` (managed) and a new
+    `Deps.spawnFlags` helper (5 interactive/tmux call sites).
+    `handleListSessions` filters `session.List(cwd)` against the agent's
+    own historized set; current session is always shown as a safety net.
+  - Terminals needed zero changes — confirmed they have no `SessionPath`
+    field and never call this endpoint. Machine-wide `/sessions/manage`
+    and `/sessions/all` deliberately stay unfiltered.
+  - Caught in the same pass: the new `--session-id` flag broke
+    `TestOpenCloseLifecycle`, which used bare `cat` as pi's stand-in
+    (relies on zero args to block on stdin; real cat errors on
+    unrecognized `--` flags). Fixed with a tiny wrapper script that
+    ignores argv, not a change to production spawn logic.
+  - Tests: new unit coverage in `internal/store`
+    (`CLIFlagsForSpawn`, the historization hook, and a migration test
+    that genuinely re-applies `014_...sql` via `Store.migrate()` against
+    a pre-existing `session_path`, not a hand-copied approximation) and
+    `internal/server` (two agents sharing a cwd each see only their own
+    session; an unowned file is invisible to both but still shows in
+    `/sessions/manage`). `make fmt-check`/`vet`/`test` green.
+  - `make ci` (fmt-check, vet, test, test-js, build) green — no frontend
+    files touched; `SessionBar.jsx` needed no changes since the scoping
+    is entirely server-side.
+  - **Verified live**, not just by unit test: scratch `HOME`/`PICODE_DATA`
+    instance on :8491 (real `pi 0.84.4`, real auth), one workspace, two
+    agents both defaulted to the same cwd — the exact shared-cwd
+    precondition from the bug. Managed-started both, sent each a real
+    prompt ("pong" / "ping"). Each agent's picker showed **only its own**
+    session; `/sessions/manage` showed both, unfiltered, as intended.
+  - **Second bug found in that same live pass, fixed before calling this
+    done**: `agents.session_path` (not just the new `agent_sessions`
+    table) never got backfilled after a *fresh* spawn — only an explicit
+    resume ever wrote it. Harmless for the picker itself (it falls back
+    to the newest owned session), but `/sessions/manage`'s `inUseBy` —
+    the guard that stops the orphan-cleanup sweep from deleting an
+    actively-used session — reads `agents.session_path` directly, so a
+    freshly-started, never-resumed agent's session looked orphaned.
+    `ResolveAgentSessionID` already existed for exactly this (written,
+    never wired); `handleListSessions` now calls it — and backfills
+    `agents.session_path` — the first time it notices an owned-by-id
+    session whose path wasn't known yet. Re-verified live after the fix:
+    `inUseBy` correctly attributes each session to its own agent.
+    Regression test added (`TestListSessionsResolvesFreshSessionPath`).
+  - Not yet merged to main or deployed to `:8445` — branch
+    `worktree-session-ownership` is ready for review.
 
 - **2026-08-31** — **`/roles` empty-state copy + notify-as-thread-line**
   (`fix/roles-empty-copy`). Owner asked why `/vision` is listed with no
