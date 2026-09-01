@@ -77,6 +77,29 @@ type ManagedAgent struct {
 	waiting       *UIDialog     // blocking extension_ui_request, if any
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
+	observer      *RunObserver  // automations engine watching this run (ADR-0044)
+}
+
+// RunObserver is set by an owner that files its own Inbox items for the
+// run (the automations engine). While one is attached the agent's default
+// unobserved-result and unexpected-exit items are suppressed — one item
+// per state change (ADR-0037), written by whoever owns the run.
+type RunObserver struct {
+	OnSettled func(final string)  // turn finished; final is the agent's last text ("" if none)
+	OnExit    func(expected bool) // process ended; expected = Runtime.Stop asked for it
+}
+
+// Observe attaches (or with nil detaches) the run observer.
+func (ma *ManagedAgent) Observe(o *RunObserver) {
+	ma.mu.Lock()
+	ma.observer = o
+	ma.mu.Unlock()
+}
+
+func (ma *ManagedAgent) runObserver() *RunObserver {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	return ma.observer
 }
 
 // Runtime owns all managed agents.
@@ -247,7 +270,16 @@ func (ma *ManagedAgent) pumpEvents() {
 			}
 		case "agent_settled":
 			ma.markSettled()
-			ma.fileUnobservedResult()
+			if o := ma.runObserver(); o != nil {
+				if o.OnSettled != nil {
+					ma.mu.Lock()
+					final := ma.lastFinal
+					ma.mu.Unlock()
+					o.OnSettled(final)
+				}
+			} else {
+				ma.fileUnobservedResult()
+			}
 		case "extension_ui_request":
 			ma.noteUIRequest(ev)
 		}
@@ -272,8 +304,13 @@ func (ma *ManagedAgent) pumpEvents() {
 	}
 	ma.mu.Lock()
 	expected := ma.stopRequested
+	observer := ma.observer
 	ma.mu.Unlock()
-	if !expected && ma.store != nil {
+	if observer != nil {
+		if observer.OnExit != nil {
+			observer.OnExit(expected)
+		}
+	} else if !expected && ma.store != nil {
 		// Unexpected death is worth an item even when watched — it fires
 		// once (one item per state change, ADR-0037).
 		name, wsID := ma.agentIdentity()
