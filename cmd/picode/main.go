@@ -37,7 +37,9 @@ import (
 	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/config"
 	"github.com/cfpperche/picode/internal/install"
+	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/proclock"
+	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
@@ -310,6 +312,24 @@ func serve() {
 	rebindCh := make(chan struct{}, 1)
 	state := &serveState{}
 
+	// Web Push (ADR-0047): one VAPID key per install, the notifier
+	// listens to inbox writes and unobserved dialogs, and stays quiet
+	// while a browser on this machine is alive.
+	devices := presence.New(share.ReachableIPv4())
+	var notifier *push.Notifier
+	if keys, err := push.LoadOrCreate(dataDir); err != nil {
+		log.Printf("push: disabled: %v", err)
+	} else {
+		notifier = &push.Notifier{
+			Store:    st,
+			Sender:   &push.Sender{Keys: keys, Subject: "https://github.com/cfpperche/picode"},
+			Presence: devices,
+			Log:      log.Default(),
+		}
+		st.OnInboxCreated = notifier.OnInbox
+		runtime.OnWaiting = notifier.OnWaiting
+	}
+
 	deps := server.Deps{
 		Store:    st,
 		Tmux:     tmux.New(),
@@ -317,6 +337,8 @@ func serve() {
 		AgentCmd: "pi", // ADR-0003: user-installed pi
 		DataDir:  dataDir,
 		Backup:   bak,
+		Presence: devices,
+		Push:     notifier,
 		Rebind: func() {
 			select {
 			case rebindCh <- struct{}{}:

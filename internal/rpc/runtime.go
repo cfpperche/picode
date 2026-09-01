@@ -66,6 +66,8 @@ type ManagedAgent struct {
 	client *Client
 	hub    *Hub
 	store  *store.Store
+	// onWaiting is Runtime.OnWaiting captured at spawn (ADR-0047).
+	onWaiting func(agentID, agentName, title, message string)
 
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -111,6 +113,11 @@ type Runtime struct {
 	agents map[string]*ManagedAgent
 	store  *store.Store
 	onExit func(agentID string)
+
+	// OnWaiting fires when a managed agent raises a dialog and nobody has
+	// its socket open (ADR-0047: the push notifier calls the phone).
+	// Optional; called on the pump goroutine, must return fast.
+	OnWaiting func(agentID, agentName, title, message string)
 
 	authMu   sync.Mutex
 	authJobs map[string]*mcpAuthJob
@@ -170,6 +177,7 @@ func (r *Runtime) Start(agentID, path string) error {
 		client:    client,
 		hub:       NewHub(),
 		store:     r.store,
+		onWaiting: r.OnWaiting,
 		cancel:    cancel,
 		done:      make(chan struct{}),
 		settledCh: closedChan(), // settled until a prompt is accepted
@@ -661,6 +669,10 @@ func (ma *ManagedAgent) noteUIRequest(ev Event) {
 	ma.waiting = d
 	ma.mu.Unlock()
 	ma.armTimeout(d.ID, d.Timeout)
+	if ma.onWaiting != nil && ma.hub.Len() == 0 {
+		name, _ := ma.agentIdentity()
+		ma.onWaiting(ma.AgentID, name, d.Title, d.Message)
+	}
 }
 
 func (ma *ManagedAgent) armTimeout(id string, ms int) {

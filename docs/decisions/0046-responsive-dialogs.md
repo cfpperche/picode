@@ -1,4 +1,4 @@
-# ADR-0045: One modal primitive — dialog on the desktop, sheet on the phone
+# ADR-0046: One modal primitive — dialog on the desktop, sheet on the phone
 
 - **Status**: accepted
 - **Date**: 2026-09-01

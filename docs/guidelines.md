@@ -16,7 +16,7 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 
 ## UI rules that are enforced by tests
 
-- **Dialogs (ADR-0045).** Every modal imports
+- **Dialogs (ADR-0046).** Every modal imports
   `web/src/components/ResponsiveDialog.jsx` — never `@radix-ui/react-dialog`,
   `@radix-ui/react-alert-dialog` or `vaul` directly. The primitive is a
   centred dialog at `min-width: 720px` and a bottom sheet below; content

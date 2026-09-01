@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
+import PushPrefs from "./PushPrefs.jsx";
 import { api } from "../lib/api.js";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconSun, IconMonitor, IconMoon, IconMore } from "./Icons.jsx";
@@ -104,6 +105,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
 
       <section className="settings-section" hidden={sec !== "notifications"}>
         <h3 className="sr-only">Notifications</h3>
+        <PushPrefs />
+        <h4 className="push-prefs-sub">Toasts</h4>
         <div className="set-rows">
           <div className="set-row">
             <label htmlFor="toast-pos">Position</label>

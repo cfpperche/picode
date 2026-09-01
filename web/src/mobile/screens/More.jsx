@@ -7,10 +7,12 @@ import Providers from "../../components/Providers.jsx";
 import Mcps from "../../components/Mcps.jsx";
 import Packages from "../../components/Packages.jsx";
 import InstallButton from "../../components/InstallButton.jsx";
+import PushPrefs from "../../components/PushPrefs.jsx";
 import { IconChevronRight, IconMonitor, IconQR } from "../../components/Icons.jsx";
 import { setShell } from "../../lib/shell.js";
 
 const SECTIONS = [
+  ["notifications", "Notifications", "Push when an agent needs you"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["settings", "Settings", "Pi: model, thinking, prompt"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
@@ -79,7 +81,7 @@ export default function More({ section, catalog, system, version, themeMode, onT
         <Packages hidden={false} workspaceId={workspace ? workspace.id : ""} workspaceName={workspace ? workspace.name : ""} workspacePath={workspace ? workspace.path : ""}
           agentId={agent ? agent.id : ""} agentName={agentName} />
       ) : null}
-      {section === "notifications" ? <p className="m-empty-line m-pad">Push notifications arrive in the next release.</p> : null}
+      {section === "notifications" ? <section className="settings-wrap"><div className="settings-card"><PushPrefs /></div></section> : null}
     </div>
   );
 }

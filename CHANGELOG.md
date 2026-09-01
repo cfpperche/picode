@@ -23,7 +23,16 @@ to the `[Unreleased]` section. The repository's official language is English
   audit — filterable by category; click one and the editor is filled in,
   and **Start from template…** in the editor does the same. Guide:
   `www/guide/automations.md`.
-- **Every dialog is a bottom sheet on the phone (ADR-0045).** New agent
+- **Push notifications to your phone (ADR-0047).** Enable push on a device
+  from More → Notifications (or Preferences → Notifications on the
+  desktop) and PiCode wakes it when an agent is blocked on a question or
+  permission that nobody is watching, when a blocking Inbox item arrives,
+  or when a run finishes unobserved — each a switch. Tapping the
+  notification opens that agent or item. PiCode stays quiet while a browser
+  on the host machine is open. Web Push over VAPID, implemented in the Go
+  standard library, the payload encrypted to the browser; on iPhone the
+  app must be on the Home Screen first, and the settings row says so.
+- **Every dialog is a bottom sheet on the phone (ADR-0046).** New agent
   already was; Choose folder, Confirm, Rename, Usage, Add provider, Add
   MCP server, Share, Session info, llama.cpp and the rest were centred
   cards squeezed into 390px, and every one of them raised the keyboard on
@@ -33,7 +42,7 @@ to the `[Unreleased]` section. The repository's official language is English
   dialog import outside it, so the rule holds for the next dialog too. On
   the phone a sheet never focuses a field by itself — the keyboard comes
   up only when you tap one.
-- **Automations: run an agent on a schedule or from a webhook (ADR-0045).**
+- **Automations: run an agent on a schedule or from a webhook (ADR-0046).**
   User menu → **Automations**. An automation is a prompt plus when to run
   it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or
   a webhook URL with a secret shown once — plus limits: max cost per run

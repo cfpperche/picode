@@ -124,7 +124,7 @@ export default function CreateForm({
     </form>
   );
 
-  // ResponsiveDialog (ADR-0045): a centred dialog at >=720px, a bottom
+  // ResponsiveDialog (ADR-0046): a centred dialog at >=720px, a bottom
   // sheet below — one tree, the primitive decides.
   return (
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>

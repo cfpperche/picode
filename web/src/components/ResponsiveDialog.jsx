@@ -4,7 +4,7 @@ import * as RadixAlert from "@radix-ui/react-alert-dialog";
 import { Drawer } from "vaul";
 import { useMedia } from "../lib/media.js";
 
-// The one modal primitive (ADR-0045). Same API as @radix-ui/react-dialog —
+// The one modal primitive (ADR-0046). Same API as @radix-ui/react-dialog —
 // Root / Portal / Overlay / Content / Title / Description / Close — so a
 // file switches by changing its import line. At and above 720px it IS the
 // Radix dialog (centred card); below, the same tree renders as a Vaul

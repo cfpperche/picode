@@ -105,6 +105,21 @@ func (r *Registry) List() []Device {
 	return sortDevices(out)
 }
 
+// AnyHostOnline reports whether a browser on the host machine pinged within
+// the staleness window — "the user is at the desk" (ADR-0047 keeps the
+// phone quiet then, the way Claude Code's Remote Control does).
+func (r *Registry) AnyHostOnline() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now().UTC()
+	for _, it := range r.items {
+		if it.host && it.kind != "extension" && now.Sub(it.last) < staleAfter {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Registry) view(it *rec, now time.Time) Device {
 	return Device{
 		ID:        it.id,

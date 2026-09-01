@@ -38,7 +38,18 @@ Tap a terminal to attach to it. Under the terminal a **key bar** gives you
 what the phone keyboard lacks: Esc, Tab, Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+L,
 arrows, and `/ | - ~`.
 
-## Coming next
+## Push notifications
 
-Push notifications when an agent needs you or a run finishes — on iPhone
-they require the app to be installed to the Home Screen.
+More → **Notifications** → **Enable push on this device**. PiCode then
+wakes the phone when an agent is blocked on a question or a permission
+that nobody is watching, when a blocking Inbox item arrives, or when a run
+finishes while nobody was looking — each has its own switch. Tapping the
+notification opens that agent or item.
+
+PiCode stays quiet while a browser on the host machine is open: the phone
+is for when you are away.
+
+- Needs the `https://` address (the same mkcert certificate as the desktop).
+- **iPhone**: add PiCode to the Home Screen first, open it from there, then
+  enable. Safari will not show the permission prompt otherwise.
+- **Send test** proves the path end to end.

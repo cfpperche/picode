@@ -49,7 +49,8 @@ What exists:
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
-- **ADR-0045** one modal primitive: `components/ResponsiveDialog.jsx` (Radix dialog ≥720px, Vaul sheet below, `Alert` for confirms); `.dlg.dlg-sheet` CSS; `lib/dialogPolicy.test.js` refuses raw dialog/drawer imports outside it (allowlist: `Palette`, `Hotkeys`).
+- **ADR-0047** Web Push: `internal/push` (stdlib VAPID + RFC 8291), `store` migration 018, `/api/push/*`, `PushPrefs.jsx`; presence-aware (host online → no push); real-device dogfood pending (needs the mkcert cert on the phone; iOS needs Home Screen install).
+- **ADR-0046** one modal primitive: `components/ResponsiveDialog.jsx` (Radix dialog ≥720px, Vaul sheet below, `Alert` for confirms); `.dlg.dlg-sheet` CSS; `lib/dialogPolicy.test.js` refuses raw dialog/drawer imports outside it (allowlist: `Palette`, `Hotkeys`).
 - **ADR-0044** mobile shell v2 — supervision console (amended same day: no header; Work tab = workspaces / free agents / terminals; `#/term/<id>` screen with key bar). `web/src/mobile/` is now screens (`Now`, `Inbox`, `Agents`, `Agent`, `More`) + hooks (`useHashRoute`, `usePoll`, `useFleet`, `useAgentSocket`) + components (`TabBar`, `ScreenHeader`, `StateChip`, `NeedsYouCard`, `AgentRow`, `StatStrip`, `CreateSheet`) over pure libs `lib/mobileRoutes.js`, `lib/agentEvents.js` (reducer of the agent WS stream; desktop `handleEvent` untouched), `lib/needsYou.js`, `lib/createSubmit.js` (lifted from `submitNew`). Server: `agentView.streaming/waiting/dialog` from `Runtime.Get(id).Snapshot()`; `AppSurface` gained `initialPath`; `summarizeArgs` moved to `lib/toolArgs.js` (re-exported). The waiting card exists on mobile now — the two "Mobile has no waiting card" lines below are history. Push is the next ADR (phase 2 of the approved plan: Web Push/VAPID in Go stdlib, presence-aware).
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
@@ -58,7 +59,7 @@ What exists:
 
 ## In flight
 
-**ADR-0045 Automations on `feat/automations`** (2026-09-01). Backend, UI,
+**ADR-0046 Automations on `feat/automations`** (2026-09-01). Backend, UI,
 docs done; dogfooded on a scratch instance (Run now → `pong` Inbox result,
 webhook 401/413/202, busy 409, cost cap, daemon restart). Not merged.
 
@@ -142,6 +143,8 @@ render megabytes.
    Actions, Sentry) and, if the fence parsing of `/automate` proves flaky
    in daily use, a `pi-automate` tool package for structured drafts.
    Cost on runs closed by a restart.
+**ADR-0043 Track C** (actuator on the current tab) after Track B merges.
+Track D/E stay parked.
 
 **Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
 2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
@@ -203,14 +206,14 @@ Never exercised, because this machine was already past them:
 ## Backlog
 
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
-- Mobile phase 2 (approved plan): Web Push over VAPID in Go stdlib — `internal/push`, subscriptions migration, `POST/PATCH/DELETE /api/push/subscriptions`, triggers on blocking inbox items / results / unobserved `extension_ui_request`, suppressed while a host device is online, prefs in More → Notifications and `#/preferences/notifications`. Phase 3: swipe actions on inbox rows, pull-to-refresh, read-only Changes screen.
+- Mobile phase 2 shipped (ADR-0047) but **not yet proved on a real phone**: enable on Chrome Android / an iPhone Home-Screen install, `Send test`, then a real `ASK:` with the desktop closed. Phase 3: swipe actions on inbox rows, pull-to-refresh, read-only Changes screen.
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
 - Cold start parses the whole session JSONL (10 s on a 129 MB session) — filed upstream: [pi#8843](https://github.com/earendil-works/pi/issues/8843) (lazy resume / load checkpoint).
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
 
 ## Known debts / open questions
 
-- **Automations (ADR-0045):** cost cap is a 30 s poll (overshoots by one
+- **Automations (ADR-0046):** cost cap is a 30 s poll (overshoots by one
   poll); runs interrupted by a restart show `$0.00`; the runs table and
   list poll (15 s) — no live event; two due automations share the active
   `auth.json` credential; the webhook is reachable wherever the server is
@@ -253,7 +256,23 @@ Never exercised, because this machine was already past them:
   drafting from the current agent (verified on scratch: repo-specific
   prompt, weekdays 09:00, origin line), draft handoff lib. ADR renumbered
   0044 → **0045** after a same-day collision on main (dialogs moved to 0046).
-- **2026-09-01** — **Responsive dialogs (ADR-0045)**, on branch
+- **2026-09-01** — **Web Push (ADR-0047)**, on branch `feat/mobile-push`
+  — phase 2 of the approved mobile plan. `internal/push` in stdlib: VAPID
+  keys (`<DataDir>/vapid.json`, 0600), RFC 8291 `aes128gcm` (Appendix A
+  vector pinned in the test), sender (TTL/Urgency/Topic, 410 → drop),
+  notifier with the decision table (host online → skip; result →
+  *finished*; blocking → *actions*; unobserved dialog → *actions*). Hooks:
+  `store.OnInboxCreated`, `rpc.Runtime.OnWaiting` (via
+  `ManagedAgent.onWaiting`, `hub.Len()==0`), `presence.AnyHostOnline`.
+  Store migration 018 + `store/push.go`; `server/push.go` endpoints;
+  `main.go` wires one presence registry for both. Client: `sw.js` push +
+  notificationclick, `main.jsx` navigate listener (SW now also on
+  localhost), `lib/push.js` (+ blocked-reason test), `PushPrefs.jsx` in
+  mobile More → Notifications and desktop Preferences → Notifications.
+  Also: the responsive-dialogs ADR was renumbered 0045 → **0046** (another
+  session's Automations ADR took 0045 in parallel); push is 0047.
+
+- **2026-09-01** — **Responsive dialogs (ADR-0046)**, on branch
   `feat/responsive-dialogs`. Owner on the phone: "New Agent abre como um
   drawer… o dialog Choose Folder já não abre assim… precisamos mapear
   todos os dialogs e aplicar a mesma regra". Inventory: 16 files with raw
@@ -278,7 +297,7 @@ Never exercised, because this machine was already past them:
   ResponsiveDialog cancels Radix open-autofocus and blurs a React
   `autoFocus` in a layout effect; desktop unchanged.
 
-- **2026-09-01 — ADR-0045 Automations** (`feat/automations`): store +
+- **2026-09-01 — ADR-0046 Automations** (`feat/automations`): store +
   migrations 016/017, `internal/cron`, `internal/automate`, server routes
   + runner, `Automations.jsx`, guide, benchmark study of Devin/Cursor/
   Claude Code/Codex/GitHub. Visual gate: empty, blocked (pi missing),
