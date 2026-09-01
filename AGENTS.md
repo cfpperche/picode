@@ -47,6 +47,14 @@ moment of creation**. Read [README.md](README.md) and
    After the branch merges: `git worktree remove .worktrees/<name>` and
    delete the branch. Leave `main` clean for the next session. A dirty
    shared tree that blocks another agent is FAIL.
+   This is **enforced by git, not by trust**: `.githooks/reference-transaction`
+   aborts any `git switch`/`git checkout` that would move the root checkout
+   off `main` (switching back to `main` is always allowed), and
+   `.githooks/pre-commit` refuses feature commits made there. The guards are
+   tool-agnostic — they hold for every agent runtime, editor and script.
+   `make hooks` (implied by `make dev` and `make ci`) points git at them;
+   a clone that never ran make has no guard. Deliberate one-off:
+   `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
    **Never run `git clean -fdx` (or `-fdX`) in the primary checkout:**
    `.worktrees/` is git-ignored, so clean deletes every agent's working
    tree in one stroke. Untracked leftovers are removed by name, or not at all.

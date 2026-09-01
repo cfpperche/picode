@@ -611,3 +611,31 @@ Never exercised, because this machine was already past them:
   dark is `#7c8cf8` with white text (~2.5:1) — a product-wide contrast
   bug, not inbox-specific; fix deserves its own pass. No keyboard list
   navigation (j/k) yet.
+
+- **2026-09-01** — **The repository root is now pinned to main by git
+  itself**, not by convention (AGENTS.md §5). `.githooks/reference-transaction`
+  aborts a `git switch`/`git checkout` that would move the root checkout off
+  main; `.githooks/pre-commit` refuses feature commits made there. Git has no
+  pre-checkout hook, but a branch switch is a symref update of HEAD and a
+  reference transaction can be aborted (git ≥ 2.28) — so enforcement is
+  tool-agnostic: it holds for every agent runtime, editor and script, which a
+  Claude-Code-only hook would not.
+  The trap worth remembering: `git worktree add -b <branch>` writes the NEW
+  worktree's HEAD through the *same* transaction, from the same directory,
+  with the same git dir, the same common dir and the same
+  `ref:refs/heads/...` payload — the naive hook blocked the very flow it is
+  meant to force. The only discriminator is the invoking command, read from
+  `/proc/$PPID/cmdline` (with a `ps` fallback); so the hook is Linux/WSL-first
+  by design.
+  `make hooks` wires `core.hooksPath` (implied by `make dev` and `make ci`);
+  a clone that never ran make has no guard, and `git -c core.hooksPath= …`
+  bypasses everything — this is protection against carelessness, not malice.
+  Escape hatch: `PICODE_ALLOW_SWITCH=1`. Note `gh pr checkout <N>` shells out
+  to `git checkout` and is therefore refused in the root: review PRs from a
+  worktree, or use the override.
+  Verified on a clone of this repo, not in theory: switch/-c/checkout -b
+  blocked, worktree add + switch/commit inside a worktree fine, commit on
+  main in the root fine, `checkout -- <file>` fine, return to main always
+  allowed, override works, and pre-commit blocks a feature commit when the
+  root is off main. GitHub Actions calls individual make targets, so it never
+  sets hooksPath.
