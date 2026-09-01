@@ -22,6 +22,7 @@ const REVEAL_STALE_MS = 10_000;
 export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onClose }) {
   const [levels, setLevels] = useState(null); // null = first load
   const [expanded, setExpanded] = useState(() => new Set());
+  const [panel, setPanel] = useState("files"); // "files" | "changes"
   const [status, setStatus] = useState({ git: false, changes: [] });
   const [gone, setGone] = useState(false);
   const [error, setError] = useState("");
@@ -101,6 +102,7 @@ export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onCl
     // A new owner is a new tree: collapse what the old one had open.
     setExpanded(new Set());
     setDiffPath("");
+    setPanel("files");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, ownerId]);
 
@@ -263,9 +265,21 @@ export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onCl
       ) : (
         <div className={"ft-split" + (diffPath ? " ft-split-open" : "") + (resizing ? " resizing" : "")}>
         <div className="ft-body" style={diffPath ? { width: treeW } : undefined}>
-          {changes.length > 0 ? (
-            <div className="ft-changes">
-              <h3 className="ft-sect">Changes ({changes.length})</h3>
+          {status.git ? (
+            <nav className="ft-tabs" role="tablist" aria-label="File list view">
+              <button type="button" role="tab" className="ft-tab" aria-selected={panel === "files"} onClick={() => setPanel("files")}>
+                Files
+              </button>
+              <button type="button" role="tab" className="ft-tab" aria-selected={panel === "changes"} onClick={() => setPanel("changes")}>
+                Changes
+                {changes.length > 0 ? <span className="ft-tab-badge">{changes.length}</span> : null}
+              </button>
+            </nav>
+          ) : null}
+          {status.git && panel === "changes" ? (
+            changes.length === 0 ? (
+              <p className="ft-msg">No changes.</p>
+            ) : (
               <ul className="ft-list">
                 {changes.map((c) => (
                   <li key={c.path}>
@@ -276,10 +290,8 @@ export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onCl
                   </li>
                 ))}
               </ul>
-              <h3 className="ft-sect">Files</h3>
-            </div>
-          ) : null}
-          {rows.length === 0 ? (
+            )
+          ) : rows.length === 0 ? (
             <p className="ft-msg">Empty folder.</p>
           ) : (
             <FileTree rows={rows} kinds={kinds} dirtyDirs={dirtyDirs} onToggle={toggle} onOpen={onOpenFile} />
