@@ -369,6 +369,58 @@ func (s *Store) CountInboxBadge() (blocking int, other bool, err error) {
 	return blocking, otherN > 0, nil
 }
 
+// DeleteInboxItem permanently removes one item, regardless of state. The
+// caller (server/app layer) decides when to expose this — today only on
+// already-done items — the store itself doesn't gate by state, same as
+// DeletePin.
+func (s *Store) DeleteInboxItem(id string) error {
+	res, err := s.db.Exec(`DELETE FROM inbox_items WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("store: delete inbox item: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteDoneInboxItems permanently removes every done item and reports
+// how many were removed (for a "Cleared N item(s)" toast).
+func (s *Store) DeleteDoneInboxItems() (int, error) {
+	res, err := s.db.Exec(`DELETE FROM inbox_items WHERE state = ?`, InboxDone)
+	if err != nil {
+		return 0, fmt.Errorf("store: clear done inbox items: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
+// CountInboxItems returns how many items are currently in this exact
+// state, for a tab badge. Unlike ListInboxItems' State field, there is
+// no "" or "all" special case here — pass InboxUnread, InboxRead or
+// InboxDone explicitly; reusing "" with a different meaning in the same
+// file would confuse more than it'd save.
+func (s *Store) CountInboxItems(state string) (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM inbox_items WHERE state = ?`, state).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("store: count inbox items: %w", err)
+	}
+	return n, nil
+}
+
+// CountAllInboxItems returns the total row count across every state, for
+// the "All" tab's badge.
+func (s *Store) CountAllInboxItems() (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM inbox_items`).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("store: count all inbox items: %w", err)
+	}
+	return n, nil
+}
+
 // FileAgentResult files a `result` item for an agent run, consolidating
 // noise: an unread result from the same source is updated in place, so a
 // chatty agent yields one unread item, not a pile.

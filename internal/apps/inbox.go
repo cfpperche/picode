@@ -32,10 +32,42 @@ func (a inboxApp) View(_ context.Context, h Host, path string) (View, error) {
 	if strings.HasPrefix(path, "item/") {
 		return a.itemView(h, strings.TrimPrefix(path, "item/"))
 	}
-	if path != "" {
-		return View{}, fmt.Errorf("inbox: no view at %q", path)
+	switch path {
+	case "":
+		return a.rootView(h)
+	case "done":
+		return a.doneView(h)
+	case "all":
+		return a.allView(h)
 	}
-	return a.rootView(h)
+	return View{}, fmt.Errorf("inbox: no view at %q", path)
+}
+
+// tabs builds the segmented Active/Done/All strip shared by every view
+// (best-effort on the detail view, so a count query failing there
+// doesn't take the item down with it). Active carries no badge — its
+// sections already show counts the same way Needs-you/Feed do.
+func (inboxApp) tabs(h Host) ([]Tab, error) {
+	doneN, err := h.Store.CountInboxItems(store.InboxDone)
+	if err != nil {
+		return nil, err
+	}
+	allN, err := h.Store.CountAllInboxItems()
+	if err != nil {
+		return nil, err
+	}
+	doneBadge, allBadge := "", ""
+	if doneN > 0 {
+		doneBadge = fmt.Sprintf("%d", doneN)
+	}
+	if allN > 0 {
+		allBadge = fmt.Sprintf("%d", allN)
+	}
+	return []Tab{
+		{ID: "active", Label: "Active", Path: ""},
+		{ID: "done", Label: "Done", Path: "done", Badge: doneBadge},
+		{ID: "all", Label: "All", Path: "all", Badge: allBadge},
+	}, nil
 }
 
 // listPanes is the left column of the split: the needs-me queue over the
@@ -64,19 +96,125 @@ func listPanes(h Host, selected string) ([]Block, error) {
 	return blocks, nil
 }
 
-func (inboxApp) rootView(h Host) (View, error) {
+func (a inboxApp) rootView(h Host) (View, error) {
+	tabs, err := a.tabs(h)
+	if err != nil {
+		return View{}, err
+	}
 	blocks, err := listPanes(h, "")
 	if err != nil {
 		return View{}, err
 	}
-	v := View{APIVersion: APIVersion, Title: "Inbox", Layout: "split", Blocks: blocks}
+	v := View{APIVersion: APIVersion, Title: "Inbox", Layout: "split", Tabs: tabs, Blocks: blocks}
 	if len(blocks) == 0 {
-		// Inbox zero: the host draws its blankslate, no split chrome
-		// wrapped around nothing.
+		// An empty Active queue is common once history is visible in Done
+		// (ADR-0037 follow-up) — "Inbox zero" would wrongly imply the
+		// whole mailbox is empty when Done might hold real history.
 		v.Layout = ""
-		v.Empty = "Inbox zero — Agents and terminals file questions and results here. Nothing needs you right now."
+		v.Empty = "Nothing needs you right now."
 	}
 	return v, nil
+}
+
+// doneItems fetches every done item, newest first. IncludeSnoozed is
+// mandatory here: an item answered before an earlier snooze expired must
+// never hide behind that stale timestamp.
+func doneItems(h Host) ([]store.InboxItem, error) {
+	return h.Store.ListInboxItems(store.InboxFilter{State: store.InboxDone, IncludeSnoozed: true})
+}
+
+// donePane is itemView's list column when the open item is itself done:
+// the list beside the detail mirrors what you navigated from, instead of
+// snapping back to Active under you.
+func donePane(h Host, selected string) ([]Block, error) {
+	items, err := doneItems(h)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return []Block{}, nil
+	}
+	return []Block{{Type: "list", Pane: "list", Title: "Done", Items: doneRows(h, items)}}, nil
+}
+
+func (a inboxApp) doneView(h Host) (View, error) {
+	tabs, err := a.tabs(h)
+	if err != nil {
+		return View{}, err
+	}
+	items, err := doneItems(h)
+	if err != nil {
+		return View{}, err
+	}
+	v := View{APIVersion: APIVersion, Title: "Inbox", Layout: "split", Tabs: tabs}
+	if len(items) == 0 {
+		v.Layout = ""
+		v.Empty = "No answered items yet."
+		return v, nil
+	}
+	v.Blocks = []Block{
+		{Type: "list", Pane: "list", Title: "Done", Items: doneRows(h, items)},
+		{Type: "actions", Pane: "list", Actions: []Action{{
+			ID: "clear-done", Label: fmt.Sprintf("Clear all done (%d)", len(items)), Danger: true,
+			Confirm: fmt.Sprintf("Delete all %d done item(s)? This cannot be undone.", len(items)),
+		}}},
+	}
+	return v, nil
+}
+
+func (a inboxApp) allView(h Host) (View, error) {
+	tabs, err := a.tabs(h)
+	if err != nil {
+		return View{}, err
+	}
+	blocks, err := listPanes(h, "")
+	if err != nil {
+		return View{}, err
+	}
+	done, err := doneItems(h)
+	if err != nil {
+		return View{}, err
+	}
+	if len(done) > 0 {
+		blocks = append(blocks, Block{Type: "list", Pane: "list", Title: "Done", Items: doneRows(h, done)})
+	}
+	v := View{APIVersion: APIVersion, Title: "Inbox", Layout: "split", Tabs: tabs, Blocks: blocks}
+	if len(blocks) == 0 {
+		v.Layout = ""
+		v.Empty = "Inbox zero — nothing has come through yet."
+	}
+	return v, nil
+}
+
+// doneRows renders answered/ignored items for history: the response
+// itself lands in Meta, so "what was decided" is visible without opening
+// the item — the literal ask behind this view. Delete is the only row
+// action; Done/Snooze make no sense on an item that's already settled.
+func doneRows(h Host, items []store.InboxItem) []ListItem {
+	rows := make([]ListItem, 0, len(items))
+	for _, it := range items {
+		meta := []string{sourceLabel(h, it), it.Reason}
+		if it.Response != nil {
+			meta = append(meta, truncate(*it.Response, 60))
+		}
+		rows = append(rows, ListItem{
+			ID: it.ID, Title: it.Title, Meta: meta, At: it.CreatedAt,
+			Badge: it.Kind, Tone: kindTone(it.Kind), Path: "item/" + it.ID,
+			Actions: []Action{{
+				ID: "delete", Label: "Delete", Icon: "trash", Danger: true,
+				Confirm: "Delete this item? This cannot be undone.",
+				Args:    map[string]string{"item": it.ID},
+			}},
+		})
+	}
+	return rows
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 // inboxRows renders items as list rows. Feed rows carry Done/Snooze as
@@ -121,7 +259,7 @@ func kindTone(kind string) string {
 	return ""
 }
 
-func (inboxApp) itemView(h Host, id string) (View, error) {
+func (a inboxApp) itemView(h Host, id string) (View, error) {
 	it, err := h.Store.GetInboxItem(id)
 	if err != nil {
 		return View{}, err
@@ -132,12 +270,24 @@ func (inboxApp) itemView(h Host, id string) (View, error) {
 			it = updated
 		}
 	}
-	// The list travels with every view so the split never blanks.
-	blocks, err := listPanes(h, it.ID)
+	// The list travels with every view so the split never blanks — and it
+	// mirrors the item's own state, so opening a Done row doesn't snap
+	// the left column back to Active under you.
+	var blocks []Block
+	if it.State == store.InboxDone {
+		blocks, err = donePane(h, it.ID)
+	} else {
+		blocks, err = listPanes(h, it.ID)
+	}
 	if err != nil {
 		return View{}, err
 	}
 	v := View{APIVersion: APIVersion, Title: it.Title, Layout: "split", Blocks: blocks}
+	// Best-effort: the tab strip is chrome, not content — a count-query
+	// failure here shouldn't take the item's own detail down with it.
+	if tabs, err := a.tabs(h); err == nil {
+		v.Tabs = tabs
+	}
 
 	detail := []Block{}
 	body := strings.TrimSpace(it.Body)
@@ -149,8 +299,15 @@ func (inboxApp) itemView(h Host, id string) (View, error) {
 		Meta: []string{sourceLabel(h, it), it.Reason}, At: it.CreatedAt,
 		Markdown: body,
 	})
-	if it.State == store.InboxDone && it.Response != nil {
-		detail = append(detail, Block{Type: "detail", Pane: "detail", Title: "Answered", Markdown: "> " + *it.Response})
+	if it.State == store.InboxDone {
+		if it.Response != nil {
+			detail = append(detail, Block{Type: "detail", Pane: "detail", Title: "Answered", Markdown: "> " + *it.Response})
+		}
+		detail = append(detail, Block{Type: "actions", Pane: "detail", Actions: []Action{{
+			ID: "delete", Label: "Delete", Icon: "trash", Danger: true,
+			Confirm: "Delete this item? This cannot be undone.",
+			Args:    map[string]string{"item": it.ID},
+		}}})
 	}
 
 	if it.State != store.InboxDone {
@@ -201,6 +358,16 @@ func (inboxApp) itemView(h Host, id string) (View, error) {
 }
 
 func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionResult, error) {
+	// The only action with no item — checked first so the "no item in
+	// request" guard below doesn't have to special-case it.
+	if req.Action == "clear-done" {
+		n, err := h.Store.DeleteDoneInboxItems()
+		if err != nil {
+			return ActionResult{}, err
+		}
+		return a.backTo(h, req.Path, fmt.Sprintf("Cleared %d item(s)", n))
+	}
+
 	id := req.Args["item"]
 	if id == "" && strings.HasPrefix(req.Path, "item/") {
 		id = strings.TrimPrefix(req.Path, "item/")
@@ -208,18 +375,36 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 	if id == "" {
 		return ActionResult{}, fmt.Errorf("inbox: no item in request")
 	}
+	// path alone can't tell "acting on the item you're viewing" from
+	// "acting on a sibling row while that item's detail happens to be
+	// open" — both carry path="item/<open-id>". Only the FORMER should
+	// leave the detail (existing behavior for respond/accept/ignore/
+	// decline, and necessary for delete: re-rendering a just-deleted
+	// item's own path would 404). A sibling's row action — e.g. deleting
+	// a different Done item while reading this one — must stay put:
+	// re-rendering the same item/<open-id> just reflects the sibling's
+	// removal in the list beside it, without navigating anywhere.
+	returnPath := req.Path
+	if strings.HasPrefix(returnPath, "item/") && strings.TrimPrefix(returnPath, "item/") == id {
+		returnPath = ""
+	}
 	switch req.Action {
 	case "done":
 		if _, err := h.Store.SetInboxItemState(id, store.InboxDone, nil); err != nil {
 			return ActionResult{}, err
 		}
-		return a.backToRoot(h, "Done")
+		return a.backTo(h, returnPath, "Done")
 	case "snooze":
 		until := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 		if _, err := h.Store.SetInboxItemState(id, "", &until); err != nil {
 			return ActionResult{}, err
 		}
-		return a.backToRoot(h, "Snoozed for 1 hour")
+		return a.backTo(h, returnPath, "Snoozed for 1 hour")
+	case "delete":
+		if err := h.Store.DeleteInboxItem(id); err != nil {
+			return ActionResult{}, err
+		}
+		return a.backTo(h, returnPath, "Item deleted")
 	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
 		text := req.Args["reply"]
@@ -258,14 +443,17 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		case "decline":
 			toast = "Declined — the agent was told no."
 		}
-		return a.backToRoot(h, toast)
+		return a.backTo(h, returnPath, toast)
 	}
 	return ActionResult{}, fmt.Errorf("inbox: unknown action %q", req.Action)
 }
 
-// backToRoot returns a fresh root view so row actions update in place.
-func (a inboxApp) backToRoot(h Host, toast string) (ActionResult, error) {
-	v, err := a.rootView(h)
+// backTo re-renders the view at path so an action updates the screen the
+// user was actually looking at — deleting a Done row keeps you on Done,
+// clearing history from All keeps you on All — instead of always
+// snapping back to Active regardless of where the action fired from.
+func (a inboxApp) backTo(h Host, path, toast string) (ActionResult, error) {
+	v, err := a.View(context.Background(), h, path)
 	if err != nil {
 		return ActionResult{Toast: toast}, nil
 	}

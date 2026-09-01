@@ -218,6 +218,39 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **Inbox: Active/Done/All tabs + manual cleanup**
+  (`worktree-feat-inbox-tabs`, ADR-0037 follow-up). Items were never
+  deleted (`UPDATE` only, confirmed by reading every write path) but
+  `done` was invisible — the default view only ever queried
+  `unread`/`read`, so a resolved question just disappeared, recoverable
+  only via a raw `?state=done` API call. Owner's call, in order:
+  visibility first, manual cleanup second, retention policy explicitly
+  deferred. A segmented `Active | Done | All` control (`View.Tabs`, new
+  optional field — ADR-0036 amendment, not a new block type) sits above
+  the list; Done rows carry a truncated summary of the reply; a done
+  item's detail now mirrors the Done list beside it instead of Active
+  (it used to "jump" to the wrong list). Delete is both per-row (hover
+  reveals a trash icon, confirm) and bulk (**Clear all done**, confirm
+  with the count); store gained `DeleteInboxItem`/
+  `DeleteDoneInboxItems`/`CountInboxItems`/`CountAllInboxItems`,
+  `ListInboxItems` untouched — Active and Done stay two existing calls
+  combined at the app layer rather than a new "all states" filter mode.
+  Two REST routes for API parity: `DELETE /api/inbox/{id}`, and `DELETE
+  /api/inbox?state=done` (bare `DELETE /api/inbox` refused, 400 — no
+  accidental full wipe).
+  Two real bugs, both found only by driving a real browser (chromedp
+  against an isolated scratch server), not by reading the diff: (1)
+  `AppSurface`'s selected-row lookup assumed every list-pane block had
+  `.items`, and crashed (`Cannot read properties of undefined`) on the
+  new actions-only "Clear all done" block — fixed generally (`b.items
+  || []`), not just for this one block. (2) the post-action
+  `returnPath` rule collapsed to Active root whenever the acted-on path
+  merely started with `item/`, which also fired for deleting a
+  *sibling* row while a *different* item's detail was open; it now
+  compares the acted-on id against the currently-open item's own id,
+  and only then collapses — a regression test
+  (`TestInboxDeleteSiblingRowWhileDetailOpen`) pins the distinction.
+
 - **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
   the file tree, git graph and app surfaces were rendered only while
   selected, so every tab switch unmounted them and threw away the

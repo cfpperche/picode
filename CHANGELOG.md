@@ -13,6 +13,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inbox: Active/Done/All tabs + delete.** Answered, accepted and
+  ignored items were tracked forever but invisible — nothing filtered
+  by state, so a busy inbox looked cleared even though nothing was ever
+  removed. A segmented `Active | Done | All` control now sits above the
+  list (live count badges); Done lists what happened with a one-line
+  summary of the reply, and a done item's detail correctly mirrors the
+  Done list beside it instead of Active. Delete is both per-row (hover
+  reveals a trash icon, confirm) and bulk (**Clear all done**, confirm
+  with the count) — deletion is manual only, no retention policy or
+  auto-sweep. The apps host gained one optional `View.tabs` field
+  (id/label/path/badge) for this — a new field, not a new block type,
+  the same growth rule as before (ADR-0036 amendment). Two REST routes
+  round out the API: `DELETE /api/inbox/{id}` and `DELETE
+  /api/inbox?state=done` (the bare form without the state filter is
+  refused, 400 — no accidental full wipe).
+
 - **Git graph: Branches picker + Show Remote Branches.** A new toolbar
   control (VS Code Git Graph-inspired) actually restricts which commits
   are walked — pick one or more local/remote branches to see only their

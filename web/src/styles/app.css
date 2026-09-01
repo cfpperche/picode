@@ -3311,6 +3311,33 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-variant-numeric: tabular-nums;
 }
 
+/* Segmented nav/filter strip (optional per view). Underlined, not a
+   pill group like .termset-seg — these are different VIEWS of the list,
+   not one control's mutually exclusive value. */
+.app-tabs {
+  display: flex; gap: 2px;
+  margin: -12px -12px 10px; padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.app-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 8px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--text-secondary);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.app-tab:hover { color: var(--text-primary); }
+.app-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.app-tab[aria-selected="true"] {
+  color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600;
+}
+.app-tab-badge {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-secondary); background: var(--bg-hover);
+  border-radius: 999px; padding: 0 5px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Detail header: the item's own title, then its meta strip. */
 .app-detail-head { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .app-detail-title {

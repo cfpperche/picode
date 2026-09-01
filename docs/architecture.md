@@ -247,7 +247,9 @@ HTTP API (Go 1.22 method patterns):
   under 880px), name its own blankslate line in `empty`, and decorate
   rows with `meta`, `at` (RFC3339 — the host formats it, relative in the
   row and absolute on hover), `tone` (`info|ok|warn|danger`), `unread`
-  and per-action `icon`. Block types stay the frozen four (ADR-0036
+  and per-action `icon`. A view may also carry `tabs` (`id`/`label`/
+  `path`/`badge?`) for a segmented top-level control (e.g. the Inbox's
+  Active/Done/All). Block types stay the frozen four (ADR-0036
   amendments).
 - `POST /api/inbox` — file an inbox item (ADR-0037): `{kind:
   fyi|question|approval|result, sourceKind: agent|terminal|system,
@@ -267,6 +269,12 @@ HTTP API (Go 1.22 method patterns):
   an unexpected process exit becomes an `fyi` (a requested Stop files
   nothing). Agents file via `packages/pi-inbox` (`notify_human`,
   `ask_human`), identified by `PICODE_AGENT_ID` set on every spawn.
+  Items are never deleted by any of the above; two more routes give the
+  mailbox manual cleanup: `DELETE /api/inbox/{id}` removes one item in
+  any state (204, 404 if absent), `DELETE /api/inbox?state=done`
+  bulk-removes every done item (`{deleted: N}`) — the bare form without
+  `?state=done` is refused (400) so nothing can wipe the mailbox by
+  accident.
 - `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
   public/static/app/src/app/www/docs; svg > png > ico), read-only and
   confined to the folder; the workspace card wears it.

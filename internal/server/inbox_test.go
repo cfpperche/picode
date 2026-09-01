@@ -273,3 +273,94 @@ func TestInboxStateAndSnooze(t *testing.T) {
 		t.Fatalf("bad state = %d", res.StatusCode)
 	}
 }
+
+func TestInboxDeleteRoute(t *testing.T) {
+	ts, st := newInboxServer(t)
+	_, out := inboxPost(t, ts, "/api/inbox", `{"kind":"fyi","sourceKind":"system","reason":"r","title":"gone"}`)
+	id, _ := out["id"].(string)
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/inbox/"+id, nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("DELETE: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete = %d, want 204", res.StatusCode)
+	}
+	if _, err := st.GetInboxItem(id); err != store.ErrNotFound {
+		t.Fatalf("item survived: %v", err)
+	}
+
+	req, _ = http.NewRequest(http.MethodDelete, ts.URL+"/api/inbox/"+id, nil)
+	res, _ = http.DefaultClient.Do(req)
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("delete missing = %d, want 404", res.StatusCode)
+	}
+}
+
+func TestInboxClearDoneRoute(t *testing.T) {
+	ts, st := newInboxServer(t)
+	_, out := inboxPost(t, ts, "/api/inbox", `{"kind":"fyi","sourceKind":"system","reason":"r","title":"d1"}`)
+	id1, _ := out["id"].(string)
+	_, out = inboxPost(t, ts, "/api/inbox", `{"kind":"fyi","sourceKind":"system","reason":"r","title":"d2"}`)
+	id2, _ := out["id"].(string)
+	if _, err := st.SetInboxItemState(id1, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark id1 done: %v", err)
+	}
+	if _, err := st.SetInboxItemState(id2, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark id2 done: %v", err)
+	}
+	_, out = inboxPost(t, ts, "/api/inbox", `{"kind":"fyi","sourceKind":"system","reason":"r","title":"active"}`)
+	activeID, _ := out["id"].(string)
+
+	// Safety rail: a bare DELETE (no ?state=done) must be refused.
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/inbox", nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("bare DELETE: %v", err)
+	}
+	body := map[string]any{}
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bare DELETE /api/inbox = %d, want 400 (must never mean delete-everything)", res.StatusCode)
+	}
+	if _, err := st.GetInboxItem(activeID); err != nil {
+		t.Fatalf("bare DELETE removed something: %v", err)
+	}
+
+	// Wrong state value: also refused.
+	req, _ = http.NewRequest(http.MethodDelete, ts.URL+"/api/inbox?state=unread", nil)
+	res, _ = http.DefaultClient.Do(req)
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("state=unread DELETE = %d, want 400", res.StatusCode)
+	}
+
+	// The real thing: ?state=done clears done items only.
+	req, _ = http.NewRequest(http.MethodDelete, ts.URL+"/api/inbox?state=done", nil)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("clear-done DELETE: %v", err)
+	}
+	body = map[string]any{}
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("clear-done = %d %v", res.StatusCode, body)
+	}
+	if n, _ := body["deleted"].(float64); n != 2 {
+		t.Fatalf("deleted = %v, want 2", body["deleted"])
+	}
+	if _, err := st.GetInboxItem(id1); err != store.ErrNotFound {
+		t.Fatalf("id1 survived: %v", err)
+	}
+	if _, err := st.GetInboxItem(id2); err != store.ErrNotFound {
+		t.Fatalf("id2 survived: %v", err)
+	}
+	if _, err := st.GetInboxItem(activeID); err != nil {
+		t.Fatalf("active item was cleared: %v", err)
+	}
+}

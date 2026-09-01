@@ -8,7 +8,7 @@ import { relTime, absTime } from "../lib/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import AppIcon from "./AppIcon.jsx";
-import { IconChevronLeft, IconCheck, IconClock, IconInbox } from "./Icons.jsx";
+import { IconChevronLeft, IconCheck, IconClock, IconInbox, IconTrash } from "./Icons.jsx";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -119,8 +119,11 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
   const ctx = { onNavigate: setPath, onAction: fire, selected: path };
   // The detail header repeats the selected row's kind lozenge so the two
   // panes agree — read off the list the app already sent, no new field.
+  // A list-pane block isn't always a list block (e.g. a bulk-action row
+  // like Inbox's "Clear all done") — guard b.items so a non-list block
+  // there never breaks this lookup.
   const selectedRow = split
-    ? listBlocks.flatMap((b) => b.items).find((it) => it.path && it.path === path)
+    ? listBlocks.flatMap((b) => b.items || []).find((it) => it.path && it.path === path)
     : null;
 
   return (
@@ -158,6 +161,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
       ) : split ? (
         <div className="app-split">
           <div className="app-pane app-pane-list">
+            <TabStrip tabs={view.tabs} path={path} onNavigate={setPath} />
             {listBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
           </div>
           <div className="app-pane app-pane-detail" ref={detailRef}>
@@ -170,6 +174,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
         </div>
       ) : (
         <div className="app-body">
+          <TabStrip tabs={view.tabs} path={path} onNavigate={setPath} />
           {view.blocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
           {view.blocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
         </div>
@@ -192,6 +197,32 @@ function PaneBlocks({ blocks, ctx, badge }) {
         return <AppBlock key={i} block={b} {...ctx} extraActions={extra} badge={i === 0 ? badge : null} />;
       })}
     </>
+  );
+}
+
+// A segmented nav/filter strip, optional per view (ADR-0036: an
+// additive View field, not a new block type). Buttons, not radios — this
+// navigates between views, it isn't a single form value. Reuses the same
+// onNavigate/path plumbing a list row's Path already drives, so no new
+// wiring exists just for tabs.
+function TabStrip({ tabs, path, onNavigate }) {
+  if (!tabs || tabs.length === 0) return null;
+  return (
+    <nav className="app-tabs" role="tablist" aria-label="Filter">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          className="app-tab"
+          aria-selected={t.path === path}
+          onClick={() => onNavigate(t.path)}
+        >
+          {t.label}
+          {t.badge ? <span className="app-tab-badge">{t.badge}</span> : null}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -302,7 +333,7 @@ function ActionButton({ action, onAction }) {
   );
 }
 
-const ROW_ICONS = { check: IconCheck, clock: IconClock };
+const ROW_ICONS = { check: IconCheck, clock: IconClock, trash: IconTrash };
 
 // One dense row: unread dot, title, relative time, then a meta strip.
 // Row actions stay hidden until hover or keyboard focus, so they cost no

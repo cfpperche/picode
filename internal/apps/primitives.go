@@ -14,7 +14,19 @@ type View struct {
 	Title      string  `json:"title"`
 	Layout     string  `json:"layout,omitempty"` // "" (stacked) | "split"
 	Empty      string  `json:"empty,omitempty"`  // blankslate line when Blocks is empty
+	Tabs       []Tab   `json:"tabs,omitempty"`   // optional segmented nav/filter strip, host-rendered
 	Blocks     []Block `json:"blocks"`
+}
+
+// Tab is a navigation choice, not a block: clicking it navigates like
+// ListItem.Path does. Deliberately its own type rather than reusing
+// Action, which carries Confirm/Danger/Primary — fields that mean
+// nothing for "go look at this other view."
+type Tab struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Path  string `json:"path"`            // navigates here on click; "" is the root view
+	Badge string `json:"badge,omitempty"` // short count, e.g. "37"
 }
 
 // Block is one vertical section of a view. Type picks which field is
@@ -126,6 +138,11 @@ func (v View) Validate() error {
 	}
 	if !validLayout(v.Layout) {
 		return fmt.Errorf("view: layout %q unknown", v.Layout)
+	}
+	for i, t := range v.Tabs {
+		if t.ID == "" || t.Label == "" {
+			return fmt.Errorf("view: tab %d needs id and label", i)
+		}
 	}
 	for i, b := range v.Blocks {
 		if !validPane(b.Pane) {

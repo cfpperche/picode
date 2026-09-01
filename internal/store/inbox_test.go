@@ -253,3 +253,95 @@ func TestRespondAndForwardInteractiveAgent(t *testing.T) {
 		t.Fatalf("reachable agent did not get its task: %+v", tasks)
 	}
 }
+
+func TestDeleteInboxItem(t *testing.T) {
+	s := openTest(t)
+	it, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "gone soon"})
+	if err := s.DeleteInboxItem(it.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := s.GetInboxItem(it.ID); err != ErrNotFound {
+		t.Fatalf("get after delete = %v, want ErrNotFound", err)
+	}
+	if err := s.DeleteInboxItem(it.ID); err != ErrNotFound {
+		t.Fatalf("delete missing = %v, want ErrNotFound", err)
+	}
+	// Deleting works regardless of state — the store doesn't gate this,
+	// the UI decides when to expose the action.
+	active, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromSystem, Reason: "r", Title: "still open", Body: "?"})
+	if err := s.DeleteInboxItem(active.ID); err != nil {
+		t.Fatalf("delete active item: %v", err)
+	}
+}
+
+func TestDeleteDoneInboxItems(t *testing.T) {
+	s := openTest(t)
+	done1, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "d1"})
+	done2, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "d2"})
+	active, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromSystem, Reason: "r", Title: "still open", Body: "?"})
+	if _, err := s.SetInboxItemState(done1.ID, InboxDone, nil); err != nil {
+		t.Fatalf("mark done1: %v", err)
+	}
+	if _, err := s.SetInboxItemState(done2.ID, InboxDone, nil); err != nil {
+		t.Fatalf("mark done2: %v", err)
+	}
+
+	n, err := s.DeleteDoneInboxItems()
+	if err != nil {
+		t.Fatalf("clear done: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("cleared %d, want 2", n)
+	}
+	if _, err := s.GetInboxItem(done1.ID); err != ErrNotFound {
+		t.Fatalf("done1 survived: %v", err)
+	}
+	if _, err := s.GetInboxItem(done2.ID); err != ErrNotFound {
+		t.Fatalf("done2 survived: %v", err)
+	}
+	if _, err := s.GetInboxItem(active.ID); err != nil {
+		t.Fatalf("active item was deleted: %v", err)
+	}
+	// Idempotent: nothing left to clear.
+	if n, err := s.DeleteDoneInboxItems(); err != nil || n != 0 {
+		t.Fatalf("second clear = %d, %v, want 0, nil", n, err)
+	}
+}
+
+func TestCountInboxItems(t *testing.T) {
+	s := openTest(t)
+	unread, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "u"})
+	done, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "d"})
+	if _, err := s.SetInboxItemState(done.ID, InboxDone, nil); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+	if _, err := s.SetInboxItemState(unread.ID, InboxRead, nil); err != nil {
+		t.Fatalf("mark read: %v", err)
+	}
+
+	if n, err := s.CountInboxItems(InboxDone); err != nil || n != 1 {
+		t.Fatalf("done count = %d, %v, want 1", n, err)
+	}
+	if n, err := s.CountInboxItems(InboxRead); err != nil || n != 1 {
+		t.Fatalf("read count = %d, %v, want 1", n, err)
+	}
+	if n, err := s.CountInboxItems(InboxUnread); err != nil || n != 0 {
+		t.Fatalf("unread count = %d, %v, want 0", n, err)
+	}
+}
+
+func TestCountAllInboxItems(t *testing.T) {
+	s := openTest(t)
+	if n, err := s.CountAllInboxItems(); err != nil || n != 0 {
+		t.Fatalf("empty count = %d, %v, want 0", n, err)
+	}
+	a, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "a"})
+	_, _ = s.CreateInboxItem(InboxItemParams{Kind: InboxFYI, SourceKind: InboxFromSystem, Reason: "r", Title: "b"})
+	if _, err := s.SetInboxItemState(a.ID, InboxDone, nil); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+	// Counts everything regardless of state.
+	if n, err := s.CountAllInboxItems(); err != nil || n != 2 {
+		t.Fatalf("count = %d, %v, want 2", n, err)
+	}
+}

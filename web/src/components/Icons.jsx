@@ -54,6 +54,7 @@ import {
   Square,
   Sun,
   Terminal,
+  Trash2,
   User,
   Volume2,
   VolumeX,
@@ -95,6 +96,7 @@ export const IconGrid = lucide(LayoutGrid, 13);
 export const IconFlask = lucide(FlaskConical, 13);
 export const IconInbox = lucide(Inbox, 13);
 export const IconClock = lucide(Clock, 13);
+export const IconTrash = lucide(Trash2, 13);
 export const IconFile = lucide(File, 13);
 export const IconMore = lucide(EllipsisVertical, 14);
 export const IconEllipsis = lucide(Ellipsis, 14);

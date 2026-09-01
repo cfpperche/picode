@@ -18,6 +18,8 @@ func registerInboxRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/inbox", handleListInbox(deps))
 	mux.HandleFunc("POST /api/inbox/{id}/respond", handleRespondInbox(deps))
 	mux.HandleFunc("POST /api/inbox/{id}/state", handleInboxState(deps))
+	mux.HandleFunc("DELETE /api/inbox/{id}", handleDeleteInboxItem(deps))
+	mux.HandleFunc("DELETE /api/inbox", handleClearDoneInbox(deps))
 }
 
 type inboxCreateReq struct {
@@ -129,5 +131,38 @@ func handleInboxState(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, it)
+	}
+}
+
+// handleDeleteInboxItem permanently removes one item. The Inbox app
+// itself never calls this (it uses deps.Store directly, like every
+// other action) — this route exists for pi-inbox/scripts/automation, the
+// same role the other four routes already fill. CRUD without a delete
+// leg is its own footgun.
+func handleDeleteInboxItem(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := deps.Store.DeleteInboxItem(r.PathValue("id")); err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// handleClearDoneInbox bulk-deletes done items. Deliberately requires an
+// explicit ?state=done: a bare DELETE /api/inbox must never be able to
+// mean "delete everything" by accident.
+func handleClearDoneInbox(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != store.InboxDone {
+			writeErr(w, http.StatusBadRequest, "DELETE /api/inbox requires ?state=done")
+			return
+		}
+		n, err := deps.Store.DeleteDoneInboxItems()
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": n})
 	}
 }

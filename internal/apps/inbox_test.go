@@ -54,10 +54,16 @@ func TestInboxRootView(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("empty root invalid: %v", err)
 	}
-	// Inbox zero drops the split and hands the host a blankslate line
-	// instead of faking content with a markdown block.
-	if v.Layout != "" || len(v.Blocks) != 0 || !strings.Contains(v.Empty, "Inbox zero") {
+	// Active-empty drops the split and hands the host a blankslate line
+	// instead of faking content with a markdown block. Copy is scoped to
+	// Active specifically ("nothing NEEDS you"), not "Inbox zero" — Done
+	// may hold real history even when the queue is clear.
+	if v.Layout != "" || len(v.Blocks) != 0 || !strings.Contains(v.Empty, "Nothing needs you") {
 		t.Fatalf("empty root = %q %q %+v", v.Layout, v.Empty, v.Blocks)
+	}
+	// Tabs travel with every view, even an empty one.
+	if len(v.Tabs) != 3 || v.Tabs[0].ID != "active" || v.Tabs[1].ID != "done" || v.Tabs[2].ID != "all" {
+		t.Fatalf("tabs on empty root = %+v", v.Tabs)
 	}
 
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "needs input", Title: "q", Body: "?"})
@@ -208,5 +214,314 @@ func TestInboxActions(t *testing.T) {
 	}
 	if tasks, _ := h.Store.ListTasks(ag.ID, 10); len(tasks) != 1 { // still just the earlier successful one
 		t.Fatalf("interactive agent got a queued task: %+v", tasks)
+	}
+}
+
+func TestInboxDoneView(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+
+	// Empty Done: blankslate, tabs still present with a zero (omitted) badge.
+	v, err := app.View(context.Background(), h, "done")
+	if err != nil {
+		t.Fatalf("empty done: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("empty done invalid: %v", err)
+	}
+	if v.Layout != "" || !strings.Contains(v.Empty, "No answered items") {
+		t.Fatalf("empty done = %q %q", v.Layout, v.Empty)
+	}
+	if v.Tabs[1].Badge != "" {
+		t.Fatalf("done badge on empty = %q, want omitted", v.Tabs[1].Badge)
+	}
+
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "answered one", Body: "?"})
+	if _, err := h.Store.RespondInboxItem(q.ID, store.VerbRespond, "8445"); err != nil {
+		t.Fatalf("respond: %v", err)
+	}
+	active := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "still open"})
+
+	v, err = app.View(context.Background(), h, "done")
+	if err != nil {
+		t.Fatalf("done view: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("done view invalid: %v", err)
+	}
+	if v.Tabs[1].Badge != "1" {
+		t.Fatalf("done badge = %q, want 1", v.Tabs[1].Badge)
+	}
+	if len(v.Blocks) != 2 || v.Blocks[0].Type != "list" || v.Blocks[0].Title != "Done" {
+		t.Fatalf("done blocks = %+v", v.Blocks)
+	}
+	row := v.Blocks[0].Items[0]
+	if row.ID != q.ID {
+		t.Fatalf("done row = %+v, want %s", row, q.ID)
+	}
+	// The response itself is visible in the row without opening it.
+	found := false
+	for _, m := range row.Meta {
+		if strings.Contains(m, "8445") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("response not visible in row meta: %+v", row.Meta)
+	}
+	if len(row.Actions) != 1 || row.Actions[0].ID != "delete" {
+		t.Fatalf("done row actions = %+v", row.Actions)
+	}
+	// The still-open item never appears in Done.
+	for _, it := range v.Blocks[0].Items {
+		if it.ID == active.ID {
+			t.Fatalf("active item leaked into done view")
+		}
+	}
+	// Bulk-clear action block, with the count baked into copy.
+	acts := v.Blocks[1]
+	if acts.Type != "actions" || acts.Pane != "list" || len(acts.Actions) != 1 {
+		t.Fatalf("clear-done block = %+v", acts)
+	}
+	clear := acts.Actions[0]
+	if clear.ID != "clear-done" || !clear.Danger || !strings.Contains(clear.Confirm, "1") {
+		t.Fatalf("clear-done action = %+v", clear)
+	}
+}
+
+func TestInboxAllView(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "needs you", Body: "?"})
+	f := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "feed item"})
+	d := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "history item"})
+	if _, err := h.Store.SetInboxItemState(d.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	v, err := app.View(context.Background(), h, "all")
+	if err != nil {
+		t.Fatalf("all view: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("all view invalid: %v", err)
+	}
+	// Needs you + Feed + Done, same three-section shape as root+done combined.
+	if len(v.Blocks) != 3 {
+		t.Fatalf("all blocks = %+v", v.Blocks)
+	}
+	titles := []string{v.Blocks[0].Title, v.Blocks[1].Title, v.Blocks[2].Title}
+	if titles[0] != "Needs you" || titles[1] != "Feed" || titles[2] != "Done" {
+		t.Fatalf("all block titles = %v", titles)
+	}
+	ids := map[string]bool{}
+	for _, b := range v.Blocks {
+		for _, it := range b.Items {
+			ids[it.ID] = true
+		}
+	}
+	if !ids[q.ID] || !ids[f.ID] || !ids[d.ID] {
+		t.Fatalf("all view missing an item: %+v", ids)
+	}
+}
+
+func TestInboxItemViewMirrorsDoneList(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+
+	active := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "active"})
+	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "done"})
+	if _, err := h.Store.SetInboxItemState(done.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	// Opening a done item's detail must show the Done list beside it, not
+	// snap back to Active — the exact inconsistency this plan fixes.
+	v, err := app.View(context.Background(), h, "item/"+done.ID)
+	if err != nil {
+		t.Fatalf("done item view: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("done item view invalid: %v", err)
+	}
+	sawDoneList, sawActiveItem := false, false
+	for _, b := range v.Blocks {
+		if b.Pane != "list" {
+			continue
+		}
+		if b.Title == "Done" {
+			sawDoneList = true
+		}
+		for _, it := range b.Items {
+			if it.ID == active.ID {
+				sawActiveItem = true
+			}
+		}
+	}
+	if !sawDoneList {
+		t.Fatalf("done item's detail did not show the Done list: %+v", v.Blocks)
+	}
+	if sawActiveItem {
+		t.Fatalf("done item's detail leaked the Active item into its list pane")
+	}
+	// Tabs travel to the item detail too (best-effort chrome).
+	if len(v.Tabs) != 3 {
+		t.Fatalf("item view tabs = %+v", v.Tabs)
+	}
+	// The done item's own detail now offers delete.
+	var hasDelete bool
+	for _, b := range v.Blocks {
+		if b.Pane != "detail" || b.Type != "actions" {
+			continue
+		}
+		for _, a := range b.Actions {
+			if a.ID == "delete" {
+				hasDelete = true
+			}
+		}
+	}
+	if !hasDelete {
+		t.Fatalf("done item detail has no delete action: %+v", v.Blocks)
+	}
+
+	// An active item's detail keeps showing the Active lists, unchanged.
+	v2, err := app.View(context.Background(), h, "item/"+active.ID)
+	if err != nil {
+		t.Fatalf("active item view: %v", err)
+	}
+	for _, b := range v2.Blocks {
+		if b.Title == "Done" {
+			t.Fatalf("active item's detail pulled in the Done list unexpectedly")
+		}
+	}
+}
+
+func TestInboxDeleteAction(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+
+	done := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "gone"})
+	if _, err := h.Store.SetInboxItemState(done.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	// Fired from the Done tab (row action): stays on Done afterward.
+	res, err := app.Action(ctx, h, ActionRequest{Action: "delete", Path: "done", Args: map[string]string{"item": done.ID}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if res.Toast != "Item deleted" {
+		t.Fatalf("toast = %q", res.Toast)
+	}
+	if res.View == nil || len(res.View.Blocks) != 0 {
+		t.Fatalf("expected an empty Done view back, got %+v", res.View)
+	}
+	if _, err := h.Store.GetInboxItem(done.ID); err != store.ErrNotFound {
+		t.Fatalf("item survived delete: %v", err)
+	}
+
+	// Fired from the item's own detail: collapses to Active root, same
+	// as every other item-detail action (unchanged existing behavior).
+	done2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "gone2"})
+	if _, err := h.Store.SetInboxItemState(done2.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark done2: %v", err)
+	}
+	res, err = app.Action(ctx, h, ActionRequest{Action: "delete", Path: "item/" + done2.ID, Args: map[string]string{"item": done2.ID}})
+	if err != nil {
+		t.Fatalf("delete from detail: %v", err)
+	}
+	if res.View == nil || res.View.Layout != "" {
+		t.Fatalf("delete from detail should return Active root: %+v", res.View)
+	}
+}
+
+// TestInboxDeleteSiblingRowWhileDetailOpen is the regression for a bug
+// caught live: deleting a DIFFERENT item's row (a sibling in the list
+// pane) while an item's own detail is open used to collapse to Active
+// root — path alone ("item/<open-id>") looked identical to "acting on
+// the open item itself", so the fix that special-cased item/ paths was
+// too broad. It must stay on the open item's detail instead.
+func TestInboxDeleteSiblingRowWhileDetailOpen(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+
+	viewing := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "currently open"})
+	sibling := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "sibling row"})
+	if _, err := h.Store.SetInboxItemState(viewing.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark viewing done: %v", err)
+	}
+	if _, err := h.Store.SetInboxItemState(sibling.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark sibling done: %v", err)
+	}
+
+	// Path is "item/<viewing>" (as AppSurface would send it — the current
+	// top-level path — while the row action targets the SIBLING id).
+	res, err := app.Action(ctx, h, ActionRequest{
+		Action: "delete", Path: "item/" + viewing.ID, Args: map[string]string{"item": sibling.ID},
+	})
+	if err != nil {
+		t.Fatalf("delete sibling: %v", err)
+	}
+	if _, err := h.Store.GetInboxItem(sibling.ID); err != store.ErrNotFound {
+		t.Fatalf("sibling survived: %v", err)
+	}
+	if _, err := h.Store.GetInboxItem(viewing.ID); err != nil {
+		t.Fatalf("the item being viewed was affected: %v", err)
+	}
+	// Must still be looking at `viewing`'s own detail, not root.
+	if res.View == nil || res.View.Title != "currently open" {
+		t.Fatalf("deleting a sibling navigated away from the open item: %+v", res.View)
+	}
+	var listedSibling bool
+	for _, b := range res.View.Blocks {
+		for _, it := range b.Items {
+			if it.ID == sibling.ID {
+				listedSibling = true
+			}
+		}
+	}
+	if listedSibling {
+		t.Fatalf("deleted sibling still listed beside the open item")
+	}
+}
+
+func TestInboxClearDoneAction(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+
+	d1 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "d1"})
+	d2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "d2"})
+	active := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromSystem, Reason: "r", Title: "still open"})
+	if _, err := h.Store.SetInboxItemState(d1.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark d1: %v", err)
+	}
+	if _, err := h.Store.SetInboxItemState(d2.ID, store.InboxDone, nil); err != nil {
+		t.Fatalf("mark d2: %v", err)
+	}
+
+	// clear-done carries no item arg — must not trip the "no item" guard.
+	res, err := app.Action(ctx, h, ActionRequest{Action: "clear-done", Path: "done"})
+	if err != nil {
+		t.Fatalf("clear-done: %v", err)
+	}
+	if res.Toast != "Cleared 2 item(s)" {
+		t.Fatalf("toast = %q", res.Toast)
+	}
+	if _, err := h.Store.GetInboxItem(d1.ID); err != store.ErrNotFound {
+		t.Fatalf("d1 survived: %v", err)
+	}
+	if _, err := h.Store.GetInboxItem(d2.ID); err != store.ErrNotFound {
+		t.Fatalf("d2 survived: %v", err)
+	}
+	if _, err := h.Store.GetInboxItem(active.ID); err != nil {
+		t.Fatalf("active item was cleared: %v", err)
+	}
+	// Stays on the Done tab (now empty) rather than jumping to Active.
+	if res.View == nil || !strings.Contains(res.View.Empty, "No answered items") {
+		t.Fatalf("clear-done did not stay on Done: %+v", res.View)
 	}
 }

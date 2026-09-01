@@ -130,3 +130,32 @@ test("normalizeView preserves the row fields a dense list needs", () => {
   assert.equal(odd.blocks[0].items[0].tone, "");
   assert.equal(odd.blocks[0].items[0].unread, false);
 });
+
+test("normalizeView preserves tabs, drops junk ones, caps the count", () => {
+  const v = normalizeView({
+    apiVersion: 1,
+    tabs: [
+      { id: "active", label: "Active", path: "" },
+      { id: "done", label: "Done", path: "done", badge: "3" },
+      { id: "no-label" },
+      { label: "no-id" },
+      7,
+      null,
+    ],
+    blocks: [],
+  });
+  assert.equal(v.tabs.length, 2);
+  assert.deepEqual(v.tabs[0], { id: "active", label: "Active", path: "", badge: "" });
+  assert.deepEqual(v.tabs[1], { id: "done", label: "Done", path: "done", badge: "3" });
+
+  // Missing tabs field entirely degrades to an empty array, not a crash.
+  assert.deepEqual(normalizeView({ apiVersion: 1, blocks: [] }).tabs, []);
+
+  // Caps at a sane maximum even if a server sends more.
+  const many = normalizeView({
+    apiVersion: 1,
+    tabs: Array.from({ length: 20 }, (_, i) => ({ id: "t" + i, label: "T" + i })),
+    blocks: [],
+  });
+  assert.equal(many.tabs.length, 8);
+});

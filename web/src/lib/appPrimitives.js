@@ -59,6 +59,17 @@ function normalizeActions(list) {
   return (Array.isArray(list) ? list : []).map(normalizeAction).filter(Boolean);
 }
 
+const TABS_MAX = 8; // a sane cap — the header strip isn't a menu
+
+function normalizeTab(t) {
+  if (!t || typeof t.id !== "string" || !t.id || typeof t.label !== "string" || !t.label) return null;
+  return { id: t.id, label: t.label, path: str(t.path), badge: str(t.badge) };
+}
+
+function normalizeTabs(list) {
+  return (Array.isArray(list) ? list : []).map(normalizeTab).filter(Boolean).slice(0, TABS_MAX);
+}
+
 // head carries the fields every block may decorate itself with. Anything
 // not listed here is dropped before the renderer sees it — the reason a
 // new Go field needs a matching edit in this file.
@@ -125,7 +136,10 @@ export function normalizeView(view) {
   if (Number(view.apiVersion) !== SUPPORTED_API) return null;
   const blocks = (Array.isArray(view.blocks) ? view.blocks : []).map(normalizeBlock).filter(Boolean);
   const layout = LAYOUTS.has(view.layout) ? str(view.layout) : "";
-  return { apiVersion: SUPPORTED_API, title: str(view.title), layout, empty: str(view.empty), blocks };
+  return {
+    apiVersion: SUPPORTED_API, title: str(view.title), layout,
+    empty: str(view.empty), tabs: normalizeTabs(view.tabs), blocks,
+  };
 }
 
 // aggregateBadge folds every app badge into the sidebar tab pill:

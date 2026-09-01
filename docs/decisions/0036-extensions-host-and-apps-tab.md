@@ -187,6 +187,31 @@ danger`), with red reserved for destruction: an approval that *asks*
 about a destructive action reads `warn`, and only the Ignore button that
 denies an agent its reply is `danger`.
 
+## Amendment 2026-09-01 — visibility needed one more field: `View.Tabs`
+
+Dogfooding found a second real gap the same day: `done` inbox items are
+`UPDATE`-only from the start — never deleted — but had no way to reach
+them. The default view only ever queried `unread`/`read`, so a resolved
+question just disappeared, recoverable only through a raw API call. The
+fix is the same shape as the amendment above, once more: an optional
+field, not a fifth block type.
+
+- `View.Tabs []Tab` — `{id, label, path, badge?}`, rendered as a
+  segmented control above the view (Active/Done/All for the Inbox).
+  `Tab.Path` reuses the exact navigation mechanism `ListItem.Path`
+  already had — a click is the same `setPath` the client already runs,
+  nothing new on the wire or in the client's state model.
+- Deliberately its own type, not `[]Action`: an `Action` carries
+  `Confirm`/`Danger`/`Primary`, all meaningless for navigation, and
+  reusing it would let a tab inherit destructive styling by accident.
+- Manual cleanup needed no new primitive at all: a per-row `delete`
+  action and one bulk `clear-done` action reuse the existing
+  `Action`/`Confirm` vocabulary as-is. Retention/auto-sweep policy is
+  explicitly future work, out of scope here by the owner's choice.
+
+Block types are still the frozen four; `View` now carries `Layout`,
+`Empty` and `Tabs` as its optional, app-agnostic hints.
+
 ## Sources
 
 - VS Code built-in extensions: <https://github.com/microsoft/vscode/tree/main/extensions>;
