@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "../lib/api.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { toast } from "../lib/toast.js";

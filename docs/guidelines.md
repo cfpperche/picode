@@ -14,6 +14,17 @@ This file is the **user-facing** contract.
 Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 (Stripe, Diátaxis, VitePress, pi). Do not invent a docs engine.
 
+## UI rules that are enforced by tests
+
+- **Dialogs (ADR-0045).** Every modal imports
+  `web/src/components/ResponsiveDialog.jsx` — never `@radix-ui/react-dialog`,
+  `@radix-ui/react-alert-dialog` or `vaul` directly. The primitive is a
+  centred dialog at `min-width: 720px` and a bottom sheet below; content
+  keeps the `dlg dlg-*` classes. Confirmations use its `Alert` set.
+  `web/src/lib/dialogPolicy.test.js` fails the build on a raw import; the
+  only allowlisted exceptions are desktop-only surfaces (`Palette`,
+  `Hotkeys`). Anchored popovers are not modals and stay Radix Popover.
+
 ## Public site (`www/`)
 
 - Markdown in `www/`. VitePress builds static HTML (`npm run build` in `www/`).

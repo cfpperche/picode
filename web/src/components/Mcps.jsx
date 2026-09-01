@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { mcpAddSchema, pairsToMap, parseForm } from "../lib/schemas.js";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Alert as AlertDialog } from "./ResponsiveDialog.jsx";
 
 export default function ConfirmDialog() {
   const [req, setReq] = useState(null);

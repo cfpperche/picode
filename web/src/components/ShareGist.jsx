@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { toast } from "../lib/toast.js";
 
 export default function ShareGist({ open, gist, viewer, onClose }) {

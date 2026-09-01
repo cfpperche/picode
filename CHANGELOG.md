@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Every dialog is a bottom sheet on the phone (ADR-0045).** New agent
+  already was; Choose folder, Confirm, Rename, Usage, Add provider, Add
+  MCP server, Share, Session info, llama.cpp and the rest were centred
+  cards squeezed into 390px. They now all go through one primitive,
+  `ResponsiveDialog`: a Radix dialog at 720px and up, a Vaul sheet
+  (handle, swipe to dismiss, 44px actions) below. A test refuses any raw
+  dialog import outside it, so the rule holds for the next dialog too.
 - **Automations: run an agent on a schedule or from a webhook (ADR-0045).**
   User menu → **Automations**. An automation is a prompt plus when to run
   it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or

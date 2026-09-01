@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "../lib/api.js";
 import { splitPathQuery, filterDirs, bestMatch } from "../lib/pathFilter.js";
 import { useDebounced } from "../lib/useDebounced.js";

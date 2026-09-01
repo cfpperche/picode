@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { cardsFrom, leafUserId } from "../lib/sessionCards.js";
 
 function flattenCards(cards, depth, out) {

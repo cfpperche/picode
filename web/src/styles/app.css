@@ -2518,23 +2518,28 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .session-pick-name { font-size: 13px; }
 .session-pick-cwd { font-size: 11px; color: var(--text-secondary); font-family: var(--mono); }
-.create-overlay {
-  position: fixed; inset: 0; z-index: 70;
-  background: color-mix(in srgb, #000 35%, transparent);
+/* Bottom sheet (ADR-0045): below 720px every ResponsiveDialog renders its
+   `.dlg` content as a Vaul sheet. `.dlg.dlg-sheet` beats every `.dlg-*`
+   width, so one rule reshapes the whole family. Overlay z-index follows
+   the dialog's own (.dlg-overlay-folder stacks above a sheet under it). */
+.dlg-overlay-sheet { background: color-mix(in srgb, #000 45%, transparent); }
+.dlg.dlg-sheet {
+  top: auto; left: 0; right: 0; bottom: 0; transform: none;
+  width: auto; max-width: none; max-height: min(90dvh, 100dvh - 24px);
+  overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 16px 16px 0 0; border-width: 1px 0 0;
+  padding: 8px 18px calc(20px + env(safe-area-inset-bottom)); outline: none;
 }
-.create-drawer {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 71;
-  background: var(--bg-base); border-radius: 16px 16px 0 0;
-  padding: 10px 18px 24px; outline: none;
-  max-height: 90vh; overflow-y: auto;
-}
+.dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
+.dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }
+.dlg.dlg-sheet input, .dlg.dlg-sheet select, .dlg.dlg-sheet textarea { font-size: 16px; }
 .create-handle {
   width: 36px; height: 4px; border-radius: 99px; background: var(--border-strong);
   margin: 4px auto 12px;
 }
-.create-drawer .form-new { padding: 12px 0 0; }
-.create-drawer .form-new input,
-.create-drawer .cfg-fields select { width: 100%; }
+.dlg-sheet .form-new { padding: 12px 0 0; }
+.dlg-sheet .form-new input,
+.dlg-sheet .cfg-fields select { width: 100%; }
 .folder-field { display: flex; gap: 6px; align-items: center; }
 .folder-field .btn { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .dlg-overlay-folder { z-index: 82; }

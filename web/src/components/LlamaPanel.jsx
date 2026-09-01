@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { Command } from "cmdk";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";

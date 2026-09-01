@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "../lib/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { activeAccountLine, barTone, formatMoney, formatReset, resetLine, usageCopy, usagePath } from "../lib/providerUsage.js";

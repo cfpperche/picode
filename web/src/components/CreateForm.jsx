@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
-import { Drawer } from "vaul";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import FolderField from "./FolderField.jsx";
-import { useMedia } from "../lib/media.js";
 import { deriveRepo, cloneDest } from "../lib/cloneUrl.js";
 import { IconFolder, IconGit } from "./Icons.jsx";
 
@@ -11,7 +9,6 @@ export default function CreateForm({
   open, kind, workspaceName, catalog, cfg, onCfg, error, onSubmit, onClose,
   sessions, onAdopt, onKind, busy,
 }) {
-  const desktop = useMedia("(min-width: 720px)");
   // A workspace comes from a local folder or a remote repository (ADR-0034):
   // one choice inside the same form, not a second feature.
   const [wsSrc, setWsSrc] = useState("local");
@@ -127,33 +124,19 @@ export default function CreateForm({
     </form>
   );
 
-  if (desktop) {
-    return (
-      <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="dlg-overlay" />
-          <Dialog.Content className={"dlg dlg-create" + (kind === "session" ? " dlg-create-session" : "")} onCloseAutoFocus={(e) => e.preventDefault()}>
-            <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-            <Dialog.Description className="dlg-body">{desc}</Dialog.Description>
-            {fields}
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    );
-  }
-
+  // ResponsiveDialog (ADR-0045): a centred dialog at >=720px, a bottom
+  // sheet below — one tree, the primitive decides.
   return (
-    <Drawer.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <Drawer.Portal>
-        <Drawer.Overlay className="create-overlay" />
-        <Drawer.Content className="create-drawer">
-          <div className="create-handle" aria-hidden="true" />
-          <Drawer.Title className="dlg-title">{title}</Drawer.Title>
-          <Drawer.Description className="dlg-body">{desc}</Drawer.Description>
+    <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className={"dlg dlg-create" + (kind === "session" ? " dlg-create-session" : "")} onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Title className="dlg-title">{title}</Dialog.Title>
+          <Dialog.Description className="dlg-body">{desc}</Dialog.Description>
           {fields}
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

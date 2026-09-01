@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import LlamaPanel from "./LlamaPanel.jsx";
 
 export default function LlamaDialog({ open, onClose, onRefresh }) {

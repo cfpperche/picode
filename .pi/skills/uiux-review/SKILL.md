@@ -40,6 +40,10 @@ surfaces, `docs/benchmarks/` (Cursor / t3code / paseo).
 - [ ] New chrome uses Radix, cmdk, or native controls. Homemade dialogs,
       switches, selects, or menus are FAIL unless the commit says why no
       library fitted.
+- [ ] Every modal goes through `components/ResponsiveDialog.jsx`
+      (ADR-0045): centred dialog ≥720px, bottom sheet below. A raw
+      `@radix-ui/react-dialog` / `vaul` import outside it fails
+      `make test-js`; a dialog that is a card on the phone is FAIL.
 
 ### Clarity (Stripe/HIG bar)
 - [ ] Progressive disclosure: advanced options behind deliberate reveals;

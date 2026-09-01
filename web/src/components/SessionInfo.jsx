@@ -1,4 +1,4 @@
-import * as Dialog from "@radix-ui/react-dialog";
+import * as Dialog from "./ResponsiveDialog.jsx";
 import { shortPath } from "../lib/repoLine.js";
 import { shortModel } from "../lib/chip.js";
 import { toast } from "../lib/toast.js";
