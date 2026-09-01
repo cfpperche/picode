@@ -120,7 +120,8 @@ Two findings from the phone, both accepted:
   **Work** with three segments mirroring the rail: *Workspaces* (a card per
   folder with its agents **and** terminals, "+ Agent" / "+ Terminal"),
   *Agents* (free agents — an agent need not belong to a workspace) and
-  *Terminals* (all, New / Remove). The last segment is remembered
+  *Terminals* (free terminals only, New / Remove — a workspace's terminal
+  is listed once, on its card, exactly as the desktop rail splits them). The last segment is remembered
   per-viewer. A terminal opens as a pushed `#/term/<id>` screen: the same
   `TermSurface`/xterm the desktop attaches to the tmux session, plus a key
   bar (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`) sending byte sequences

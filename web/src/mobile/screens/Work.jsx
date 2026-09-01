@@ -10,7 +10,8 @@ const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Termina
 
 // Work mirrors the desktop sidebar's rail: the same three views, one
 // segmented control. Workspaces = one card per folder with its agents and
-// terminals; Agents = the free ones (no folder); Terminals = all of them.
+// terminals; Agents = the free ones (no folder); Terminals = the free ones
+// too — a workspace's terminal is listed once, on its card.
 export default function Work({ section, onSection, loaded, workspaces, freeAgents, terminals, workingIds, busyId,
   onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm }) {
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
@@ -37,7 +38,7 @@ export default function Work({ section, onSection, loaded, workspaces, freeAgent
       ) : sec === "agents" ? (
         <FreeAgents freeAgents={freeAgents} workingIds={workingIds} busyId={busyId} onOpenAgent={onOpenAgent} onStart={onStart} onStop={onStop} onCreate={onCreate} />
       ) : (
-        <Terminals terminals={terminals} workspaces={workspaces} busyId={busyId} onOpenTerm={onOpenTerm} onRemoveTerm={onRemoveTerm} onNewTerm={onNewTerm} />
+        <Terminals terminals={terminals} busyId={busyId} onOpenTerm={onOpenTerm} onRemoveTerm={onRemoveTerm} onNewTerm={onNewTerm} />
       )}
     </div>
   );
@@ -99,20 +100,20 @@ function FreeAgents({ freeAgents, workingIds, busyId, onOpenAgent, onStart, onSt
   );
 }
 
-function Terminals({ terminals, workspaces, busyId, onOpenTerm, onRemoveTerm, onNewTerm }) {
-  const all = [...(workspaces || []).flatMap((ws) => workspaceTerminals(terminals, ws.id)), ...freeTerminals(terminals)];
-  if (all.length === 0) {
+function Terminals({ terminals, busyId, onOpenTerm, onRemoveTerm, onNewTerm }) {
+  const free = freeTerminals(terminals);
+  if (free.length === 0) {
     return (
       <div className="m-blank">
-        <p className="m-blank-title">No terminals yet</p>
-        <p className="m-blank-sub">A terminal is a tmux session you can reach from any device.</p>
+        <p className="m-blank-title">No free terminals</p>
+        <p className="m-blank-sub">A free terminal lives outside any workspace; a workspace's terminals are on its card.</p>
         <button type="button" className="btn btn-primary" onClick={() => onNewTerm(null)}>New terminal</button>
       </div>
     );
   }
   return (
     <ul className="m-list">
-      {all.map((t) => (
+      {free.map((t) => (
         <TermRow key={t.id} term={t} busy={busyId === t.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />
       ))}
     </ul>

@@ -24,7 +24,7 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
 - **Work** — the same three views as the desktop sidebar: **Workspaces**
   (each folder with its agents and terminals; **+ Agent** / **+ Terminal**
   on the card), **Agents** (free agents, outside any workspace) and
-  **Terminals** (all of them). **Start** / **Stop** on an agent row,
+  **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row,
   **Remove** on a terminal row; **New** creates whatever the view shows.
 - **More** — Providers, Settings, Preferences, MCP, Packages, Devices, System,
   and **Desktop layout** if you want the full shell on this screen.

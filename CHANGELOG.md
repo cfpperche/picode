@@ -47,8 +47,8 @@ to the `[Unreleased]` section. The repository's official language is English
   the chrome; the QR lives in More), and the Agents tab became **Work**
   with the desktop rail's three views — **Workspaces** (one card per
   folder with its agents *and* terminals, plus "+ Agent" / "+ Terminal"),
-  **Agents** (free agents only) and **Terminals** (all of them, New /
-  Remove). Tapping a terminal pushes `#/term/<id>`: the same xterm the
+  **Agents** (free agents only) and **Terminals** (free terminals only,
+  New / Remove — a workspace's terminal shows once, on its card). Tapping a terminal pushes `#/term/<id>`: the same xterm the
   desktop attaches, with a **key bar** for what a soft keyboard lacks
   (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`). Live terminals show under
   Running on Now.

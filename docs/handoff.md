@@ -286,7 +286,9 @@ Never exercised, because this machine was already past them:
   through the `terms` map's socket, refocuses xterm); live terminals in
   Now → Running. QA on scratch with tmux: created a terminal from the
   phone, shell prompt rendered (34 rows), key bar clicks reach the pane,
-  Remove stops the session.
+  Remove stops the session. Owner: a workspace's terminal must not repeat
+  in the Terminals segment — it now lists free terminals only
+  (`freeTerminals`), like the desktop rail.
 
 - **2026-09-01** — **Chrome extension Track B**, on branch `feat/ext-track-b`.
   `make desktop` builds `picode-nmh.exe`; `picode-desktop extension-install`
