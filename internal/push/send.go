@@ -3,12 +3,27 @@ package push
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+// topicFor turns any tag into a legal Topic header (RFC 8030 §5.4: at
+// most 32 characters from the URL-safe base64 alphabet). Apple's push
+// service answers 400 to anything else — "inbox:<slug>" included — so
+// the tag is hashed rather than sent as-is. Same tag, same topic, so the
+// service still collapses repeats.
+func topicFor(tag string) string {
+	if tag == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(tag))
+	return base64.RawURLEncoding.EncodeToString(sum[:24])
+}
 
 // ErrGone is a subscription the push service no longer knows (404/410):
 // the caller deletes it, the browser will re-subscribe on its next visit.
@@ -67,8 +82,8 @@ func (s *Sender) Send(ctx context.Context, t Target, payload []byte, ttl int, ur
 	if urgency != "" {
 		req.Header.Set("Urgency", urgency)
 	}
-	if topic != "" {
-		req.Header.Set("Topic", topic)
+	if t := topicFor(topic); t != "" {
+		req.Header.Set("Topic", t)
 	}
 	client := s.Client
 	if client == nil {

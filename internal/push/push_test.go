@@ -154,8 +154,16 @@ func TestSenderPostsAndMapsGone(t *testing.T) {
 	if err := s.Send(context.Background(), target, []byte(`{"title":"hi"}`), 300, "high", "ask:a1"); err != nil {
 		t.Fatal(err)
 	}
-	if seen.Get("Content-Encoding") != "aes128gcm" || seen.Get("TTL") != "300" || seen.Get("Urgency") != "high" || seen.Get("Topic") != "ask:a1" || !strings.HasPrefix(seen.Get("Authorization"), "vapid t=") {
+	if seen.Get("Content-Encoding") != "aes128gcm" || seen.Get("TTL") != "300" || seen.Get("Urgency") != "high" || !strings.HasPrefix(seen.Get("Authorization"), "vapid t=") {
 		t.Fatalf("headers = %v", seen)
+	}
+	// RFC 8030 Topic: ≤32 URL-safe base64 characters, stable per tag.
+	topic := seen.Get("Topic")
+	if len(topic) != 32 || strings.ContainsAny(topic, ":/+=") || topic != topicFor("ask:a1") {
+		t.Fatalf("topic = %q", topic)
+	}
+	if topicFor("") != "" || topicFor("inbox:posso-fazer-o-deploy-da-vers-o-0-ebab9f") == topicFor("inbox:other") {
+		t.Fatal("topicFor must be empty for empty and distinct per tag")
 	}
 	back, err := decrypt(uaPriv, auth, gotBody)
 	if err != nil || string(back) != `{"title":"hi"}` {

@@ -281,6 +281,12 @@ Never exercised, because this machine was already past them:
   mobile More → Notifications and desktop Preferences → Notifications.
   Also: the responsive-dialogs ADR was renumbered 0045 → **0046** (another
   session's Automations ADR took 0045 in parallel); push is 0047.
+  **Real-device dogfood (owner's iPhone, iOS 18.7, Home Screen install):**
+  subscribe worked, `Send test` arrived. The first real trigger (blocking
+  inbox question, host browser closed) got **400 from Apple** — the
+  `Topic` header must be ≤32 URL-safe base64 chars and we sent
+  `inbox:<slug>`; the test push only passed because its tag was `test`.
+  Fixed: `topicFor` hashes the tag (`fix/push-topic`).
 
 - **2026-09-01** — **Responsive dialogs (ADR-0046)**, on branch
   `feat/responsive-dialogs`. Owner on the phone: "New Agent abre como um
