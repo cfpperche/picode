@@ -389,6 +389,16 @@ Never exercised, because this machine was already past them:
   Verified on the scratch rig (line renders, chip prefills, reload keeps
   2 notes); gates green (276 js + 60 pkg).
 
+- **2026-09-01** — **portrait video preview fits the pane** (`feat/video-preview-fit`):
+  a 1080×1920 `.mp4` used to set `width: min(100%, 960px)` with no max-height,
+  so Preview grew a scrollbar and hid the controls under the viewport.
+  `.file-preview-fit` is a one-cell grid that can shrink below intrinsic size;
+  the `<video>` / `<img>` then `object-fit: contain` inside it. Markdown, SVG
+  and mermaid still scroll. Scratch `:8460` QA: video 290×516 inside a 548px
+  pane, `paneScroll === paneClient`, `overlayAudit ok`. Captures: happy
+  portrait, Raw ("Can't show this file."), gone, decode error.
+  visual-review: PASS (file-video-portrait-fit.png + overlayAudit ok; card 5/5).
+
 - **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
   the file tree, git graph and app surfaces were rendered only while
   selected, so every tab switch unmounted them and threw away the

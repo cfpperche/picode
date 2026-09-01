@@ -1191,7 +1191,26 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   flex: 1; min-height: 0; overflow: auto; padding: 16px;
   display: flex; align-items: flex-start; justify-content: center;
 }
+/* Portrait video/image must shrink to the pane, not grow a scrollbar.
+   One grid cell that can collapse below intrinsic size; the media then
+   maxes to that cell and keeps its ratio. Markdown/SVG/mermaid still scroll. */
+.file-preview-fit {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
 .file-preview-svg { max-width: 100%; height: auto; display: block; }
+.file-preview-fit > .file-preview-svg,
+.file-preview-fit > .file-preview-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+}
 .file-preview.mermaid-svg { display: block; padding: 16px; }
 .file-preview-md {
   display: block; text-align: left; max-width: 52rem; margin: 0 auto;
@@ -1207,8 +1226,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-preview-frame {
   flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-base);
 }
-.file-preview-audio, .file-preview-video { max-width: 100%; }
-.file-preview-video { width: min(100%, 960px); }
+.file-preview-audio { max-width: 100%; }
+.file-preview-video { display: block; }
 .file-preview-3d-wrap { display: block; padding: 0; height: 100%; }
 .file-preview-3d { width: 100%; height: min(70vh, 560px); }
 .file-card {
