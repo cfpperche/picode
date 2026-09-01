@@ -7,6 +7,17 @@ export const SUPPORTED_API = 1;
 
 const BLOCK_TYPES = new Set(["list", "detail", "form", "actions"]);
 const FIELD_METHODS = new Set(["select", "confirm", "input", "editor"]);
+const LAYOUTS = new Set(["", "split"]);
+const PANES = new Set(["", "list", "detail"]);
+const TONES = new Set(["", "info", "ok", "warn", "danger"]);
+
+function str(v) {
+  return typeof v === "string" ? v : "";
+}
+
+function strList(v) {
+  return Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : [];
+}
 
 export function normalizeManifests(payload) {
   const list = Array.isArray(payload?.apps) ? payload.apps : [];
@@ -36,7 +47,9 @@ function normalizeAction(a) {
   return {
     id: a.id,
     label: a.label,
-    confirm: typeof a.confirm === "string" ? a.confirm : "",
+    icon: str(a.icon),
+    primary: !!a.primary,
+    confirm: str(a.confirm),
     danger: !!a.danger,
     args: a.args && typeof a.args === "object" ? a.args : {},
   };
@@ -46,25 +59,42 @@ function normalizeActions(list) {
   return (Array.isArray(list) ? list : []).map(normalizeAction).filter(Boolean);
 }
 
+// head carries the fields every block may decorate itself with. Anything
+// not listed here is dropped before the renderer sees it — the reason a
+// new Go field needs a matching edit in this file.
+function blockHead(b) {
+  return {
+    title: str(b.title),
+    meta: strList(b.meta),
+    at: str(b.at),
+    pane: PANES.has(b.pane) ? str(b.pane) : "",
+  };
+}
+
 function normalizeBlock(b) {
   if (!b || !BLOCK_TYPES.has(b.type)) return null;
+  const head = blockHead(b);
   if (b.type === "list") {
     const items = (Array.isArray(b.items) ? b.items : [])
       .filter((it) => it && typeof it.id === "string" && it.id && typeof it.title === "string" && it.title)
       .map((it) => ({
         id: it.id,
         title: it.title,
-        subtitle: typeof it.subtitle === "string" ? it.subtitle : "",
-        icon: typeof it.icon === "string" ? it.icon : "",
-        badge: typeof it.badge === "string" ? it.badge : "",
-        path: typeof it.path === "string" ? it.path : "",
+        subtitle: str(it.subtitle),
+        meta: strList(it.meta),
+        at: str(it.at),
+        icon: str(it.icon),
+        badge: str(it.badge),
+        tone: TONES.has(it.tone) ? str(it.tone) : "",
+        unread: !!it.unread,
+        path: str(it.path),
         actions: normalizeActions(it.actions),
       }));
-    return { type: "list", items };
+    return { type: "list", ...head, items };
   }
   if (b.type === "detail") {
     if (typeof b.markdown !== "string" || !b.markdown) return null;
-    return { type: "detail", markdown: b.markdown };
+    return { type: "detail", ...head, markdown: b.markdown };
   }
   if (b.type === "form") {
     const f = b.form;
@@ -80,11 +110,11 @@ function normalizeBlock(b) {
         placeholder: typeof x.placeholder === "string" ? x.placeholder : "",
         prefill: typeof x.prefill === "string" ? x.prefill : "",
       }));
-    return { type: "form", form: { id: f.id, submit: typeof f.submit === "string" ? f.submit : "", fields } };
+    return { type: "form", ...head, form: { id: f.id, submit: str(f.submit), fields } };
   }
   // actions
   const actions = normalizeActions(b.actions);
-  return actions.length ? { type: "actions", actions } : null;
+  return actions.length ? { type: "actions", ...head, actions } : null;
 }
 
 // normalizeView returns null when the view can't be rendered by this
@@ -94,7 +124,8 @@ export function normalizeView(view) {
   if (!view || typeof view !== "object") return null;
   if (Number(view.apiVersion) !== SUPPORTED_API) return null;
   const blocks = (Array.isArray(view.blocks) ? view.blocks : []).map(normalizeBlock).filter(Boolean);
-  return { apiVersion: SUPPORTED_API, title: typeof view.title === "string" ? view.title : "", blocks };
+  const layout = LAYOUTS.has(view.layout) ? str(view.layout) : "";
+  return { apiVersion: SUPPORTED_API, title: str(view.title), layout, empty: str(view.empty), blocks };
 }
 
 // aggregateBadge folds every app badge into the sidebar tab pill:

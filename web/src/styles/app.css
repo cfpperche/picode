@@ -1489,7 +1489,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .md h1 { font-size: 1.35em; font-weight: 650; margin: 1em 0 0.4em; letter-spacing: -0.02em; }
 .md h2 { font-size: 1.18em; font-weight: 650; margin: 0.95em 0 0.35em; }
 .md h3 { font-size: 1.05em; font-weight: 650; margin: 0.85em 0 0.3em; }
+/* Tailwind's preflight strips list markers; markdown needs them back or
+   every bullet list reads as loose lines. */
 .md ul, .md ol { margin: 0 0 0.7em; padding-left: 1.35em; }
+.md ul { list-style: disc outside; }
+.md ol { list-style: decimal outside; }
+.md ul ul { list-style: circle outside; }
+.md li input[type="checkbox"] ~ * { list-style: none; }
+.md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.1em; }
 .md li { margin: 0.28em 0; }
 .md code, .md-inline {
   font-family: var(--code); font-size: 0.88em;
@@ -1497,6 +1504,19 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-feature-settings: "calt" 1, "liga" 1;
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: 5px;
   padding: 0.1em 0.35em;
+}
+/* A fenced block is a block: chat routes code through SourceBlock, but
+   plain .md (apps, previews) needs its own — otherwise a fence renders
+   as one long inline-code chip that overflows its column. */
+.md pre {
+  margin: 0.6em 0; padding: 8px 10px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: 6px; overflow-x: auto;
+  font-size: 12px; line-height: 1.5;
+}
+.md pre code {
+  background: none; border: 0; padding: 0; border-radius: 0;
+  font-size: 12px; white-space: pre;
 }
 .source-block {
   margin: 0.75em 0; overflow: hidden;
@@ -3205,45 +3225,212 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .app-icon-letter { font-weight: 700; line-height: 1; }
 
+
 /* The open app: host chrome (reuses .ft-head/.ft-title/.ft-msg), app
-   content as primitive blocks. */
+   content as primitive blocks. The surface opts into --sans: the rest of
+   the shell is mono, but a reading surface full of prose, titles and
+   buttons is not a terminal. Timestamps and kind lozenges stay mono so
+   columns line up. */
 .app-surface {
   flex: 1; display: flex; flex-direction: column;
   min-width: 0; min-height: 0; overflow: hidden;
   background: var(--bg-base);
+  font-family: var(--sans);
 }
 .app-surface .ft-title { font-family: var(--sans); }
 .app-head-icon { display: grid; place-items: center; color: var(--text-secondary); }
 .app-back { padding: 0 6px; }
 .app-body {
   flex: 1; overflow-y: auto; padding: 12px;
-  max-width: 640px; display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 16px;
 }
-.app-detail { font-size: 13px; line-height: 1.55; }
+.app-body > .app-block { max-width: 720px; }
+.app-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* Split: list left, detail right, each scrolling on its own. Below the
+   breakpoint the panes stack — the list first, detail under it. */
+.app-split {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+}
+.app-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: 10px 12px; }
+.app-pane-list {
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.app-pane-detail { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+@media (max-width: 880px) {
+  /* Stacked: the list on top, the detail under it. Rows stop stretching
+     so the timestamp does not drift a screen away from its title. */
+  .app-split { grid-template-columns: minmax(0, 1fr); }
+  .app-pane { overflow-y: visible; }
+  .app-split { overflow-y: auto; }
+  .app-pane-list { border-right: 0; border-bottom: 1px solid var(--border); }
+  .app-pane-list .app-list { max-width: 640px; }
+}
+/* Detail body, measure and the action footer. */
+.app-detail { max-width: 72ch; }
+.app-pane-detail .app-block:has(.app-actions):not(:first-child) {
+  margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+
+/* Section label above a list — the .ft-sect idiom, with the count as a
+   quiet chip. */
+.app-sect {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 4px;
+}
+/* A second section needs a real break, not just a label in the flow. */
+.app-pane-list .app-block + .app-block { border-top: 1px solid var(--border); padding-top: 14px; }
+.app-sect-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--text-secondary);
+}
+.app-sect-count {
+  font-family: var(--mono); font-size: 10.5px;
+  color: color-mix(in srgb, var(--text-secondary) 80%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Detail header: the item's own title, then its meta strip. */
+.app-detail-head { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.app-detail-title {
+  font-size: 15px; font-weight: 600; line-height: 1.3;
+  letter-spacing: -0.01em; text-wrap: balance;
+}
+
+/* Meta strip: separators are drawn, not spaced, so a chip that renders
+   nothing leaves no orphan bullet (the Sentry trick). */
+.app-meta {
+  display: flex; align-items: center; min-width: 0;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.app-meta > * {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-meta > * + * {
+  margin-left: 6px; padding-left: 7px;
+  background-image: linear-gradient(var(--border), var(--border));
+  background-size: 1px 10px; background-position: left center; background-repeat: no-repeat;
+}
+/* The timestamp is deliberately the quietest ink in a row. */
+.app-when {
+  flex: none; font-family: var(--mono); font-size: 10.5px;
+  color: color-mix(in srgb, var(--text-secondary) 72%, transparent);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* Kind lozenge: one hue drives fill and text (bg = 15% of the hue). */
+.app-kind {
+  flex: none; max-width: 200px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .3px; line-height: 1;
+  padding: 3px 5px; border-radius: 3px;
+  background: var(--bg-hover); color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-kind.tone-info { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.app-kind.tone-ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.app-kind.tone-warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.app-kind.tone-danger { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+
+/* Rows: two lines, actions revealed on hover/focus so they never set the
+   height or eat the title's width. */
+/* Hairlines carry the structure at this density — whitespace alone reads
+   as a blog list. The row above a selected one drops its rule so the
+   selection has no seam through it. */
+.app-list { list-style: none; margin: 0; padding: 0; }
+.app-row {
+  position: relative; display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.app-row:last-child { border-bottom: 0; }
+.app-row:has(+ .app-row-on) { border-bottom-color: transparent; }
+.app-row-on { border-bottom-color: transparent; }
+.app-row-main {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: 12px minmax(0, 1fr);
+  align-items: center; column-gap: 4px; row-gap: 1px;
+  padding: 8px; border: 0; background: none; text-align: left;
+  color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.app-row-main:disabled { cursor: default; }
+.app-row:hover { background: var(--bg-hover); }
+.app-row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.app-row-on { background: var(--bg-elevated); box-shadow: inset 2px 0 0 var(--accent); }
+.app-row-on:hover { background: var(--bg-elevated); }
+.app-row-dot { grid-column: 1; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.app-row-unread .app-row-dot { background: var(--accent); }
+.app-row-line1 {
+  grid-column: 2; display: flex; align-items: baseline; gap: 8px; min-width: 0;
+}
+.app-row-line2 { grid-column: 2; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.app-row-title {
+  flex: 1; min-width: 0; font-size: 13px; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-row-unread .app-row-title { font-weight: 600; }
+
+/* Same reveal mechanics as the sidebar's row actions. */
+.app-row-actions {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 2px;
+  opacity: 0; transition: opacity var(--motion-fast) var(--ease-out);
+  padding-left: 10px;
+  background: linear-gradient(90deg, transparent, var(--bg-hover) 10px);
+}
+.app-row:hover .app-row-actions,
+.app-row:focus-within .app-row-actions { opacity: 1; }
+/* The actions take over the timestamp's slot, so the stamp steps aside
+   instead of showing through them. */
+.app-row:hover .app-row-line1 .app-when,
+.app-row:focus-within .app-row-line1 .app-when { opacity: 0; }
+.app-when { transition: opacity var(--motion-fast) var(--ease-out); }
+.app-row-on .app-row-actions { background: linear-gradient(90deg, transparent, var(--bg-elevated) 10px); }
+
+/* Detail body, forms, actions. */
+.app-detail { font-size: 13px; line-height: 1.6; }
 .app-detail > :first-child { margin-top: 0; }
 .app-detail > :last-child { margin-bottom: 0; }
-.app-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.app-list-row { display: flex; align-items: center; gap: 8px; }
-.app-row-main {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px; border: 0; background: none; text-align: left;
-  border-radius: var(--radius-ctl); color: var(--text-primary);
-}
-.app-row-link { cursor: pointer; }
-.app-row-link:hover { background: var(--bg-hover); }
-.app-row-icon { display: grid; place-items: center; color: var(--text-secondary); flex: 0 0 auto; }
-.app-row-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.app-row-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-row-sub { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app-row-badge {
-  flex: 0 0 auto; padding: 1px 6px; border-radius: 8px;
-  background: var(--accent-soft); color: var(--accent);
-  font-size: 10.5px; font-weight: 600;
-}
 .app-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.app-form { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
-.app-field { display: flex; flex-direction: column; gap: 4px; }
+.app-form { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.app-field { display: flex; flex-direction: column; gap: 5px; }
 .app-field-title { font-size: 12px; font-weight: 600; }
-.app-field-msg { font-size: 12px; color: var(--text-secondary); }
+.app-field-msg { font-size: 11.5px; color: var(--text-secondary); line-height: 1.45; }
 .app-field-confirm { display: flex; align-items: center; min-height: 20px; }
-.app-field-editor { resize: vertical; font-family: var(--mono); }
+/* The input surface sits below its container, never level with it. */
+.app-field-editor {
+  resize: none; font-family: var(--sans); min-height: 76px; padding: 8px 10px;
+  width: 100%; max-width: 68ch;
+  background: color-mix(in srgb, var(--bg-base) 60%, var(--bg-panel));
+}
+.app-field-editor:focus-visible { border-color: var(--accent); outline: none; }
+.app-field-hint {
+  display: flex; align-items: center; gap: 3px;
+  margin-left: 4px;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.app-key {
+  font-family: var(--mono); font-size: 10px;
+  border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px;
+  color: var(--text-secondary);
+}
+
+/* Empty state (Blankslate proportions): a quiet mark, one line, no CTA. */
+.app-blank {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  padding: 48px 16px; color: var(--text-secondary);
+  text-align: center;
+}
+.app-blank-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.app-blank-sub { margin: 0; font-size: 12px; max-width: 42ch; line-height: 1.5; }
+
+/* Skeleton in the shape of a row, not loose bars. */
+.app-skel-row { display: flex; flex-direction: column; gap: 5px; padding: 7px 8px; }
+.app-skel-title { height: 11px; }
+.app-skel-meta { height: 9px; width: 30%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-row-actions, .app-when { transition: none; }
+}

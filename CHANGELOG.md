@@ -13,6 +13,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The Inbox reads like an inbox.** It opens as a split view — the
+  needs-you queue and the feed on the left, the selected item on the
+  right — and rows became real rows: unread dot, title, relative
+  timestamp (absolute on hover), a kind lozenge coloured by tone, and
+  source · reason chips separated by drawn hairlines that vanish with
+  their chip. Done and Snooze are icon-only and appear on hover or
+  keyboard focus, so they no longer set the row height. Sections are
+  uppercase eyebrows with counts, the empty inbox is a centred
+  blankslate, and the whole app surface finally opts into the sans font
+  (timestamps and lozenges stay mono). Reply and Ignore share one button
+  row, destructive last. The apps host grew the optional fields this
+  needed — layout/pane hints, row meta/at/tone/unread, action icons —
+  without adding a fifth block type (ADR-0036 amendment). Markdown lists
+  everywhere got their bullets back (Tailwind's preflight had stripped
+  them).
+
 - **Git graph history loads by scrolling.** Nearing the bottom of the
   list fetches an older window on demand; the Load earlier button is
   gone (a sentinel row under the last commit shows load progress). The

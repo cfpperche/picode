@@ -52,6 +52,11 @@ func TestViewValidate(t *testing.T) {
 		{"field bad method", View{APIVersion: 1, Blocks: []Block{{Type: "form", Form: &Form{ID: "f", Fields: []Field{{Name: "x", Method: "slider"}}}}}}, "unknown"},
 		{"field no name", View{APIVersion: 1, Blocks: []Block{{Type: "form", Form: &Form{ID: "f", Fields: []Field{{Method: "input"}}}}}}, "needs a name"},
 		{"action no label", View{APIVersion: 1, Blocks: []Block{{Type: "actions", Actions: []Action{{ID: "x"}}}}}, "id and label"},
+		{"split layout", ok(View{APIVersion: 1, Layout: "split", Blocks: []Block{{Type: "detail", Pane: "detail", Markdown: "x"}}}), ""},
+		{"bad layout", View{APIVersion: 1, Layout: "carousel"}, "layout"},
+		{"bad pane", View{APIVersion: 1, Blocks: []Block{{Type: "detail", Pane: "middle", Markdown: "x"}}}, "pane"},
+		{"bad tone", View{APIVersion: 1, Blocks: []Block{{Type: "list", Items: []ListItem{{ID: "a", Title: "A", Tone: "chartreuse"}}}}}, "tone"},
+		{"good tone", ok(View{APIVersion: 1, Blocks: []Block{{Type: "list", Items: []ListItem{{ID: "a", Title: "A", Tone: "warn", Unread: true, At: "2026-09-01T00:00:00Z", Meta: []string{"a", "b"}}}}}}), ""},
 	}
 	for _, tc := range cases {
 		err := tc.v.Validate()

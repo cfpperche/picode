@@ -37,12 +37,14 @@ func (a inboxApp) View(_ context.Context, h Host, path string) (View, error) {
 	return a.rootView(h)
 }
 
-func (inboxApp) rootView(h Host) (View, error) {
+// listPanes is the left column of the split: the needs-me queue over the
+// archivable feed. Every view emits it so selecting an item never blanks
+// the list.
+func listPanes(h Host, selected string) ([]Block, error) {
 	items, err := h.Store.ListInboxItems(store.InboxFilter{})
 	if err != nil {
-		return View{}, err
+		return nil, err
 	}
-	v := View{APIVersion: APIVersion, Title: "Inbox"}
 	var needsMe, feed []store.InboxItem
 	for _, it := range items {
 		if it.Blocking {
@@ -51,37 +53,51 @@ func (inboxApp) rootView(h Host) (View, error) {
 			feed = append(feed, it)
 		}
 	}
-	if len(items) == 0 {
-		v.Blocks = append(v.Blocks, Block{Type: "detail", Markdown: "Inbox zero — nothing needs you."})
-		return v, nil
-	}
+	blocks := []Block{}
 	if len(needsMe) > 0 {
-		v.Blocks = append(v.Blocks, Block{Type: "detail", Markdown: "### Needs you"})
-		v.Blocks = append(v.Blocks, Block{Type: "list", Items: inboxRows(h, needsMe, false)})
+		blocks = append(blocks, Block{Type: "list", Pane: "list", Title: "Needs you", Items: inboxRows(h, needsMe, false, selected)})
 	}
 	if len(feed) > 0 {
-		v.Blocks = append(v.Blocks, Block{Type: "detail", Markdown: "### Feed"})
-		v.Blocks = append(v.Blocks, Block{Type: "list", Items: inboxRows(h, feed, true)})
+		blocks = append(blocks, Block{Type: "list", Pane: "list", Title: "Feed", Items: inboxRows(h, feed, true, selected)})
+	}
+	return blocks, nil
+}
+
+func (inboxApp) rootView(h Host) (View, error) {
+	blocks, err := listPanes(h, "")
+	if err != nil {
+		return View{}, err
+	}
+	v := View{APIVersion: APIVersion, Title: "Inbox", Layout: "split", Blocks: blocks}
+	if len(blocks) == 0 {
+		// Inbox zero: the host draws its blankslate, no split chrome
+		// wrapped around nothing.
+		v.Layout = ""
+		v.Empty = "Inbox zero — Agents and terminals file questions and results here. Nothing needs you right now."
 	}
 	return v, nil
 }
 
-// inboxRows renders items as list rows. Feed rows carry Done/Snooze;
-// blocking rows demand a decision on their detail view instead.
-func inboxRows(h Host, items []store.InboxItem, triage bool) []ListItem {
+// inboxRows renders items as list rows. Feed rows carry Done/Snooze as
+// quiet glyphs; blocking rows demand a decision on their detail instead.
+func inboxRows(h Host, items []store.InboxItem, triage bool, selected string) []ListItem {
 	rows := make([]ListItem, 0, len(items))
 	for _, it := range items {
 		row := ListItem{
-			ID:       it.ID,
-			Title:    it.Title,
-			Subtitle: sourceLabel(h, it) + " · " + it.Reason,
-			Badge:    rowBadge(it),
-			Path:     "item/" + it.ID,
+			ID:     it.ID,
+			Title:  it.Title,
+			Meta:   []string{sourceLabel(h, it), it.Reason},
+			At:     it.CreatedAt,
+			Badge:  it.Kind,
+			Tone:   kindTone(it.Kind),
+			Unread: it.State == store.InboxUnread,
+			Path:   "item/" + it.ID,
 		}
+		_ = selected // selection is derived from the open path, host-side
 		if triage {
 			row.Actions = []Action{
-				{ID: "done", Label: "Done", Args: map[string]string{"item": it.ID}},
-				{ID: "snooze", Label: "Snooze 1h", Args: map[string]string{"item": it.ID}},
+				{ID: "done", Label: "Done", Icon: "check", Args: map[string]string{"item": it.ID}},
+				{ID: "snooze", Label: "Snooze 1h", Icon: "clock", Args: map[string]string{"item": it.ID}},
 			}
 		}
 		rows = append(rows, row)
@@ -89,9 +105,17 @@ func inboxRows(h Host, items []store.InboxItem, triage bool) []ListItem {
 	return rows
 }
 
-func rowBadge(it store.InboxItem) string {
-	if it.State == store.InboxUnread {
-		return it.Kind
+// kindTone maps an item kind to the host's tone vocabulary. Red is for
+// destruction only, so an approval — which merely *asks* about something
+// destructive — reads as warn, not danger.
+func kindTone(kind string) string {
+	switch kind {
+	case store.InboxQuestion:
+		return "info"
+	case store.InboxApproval:
+		return "warn"
+	case store.InboxResult:
+		return "ok"
 	}
 	return ""
 }
@@ -107,49 +131,71 @@ func (inboxApp) itemView(h Host, id string) (View, error) {
 			it = updated
 		}
 	}
-	v := View{APIVersion: APIVersion, Title: it.Title}
-	head := "**" + it.Reason + "** · " + sourceLabel(h, it)
+	// The list travels with every view so the split never blanks.
+	blocks, err := listPanes(h, it.ID)
+	if err != nil {
+		return View{}, err
+	}
+	v := View{APIVersion: APIVersion, Title: it.Title, Layout: "split", Blocks: blocks}
+
+	detail := []Block{}
+	body := strings.TrimSpace(it.Body)
+	if body == "" {
+		body = "_No details._"
+	}
+	detail = append(detail, Block{
+		Type: "detail", Pane: "detail", Title: it.Title,
+		Meta: []string{sourceLabel(h, it), it.Reason}, At: it.CreatedAt,
+		Markdown: body,
+	})
 	if it.State == store.InboxDone && it.Response != nil {
-		head += " · answered: " + *it.Response
-	}
-	md := head
-	if strings.TrimSpace(it.Body) != "" {
-		md += "\n\n" + it.Body // markdown, never HTML (ADR mitigation)
-	}
-	v.Blocks = append(v.Blocks, Block{Type: "detail", Markdown: md})
-	if it.State == store.InboxDone {
-		return v, nil
+		detail = append(detail, Block{Type: "detail", Pane: "detail", Title: "Answered", Markdown: "> " + *it.Response})
 	}
 
-	allowed := map[string]bool{}
-	for _, verb := range it.Allowed {
-		allowed[verb] = true
-	}
-	if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
-		v.Blocks = append(v.Blocks, Block{Type: "form", Form: &Form{
-			ID:     "respond",
-			Submit: "Send reply",
-			Fields: []Field{{Name: "reply", Method: "editor", Title: "Your reply", Placeholder: "The agent picks this up as a follow-up message."}},
-		}})
-	}
-	var acts []Action
-	if allowed[store.VerbAccept] {
-		acts = append(acts, Action{ID: "accept", Label: "Accept", Args: map[string]string{"item": it.ID}})
-	}
-	if allowed[store.VerbIgnore] {
-		ig := Action{ID: "ignore", Label: "Ignore", Args: map[string]string{"item": it.ID}}
-		if it.Blocking {
-			ig.Confirm = "Ignore this? The agent gets no reply."
-			ig.Danger = true
+	if it.State != store.InboxDone {
+		allowed := map[string]bool{}
+		for _, verb := range it.Allowed {
+			allowed[verb] = true
 		}
-		acts = append(acts, ig)
+		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
+			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
+				ID:     "respond",
+				Submit: "Send reply",
+				Fields: []Field{{
+					Name: "reply", Method: "editor", Title: "Your reply",
+					Placeholder: "Type your answer…",
+				}},
+			}})
+		}
+		var acts []Action
+		if allowed[store.VerbAccept] {
+			// An approval's decision is the primary act; replying is the
+			// side channel, so the fill goes here.
+			acts = append(acts, Action{ID: "accept", Label: "Accept", Icon: "check", Primary: true, Args: map[string]string{"item": it.ID}})
+			// Accept without a decline leaves no way to answer "no" — only
+			// to abandon. Declining forwards the refusal to the agent.
+			acts = append(acts, Action{ID: "decline", Label: "Decline", Args: map[string]string{"item": it.ID}})
+		}
+		if it.Blocking {
+			// Ignore is the destructive out on a blocking item: the agent
+			// gets no reply. It goes last and asks first.
+			if allowed[store.VerbIgnore] {
+				acts = append(acts, Action{
+					ID: "ignore", Label: "Ignore", Danger: true,
+					Confirm: "Ignore this? The agent gets no reply.",
+					Args:    map[string]string{"item": it.ID},
+				})
+			}
+		} else {
+			// News: Done is the whole triage; Ignore would say the same thing twice.
+			acts = append(acts, Action{ID: "done", Label: "Done", Icon: "check", Args: map[string]string{"item": it.ID}})
+			acts = append(acts, Action{ID: "snooze", Label: "Snooze 1h", Icon: "clock", Args: map[string]string{"item": it.ID}})
+		}
+		if len(acts) > 0 {
+			detail = append(detail, Block{Type: "actions", Pane: "detail", Actions: acts})
+		}
 	}
-	if !it.Blocking {
-		acts = append(acts, Action{ID: "done", Label: "Done", Args: map[string]string{"item": it.ID}})
-	}
-	if len(acts) > 0 {
-		v.Blocks = append(v.Blocks, Block{Type: "actions", Actions: acts})
-	}
+	v.Blocks = append(v.Blocks, detail...)
 	return v, nil
 }
 
@@ -173,12 +219,20 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		return a.backToRoot(h, "Snoozed for 1 hour")
-	case "respond", "accept", "ignore":
+	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
-		if verb == "respond" {
-			verb = store.VerbRespond
-		}
 		text := req.Args["reply"]
+		switch req.Action {
+		case "respond":
+			verb = store.VerbRespond
+		case "decline":
+			// A decline is a real answer: it rides the reply channel so the
+			// agent hears "no" instead of silence.
+			verb = store.VerbRespond
+			if strings.TrimSpace(text) == "" {
+				text = "Declined."
+			}
+		}
 		if verb == store.VerbRespond && strings.TrimSpace(text) == "" {
 			return ActionResult{}, fmt.Errorf("write a reply first")
 		}
@@ -189,8 +243,13 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		toast := "Done"
-		if verb != store.VerbIgnore {
+		switch req.Action {
+		case "respond":
 			toast = "Reply sent — the agent will pick it up."
+		case "accept":
+			toast = "Accepted — the agent can go ahead."
+		case "decline":
+			toast = "Declined — the agent was told no."
 		}
 		return a.backToRoot(h, toast)
 	}
