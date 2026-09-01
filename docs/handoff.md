@@ -639,3 +639,24 @@ Never exercised, because this machine was already past them:
   allowed, override works, and pre-commit blocks a feature commit when the
   root is off main. GitHub Actions calls individual make targets, so it never
   sets hooksPath.
+
+- **2026-09-01** — **`make ci` now proves the git guards instead of assuming
+  them.** `scripts/hooks-selftest.sh` runs the whole policy matrix against a
+  throwaway repo (never this clone): switch/`-c`/`checkout -b` refused in the
+  root, worktree add + switch + feature commit inside a worktree allowed,
+  commit on main in the root allowed, `checkout -- <path>` allowed, override
+  works, return to main always allowed, and pre-commit refusing a feature
+  commit when the root is off main. Wired as `make hooks-check` (a `make ci`
+  prerequisite) and as a Linux-only step in GitHub CI, which calls individual
+  make targets and would otherwise never see it.
+  It is sabotage-verified both ways: removing the parent-command
+  discriminator makes the worktree checks fail (the guard would block the
+  flow it demands), and making the hook permissive makes the refusal checks
+  fail. Either regression is silent without this test.
+  `make hooks` moved into `scripts/hooks-enable.sh` and now **fails** when
+  `core.hooksPath` was redirected elsewhere. Trap found while building it:
+  `core.hooksPath` is a path-type config, so git reads it back **absolute**
+  from a linked worktree even when written as `.githooks` — comparing the
+  literal string reported every correctly-configured worktree as broken,
+  which would have failed `make ci` for every agent. The script compares
+  resolved paths against the main worktree's `.githooks`.

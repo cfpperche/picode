@@ -52,9 +52,12 @@ moment of creation**. Read [README.md](README.md) and
    off `main` (switching back to `main` is always allowed), and
    `.githooks/pre-commit` refuses feature commits made there. The guards are
    tool-agnostic — they hold for every agent runtime, editor and script.
-   `make hooks` (implied by `make dev` and `make ci`) points git at them;
-   a clone that never ran make has no guard. Deliberate one-off:
-   `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
+   `make hooks` (implied by `make dev` and `make ci`) points git at them and
+   **fails** if `core.hooksPath` was redirected elsewhere; `make hooks-check`
+   (in `make ci` and in GitHub CI) runs `scripts/hooks-selftest.sh`, which
+   proves the whole policy on a throwaway repo — refusals *and* the flows
+   that must keep working. A clone that never ran make has no guard.
+   Deliberate one-off: `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
    **Never run `git clean -fdx` (or `-fdX`) in the primary checkout:**
    `.worktrees/` is git-ignored, so clean deletes every agent's working
    tree in one stroke. Untracked leftovers are removed by name, or not at all.

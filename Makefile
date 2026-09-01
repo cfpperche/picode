@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks dev ui web build restart deploy install test test-js fmt fmt-check vet ci clean
+.PHONY: help hooks hooks-check dev ui web build restart deploy install test test-js fmt fmt-check vet ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -10,10 +10,10 @@ help: ## Show this help
 # target that a human or an agent runs first points git at them. Idempotent
 # and silent once set; runs from any worktree (config is per clone).
 hooks: ## Point git at the repo's hooks (.githooks — keeps the root on main)
-	@if [ "$$(git config --get core.hooksPath)" != ".githooks" ]; then \
-		git config core.hooksPath .githooks && \
-		echo "git hooks enabled (.githooks): the repository root stays on main"; \
-	fi
+	@./scripts/hooks-enable.sh
+
+hooks-check: hooks ## Prove the guards work (policy matrix on a throwaway repo)
+	./scripts/hooks-selftest.sh
 
 dev: hooks ## Run the Go server (HTTPS, port 8445+; serves last `make web` build)
 	go run ./cmd/picode
@@ -78,7 +78,7 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: hooks fmt-check vet test test-js build ## Everything CI runs (includes UI build)
+ci: hooks-check fmt-check vet test test-js build ## Everything CI runs (includes UI build)
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/

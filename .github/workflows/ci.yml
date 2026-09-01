@@ -46,6 +46,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: make fmt-check
 
+      # The worktree guards (AGENTS.md §5) are shell + git, so nothing else in
+      # this matrix would notice an edit that made them block every worktree,
+      # or stop blocking anything. Runs on a throwaway repo, never on the
+      # checkout. Linux only: it reads /proc for the invoking command.
+      - name: Git guard self-test
+        if: matrix.os == 'ubuntu-latest'
+        run: ./scripts/hooks-selftest.sh
+
       - name: Vet
         run: go vet ./...
 
