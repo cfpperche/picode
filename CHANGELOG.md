@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Automation cost limits stop at the message, not at the next poll.** A
+  run's spend is read from pi's own usage after every assistant message,
+  so a *Max cost per run* is enforced as soon as it is crossed instead of
+  up to 30 seconds later. Runs that PiCode's restart interrupted now show
+  what they actually cost.
+
 ### Added
 
 - **Automations v2: describe it, or start from a template (ADR-0045 amendment).**

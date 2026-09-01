@@ -213,13 +213,17 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
-- **Automations (ADR-0046):** cost cap is a 30 s poll (overshoots by one
-  poll); runs interrupted by a restart show `$0.00`; the runs table and
-  list poll (15 s) — no live event; two due automations share the active
-  `auth.json` credential; the webhook is reachable wherever the server is
-  (ADR-0007 token-auth debt applies beyond the tailnet); no automated e2e
-  of a real `start` run (verified by hand on a scratch instance, the
-  server test harness's fake pi does not settle a turn).
+- **Automations (ADR-0045):** the runs table and list poll (15 s) — no
+  live event; two due automations share the active `auth.json`
+  credential; the webhook is reachable wherever the server is (ADR-0007
+  token-auth debt applies beyond the tailnet); `/automate` relies on the
+  agent honouring the JSON fence (fallback opens the editor with the
+  description). Closed 2026-09-01: cost cap is now enforced per assistant
+  message from pi's own usage events (the 30 s poll remains only for the
+  session path, the timeout and a file-based fallback); runs closed by a
+  restart are priced from their session file; the server fake pi runs a
+  whole turn, so `TestAutomationStartRunEndToEnd` covers a real `start`
+  run and the cap.
 - ADR-0028: npm publish for `pi-roles` is not wired (path-triggered workflow +
   `pi-roles-v*` tag). Local path install only. Live RPC dogfood on Grok passed.
 - ADR-0022's occupant scan: the cliff is gone for agents sharing a directory
@@ -251,6 +255,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
+  `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap
+  event-driven and synchronous; `FailStaleRuns` takes a cost resolver
+  (`automate.SessionCost`); the server test fake emits
+  start / message_end(+usage) / end / settled, and
+  `automations_e2e_test.go` runs a real `start` run plus a capped one.
 - **2026-09-01 — ADR-0045 v2 `/automate` + templates** (`feat/automations-v2`):
   seven built-in templates, Suggested cards + editor select, `/automate`
   drafting from the current agent (verified on scratch: repo-specific

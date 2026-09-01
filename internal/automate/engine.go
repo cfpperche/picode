@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/cron"
+	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -61,7 +62,7 @@ func (e *Engine) Reconcile() {
 	if e.Store == nil {
 		return
 	}
-	stale, err := e.Store.FailStaleRuns("daemon restarted")
+	stale, err := e.Store.FailStaleRuns("daemon restarted", SessionCost)
 	if err != nil {
 		log.Printf("automate: reconcile: %v", err)
 		return
@@ -78,6 +79,18 @@ func (e *Engine) Reconcile() {
 			Body:  "PiCode restarted while this run was in progress. The session file keeps what the agent did; the next scheduled run starts fresh.",
 		})
 	}
+}
+
+// SessionCost prices a run from its pi session file; 0 when unreadable.
+func SessionCost(path string) float64 {
+	if path == "" {
+		return 0
+	}
+	s, err := session.Summarize(path)
+	if err != nil {
+		return 0
+	}
+	return s.Cost
 }
 
 // Tick evaluates every enabled scheduled automation once.

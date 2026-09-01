@@ -96,9 +96,12 @@ The decision table (`decideFire`, tested row by row):
   dashboard, Inbox park-and-wake, `--session-dir`) applies for free; the
   automation's agent can be opened and talked to like any other. Cost of
   a run is the cost of its session file, computed with `session.Summarize`.
-- **Cost cap is a poll, not a hard stop.** Checked every 30 s from the
-  session file, so a run can overshoot by one poll of spending. The row
-  shows the real number.
+- **Cost cap is per message.** Amended the same day: pi reports usage
+  after every assistant message (`message_end`), the runtime sums it and
+  the run observer closes the run on the message that crosses the cap.
+  The 30 s poll remains for the session path, the two-hour timeout and a
+  file-based fallback when a provider reports no usage. A run can still
+  overshoot by the single message that crosses the line.
 - **Polling, no bus.** The page polls every 15 s (paused when hidden),
   the same posture ADR-0037 chose for the Inbox. Live runs update on the
   next poll, not the next event.

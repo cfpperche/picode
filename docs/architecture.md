@@ -514,8 +514,10 @@ matcher. The runner lives in `internal/server` (`automations_run.go`):
 the decision table (`decideFire`) then, for `start`, one agent per
 automation (created lazily) whose `session_path` is cleared so
 `Runtime.Start` mints a fresh session (ADR-0039), `startManaged` +
-`SendTurn`, a `RunObserver` on the managed agent for settle/exit, and a
-30 s watchdog for the cost cap and the 2 h timeout. `message` enqueues a
+`SendTurn`, a `RunObserver` on the managed agent for settle / exit /
+per-message cost (the cap closes the run on the crossing message), and a
+30 s watchdog for the session path, the 2 h timeout and a file-based
+cost fallback. `message` enqueues a
 `follow_up`. Routes: `GET/POST /api/automations`,
 `GET/PATCH/DELETE /api/automations/{id}`, `POST …/secret` (rotate),
 `POST …/run` (Run now, 409 when busy), `POST …/fire` (webhook:

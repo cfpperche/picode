@@ -80,6 +80,7 @@ type ManagedAgent struct {
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
 	observer      *RunObserver  // automations engine watching this run (ADR-0045)
+	cost          float64       // sum of usage.cost.total over assistant message_end events
 }
 
 // RunObserver is set by an owner that files its own Inbox items for the
@@ -89,6 +90,34 @@ type ManagedAgent struct {
 type RunObserver struct {
 	OnSettled func(final string)  // turn finished; final is the agent's last text ("" if none)
 	OnExit    func(expected bool) // process ended; expected = Runtime.Stop asked for it
+	OnCost    func(total float64) // after each assistant message: cost so far in this process
+}
+
+// Cost is the money spent by this process so far, summed from pi's own
+// per-message usage (the same number the session file carries).
+func (ma *ManagedAgent) Cost() float64 {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+	return ma.cost
+}
+
+// messageCost reads usage.cost.total from a message_end / turn_end event
+// whose message is an assistant message; 0 otherwise.
+func messageCost(ev Event) float64 {
+	var end struct {
+		Message struct {
+			Role  string `json:"role"`
+			Usage struct {
+				Cost struct {
+					Total float64 `json:"total"`
+				} `json:"cost"`
+			} `json:"usage"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(ev, &end); err != nil || end.Message.Role != "assistant" {
+		return 0
+	}
+	return end.Message.Usage.Cost.Total
 }
 
 // Observe attaches (or with nil detaches) the run observer.
@@ -275,6 +304,17 @@ func (ma *ManagedAgent) pumpEvents() {
 				ma.mu.Lock()
 				ma.lastFinal = text
 				ma.mu.Unlock()
+			}
+		case "message_end":
+			if c := messageCost(ev); c > 0 {
+				ma.mu.Lock()
+				ma.cost += c
+				total := ma.cost
+				o := ma.observer
+				ma.mu.Unlock()
+				if o != nil && o.OnCost != nil {
+					o.OnCost(total)
+				}
 			}
 		case "agent_settled":
 			ma.markSettled()

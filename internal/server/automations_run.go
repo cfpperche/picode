@@ -266,7 +266,7 @@ func (r automationRunner) startRun(ctx context.Context, a store.Automation, trig
 		w.finish(store.RunFailed, reasonStartFailed, true)
 		return deps.Store.GetRun(run.ID)
 	}
-	ma.Observe(&rpc.RunObserver{OnSettled: w.settled, OnExit: w.exited})
+	ma.Observe(&rpc.RunObserver{OnSettled: w.settled, OnExit: w.exited, OnCost: w.spent})
 	go w.watch(ma)
 	if err := ma.SendTurn(store.TaskPrompt, body, nil); err != nil {
 		w.finish(store.RunFailed, reasonStartFailed+": "+err.Error(), true)
@@ -285,9 +285,45 @@ type runWatch struct {
 	agentID string
 	started time.Time
 
-	mu       sync.Mutex
-	path     string
-	finished bool
+	mu        sync.Mutex
+	path      string
+	finished  bool
+	eventCost float64 // pi's own per-message usage, pushed by the RunObserver
+}
+
+// spent is the cost-cap gate: pi reports usage after every assistant
+// message, so the cap is enforced at message granularity rather than by
+// the 30 s poll (which stays for the session path and the timeout).
+func (w *runWatch) spent(total float64) {
+	w.mu.Lock()
+	w.eventCost = total
+	capHit := w.a.MaxCostUSD != nil && total > *w.a.MaxCostUSD && !w.finished
+	w.mu.Unlock()
+	if !capHit {
+		return
+	}
+	// Decide on the event's own goroutine: a settle can be microseconds
+	// behind and must find the run already closed. Stopping the process
+	// waits for this read loop, so that part moves off it.
+	if w.finish(store.RunFailed, reasonCostCap, true) {
+		go w.stopAgent()
+	}
+}
+
+// stopFor closes the run with reason, then aborts and stops the agent.
+func (w *runWatch) stopFor(reason string) {
+	if w.finish(store.RunFailed, reason, true) {
+		w.stopAgent()
+	}
+}
+
+func (w *runWatch) stopAgent() {
+	if ma := w.runner.deps.Runtime.Get(w.agentID); ma != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_ = ma.Abort(ctx)
+		cancel()
+	}
+	w.runner.deps.Runtime.Stop(w.agentID)
 }
 
 func (w *runWatch) sessionPath(ma *rpc.ManagedAgent) string {
@@ -318,17 +354,18 @@ func (w *runWatch) sessionPath(ma *rpc.ManagedAgent) string {
 	return state.SessionFile
 }
 
+// cost is the larger of the session file's total and pi's live usage —
+// the file lags a message behind the events while the run is alive.
 func (w *runWatch) cost() float64 {
 	w.mu.Lock()
-	p := w.path
+	p, ev := w.path, w.eventCost
 	w.mu.Unlock()
-	if p == "" {
-		return 0
+	if p != "" {
+		if s, err := session.Summarize(p); err == nil && s.Cost > ev {
+			return s.Cost
+		}
 	}
-	if s, err := session.Summarize(p); err == nil {
-		return s.Cost
-	}
-	return 0
+	return ev
 }
 
 // finish closes the run once. Returns false when someone already did.
@@ -407,18 +444,14 @@ func (w *runWatch) watch(ma *rpc.ManagedAgent) {
 		w.sessionPath(ma)
 		reason := ""
 		if w.a.MaxCostUSD != nil && w.cost() > *w.a.MaxCostUSD {
-			reason = reasonCostCap
+			reason = reasonCostCap // file-based fallback when pi sent no usage
 		} else if time.Since(w.started) > runTimeout {
 			reason = reasonTimeout
 		}
 		if reason == "" {
 			continue
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		_ = ma.Abort(ctx)
-		cancel()
-		w.finish(store.RunFailed, reason, true)
-		w.runner.deps.Runtime.Stop(w.agentID)
+		w.stopFor(reason)
 		return
 	}
 }

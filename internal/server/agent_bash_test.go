@@ -62,9 +62,24 @@ func fakeBashRPCMain() {
 				})
 				break
 			}
+			// A plain prompt runs a whole turn: start, one assistant
+			// message with usage (what the automations cost cap reads),
+			// end, settled — then the response.
+			_ = enc.Encode(map[string]any{"type": "agent_start"})
+			_ = enc.Encode(map[string]any{"type": "message_end", "message": map[string]any{
+				"role": "assistant", "content": []map[string]any{{"type": "text", "text": "hello from fake"}},
+				"usage": map[string]any{"cost": map[string]any{"total": 0.01}},
+			}})
+			_ = enc.Encode(map[string]any{"type": "agent_end", "messages": []map[string]any{
+				{"role": "user", "content": []map[string]any{{"type": "text", "text": msg}}},
+				{"role": "assistant", "content": []map[string]any{{"type": "text", "text": "hello from fake"}}},
+			}})
+			_ = enc.Encode(map[string]any{"type": "agent_settled"})
 			_ = enc.Encode(map[string]any{
 				"id": id, "type": "response", "command": typ, "success": true,
 			})
+		case "abort":
+			_ = enc.Encode(map[string]any{"id": id, "type": "response", "command": "abort", "success": true})
 		case "bash":
 			cmd, _ := req["command"].(string)
 			_ = enc.Encode(map[string]any{"type": "bash_execution_update", "id": id, "delta": "fake: " + cmd + "\n"})

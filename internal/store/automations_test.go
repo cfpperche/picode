@@ -156,12 +156,18 @@ func TestFailStaleRuns(t *testing.T) {
 	a, _, _ := s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
 	r, _ := s.CreateRun(a.ID, TriggerSchedule, RunRunning, "")
 	_, _ = s.CreateRun(a.ID, TriggerSchedule, RunDone, "")
-	stale, err := s.FailStaleRuns("daemon restarted")
+	_ = s.SetRunSession(r.ID, "/tmp/run.jsonl")
+	stale, err := s.FailStaleRuns("daemon restarted", func(p string) float64 {
+		if p == "/tmp/run.jsonl" {
+			return 0.25
+		}
+		return 0
+	})
 	if err != nil || len(stale) != 1 || stale[0].ID != r.ID {
 		t.Fatalf("stale: %+v %v", stale, err)
 	}
 	got, _ := s.GetRun(r.ID)
-	if got.Status != RunFailed || got.Reason != "daemon restarted" {
+	if got.Status != RunFailed || got.Reason != "daemon restarted" || got.CostUSD != 0.25 {
 		t.Fatalf("stale run: %+v", got)
 	}
 }
