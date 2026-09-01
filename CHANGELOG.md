@@ -142,6 +142,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Inbox rows open on the first tap on iPhone.** The hover-only row
+  actions made iOS treat the first tap as a hover; hover rules now apply
+  only where a pointer can hover, and touch uses the swipe.
 - **Mobile: a finger scrolls a terminal; the New agent sheet stays on
   screen.** Touch drags on the terminal now become the wheel events a tmux
   pane scrolls by; the bottom sheet no longer lets Vaul reposition itself

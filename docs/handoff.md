@@ -268,7 +268,11 @@ Never exercised, because this machine was already past them:
   stacked split overflowed. `fix/mobile-inbox-subroute`: `AppSurface`
   `paneMode="list"|"detail"` + `onOpenItem`; mobile Inbox = list tab
   (`PullScreen` is the scroller) + pushed `#/inbox/<id>` item screen with
-  Back; an action returning to the root pops the screen.
+  Back; an action returning to the root pops the screen. Owner: an Inbox
+  row needed two taps on the iPhone and swipe never showed — iOS Safari
+  turns the first tap into hover when `:hover` changes content (the
+  hover-only row actions). `fix/inbox-hover-touch`: the `.app-row` hover
+  rules live under `@media (hover: hover)`; touch gets the swipe.
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap

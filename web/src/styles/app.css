@@ -3705,10 +3705,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-primary); font: inherit; cursor: pointer;
 }
 .app-row-main:disabled { cursor: default; }
-.app-row:hover { background: var(--bg-hover); }
+/* Hover rules only where a pointer can hover: on iOS Safari a :hover that
+   changes content turns the first tap into "hover", and the row needs a
+   second tap to open (owner's report). Touch reveals the actions by a
+   left swipe instead (AppSurface Row, .app-row-swiped). */
+@media (hover: hover) {
+  .app-row:hover { background: var(--bg-hover); }
+}
 .app-row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .app-row-on { background: var(--bg-elevated); box-shadow: inset 2px 0 0 var(--accent); }
-.app-row-on:hover { background: var(--bg-elevated); }
+@media (hover: hover) { .app-row-on:hover { background: var(--bg-elevated); } }
 .app-row-dot { grid-column: 1; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
 .app-row-unread .app-row-dot { background: var(--accent); }
 .app-row-line1 {
@@ -3729,12 +3735,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   padding-left: 10px;
   background: linear-gradient(90deg, transparent, var(--bg-hover) 10px);
 }
-.app-row:hover .app-row-actions,
 .app-row:focus-within .app-row-actions { opacity: 1; }
 /* The actions take over the timestamp's slot, so the stamp steps aside
    instead of showing through them. */
-.app-row:hover .app-row-line1 .app-when,
 .app-row:focus-within .app-row-line1 .app-when { opacity: 0; }
+@media (hover: hover) {
+  .app-row:hover .app-row-actions { opacity: 1; }
+  .app-row:hover .app-row-line1 .app-when { opacity: 0; }
+}
 .app-when { transition: opacity var(--motion-fast) var(--ease-out); }
 .app-row-on .app-row-actions { background: linear-gradient(90deg, transparent, var(--bg-elevated) 10px); }
 
