@@ -96,6 +96,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerBackupRoutes(mux, deps)
 	registerAppsRoutes(mux, deps)
 	registerInboxRoutes(mux, deps)
+	registerAutomationRoutes(mux, deps)
 	registerExtensionRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))

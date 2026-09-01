@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/automate"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/browserhost"
@@ -327,6 +328,12 @@ func serve() {
 		// the env read lives here, never inside internal/apps.
 		Apps: apps.NewRegistry(apps.BuiltIns(os.Getenv("PICODE_DEMO_APP") == "1")...),
 	}
+
+	// Automations scheduler (ADR-0044): lives with the process, not the
+	// HTTP server, so a rebind never drops a schedule.
+	autoCtx, autoCancel := context.WithCancel(context.Background())
+	defer autoCancel()
+	go (&automate.Engine{Store: st, Runner: server.AutomationRunner(deps)}).Loop(autoCtx)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
