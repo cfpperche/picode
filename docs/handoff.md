@@ -271,6 +271,24 @@ Never exercised, because this machine was already past them:
     and its ADR were not ported.
   - Not merged; `feat/home-dashboard` (superseded, unmerged) left as-is
     for the owner to delete at their convenience.
+  - **Follow-up fix, same day, caught during the owner's live preview**:
+    `scanFile`'s message-timestamp read used `time.Unix(ts, 0)`, treating
+    pi's real `message.timestamp` (epoch **milliseconds**, JS `Date.now()`
+    convention) as seconds — the parsed time landed around the year
+    58620, tripped the "future relative to window" guard, and silently
+    dropped almost every real message. The unit tests never caught it
+    because `msgLine()`'s synthetic fixtures also used `.Unix()`, so they
+    validated the code's assumption against itself, not against pi's real
+    wire format — the earlier "confirmed seconds from a real fixture"
+    research note was reading a `compaction` event's unrelated top-level
+    `timestamp`, not a `message.timestamp`. Found by copying real
+    `~/.pi/agent/sessions` (83 files, 174M) into a scratch preview instead
+    of trusting synthetic-only QA: `range=7d` and `range=all` came back
+    identical (4 messages total) against 24,811 real ones. Fixed to
+    `time.UnixMilli`; re-verified the cross-check from above against real
+    data (854.9008726400004 vs `/api/sessions/all`'s independent
+    854.9008726400006 — last-digit float ordering only). Commit
+    `d532c31c` on the same branch.
 
 - **2026-09-01** — **Per-agent `--session-dir` (ADR-0040)**, on branch
   `worktree-pi-tui-session-dir`. Owner reported (screenshots) that after
