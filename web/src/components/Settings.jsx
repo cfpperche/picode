@@ -155,6 +155,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         </div>
         <p id="port-error" className="form-error" hidden={!err}>{err}</p>
         <p id="port-note" className={"port-note" + (moving ? " moving" : "")}>{note}</p>
+        <ExtensionStatus hidden={hidden || sec !== "server"} />
       </section>
 
       <BackupSection hidden={hidden || sec !== "backup"} />
@@ -428,6 +429,32 @@ function BackupJob({ job, onClose }) {
           <p className="pkg-fine">{restore ? "Agents stop first. Project folders stay." : "Stays here until the snapshot is on disk."}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+const EXT_GUIDE = "https://cfpperche.github.io/picode/guide/browser-extension";
+
+function ExtensionStatus({ hidden }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (hidden) return;
+    let live = true;
+    const load = () => api("/api/devices").then((list) => {
+      if (!live) return;
+      const hit = (list || []).some((d) => d.kind === "extension" && d.online);
+      setOn(hit);
+    }).catch(() => { if (live) setOn(false); });
+    load();
+    const t = setInterval(load, 4000);
+    return () => { live = false; clearInterval(t); };
+  }, [hidden]);
+  return (
+    <div className="set-row" style={{ marginTop: 16 }}>
+      <span>{on ? "Chrome extension is connected." : "Chrome extension is not connected."}</span>
+      {on ? null : (
+        <a className="btn btn-ghost btn-sm" href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a>
+      )}
     </div>
   );
 }

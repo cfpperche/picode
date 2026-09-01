@@ -15,7 +15,9 @@ agent uses for its own work.
 picode extension-install
 ```
 
-Chrome on Windows with PiCode inside WSL:
+Chrome on Windows with PiCode inside WSL — the tray binary cannot be the
+host (it is a GUI program). `make desktop` builds a console sibling,
+`picode-nmh.exe`. Then:
 
 ```text
 picode-desktop extension-install

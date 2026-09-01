@@ -131,6 +131,40 @@ func TestWriteHostManifestRequiresAbs(t *testing.T) {
 	}
 }
 
+func TestWindowsHostPath(t *testing.T) {
+	dir := t.TempDir()
+	desktop := filepath.Join(dir, "picode-desktop.exe")
+	if _, err := WindowsHostPath(desktop); err == nil {
+		t.Fatal("missing nmh should fail")
+	}
+	nmh := filepath.Join(dir, WindowsHostExe)
+	if err := os.WriteFile(nmh, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := WindowsHostPath(desktop)
+	if err != nil || got != nmh {
+		t.Fatalf("got %q %v", got, err)
+	}
+}
+
+func TestCopyFileSamePath(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "a")
+	if err := os.WriteFile(p, []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := CopyFile(p, p); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "b")
+	if err := CopyFile(p, dst); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(dst)
+	if err != nil || string(b) != "hi" {
+		t.Fatalf("%q %v", b, err)
+	}
+}
+
 func TestWindowsRegistryArgs(t *testing.T) {
 	add := WindowsRegistryAddArgs(`C:\PiCode\com.picode.browser.json`)
 	if add[0] != "add" || add[len(add)-1] != "/f" {

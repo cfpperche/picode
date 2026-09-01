@@ -59,6 +59,7 @@ func (c *Client) ping(req Request) Reply {
 	if err := c.get(base+"/api/health", nil); err != nil {
 		return down(req, err)
 	}
+	c.noteDevice(base, req.DeviceID)
 	return Reply{OK: true, Type: "ping", ID: req.ID, URL: base}
 }
 
@@ -73,6 +74,7 @@ func (c *Client) agents(req Request) Reply {
 	if err := c.get(base+"/api/extension/agents", &body); err != nil {
 		return down(req, err)
 	}
+	c.noteDevice(base, req.DeviceID)
 	return Reply{OK: true, Type: "agents", ID: req.ID, URL: base, Agents: body.Agents}
 }
 
@@ -188,6 +190,16 @@ func (c *Client) http() *http.Client {
 		return c.HTTP
 	}
 	return insecureClient()
+}
+
+func (c *Client) noteDevice(base, id string) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return
+	}
+	_, _ = c.post(base+"/api/devices/ping", map[string]any{
+		"id": id, "host": true, "kind": "extension",
+	}, nil)
 }
 
 func down(req Request, err error) Reply {

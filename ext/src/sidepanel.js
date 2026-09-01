@@ -276,6 +276,7 @@ function canCapture(url) {
 }
 
 function call(payload) {
+  payload.deviceId = "ext:" + chrome.runtime.id;
   return chrome.runtime.sendMessage({ channel: "picode", payload });
 }
 

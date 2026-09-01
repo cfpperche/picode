@@ -16,6 +16,7 @@ type Device struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	IP        string `json:"ip"`
+	Kind      string `json:"kind,omitempty"`
 	Host      bool   `json:"host"`
 	Online    bool   `json:"online"`
 	LastSeen  string `json:"lastSeen"`
@@ -23,9 +24,9 @@ type Device struct {
 }
 
 type rec struct {
-	id, name, ip string
-	host         bool
-	first, last  time.Time
+	id, name, ip, kind string
+	host               bool
+	first, last        time.Time
 }
 
 // Registry is an in-memory set of live clients.
@@ -59,7 +60,8 @@ func (r *Registry) SetLocal(ips []string) {
 }
 
 // Ping records a heartbeat. id must be a client-generated opaque token.
-func (r *Registry) Ping(id, ua, remote string, claimedHost bool) Device {
+// kind "extension" is the Chrome side panel (ADR-0043 Track B).
+func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) Device {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return Device{}
@@ -73,7 +75,12 @@ func (r *Registry) Ping(id, ua, remote string, claimedHost bool) Device {
 		it = &rec{id: id, first: now}
 		r.items[id] = it
 	}
-	it.name = Label(ua)
+	it.kind = strings.TrimSpace(kind)
+	if it.kind == "extension" {
+		it.name = "Chrome extension"
+	} else {
+		it.name = Label(ua)
+	}
 	it.ip = ip
 	it.host = claimedHost || r.local[ip]
 	it.last = now
@@ -103,6 +110,7 @@ func (r *Registry) view(it *rec, now time.Time) Device {
 		ID:        it.id,
 		Name:      it.name,
 		IP:        it.ip,
+		Kind:      it.kind,
 		Host:      it.host,
 		Online:    now.Sub(it.last) < staleAfter,
 		LastSeen:  it.last.Format(time.RFC3339),

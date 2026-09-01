@@ -51,15 +51,14 @@ What exists:
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0044** mobile shell v2 — supervision console. `web/src/mobile/` is now screens (`Now`, `Inbox`, `Agents`, `Agent`, `More`) + hooks (`useHashRoute`, `usePoll`, `useFleet`, `useAgentSocket`) + components (`TabBar`, `ScreenHeader`, `StateChip`, `NeedsYouCard`, `AgentRow`, `StatStrip`, `CreateSheet`) over pure libs `lib/mobileRoutes.js`, `lib/agentEvents.js` (reducer of the agent WS stream; desktop `handleEvent` untouched), `lib/needsYou.js`, `lib/createSubmit.js` (lifted from `submitNew`). Server: `agentView.streaming/waiting/dialog` from `Runtime.Get(id).Snapshot()`; `AppSurface` gained `initialPath`; `summarizeArgs` moved to `lib/toolArgs.js` (re-exported). The waiting card exists on mobile now — the two "Mobile has no waiting card" lines below are history. Push is the next ADR (phase 2 of the approved plan: Web Push/VAPID in Go stdlib, presence-aware).
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
-- **ADR-0043** Chrome extension Track A (sensor): `ext/` MV3 side panel + context menu; `picode extension-install` / `picode-desktop extension-install`; `GET/POST /api/extension/*`. Isolated Chromium unchanged. Chrome-only, screenshot opt-in, stopped = Start and send, interactive refused. Not an App, not a pi package.
+- **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
 
 ## In flight
 
-**ADR-0043 Track A coded, not dogfooded on the owner's Chrome.** Linux unit
-tests cover the decision table except live start-and-send (needs a real
-`pi` RPC) and the WSL+Windows Chrome path (row 10). `picode-desktop` is
-`windowsgui`; if native-messaging stdio is dead on Windows, a console
-sibling is the fix (named in the ADR), not a protocol change.
+**ADR-0043 Track B on `feat/ext-track-b`.** Track A dogfood on Windows Chrome
+passed (console `picode-nmh.exe` + skip `--parent-window`). Track B wires
+that install into `make desktop` / `extension-install`, devices presence,
+and a Preferences → Server one-liner. Not yet merged.
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -132,10 +131,8 @@ render megabytes.
 
 ## Next up
 
-**ADR-0043 Track A dogfood.** Load `ext/` unpacked, `picode extension-install`
-(Linux Chrome) or `picode-desktop extension-install` (Windows Chrome / WSL).
-Prove one Send of an https tab to a running agent. Then Track B (Devices +
-Preferences one-liner). Track C/D/E stay parked.
+**ADR-0043 Track C** (actuator on the current tab) after Track B merges.
+Track D/E stay parked.
 
 **Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
 2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
@@ -258,6 +255,10 @@ Never exercised, because this machine was already past them:
   `overlayAudit` ok on the sheet. Curated: `docs/screenshots/mobile-*.png`.
   Fixed on the way: mobile `!!` toast ReferenceError.
 
+- **2026-09-01** — **Chrome extension Track B**, on branch `feat/ext-track-b`.
+  `make desktop` builds `picode-nmh.exe`; `picode-desktop extension-install`
+  registers that console host. Side panel pings `kind=extension`.
+  Preferences → Server: connected / not connected + Open guide.
 - **2026-09-01** — **Chrome extension Track A (ADR-0043)**, on branch
   `feat/browser-extension`. Sideload `ext/`; native host in `picode` /
   `picode-desktop`; `GET/POST /api/extension/*`. Sensor only (URL, title,

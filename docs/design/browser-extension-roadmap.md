@@ -1,7 +1,7 @@
 # Browser extension — implementation roadmap
 
 - **Date:** 2026-09-01
-- **Status:** Track A in flight (ADR-0043).
+- **Status:** Track A shipped. Track B in flight (ADR-0043).
 - **Why:** agents already browse in an isolated Chromium; they cannot see
   the tab the human is on. A Chrome side panel + context menu sends that
   tab to an existing PiCode agent.
@@ -53,9 +53,14 @@ Side panel + context menu + native host + `GET/POST /api/extension/*`.
 
 Screenshot is a checkbox, off by default, JPEG under the 1 MB native-messaging cap.
 
-## Later tracks (not this slice)
+## Track B — Devices + Windows host install
 
-- **B:** `#/devices` kind=extension; Preferences one-liner; `picode-desktop extension-install` dogfood.
+- `make desktop` builds `picode-desktop.exe` (tray, GUI) **and** `picode-nmh.exe` (console native host). Chrome on Windows cannot use the tray binary (`windowsgui` + `--parent-window`).
+- `picode-desktop extension-install` copies `picode-nmh.exe` next to the tray and registers that path.
+- Side panel pings `/api/devices/ping` with `kind=extension`. `#/devices` shows **Chrome extension** on this machine. Preferences → Server: one line + Open guide when disconnected.
+
+## Later tracks
+
 - **C:** content script on the active tab, per-origin grant, visible clicks.
 - **D:** `packages/pi-tab` molde `pi-inbox`.
 - **E:** Edge registry copy; Firefox; store.

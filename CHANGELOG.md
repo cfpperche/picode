@@ -30,11 +30,7 @@ to the `[Unreleased]` section. The repository's official language is English
   for agents living in a tmux TUI. Hash routes make Back work and let a
   QR or a desktop link open the same agent. The workspace/agent lists now
   carry `streaming`, `waiting` and the open `dialog` per agent.
-
-### Fixed
-
-- **Mobile: `!!` in the composer threw instead of explaining.** The old
-  shell called a toast helper it never imported.
+- **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or
   `picode-desktop extension-install` when Chrome is on Windows and PiCode
@@ -83,6 +79,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Mobile: `!!` in the composer threw instead of explaining.** The old
+  shell called a toast helper it never imported.
 - **Apps host: consistent tab height, and the list pane next to a
   detail is finally resizable.** Three different "row of tabs" widgets
   had drifted to three different heights (40 / 36 / 30px) across the
