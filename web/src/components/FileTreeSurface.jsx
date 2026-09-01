@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { changedDirs, changeKinds, flattenTree, mergeLevel, treeApiBase } from "../lib/fileTree.js";
+import { useKeptScroll } from "../lib/keepScroll.js";
 import { shortPath } from "../lib/repoLine.js";
 import { toast, toastError } from "../lib/toast.js";
 import FileTree from "./FileTree.jsx";
@@ -10,11 +11,15 @@ const SKELETON_ROWS = 12;
 const TREE_MIN = 220;
 const TREE_MAX = 720;
 const TREE_KEY = "picode-ft-w";
+// A hidden tab keeps its tree; revealing it refetches only when the last read
+// is old enough to have missed something (an agent worked, a terminal
+// committed) — flipping between two tabs must not re-walk every open folder.
+const REVEAL_STALE_MS = 10_000;
 
 // The file tree of one folder (ADR-0030). The owner is what the server reads
 // through; the folder it answers with is what the tab is. No polling — the
 // tree refreshes when asked, like the git graph.
-export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
+export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onClose }) {
   const [levels, setLevels] = useState(null); // null = first load
   const [expanded, setExpanded] = useState(() => new Set());
   const [status, setStatus] = useState({ git: false, changes: [] });
@@ -32,6 +37,11 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   const busyRef = useRef(false);
   const loadRef = useRef(() => {});
   const expandedRef = useRef(new Set());
+  const hiddenRef = useRef(false);
+  const rootRef = useKeptScroll(hidden, [".ft-body"]);
+  // Mounting counts as a read: the owner effect below loads immediately, and
+  // the reveal check must not fire a second load on top of it.
+  const lastLoadRef = useRef(Date.now());
 
   const base = treeApiBase(owner ? owner.kind : "agent");
   const ownerId = owner ? owner.id : "";
@@ -80,6 +90,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
         setError(e.message || "Could not read this folder.");
       } finally {
         setBusy(false);
+        lastLoadRef.current = Date.now();
       }
     },
     [base, ownerId, fetchDir, onKey],
@@ -96,6 +107,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   busyRef.current = busy;
   expandedRef.current = expanded;
   loadRef.current = load;
+  hiddenRef.current = !!hidden;
 
   const toggle = useCallback(
     async (path) => {
@@ -122,10 +134,12 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
 
   // Coming back to the app is the moment the working tree most likely moved
   // (an agent worked, a terminal committed) — refresh then, instead of
-  // polling (ADR-0032; ADR-0030 still refuses a watcher).
+  // polling (ADR-0032; ADR-0030 still refuses a watcher). Trees on hidden tabs
+  // sit this out: every open tab would refetch, for folders nobody is looking
+  // at. Their reveal is the refresh.
   useEffect(() => {
     const kick = () => {
-      if (document.hidden || busyRef.current) return;
+      if (document.hidden || hiddenRef.current || busyRef.current) return;
       loadRef.current([...expandedRef.current]);
     };
     document.addEventListener("visibilitychange", kick);
@@ -135,6 +149,14 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
       window.removeEventListener("focus", kick);
     };
   }, []);
+
+  // Reappearing is the other "back to look at it" moment — the window never
+  // lost focus, so nothing above fires. The tree stays open either way:
+  // load() refetches exactly the folders that are expanded.
+  useEffect(() => {
+    if (hidden || busyRef.current) return;
+    if (Date.now() - lastLoadRef.current > REVEAL_STALE_MS) loadRef.current([...expandedRef.current]);
+  }, [hidden]);
 
   const reveal = useCallback(async () => {
     try {
@@ -172,7 +194,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
 
   if (error && !levels) {
     return (
-      <section className="ft-surface" aria-label="Files">
+      <section className="ft-surface" aria-label="Files" hidden={!!hidden} ref={rootRef}>
         <p className="ft-msg">
           {error}{" "}
           <button type="button" className="btn btn-sm" onClick={() => load([...expanded])}>
@@ -185,7 +207,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
 
   if (levels === null) {
     return (
-      <section className="ft-surface" aria-label="Files" aria-busy="true">
+      <section className="ft-surface" aria-label="Files" aria-busy="true" hidden={!!hidden} ref={rootRef}>
         <header className="ft-head">
           <span className="skel-line w-40" />
         </header>
@@ -209,7 +231,7 @@ export default function FileTreeSurface({ owner, onKey, onOpenFile, onClose }) {
   const rows = flattenTree(levels, expanded);
 
   return (
-    <section className="ft-surface" aria-label={`Files in ${name}`}>
+    <section className="ft-surface" aria-label={`Files in ${name}`} hidden={!!hidden} ref={rootRef}>
       <header className="ft-head">
         <h2 className="ft-title" title={name}>{name}</h2>
         {status.git ? (

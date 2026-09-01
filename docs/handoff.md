@@ -218,6 +218,37 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
+  the file tree, git graph and app surfaces were rendered only while
+  selected, so every tab switch unmounted them and threw away the
+  expanded folders, the scrolled-in history with its open commit,
+  search and branch filter, and the app's open item. They now follow
+  the shape `TermSurface` already used — one mounted instance per open
+  tab, `hidden` while another is selected — in `App.jsx` via
+  `tabs.filter(isTreeTab|isGitTab|isAppTab).map(...)`, with the
+  handlers closing over the tab's own id (a hidden tree resolving its
+  root used to rename whatever tab was selected). `hidden` is set on
+  every `<section>` a surface can return, skeleton and error included:
+  one branch left out paints its skeleton beside the visible tab.
+  New `web/src/lib/keepScroll.js` — `useKeptScroll(hidden, selectors)`
+  restores scroll offsets in a layout effect (display:none drops the
+  scroll box, so reading it at hide time reads 0) using a *capturing*
+  listener, which is how `.gg-rows` is covered without threading a ref
+  through `GitGraph`. Refresh discipline: hidden surfaces skip the
+  window-focus refetch (otherwise every open tab re-reads folders
+  nobody is looking at), and a reveal refetches only past
+  `REVEAL_STALE_MS` (10s) — the git graph is deliberately excluded,
+  its refresh has been manual since the ADR-0038 poll was dropped.
+  QA on isolated :8613: 501-commit graph + open commit + `fix` search
+  + scroll 3000 survived a switch; inbox item stayed open; tree kept 3
+  folders and scroll 750; cycling all three tabs showed 3 mounted, 1
+  visible, 1 overflowing scroller each time; branches overlay
+  `overlayAudit ok`. Accepted cost: a restored tab loads eagerly at
+  boot (one browse+gitstatus per tree tab), far less than the
+  websocket+xterm terminals already pay. Not covered: a browser reload
+  still starts collapsed — the state lives in the mounted component,
+  and a reload is a new page.
+
 - **2026-08-31** — sidebar version reflects the build (`fix/version-truth`):
   `version.Build()` appends the Go-embedded `vcs.revision` (+ dirty `*`)
   unless the release workflow stamped `version.Stamped`; wired into

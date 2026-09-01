@@ -59,6 +59,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Tabs keep their surface's state.** Leaving a file tree, git graph or
+  app tab and coming back no longer resets it. The tree keeps its
+  expanded folders, its scroll offset and the diff it had open; the
+  graph keeps the history scrolled into view, the open commit, the
+  search and the branch filter; the app keeps the item the reader
+  opened. Each open tab now holds one mounted surface, hidden instead of
+  destroyed — the shape the terminals already used. Refreshes stay
+  honest: a hidden surface skips the window-focus refetch, and revealing
+  one refetches only when its last read is over 10s old (the git graph,
+  whose refresh is manual by decision, never refetches on reveal). State
+  still dies with the tab — closing it forgets.
+
 - **Git graph no longer refetches on every app render.** The surface
   kept `onKey` (a fresh closure per parent render) in its load
   callback's deps, so every sidebar poll re-ran the fetch — buttons

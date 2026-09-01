@@ -4,6 +4,7 @@ import { useDebounced } from "../lib/useDebounced.js";
 import { matchCommits, MIN_QUERY } from "../lib/gitgraphSearch.js";
 import { walkParams, resolveSelection } from "../lib/gitgraphBranches.js";
 import GitGraph from "./GitGraph.jsx";
+import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
@@ -53,7 +54,7 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, onKey, onClose }) {
+export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,6 +70,11 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   });
   const [query, setQuery] = useState("");
   const keyRef = useRef("");
+  // Leaving the tab must not throw away the history the reader scrolled into:
+  // the graph stays mounted, so `limit`, the open commit, the search and the
+  // branch filter all survive. Refresh stays manual (see below) — a reveal
+  // never refetches, so the offset it restores still matches the rows.
+  const rootRef = useKeptScroll(hidden, [".gg-rows"]);
 
   // Search dims and highlights, never hides (ADR-0038): the lanes are
   // positional. Enter walks the matches without opening any of them — the
@@ -214,7 +220,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
 
   if (error && !graph) {
     return (
-      <section className="gg-surface" aria-label="Git graph">
+      <section className="gg-surface" aria-label="Git graph" hidden={!!hidden} ref={rootRef}>
         <p className="gg-msg">
           {error}{" "}
           <button type="button" className="btn btn-sm" onClick={() => load(limit)}>
@@ -227,7 +233,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
 
   if (!graph) {
     return (
-      <section className="gg-surface" aria-label="Git graph" aria-busy="true">
+      <section className="gg-surface" aria-label="Git graph" aria-busy="true" hidden={!!hidden} ref={rootRef}>
         <header className="gg-head">
           <span className="gg-skel gg-skel-title" />
         </header>
@@ -256,7 +262,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     !(graph.commits || []).some((c) => c.hash === selected);
 
   return (
-    <section className="gg-surface" aria-label={`Git graph for ${graph.name}`}>
+    <section className="gg-surface" aria-label={`Git graph for ${graph.name}`} hidden={!!hidden} ref={rootRef}>
       <header className="gg-head">
         <h2 className="gg-title">{graph.name}</h2>
         <GitGraphBranches

@@ -1968,34 +1968,47 @@ export default function App() {
             path={isFileTab(selectedId) ? (parseFileTab(selectedId) || {}).path : ""}
             onClose={() => isFileTab(selectedId) && closeTab(selectedId)}
           />
-          {isGitTab(selectedId) && gitOwners[selectedId] ? (
-            <GitGraphSurface
-              key={selectedId}
-              owner={gitOwners[selectedId]}
-              onKey={(key) => onGitKey(selectedId, key)}
-              onClose={() => closeTab(selectedId)}
-            />
-          ) : null}
-          {isTreeTab(selectedId) && treeOwners[selectedId] ? (
-            <FileTreeSurface
-              key={selectedId}
-              owner={treeOwners[selectedId]}
-              onKey={(root) => onTreeKey(selectedId, root)}
-              onOpenFile={(p) => {
-                const o = treeOwners[selectedId];
-                if (o) openFileTab(o.kind, o.id, p);
-              }}
-              onClose={() => closeTab(selectedId)}
-            />
-          ) : null}
-          {isAppTab(selectedId) ? (
+          {/* Same rule as the trees below: the loaded history, the open
+              commit, the search and the branch filter belong to the tab. */}
+          {tabs.filter(isGitTab).map((id) => {
+            const o = gitOwners[id];
+            if (!o) return null;
+            return (
+              <GitGraphSurface
+                key={id}
+                owner={o}
+                hidden={selectedId !== id}
+                onKey={(key) => onGitKey(id, key)}
+                onClose={() => closeTab(id)}
+              />
+            );
+          })}
+          {/* One mounted tree per tab, like the terminals above: leaving a tab
+              must not collapse the folders the reader opened. State lives as
+              long as the tab does — closing it is what forgets. */}
+          {tabs.filter(isTreeTab).map((id) => {
+            const o = treeOwners[id];
+            if (!o) return null;
+            return (
+              <FileTreeSurface
+                key={id}
+                owner={o}
+                hidden={selectedId !== id}
+                onKey={(root) => onTreeKey(id, root)}
+                onOpenFile={(p) => openFileTab(o.kind, o.id, p)}
+                onClose={() => closeTab(id)}
+              />
+            );
+          })}
+          {tabs.filter(isAppTab).map((id) => (
             <AppSurface
-              key={selectedId}
-              appId={tabAppId(selectedId)}
-              manifest={apps.find((a) => a.id === tabAppId(selectedId)) || null}
-              onClose={() => closeTab(selectedId)}
+              key={id}
+              appId={tabAppId(id)}
+              hidden={selectedId !== id}
+              manifest={apps.find((a) => a.id === tabAppId(id)) || null}
+              onClose={() => closeTab(id)}
             />
-          ) : null}
+          ))}
           <ChatSurface
             hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
             stopped={stopped}

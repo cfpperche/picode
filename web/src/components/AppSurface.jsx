@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, humanizeError } from "../lib/api.js";
 import { normalizeView, supportedApp, SUPPORTED_API } from "../lib/appPrimitives.js";
+import { useKeptScroll } from "../lib/keepScroll.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -10,12 +11,16 @@ import AppIcon from "./AppIcon.jsx";
 import { IconChevronLeft, IconCheck, IconClock, IconInbox } from "./Icons.jsx";
 
 const SKELETON_ROWS = 5;
+// A hidden tab keeps its view; revealing it refetches only when the last read
+// is old enough to have missed something. Flipping between two tabs must not
+// re-ask the app on every switch.
+const REVEAL_STALE_MS = 10_000;
 
 // One open app (ADR-0036). The app answers with a primitive tree; this
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
-export default function AppSurface({ appId, manifest, onClose }) {
+export default function AppSurface({ appId, hidden, manifest, onClose }) {
   const [path, setPath] = useState("");
   const [view, setView] = useState(null); // normalized tree
   const [unsupported, setUnsupported] = useState(false);
@@ -25,6 +30,14 @@ export default function AppSurface({ appId, manifest, onClose }) {
   // refresh is in flight — dropping that load would eat the navigation.
   const seqRef = useRef(0);
   const detailRef = useRef(null);
+  // Leaving the tab must not close the item the reader opened: the surface
+  // stays mounted, so `path` and the loaded view survive the switch.
+  const rootRef = useKeptScroll(hidden, [".app-body", ".app-pane-list"]);
+  const loadRef = useRef(() => {});
+  const pathRef = useRef("");
+  // Mounting counts as a read: the effect below loads immediately, and the
+  // reveal check must not fire a second load on top of it.
+  const lastLoadRef = useRef(Date.now());
 
   const load = useCallback(async (p) => {
     const seq = ++seqRef.current;
@@ -38,11 +51,16 @@ export default function AppSurface({ appId, manifest, onClose }) {
     } catch (e) {
       if (seq === seqRef.current) setError(humanizeError(e.message || String(e)));
     } finally {
-      if (seq === seqRef.current) setBusy(false);
+      if (seq === seqRef.current) {
+        setBusy(false);
+        lastLoadRef.current = Date.now();
+      }
     }
   }, [appId]);
 
   useEffect(() => { load(path); }, [path, load]);
+  loadRef.current = load;
+  pathRef.current = path;
   useEffect(() => {
     // Stacked (narrow) split: the detail sits below the list, so a pick
     // has to bring it into view — otherwise selecting looks like nothing.
@@ -51,15 +69,23 @@ export default function AppSurface({ appId, manifest, onClose }) {
     detailRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [path]);
   useEffect(() => {
-    // Like the file tree: refresh when the page comes back, no polling.
-    const onVisible = () => { if (!document.hidden) load(path); };
+    // Like the file tree: refresh when the page comes back, no polling. Apps on
+    // hidden tabs sit this out — every open tab would re-ask. Their reveal is
+    // the refresh.
+    const onVisible = () => { if (!document.hidden && !hidden) load(path); };
     window.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     return () => {
       window.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [load, path]);
+  }, [load, path, hidden]);
+  // Reappearing is the other "back to look at it" moment — the window never
+  // lost focus, so nothing above fires.
+  useEffect(() => {
+    if (hidden) return;
+    if (Date.now() - lastLoadRef.current > REVEAL_STALE_MS) loadRef.current(pathRef.current);
+  }, [hidden]);
 
   async function fire(action, args) {
     if (action.confirm) {
@@ -98,7 +124,7 @@ export default function AppSurface({ appId, manifest, onClose }) {
     : null;
 
   return (
-    <section className={"app-surface" + (split ? " app-surface-split" : "")} aria-label={title}>
+    <section className={"app-surface" + (split ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
       <header className="ft-head">
         {path && !split ? (
           <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => setPath("")}>

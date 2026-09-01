@@ -97,6 +97,14 @@ stay on their own routes.
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
+A tab owns its surface's state for as long as it is open: terminals, file
+trees, git graphs and apps each keep one mounted instance per tab, hidden
+(not destroyed) while another tab is selected, so expanded folders, scroll
+offsets, loaded history, searches and the open item survive a switch and die
+only with the tab. A hidden surface takes no part in the window-focus refresh
+— revealing it refetches instead, and only when its last read is older than
+10s; the git graph refreshes on demand only, so a reveal never refetches it.
+
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Composer `/` also lists **extension commands** from the running managed agent
 (`GET /api/agents/{id}/slash` → RPC `get_commands`, ADR-0029). Picking one
