@@ -28,7 +28,12 @@ const LIST_KEY = "picode-app-split-w";
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey }) {
+// paneMode (ADR-0044): the phone renders a split app as two screens —
+// "list" (rows + tabs + search; an item row calls onOpenItem instead of
+// selecting) and "detail" (one item's panes under the shell's own Back
+// header; an action that returns to the root calls onClose). Undefined
+// keeps the desktop's split.
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey, paneMode, onOpenItem }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -150,6 +155,13 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         body: JSON.stringify({ action: action.id, path, args: { ...(action.args || {}), ...(args || {}) } }),
       });
       if (res && res.toast) toast(res.toast, "ok");
+      // A detail screen whose action sends it back to the root is done:
+      // the phone pops the screen instead of rendering the root here —
+      // whether the app answered with a path, a view, or both.
+      // ActionResult.path is omitempty: the root comes back as a view
+      // with no path at all, so "went somewhere and it is not an item" is
+      // the test, not "path is a string".
+      if (paneMode === "detail" && onClose && res && (res.view || typeof res.path === "string") && !String(res.path || "").startsWith("item/")) { onClose(); return; }
       if (res && res.view) {
         const v = normalizeView(res.view);
         if (v) { setView(v); setUnsupported(false); }
@@ -167,7 +179,11 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const split = !!view && view.layout === "split";
   const listBlocks = split ? view.blocks.filter((b) => b.pane === "list") : [];
   const detailBlocks = split ? view.blocks.filter((b) => b.pane !== "list") : [];
-  const ctx = { onNavigate: setPath, onAction: fire, selected: path };
+  const navigate = (p) => {
+    if (paneMode === "list" && onOpenItem && typeof p === "string" && p.startsWith("item/")) { onOpenItem(p); return; }
+    setPath(p);
+  };
+  const ctx = { onNavigate: navigate, onAction: fire, selected: path };
   // The detail header repeats the selected row's kind lozenge so the two
   // panes agree — read off the list the app already sent, no new field.
   // A list-pane block isn't always a list block (e.g. a bulk-action row
@@ -187,8 +203,30 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const filteredBodyBlocks = hasQuery ? filterListBlocks(bodyBlocks, query) : bodyBlocks;
   const noMatches = hasQuery && totalItems > 0 && countListItems(filteredBodyBlocks) === 0;
 
+  if (paneMode === "detail") {
+    return (
+      <section className="app-surface app-surface-detail" aria-label={title} hidden={!!hidden} ref={rootRef}>
+        {unsupported || badVersion ? (
+          <p className="ft-msg">This app needs a newer PiCode.</p>
+        ) : error ? (
+          <p className="ft-msg">{error}{" "}<button type="button" className="btn btn-sm" onClick={() => load(path)}>Try again</button></p>
+        ) : view === null ? (
+          <Skeleton />
+        ) : (
+          <div className="app-body">
+            {(split ? detailBlocks : view.blocks).length === 0 ? (
+              <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty || "Nothing here."} />
+            ) : (
+              <PaneBlocks blocks={split ? detailBlocks : view.blocks} ctx={ctx} badge={selectedRow} />
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+  const listOnly = paneMode === "list";
   return (
-    <section className={"app-surface" + (split ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
+    <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
       <header className="ft-head">
         {path && !split ? (
           <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => setPath("")}>
@@ -237,6 +275,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         </p>
       ) : view === null ? (
         <Skeleton />
+      ) : split && listOnly ? (
+        <div className="app-body">
+          {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+          {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+          {listBlocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
+        </div>
       ) : split ? (
         <div className={"app-split" + (resizing ? " resizing" : "")}>
           <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>

@@ -17,7 +17,7 @@ import TabBar from "./components/TabBar.jsx";
 import CreateSheet from "./components/CreateSheet.jsx";
 import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
-import Inbox from "./screens/Inbox.jsx";
+import Inbox, { InboxItem } from "./screens/Inbox.jsx";
 import Work from "./screens/Work.jsx";
 import Agent from "./screens/Agent.jsx";
 import TerminalScreen from "./screens/Terminal.jsx";
@@ -241,7 +241,7 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section);
+  const pushed = route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   let body = null;
   if (route.screen === "changes") {
     const owner = route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
@@ -266,8 +266,10 @@ export default function MobileApp() {
         onOpenChanges={openChanges}
       />
     );
+  } else if (route.screen === "inbox" && route.id) {
+    body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} />;
   } else if (route.screen === "inbox") {
-    body = <Inbox manifest={inboxApp} itemId={route.id} />;
+    body = <Inbox manifest={inboxApp} onOpenItem={(id) => push(mobileHash("inbox", id))} />;
   } else if (route.screen === "work") {
     body = (
       <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}

@@ -264,7 +264,11 @@ Never exercised, because this machine was already past them:
   and the workspace card when `git.dirty > 0`. QA on scratch with the
   real dirty checkout: file list + expanded patch, synthesized touch
   swipe reveals actions, synthesized pull shows "Release to refresh" and
-  refetches.
+  refetches. Owner on the phone: pull did not fire on Inbox and the
+  stacked split overflowed. `fix/mobile-inbox-subroute`: `AppSurface`
+  `paneMode="list"|"detail"` + `onOpenItem`; mobile Inbox = list tab
+  (`PullScreen` is the scroller) + pushed `#/inbox/<id>` item screen with
+  Back; an action returning to the root pops the screen.
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap

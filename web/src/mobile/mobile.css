@@ -210,15 +210,25 @@
 .m-term .dock.maximized { flex: 1; }
 .m-cta { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 
-/* ---- inbox: the host surface fills the screen ---- */
-.m-inbox { padding: 0; gap: 0; overflow: hidden; }
-.m-inbox .app-surface { flex: 1; }
-.m-inbox .app-actions .btn, .m-inbox .app-form .btn { min-height: var(--m-tap); flex: 1 1 auto; }
-.m-inbox .app-actions { gap: 8px; }
-.m-inbox .app-form { max-width: none; }
-.m-inbox .app-field-hint { display: none; }           /* Ctrl+Enter is not a phone gesture */
-.m-inbox .app-pane-detail .app-blank { display: none; } /* stacked: "pick on the left" is the list above */
-.m-inbox .app-head-right { display: none; }             /* Refresh: the reveal/focus refresh already covers it */
+/* ---- inbox: list screen + pushed item screen (ADR-0044) ----
+   The .m-screen is the one scroller (so pull-to-refresh sees scrollTop),
+   the host surface just flows inside it. */
+.m-inbox { gap: 0; }
+.m-inbox .app-surface, .m-inbox-item .app-surface { flex: none; overflow: visible; min-height: 0; background: transparent; }
+.m-inbox .app-body, .m-inbox-item .app-body { overflow: visible; padding: 8px 0 0; }
+.m-inbox .ft-head { padding: 4px 0 8px; margin: 0; background: transparent; border-bottom: 0; flex-wrap: wrap; }
+.m-inbox .ft-title { font-size: 18px; }
+.m-inbox .app-head-left { width: 100%; }
+.m-inbox .app-head-right { display: none; }          /* Refresh: pull, reveal and focus already do it */
+.m-inbox .app-search-wrap { flex: 1; }
+.m-inbox .app-search { width: 100%; }
+.m-inbox .app-block, .m-inbox-item .app-block { max-width: none; }
+.m-inbox-item { padding-top: 0; gap: 0; }
+.m-inbox-item .m-head { margin-top: 0; }
+.m-inbox-item .app-actions .btn, .m-inbox-item .app-form .btn { min-height: var(--m-tap); flex: 1 1 auto; }
+.m-inbox-item .app-actions { gap: 8px; }
+.m-inbox-item .app-form { max-width: none; }
+.m-inbox-item .app-field-hint { display: none; }    /* Ctrl+Enter is not a phone gesture */
 
 /* ---- ask card: the phone has one column, the card takes it ---- */
 #m-app .ask-card, #m-app .ask { width: 100%; max-width: none; box-sizing: border-box; }

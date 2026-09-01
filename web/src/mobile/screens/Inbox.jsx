@@ -1,18 +1,27 @@
-import { useState } from "react";
 import AppSurface from "../../components/AppSurface.jsx";
-import { usePullToRefresh } from "../hooks/usePullToRefresh.js";
+import ScreenHeader from "../components/ScreenHeader.jsx";
+import PullScreen from "../components/PullScreen.jsx";
+import { useState } from "react";
 
-// The Inbox app (ADR-0037) rendered by the same host surface as the
-// desktop; below 880px it already stacks list over detail. The route's
-// item id opens straight into that item so a notification tap lands on
-// the decision, not the list.
-export default function Inbox({ manifest, itemId }) {
+const MANIFEST = { id: "inbox", name: "Inbox", icon: "inbox", apiVersion: 1 };
+
+// The Inbox app (ADR-0037) as two phone screens: the tab is the list
+// (tabs, search, rows — pull to refresh), an item is a pushed screen with
+// the shell's Back header. The desktop keeps its split.
+export default function Inbox({ manifest, onOpenItem }) {
   const [tick, setTick] = useState(0);
-  const { ref, state } = usePullToRefresh(() => { setTick((t) => t + 1); return new Promise((r) => setTimeout(r, 300)); });
   return (
-    <div className="m-screen m-inbox" ref={ref}>
-      {state ? <div className={"m-pull is-" + state} aria-live="polite">{{ pull: "Pull to refresh", armed: "Release to refresh", refreshing: "Refreshing…" }[state]}</div> : null}
-      <AppSurface appId="inbox" manifest={manifest || { id: "inbox", name: "Inbox", icon: "inbox", apiVersion: 1 }} hidden={false} initialPath={itemId ? "item/" + itemId : ""} refreshKey={tick} />
+    <PullScreen className="m-inbox" onRefresh={() => { setTick((t) => t + 1); return new Promise((r) => setTimeout(r, 300)); }}>
+      <AppSurface appId="inbox" manifest={manifest || MANIFEST} hidden={false} refreshKey={tick} paneMode="list" onOpenItem={(p) => onOpenItem(p.replace(/^item\//, ""))} />
+    </PullScreen>
+  );
+}
+
+export function InboxItem({ manifest, itemId, onBack }) {
+  return (
+    <div className="m-screen m-inbox-item">
+      <ScreenHeader title="Inbox" onBack={onBack} />
+      <AppSurface appId="inbox" manifest={manifest || MANIFEST} hidden={false} initialPath={"item/" + itemId} paneMode="detail" onClose={onBack} />
     </div>
   );
 }

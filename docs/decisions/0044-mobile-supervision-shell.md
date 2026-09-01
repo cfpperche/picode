@@ -152,3 +152,13 @@ terminal on Work → Terminals.
   state row, the terminal header and the workspace card, each only when the
   tree is dirty, with the count. Nothing here stages, commits or edits —
   Cursor's line ("not a mobile IDE") holds.
+
+Owner's phone pass on phase 3: pull-to-refresh did not fire on the Inbox
+(the host surface scrolled inside a non-scrolling screen) and the stacked
+list-over-detail overflowed a phone. The Inbox is now two screens, like
+everything else pushed on the phone: the tab is the list (tabs, search,
+rows — the screen itself scrolls, so pull works), and an item is
+`#/inbox/<id>` with the shell's Back header and only that item's panes.
+`AppSurface` gained `paneMode: "list" | "detail"` (+ `onOpenItem`) for it;
+the desktop's split is untouched. A notification tap lands on the item
+screen, and answering it pops back to the list.
