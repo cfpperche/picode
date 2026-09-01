@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
+import { readContextMenuPrefs, modifierHeld } from "../lib/contextMenuPrefs.js";
 import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "../lib/termGroups.js";
@@ -26,6 +27,7 @@ import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
 import Palette from "../components/Palette.jsx";
+import ContextMenu from "../components/ContextMenu.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
@@ -89,6 +91,7 @@ export default function App() {
   const [hash, setHash] = useState(() => (typeof location !== "undefined" ? location.hash : "#/"));
   const [goneId, setGoneId] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [treeMode, setTreeMode] = useState("tree");
@@ -268,6 +271,19 @@ export default function App() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    function onContextMenu(e) {
+      if (e.target.closest(".xterm, .term-pane")) return; // terminals: untouched for now
+      if (paletteOpen) return; // avoid stacking on top of the palette
+      const { bypassModifier } = readContextMenuPrefs();
+      if (modifierHeld(bypassModifier, e)) return; // let the native/system menu show
+      e.preventDefault();
+      setCtxMenu({ x: e.clientX, y: e.clientY, selection: window.getSelection().toString(), target: e.target });
+    }
+    document.addEventListener("contextmenu", onContextMenu);
+    return () => document.removeEventListener("contextmenu", onContextMenu);
+  }, [paletteOpen]);
 
   const loadWorkspaces = useCallback(async () => {
     const list = await api("/api/workspaces");
@@ -2300,6 +2316,7 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} />
       <Toasts />
       <CreateForm
         open={showForm}

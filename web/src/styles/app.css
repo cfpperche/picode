@@ -951,6 +951,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .um-item:hover, .um-item[data-highlighted] { background: var(--bg-panel); outline: none; }
 .um-item.um-danger { color: var(--danger); }
 .um-item svg { color: var(--text-secondary); }
+.um-item[aria-disabled="true"] { color: var(--text-secondary); cursor: default; }
+.um-item[aria-disabled="true"]:hover { background: none; }
+.um-item[aria-disabled="true"] svg { opacity: .6; }
+.ctx-tip {
+  z-index: 41; max-width: 200px;
+  padding: 6px 8px; border-radius: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);
+  font-size: 11.5px; color: var(--text-secondary);
+}
 .um-install { padding: 6px 8px 8px; }
 .um-install .btn { width: 100%; }
 .um-version {

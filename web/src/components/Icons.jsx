@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ClipboardPaste,
   Clock,
   Cloud,
   Copy,
@@ -48,6 +49,7 @@ import {
   Plus,
   QrCode,
   Quote,
+  RotateCw,
   Settings,
   SlidersHorizontal,
   Smartphone,
@@ -87,6 +89,8 @@ export const IconThink = lucide(Activity, 13);
 export const IconMode = lucide(SlidersHorizontal, 13);
 export const IconLock = lucide(Lock, 12);
 export const IconCopy = lucide(Copy, 13);
+export const IconPaste = lucide(ClipboardPaste, 13);
+export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
 export const IconRemote = lucide(Cloud, 10);
