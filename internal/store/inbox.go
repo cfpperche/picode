@@ -219,6 +219,9 @@ func (s *Store) CreateInboxItem(p InboxItemParams) (InboxItem, error) {
 		it.Title, it.Body, boolInt(it.Blocking), string(allowed), it.State, it.CreatedAt, it.UpdatedAt); err != nil {
 		return InboxItem{}, fmt.Errorf("store: create inbox item: %w", err)
 	}
+	if s.OnInboxCreated != nil {
+		s.OnInboxCreated(it)
+	}
 	return it, nil
 }
 
@@ -443,7 +446,13 @@ func (s *Store) FileAgentResult(agentID, workspaceID, title, body, reason string
 			title, body, reason, now, existing); err != nil {
 			return InboxItem{}, fmt.Errorf("store: update result item: %w", err)
 		}
-		return s.GetInboxItem(existing)
+		it, err := s.GetInboxItem(existing)
+		// A superseded result is news too; the notifier's tag collapses
+		// it onto the earlier notification for the same agent.
+		if err == nil && s.OnInboxCreated != nil {
+			s.OnInboxCreated(it)
+		}
+		return it, err
 	}
 	return s.CreateInboxItem(InboxItemParams{
 		Kind: InboxResult, SourceKind: InboxFromAgent, SourceID: agentID,

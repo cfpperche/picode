@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// ADR-0045: every modal goes through components/ResponsiveDialog.jsx, so it
+// ADR-0046: every modal goes through components/ResponsiveDialog.jsx, so it
 // is a centred dialog on the desktop and a bottom sheet on the phone. A raw
 // dialog/drawer import anywhere else is a second, unresponsive modal — the
 // exact drift the owner hit (New agent was a sheet, Choose folder was not).

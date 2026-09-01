@@ -89,6 +89,12 @@ the agent screen opens `/ws/agent`, driven by the pure reducer
 `web/src/lib/agentEvents.js`.
 The mobile shell is a PWA (`manifest.json`, `sw.js`, Apple
 `apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
+**Web Push (ADR-0047):** `internal/push` (stdlib VAPID + RFC 8291) posts
+encrypted messages to each subscribed browser's push service; the store
+holds subscriptions (`/api/push/*`), `sw.js` shows them and routes a tap
+to `#/agent/<id>` or `#/inbox/<id>`. Triggers: a blocking inbox item, a
+finished run filed to the inbox, a managed agent's dialog with no socket
+open. Suppressed while any host-machine browser is online (presence).
 
 Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
 **Settings** is pi JSON for the selected agent. Auth, MCP, packages

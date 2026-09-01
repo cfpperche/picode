@@ -25,6 +25,7 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/presence"
+	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/term"
@@ -51,6 +52,7 @@ type Deps struct {
 	Presence     *presence.Registry
 	Backup       *backup.Engine
 	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
+	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -98,6 +100,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerInboxRoutes(mux, deps)
 	registerAutomationRoutes(mux, deps)
 	registerExtensionRoutes(mux, deps)
+	registerPushRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))

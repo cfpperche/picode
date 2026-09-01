@@ -43,3 +43,22 @@ func TestStripPort(t *testing.T) {
 		t.Fatal(stripPort("192.168.15.110:8445"))
 	}
 }
+
+func TestAnyHostOnline(t *testing.T) {
+	r := New(nil)
+	if r.AnyHostOnline() {
+		t.Fatal("empty registry is not online")
+	}
+	r.Ping("phone", "iPhone", "100.64.0.9:1", false, "")
+	if r.AnyHostOnline() {
+		t.Fatal("a phone on the tailnet is not the host")
+	}
+	r.Ping("ext", "Chrome", "127.0.0.1:2", true, "extension")
+	if r.AnyHostOnline() {
+		t.Fatal("the Chrome extension pinging is not a person at the desk")
+	}
+	r.Ping("desk", "Chrome", "127.0.0.1:3", true, "")
+	if !r.AnyHostOnline() {
+		t.Fatal("a host browser is online")
+	}
+}

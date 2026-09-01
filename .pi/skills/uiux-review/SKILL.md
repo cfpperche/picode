@@ -41,7 +41,7 @@ surfaces, `docs/benchmarks/` (Cursor / t3code / paseo).
       switches, selects, or menus are FAIL unless the commit says why no
       library fitted.
 - [ ] Every modal goes through `components/ResponsiveDialog.jsx`
-      (ADR-0045): centred dialog ≥720px, bottom sheet below. A raw
+      (ADR-0046): centred dialog ≥720px, bottom sheet below. A raw
       `@radix-ui/react-dialog` / `vaul` import outside it fails
       `make test-js`; a dialog that is a card on the phone is FAIL.
 

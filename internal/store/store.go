@@ -26,6 +26,12 @@ var migrationsFS embed.FS
 type Store struct {
 	db   *sql.DB
 	path string
+
+	// OnInboxCreated fires after an inbox item is created or a result
+	// item is superseded (ADR-0047: the push notifier listens). Called
+	// synchronously on the writer's goroutine; the listener must return
+	// fast. Optional.
+	OnInboxCreated func(InboxItem)
 }
 
 // Open creates/opens the database at path, applies pragmas and migrations,
