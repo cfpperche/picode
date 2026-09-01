@@ -186,8 +186,8 @@ body {
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
 /* Agent and terminal cards share one flat row shape (no chevron column):
-   row 2 carries a real icon (git or folder), aligned under row 1's glyph
-   by the shared flex + gap. */
+   each ws-row2 carries a real icon (folder, then git on its own line),
+   aligned under row 1's glyph by the shared flex + gap. */
 .ws-row1, .ws-row2 {
   display: flex; align-items: center; gap: 8px;
 }
@@ -853,8 +853,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-icon-btn.danger:hover { color: var(--danger); }
 .ws-item:hover .ws-actions { opacity: 1; }
 .ws-row2 { margin-top: 2px; gap: 6px; }
-/* Filesystem and repository as two pills: [folder dir] [git branch]. The
-   dir pill shrinks and ellipsizes; the branch pill holds its size. */
+/* Filesystem and repository as two pills on their own lines: [folder dir]
+   over [git branch]. Each pill shrinks and ellipsizes in its row. */
 .ws-pill {
   display: inline-flex; align-items: center; gap: 4px;
   height: 18px; padding: 0 7px; min-width: 0;
@@ -864,7 +864,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-pill:hover { color: var(--text-primary); background: var(--bg-hover); }
 .ws-pill svg { flex: none; }
-.ws-pill + .ws-pill { flex: none; }
 .ws-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-pill-badge {
   flex: none; min-width: 14px; padding: 0 4px; border-radius: 999px;
@@ -2808,6 +2807,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .gg-dot-head { stroke: var(--text-primary); stroke-width: 2px; }
 
 .gg-list { list-style: none; margin: 0; padding: 0 0 0 var(--gg-graph-w); }
+/* The sentinel under the last loaded commit: scrolling to it is what asks
+   for more history, so it doubles as the progress line while that loads. */
+.gg-loadmore {
+  padding: 8px 12px; color: var(--text-secondary);
+  font-size: 12px; text-align: left;
+}
 /* The dirty working tree as the first row (ADR-0038): a hollow dot in the
    SVG, a dashed trail down to HEAD, and a label instead of commit columns. */
 .gg-line-dashed { stroke-dasharray: 4 3; }
