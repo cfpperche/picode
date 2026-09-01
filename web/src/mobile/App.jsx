@@ -1,381 +1,263 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api, wsURL } from "../lib/api.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
-import Reconnect from "../components/Reconnect.jsx";
-import { setShell } from "../lib/shell.js";
-import { summarizeArgs } from "../components/Conversation.jsx";
-import { fileChangeFromTool } from "../lib/diff.js";
-import Conversation from "../components/Conversation.jsx";
-import Composer from "../components/Composer.jsx";
-import { bashLine } from "../lib/bashLine.js";
-import TerminalDock from "../components/TerminalDock.jsx";
+import { normalizeManifests } from "../lib/appPrimitives.js";
+import { needsYou } from "../lib/needsYou.js";
+import { toast, toastError } from "../lib/toast.js";
 import { closeTerm } from "../lib/terms.js";
+import { mobileHash, tabOf, readWorkSection, writeWorkSection } from "../lib/mobileRoutes.js";
+import { askConfirm } from "../lib/confirm.js";
+import Reconnect from "../components/Reconnect.jsx";
 import ShareDrawer from "../components/ShareDrawer.jsx";
-import InstallButton from "../components/InstallButton.jsx";
-import Devices from "../components/Devices.jsx";
-import Settings from "../components/Settings.jsx";
-import PiSettings from "../components/PiSettings.jsx";
-import System from "../components/System.jsx";
-import Providers from "../components/Providers.jsx";
-import Mcps from "../components/Mcps.jsx";
-import Packages from "../components/Packages.jsx";
-import "./mobile.css";
-import { toastError } from "../lib/toast.js";
-import { mergeAssistant } from "../lib/assistantMsg.js";
-import { isSearchTool, hitsFromResult } from "../lib/searchCards.js";
-import { stuckToBottom } from "../lib/stickScroll.js";
-import { extraSlash } from "../lib/slash.js";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import TabBar from "./components/TabBar.jsx";
+import CreateSheet from "./components/CreateSheet.jsx";
+import { agentState } from "./components/StateChip.jsx";
+import Now from "./screens/Now.jsx";
+import Inbox from "./screens/Inbox.jsx";
+import Work from "./screens/Work.jsx";
+import Agent from "./screens/Agent.jsx";
+import TerminalScreen from "./screens/Terminal.jsx";
+import More from "./screens/More.jsx";
+import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
+import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
+import { usePoll } from "./hooks/usePoll.js";
+import "./mobile.css";
 
+const LAST_AGENT_KEY = "picode-mobile-last-agent";
+
+// The phone shell (ADR-0044): a supervision console, not the desktop
+// shrunk. Now (decisions, running, today, results) · Inbox · Work
+// (workspaces / free agents / terminals, the desktop rail's three views)
+// · More, plus the pushed agent and terminal screens. No header: the
+// tab bar is the chrome. One fleet poll feeds every screen; only the
+// agent screen opens an agent socket.
 export default function MobileApp() {
-  const [tab, setTab] = useState("agents");
-  const [workspaces, setWorkspaces] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const route = useHashRoute();
   const [themeMode, setThemeMode] = useState(readThemeMode);
-  const [draft, setDraft] = useState("");
-  const [kind, setKind] = useState("prompt");
-  const [status, setStatus] = useState("idle");
-  const [streaming, setStreaming] = useState(false);
-  const [items, setItems] = useState([]);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [catalog, setCatalog] = useState(null);
+  const [system, setSystem] = useState(null);
+  const [version, setVersion] = useState("");
+  const [apps, setApps] = useState([]);
+  const [inbox, setInbox] = useState([]);
+  const [results, setResults] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [tuiWorking, setTuiWorking] = useState([]);
   const [reconnect, setReconnect] = useState(false);
-  const [more, setMore] = useState("menu");
-  const [slashExtra, setSlashExtra] = useState([]);
-  const convRef = useRef(null);
-  const nearBottom = useRef(true);
-  const panelRef = useRef(null);
-  const pendingPayload = useRef("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [create, setCreate] = useState(null); // { kind, workspace } | null
+  const [busyId, setBusyId] = useState("");
+  const [lastAgentId, setLastAgentId] = useState(() => { try { return localStorage.getItem(LAST_AGENT_KEY) || ""; } catch { return ""; } });
 
-  const selected = workspaces.find((w) => w.id === selectedId) || null;
-  const agent = selected && selected.agent;
-  const stopped = !agent || agent.mode === "stopped";
-  const interactive = !!(agent && agent.mode === "interactive");
-
-  useEffect(() => {
-    const id = agent && agent.id;
-    if (!id) { setSlashExtra([]); return; }
-    api("/api/agents/" + id + "/slash")
-      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
-      .catch(() => setSlashExtra([]));
-  }, [agent && agent.id, agent && agent.mode]);
+  const onNowOrWork = route.screen === "now" || route.screen === "work" || route.screen === "agent" || route.screen === "term";
+  const fleet = useFleet(onNowOrWork ? 5000 : 15000);
+  const { workspaces, freeAgents, terminals, loaded, reload } = fleet;
+  const [workSection, setWorkSection] = useState(readWorkSection);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
-  useEffect(() => startReconnectWatch({
-    onState: (s) => { if (s === "down") setReconnect(true); },
-  }), []);
+  useEffect(() => startReconnectWatch({ onState: (s) => { if (s === "down") setReconnect(true); } }), []);
 
-  const load = useCallback(async () => {
-    const list = await api("/api/workspaces");
-    setWorkspaces(list);
-    return list;
+  async function loadCatalog() {
+    try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
+  }
+  useEffect(() => {
+    (async () => {
+      try {
+        const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
+        setSystem(sys);
+        setVersion(ver.version || "");
+      } catch { /* offline */ }
+      await loadCatalog();
+    })();
   }, []);
 
+  // Inbox (blocking items for Now, results for the feed) and app badges.
+  usePoll(async () => {
+    const [blocking, all, appList] = await Promise.all([
+      api("/api/inbox?blocking=1").catch(() => null),
+      api("/api/inbox").catch(() => null),
+      api("/api/apps").catch(() => null),
+    ]);
+    if (blocking) setInbox(blocking.items || []);
+    if (all) setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5));
+    if (appList) setApps(normalizeManifests(appList));
+  }, 15000);
+
+  // Today's headline for the Now screen.
+  usePoll(async () => { setStats(await api("/api/sessions/stats?range=today")); }, 60000, route.screen === "now");
+
+  // Interactive (tmux) agents have no event channel: poll pi's Working state.
+  const interactiveIds = useMemo(() => flatAgents(workspaces, freeAgents).filter((x) => x.agent.mode === "interactive").map((x) => x.agent.id), [workspaces, freeAgents]);
+  usePoll(async () => {
+    if (!interactiveIds.length) { setTuiWorking([]); return; }
+    const d = await api("/api/tui-working?ids=" + encodeURIComponent(interactiveIds.join(",")));
+    setTuiWorking(d.working || []);
+  }, 3000, interactiveIds.length > 0);
+
+  const entries = useMemo(() => needsYou({ workspaces, freeAgents, inbox }), [workspaces, freeAgents, inbox]);
+  const running = useMemo(() => flatAgents(workspaces, freeAgents).filter((x) => agentState(x.agent, tuiWorking) !== "stopped"), [workspaces, freeAgents, tuiWorking]);
+  const fleetTotal = flatAgents(workspaces, freeAgents).length;
+  const inboxApp = apps.find((a) => a.id === "inbox");
+  const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
+
+  const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
+  const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
+  const liveTerms = terminals.filter((t) => t.running);
+  const section = route.screen === "work" ? (route.section || workSection) : workSection;
   useEffect(() => {
-    load().then((list) => {
-      const active = list.find((w) => w.agent && w.agent.mode !== "stopped") || list[0];
-      if (active) setSelectedId(active.id);
-    }).catch((e) => console.error("boot:", e));
-  }, [load]);
-
-  function closePanel() {
-    const p = panelRef.current;
-    if (!p) return;
-    p.stopped = true;
-    try { p.sock.close(); } catch { /* ignore */ }
-    panelRef.current = null;
-  }
-
-  function connectPanel(agentId) {
-    closePanel();
-    setItems([{ kind: "sys", text: "Connected. Send a task to start." }]);
-    setStatus("idle");
-    setStreaming(false);
-    const sock = new WebSocket(wsURL(`/ws/agent?agent=${agentId}`));
-    const panel = { agentId, sock, stopped: false };
-    panelRef.current = panel;
-    sock.onmessage = (ev) => {
-      try { handleEvent(JSON.parse(ev.data)); } catch { /* ignore */ }
-    };
-    sock.onclose = () => {
-      if (panelRef.current === panel && !panel.stopped) {
-        setStatus("disconnected");
-        setStreaming(false);
-      }
-      if (window.__picodeKickHealth) window.__picodeKickHealth();
-    };
-  }
-
-  function handleEvent(env) {
-    const ev = env.event || {};
-    switch (ev.type) {
-      case "snapshot":
-        setStatus(ev.streaming ? "streaming" : "idle");
-        setStreaming(!!ev.streaming);
-        break;
-      case "agent_start":
-        setStatus("streaming");
-        setStreaming(true);
-        break;
-      case "agent_settled":
-        setStatus("idle");
-        setStreaming(false);
-        break;
-      case "message_update": {
-        const d = ev.assistantMessageEvent;
-        if (!d) break;
-        if (d.type === "text_delta") setItems((cur) => appendDelta(cur, "", "agent", d.delta || ""));
-        else if (d.type === "thinking_delta") setItems((cur) => appendDelta(cur, "thinking", "thinking", d.delta || ""));
-        break;
-      }
-      case "tool_execution_start":
-        setItems((cur) => [...cur, {
-          kind: "tool", id: ev.toolCallId, name: ev.toolName || "tool",
-          args: summarizeArgs(ev.args), toolArgs: ev.args || {}, status: "···",
-          detail: JSON.stringify(ev.args || {}, null, 2), expanded: false,
-          change: fileChangeFromTool(ev.toolName, ev.args, null),
-        }]);
-        break;
-      case "tool_execution_end":
-        setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === ev.toolCallId
-          ? { ...it, status: ev.isError ? "error" : "ok", detail: JSON.stringify(ev.result || {}, null, 2),
-              result: ev.result,
-              expanded: it.expanded || (isSearchTool(ev.toolName || it.name) && hitsFromResult(ev.result).length > 0),
-              change: fileChangeFromTool(ev.toolName || it.name, ev.args, ev.result) || it.change }
-          : it));
-        break;
-      case "enqueue_accepted":
-        setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: ev.kind || "prompt", text: pendingPayload.current || "" }]);
-        pendingPayload.current = "";
-        setDraft("");
-        break;
-      case "message_end": {
-        const m = ev.message || {};
-        if (m.role === "assistant") setItems((cur) => mergeAssistant(cur, m));
-        break;
-      }
-      default:
-        break;
+    if (route.screen === "work" && route.section && route.section !== workSection) {
+      setWorkSection(route.section);
+      writeWorkSection(route.section);
     }
-  }
+  }, [route.screen, route.section, workSection]);
+  const last = findAgent(workspaces, freeAgents, lastAgentId) || (running[0] || null);
 
   useEffect(() => {
-    if (!selected || !agent) { closePanel(); return; }
-    if (agent.mode === "managed") {
-      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(agent.id);
-    } else closePanel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, agent && agent.id, agent && agent.mode]);
+    if (route.screen !== "agent" || !route.id) return;
+    setLastAgentId(route.id);
+    try { localStorage.setItem(LAST_AGENT_KEY, route.id); } catch { /* per-viewer nicety */ }
+  }, [route.screen, route.id]);
 
-  async function startManaged(id) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws?.agent) return;
+  function openAgent(id) {
+    if (!id) { goTab("work"); return; }
+    push(mobileHash("agent", id));
+  }
+  function openTerm(id) {
+    if (id) push(mobileHash("term", id));
+  }
+  function setSection(sec) {
+    setWorkSection(sec);
+    writeWorkSection(sec);
+    location.replace(mobileHash("work", sec));
+  }
+
+  async function newTerminal(workspace) {
     try {
-      await api(`/api/agents/${ws.agent.id}/managed/start`, { method: "POST" });
-      await load();
-      setSelectedId(id);
-      setTab("chat");
+      const body = workspace ? JSON.stringify({ workspaceId: workspace.id }) : "{}";
+      const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+      await reload();
+      openTerm(page.id);
     } catch (e) { toastError(e); }
   }
 
-  async function openInteractive(id) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws?.agent) return;
+  async function removeTerminal(t) {
+    const ok = await askConfirm({ title: "Remove terminal?", message: "This stops the tmux session.", confirmLabel: "Remove", danger: true });
+    if (!ok) return;
+    setBusyId(t.id);
     try {
-      await api(`/api/workspaces/${ws.id}/open`, { method: "POST" });
-      await load();
-      setSelectedId(id);
-      setTab("term");
-    } catch (e) { toastError(e); }
+      await api("/api/terminals/" + encodeURIComponent(t.id), { method: "DELETE" });
+      closeTerm("sh:" + t.id);
+      await reload();
+      if (route.screen === "term" && route.id === t.id) goBack(route);
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
-  async function stopAgent(id) {
-    const ws = workspaces.find((w) => w.id === id);
-    if (!ws?.agent) return;
-    try {
-      if (ws.agent.mode === "managed") await api(`/api/agents/${ws.agent.id}/managed/stop`, { method: "POST" });
-      else {
-        await api(`/api/workspaces/${ws.id}/close`, { method: "POST" });
-        closeTerm(ws.agent.id);
-      }
-      if (panelRef.current?.agentId === ws.agent.id) panelRef.current.stopped = true;
-      await load();
-    } catch (e) { toastError(e); }
+  async function withBusy(agent, fn) {
+    setBusyId(agent.id);
+    try { await fn(); await reload(); } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
-  async function sendTask(text, images) {
-    const payload = (typeof text === "string" ? text : draft).trim();
-    const pics = images || [];
-    if ((!payload && !pics.length) || !selected?.agent) return;
-    const bash = bashLine(payload);
-    if (bash && bash.refused) {
-      toast.info("!! runs without sending output — use the terminal for that.");
-      return;
-    }
-    if (bash && !pics.length) {
-      const itemId = "bash-" + Date.now();
-      try {
-        try { await api("/api/agents/" + selected.agent.id + "/managed/start", { method: "POST" }); } catch { /* already */ }
-        setItems((cur) => [...cur, { kind: "bash", id: itemId, command: bash.command, output: "", status: "run" }]);
-        setDraft("");
-        const res = await api("/api/agents/" + selected.agent.id + "/bash", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: bash.command }),
-        });
-        setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId ? {
-          ...it, output: res.output || it.output, exit: res.exitCode,
-          status: res.cancelled ? "cancelled" : (res.exitCode === 0 ? "ok" : "err"),
-        } : it));
-      } catch (e) {
-        toastError(e);
-        setItems((cur) => cur.map((it) => it.kind === "bash" && it.id === itemId ? { ...it, status: "err" } : it));
-      }
-      return;
-    }
-    try {
-      try { await api("/api/agents/" + selected.agent.id + "/managed/start", { method: "POST" }); } catch { /* already */ }
-      if (pics.length) {
-        await api("/api/agents/" + selected.agent.id + "/prompt", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind, message: payload, images: pics.map((p) => ({ mimeType: p.mime, data: p.data })) }),
-        });
+  function startAgent(agent, workspace) {
+    return withBusy(agent, async () => {
+      await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
+    });
+  }
+
+  function stopAgent(agent, workspace) {
+    return withBusy(agent, async () => {
+      if (agent.mode === "interactive") {
+        if (workspace) await api("/api/workspaces/" + workspace.id + "/close", { method: "POST" });
+        else await api("/api/agents/" + agent.id + "/close", { method: "POST" });
+        closeTerm(agent.id);
       } else {
-        await api("/api/agents/" + selected.agent.id + "/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind, payload, source: "user" }),
-        });
+        await api("/api/agents/" + agent.id + "/managed/stop", { method: "POST" });
       }
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: kind, text: payload, images: pics.map((p) => p.url) }]);
-      setDraft("");
+    });
+  }
+
+  async function answerAsk(entry, body) {
+    try {
+      await api("/api/agents/" + entry.agentId + "/ui", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.dialogId, cancelled: body.cancelled, value: body.value, confirmed: body.confirmed }),
+      });
+      await reload();
+    } catch (e) { toastError(e); await reload(); }
+  }
+
+  async function respondInbox(entry, verb, text) {
+    try {
+      await api("/api/inbox/" + encodeURIComponent(entry.itemId) + "/respond", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verb, text }),
+      });
+      setInbox((cur) => cur.filter((it) => it.id !== entry.itemId));
+      toast.ok(verb === "ignore" ? "Ignored." : "Sent.");
     } catch (e) { toastError(e); }
+  }
+
+  function onCreated(res) {
+    setCreate(null);
+    reload().then(() => {
+      if (res && res.kind !== "workspace" && res.created && res.created.id) openAgent(res.created.id);
+      else if (res && res.kind === "workspace") setSection("workspaces");
+    });
+  }
+
+  const tab = tabOf(route);
+  let body = null;
+  if (route.screen === "term") {
+    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} />;
+  } else if (route.screen === "agent") {
+    body = (
+      <Agent
+        agent={current ? current.agent : null}
+        workspace={current ? current.workspace : null}
+        catalog={catalog}
+        workingIds={tuiWorking}
+        busy={!!current && busyId === current.agent.id}
+        onBack={() => goBack(route)}
+        onStart={startAgent}
+        onStop={stopAgent}
+      />
+    );
+  } else if (route.screen === "inbox") {
+    body = <Inbox manifest={inboxApp} itemId={route.id} />;
+  } else if (route.screen === "work") {
+    body = (
+      <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
+        workingIds={tuiWorking} busyId={busyId}
+        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
+        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} />
+    );
+  } else if (route.screen === "more") {
+    body = (
+      <More section={route.section} catalog={catalog} system={system} version={version} themeMode={themeMode}
+        onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
+        onShare={() => setShareOpen(true)} onBack={() => goBack(route)} />
+    );
+  } else {
+    body = (
+      <Now loaded={loaded} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
+        fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
+        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))}
+        onCreate={(kind) => setCreate({ kind, workspace: null })} />
+    );
   }
 
   return (
-    <div id="m-app">
-      <header className="m-top">
-        <span className="m-brand">PiCode</span>
-        <button type="button" className="m-icon" onClick={() => setShareOpen(true)} aria-label="Open on phone">QR</button>
-      </header>
-
-      <div className="m-body">
-        {tab === "agents" && (
-          <ul className="m-list">
-            {workspaces.map((ws) => {
-              const mode = ws.agent ? ws.agent.mode : "stopped";
-              return (
-                <li key={ws.id} className={ws.id === selectedId ? "on" : ""}>
-                  <button type="button" className="m-ws" onClick={() => { setSelectedId(ws.id); setTab("chat"); }}>
-                    <span className={"m-dot" + (mode !== "stopped" ? " run" : "")} />
-                    <span className="m-ws-name">{ws.name}</span>
-                    <span className="m-ws-mode">{mode}</span>
-                  </button>
-                  <div className="m-ws-actions">
-                    {mode === "stopped" ? (
-                      <>
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => startManaged(ws.id)}>Run</button>
-                        <button type="button" className="btn btn-sm" onClick={() => openInteractive(ws.id)}>Terminal</button>
-                      </>
-                    ) : (
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => stopAgent(ws.id)}>Stop</button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-            {workspaces.length === 0 && <li className="m-empty">No agents on this machine.</li>}
-          </ul>
-        )}
-
-        {tab === "chat" && (
-          <section className="m-chat">
-            {!selected ? <p className="m-empty">Pick an agent.</p> : (
-              <>
-                {stopped && (
-                  <div className="m-cta">
-                    <button type="button" className="btn btn-primary" onClick={() => startManaged(selectedId)}>Run agent</button>
-                    <button type="button" className="btn" onClick={() => openInteractive(selectedId)}>Open terminal</button>
-                  </div>
-                )}
-                <Conversation items={items} onToggleTool={(id) => setItems((cur) => cur.map((it) => it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it))}
-                  onToggleFiles={() => {}} convRef={convRef} onScroll={() => {
-                    const el = convRef.current;
-                    if (el) nearBottom.current = stuckToBottom(el);
-                  }} hidden={stopped} agentId={agent && agent.id} />
-                <Composer kind={kind} onKind={setKind} value={draft} onChange={setDraft} onSend={sendTask}
-                  status={status} streaming={streaming} stopped={stopped}
-                  onToggleDock={() => setTab("term")} onStop={() => stopAgent(selectedId)}
-                  agentId={agent && agent.id} slashExtra={slashExtra} />
-              </>
-            )}
-          </section>
-        )}
-
-        {tab === "term" && (
-          <section className="m-term">
-            {interactive && selected ? (
-              <TerminalDock open maximized height={0} agent={agent} workspace={selected}
-                onClose={() => setTab("chat")} onToggleMax={() => {}} onHeight={() => {}} />
-            ) : (
-              <div className="m-cta">
-                <p>Agent is not in the terminal.</p>
-                {selected && <button type="button" className="btn btn-primary" onClick={() => openInteractive(selectedId)}>Open terminal</button>}
-              </div>
-            )}
-          </section>
-        )}
-
-        {tab === "more" && (
-          <section className="m-more">
-            {more === "menu" && (
-              <ul className="m-list">
-                <li><button type="button" className="m-ws" onClick={() => setMore("devices")}>Devices</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("settings")}>Settings</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("preferences")}>Preferences</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("system")}>System</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("providers")}>Providers</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("mcps")}>MCPs</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setMore("packages")}>Packages</button></li>
-                <li><button type="button" className="m-ws" onClick={() => setShell("desktop")}>Desktop layout</button></li>
-                <li style={{ paddingTop: 12 }}><InstallButton /></li>
-              </ul>
-            )}
-            {more === "devices" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Devices hidden={false} /></>}
-            {more === "settings" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><PiSettings hidden={false} agent={agent} workspace={selected} /></>}
-            {more === "preferences" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Settings hidden={false} themeMode={themeMode} onTheme={(m) => { persistTheme(m); setThemeMode(m); }} /></>}
-            {more === "system" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><System hidden={false} version="" system={null} /></>}
-            {more === "providers" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Providers hidden={false} catalog={{ providers: [] }} onSignIn={() => {}} /></>}
-            {more === "mcps" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Mcps hidden={false} mcp={{}} /></>}
-            {more === "packages" && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => setMore("menu")}>Back</button><Packages hidden={false} workspaceId={selectedId || ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={agent ? agent.id : ""} agentName={agent && agent.name && agent.name !== "default" ? agent.name : (selected ? selected.name : "")} /></>}
-          </section>
-        )}
-      </div>
-
-      <nav className="m-nav">
-        <button type="button" className={tab === "agents" ? "on" : ""} onClick={() => setTab("agents")}>Agents</button>
-        <button type="button" className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>Chat</button>
-        <button type="button" className={tab === "term" ? "on" : ""} onClick={() => setTab("term")}>Term</button>
-        <button type="button" className={tab === "more" ? "on" : ""} onClick={() => { setTab("more"); setMore("menu"); }}>More</button>
-      </nav>
+    <div id="m-app" data-screen={route.screen}>
+      <div className="m-body">{body}</div>
+      <TabBar active={tab} badges={badges} />
+      <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}
+        onClose={() => setCreate(null)} onCreated={onCreated} />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <ConfirmDialog />
     </div>
   );
-}
-
-function appendDelta(cur, cls, actor, delta) {
-  const last = cur[cur.length - 1];
-  if (last && last.kind === "block" && last.actor === actor && last.cls === cls) {
-    const next = cur.slice();
-    next[next.length - 1] = { ...last, text: last.text + delta };
-    return next;
-  }
-  return [...cur, { kind: "block", cls, actor, text: delta }];
 }

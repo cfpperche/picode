@@ -479,7 +479,8 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 			if a.WorkPath != nil {
 				cwd = *a.WorkPath
 			}
-			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd)})
+			st, wt, dl := deps.liveState(a.ID)
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl})
 		}
 		writeJSON(w, http.StatusOK, out)
 	}

@@ -26,6 +26,32 @@ to the `[Unreleased]` section. The repository's official language is English
   rate cap, cost cap, pi missing, daemon restarted) files one note.
   Nothing runs while the machine is off; a missed slot is caught up once.
   Guide: `www/guide/automations.md`.
+- **Mobile shell v2: a supervision console (ADR-0044).** The phone no
+  longer gets a shrunken desktop. **Now** opens with what needs you —
+  agents blocked on a permission or question, answerable in place with
+  the agent's own options, then blocking inbox items — followed by who is
+  running, today's spend, and the last finished runs. **Inbox** is the
+  same Inbox app as the desktop, stacked for a phone. **Agents** lists
+  every agent across workspaces with Start/Stop and a "+" sheet that
+  creates a workspace, a free agent, an agent in a workspace, or adopts a
+  pi session. **More** mounts Providers, Settings, Preferences, MCP,
+  Packages, Devices and System with real data. Tapping an agent pushes
+  its screen: state, model, cost and context %, the conversation with the
+  waiting card (a permission prompt can finally be answered from a
+  phone), the composer with prompt/steer/follow-up and dictation, Stop to
+  abort a turn, Start/Stop for the agent, and a Chat | Terminal segment
+  for agents living in a tmux TUI. Hash routes make Back work and let a
+  QR or a desktop link open the same agent. The workspace/agent lists now
+  carry `streaming`, `waiting` and the open `dialog` per agent.
+  Owner's first pass on a phone reshaped it: **no header** (the tab bar is
+  the chrome; the QR lives in More), and the Agents tab became **Work**
+  with the desktop rail's three views — **Workspaces** (one card per
+  folder with its agents *and* terminals, plus "+ Agent" / "+ Terminal"),
+  **Agents** (free agents only) and **Terminals** (all of them, New /
+  Remove). Tapping a terminal pushes `#/term/<id>`: the same xterm the
+  desktop attaches, with a **key bar** for what a soft keyboard lacks
+  (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`). Live terminals show under
+  Running on Now.
 - **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or
@@ -75,6 +101,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Mobile: `!!` in the composer threw instead of explaining.** The old
+  shell called a toast helper it never imported.
 - **Apps host: consistent tab height, and the list pane next to a
   detail is finally resizable.** Three different "row of tabs" widgets
   had drifted to three different heights (40 / 36 / 30px) across the

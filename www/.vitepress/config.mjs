@@ -28,6 +28,7 @@ export default defineConfig({
           { text: "llama.cpp", link: "/guide/llama" },
           { text: "Chrome extension", link: "/guide/browser-extension" },
           { text: "Automations", link: "/guide/automations" },
+          { text: "On your phone", link: "/guide/mobile" },
         ],
       },
       {

@@ -25,6 +25,7 @@ and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
 ## Studies
 
 - [2026-09-01 — Devin Automations (and peers)](2026-09-01-devin-automations.md)
+- [2026-09-01 — Supervising coding agents from a phone](2026-09-01-mobile-agent-supervision.md)
 - [2026-09-01 — LLM observability dashboards](2026-09-01-llm-observability-dashboards.md)
 - [2026-08-30 — Copying out of a browser terminal backed by tmux](2026-08-30-web-terminal-clipboard.md)
 - [2026-08-27 — Herdr](2026-08-27-herdr.md)
