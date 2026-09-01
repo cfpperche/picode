@@ -37,7 +37,7 @@ function refLabel(ref) {
 }
 
 export default function GitGraph({
-  graph, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
+  graph, showRemoteBranches, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
   onEndReached, loadingEarlier,
 }) {
   const commits = graph.commits || [];
@@ -88,6 +88,7 @@ export default function GitGraph({
   const refsByHash = useMemo(() => {
     const map = new Map();
     for (const ref of graph.refs || []) {
+      if (ref.kind === "remote" && !showRemoteBranches) continue;
       if (!map.has(ref.hash)) map.set(ref.hash, []);
       map.get(ref.hash).push(ref);
     }
@@ -95,7 +96,7 @@ export default function GitGraph({
       list.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
     }
     return map;
-  }, [graph.refs]);
+  }, [graph.refs, showRemoteBranches]);
 
   const agentsByBranch = useMemo(() => {
     const map = new Map();

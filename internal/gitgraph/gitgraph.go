@@ -105,10 +105,39 @@ func Key(dir string) string {
 // repository with no commits yet is not an error: it returns a Graph whose
 // Commits is empty, because the view for "no history" is a real state.
 func Load(dir string, limit int) *Graph {
+	return LoadFiltered(dir, LoadOptions{Limit: limit})
+}
+
+// LoadOptions narrows what LoadFiltered walks. The zero value reproduces
+// exactly Load(dir, 0): every branch, tag and remote, plus HEAD.
+type LoadOptions struct {
+	Limit int
+
+	// Branches is a set of ref names to restrict the walk to. nil means no
+	// restriction — every branch, tag and remote seeds the walk, same as
+	// Load. A non-nil but empty slice is a real, distinct case: it means an
+	// explicit selection resolved to nothing recognized, and the walk must
+	// yield no commits rather than silently falling back to everything.
+	// When non-nil, no tag and no HEAD are added to the seed: an explicit
+	// selection means exactly the history reachable from those branches. A
+	// tag still decorates any commit it happens to land on (Refs is
+	// unaffected by this filter) — it just does not pull in extra history.
+	Branches []string
+
+	// ExcludeRemotes drops --remotes from the seed. Read only when Branches
+	// is nil: an explicit Branches selection already says exactly which
+	// refs matter, remote or not, so this has no effect there.
+	ExcludeRemotes bool
+}
+
+// LoadFiltered is Load with the walk optionally narrowed to specific
+// branches and/or remotes excluded. See LoadOptions.
+func LoadFiltered(dir string, opts LoadOptions) *Graph {
 	key := Key(dir)
 	if key == "" {
 		return nil
 	}
+	limit := opts.Limit
 	if limit <= 0 {
 		limit = 250
 	}
@@ -117,15 +146,47 @@ func Load(dir string, limit int) *Graph {
 		Name: repoName(key),
 		Head: git(dir, "rev-parse", "HEAD"),
 	}
-	g.Commits = loadCommits(dir, limit)
-	g.More = len(g.Commits) == limit
 	g.Refs = loadRefs(dir)
+	branches := opts.Branches
+	if branches != nil {
+		// A request-supplied branch name never reaches git's argv unless it
+		// survives this check — the same discipline Show applies to a
+		// commit hash.
+		branches = validateBranches(branches, g.Refs)
+	}
+	g.Commits = loadCommits(dir, limit, branches, !opts.ExcludeRemotes)
+	g.More = len(g.Commits) == limit
 	g.Worktrees = loadWorktrees(dir)
 	// Status guards the bare case itself: no toplevel, no changes, no row.
 	if _, changes := Status(dir); len(changes) > 0 {
 		g.Uncommitted = &UncommittedInfo{Count: len(changes)}
 	}
 	return g
+}
+
+// validateBranches keeps only names that exactly match a head or remote ref
+// name from refs. An unrecognized name — a typo, a deleted branch, or a
+// string shaped like a flag — is dropped rather than rejected: the caller
+// gets back a Graph with less, not an error. The returned slice is non-nil
+// even when empty, which is what tells loadCommits an explicit-but-empty
+// selection was made (must not fall back to "everything").
+func validateBranches(requested []string, refs []Ref) []string {
+	known := make(map[string]bool, len(refs))
+	for _, r := range refs {
+		if r.Kind == "head" || r.Kind == "remote" {
+			known[r.Name] = true
+		}
+	}
+	out := make([]string, 0, len(requested))
+	seen := make(map[string]bool, len(requested))
+	for _, name := range requested {
+		if !known[name] || seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out
 }
 
 // Token summarises everything the graph draws — HEAD, every ref, the dirty
@@ -156,13 +217,35 @@ func repoName(key string) string {
 	return strings.TrimSuffix(base, ".git")
 }
 
-func loadCommits(dir string, limit int) []Commit {
+// loadCommits runs `git log` seeded either by every branch, tag and remote
+// (branches == nil), or by exactly the given, already-validated ref names
+// (branches != nil — note len(branches) == 0 is a real, distinct case: it
+// means every requested name was unrecognized, and the walk must yield no
+// commits rather than silently falling back to everything).
+//
+// --end-of-options guards a ref name that itself begins with "-": rare, but
+// git allows creating one (`git branch -- -x`), and without this a selected
+// branch called "-x" would be parsed as a flag instead of a revision —
+// exactly the class of bug isHash exists to prevent for commit hashes.
+func loadCommits(dir string, limit int, branches []string, includeRemotes bool) []Commit {
+	if branches != nil && len(branches) == 0 {
+		return []Commit{}
+	}
 	format := "--format=" + strings.Join([]string{"%H", "%P", "%an", "%at", "%s"}, fieldSep) + recordSep
-	out := git(dir,
-		"-c", "log.showSignature=false", "log",
-		"--max-count="+strconv.Itoa(limit),
-		format, "--date-order",
-		"--branches", "--tags", "--remotes", "HEAD", "--")
+	args := []string{"-c", "log.showSignature=false", "log",
+		"--max-count=" + strconv.Itoa(limit), format, "--date-order"}
+	if branches != nil {
+		args = append(args, "--end-of-options")
+		args = append(args, branches...)
+	} else {
+		args = append(args, "--branches", "--tags")
+		if includeRemotes {
+			args = append(args, "--remotes")
+		}
+		args = append(args, "HEAD")
+	}
+	args = append(args, "--")
+	out := git(dir, args...)
 	if out == "" {
 		return []Commit{}
 	}

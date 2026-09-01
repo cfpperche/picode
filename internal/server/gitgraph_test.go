@@ -146,6 +146,48 @@ func TestGraphLimitClamps(t *testing.T) {
 	}
 }
 
+func TestGraphBranchesParam(t *testing.T) {
+	for _, c := range []struct {
+		query string
+		want  []string
+	}{
+		{"", nil},
+		{"?branches=", nil},
+		{"?branches=main", []string{"main"}},
+		{"?branches=main&branches=feature", []string{"main", "feature"}},
+		{"?branches=&branches=main", []string{"main"}},
+		{"?branches=+", nil},
+	} {
+		r := httptest.NewRequest(http.MethodGet, "/api/agents/x/git"+c.query, nil)
+		got := graphBranches(r)
+		if len(got) != len(c.want) {
+			t.Fatalf("graphBranches(%q) = %v, want %v", c.query, got, c.want)
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Fatalf("graphBranches(%q) = %v, want %v", c.query, got, c.want)
+			}
+		}
+	}
+}
+
+func TestGraphRemotesParam(t *testing.T) {
+	for _, c := range []struct {
+		query string
+		want  bool
+	}{
+		{"", true},
+		{"?remotes=1", true},
+		{"?remotes=yes", true},
+		{"?remotes=0", false},
+	} {
+		r := httptest.NewRequest(http.MethodGet, "/api/agents/x/git"+c.query, nil)
+		if got := graphRemotes(r); got != c.want {
+			t.Fatalf("graphRemotes(%q) = %v, want %v", c.query, got, c.want)
+		}
+	}
+}
+
 func getGraph(t *testing.T, ts *httptest.Server, path string) graphView {
 	t.Helper()
 	res, err := ts.Client().Get(ts.URL + path)

@@ -2,17 +2,48 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { useDebounced } from "../lib/useDebounced.js";
 import { matchCommits, MIN_QUERY } from "../lib/gitgraphSearch.js";
+import { walkParams, resolveSelection } from "../lib/gitgraphBranches.js";
 import GitGraph from "./GitGraph.jsx";
+import GitGraphBranches from "./GitGraphBranches.jsx";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED } from "../lib/gitgraph.js";
 
 const SKELETON_ROWS = 14;
+const DEFAULT_LIMIT = 250;
 
 // The inline detail keeps its height across commits and sessions; below the
 // minimum it is a sliver, above the ceiling it is the old bottom split again.
 const DETAIL_KEY = "picode.gg.detail-h";
 const DETAIL_MIN = 160;
+
+// Branch selection is per repository (keyed by graph.key, only known after
+// the first response — same timing keyRef/onKey already handle below); the
+// remotes toggle reads as one global feel-of-the-app preference, like the
+// detail height.
+const BRANCHES_KEY = "picode.gg.branches";
+const REMOTES_KEY = "picode.gg.show-remotes";
+
+function readStoredBranches(repoKey) {
+  if (!repoKey) return [];
+  try {
+    const map = JSON.parse(localStorage.getItem(BRANCHES_KEY) || "{}");
+    return Array.isArray(map[repoKey]) ? map[repoKey] : [];
+  } catch {
+    return [];
+  }
+}
+function writeStoredBranches(repoKey, list) {
+  if (!repoKey) return;
+  try {
+    const map = JSON.parse(localStorage.getItem(BRANCHES_KEY) || "{}");
+    if (list.length) map[repoKey] = list;
+    else delete map[repoKey];
+    localStorage.setItem(BRANCHES_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
 
 function clampDetail(n) {
   const max = Math.max(DETAIL_MIN, Math.round(window.innerHeight * 0.7));
@@ -27,7 +58,11 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState("");
-  const [limit, setLimit] = useState(250);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [selectedBranches, setSelectedBranches] = useState([]);
+  const [showRemoteBranches, setShowRemoteBranches] = useState(
+    () => localStorage.getItem(REMOTES_KEY) !== "0",
+  );
   const [detailH, setDetailH] = useState(() => {
     const n = parseInt(localStorage.getItem(DETAIL_KEY) || "", 10);
     return Number.isFinite(n) ? clampDetail(n) : 280;
@@ -73,12 +108,26 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
       if (!ownerId) return;
       setBusy(true);
       try {
-        const g = await api(`${base}${encodeURIComponent(ownerId)}/git?limit=${want}`);
+        const params = new URLSearchParams({ limit: String(want) });
+        const { branches, remotes } = walkParams(selectedBranches, showRemoteBranches);
+        for (const name of branches) params.append("branches", name);
+        if (!remotes) params.set("remotes", "0");
+        const g = await api(`${base}${encodeURIComponent(ownerId)}/git?${params}`);
         setGraph(g);
         setError("");
         if (g && g.key && g.key !== keyRef.current) {
           keyRef.current = g.key;
           if (onKeyRef.current) onKeyRef.current(g.key, g.name);
+          // The repo's saved selection can only be checked against its refs
+          // now that we have them — a first load for any repo is always
+          // unfiltered. A saved selection that still resolves triggers one
+          // more, now-filtered fetch; a repo with nothing saved never pays
+          // for the extra round trip.
+          const resolved = resolveSelection(readStoredBranches(g.key), g.refs);
+          if (resolved.length) {
+            setSelectedBranches(resolved);
+            setLimit(DEFAULT_LIMIT);
+          }
         }
       } catch (e) {
         // Keep the last good graph on a refetch; only a first load goes blank.
@@ -87,7 +136,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
         setBusy(false);
       }
     },
-    [base, ownerId],
+    [base, ownerId, selectedBranches, showRemoteBranches],
   );
 
   useEffect(() => {
@@ -108,6 +157,23 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     if ((graph.commits || []).length < limit) return;
     setLimit(limit * 2);
   }, [busy, graph, limit]);
+
+  // Both handlers reset limit to the default: a restrictive filter should
+  // not immediately re-request whatever large window scrolling had grown,
+  // against what may now be much shorter history. The refetch itself needs
+  // no extra wiring — load's identity already changes with these two states,
+  // so the existing `load(limit)` effect below re-runs on its own, and every
+  // later scroll-triggered limit-doubling resends whatever filter is active.
+  const onChangeBranches = useCallback((next) => {
+    setSelectedBranches(next);
+    writeStoredBranches(keyRef.current, next);
+    setLimit(DEFAULT_LIMIT);
+  }, []);
+  const onToggleRemotes = useCallback((next) => {
+    setShowRemoteBranches(next);
+    try { localStorage.setItem(REMOTES_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+    setLimit(DEFAULT_LIMIT);
+  }, []);
 
   // A parent link can point below the loaded window. Growing it once is the
   // polite attempt; past that, the answer is scrolling to the bottom, not a
@@ -193,6 +259,13 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
     <section className="gg-surface" aria-label={`Git graph for ${graph.name}`}>
       <header className="gg-head">
         <h2 className="gg-title">{graph.name}</h2>
+        <GitGraphBranches
+          refs={graph.refs}
+          selected={selectedBranches}
+          showRemotes={showRemoteBranches}
+          onChange={onChangeBranches}
+          onToggleRemotes={onToggleRemotes}
+        />
         <span className="gg-count">
           {count}
           {graph.more ? "+" : ""} {count === 1 ? "commit" : "commits"}
@@ -240,6 +313,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
       ) : (
         <GitGraph
           graph={graph}
+          showRemoteBranches={showRemoteBranches}
           selected={selected}
           onSelect={(h) => setSelected(h === selected ? "" : h)}
           matches={searching ? matches : null}

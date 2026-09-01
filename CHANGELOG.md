@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Git graph: Branches picker + Show Remote Branches.** A new toolbar
+  control (VS Code Git Graph-inspired) actually restricts which commits
+  are walked — pick one or more local/remote branches to see only their
+  reachable history, or "Show All" for the default. A separate checkbox
+  hides remote-tracking branches from the picker, the ref pills, and
+  (while "Show All" is active) the walk itself. Selection persists per
+  repository; the toggle is a global preference. `GET .../git` gains
+  optional repeated `?branches=` and `?remotes=0|1` params — absent,
+  the response is byte-for-byte what it was before this change.
+
 ### Changed
 
 - **Git graph history loads by scrolling.** Nearing the bottom of the
