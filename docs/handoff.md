@@ -370,3 +370,16 @@ Never exercised, because this machine was already past them:
   `pi-inbox` stays installed in this workspace's `.pi/settings.json`
   (`../packages/pi-inbox`, relative — portable across clones) as the
   live proof the package works; nothing else depends on it being there.
+
+- **2026-09-01** — **pi-inbox + pi-roles coexistence verified live.**
+  `.pi/settings.json` now carries both as project packages
+  (`../packages/pi-inbox`, `../packages/pi-roles`); `npm:pi-agent-
+  browser-native` moved out of the project list but stays active from
+  the user's machine-wide settings, so nothing lost there. Two real
+  `pi -p --no-session` turns with both extensions loaded: (1) no
+  `PICODE_AGENT_ID` — `ask_human` filed correctly under the
+  `sourceKind: system, sourceId: "pi (unmanaged)"` fallback; (2) a real
+  free agent, identity attributed correctly, reply POSTed → 200, item
+  `done`, `follow_up` task `queued` → agent started managed →
+  `delivered` in ~4s. No load conflict between the two extensions in
+  either case.
