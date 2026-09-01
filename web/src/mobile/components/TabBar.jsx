@@ -1,10 +1,10 @@
-import { IconHome, IconInbox, IconAgent, IconMore } from "../../components/Icons.jsx";
+import { IconHome, IconInbox, IconFolders, IconMore } from "../../components/Icons.jsx";
 import { goTab } from "../hooks/useHashRoute.js";
 
 const TABS = [
   { id: "now", label: "Now", Icon: IconHome },
   { id: "inbox", label: "Inbox", Icon: IconInbox },
-  { id: "agents", label: "Agents", Icon: IconAgent },
+  { id: "work", label: "Work", Icon: IconFolders },
   { id: "more", label: "More", Icon: IconMore },
 ];
 

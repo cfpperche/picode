@@ -1,6 +1,7 @@
 # ADR-0044: The mobile shell is a supervision console, not the desktop shrunk
 
-- **Status**: accepted
+- **Status**: accepted; amended 2026-09-01 (same day) after the owner's first
+  use on a phone — see *Amendment* at the end
 - **Date**: 2026-09-01
 
 ## Context
@@ -106,3 +107,26 @@ VAPID, Go stdlib), not this one.
 | A `GET /api/agents/waiting` endpoint | The phone polls the fleet anyway; three fields on the view it already reads is smaller than a new route and a second poll. |
 | Keep Chat and Terminal as tabs | A tab must always have something to show; a chat tab with no agent picked is a dead end (the old shell's "Pick an agent."). Pushed screens carry their agent in the URL. |
 | Remember the last tab (PagerDuty does) | The home is the queue of decisions; coming back to Agents when something is waiting is the wrong default for this product. |
+
+## Amendment (2026-09-01, owner's first use)
+
+Two findings from the phone, both accepted:
+
+- **No header.** "PiCode [QR]" spent 48px on every screen and did nothing
+  the tab bar does not. Removed; the QR stays in More → *Open on another
+  phone*. Pushed screens keep their own header (Back · title · action).
+- **Work, not Agents.** One flat Agents tab hid the structure the desktop
+  rail already has and dropped terminals entirely. The tab is now
+  **Work** with three segments mirroring the rail: *Workspaces* (a card per
+  folder with its agents **and** terminals, "+ Agent" / "+ Terminal"),
+  *Agents* (free agents — an agent need not belong to a workspace) and
+  *Terminals* (all, New / Remove). The last segment is remembered
+  per-viewer. A terminal opens as a pushed `#/term/<id>` screen: the same
+  `TermSurface`/xterm the desktop attaches to the tmux session, plus a key
+  bar (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`) sending byte sequences
+  straight to the pane's socket — without it a phone terminal is
+  read-only. Live terminals join Running on Now.
+
+Routes: `#/work[/section]`, `#/term/<id>` (the desktop's); `#/agents` and
+`#/terminals` map onto Work. Back from an agent lands on Work; from a
+terminal on Work → Terminals.

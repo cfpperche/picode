@@ -2,7 +2,8 @@ import NeedsYouCard from "../components/NeedsYouCard.jsx";
 import StatStrip from "../components/StatStrip.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
 import { ProviderFace } from "../../components/ProviderFaces.jsx";
-import { IconChevronRight } from "../../components/Icons.jsx";
+import { IconChevronRight, IconTerminal } from "../../components/Icons.jsx";
+import { termLine } from "../../lib/repoLine.js";
 import { displayAgentName } from "../../lib/tree.js";
 import { shortModel } from "../../lib/chip.js";
 import { relTime, absTime } from "../../lib/relTime.js";
@@ -10,7 +11,8 @@ import { relTime, absTime } from "../../lib/relTime.js";
 // The home is a queue of decisions (PagerDuty's "top open incidents"),
 // then who is running, then today's numbers, then what finished. Nothing
 // here duplicates the Agents tab: an idle agent is one tap away, not a row.
-export default function Now({ loaded, entries, running, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenInbox, onCreate, fleetTotal }) {
+export default function Now({ loaded, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal }) {
+  const runningCount = running.length + (liveTerms || []).length;
   if (loaded && fleetTotal === 0) {
     return (
       <div className="m-screen">
@@ -34,11 +36,24 @@ export default function Now({ loaded, entries, running, workingIds, stats, resul
       </section>
 
       <section className="m-section">
-        <h2 className="m-section-label">Running{running.length ? <span className="m-count">{running.length}</span> : null}</h2>
-        {!loaded ? <Skel /> : running.length === 0 ? (
-          <p className="m-empty-line">Nothing running. <button type="button" className="btn-link" onClick={() => onOpenAgent("")}>Agents</button></p>
+        <h2 className="m-section-label">Running{runningCount ? <span className="m-count">{runningCount}</span> : null}</h2>
+        {!loaded ? <Skel /> : runningCount === 0 ? (
+          <p className="m-empty-line">Nothing running. <button type="button" className="btn-link" onClick={() => onOpenAgent("")}>Work</button></p>
         ) : (
           <ul className="m-list">
+            {(liveTerms || []).map((t) => (
+              <li key={"t:" + t.id} className="m-row">
+                <button type="button" className="m-row-main" onClick={() => onOpenTerm(t.id)}>
+                  <span className="m-row-face"><IconTerminal size={18} /></span>
+                  <span className="m-row-text">
+                    <span className="m-row-title">{t.name || "Terminal"}</span>
+                    <span className="m-row-sub">{termLine(t).text}</span>
+                  </span>
+                  <span className="m-state is-working">Live</span>
+                  <IconChevronRight size={16} className="m-row-chev" />
+                </button>
+              </li>
+            ))}
             {running.map(({ agent, workspace }) => (
               <li key={agent.id} className="m-row">
                 <button type="button" className="m-row-main" onClick={() => onOpenAgent(agent.id)}>

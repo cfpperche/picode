@@ -30,6 +30,15 @@ to the `[Unreleased]` section. The repository's official language is English
   for agents living in a tmux TUI. Hash routes make Back work and let a
   QR or a desktop link open the same agent. The workspace/agent lists now
   carry `streaming`, `waiting` and the open `dialog` per agent.
+  Owner's first pass on a phone reshaped it: **no header** (the tab bar is
+  the chrome; the QR lives in More), and the Agents tab became **Work**
+  with the desktop rail's three views — **Workspaces** (one card per
+  folder with its agents *and* terminals, plus "+ Agent" / "+ Terminal"),
+  **Agents** (free agents only) and **Terminals** (all of them, New /
+  Remove). Tapping a terminal pushes `#/term/<id>`: the same xterm the
+  desktop attaches, with a **key bar** for what a soft keyboard lacks
+  (Esc, Tab, Ctrl+C/D/Z/L, arrows, `/ | - ~`). Live terminals show under
+  Running on Now.
 - **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or

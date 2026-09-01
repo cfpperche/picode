@@ -22,10 +22,12 @@ Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,
 `usage-openrouter.png`. `usage-loading.png` is V1 skeleton.
 Mobile v2 (ADR-0044, 390×844): `mobile-now-empty.png`, `mobile-now-needs-you.png`
-(two live dialogs + a blocking inbox question), `mobile-now-dark.png`,
-`mobile-agent-ask.png` (pushed agent screen with the open select card),
-`mobile-inbox-respond.png` (stacked inbox, reply form), `mobile-agents-create.png`
-(the Vaul create sheet), `mobile-more.png`.
+(a blocking inbox question, a live terminal and an agent under Running, today,
+results), `mobile-now-dark.png`, `mobile-agent-ask.png` (pushed agent screen with
+the open select card), `mobile-inbox-respond.png` (stacked inbox, reply form),
+`mobile-work-workspaces.png` (Work → Workspaces card with agents and the
++ Agent / + Terminal row), `mobile-terminal.png` (pushed terminal with the key
+bar), `mobile-more.png`.
 Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
 first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
 reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).

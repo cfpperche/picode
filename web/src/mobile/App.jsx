@@ -7,8 +7,8 @@ import { normalizeManifests } from "../lib/appPrimitives.js";
 import { needsYou } from "../lib/needsYou.js";
 import { toast, toastError } from "../lib/toast.js";
 import { closeTerm } from "../lib/terms.js";
-import { mobileHash } from "../lib/mobileRoutes.js";
-import { tabOf } from "../lib/mobileRoutes.js";
+import { mobileHash, tabOf, readWorkSection, writeWorkSection } from "../lib/mobileRoutes.js";
+import { askConfirm } from "../lib/confirm.js";
 import Reconnect from "../components/Reconnect.jsx";
 import ShareDrawer from "../components/ShareDrawer.jsx";
 import Toasts from "../components/Toasts.jsx";
@@ -18,21 +18,23 @@ import CreateSheet from "./components/CreateSheet.jsx";
 import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
 import Inbox from "./screens/Inbox.jsx";
-import Agents from "./screens/Agents.jsx";
+import Work from "./screens/Work.jsx";
 import Agent from "./screens/Agent.jsx";
+import TerminalScreen from "./screens/Terminal.jsx";
 import More from "./screens/More.jsx";
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
 import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
-import { IconQR } from "../components/Icons.jsx";
 import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
 
 // The phone shell (ADR-0044): a supervision console, not the desktop
-// shrunk. Now (decisions, running, today, results) · Inbox · Agents ·
-// More, plus the pushed agent screen. One fleet poll feeds every screen;
-// only the agent screen opens a socket.
+// shrunk. Now (decisions, running, today, results) · Inbox · Work
+// (workspaces / free agents / terminals, the desktop rail's three views)
+// · More, plus the pushed agent and terminal screens. No header: the
+// tab bar is the chrome. One fleet poll feeds every screen; only the
+// agent screen opens an agent socket.
 export default function MobileApp() {
   const route = useHashRoute();
   const [themeMode, setThemeMode] = useState(readThemeMode);
@@ -50,9 +52,10 @@ export default function MobileApp() {
   const [busyId, setBusyId] = useState("");
   const [lastAgentId, setLastAgentId] = useState(() => { try { return localStorage.getItem(LAST_AGENT_KEY) || ""; } catch { return ""; } });
 
-  const onNowOrAgents = route.screen === "now" || route.screen === "agents" || route.screen === "agent";
-  const fleet = useFleet(onNowOrAgents ? 5000 : 15000);
-  const { workspaces, freeAgents, loaded, reload } = fleet;
+  const onNowOrWork = route.screen === "now" || route.screen === "work" || route.screen === "agent" || route.screen === "term";
+  const fleet = useFleet(onNowOrWork ? 5000 : 15000);
+  const { workspaces, freeAgents, terminals, loaded, reload } = fleet;
+  const [workSection, setWorkSection] = useState(readWorkSection);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
@@ -102,6 +105,15 @@ export default function MobileApp() {
   const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
 
   const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
+  const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
+  const liveTerms = terminals.filter((t) => t.running);
+  const section = route.screen === "work" ? (route.section || workSection) : workSection;
+  useEffect(() => {
+    if (route.screen === "work" && route.section && route.section !== workSection) {
+      setWorkSection(route.section);
+      writeWorkSection(route.section);
+    }
+  }, [route.screen, route.section, workSection]);
   const last = findAgent(workspaces, freeAgents, lastAgentId) || (running[0] || null);
 
   useEffect(() => {
@@ -111,8 +123,37 @@ export default function MobileApp() {
   }, [route.screen, route.id]);
 
   function openAgent(id) {
-    if (!id) { goTab("agents"); return; }
+    if (!id) { goTab("work"); return; }
     push(mobileHash("agent", id));
+  }
+  function openTerm(id) {
+    if (id) push(mobileHash("term", id));
+  }
+  function setSection(sec) {
+    setWorkSection(sec);
+    writeWorkSection(sec);
+    location.replace(mobileHash("work", sec));
+  }
+
+  async function newTerminal(workspace) {
+    try {
+      const body = workspace ? JSON.stringify({ workspaceId: workspace.id }) : "{}";
+      const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+      await reload();
+      openTerm(page.id);
+    } catch (e) { toastError(e); }
+  }
+
+  async function removeTerminal(t) {
+    const ok = await askConfirm({ title: "Remove terminal?", message: "This stops the tmux session.", confirmLabel: "Remove", danger: true });
+    if (!ok) return;
+    setBusyId(t.id);
+    try {
+      await api("/api/terminals/" + encodeURIComponent(t.id), { method: "DELETE" });
+      closeTerm("sh:" + t.id);
+      await reload();
+      if (route.screen === "term" && route.id === t.id) goBack(route);
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
   async function withBusy(agent, fn) {
@@ -162,13 +203,15 @@ export default function MobileApp() {
     setCreate(null);
     reload().then(() => {
       if (res && res.kind !== "workspace" && res.created && res.created.id) openAgent(res.created.id);
-      else if (res && res.kind === "workspace") goTab("agents");
+      else if (res && res.kind === "workspace") setSection("workspaces");
     });
   }
 
   const tab = tabOf(route);
   let body = null;
-  if (route.screen === "agent") {
+  if (route.screen === "term") {
+    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} />;
+  } else if (route.screen === "agent") {
     body = (
       <Agent
         agent={current ? current.agent : null}
@@ -183,11 +226,12 @@ export default function MobileApp() {
     );
   } else if (route.screen === "inbox") {
     body = <Inbox manifest={inboxApp} itemId={route.id} />;
-  } else if (route.screen === "agents") {
+  } else if (route.screen === "work") {
     body = (
-      <Agents loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} workingIds={tuiWorking} busyId={busyId}
-        onOpen={(a) => openAgent(a.id)} onStart={startAgent} onStop={stopAgent}
-        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} />
+      <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
+        workingIds={tuiWorking} busyId={busyId}
+        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
+        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} />
     );
   } else if (route.screen === "more") {
     body = (
@@ -197,21 +241,15 @@ export default function MobileApp() {
     );
   } else {
     body = (
-      <Now loaded={loaded} entries={entries} running={running} workingIds={tuiWorking} stats={stats} results={results}
-        fleetTotal={fleetTotal} onAnswer={answerAsk} onRespond={respondInbox}
-        onOpenAgent={openAgent} onOpenInbox={(id) => push(mobileHash("inbox", id))}
+      <Now loaded={loaded} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
+        fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
+        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))}
         onCreate={(kind) => setCreate({ kind, workspace: null })} />
     );
   }
 
   return (
     <div id="m-app" data-screen={route.screen}>
-      {route.screen === "agent" || (route.screen === "more" && route.section) ? null : (
-        <header className="m-top">
-          <span className="m-brand">PiCode</span>
-          <button type="button" className="m-icon" onClick={() => setShareOpen(true)} aria-label="Open on another phone" title="Open on another phone"><IconQR size={18} /></button>
-        </header>
-      )}
       <div className="m-body">{body}</div>
       <TabBar active={tab} badges={badges} />
       <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}

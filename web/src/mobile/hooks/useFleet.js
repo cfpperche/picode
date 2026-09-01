@@ -9,18 +9,22 @@ import { usePoll } from "./usePoll.js";
 export function useFleet(ms) {
   const [workspaces, setWorkspaces] = useState([]);
   const [freeAgents, setFreeAgents] = useState([]);
+  const [terminals, setTerminals] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const reload = useCallback(async () => {
     const list = await api("/api/workspaces");
     let free = [];
+    let terms = [];
     try { free = await api("/api/agents?free=1"); } catch { free = []; }
+    try { terms = (await api("/api/terminals")).terminals || []; } catch { terms = []; }
     setWorkspaces(Array.isArray(list) ? list : []);
     setFreeAgents(Array.isArray(free) ? free : []);
+    setTerminals(Array.isArray(terms) ? terms : []);
     setLoaded(true);
     return list;
   }, []);
   usePoll(reload, ms);
-  return { workspaces, freeAgents, loaded, reload };
+  return { workspaces, freeAgents, terminals, loaded, reload };
 }
 
 // flatAgents: [{ agent, workspace|null }] in sidebar order.

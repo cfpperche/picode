@@ -73,11 +73,15 @@ The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`)
 picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`
 (sticky in `localStorage`). Rotating never remounts — a remount would drop
 agent websockets. The mobile shell (ADR-0044) is a **supervision console**,
-not the desktop shrunk: four tabs — `#/` **Now** (needs-you queue, running
-agents, today's spend, recent results), `#/inbox[/id]` (the ADR-0037 app
-through `AppSurface`), `#/agents`, `#/more[/section]` — plus the pushed
+not the desktop shrunk, and it has no header (the tab bar is the chrome):
+four tabs — `#/` **Now** (needs-you queue, running agents and live
+terminals, today's spend, recent results), `#/inbox[/id]` (the ADR-0037
+app through `AppSurface`), `#/work[/workspaces|agents|terminals]` (the
+desktop rail's three views: folder cards with agents + terminals, free
+agents, all terminals), `#/more[/section]` — plus the pushed
 `#/agent/<id>` screen (shared `Conversation` + `Composer`, Chat | Terminal
-for TUI agents). Desktop hashes map to the closest mobile section. The
+for TUI agents) and `#/term/<id>` (shared `TermSurface` + a key bar for
+Esc/Tab/Ctrl/arrows). Desktop hashes map to the closest mobile section. The
 fleet poll (`GET /api/workspaces`, `GET /api/agents?free=1`) carries each
 agent's `streaming` / `waiting` / `dialog`, so the phone answers a prompt
 from the home through `POST /api/agents/{id}/ui` without a socket; only
