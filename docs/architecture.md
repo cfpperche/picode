@@ -106,7 +106,7 @@ stay on their own routes.
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** per vault account (ADR-0031) |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
-| `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
+| `#/automations` | Automations (ADR-0046) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping). The Chrome extension (ADR-0043) pings as `kind=extension` and shows as **Chrome extension** on this machine. |
 
 A tab owns its surface's state for as long as it is open: terminals, file
@@ -496,7 +496,7 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
   per agent (enable/disable, precedence layers) writing the same config
   files the adapter reads. We orchestrate the ecosystem; we don't fork it.
 
-### Automations (ADR-0045)
+### Automations (ADR-0046)
 
 `internal/automate` ticks every minute (same shape as the backup loop,
 started in `cmd/picode` with the process context, not the HTTP server)
@@ -514,7 +514,7 @@ automation (created lazily) whose `session_path` is cleared so
 `GET/PATCH/DELETE /api/automations/{id}`, `POST …/secret` (rotate),
 `POST …/run` (Run now, 409 when busy), `POST …/fire` (webhook:
 `Authorization: Bearer` or `X-Webhook-Secret`, 64 KB cap; 401/404/409/413),
-`GET …/runs`. Inbox items use `sourceKind: automation`.
+`GET …/runs`, `GET /api/automations/templates` (built-in list, `automate.Templates()`). Inbox items use `sourceKind: automation`. v2: `/automate <text>` in the composer is intercepted client-side (`lib/automateDraft.js`): the current agent gets a fence-shaped request, the settled reply is parsed into a read-once `sessionStorage` draft (`lib/automationDraft.js`) and `#/automations/new` opens pre-filled; template cards use the same draft slot.
 
 ### Security model (ADR-0007 — supersedes the original localhost-only clause)
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via

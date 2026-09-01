@@ -68,7 +68,7 @@ type fireDecision struct {
 	Notify bool
 }
 
-// decideFire is the ADR-0045 decision table. Pure; every row is tested.
+// decideFire is the ADR-0046 decision table. Pure; every row is tested.
 func decideFire(in fireInput) fireDecision {
 	if !in.Enabled && in.Trigger != store.TriggerManual {
 		return fireDecision{Status: "none"}

@@ -14,7 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// Automations routes (ADR-0045). Same localhost trust model as the rest
+// Automations routes (ADR-0046). Same localhost trust model as the rest
 // of the API (ADR-0007) — except /fire, which is meant to be called by
 // other tools and therefore carries its own per-automation secret.
 func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {
@@ -33,7 +33,7 @@ func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {
 // maxWebhookPayload bounds what a webhook may append to the prompt.
 const maxWebhookPayload = 64 << 10
 
-// handleAutomationTemplates serves the built-in suggestions (ADR-0045 v2).
+// handleAutomationTemplates serves the built-in suggestions (ADR-0046 v2).
 func handleAutomationTemplates(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": automate.Templates()})
 }

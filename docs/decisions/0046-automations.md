@@ -1,4 +1,4 @@
-# ADR-0045: Automations — scheduled and webhook-triggered agent runs
+# ADR-0046: Automations — scheduled and webhook-triggered agent runs
 
 - **Status**: accepted
 - **Date**: 2026-09-01
@@ -138,3 +138,34 @@ The decision table (`decideFire`, tested row by row):
 - **Scheduler inside pi or session-scoped (`/loop`).** Dies with the tab.
 - **Persistent channel monitor ("Triage Devin").** A long-running agent
   plus the Inbox already is that; no third lifecycle.
+
+## Amendment 2026-09-01 — v2: `/automate` and templates
+
+Devin's own ordering (Generate = most popular, templates second, manual
+editor "less common") held up: the v1 editor is the slow path. v2 adds the
+two faster ones without a new object or lifecycle — both end in the same
+editor, pre-filled, for the user to confirm.
+
+- **`/automate <description>`** sends the **current agent** a prompt that
+  asks for one ```json fence (name, prompt written for a context-free
+  future run, cron, webhook, limits) after looking at the repository. The
+  App correlates the turn client-side (the pending `/automate` is a ref;
+  `agent_settled` reads `lastAssistantText`), parses the last fence or the
+  first balanced object, normalises it, hands it to the editor through a
+  read-once `sessionStorage` draft and navigates to `#/automations/new`.
+  The bubble in the chat shows `/automate …`, not the instruction block.
+  No fence → the editor opens with the description as the prompt. No
+  agent open → one toast and the list. No server change: the turn is
+  ordinary, the cost is the agent's, the reply stays in its session.
+- **Templates** are a Go slice (`automate.Templates()`, seven local-repo
+  jobs in four categories) served by `GET /api/automations/templates`,
+  shown as cards with category chips on the list (always open when the
+  list is empty, a remembered `<details>` otherwise) and as a *Start from
+  template* select in the editor. Choosing one over typed text asks first.
+
+Refused: a hidden one-shot `pi` spawn for generation (loses the repo
+context the open agent has, costs a process); a `pi-automate` tool
+package (structured, but a third package to install before the fast path
+works — revisit if fence parsing proves unreliable); templates that need
+Sentry/Datadog/Slack (webhook recipes belong in the guide, not the chrome);
+a marketplace.

@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Automations v2: describe it, or start from a template (ADR-0046 amendment).**
+  With an agent open, `/automate every weekday at 9, summarize what changed
+  since yesterday` makes that agent read the repository and draft the
+  name, prompt, schedule and limits; the Automations editor opens
+  pre-filled for you to review and create. The Automations page now shows
+  **Suggested** templates — morning brief, nightly tests, docs drift,
+  outdated dependencies, stale branches, changelog draft, vulnerability
+  audit — filterable by category; click one and the editor is filled in,
+  and **Start from template…** in the editor does the same. Guide:
+  `www/guide/automations.md`.
 - **Every dialog is a bottom sheet on the phone (ADR-0045).** New agent
   already was; Choose folder, Confirm, Rename, Usage, Add provider, Add
   MCP server, Share, Session info, llama.cpp and the rest were centred
@@ -23,7 +33,7 @@ to the `[Unreleased]` section. The repository's official language is English
   dialog import outside it, so the rule holds for the next dialog too. On
   the phone a sheet never focuses a field by itself — the keyboard comes
   up only when you tap one.
-- **Automations: run an agent on a schedule or from a webhook (ADR-0045).**
+- **Automations: run an agent on a schedule or from a webhook (ADR-0046).**
   User menu → **Automations**. An automation is a prompt plus when to run
   it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or
   a webhook URL with a secret shown once — plus limits: max cost per run

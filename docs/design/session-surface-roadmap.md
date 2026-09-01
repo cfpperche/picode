@@ -30,7 +30,7 @@ Do not start llama installer, mobile parity, worktrees, broker, ACP, or IDE chro
 | Cost as a new page | it belongs on the session chip the user already clicks |
 | `/tree` in-place jump | needs pi `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)) |
 | Auto-update packages | user clicks **Update**. A badge is enough to notice. |
-| System crontab | poll on Packages open + a slow interval. Not a machine cron. (Scoped to package updates; the Automations scheduler lives in the daemon — ADR-0045.) |
+| System crontab | poll on Packages open + a slow interval. Not a machine cron. (Scoped to package updates; the Automations scheduler lives in the daemon — ADR-0046.) |
 
 ## D1 — `#/agent/<id>`
 

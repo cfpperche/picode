@@ -1,4 +1,4 @@
--- inbox_items.source_kind gains 'automation' (ADR-0045). SQLite cannot
+-- inbox_items.source_kind gains 'automation' (ADR-0046). SQLite cannot
 -- alter a CHECK constraint, so the table is rebuilt in place; indexes
 -- from 014 are recreated with the same names.
 CREATE TABLE inbox_items_new (

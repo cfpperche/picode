@@ -177,3 +177,7 @@ Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/package
 `/skill:name` and `/templatename` appear in the composer picker (global + trusted project). Choosing one **inserts** the command; Send lets pi expand it (RPC already expands skills and templates).
 
 Canonical: [Skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md) · [Prompt templates](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md).
+
+## /automate {#automate}
+
+Draft an automation from a sentence: `/automate every weekday at 9, summarize what changed since yesterday`. The open agent looks at the repository, proposes a name, a prompt, a schedule and limits, and PiCode opens the Automations editor pre-filled for you to review and create. Bare `/automate` asks for the description first. PiCode-only; the agent's reply stays in its session like any other turn. Guide: [Automations](/guide/automations).

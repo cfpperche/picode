@@ -53,11 +53,12 @@ What exists:
 - **ADR-0044** mobile shell v2 — supervision console (amended same day: no header; Work tab = workspaces / free agents / terminals; `#/term/<id>` screen with key bar). `web/src/mobile/` is now screens (`Now`, `Inbox`, `Agents`, `Agent`, `More`) + hooks (`useHashRoute`, `usePoll`, `useFleet`, `useAgentSocket`) + components (`TabBar`, `ScreenHeader`, `StateChip`, `NeedsYouCard`, `AgentRow`, `StatStrip`, `CreateSheet`) over pure libs `lib/mobileRoutes.js`, `lib/agentEvents.js` (reducer of the agent WS stream; desktop `handleEvent` untouched), `lib/needsYou.js`, `lib/createSubmit.js` (lifted from `submitNew`). Server: `agentView.streaming/waiting/dialog` from `Runtime.Get(id).Snapshot()`; `AppSurface` gained `initialPath`; `summarizeArgs` moved to `lib/toolArgs.js` (re-exported). The waiting card exists on mobile now — the two "Mobile has no waiting card" lines below are history. Push is the next ADR (phase 2 of the approved plan: Web Push/VAPID in Go stdlib, presence-aware).
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
-- **ADR-0045** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
+- **ADR-0046** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
+- **ADR-0046 v2** `/automate` + templates: `lib/automateDraft.js` (prompt, fence/object parser, command detection), `lib/automationDraft.js` (read-once `sessionStorage` handoff), `automate.Templates()` + `GET /api/automations/templates`, Suggested cards with category chips, *Start from template…* in the editor, "Drafted by / From template" origin line. Turn correlation is client-side (`automateRef` + `agent_settled` + `lastAssistantText`); no server change for `/automate`.
 
 ## In flight
 
-**ADR-0045 Automations on `feat/automations`** (2026-09-01). Backend, UI,
+**ADR-0046 Automations on `feat/automations`** (2026-09-01). Backend, UI,
 docs done; dogfooded on a scratch instance (Run now → `pong` Inbox result,
 webhook 401/413/202, busy 409, cost cap, daemon restart). Not merged.
 
@@ -137,12 +138,10 @@ render megabytes.
 
 ## Next up
 
-1. **Automations v2 (ADR-0045 "later")** — templates as JSON (Devin's
-   suggested cards), composer `/automate <describe>` that asks the current
-   agent to emit the config into the editor, connectors (GitHub / Slack /
-   Sentry) as webhook recipes, cost on runs closed by a restart.
-**ADR-0043 Track C** (actuator on the current tab) after Track B merges.
-Track D/E stay parked.
+1. **Automations connectors** — webhook recipes in the guide (GitHub
+   Actions, Sentry) and, if the fence parsing of `/automate` proves flaky
+   in daily use, a `pi-automate` tool package for structured drafts.
+   Cost on runs closed by a restart.
 
 **Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
 2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
@@ -211,7 +210,7 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
-- **Automations (ADR-0045):** cost cap is a 30 s poll (overshoots by one
+- **Automations (ADR-0046):** cost cap is a 30 s poll (overshoots by one
   poll); runs interrupted by a restart show `$0.00`; the runs table and
   list poll (15 s) — no live event; two due automations share the active
   `auth.json` credential; the webhook is reachable wherever the server is
@@ -249,6 +248,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — ADR-0046 v2 `/automate` + templates** (`feat/automations-v2`):
+  seven built-in templates, Suggested cards + editor select, `/automate`
+  drafting from the current agent (verified on scratch: repo-specific
+  prompt, weekdays 09:00, origin line), draft handoff lib. ADR renumbered
+  0044 → 0045 → **0046** after two same-day collisions on main.
 - **2026-09-01** — **Responsive dialogs (ADR-0045)**, on branch
   `feat/responsive-dialogs`. Owner on the phone: "New Agent abre como um
   drawer… o dialog Choose Folder já não abre assim… precisamos mapear
@@ -274,7 +278,7 @@ Never exercised, because this machine was already past them:
   ResponsiveDialog cancels Radix open-autofocus and blurs a React
   `autoFocus` in a layout effect; desktop unchanged.
 
-- **2026-09-01 — ADR-0045 Automations** (`feat/automations`): store +
+- **2026-09-01 — ADR-0046 Automations** (`feat/automations`): store +
   migrations 016/017, `internal/cron`, `internal/automate`, server routes
   + runner, `Automations.jsx`, guide, benchmark study of Devin/Cursor/
   Claude Code/Codex/GitHub. Visual gate: empty, blocked (pi missing),

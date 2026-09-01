@@ -22,6 +22,26 @@ Open it from the user menu → **Automations**, or `Ctrl+K` → Automations.
 **Run now** on the list or the detail page tries it immediately, even when
 the automation is switched off.
 
+## Describe it instead
+
+With an agent open, type `/automate` followed by what you want, for
+example `/automate every weekday at 9, summarize what changed since
+yesterday`. The agent reads the repository and drafts the name, prompt,
+schedule and limits; the editor opens pre-filled with a "Drafted by …"
+line. Review, adjust, **Create**. If the agent answers without a config,
+the editor still opens with your description as the prompt. Bare
+`/automate` asks for the description first.
+
+## Templates
+
+**Suggested** on the Automations page lists ready-made jobs any agent can
+run on a local repository: morning brief, nightly tests, docs drift,
+outdated dependencies, stale branches, changelog draft, vulnerability
+audit. Filter by category, click one, and the editor opens filled in. In
+the editor, **Start from template…** does the same for an automation you
+are already writing. Templates never push, commit or delete anything;
+they report.
+
 ## Webhook
 
 After saving, the detail page shows the URL and the secret **once**. Send
