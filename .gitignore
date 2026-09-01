@@ -32,3 +32,6 @@ Thumbs.db
 .env.*
 *.log
 var/
+
+# Claude Code local config + per-agent worktrees (machine-local)
+.claude/
