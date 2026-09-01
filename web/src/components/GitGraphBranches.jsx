@@ -51,6 +51,7 @@ export default function GitGraphBranches({ refs, selected, showRemotes, onChange
           align="start"
           sideOffset={6}
           collisionPadding={8}
+          avoidCollisions={false}
         >
           <Command label="Branches" loop>
             <Command.Input className="combo-input" placeholder="Filter branches" />

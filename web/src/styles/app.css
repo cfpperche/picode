@@ -2776,7 +2776,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
    unlike search (dims/highlights only, ADR-0038). */
 .gg-branches-trigger { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; }
 .gg-branches-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gg-branches-pop { min-width: 260px; }
+/* .cockpit-pop hand-positions itself above its anchor (bottom: 100%) for the
+   composer chips docked at the foot of the screen. This one hangs off a
+   header at the top, and Radix's portal already places it — so hand the
+   position back to Radix, or the panel flies up over the tab bar. */
+.gg-branches-pop {
+  min-width: 260px;
+  position: static; left: auto; bottom: auto;
+}
 .gg-branches-pop [cmdk-group-heading] {
   padding: 6px 8px 2px; font-size: 10.5px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--text-secondary);

@@ -21,7 +21,10 @@ to the `[Unreleased]` section. The repository's official language is English
   (while "Show All" is active) the walk itself. Selection persists per
   repository; the toggle is a global preference. `GET .../git` gains
   optional repeated `?branches=` and `?remotes=0|1` params — absent,
-  the response is byte-for-byte what it was before this change.
+  the response is byte-for-byte what it was before this change. The
+  panel drops below its trigger (the shared `.cockpit-pop` positioning
+  is built for composer chips docked at the foot of the screen, and
+  flew the list up over the tab bar from a header).
 
 ### Changed
 
