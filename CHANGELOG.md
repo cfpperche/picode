@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Automations v2: describe it, or start from a template (ADR-0046 amendment).**
+- **Automations v2: describe it, or start from a template (ADR-0045 amendment).**
   With an agent open, `/automate every weekday at 9, summarize what changed
   since yesterday` makes that agent read the repository and draft the
   name, prompt, schedule and limits; the Automations editor opens
@@ -33,7 +33,7 @@ to the `[Unreleased]` section. The repository's official language is English
   dialog import outside it, so the rule holds for the next dialog too. On
   the phone a sheet never focuses a field by itself — the keyboard comes
   up only when you tap one.
-- **Automations: run an agent on a schedule or from a webhook (ADR-0046).**
+- **Automations: run an agent on a schedule or from a webhook (ADR-0045).**
   User menu → **Automations**. An automation is a prompt plus when to run
   it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or
   a webhook URL with a secret shown once — plus limits: max cost per run

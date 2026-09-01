@@ -14,7 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/cron"
 )
 
-// Automations (ADR-0046): trigger(s) + prompt + bounds. Every run is an
+// Automations (ADR-0045): trigger(s) + prompt + bounds. Every run is an
 // ordinary pi session on the automation's own agent (action=start) or a
 // follow_up queued into an existing agent (action=message).
 

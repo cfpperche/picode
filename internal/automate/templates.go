@@ -1,6 +1,6 @@
 package automate
 
-// Template is a suggested automation (ADR-0046 v2): local-repo work any
+// Template is a suggested automation (ADR-0045 v2): local-repo work any
 // agent can do with no external integration. Served by
 // GET /api/automations/templates and pre-filled into the editor; the
 // list is code, not data, like internal/slashres and internal/catalog.

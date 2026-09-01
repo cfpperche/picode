@@ -9,7 +9,7 @@ import (
 )
 
 // An attached RunObserver receives the settle and owns the Inbox: the
-// default unobserved-result item is not filed (ADR-0046 on ADR-0037).
+// default unobserved-result item is not filed (ADR-0045 on ADR-0037).
 func TestObserverReceivesSettleAndSuppressesResult(t *testing.T) {
 	st, rt, agent, path := inboxTestSetup(t)
 	if err := rt.Start(agent.ID, path); err != nil {

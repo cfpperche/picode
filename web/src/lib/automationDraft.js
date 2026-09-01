@@ -1,4 +1,4 @@
-// One-shot handoff of an automation draft into the editor (ADR-0046 v2).
+// One-shot handoff of an automation draft into the editor (ADR-0045 v2).
 // sessionStorage, read once then removed — the PinStudio "picode-sketch"
 // pattern. A template card, /automate, or anything else that wants the
 // editor pre-filled writes here and navigates to #/automations/new.

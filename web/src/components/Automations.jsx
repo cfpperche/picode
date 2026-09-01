@@ -22,7 +22,7 @@ const CATEGORIES = [
   { id: "reporting", label: "Reporting" }, { id: "security", label: "Security" },
 ];
 
-// Automations (ADR-0046): trigger + prompt + bounds; every run is an
+// Automations (ADR-0045): trigger + prompt + bounds; every run is an
 // ordinary session on the automation's own agent. Adapted from Devin's
 // Automations list/editor/activity log (docs/benchmarks/2026-09-01-devin-
 // automations.md): schedule + webhook only, bounds instead of babysitting,

@@ -329,7 +329,7 @@ func serve() {
 		Apps: apps.NewRegistry(apps.BuiltIns(os.Getenv("PICODE_DEMO_APP") == "1")...),
 	}
 
-	// Automations scheduler (ADR-0046): lives with the process, not the
+	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.
 	autoCtx, autoCancel := context.WithCancel(context.Background())
 	defer autoCancel()

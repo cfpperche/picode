@@ -1804,7 +1804,7 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
-  // /automate (ADR-0046 v2): the current agent drafts the config; the
+  // /automate (ADR-0045 v2): the current agent drafts the config; the
   // editor opens pre-filled once the turn settles. No server change — the
   // turn is correlated client-side, like slashNoteTarget for ask cards.
   async function startAutomate(description) {

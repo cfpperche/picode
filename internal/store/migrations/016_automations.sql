@@ -1,4 +1,4 @@
--- Automations (ADR-0046): trigger(s) + prompt + bounds; every run is an
+-- Automations (ADR-0045): trigger(s) + prompt + bounds; every run is an
 -- ordinary pi session on a per-automation agent. Source columns are plain
 -- text with no foreign keys so an automation and its runs outlive a
 -- deleted workspace or agent (the same rule as inbox_items, 014).

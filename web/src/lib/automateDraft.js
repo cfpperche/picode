@@ -1,4 +1,4 @@
-// /automate (ADR-0046 v2): ask the current agent for an automation config,
+// /automate (ADR-0045 v2): ask the current agent for an automation config,
 // then read it back out of its reply. Pure — App.jsx does the sending and
 // the navigation.
 import { normalizeDraft } from "./automationDraft.js";
