@@ -26,6 +26,17 @@ type app struct {
 }
 
 func main() {
+	// Chrome's native-messaging launch is argv[1]=chrome-extension://… and, on
+	// Windows, --parent-window=<hwnd>. That flag is not ours; parsing it with
+	// ExitOnError dumps usage on stdout and Chrome reports "Error when
+	// communicating with the native messaging host." Host mode must run
+	// before flag.Parse.
+	if browserhost.IsHostArg(command()) {
+		desktop.WSLExe = desktop.ResolveWSLExe()
+		exit(runBrowserHost("", ""))
+		return
+	}
+
 	fs := flag.NewFlagSet("picode-desktop", flag.ExitOnError)
 	distro := fs.String("distro", "", "WSL distribution (default: the only WSL 2 one, else the default)")
 	user := fs.String("user", "", "Linux account to provision (default: the distro's own)")
@@ -36,8 +47,6 @@ func main() {
 	desktop.WSLExe = desktop.ResolveWSLExe()
 
 	switch cmd := command(); {
-	case browserhost.IsHostArg(cmd):
-		exit(runBrowserHost(*distro, *user))
 	case cmd == "doctor":
 		exit(runDoctor(*distro, *user))
 	case cmd == "install":

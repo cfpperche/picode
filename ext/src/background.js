@@ -33,10 +33,11 @@ function native(payload) {
   return new Promise((resolve) => {
     chrome.runtime.sendNativeMessage(HOST, payload, (res) => {
       if (chrome.runtime.lastError) {
+        const msg = chrome.runtime.lastError.message || "";
         resolve({
           ok: false,
           code: "host_missing",
-          error: "Install the PiCode host.",
+          error: msg || "Install the PiCode host.",
         });
         return;
       }

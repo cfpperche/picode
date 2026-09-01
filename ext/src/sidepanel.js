@@ -102,9 +102,14 @@ function showEmpty(res) {
   els.actionWrap.hidden = false;
   const code = res.code || "";
   if (code === "host_missing") {
-    els.empty.textContent = "Install the PiCode host.";
-    els.emptyAction.textContent = "Open guide";
-    els.emptyAction.onclick = () => chrome.tabs.create({ url: GUIDE });
+    els.empty.textContent = res.error && res.error !== "Install the PiCode host."
+      ? res.error
+      : "Install the PiCode host.";
+    els.emptyAction.textContent = "Retry";
+    els.emptyAction.onclick = () => {
+      showSkeleton();
+      load();
+    };
     setOpen("");
     return;
   }
