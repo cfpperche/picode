@@ -212,6 +212,38 @@ field, not a fifth block type.
 Block types are still the frozen four; `View` now carries `Layout`,
 `Empty` and `Tabs` as its optional, app-agnostic hints.
 
+## Amendment 2026-09-01 — tabs move into the header; a host-only filter box joins them
+
+Dogfooding's third gap the same day: the tab strip's "above the view"
+placement (previous amendment) put it inside the scrolling list pane,
+stacked with whatever list block came first — on a narrow window it read as
+part of the content, not as navigation. Owner's fix, and a second ask
+alongside it: move the tabs into the host header, next to Refresh/Close,
+and give the list something to filter it by, since Inbox's row count was
+already outgrowing eyeballing.
+
+- **`View.Tabs` rendering changes; nothing on the wire does.** The segmented
+  control now draws in the host header, not above the list pane's content.
+  `Tab.Path` still drives the exact same `setPath` navigation described in
+  the amendment above — this is a host layout change, not a schema change.
+  `apiVersion` does not move.
+- **A client-side filter box is new host chrome, not a primitive.** It has
+  no `View`/`Block`/`ListItem` field at all — no app author writes anything
+  for it. It matches (substring, case-insensitive) against
+  `title`/`subtitle`/`meta`/`badge`, fields every list row already sends,
+  and is offered whenever the current view has list items — host-generic,
+  the same way Refresh and Close are unconditional rather than
+  Inbox-specific.
+- **It filters (hides non-matches), not dims** — the opposite default from
+  git graph's search (ADR-0038). Git graph can't hide a commit without
+  lying about the graph's shape (rows are positional); an app's list block
+  has no such constraint, and hiding is what "filter" was actually asked
+  for.
+
+The four block types remain frozen; this amendment adds no field to the
+wire contract at all, only host-side rendering behavior around the `Tabs`
+field the prior amendment already shipped.
+
 ## Sources
 
 - VS Code built-in extensions: <https://github.com/microsoft/vscode/tree/main/extensions>;

@@ -7,6 +7,7 @@ import { useKeptScroll } from "../lib/keepScroll.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
+import { filterListBlocks, countListItems } from "../lib/appSearch.js";
 import AppIcon from "./AppIcon.jsx";
 import { IconChevronLeft, IconCheck, IconClock, IconInbox, IconTrash } from "./Icons.jsx";
 
@@ -33,6 +34,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
   const [listW, setListW] = useState(() => {
     const n = parseInt(localStorage.getItem(LIST_KEY) || "", 10);
     return Number.isFinite(n) ? Math.min(LIST_MAX, Math.max(LIST_MIN, n)) : 380;
@@ -165,6 +167,16 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
   const selectedRow = split
     ? listBlocks.flatMap((b) => b.items || []).find((it) => it.path && it.path === path)
     : null;
+  // Search (ADR-0036 amendment): host-generic, filters rather than dims
+  // (unlike git graph's ADR-0038 — a list has no positional layout to
+  // protect). totalItems must stay unfiltered: it decides whether the box
+  // itself renders, and a filtered count would hide the only way to clear
+  // an exhausted query.
+  const bodyBlocks = split ? listBlocks : (view ? view.blocks : []);
+  const totalItems = countListItems(bodyBlocks);
+  const hasQuery = query.trim().length > 0;
+  const filteredBodyBlocks = hasQuery ? filterListBlocks(bodyBlocks, query) : bodyBlocks;
+  const noMatches = hasQuery && totalItems > 0 && countListItems(filteredBodyBlocks) === 0;
 
   return (
     <section className={"app-surface" + (split ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
@@ -177,14 +189,30 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
         <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : ""} label={title} size={14} /></span>
         <h2 className="ft-title" title={title}>{title}</h2>
         <span className="ft-spacer" />
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
-          Refresh
-        </button>
-        {onClose ? (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
-            Close
+        <div className="app-head-controls" data-align-row>
+          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={setPath} />
+          {totalItems > 0 ? (
+            <span className="app-search-wrap">
+              <input
+                type="search"
+                className="app-search"
+                placeholder={`Filter ${title.toLowerCase()}`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); setQuery(""); } }}
+                aria-label={`Filter ${title} by title or details`}
+              />
+            </span>
+          ) : null}
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
+            Refresh
           </button>
-        ) : null}
+          {onClose ? (
+            <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
+              Close
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {unsupported || badVersion ? (
@@ -201,8 +229,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
       ) : split ? (
         <div className={"app-split" + (resizing ? " resizing" : "")}>
           <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
-            <TabStrip tabs={view.tabs} path={path} onNavigate={setPath} />
-            {listBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+            {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+            {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
           </div>
           {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
           <div className="app-pane app-pane-detail" ref={detailRef}>
@@ -215,8 +243,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
         </div>
       ) : (
         <div className="app-body">
-          <TabStrip tabs={view.tabs} path={path} onNavigate={setPath} />
-          {view.blocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+          {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+          {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
           {view.blocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
         </div>
       )}
@@ -249,7 +277,7 @@ function PaneBlocks({ blocks, ctx, badge }) {
 function TabStrip({ tabs, path, onNavigate }) {
   if (!tabs || tabs.length === 0) return null;
   return (
-    <nav className="app-tabs" role="tablist" aria-label="Filter">
+    <nav className="app-tabs" role="tablist" aria-label="Filter" data-align-row>
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -291,6 +319,18 @@ function Blank({ icon, label, text }) {
       <p className="app-blank-title">{head}</p>
       {rest.length ? <p className="app-blank-sub">{rest.join(" — ")}</p> : null}
     </div>
+  );
+}
+
+// Distinct from Blank/view.empty: this is "the search hid everything", not
+// "the app has nothing" — same shape as the error state above (one line,
+// one action) so it never reads as a silent, actionless well.
+function SearchEmpty({ query, onClear }) {
+  return (
+    <p className="app-search-empty">
+      No items match "{query}".{" "}
+      <button type="button" className="btn btn-sm" onClick={onClear}>Clear search</button>
+    </p>
   );
 }
 
