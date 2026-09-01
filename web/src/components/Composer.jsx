@@ -24,6 +24,8 @@ import {
   unlockMic, speakText, stopSpeak,
 } from "../lib/speech.js";
 import { toast } from "../lib/toast.js";
+import { matchAction, primaryChord, formatChord } from "../lib/appKeys.js";
+import { readAppKeyOverrides } from "../lib/appKeyPrefs.js";
 
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 
@@ -32,6 +34,9 @@ export default function Composer({
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
   slashExtra, atAgents, agentId, onAgentPage, pkgUpdates,
 }) {
+  const appKeyOverrides = readAppKeyOverrides();
+  const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
+  const dictateKeyHint = formatChord(primaryChord("composer.dictate", appKeyOverrides));
   const ta = useRef(null);
   const hist = useRef(newHist());
   const rec = useRef(null);
@@ -136,13 +141,12 @@ export default function Composer({
 
   useEffect(() => {
     const onKey = (e) => {
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.shiftKey && e.key.toLowerCase() === "o") {
+      if (matchAction("composer.voice.toggle", e)) {
         e.preventDefault();
         toggleVoice();
         return;
       }
-      if (mod && !e.shiftKey && e.key.toLowerCase() === "d") {
+      if (matchAction("composer.dictate", e)) {
         e.preventDefault();
         if (voice) return;
         if (dictate) confirmDictate();
@@ -658,7 +662,7 @@ export default function Composer({
                 <button
                   type="button"
                   className="icon-btn"
-                  title="Back to text (Ctrl+Shift+O)"
+                  title={"Back to text (" + voiceKeyHint + ")"}
                   aria-label="Back to text"
                   onClick={leaveVoice}
                 >
@@ -737,7 +741,7 @@ export default function Composer({
                 <button
                   type="button"
                   className="icon-btn icon-btn-mic"
-                  title="Dictation (Ctrl+D)"
+                  title={"Dictation (" + dictateKeyHint + ")"}
                   aria-label="Dictation"
                   onClick={() => startListen("dictate")}
                 >
@@ -746,7 +750,7 @@ export default function Composer({
                 <button
                   type="button"
                   className="icon-btn icon-btn-wave"
-                  title="Voice mode (Ctrl+Shift+O)"
+                  title={"Voice mode (" + voiceKeyHint + ")"}
                   aria-label="Enter voice mode"
                   onClick={enterVoice}
                 >

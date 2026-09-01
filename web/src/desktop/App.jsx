@@ -3,6 +3,7 @@ import { api, humanizeError, wsURL } from "../lib/api.js";
 import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "../lib/contextMenuPrefs.js";
+import { matchAction } from "../lib/appKeys.js";
 import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "../lib/termGroups.js";
@@ -209,7 +210,7 @@ export default function App() {
 
   useEffect(() => {
     function onKey(e) {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "`") {
+      if (matchAction("app.terminal.new", e)) {
         e.preventDefault();
         window.dispatchEvent(new Event("picode-new-term"));
       }
@@ -263,8 +264,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e) => {
-      const pal = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "k";
-      if (pal) {
+      if (matchAction("app.palette.toggle", e)) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }

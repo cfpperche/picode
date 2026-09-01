@@ -8,6 +8,7 @@ import ThemeCard from "./ThemeCard.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
+import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
@@ -89,7 +90,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
       </section>
 
       <section className="settings-section" hidden={sec !== "shortcuts"}>
-        <h3 className="sr-only">Shortcuts</h3>
+        <h3>Mouse</h3>
         <div className="set-rows">
           <div className="set-row">
             <label htmlFor="ctx-modifier">Browser menu on right-click</label>
@@ -99,6 +100,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           </div>
         </div>
       </section>
+      <AppKeys hidden={sec !== "shortcuts"} />
 
       <section className="settings-section" hidden={sec !== "notifications"}>
         <h3 className="sr-only">Notifications</h3>
