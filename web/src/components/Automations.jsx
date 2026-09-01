@@ -8,15 +8,21 @@ import { askConfirm } from "../lib/confirm.js";
 import { automationSchema, parseForm } from "../lib/schemas.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import { sparklinePath } from "../lib/sparkline.js";
-import { PRESETS, DOW, presetToCron, cronToPreset, describeCron, cronError } from "../lib/cron.js";
+import { PRESETS, DOW, presetToCron, cronToPreset, describeCron, cronError, isValidCron } from "../lib/cron.js";
+import { readAutomationDraft, writeAutomationDraft, draftFromTemplate } from "../lib/automationDraft.js";
 import { automationRoute, automationsHash, workspaceHash } from "../lib/routes.js";
 import { mentionAgents } from "../lib/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
 const REFRESH_MS = 15_000;
 const GUIDE = "https://cfpperche.github.io/picode/guide/automations";
+const SUGGESTED_KEY = "picode-automations-suggested";
+const CATEGORIES = [
+  { id: "all", label: "All" }, { id: "quality", label: "Quality" }, { id: "maintenance", label: "Maintenance" },
+  { id: "reporting", label: "Reporting" }, { id: "security", label: "Security" },
+];
 
-// Automations (ADR-0045): trigger + prompt + bounds; every run is an
+// Automations (ADR-0046): trigger + prompt + bounds; every run is an
 // ordinary session on the automation's own agent. Adapted from Devin's
 // Automations list/editor/activity log (docs/benchmarks/2026-09-01-devin-
 // automations.md): schedule + webhook only, bounds instead of babysitting,
@@ -27,6 +33,12 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
   const [items, setItems] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [reveal, setReveal] = useState(null); // {id, secret} shown once after create/rotate
+  const [templates, setTemplates] = useState([]);
+
+  useEffect(() => {
+    if (hidden || templates.length) return;
+    api("/api/automations/templates").then((d) => setTemplates(d.items || [])).catch(() => {});
+  }, [hidden]);
 
   useEffect(() => {
     const on = () => setSub(automationRoute());
@@ -119,7 +131,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     body = null;
   }
   if (sub === "new") {
-    body = <Editor catalog={catalog} workspaces={workspaces} agents={agents} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
+    body = <Editor catalog={catalog} workspaces={workspaces} agents={agents} templates={templates} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
   } else if (sub) {
     body = current ? (
       <Detail
@@ -127,6 +139,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
         catalog={catalog}
         workspaces={workspaces}
         agents={agents}
+        templates={templates}
         reveal={reveal && reveal.id === current.id ? reveal.secret : ""}
         onDismissSecret={() => setReveal(null)}
         onRun={() => runNow(current)}
@@ -140,7 +153,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     ) : <Skeleton />;
   } else {
     body = (
-      <List items={items} loadErr={loadErr} piMissing={piMissing} onToggle={toggle} onRun={runNow} />
+      <List items={items} loadErr={loadErr} piMissing={piMissing} templates={templates} onToggle={toggle} onRun={runNow} />
     );
   }
 
@@ -161,7 +174,7 @@ function Skeleton() {
   );
 }
 
-function List({ items, loadErr, piMissing, onToggle, onRun }) {
+function List({ items, loadErr, piMissing, templates, onToggle, onRun }) {
   if (items === null && !loadErr) return <Skeleton />;
   if (loadErr && items === null) {
     return <div className="mcp-empty"><p>{loadErr}</p></div>;
@@ -175,10 +188,13 @@ function List({ items, loadErr, piMissing, onToggle, onRun }) {
         </div>
       ) : null}
       {items.length === 0 ? (
-        <div className="mcp-empty">
-          <p>No automations yet.</p>
-          <a className="btn btn-primary" href={automationsHash("new")}><IconPlus /> Create automation</a>
-        </div>
+        <>
+          <div className="mcp-empty">
+            <p>No automations yet.</p>
+            <a className="btn btn-primary" href={automationsHash("new")}><IconPlus /> Create automation</a>
+          </div>
+          <Suggested templates={templates} open />
+        </>
       ) : (
         <>
           <div className="auto-toolbar" data-align-row>
@@ -205,9 +221,52 @@ function List({ items, loadErr, piMissing, onToggle, onRun }) {
               </li>
             ))}
           </ul>
+          <Suggested templates={templates} />
         </>
       )}
     </>
+  );
+}
+
+// Suggested templates (Devin's "suggested automations", local-repo only).
+// Always open on the empty page; a remembered <details> once real rows exist.
+function Suggested({ templates, open }) {
+  const [cat, setCat] = useState("all");
+  const [expanded, setExpanded] = useState(() => {
+    if (open) return true;
+    try { return localStorage.getItem(SUGGESTED_KEY) === "1"; } catch { return false; }
+  });
+  if (!templates || !templates.length) return null;
+  const shown = templates.filter((t) => cat === "all" || t.category === cat);
+  const body = (
+    <>
+      <div className="auto-tpl-bar" data-align-row>
+        <Segmented name="auto-tpl-cat" value={cat} onChange={setCat} options={CATEGORIES} />
+      </div>
+      <ul className="auto-tpl-grid">
+        {shown.map((t) => (
+          <li key={t.id}>
+            <button type="button" className="auto-tpl" onClick={() => { writeAutomationDraft(draftFromTemplate(t)); location.hash = automationsHash("new"); }}>
+              <span className="auto-tpl-name">{t.name}</span>
+              <span className="auto-tpl-desc">{t.description}</span>
+              <span className="auto-tpl-when">{describeCron(t.cron)} · {CATEGORIES.find((c) => c.id === t.category)?.label || t.category}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+  if (open) {
+    return <section className="settings-section auto-suggested"><h3>Suggested</h3>{body}</section>;
+  }
+  return (
+    <details className="auto-details auto-suggested" open={expanded} onToggle={(e) => {
+      setExpanded(e.currentTarget.open);
+      try { localStorage.setItem(SUGGESTED_KEY, e.currentTarget.open ? "1" : "0"); } catch { /* ignore */ }
+    }}>
+      <summary>Suggested</summary>
+      {body}
+    </details>
   );
 }
 
@@ -266,7 +325,7 @@ function money(n) {
   return "$" + (n < 0.01 ? n.toFixed(3) : n.toFixed(2));
 }
 
-function Detail({ a, catalog, workspaces, agents, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved }) {
+function Detail({ a, catalog, workspaces, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [runs, setRuns] = useState(null);
   const fireURL = location.origin + "/api/automations/" + encodeURIComponent(a.id) + "/fire";
@@ -284,7 +343,7 @@ function Detail({ a, catalog, workspaces, agents, reveal, onDismissSecret, onRun
   }, [a.id, a.lastRun && a.lastRun.id, a.running]);
 
   if (editing) {
-    return <Editor initial={a} catalog={catalog} workspaces={workspaces} agents={agents} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
+    return <Editor initial={a} catalog={catalog} workspaces={workspaces} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
   }
 
   return (
@@ -386,6 +445,7 @@ function RunsTable({ runs, agentId }) {
 function emptyForm(initial) {
   const p = cronToPreset(initial && initial.cron ? initial.cron : "0 9 * * 1-5");
   return {
+    origin: initial && initial.source ? { source: initial.source, label: initial.sourceLabel || "" } : null,
     name: initial ? initial.name : "",
     workspaceId: initial ? initial.workspaceId : "ws_free",
     action: initial ? initial.action : "start",
@@ -394,7 +454,7 @@ function emptyForm(initial) {
     provider: (initial && initial.provider) || "",
     model: (initial && initial.model) || "",
     thinking: (initial && initial.thinking) || "",
-    scheduleOn: initial ? !!initial.cron : true,
+    scheduleOn: initial ? !!initial.cron || !initial.webhook : true,
     preset: p.kind,
     time: p.time,
     dow: p.dow,
@@ -408,8 +468,25 @@ function emptyForm(initial) {
   };
 }
 
-function Editor({ initial, catalog, workspaces, agents, onSaved, onCancel }) {
-  const [f, setF] = useState(() => emptyForm(initial));
+function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCancel }) {
+  const [f, setF] = useState(() => {
+    if (initial) return emptyForm(initial);
+    const draft = readAutomationDraft(isValidCron);
+    return emptyForm(draft ? { ...draft, workspaceId: draft.workspaceId || "ws_free" } : null);
+  });
+  const [tpl, setTpl] = useState("");
+
+  async function applyTemplate(id) {
+    setTpl(id);
+    const t = (templates || []).find((x) => x.id === id);
+    if (!t) return;
+    if ((f.name.trim() || f.prompt.trim()) && !(await askConfirm({ title: "Use " + t.name + "?", message: "It replaces the name, prompt, schedule and limits you typed.", confirmLabel: "Replace" }))) {
+      setTpl("");
+      return;
+    }
+    const next = emptyForm({ ...draftFromTemplate(t), workspaceId: f.workspaceId, provider: f.provider, model: f.model, thinking: f.thinking });
+    setF(next);
+  }
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const nameRef = useRef(null);
@@ -457,7 +534,20 @@ function Editor({ initial, catalog, workspaces, agents, onSaved, onCancel }) {
       <div className="auto-detail-head" data-align-row>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><IconChevronLeft /> {initial ? initial.name : "All automations"}</button>
       </div>
-      <h3 className="auto-detail-title">{initial ? "Edit automation" : "New automation"}</h3>
+      <div className="auto-detail-head" data-align-row>
+        <h3 className="auto-detail-title">{initial ? "Edit automation" : "New automation"}</h3>
+        {!initial && templates && templates.length ? (
+          <select className="auto-select" value={tpl} onChange={(e) => applyTemplate(e.target.value)} aria-label="Start from template">
+            <option value="">Start from template…</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        ) : null}
+      </div>
+      {f.origin ? (
+        <p className="auto-hint auto-origin" role="status">
+          {f.origin.source === "template" ? "From template: " + f.origin.label : f.origin.source === "automate" ? "Drafted by " + (f.origin.label || "the agent") + " — review before creating." : ""}
+        </p>
+      ) : null}
 
       <label className="auto-field">
         <span>Name</span>
