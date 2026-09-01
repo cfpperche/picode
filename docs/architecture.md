@@ -259,8 +259,10 @@ HTTP API (Go 1.22 method patterns):
   renders with host components; `apiVersion` gates rendering on both
   sides. `POST /api/apps/{id}/action` — `{action, path, args}` →
   `{toast?, view?, path?}`. A view may hint `layout:"split"` and tag
-  blocks with `pane:"list"|"detail"` (list left, detail right; stacked
-  under 880px), name its own blankslate line in `empty`, and decorate
+  blocks with `pane:"list"|"detail"` (list left, detail right, host-side
+  drag-to-resize with the width persisted in `localStorage`; stacked
+  under 880px, where the resize handle doesn't render), name its own
+  blankslate line in `empty`, and decorate
   rows with `meta`, `at` (RFC3339 — the host formats it, relative in the
   row and absolute on hover), `tone` (`info|ok|warn|danger`), `unread`
   and per-action `icon`. A view may also carry `tabs` (`id`/`label`/

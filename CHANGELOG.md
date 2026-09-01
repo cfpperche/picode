@@ -13,6 +13,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Apps host: consistent tab height, and the list pane next to a
+  detail is finally resizable.** Three different "row of tabs" widgets
+  had drifted to three different heights (40 / 36 / 30px) across the
+  window tab strip, Preferences and the Inbox; the two in-content ones
+  (Preferences, Inbox) now both reference the same `--ctl-h` token
+  instead of their own hardcoded numbers. Separately, the apps host's
+  split view (list left, detail right — used by the Inbox and any
+  future split app) was the only list/detail pane anywhere in PiCode
+  with no drag handle; it now has one, matching the file tree, file
+  preview and sidebar sizers already in the app (same 6px handle, same
+  `localStorage` persistence, hidden below the 880px stacked
+  breakpoint where there's nothing to drag).
+
 - **Pi's own "Resume Session" picker, inside the interactive TUI, now
   respects agent ownership too (ADR-0040).** ADR-0039 fixed this for
   PiCode's own chat picker; the same cross-agent bleed was still visible

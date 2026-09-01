@@ -2557,7 +2557,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   border-bottom: 1px solid var(--border);
 }
 .pref-tab {
-  display: inline-flex; align-items: center; height: 36px; padding: 0 12px;
+  display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 12px;
   border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
   background: none; color: var(--text-secondary); text-decoration: none;
   font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
@@ -3269,21 +3269,27 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
    breakpoint the panes stack — the list first, detail under it. */
 .app-split {
   flex: 1; min-height: 0;
-  display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  display: flex;
 }
 .app-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: 10px 12px; }
 .app-pane-list {
+  flex: 0 0 380px;
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 14px;
 }
-.app-pane-detail { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+.app-pane-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+/* Drag handle between list and detail — only rendered (AppSurface.jsx)
+   when the split isn't stacked. Same flex-sibling-with-negative-margin
+   technique as .ft-sizer: a real flex item that costs no layout width. */
+.app-split-sizer { width: 6px; margin: 0 -3px; flex: none; cursor: col-resize; z-index: 6; }
+.app-split-sizer:hover, .app-split.resizing .app-split-sizer { background: var(--accent); opacity: .45; }
 @media (max-width: 880px) {
   /* Stacked: the list on top, the detail under it. Rows stop stretching
      so the timestamp does not drift a screen away from its title. */
-  .app-split { grid-template-columns: minmax(0, 1fr); }
+  .app-split { flex-direction: column; }
   .app-pane { overflow-y: visible; }
   .app-split { overflow-y: auto; }
-  .app-pane-list { border-right: 0; border-bottom: 1px solid var(--border); }
+  .app-pane-list { flex-basis: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .app-pane-list .app-list { max-width: 640px; }
 }
 /* Detail body, measure and the action footer. */
@@ -3320,7 +3326,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .app-tab {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 8px; margin-bottom: -1px;
+  height: var(--ctl-h); padding: 0 8px; margin-bottom: -1px;
   border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   background: none; color: var(--text-secondary);
   font: inherit; font-size: 12px; cursor: pointer;

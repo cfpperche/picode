@@ -16,6 +16,13 @@ const SKELETON_ROWS = 5;
 // re-ask the app on every switch.
 const REVEAL_STALE_MS = 10_000;
 
+// List-pane width for the split layout. Global, not per-app (same choice as
+// FileTreeSurface's TREE_KEY): it's a host preference, not app content, so a
+// second split app inherits the width the reader already tuned.
+const LIST_MIN = 300;
+const LIST_MAX = 640;
+const LIST_KEY = "picode-app-split-w";
+
 // One open app (ADR-0036). The app answers with a primitive tree; this
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
@@ -26,6 +33,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listW, setListW] = useState(() => {
+    const n = parseInt(localStorage.getItem(LIST_KEY) || "", 10);
+    return Number.isFinite(n) ? Math.min(LIST_MAX, Math.max(LIST_MIN, n)) : 380;
+  });
+  const [resizing, setResizing] = useState(false);
+  const [stacked, setStacked] = useState(() => !window.matchMedia("(min-width: 881px)").matches);
   // Latest-wins, never skip: a click can navigate while a focus-triggered
   // refresh is in flight — dropping that load would eat the navigation.
   const seqRef = useRef(0);
@@ -69,6 +82,13 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
     detailRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [path]);
   useEffect(() => {
+    const mql = window.matchMedia("(min-width: 881px)");
+    const sync = () => setStacked(!mql.matches);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+  useEffect(() => {
     // Like the file tree: refresh when the page comes back, no polling. Apps on
     // hidden tabs sit this out — every open tab would re-ask. Their reveal is
     // the refresh.
@@ -86,6 +106,26 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
     if (hidden) return;
     if (Date.now() - lastLoadRef.current > REVEAL_STALE_MS) loadRef.current(pathRef.current);
   }, [hidden]);
+
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = listW;
+    let latest = startW;
+    setResizing(true);
+    const move = (ev) => {
+      latest = Math.min(LIST_MAX, Math.max(LIST_MIN, Math.round(startW + (ev.clientX - startX))));
+      setListW(latest);
+    };
+    const up = () => {
+      setResizing(false);
+      try { localStorage.setItem(LIST_KEY, String(latest)); } catch { /* ignore */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
 
   async function fire(action, args) {
     if (action.confirm) {
@@ -159,11 +199,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
       ) : view === null ? (
         <Skeleton />
       ) : split ? (
-        <div className="app-split">
-          <div className="app-pane app-pane-list">
+        <div className={"app-split" + (resizing ? " resizing" : "")}>
+          <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
             <TabStrip tabs={view.tabs} path={path} onNavigate={setPath} />
             {listBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
           </div>
+          {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
           <div className="app-pane app-pane-detail" ref={detailRef}>
             {detailBlocks.length === 0 ? (
               <Blank icon={manifest ? manifest.icon : ""} label={title} text="Nothing selected — Pick an item on the left." />
