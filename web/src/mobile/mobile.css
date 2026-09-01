@@ -1,48 +1,212 @@
+/* ============ mobile shell (ADR-0044) ============
+   A supervision console, not the desktop shrunk. Scoped under #m-app and
+   loaded after app.css so shared components (conversation, composer,
+   app surface, settings pages) keep their look and only the frame,
+   targets and spacing change. Tokens: 44px targets, 56px rows, safe areas. */
 #m-app {
+  --m-tap: 44px;
+  --m-row: 56px;
+  --m-nav: 56px;
+  --m-pad: 14px;
   display: flex; flex-direction: column;
   height: 100dvh; max-height: 100dvh; overflow: hidden;
   background: var(--bg-base); color: var(--text-primary);
+  font-size: 14px;
 }
+#m-app .btn { min-height: var(--m-tap); font-size: 14px; }
+#m-app .btn-sm { min-height: 36px; font-size: 13px; }
+#m-app input, #m-app select, #m-app textarea { font-size: 16px; } /* no iOS zoom on focus */
+#m-app .dlg-input { font-size: 16px; }
+
+/* ---- frame ---- */
 .m-top {
   flex: none; display: flex; align-items: center; gap: 10px;
-  height: 48px; padding: 0 14px;
+  height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--m-pad) 0;
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
 }
-.m-brand { font-weight: 650; }
+.m-brand { font-weight: 650; font-size: 15px; }
 .m-icon {
-  margin-left: auto; border: 0; background: none; color: var(--text-secondary);
-  font: inherit; font-size: 12px; cursor: pointer;
+  margin-left: auto; width: var(--m-tap); height: var(--m-tap); margin-right: -8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; color: var(--text-secondary); cursor: pointer; border-radius: 10px;
 }
-.m-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.m-icon:active { background: var(--bg-hover); }
+.m-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.m-screen {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px var(--m-pad) 24px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.m-screen-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
+.m-screen-title { font-size: 20px; font-weight: 650; margin: 0; }
+.m-add { display: inline-flex; gap: 4px; }
+.m-pad { padding: 0 var(--m-pad); }
+
+/* ---- bottom tabs ---- */
 .m-nav {
   flex: none; display: grid; grid-template-columns: repeat(4, 1fr);
-  height: 52px; padding-bottom: env(safe-area-inset-bottom);
+  height: calc(var(--m-nav) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
   background: var(--bg-panel); border-top: 1px solid var(--border);
 }
-.m-nav button {
-  border: 0; background: none; color: var(--text-secondary);
-  font: inherit; font-size: 11.5px; cursor: pointer;
+.m-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: var(--m-tap); border: 0; background: none; color: var(--text-secondary);
+  font: inherit; font-size: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.m-nav button.on { color: var(--accent); font-weight: 600; }
-.m-list { list-style: none; padding: 8px; }
-.m-list li { padding: 10px 8px; border-bottom: 1px solid var(--border); }
-.m-list li.on { background: var(--bg-elevated); border-radius: 8px; }
-.m-ws {
-  width: 100%; display: flex; align-items: center; gap: 8px;
+.m-tab.on { color: var(--accent); }
+.m-tab-icon { position: relative; display: inline-flex; }
+.m-tab-label { line-height: 1; }
+.m-badge {
+  position: absolute; top: -6px; left: 12px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- pushed-screen header ---- */
+.m-head {
+  flex: none; display: grid; grid-template-columns: var(--m-tap) minmax(0, 1fr) auto; align-items: center; gap: 6px;
+  min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--m-pad) 0 4px;
+  margin: -12px calc(-1 * var(--m-pad)) 0; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: -12px; z-index: 5;
+}
+.m-head-back, .m-head-spacer {
+  width: var(--m-tap); height: var(--m-tap); display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; color: var(--text-primary); cursor: pointer; border-radius: 10px;
+}
+.m-head-back:active { background: var(--bg-hover); }
+.m-head-title { display: flex; flex-direction: column; min-width: 0; }
+.m-head-name { font-weight: 650; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-head-sub { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-head-right { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---- sections, rows, cards ---- */
+.m-section { display: flex; flex-direction: column; gap: 8px; }
+.m-section-label {
+  margin: 0; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary); display: flex; align-items: baseline; gap: 8px; min-width: 0;
+}
+.m-section-sub { font-weight: 400; text-transform: none; letter-spacing: 0; font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-count { font-weight: 700; color: var(--accent); }
+.m-empty-line { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.m-skel { display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
+.m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.m-row {
+  display: flex; align-items: stretch; min-height: var(--m-row);
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+.m-row-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-row-main:active { background: var(--bg-hover); }
+.m-row-face { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--text-secondary); }
+.m-row-face .ws-face { width: 22px; height: 22px; font-size: 11px; }
+.m-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-row-title { font-size: 14px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-row-sub { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-row-when { flex: none; font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.m-row-chev { flex: none; color: var(--text-secondary); opacity: .6; }
+.m-row.is-unread .m-row-title::before { content: "● "; color: var(--accent); font-size: 9px; vertical-align: 2px; }
+.m-row-act {
+  flex: none; min-width: 60px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-left: 1px solid var(--border); background: none; color: var(--accent); cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600;
+}
+.m-row-act.is-stop { color: var(--text-secondary); font-weight: 500; }
+.m-row-act:active { background: var(--bg-hover); }
+.m-row-act:disabled { opacity: .4; }
+.m-menu .m-row-main { padding-left: 14px; }
+.m-install { padding: 4px 0; }
+.m-install .btn { width: 100%; }
+.m-version { margin: 0; font-size: 11.5px; color: var(--text-secondary); text-align: center; }
+
+/* ---- state chip ---- */
+.m-state {
+  flex: none; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px;
+  border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap;
+}
+.m-state.is-working { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.m-state.is-waiting { color: #fff; background: var(--accent); border-color: var(--accent); }
+.m-state.is-interactive { color: var(--text-primary); }
+
+/* ---- needs-you cards ---- */
+.m-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 12px 14px; }
+.m-need.is-ask { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.m-need-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.m-need-kind { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.m-need-when { font-size: 11.5px; color: var(--text-secondary); }
+.m-need-body {
+  display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 0; margin: 0 0 10px;
   border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
-.m-ws-name { font-weight: 550; flex: 1; }
-.m-ws-mode { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
-.m-ws-actions { display: flex; gap: 6px; margin-top: 8px; }
-.m-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
-.m-dot.run { background: var(--ok); }
-.m-empty { padding: 24px 16px; color: var(--text-secondary); text-align: center; }
-.m-chat, .m-term, .m-more { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.m-chat .conversation { flex: 1; }
-.m-cta { display: flex; flex-direction: column; gap: 10px; padding: 28px 20px; align-items: stretch; }
+.m-need-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.m-need-where { font-size: 12px; color: var(--text-secondary); }
+.m-need-msg {
+  font-size: 13px; color: var(--text-primary); white-space: pre-wrap; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-need-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.m-need-actions > .btn { flex: 1 1 auto; }
+.m-need-actions > .btn-ghost { flex: 0 0 auto; }
+.m-need-options > .btn { flex: 1 1 calc(50% - 8px); }
+.m-need-text { flex-direction: column; align-items: stretch; }
+.m-need-text textarea, .m-need-text select { width: 100%; }
+.m-need-actions .dlg-input { flex: 1 1 100%; }
+
+/* ---- today strip ---- */
+.m-stats { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
+.m-stat { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-stat-value { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-stat-delta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- blank slate ---- */
+.m-blank { margin: auto 0; padding: 32px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.m-blank-title { margin: 0; font-size: 17px; font-weight: 650; }
+.m-blank-sub { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+
+/* ---- agent screen ---- */
+.m-agent { padding-bottom: 0; gap: 0; overflow: hidden; }
+.m-agent-state { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
+.m-seg .dash-range-face { height: 32px; padding: 0 12px; }
+.m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
+.m-chat .chat-main { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
+.m-chat .conversation { padding: 0 var(--m-pad) 120px; }
+.m-chat .composer-wrap { padding: 20px var(--m-pad) calc(10px + env(safe-area-inset-bottom)); }
+.m-chat .m-cta { position: absolute; left: 0; right: 0; top: 0; z-index: 3; padding: 12px var(--m-pad); background: var(--bg-base); border-bottom: 1px solid var(--border); }
+.m-term { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 calc(-1 * var(--m-pad)); }
 .m-term .dock { flex: 1; height: auto !important; min-height: 0; border-top: none; }
 .m-term .dock.maximized { flex: 1; }
-.m-more { overflow: auto; }
+.m-cta { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+
+/* ---- inbox: the host surface fills the screen ---- */
+.m-inbox { padding: 0; gap: 0; overflow: hidden; }
+.m-inbox .app-surface { flex: 1; }
+.m-inbox .app-actions .btn, .m-inbox .app-form .btn { min-height: var(--m-tap); flex: 1 1 auto; }
+.m-inbox .app-actions { gap: 8px; }
+.m-inbox .app-form { max-width: none; }
+.m-inbox .app-field-hint { display: none; }           /* Ctrl+Enter is not a phone gesture */
+.m-inbox .app-pane-detail .app-blank { display: none; } /* stacked: "pick on the left" is the list above */
+.m-inbox .app-head-right { display: none; }             /* Refresh: the reveal/focus refresh already covers it */
+
+/* ---- ask card: the phone has one column, the card takes it ---- */
+#m-app .ask-card, #m-app .ask { width: 100%; max-width: none; box-sizing: border-box; }
+
+/* ---- More sections: desktop pages under a mobile header ---- */
+.m-more-page { padding: 0 0 24px; gap: 0; }
+.m-more-page .m-head { margin: 0; position: sticky; top: 0; }
+.m-more-page .pane-view { display: block; }
+.m-more-page .settings-wrap { padding: 12px var(--m-pad) 24px; max-width: none; }
+.m-more-page .settings-head { display: none; } /* Back lives in .m-head */
+.m-more-page .settings-card { padding: 12px 14px 16px; }
+.m-more-page .prov-row { flex-wrap: wrap; row-gap: 4px; }
+.m-more-page .prov-acc-label { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- add to home screen coach (InstallButton) ---- */
 .a2hs-coach {
   position: fixed; inset: 0; z-index: 80;
   background: color-mix(in srgb, #000 55%, transparent);
@@ -58,3 +222,4 @@
   display: flex; flex-direction: column; align-items: center;
   color: #fff; font-size: 12px; font-weight: 600;
 }
+@media (prefers-reduced-motion: reduce) { #m-app * { transition: none !important; } }

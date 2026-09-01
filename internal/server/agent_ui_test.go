@@ -167,3 +167,64 @@ func waitWSType(t *testing.T, ws *websocket.Conn, typ string, d time.Duration) m
 	t.Fatalf("ws never saw %s", typ)
 	return nil
 }
+
+// TestWorkspaceListCarriesWaitingDialog (ADR-0044): the phone's Now screen
+// reads "who is blocked on a prompt" off GET /api/workspaces — no socket —
+// and answers through /ui. The dialog must appear while the fake pi waits
+// and disappear once answered.
+func TestWorkspaceListCarriesWaitingDialog(t *testing.T) {
+	ts := bashTestServer(t)
+	wk := addWorkspaceWithAgent(t, ts, "Phone", t.TempDir())
+	id := wk.Agent.ID
+	start := postJSON(t, ts, "/api/agents/"+id+"/managed/start", map[string]string{})
+	if start.StatusCode != http.StatusCreated && start.StatusCode != http.StatusOK {
+		t.Fatalf("start = %d", start.StatusCode)
+	}
+	enq := postJSON(t, ts, "/api/agents/"+id+"/tasks", map[string]string{"kind": "prompt", "payload": "ASK:confirm", "source": "user"})
+	if enq.StatusCode != http.StatusCreated && enq.StatusCode != http.StatusOK {
+		t.Fatalf("enqueue = %d", enq.StatusCode)
+	}
+	first := func() agentView {
+		var list []workspaceView
+		if code := getJSON(t, ts, "/api/workspaces", &list); code != http.StatusOK {
+			t.Fatalf("list = %d", code)
+		}
+		for _, w := range list {
+			if w.ID == wk.ID && len(w.Agents) > 0 {
+				return w.Agents[0]
+			}
+		}
+		t.Fatalf("workspace %s missing from %+v", wk.ID, list)
+		return agentView{}
+	}
+	var av agentView
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		av = first()
+		if av.Waiting {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !av.Waiting || av.Dialog == nil || av.Dialog.ID != "ui-ask" || av.Dialog.Method != "confirm" {
+		t.Fatalf("waiting view = %+v (dialog %+v)", av, av.Dialog)
+	}
+	if av.Mode != "managed" || !av.Running {
+		t.Fatalf("mode = %q running = %v", av.Mode, av.Running)
+	}
+	yes := postJSON(t, ts, "/api/agents/"+id+"/ui", map[string]any{"id": "ui-ask", "confirmed": true})
+	if yes.StatusCode != http.StatusOK {
+		t.Fatalf("yes = %d", yes.StatusCode)
+	}
+	deadline = time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		av = first()
+		if !av.Waiting {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if av.Waiting || av.Dialog != nil {
+		t.Fatalf("answered view still waiting: %+v", av)
+	}
+}

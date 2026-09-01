@@ -70,14 +70,21 @@ with `runas`), never by a manifest: the same executable is also the tray, and a
 ## Application routes
 
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
-picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`.
-Shared code lives in `web/src/lib`. Rotate does not remount (would drop WS).
-The mobile shell is a PWA (`manifest.webmanifest`, `sw.js`, Apple
+picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`
+(sticky in `localStorage`). Rotating never remounts — a remount would drop
+agent websockets. The mobile shell (ADR-0044) is a **supervision console**,
+not the desktop shrunk: four tabs — `#/` **Now** (needs-you queue, running
+agents, today's spend, recent results), `#/inbox[/id]` (the ADR-0037 app
+through `AppSurface`), `#/agents`, `#/more[/section]` — plus the pushed
+`#/agent/<id>` screen (shared `Conversation` + `Composer`, Chat | Terminal
+for TUI agents). Desktop hashes map to the closest mobile section. The
+fleet poll (`GET /api/workspaces`, `GET /api/agents?free=1`) carries each
+agent's `streaming` / `waiting` / `dialog`, so the phone answers a prompt
+from the home through `POST /api/agents/{id}/ui` without a socket; only
+the agent screen opens `/ws/agent`, driven by the pure reducer
+`web/src/lib/agentEvents.js`.
+The mobile shell is a PWA (`manifest.json`, `sw.js`, Apple
 `apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
-If `GET /api/health` fails, the shell shows a Reconnecting overlay and
-reloads when the server is back. Fast restarts (shorter than the 2.5s
-poll) are caught by comparing the health `bootId` — a new id reloads the
-tab; unexpected WebSocket closes kick an immediate check.
 
 Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
 **Settings** is pi JSON for the selected agent. Auth, MCP, packages

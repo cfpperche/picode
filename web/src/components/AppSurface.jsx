@@ -28,12 +28,15 @@ const LIST_KEY = "picode-app-split-w";
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
-export default function AppSurface({ appId, hidden, manifest, onClose }) {
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
   const tabsName = useId();
-  const [path, setPath] = useState("");
+  // initialPath (ADR-0044): a deep link — the phone's #/inbox/<id> — lands
+  // on that item instead of the list. Later changes to it navigate too.
+  const [path, setPath] = useState(initialPath || "");
+  useEffect(() => { if (initialPath != null) setPath(initialPath); }, [initialPath]);
   const [view, setView] = useState(null); // normalized tree
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");

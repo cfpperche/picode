@@ -13,6 +13,28 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Mobile shell v2: a supervision console (ADR-0044).** The phone no
+  longer gets a shrunken desktop. **Now** opens with what needs you —
+  agents blocked on a permission or question, answerable in place with
+  the agent's own options, then blocking inbox items — followed by who is
+  running, today's spend, and the last finished runs. **Inbox** is the
+  same Inbox app as the desktop, stacked for a phone. **Agents** lists
+  every agent across workspaces with Start/Stop and a "+" sheet that
+  creates a workspace, a free agent, an agent in a workspace, or adopts a
+  pi session. **More** mounts Providers, Settings, Preferences, MCP,
+  Packages, Devices and System with real data. Tapping an agent pushes
+  its screen: state, model, cost and context %, the conversation with the
+  waiting card (a permission prompt can finally be answered from a
+  phone), the composer with prompt/steer/follow-up and dictation, Stop to
+  abort a turn, Start/Stop for the agent, and a Chat | Terminal segment
+  for agents living in a tmux TUI. Hash routes make Back work and let a
+  QR or a desktop link open the same agent. The workspace/agent lists now
+  carry `streaming`, `waiting` and the open `dialog` per agent.
+
+### Fixed
+
+- **Mobile: `!!` in the composer threw instead of explaining.** The old
+  shell called a toast helper it never imported.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or
   `picode-desktop extension-install` when Chrome is on Windows and PiCode

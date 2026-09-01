@@ -27,6 +27,7 @@ export default defineConfig({
           { text: "MCP", link: "/guide/mcp" },
           { text: "llama.cpp", link: "/guide/llama" },
           { text: "Chrome extension", link: "/guide/browser-extension" },
+          { text: "On your phone", link: "/guide/mobile" },
         ],
       },
       {

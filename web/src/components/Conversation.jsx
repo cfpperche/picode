@@ -712,14 +712,9 @@ function DiffHunks({ hunks, path, agentId, onOpenFile }) {
   );
 }
 
-export function summarizeArgs(args) {
-  if (!args) return "";
-  if (typeof args.query === "string") return args.query;
-  if (typeof args.command === "string") return args.command;
-  if (typeof args.path === "string") return args.path;
-  const s = JSON.stringify(args);
-  return s.length > 2 ? s : "";
-}
+// summarizeArgs lives in lib/toolArgs.js (plain JS for the reducer's node
+// tests); re-exported here so existing imports keep working.
+export { summarizeArgs } from "../lib/toolArgs.js";
 
 export default memo(Conversation);
 export { statLabel };

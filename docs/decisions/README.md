@@ -48,3 +48,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0041](0041-session-observability-dashboard.md) | Session observability dashboard (spend/activity/fleet) replaces the no-tabs-open home | accepted, amended by 0042 |
 | [0042](0042-dashboard-v2-breakdowns.md) | Dashboard v2 — model/workspace/token/tool/reliability breakdowns, live refresh, fingerprint cache | accepted, amends 0041 |
 | [0043](0043-browser-extension-native-host.md) | Chrome extension is a native-messaging client of existing agents | accepted |
+| [0044](0044-mobile-supervision-shell.md) | Mobile shell is a supervision console (Now / Inbox / Agents / More + agent screen), not desktop parity | accepted |

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -29,10 +30,29 @@ type agentView struct {
 	Running bool          `json:"running"`
 	Mode    string        `json:"mode"` // stopped | interactive | managed (ADR-0006)
 	Git     *gitinfo.Info `json:"git,omitempty"`
+	// Live run state from the managed runtime's snapshot (ADR-0044): the
+	// mobile Now screen learns who is streaming or blocked on a dialog
+	// from the workspace list alone, with no socket per agent. Dialog is
+	// the open prompt itself, so the phone can answer it through
+	// POST /api/agents/{id}/ui without ever subscribing.
+	Streaming bool          `json:"streaming"`
+	Waiting   bool          `json:"waiting"`
+	Dialog    *rpc.UIDialog `json:"dialog,omitempty"`
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
 	return agentView{Agent: a, Running: running}
+}
+
+// liveState is the runtime snapshot for a managed agent; zero for anything
+// else (stopped, or in a tmux TUI, which has no event channel).
+func (deps Deps) liveState(agentID string) (streaming, waiting bool, dialog *rpc.UIDialog) {
+	ma := deps.Runtime.Get(agentID)
+	if ma == nil {
+		return false, false, nil
+	}
+	s := ma.Snapshot()
+	return s.Streaming, s.Waiting, s.Dialog
 }
 
 func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
@@ -73,8 +93,9 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// directory: an agent with a workPath may sit in a different repo (or
 		// branch, via a worktree) than the workspace it belongs to, and the
 		// sidebar line is about the agent, not its container.
+		st, wt, dl := deps.liveState(a.ID)
 		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
-			Git: gitinfo.Inspect(store.AgentCwd(w, a))})
+			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl})
 	}
 	var first *agentView
 	if len(views) > 0 {
