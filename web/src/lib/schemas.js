@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { looksLikeRepoUrl } from "./cloneUrl.js";
+import { cronError } from "./cron.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -114,3 +115,32 @@ export function pairsToMap(pairs) {
   }
   return out;
 }
+
+// Automations editor (ADR-0044). Numbers arrive as strings from inputs;
+// the server re-validates everything.
+const numField = z.string().trim();
+
+export const automationSchema = z.object({
+  name: required("Name").max(60, "Name is longer than 60 characters."),
+  action: z.enum(["start", "message"]),
+  targetAgentId: z.string().trim(),
+  prompt: required("Prompt"),
+  scheduleOn: z.boolean(),
+  cron: z.string().trim(),
+  webhook: z.boolean(),
+  maxCostUsd: numField,
+  maxRuns: numField,
+  maxRunsWindowMin: numField,
+}).superRefine((v, ctx) => {
+  const issue = (message) => ctx.addIssue({ code: "custom", message });
+  if (v.action === "message" && !v.targetAgentId) issue("Pick the agent to message.");
+  if (!v.scheduleOn && !v.webhook) issue("Turn on a schedule or a webhook.");
+  if (v.scheduleOn) {
+    const err = cronError(v.cron);
+    if (err) issue(err);
+  }
+  if (v.maxCostUsd !== "" && !(Number(v.maxCostUsd) > 0)) issue("Max cost must be a number above zero.");
+  const runs = v.maxRuns === "" ? 0 : Number(v.maxRuns);
+  if (v.maxRuns !== "" && !(Number.isInteger(runs) && runs >= 1)) issue("Max runs must be a whole number of at least 1.");
+  if (runs > 0 && !(Number(v.maxRunsWindowMin) >= 1)) issue("Pick the window for max runs.");
+});

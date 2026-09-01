@@ -55,6 +55,7 @@ function buildActions(workspaces, apps) {
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
     { id: "packages", label: "Packages", group: "app", kind: "packages" },
     { id: "devices", label: "Devices", group: "app", kind: "devices" },
+    { id: "automations", label: "Automations", group: "app", kind: "automations" },
   ];
   for (const a of apps || []) {
     out.push({ id: "app-" + a.id, label: "Open " + a.name, group: "apps", kind: "app", appId: a.id });

@@ -10,6 +10,7 @@ export const ROUTES = {
   devices: "/devices",
   pins: "/pins",
   termset: "/termset",
+  automations: "/automations",
   sessions: "/sessions/:id",
 };
 
@@ -24,6 +25,7 @@ export function parseRoute(hash) {
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
+  if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "sessions";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
@@ -282,4 +284,18 @@ export function appRoute(hash) {
   const m = /^\/app\/([^/]+)$/.exec(h);
   if (!m) return null;
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+// Automations (ADR-0044): "#/automations" is the list, "#/automations/new"
+// the editor, "#/automations/<id>" one automation. null = not ours.
+export function automationRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/automations(?:\/([^/]+))?$/.exec(h);
+  if (!m) return null;
+  if (!m[1]) return "";
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function automationsHash(sub) {
+  return sub ? "#/automations/" + encodeURIComponent(sub) : "#/automations";
 }

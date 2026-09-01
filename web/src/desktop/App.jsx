@@ -28,6 +28,7 @@ import Providers from "../components/Providers.jsx";
 import Mcps from "../components/Mcps.jsx";
 import Packages from "../components/Packages.jsx";
 import Devices from "../components/Devices.jsx";
+import Automations from "../components/Automations.jsx";
 import Palette from "../components/Palette.jsx";
 import ContextMenu from "../components/ContextMenu.jsx";
 import SessionTree from "../components/SessionTree.jsx";
@@ -2309,6 +2310,7 @@ export default function App() {
         />
         <Packages hidden={route !== "packages"} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
+        <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
@@ -2319,7 +2321,7 @@ export default function App() {
         apps={apps}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
