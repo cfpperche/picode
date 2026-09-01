@@ -478,6 +478,13 @@ func sourceLabel(h Host, it store.InboxItem) string {
 			return "terminal " + it.SourceID
 		}
 		return "terminal"
+	case store.InboxFromAutomation:
+		if h.Store != nil {
+			if a, err := h.Store.GetAutomation(it.SourceID); err == nil && a.Name != "" {
+				return a.Name
+			}
+		}
+		return "automation"
 	}
 	return "PiCode"
 }

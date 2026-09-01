@@ -55,6 +55,10 @@ const (
 	InboxFromAgent    = "agent"
 	InboxFromTerminal = "terminal"
 	InboxFromSystem   = "system"
+	// InboxFromAutomation items are filed by the automations engine
+	// (ADR-0044); SourceID is the automation id. Nobody replies to them,
+	// so RespondAndForward never forwards for this kind.
+	InboxFromAutomation = "automation"
 )
 
 const (
@@ -150,9 +154,9 @@ func normalizeInboxItem(p InboxItemParams) (InboxItemParams, error) {
 		return p, fmt.Errorf("kind must be fyi, question, approval or result")
 	}
 	switch p.SourceKind {
-	case InboxFromAgent, InboxFromTerminal, InboxFromSystem:
+	case InboxFromAgent, InboxFromTerminal, InboxFromSystem, InboxFromAutomation:
 	default:
-		return p, fmt.Errorf("sourceKind must be agent, terminal or system")
+		return p, fmt.Errorf("sourceKind must be agent, terminal, system or automation")
 	}
 	p.Reason = strings.TrimSpace(p.Reason)
 	if p.Reason == "" {
