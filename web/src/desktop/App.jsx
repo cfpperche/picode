@@ -1975,7 +1975,7 @@ export default function App() {
             </div>
           </div>
 
-          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} /> : null}
+          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} /> : null}
 
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);

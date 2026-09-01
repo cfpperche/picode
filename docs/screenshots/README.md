@@ -21,3 +21,6 @@ Working captures stay in `var/screenshots/`. Curated MCP: empty/blocked, Use fro
 Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,
 `usage-openrouter.png`. `usage-loading.png` is V1 skeleton.
+Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
+first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
+reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).

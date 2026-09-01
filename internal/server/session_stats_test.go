@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/session"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 func TestNormalizeRange(t *testing.T) {
@@ -106,9 +107,10 @@ func TestHandleSessionStatsEmptyState(t *testing.T) {
 // it seeds a session whose message content would show up as a Preview
 // string on session.Summary, then asserts the /api/sessions/stats response
 // never carries a "preview" key or the message text anywhere in the body.
-// This is a privacy property of the endpoint (aggregate numbers only, no
-// per-session content), not just a shape check — it must keep failing if
-// someone later widens WindowStats to embed a raw session list.
+// This is a privacy property of the endpoint (numbers plus session
+// identity — name, cwd, path — but never message content), not just a
+// shape check — it must keep failing if someone later widens WindowStats
+// to embed session.Summary or raw message rows.
 func TestHandleSessionStatsNoPreviewLeak(t *testing.T) {
 	root := withTestSessionRoot(t)
 	dir := filepath.Join(root, "--tmp--")
@@ -130,10 +132,124 @@ func TestHandleSessionStatsNoPreviewLeak(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
 	got := w.Body.String()
-	if strings.Contains(strings.ToLower(got), "preview") {
+	if strings.Contains(strings.ToLower(got), `"preview"`) {
 		t.Fatalf("response leaks a preview field: %s", got)
 	}
 	if strings.Contains(got, secret) {
 		t.Fatalf("response leaks raw message content: %s", got)
+	}
+}
+
+// TestHandleSessionStatsCacheServesUntilTreeChanges: the second request
+// must not re-scan an unchanged tree, and an appended message must be
+// visible on the very next request (no TTL staleness).
+func TestHandleSessionStatsCacheServesUntilTreeChanges(t *testing.T) {
+	root := withTestSessionRoot(t)
+	sessionStats.reset()
+	t.Cleanup(sessionStats.reset)
+	dir := filepath.Join(root, "--tmp--")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, "s.jsonl")
+	line := `{"type":"message","message":{"role":"assistant","provider":"xai","model":"grok","usage":{"cost":{"total":0.5}}}}` + "\n"
+	if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	call := func() sessionStatsView {
+		r := httptest.NewRequest(http.MethodGet, "/api/sessions/stats?range=all", nil)
+		w := httptest.NewRecorder()
+		handleSessionStats(Deps{})(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+		}
+		var got sessionStatsView
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := call(); got.Current.Cost != 0.5 {
+		t.Fatalf("first = %+v", got.Current)
+	}
+	key := root + "|all"
+	sessionStats.mu.Lock()
+	_, cached := sessionStats.entries[key]
+	sessionStats.mu.Unlock()
+	if !cached {
+		t.Fatal("expected the first response to be cached")
+	}
+	// Prove the cache is what answers: poison the entry, ask again.
+	sessionStats.mu.Lock()
+	e := sessionStats.entries[key]
+	e.stats.Current.Cost = 99
+	sessionStats.entries[key] = e
+	sessionStats.mu.Unlock()
+	if got := call(); got.Current.Cost != 99 {
+		t.Fatalf("second call did not come from the cache: %+v", got.Current)
+	}
+	// Append → fingerprint changes → real rescan.
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(line)
+	f.Close()
+	if got := call(); got.Current.Cost != 1 {
+		t.Fatalf("after append = %+v, want a fresh scan (cost 1)", got.Current)
+	}
+}
+
+func TestHandleSessionStatsLabelsWorkspaces(t *testing.T) {
+	root := withTestSessionRoot(t)
+	sessionStats.reset()
+	t.Cleanup(sessionStats.reset)
+	wsPath := t.TempDir()
+	dir := filepath.Join(root, "--tmp--")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"type":"session","id":"s","cwd":"` + wsPath + `"}` + "\n" +
+		`{"type":"session_info","name":"named"}` + "\n" +
+		`{"type":"message","message":{"role":"assistant","provider":"xai","model":"grok","usage":{"cost":{"total":0.5}}}}` + "\n" +
+		`{"type":"session","id":"o","cwd":"/nowhere/else"}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "s.jsonl"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	other := `{"type":"session","id":"o","cwd":"/nowhere/else"}` + "\n" +
+		`{"type":"message","message":{"role":"assistant","usage":{"cost":{"total":0.25}}}}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "o.jsonl"), []byte(other), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	ws, err := st.AddWorkspace("Proj", wsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/sessions/stats?range=all", nil)
+	w := httptest.NewRecorder()
+	handleSessionStats(Deps{Store: st})(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var got sessionStatsView
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.ByWorkspace) != 2 || got.ByWorkspace[0].WorkspaceID != ws.ID || got.ByWorkspace[0].Workspace != "Proj" {
+		t.Fatalf("byWorkspace = %+v", got.ByWorkspace)
+	}
+	if got.ByWorkspace[1].WorkspaceID != "" || got.ByWorkspace[1].Cwd != "/nowhere/else" {
+		t.Fatalf("unclaimed folder should keep only its cwd: %+v", got.ByWorkspace[1])
+	}
+	if len(got.TopSessions) != 2 || got.TopSessions[0].Workspace != "Proj" || got.TopSessions[0].Name != "named" {
+		t.Fatalf("topSessions = %+v", got.TopSessions)
+	}
+	if strings.Contains(strings.ToLower(w.Body.String()), `"preview"`) {
+		t.Fatalf("response leaks a preview field: %s", w.Body.String())
 	}
 }

@@ -2,9 +2,13 @@ import { sparklinePath } from "../lib/sparkline.js";
 
 // One KPI tile: label, a pre-formatted value, an optional neutral delta
 // chip, and an optional sparkline. Dumb by design — DashboardView does all
-// the formatting/period math, this just lays it out.
-export default function StatTile({ label, value, delta, compareLabel, points, loading }) {
+// the formatting/period math, this just lays it out. `deltaText` replaces
+// the percent chip with a preformatted one (e.g. "+3" sessions) and
+// `children` render under the value for tiles that carry a strip instead
+// of a comparison (Fleet).
+export default function StatTile({ label, value, delta, deltaText, compareLabel, points, loading, children }) {
   const spark = points && points.length >= 2 ? sparklinePath(points, { width: 72, height: 22, pad: 2 }) : null;
+  const hasDelta = deltaText != null || delta != null;
 
   return (
     <div className="stat-tile">
@@ -25,14 +29,15 @@ export default function StatTile({ label, value, delta, compareLabel, points, lo
       ) : (
         <>
           <div className="stat-tile-value">{value}</div>
-          {delta != null ? (
+          {hasDelta ? (
             <div className="stat-tile-delta">
-              <span>{delta >= 0 ? "↑" : "↓"} {Math.abs(delta).toFixed(0)}%</span>
+              <span>{deltaText != null ? deltaText : (delta >= 0 ? "↑" : "↓") + " " + Math.abs(delta).toFixed(0) + "%"}</span>
               {compareLabel ? <span className="stat-tile-compare"> {compareLabel}</span> : null}
             </div>
           ) : compareLabel ? (
             <div className="stat-tile-delta stat-tile-delta-muted">{compareLabel}</div>
           ) : null}
+          {children}
         </>
       )}
     </div>

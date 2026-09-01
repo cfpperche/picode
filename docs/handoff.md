@@ -49,6 +49,7 @@ What exists:
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
+- **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 
 ## In flight
 
@@ -220,6 +221,34 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-01** — **Dashboard v2 (ADR-0042)**, on branch
+  `feat/dashboard-v2`. Owner asked for a benchmark sweep and a v2 plan
+  after dogfooding v1; the plan was approved as written (four tiles,
+  daily chart, six breakdown panels, fingerprint cache, live refresh,
+  three refusals). Web research added ccusage, the Claude Code OTel
+  metrics + Grafana 25052, the Claude Code Analytics API,
+  pi-agent-dashboard, nicknisi/fleet and the 5of10 design rules to the
+  study. Backend: `stats.go` reads the assistant message's inline
+  `provider`/`model`/`usage`/`stopReason`/`toolCall`s in the same pass,
+  the inline provider becomes the running truth for following lines
+  (v1's `$6.15` "unknown" bucket was exactly this), `session.Fingerprint`
+  + a per-range cache in `session_stats.go` (0.4 ms stat sweep vs 0.9 s
+  cold all-time scan on the real 175 MB tree). Frontend: `RankedBars`
+  generalises v1's `SpendByProvider`, `lib/barchart.js` + `DailyChart`,
+  `TokenBar`, `TopSessions`, `StatTile` gained `deltaText`/`children`,
+  `fleetStats` splits working/waiting/idle from the ids App already
+  tracks for the sidebar spinner. Dogfooded on a scratch instance
+  (`:8471`, copied sessions tree, two seeded workspaces): first capture
+  showed a stretched "Spend by model" well beside a 25-row workspace
+  list, a truncated "not a wor…" sub on every folder row, raw
+  `--home-goat-…` fallback names, a `$0.00 unknown/unknown` model row
+  and a squashed "where" column on top sessions — fixed with
+  `align-items:start`, a six-row cap + folded tail, `folderLabel`,
+  dropping the zero-cost unknown row, and a fixed-width column plus
+  `lastAt` from the backend. Light + dark + 600 px + empty period all
+  captured and read; `overlayAudit` ok. Curated:
+  `docs/screenshots/dashboard-v2-{7d-light,breakdowns-dark,empty}.png`.
 
 - **2026-09-01** — **Logo opens the dashboard from anywhere**, on branch
   `feat/dashboard-logo-link`. Owner dogfooded ADR-0041's dashboard for

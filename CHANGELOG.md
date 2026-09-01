@@ -13,6 +13,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Dashboard v2: breakdowns, live refresh (ADR-0042).** The home
+  dashboard now answers the questions v1 left open: which **model** and
+  which **workspace** the money went to, how the period's **tokens**
+  split into input / output / cache read / cache write (with the cache
+  hit rate), which **tools** ran most, how many turns **errored or were
+  aborted**, and the five costliest **sessions** (click one to open that
+  workspace's sessions page). A **Sessions** tile joins Spend and
+  Activity; the **Fleet** tile reads "N working · N waiting · N idle"
+  with the running agents listed. A daily bar chart with a Spend /
+  Messages / Turns toggle sits between the tiles and the breakdowns. The
+  dashboard refreshes itself every minute while it is on screen (paused
+  in a hidden tab) and has a manual refresh button; the server caches
+  the aggregation behind a stat-only fingerprint of the sessions tree,
+  so polling an unchanged tree is free and a new message shows on the
+  next request. The provider attribution now reads the message's own
+  `provider`, so the `unknown` bucket disappears from real data.
 - **PiCode logo opens the spend/activity dashboard from anywhere.** The
   dashboard (ADR-0041) only ever showed with zero tabs open — closing
   every agent/terminal just to check spend wasn't a real workflow. The

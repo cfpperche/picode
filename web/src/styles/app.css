@@ -1010,16 +1010,22 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .empty-card h2 { font-size: 18px; margin-bottom: 6px; }
 .empty-card p { color: var(--text-secondary); margin-bottom: 18px; }
 
-/* ============ dashboard (session spend/activity/fleet) ============ */
+/* ============ dashboard (session spend/activity/sessions/fleet + breakdowns) ============ */
 .dashboard-view {
   flex: 1; overflow-y: auto; padding: 24px 28px 40px;
   max-width: 1040px; width: 100%; margin: 0 auto;
 }
 .dash-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.dash-asof-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .dash-asof { font-size: 11.5px; color: var(--text-secondary); }
+.dash-refresh { width: 26px; height: 26px; }
+.dash-refresh.is-busy svg { animation: dash-spin 900ms linear infinite; }
+@keyframes dash-spin { to { transform: rotate(360deg); } }
+.dash-body { transition: opacity var(--motion-med) var(--ease-out); }
 .dash-refresh-err {
   margin: 0 0 12px; font-size: 12px; color: var(--text-secondary);
 }
+.dash-empty { margin: 4px 0 0; font-size: 12px; color: var(--text-secondary); }
 .btn-link {
   background: none; border: none; padding: 0; color: var(--accent);
   font: inherit; cursor: pointer; text-decoration: underline;
@@ -1045,15 +1051,17 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dash-range-opt:hover .dash-range-face { background: var(--bg-hover); color: var(--text-primary); }
 .dash-range-opt input:checked + .dash-range-face { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .dash-range-opt input:focus-visible + .dash-range-face { outline: 2px solid var(--accent); outline-offset: -2px; }
-@media (prefers-reduced-motion: reduce) { .dash-range-face { transition: none; } }
+/* The chart's metric toggle is the same control at row height. */
+.dash-metric .dash-range-face { height: 26px; padding: 0 10px; font-size: 11.5px; }
+@media (prefers-reduced-motion: reduce) { .dash-range-face { transition: none; } .dash-refresh.is-busy svg { animation: none; } }
 
 .dash-kpi-row {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
-  margin-bottom: 24px; transition: opacity var(--motion-med) var(--ease-out);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+  margin-bottom: 12px;
 }
 .stat-tile {
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
-  padding: 14px 16px;
+  padding: 14px 16px; min-width: 0;
 }
 .stat-tile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .stat-tile-label { font-size: 11.5px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; }
@@ -1061,26 +1069,108 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .stat-tile-spark-hist { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; opacity: 0.55; }
 .stat-tile-spark-cur { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .stat-tile-spark-dot { fill: var(--accent); }
-.stat-tile-value { font-size: 22px; font-weight: 600; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.stat-tile-value { font-size: 22px; font-weight: 600; margin-top: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-tile-delta { margin-top: 4px; font-size: 11.5px; color: var(--text-secondary); }
 .stat-tile-delta-muted { opacity: 0.8; }
 .stat-tile-compare { color: var(--text-secondary); }
 .stat-tile-skel { display: flex; flex-direction: column; margin-top: 12px; }
 
-.dashboard-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; }
+/* Fleet tile: the state strip replaces the delta chip; zeros recede so a
+   non-zero state reads at a glance, and "waiting" is the one that needs
+   the user, so it alone takes the accent. */
+.fleet-strip { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 0 8px; font-size: 11.5px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fleet-strip .is-zero { color: var(--text-secondary); opacity: .7; }
+.fleet-strip .is-waiting { color: var(--accent); font-weight: 600; }
+.fleet-agents { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; }
+.fleet-agent { display: flex; gap: 6px; min-width: 0; align-items: baseline; }
+.fleet-agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-agent-model { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-agent.is-working .fleet-agent-name::before { content: "◉ "; color: var(--accent); }
+.fleet-agent.is-waiting .fleet-agent-name::before { content: "? "; color: var(--accent); }
+.fleet-agent.is-idle .fleet-agent-name::before { content: "● "; color: var(--text-secondary); }
+.fleet-agent-more { color: var(--text-secondary); }
+
+.dashboard-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; min-width: 0; }
+.dashboard-section + .dashboard-section, .dashboard-section + .dash-grid-2 { margin-top: 12px; }
+/* align-items: start — a panel hugs its rows; a short ranking beside a
+   long one must not stretch into an empty well. */
+.dash-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
 .dash-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
   color: var(--text-secondary); margin-bottom: 10px;
 }
+
+/* Daily chart: one bar per calendar day; the current (last) day is the
+   accent like the sparkline's head segment, history is the muted tone. */
+.dash-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.dash-chart-head .dash-section-label { margin-bottom: 0; }
+.dash-chart-svg { display: block; width: 100%; height: 72px; }
+.dash-chart-bar { fill: var(--text-secondary); opacity: .55; transition: opacity var(--motion-fast) var(--ease-out); }
+.dash-chart-bar.is-last { fill: var(--accent); opacity: 1; }
+.dash-chart-bar:hover { opacity: 1; }
+.dash-chart-axis { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* Ranked bars (model / workspace / tools). */
 .spend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.spend-row { display: grid; grid-template-columns: 96px 1fr 64px; align-items: center; gap: 10px; font-size: 12.5px; }
-.spend-name { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spend-row { display: grid; grid-template-columns: minmax(96px, 150px) 1fr 68px; align-items: center; gap: 10px; font-size: 12.5px; }
+.spend-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-primary); }
+.spend-face { display: inline-flex; flex: none; }
+.spend-face .ws-face { width: 14px; height: 14px; font-size: 9px; }
+.spend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spend-sub { color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 45%; }
+.spend-row.is-muted .spend-name, .spend-row.is-muted .spend-amount { color: var(--text-secondary); }
+.spend-row.is-muted .spend-bar-fill { opacity: .45; }
 .spend-bar-track { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
-.spend-bar-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
-.spend-amount { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.spend-bar-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width var(--motion-med) var(--ease-out); }
+.spend-amount { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; }
 .spend-skel { display: flex; flex-direction: column; gap: 8px; }
+
+/* Tokens: four tones of the one accent, parts of one whole. */
+.token-bar-total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.token-bar-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.token-bar-hit { font-size: 11.5px; color: var(--text-secondary); }
+.token-bar-track { display: flex; height: 8px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.token-seg { display: block; height: 100%; }
+.token-seg-input { background: var(--accent); }
+.token-seg-output { background: color-mix(in srgb, var(--accent) 70%, var(--bg-panel)); }
+.token-seg-cacheRead { background: color-mix(in srgb, var(--accent) 45%, var(--bg-panel)); }
+.token-seg-cacheWrite { background: color-mix(in srgb, var(--accent) 25%, var(--bg-panel)); }
+.token-rows { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+.token-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.token-row-muted { color: var(--text-secondary); grid-column: 1 / -1; }
+.token-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--border); }
+.token-row-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.token-row-value { font-variant-numeric: tabular-nums; }
+
+/* Reliability facts: label over number, two columns, no chart. */
+.dash-facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+.dash-facts dt { font-size: 11px; color: var(--text-secondary); }
+.dash-facts dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dash-fact-sub { font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+
+/* Top sessions: rows are buttons into the sessions page. */
+.top-sessions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.top-session-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 132px) 64px; align-items: center; gap: 10px;
+  width: 100%; padding: 5px 8px; margin: 0 -8px; box-sizing: content-box;
+  background: none; border: 0; border-radius: var(--radius-ctl); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+.top-session-row:hover { background: var(--bg-hover); }
+.top-session-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.top-session-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-session-where { color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.top-session-cost { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+@media (max-width: 900px) {
+  .dash-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 640px) {
-  .dash-kpi-row { grid-template-columns: 1fr; }
+  .dashboard-view { padding: 16px 14px 32px; }
+  .dash-kpi-row, .dash-grid-2 { grid-template-columns: 1fr; }
+  .dash-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-head { flex-wrap: wrap; }
 }
 
 /* ============ agent tabs (IDE-style, top of main) ============ */

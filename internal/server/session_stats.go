@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cfpperche/picode/internal/session"
@@ -13,17 +14,106 @@ type sessionStatsView struct {
 	Range string `json:"range"` // the clamped value actually used, not the raw query
 }
 
+// statsCache memoises one WindowStats per (root, range). An entry is served
+// only while the sessions tree's Fingerprint (count/size/newest mtime — a
+// stat sweep, no file opened) and the window boundaries still match, so a
+// freshly appended message invalidates it on the very next request and a
+// dashboard sitting on its 60s poll never re-parses an unchanged tree.
+// Bounded by the four range values × one root; no eviction needed.
+type statsCache struct {
+	mu      sync.Mutex
+	entries map[string]statsEntry
+}
+
+type statsEntry struct {
+	fp       string
+	from, to time.Time
+	stats    session.WindowStats
+}
+
+var sessionStats statsCache
+
+func (c *statsCache) get(key, fp string, from, to time.Time) (session.WindowStats, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, ok := c.entries[key]
+	if !ok || e.fp != fp || !e.from.Equal(from) || !e.to.Equal(to) {
+		return session.WindowStats{}, false
+	}
+	return e.stats, true
+}
+
+func (c *statsCache) put(key, fp string, from, to time.Time, st session.WindowStats) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.entries == nil {
+		c.entries = map[string]statsEntry{}
+	}
+	c.entries[key] = statsEntry{fp: fp, from: from, to: to, stats: st}
+}
+
+func (c *statsCache) reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = nil
+}
+
 func handleSessionStats(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rng := normalizeRange(r.URL.Query().Get("range"))
 		from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
-		st, err := session.StatsForRange(from, to, priorFrom, time.Local)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
+		root := session.Root()
+		fp := session.Fingerprint(root)
+		key := root + "|" + rng
+		st, hit := sessionStats.get(key, fp, from, to)
+		if !hit {
+			var err error
+			st, err = session.StatsRoot(root, from, to, priorFrom, time.Local)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			sessionStats.put(key, fp, from, to, st)
 		}
+		st = labelWorkspaces(deps, st)
 		writeJSON(w, http.StatusOK, sessionStatsView{WindowStats: st, Range: rng})
 	}
+}
+
+// labelWorkspaces resolves each cwd bucket to the PiCode workspace that owns
+// that folder, the same canonDir match handleAllSessions uses. Folders no
+// workspace claims keep only their cwd. The session package never sees the
+// store, so this stays a server concern; the slices are copied so the
+// cached WindowStats is never mutated.
+func labelWorkspaces(deps Deps, st session.WindowStats) session.WindowStats {
+	if deps.Store == nil {
+		return st
+	}
+	wss, err := deps.Store.ListWorkspaces()
+	if err != nil || len(wss) == 0 {
+		return st
+	}
+	byDir := map[string]struct{ id, name string }{}
+	for _, wk := range wss {
+		byDir[canonDir(wk.Path)] = struct{ id, name string }{wk.ID, wk.Name}
+	}
+	ws := make([]session.WorkspaceBucket, len(st.ByWorkspace))
+	for i, b := range st.ByWorkspace {
+		if w, ok := byDir[canonDir(b.Cwd)]; ok {
+			b.WorkspaceID, b.Workspace = w.id, w.name
+		}
+		ws[i] = b
+	}
+	top := make([]session.SessionSpend, len(st.TopSessions))
+	for i, s := range st.TopSessions {
+		if w, ok := byDir[canonDir(s.Cwd)]; ok {
+			s.WorkspaceID, s.Workspace = w.id, w.name
+		}
+		top[i] = s
+	}
+	st.ByWorkspace = ws
+	st.TopSessions = top
+	return st
 }
 
 // normalizeRange clamps to the 4 supported values, defaulting rather than
