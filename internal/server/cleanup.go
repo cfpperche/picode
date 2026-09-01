@@ -24,6 +24,12 @@ type cleanupPreview struct {
 	CanPurgeWork bool   `json:"canPurgeWork"`
 	WorkPath     string `json:"workPath,omitempty"`
 	Terminals    int    `json:"terminals,omitempty"`
+
+	// dyingAgents is every agent id being removed (ADR-0040) — server-side
+	// only (unexported, encoding/json skips it), used by applyCleanup to
+	// also purge each one's private session dir. Sessions/SessionBytes
+	// above already include their contents.
+	dyingAgents []string
 }
 
 func queryFlag(r *http.Request, key string) bool {
@@ -143,6 +149,15 @@ func (deps Deps) previewCleanup(cwd string, dying map[string]bool) cleanupPrevie
 	st := session.DirStats(cwd)
 	p.Sessions = st.Count
 	p.SessionBytes = st.Bytes
+	for id := range dying {
+		// ADR-0040: each dying agent's own private session dir — counted
+		// here regardless of LastOccupant, since it's never shared with
+		// another agent the way the cwd bucket can be.
+		p.dyingAgents = append(p.dyingAgents, id)
+		ast := session.DirStatsAt(session.AgentDir(id))
+		p.Sessions += ast.Count
+		p.SessionBytes += ast.Bytes
+	}
 	if p.LastOccupant && ownedByWork(workRoot(deps.DataDir), cwd) && !deps.isWorkspacePath(cwd) {
 		p.CanPurgeWork = true
 		p.WorkPath = cwd
@@ -151,6 +166,11 @@ func (deps Deps) previewCleanup(cwd string, dying map[string]bool) cleanupPrevie
 }
 
 func (deps Deps) applyCleanup(p cleanupPreview, purgeSessions, purgeWork bool) {
+	if purgeSessions {
+		for _, id := range p.dyingAgents {
+			_ = session.RemoveAgentDir(id) // ADR-0040: always this agent's own
+		}
+	}
 	if !p.LastOccupant {
 		return
 	}

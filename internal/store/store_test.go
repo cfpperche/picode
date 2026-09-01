@@ -314,8 +314,9 @@ func TestOpModeCLIFlags(t *testing.T) {
 	}
 	flags := got.CLIFlags()
 	want := []string{"--tools", ReadonlyTools}
-	if len(flags) != 2 || flags[0] != want[0] || flags[1] != want[1] {
-		t.Fatalf("CLIFlags = %v, want %v", flags, want)
+	// 4, not 2: every agent also gets a trailing --session-dir pair (ADR-0040).
+	if len(flags) != 4 || flags[0] != want[0] || flags[1] != want[1] || flags[2] != "--session-dir" {
+		t.Fatalf("CLIFlags = %v, want %v + --session-dir", flags, want)
 	}
 	full := "full"
 	got, err = s.UpdateAgent(agent.ID, AgentPatch{OpMode: &full})
@@ -325,8 +326,9 @@ func TestOpModeCLIFlags(t *testing.T) {
 	if got.OpMode != nil {
 		t.Fatalf("full should clear op_mode, got %v", got.OpMode)
 	}
-	if len(got.CLIFlags()) != 0 {
-		t.Fatalf("full flags = %v", got.CLIFlags())
+	// 2, not 0: the baseline is just --session-dir now (ADR-0040), never empty.
+	if flags := got.CLIFlags(); len(flags) != 2 || flags[0] != "--session-dir" {
+		t.Fatalf("full flags = %v", flags)
 	}
 	bad := "bypass"
 	if _, err := s.UpdateAgent(agent.ID, AgentPatch{OpMode: &bad}); err == nil {
@@ -365,7 +367,8 @@ func TestAgentPackagesCLIFlags(t *testing.T) {
 	}
 	flags := got.CLIFlags()
 	want := []string{"-e", "npm:pi-web-search", "-e", "git:github.com/x/y"}
-	if len(flags) != len(want) {
+	// +2, not exact: trailing --session-dir pair (ADR-0040).
+	if len(flags) != len(want)+2 || flags[len(want)] != "--session-dir" {
 		t.Fatalf("%v", flags)
 	}
 	for i := range want {
@@ -374,8 +377,8 @@ func TestAgentPackagesCLIFlags(t *testing.T) {
 		}
 	}
 	got, err = s.SetAgentPackages(agent.ID, nil)
-	if err != nil || len(got.Packages) != 0 || len(got.CLIFlags()) != 0 {
-		t.Fatalf("%+v %v", got, err)
+	if flags := got.CLIFlags(); err != nil || len(got.Packages) != 0 || len(flags) != 2 || flags[0] != "--session-dir" {
+		t.Fatalf("%+v %v %v", got, err, flags)
 	}
 	on := true
 	got, err = s.UpdateAgent(agent.ID, AgentPatch{PackagesIsolated: &on})

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/session"
+	"github.com/cfpperche/picode/internal/store"
 )
 
 // Workspace session management: one view for every Pi session under the
@@ -44,6 +45,22 @@ type allSessionItem struct {
 	Workspace   string      `json:"workspace,omitempty"`
 }
 
+// workspaceSessionDirs is every directory pi may have written this
+// workspace's sessions into (ADR-0040): the shared cwd bucket (sessions
+// from before this ADR, plus anything a Terminal or bare `pi` writes
+// there) and each of the workspace's agents' own private dirs.
+func workspaceSessionDirs(deps Deps, wk store.Workspace) []string {
+	dirs := []string{session.Dir(wk.Path)}
+	agents, err := deps.Store.ListAgents(wk.ID)
+	if err != nil {
+		return dirs
+	}
+	for _, a := range agents {
+		dirs = append(dirs, session.AgentDir(a.ID))
+	}
+	return dirs
+}
+
 // sessionUseBy maps every agent's current session path to the agent.
 func sessionUseBy(deps Deps) map[string]sessionUse {
 	out := map[string]sessionUse{}
@@ -70,10 +87,14 @@ func handleManageSessions(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
-		list, err := session.ListDir(session.Dir(wk.Path))
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
+		var list []session.Summary
+		for _, dir := range workspaceSessionDirs(deps, wk) {
+			part, err := session.ListDir(dir)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			list = append(list, part...)
 		}
 		sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
 		use := sessionUseBy(deps)
@@ -185,7 +206,7 @@ func handleDeleteManagedSession(deps Deps) http.HandlerFunc {
 			return
 		}
 		path, err := filepath.Abs(strings.TrimSpace(req.Path))
-		if err != nil || !safeSessionPath(wk.Path, path) {
+		if err != nil || !safeSessionPath(path, workspaceSessionDirs(deps, wk)...) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -273,6 +294,11 @@ func sweepOrphanSessions(deps Deps, days int) int {
 	}
 	cutoff := time.Now().AddDate(0, 0, -days)
 	use := sessionUseBy(deps)
+	// ADR-0039 already surfaces an agent's older, non-current sessions as
+	// resumable in its own chat picker — the age sweep must not delete one
+	// out from under that picker just because it isn't the *current*
+	// pointer `use` tracks.
+	owned, _ := deps.Store.AllAgentSessionPaths()
 
 	dirs := map[string]bool{}
 	if wss, err := deps.Store.ListWorkspaces(); err == nil {
@@ -285,6 +311,7 @@ func sweepOrphanSessions(deps Deps, days int) int {
 			if p := a.WorkPath; p != nil && strings.TrimSpace(*p) != "" {
 				dirs[session.Dir(*p)] = true
 			}
+			dirs[session.AgentDir(a.ID)] = true // ADR-0040
 		}
 	}
 
@@ -300,6 +327,9 @@ func sweepOrphanSessions(deps Deps, days int) int {
 			}
 			p := filepath.Join(dir, e.Name())
 			if _, inUse := use[p]; inUse {
+				continue
+			}
+			if owned[p] {
 				continue
 			}
 			fi, err := e.Info()

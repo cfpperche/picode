@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/session"
 )
 
 func stringsTrimSpace(s string) string { return strings.TrimSpace(s) }
@@ -256,6 +258,17 @@ func (a Agent) CLIFlags() []string {
 		if src != "" {
 			args = append(args, "-e", src)
 		}
+	}
+	if id := strings.TrimSpace(a.ID); id != "" {
+		// ADR-0040: every spawn gets a private lookup/storage root, keyed
+		// by agent id rather than cwd — this is what makes pi's OWN
+		// in-TUI "Resume Session" picker (not just PiCode's chat picker,
+		// ADR-0039) show only this agent's own sessions. An explicit
+		// --session above still wins for a resume (confirmed live: pi
+		// resolves an out-of-dir --session path and leaves
+		// --session-dir's directory untouched), so this is safe on every
+		// spawn, not just fresh ones.
+		args = append(args, "--session-dir", session.AgentDir(id))
 	}
 	return args
 }

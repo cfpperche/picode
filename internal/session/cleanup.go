@@ -16,7 +16,13 @@ type Stats struct {
 
 // DirStats counts .jsonl files under Dir(cwd). Missing dir is empty, not an error.
 func DirStats(cwd string) Stats {
-	dir := Dir(cwd)
+	return DirStatsAt(Dir(cwd))
+}
+
+// DirStatsAt counts .jsonl files directly under an already-resolved
+// directory (Dir(cwd) or AgentDir(agentID), ADR-0040). Missing dir is
+// empty, not an error.
+func DirStatsAt(dir string) Stats {
 	st := Stats{Dir: dir}
 	if dir == "" {
 		return st
@@ -50,6 +56,26 @@ func RemoveDir(cwd string) error {
 	}
 	parent := filepath.Base(filepath.Dir(dir))
 	if parent != "sessions" {
+		return fmt.Errorf("session: refuse to remove %s", dir)
+	}
+	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// RemoveAgentDir deletes the private session folder for agentID (ADR-0040).
+// Same safety spirit as RemoveDir, adapted: an agent-id directory name
+// never looks like --encoded-cwd--, so the shape check that protects
+// RemoveDir doesn't apply here — the parent-is-"sessions" check is what's
+// left, and is sufficient since AgentDir is always Root()/agentID.
+func RemoveAgentDir(agentID string) error {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return fmt.Errorf("session: refuse to remove empty agent id")
+	}
+	dir := AgentDir(agentID)
+	if filepath.Base(filepath.Dir(dir)) != "sessions" {
 		return fmt.Errorf("session: refuse to remove %s", dir)
 	}
 	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {

@@ -135,17 +135,22 @@ this machine — not per agent. No native MCP.
 
 
 Sessions are **pi JSONL files** (`~/.pi/agent/sessions/`), bucketed by pi
-itself per cwd — not per agent. An agent's **Search sessions** picker
-(`GET /api/workspaces/{id}/sessions?agent=`) only lists sessions PiCode
-has recorded as that agent's own (`agent_sessions`, ADR-0039): every
-fresh spawn mints a `--session-id` up front so its session is
+itself per cwd by default — not per agent. An agent's **Search sessions**
+picker (`GET /api/workspaces/{id}/sessions?agent=`) only lists sessions
+PiCode has recorded as that agent's own (`agent_sessions`, ADR-0039):
+every fresh spawn mints a `--session-id` up front so its session is
 attributable from the moment it exists, and every resume/fork/clone/
 adopt/import historizes the path it points at. A Terminal running bare
 `pi` in the same folder — or another Agent sharing the cwd — never
-appears in an unrelated agent's picker. The machine-wide/workspace-wide
-housekeeping views (`/sessions/manage`, `/sessions/all`, below) are
-unfiltered on purpose: they exist to show and clean up everything in a
-folder's bucket, ownership tag or not.
+appears in an unrelated agent's picker. Every agent spawn also carries a
+private `--session-dir` (`~/.pi/agent/sessions/<agentID>/`, ADR-0040), so
+pi's **own** native "Resume Session" picker inside its interactive TUI —
+which reads sessions straight off disk and has no knowledge of PiCode's
+API — is scoped the same way, not just PiCode's chat surface. The
+machine-wide/workspace-wide housekeeping views (`/sessions/manage`,
+`/sessions/all`, below) are unfiltered on purpose and union in every
+agent's private dir alongside the shared cwd bucket: they exist to show
+and clean up everything, ownership tag or not.
 PiCode lists, switches (`--session`), and **replays** them into the chat
 surface. History is not copied into SQLite (ADR-0005). The transcript endpoint serves a
 window (`?tail=&skip=`) — the browser holds only the newest slice and
@@ -304,16 +309,21 @@ HTTP API (Go 1.22 method patterns):
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
 - `GET /api/workspaces/{id}/sessions/manage` — every Pi session under the
-  folder (`session.ListDir`), unfiltered by ownership (unlike the
-  per-agent picker, ADR-0039 — this view's job is to show everything),
-  each with size/age/messages/cost and `inUseBy` (the agent whose current
-  session it is); `cleanupDays` and `totalBytes` ride along. `DELETE` on
-  the same path removes one orphan (in-use → 409). Powers the
-  `#/sessions/<id>` view (sidebar folder icon): Open with… reuses the
-  resume endpoint, Compact reuses the agent compact.
+  folder *and* each of its agents' private dirs (`workspaceSessionDirs`,
+  ADR-0040), unfiltered by ownership (unlike the per-agent picker,
+  ADR-0039 — this view's job is to show everything), each with
+  size/age/messages/cost and `inUseBy` (the agent whose current session
+  it is); `cleanupDays` and `totalBytes` ride along. `DELETE` on the same
+  path removes one orphan (in-use → 409). Powers the `#/sessions/<id>`
+  view (sidebar folder icon): Open with… reuses the resume endpoint,
+  Compact reuses the agent compact.
 - `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
   (0 = off, default). Sweep runs at boot, daily, and after each change;
-  it deletes only sessions no agent is bound to.
+  it deletes only sessions no agent is bound to *or has ever been*
+  (`agents.session_path` current pointer, plus the full `agent_sessions`
+  history, ADR-0040 — an older but still chat-picker-resumable session is
+  never swept just because it isn't the current one), across the shared
+  cwd buckets and every agent's private dir.
 - `GET/DELETE /api/sessions/all` — machine-wide view (`session.ListAll`):
   every Pi session on the machine, each tagged with the workspace owning
   its folder; delete validates against the sessions root. Powers the

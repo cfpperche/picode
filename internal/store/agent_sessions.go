@@ -66,6 +66,27 @@ func (s *Store) AgentSessionKeys(agentID string) (AgentSessionKeys, error) {
 	return out, rows.Err()
 }
 
+// AllAgentSessionPaths is every session_path ever historized in
+// agent_sessions, across every agent (ADR-0039) — for callers that must
+// not touch a session merely because it isn't any agent's *current*
+// pointer (e.g. the age-based orphan sweep, ADR-0040).
+func (s *Store) AllAgentSessionPaths() (map[string]bool, error) {
+	out := map[string]bool{}
+	rows, err := s.db.Query(`SELECT DISTINCT session_path FROM agent_sessions WHERE session_path IS NOT NULL AND session_path != ''`)
+	if err != nil {
+		return nil, fmt.Errorf("store: all agent session paths: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, fmt.Errorf("store: all agent session paths: %w", err)
+		}
+		out[p] = true
+	}
+	return out, rows.Err()
+}
+
 // ResolveAgentSessionID backfills the session_path for a pending
 // session_id row once its file shows up on disk. Cosmetic bookkeeping
 // only — the filter already matches on session_id alone, so a failed or

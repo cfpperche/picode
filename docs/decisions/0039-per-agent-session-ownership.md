@@ -1,6 +1,9 @@
 # ADR-0039: Per-agent session ownership, tracked in PiCode, not pi's layout
 
-- **Status**: accepted (amends ADR-0006's session-visibility clause)
+- **Status**: accepted (amends ADR-0006's session-visibility clause);
+  amended by ADR-0040, which adds a private `--session-dir` per agent for
+  a surface this ADR's DB filter cannot reach — see the note on the
+  rejected `--session-dir` alternative below
 - **Date**: 2026-09-01
 
 ## Context
@@ -76,7 +79,7 @@ every session for cleanup and stay that way.
 
 | Alternative | Why not |
 |---|---|
-| Give each agent a private `--session-dir` | `internal/session`'s `DirName`/`Dir`/`Root` are cwd-keyed and used machine-wide (`ListAll`, `tree.go`, `cleanup.go`); a private-dir-per-agent exception would ripple through all of them. It also leans on upstream pi behavior with known rough edges in exactly this area (pi-mono #320 "--resume doesn't look at the right session directory", #2024 "/resume from All scope doesn't update cwd"). ADR-0005 already commits `internal/session` to being a read-only index of pi's *existing* layout — this alternative asks pi to change what it owns. |
+| Give each agent a private `--session-dir` | `internal/session`'s `DirName`/`Dir`/`Root` are cwd-keyed and used machine-wide (`ListAll`, `tree.go`, `cleanup.go`); a private-dir-per-agent exception would ripple through all of them. It also leans on upstream pi behavior with known rough edges in exactly this area (pi-mono #320 "--resume doesn't look at the right session directory", #2024 "/resume from All scope doesn't update cwd"). ADR-0005 already commits `internal/session` to being a read-only index of pi's *existing* layout — this alternative asks pi to change what it owns. **Revisited by ADR-0040**: this DB filter only reaches PiCode's own chat picker — pi's own native in-TUI "Resume Session" picker reads the shared bucket directly and needed the private dir after all. Nesting it under `Root()` (not a sibling) turned out to sidestep the "ripples through everything" concern entirely, and the #320/#2024 rough edges concern a *shared*-bucket `--resume`, not an isolated per-agent `--session-dir`. |
 | Directory-diff / snapshot-at-launch reconciliation heuristic | The fallback considered before confirming `--session-id`. Once confirmed, rejected: exact-id matching is strictly simpler *and* strictly more reliable than "which new file in this bucket, near this timestamp, is probably mine" — no scenario favors the heuristic. |
 | Fork or patch pi's session writer | ADR-0003 and ADR-0028 both treat "we orchestrate pi, we do not fork it" as a standing non-goal. |
 | Tag ownership inside a pi extension (the `pi-roles`/`PI_ROLES_AGENT` pattern, ADR-0033) | Extensions are opt-in packages configured per workspace (`.pi/settings.json`, ADR-0028/0033). Session isolation has to hold for every agent unconditionally, including ones with no packages installed — it belongs in PiCode's own backend, not in something a user could uninstall. |

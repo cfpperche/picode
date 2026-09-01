@@ -12,7 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func postJSONMethod(t *testing.T, ts *httptest.Server, method, path string, body any) *http.Response {
@@ -42,6 +45,124 @@ func writeManageSession(t *testing.T, cwd, name string, age time.Duration) strin
 		}
 	}
 	return p
+}
+
+// writeAgentSession writes a fixture directly into an agent's private
+// session dir (ADR-0040), mirroring writeManageSession for the shared
+// cwd bucket.
+func writeAgentSession(t *testing.T, agentID, name string, age time.Duration) string {
+	t.Helper()
+	dir := session.AgentDir(agentID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, name)
+	body := `{"type":"session","id":"t"}` + "\n" +
+		`{"type":"message","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}` + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if age > 0 {
+		then := time.Now().Add(-age)
+		if err := os.Chtimes(p, then, then); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return p
+}
+
+// TestPrivateAgentDirManageAndSweep exercises ADR-0040: a session in an
+// agent's own private dir (not the shared cwd bucket) shows up in
+// /sessions/manage, is deletable through it, and — the sweep-safety fix
+// bundled into this same ADR — survives the age-based sweep once
+// historized in agent_sessions even though it isn't that agent's
+// *current* session (only sessionUseBy's "current" map would otherwise
+// protect it).
+func TestPrivateAgentDirManageAndSweep(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	st, err := store.Open(filepath.Join(root, "data", "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
+		Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+	}).Handler)
+	t.Cleanup(ts.Close)
+
+	proj := filepath.Join(home, "p")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
+	agentID := wsv.Agent.ID
+	base := "/api/workspaces/" + wsv.ID
+
+	// Old (sweep-eligible), owned via agent_sessions but never "current".
+	owned := writeAgentSession(t, agentID, "owned.jsonl", 40*24*time.Hour)
+	if err := st.RecordAgentSessionPath(agentID, owned); err != nil {
+		t.Fatal(err)
+	}
+	// Old, same private dir, never historized — the negative case.
+	unowned := writeAgentSession(t, agentID, "unowned.jsonl", 40*24*time.Hour)
+
+	get := func(path string) (int, map[string]any) {
+		res := do(t, ts.Client(), mustGet(t, ts.URL+path))
+		var body map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&body)
+		return res.StatusCode, body
+	}
+
+	// Shows up in the manage view: workspaceSessionDirs unions the
+	// private dir alongside the shared cwd bucket.
+	code, view := get(base + "/sessions/manage")
+	if code != http.StatusOK {
+		t.Fatalf("manage = %d", code)
+	}
+	paths := map[string]bool{}
+	for _, s := range view["sessions"].([]any) {
+		paths[s.(map[string]any)["path"].(string)] = true
+	}
+	if !paths[owned] || !paths[unowned] {
+		t.Fatalf("manage sessions = %v, want both %s and %s", paths, owned, unowned)
+	}
+
+	// Deletable through the workspace-scoped delete: safeSessionPath now
+	// accepts the private dir as a valid root, not just the cwd bucket.
+	dres := postJSONMethod(t, ts, http.MethodDelete, base+"/sessions/manage", map[string]string{"path": owned})
+	if dres.StatusCode != http.StatusOK {
+		t.Fatalf("delete owned = %d", dres.StatusCode)
+	}
+	if _, err := os.Stat(owned); !os.IsNotExist(err) {
+		t.Fatal("owned file still on disk after explicit delete")
+	}
+	// Re-create for the sweep check below — deletion and sweep are
+	// independent code paths, both need coverage.
+	owned = writeAgentSession(t, agentID, "owned.jsonl", 40*24*time.Hour)
+	if err := st.RecordAgentSessionPath(agentID, owned); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sweep: removes the unowned file, keeps the historized-but-not-
+	// current one (AllAgentSessionPaths guard).
+	sres := postJSONMethod(t, ts, http.MethodPut, "/api/session-cleanup", map[string]int{"days": 30})
+	var put map[string]any
+	_ = json.NewDecoder(sres.Body).Decode(&put)
+	if sres.StatusCode != http.StatusOK || put["removed"].(float64) != 1 {
+		t.Fatalf("sweep = %d %v, want removed 1", sres.StatusCode, put)
+	}
+	if _, err := os.Stat(owned); err != nil {
+		t.Fatal("sweep removed a session still historized in agent_sessions")
+	}
+	if _, err := os.Stat(unowned); !os.IsNotExist(err) {
+		t.Fatal("unowned session survived the sweep")
+	}
 }
 
 // Decision table for the manage view (A) and the orphan sweep (B):

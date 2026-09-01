@@ -88,6 +88,15 @@ func Root() string {
 	return filepath.Join(home, ".pi", "agent", "sessions")
 }
 
+// AgentDir is ~/.pi/agent/sessions/<agentID> — a private lookup/storage
+// root for one agent's own sessions (ADR-0040), passed to pi via
+// --session-dir on every spawn. Nested under Root() (not a sibling, unlike
+// roles-state) so ListAll/ListRoot/UnderRoot already include it with no
+// changes.
+func AgentDir(agentID string) string {
+	return filepath.Join(Root(), agentID)
+}
+
 // ListAll summaries every JSONL under Root, newest first.
 func ListAll() ([]Summary, error) {
 	return ListRoot(Root())

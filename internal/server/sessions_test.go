@@ -237,3 +237,50 @@ func TestListSessionsResolvesFreshSessionPath(t *testing.T) {
 		t.Fatalf("manage = %+v, want 1 session with inUseBy set", manage.Sessions)
 	}
 }
+
+// TestSpawnFlagsIncludesSessionDir locks in ADR-0040 at the point
+// interactive/tmux spawns actually get their argv: --session-dir must be
+// present whether the agent is starting fresh or resuming — this is what
+// makes pi's own in-TUI "Resume Session" picker agent-scoped, not just
+// PiCode's chat picker (ADR-0039).
+func TestSpawnFlagsIncludesSessionDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	deps := Deps{Store: st}
+
+	_, agent, err := storeWorkspaceWithAgent(st, "App", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertHasSessionDir := func(t *testing.T, flags []string, agentID string) {
+		t.Helper()
+		want := session.AgentDir(agentID)
+		for i, f := range flags {
+			if f == "--session-dir" {
+				if i+1 >= len(flags) || flags[i+1] != want {
+					t.Fatalf("--session-dir value in %v, want %q", flags, want)
+				}
+				return
+			}
+		}
+		t.Fatalf("flags = %v, missing --session-dir", flags)
+	}
+
+	// Fresh: no SessionPath yet.
+	assertHasSessionDir(t, deps.spawnFlags(agent), agent.ID)
+
+	// Resuming: SessionPath already set.
+	p := filepath.Join(t.TempDir(), "x.jsonl")
+	resumed, err := st.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertHasSessionDir(t, deps.spawnFlags(resumed), resumed.ID)
+}

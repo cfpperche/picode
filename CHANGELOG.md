@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Pi's own "Resume Session" picker, inside the interactive TUI, now
+  respects agent ownership too (ADR-0040).** ADR-0039 fixed this for
+  PiCode's own chat picker; the same cross-agent bleed was still visible
+  from inside pi's native TUI, which reads sessions straight off disk
+  with no knowledge of PiCode's history. Every agent now gets its own
+  private session-storage directory, so both surfaces agree. Also closes
+  a related gap in the age-based orphan sweep: an agent's older session,
+  already resumable in its own picker, is no longer eligible for deletion
+  just because it isn't that agent's *current* one.
+
 - **An Agent's session picker no longer shows other tabs' sessions
   (ADR-0039).** Pi buckets session files by folder, not by who created
   them, so an Agent and a Terminal (or two Agents) sharing a cwd used to

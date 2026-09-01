@@ -47,6 +47,7 @@ What exists:
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
+- **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
 
 ## In flight
 
@@ -218,6 +219,64 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-01** — **Per-agent `--session-dir` (ADR-0040)**, on branch
+  `worktree-pi-tui-session-dir`. Owner reported (screenshots) that after
+  ADR-0039 shipped, an Agent's **chat** picker correctly showed only its
+  own session — but the *same* agent's raw interactive pi TUI still
+  showed every session sharing that cwd via pi's own native "Resume
+  Session" picker. Root cause: that picker is pi's own code, reading
+  `~/.pi/agent/sessions/<cwd>/` straight off disk, with zero awareness of
+  PiCode's HTTP API or `agent_sessions` — a DB-side filter structurally
+  cannot reach it.
+  - Reopened ADR-0039's own rejected alternative ("give each agent a
+    private `--session-dir`") after three facts confirmed live against
+    `pi 0.84.4`: it lands a fresh session directly in the given dir (no
+    cwd sub-bucketing), `--continue` finds/appends there and never
+    touches the default bucket (proves it governs lookup, not just
+    storage), and an explicit `--session <path>` outside the dir still
+    wins for a resume (so **no physical migration** of existing sessions
+    was needed — only future fresh starts move).
+  - New `session.AgentDir(agentID)` (`~/.pi/agent/sessions/<agentID>/`),
+    nested *inside* `Root()` specifically so `ListAll`/`ListRoot`/
+    `UnderRoot` needed zero changes — confirmed by reading `ListRoot`'s
+    loop (no naming-shape filter on subdirectories).
+  - `Agent.CLIFlags()` unconditionally appends `--session-dir` — reaches
+    all three spawn chokepoints (tmux, managed RPC, and the headless MCP
+    OAuth spawn) through one function. Placed last in the flag list to
+    minimize test churn (4 assertions in `store_test.go` needed updated
+    expected lengths; the rest only checked a lower bound or leading
+    elements and were untouched).
+  - `safeSessionPath` generalized from a single `(cwd, path)` root to
+    `(path, dirs ...string)`; `handleManageSessions` and
+    `sweepOrphanSessions` gained a `workspaceSessionDirs` union so the
+    workspace manage view and the age sweep also cover each agent's
+    private dir. The delete/purge-preview flow (`cleanup.go`) got the
+    same treatment (`DirStatsAt`, `RemoveAgentDir`) — required, not
+    optional, since without it "delete sessions too" would silently leave
+    an agent's `AgentDir` behind after this change, a regression this
+    design itself introduces.
+  - **Bundled by owner's choice**: a separate, adjacent gap found while
+    researching `agent_sessions` — the age-based orphan sweep only
+    checked an agent's *current* `session_path`, never its full
+    `agent_sessions` history, so an older session already resumable in
+    that agent's own chat picker (ADR-0039) could be silently deleted
+    once it aged out. Closed with `Store.AllAgentSessionPaths()` and one
+    added skip-check in the sweep.
+  - Verified live end-to-end, not just proxied through `--print`/
+    `--continue`: scratch instance, two agents in one workspace sharing a
+    cwd, both started in **interactive** mode, each sent a real message
+    over `tmux send-keys`, then `/resume` triggered directly inside each
+    agent's own tmux pane (`tmux capture-pane`) — each agent's native
+    "Resume Session (Current Folder)" overlay showed **only its own**
+    session, the other agent's completely absent. This was the one fact
+    the design couldn't verify itself and had to be checked by hand.
+    Also verified: `pi --mode rpc --no-session --session-dir <X>` starts
+    clean and leaves `<X>` empty (the MCP OAuth spawn is unaffected by
+    inheriting the flag).
+  - `make fmt-check`/`vet`/`test`/`build` all green.
+  - Not yet merged to main or deployed to `:8445` — branch
+    `worktree-pi-tui-session-dir` ready for review.
 
 - **2026-09-01** — **Inbox: Active/Done/All tabs + manual cleanup**
   (`worktree-feat-inbox-tabs`, ADR-0037 follow-up). Items were never

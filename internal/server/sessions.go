@@ -96,7 +96,7 @@ func handleSessionTranscript(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, map[string]any{"events": []any{}, "path": "", "total": 0, "remaining": 0})
 			return
 		}
-		if !safeSessionPath(store.AgentCwd(wk, agent), path) {
+		if !safeSessionPath(path, session.Dir(store.AgentCwd(wk, agent)), session.AgentDir(agent.ID)) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -168,7 +168,7 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "path required")
 			return
 		}
-		if !safeSessionPath(store.AgentCwd(wk, agent), req.Path) {
+		if !safeSessionPath(req.Path, session.Dir(store.AgentCwd(wk, agent)), session.AgentDir(agent.ID)) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -204,7 +204,7 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 		if path == "" && agent.SessionPath != nil {
 			path = *agent.SessionPath
 		}
-		if path == "" || !safeSessionPath(store.AgentCwd(wk, agent), path) {
+		if path == "" || !safeSessionPath(path, session.Dir(store.AgentCwd(wk, agent)), session.AgentDir(agent.ID)) {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
@@ -259,13 +259,20 @@ func writeStoreErr(w http.ResponseWriter, err error) {
 	writeErr(w, http.StatusInternalServerError, err.Error())
 }
 
-func safeSessionPath(cwd, path string) bool {
-	dir := session.Dir(cwd)
+// safeSessionPath reports whether path is a JSONL file directly inside one
+// of dirs — each an already-resolved session directory (session.Dir(cwd)
+// and/or session.AgentDir(agentID), ADR-0040), never a bare cwd.
+func safeSessionPath(path string, dirs ...string) bool {
 	abs, err := filepath.Abs(path)
-	if err != nil {
+	if err != nil || !strings.HasSuffix(abs, ".jsonl") {
 		return false
 	}
-	return strings.HasPrefix(abs, dir+string(filepath.Separator)) && strings.HasSuffix(abs, ".jsonl")
+	for _, dir := range dirs {
+		if dir != "" && strings.HasPrefix(abs, dir+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID string, mode agentRunMode) error {

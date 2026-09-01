@@ -44,6 +44,15 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
+func TestAgentDir(t *testing.T) {
+	old := TestRoot
+	TestRoot = t.TempDir()
+	t.Cleanup(func() { TestRoot = old })
+	if got, want := AgentDir("agent-abc123"), filepath.Join(TestRoot, "agent-abc123"); got != want {
+		t.Fatalf("AgentDir = %q, want %q", got, want)
+	}
+}
+
 func TestListRootAndCopy(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "--tmp--")
