@@ -22,9 +22,10 @@ to the `[Unreleased]` section. The repository's official language is English
   repository; the toggle is a global preference. `GET .../git` gains
   optional repeated `?branches=` and `?remotes=0|1` params — absent,
   the response is byte-for-byte what it was before this change. The
-  panel drops below its trigger (the shared `.cockpit-pop` positioning
-  is built for composer chips docked at the foot of the screen, and
-  flew the list up over the tab bar from a header).
+  panel drops below its trigger and lists its branches in full (the
+  shared `.cockpit-pop` positioning and 220px menu height are built for
+  composer chips docked at the foot of the screen: from a header they
+  flew the list up over the tab bar and sliced its last row).
 
 ### Changed
 

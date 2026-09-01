@@ -2784,6 +2784,10 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   min-width: 260px;
   position: static; left: auto; bottom: auto;
 }
+/* The shared 220px list is sized for a composer chip's short menu; here two
+   group headings plus a handful of branches slice the last row in half. The
+   graph body has the room, so give it more before the scroll starts. */
+.gg-branches-pop .combo-list { max-height: 360px; }
 .gg-branches-pop [cmdk-group-heading] {
   padding: 6px 8px 2px; font-size: 10.5px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--text-secondary);
