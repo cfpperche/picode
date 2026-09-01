@@ -1091,10 +1091,14 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .fleet-agent-more { color: var(--text-secondary); }
 
 .dashboard-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; min-width: 0; }
-.dashboard-section + .dashboard-section, .dashboard-section + .dash-grid-2 { margin-top: 12px; }
-/* align-items: start — a panel hugs its rows; a short ranking beside a
-   long one must not stretch into an empty well. */
-.dash-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
+.dashboard-section + .dashboard-section { margin-top: 12px; }
+/* Two flowing columns, not a row grid: each panel is exactly as tall as
+   its rows and the next panel packs in right under it (CSS multi-column
+   with balanced fill), so a 3-row model ranking beside a 7-row folder
+   ranking leaves no hole — the owner's ask after v2's first deploy. */
+.dash-grid-2 { columns: 2; column-gap: 12px; margin-top: 12px; }
+.dash-grid-2 > .dashboard-section { break-inside: avoid; margin: 0 0 12px; }
+.dash-grid-2 > .dashboard-section:last-child { margin-bottom: 0; }
 .dash-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
   color: var(--text-secondary); margin-bottom: 10px;
@@ -1112,12 +1116,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 
 /* Ranked bars (model / workspace / tools). */
 .spend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.spend-row { display: grid; grid-template-columns: minmax(96px, 150px) 1fr 68px; align-items: center; gap: 10px; font-size: 12.5px; }
+.spend-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 68px; align-items: center; gap: 10px; font-size: 12.5px; }
 .spend-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-primary); }
 .spend-face { display: inline-flex; flex: none; }
 .spend-face .ws-face { width: 14px; height: 14px; font-size: 9px; }
-.spend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.spend-sub { color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 45%; }
+.spend-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spend-sub { color: var(--text-secondary); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; min-width: 0; max-width: 50%; }
 .spend-row.is-muted .spend-name, .spend-row.is-muted .spend-amount { color: var(--text-secondary); }
 .spend-row.is-muted .spend-bar-fill { opacity: .45; }
 .spend-bar-track { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
@@ -1168,7 +1172,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 @media (max-width: 640px) {
   .dashboard-view { padding: 16px 14px 32px; }
-  .dash-kpi-row, .dash-grid-2 { grid-template-columns: 1fr; }
+  .dash-kpi-row { grid-template-columns: 1fr; }
+  .dash-grid-2 { columns: 1; }
   .dash-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dash-head { flex-wrap: wrap; }
 }

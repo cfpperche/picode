@@ -269,6 +269,13 @@ Never exercised, because this machine was already past them:
   `lastAt` from the backend. Light + dark + 600 px + empty period all
   captured and read; `overlayAudit` ok. Curated:
   `docs/screenshots/dashboard-v2-{7d-light,breakdowns-dark,empty}.png`.
+  Merged + deployed; owner's first look on real data (25 folders, 9
+  models): "cards desalinhados" — the 2-column row grid with
+  `align-items:start` left a hole under the short model panel. Follow-up
+  `feat/dashboard-masonry`: `.dash-grid-2` is now CSS multi-column
+  (`columns: 2`, `break-inside: avoid`), panels pack top-to-bottom per
+  column; label column widened to `minmax(110px,190px)`. Re-captured on
+  the scratch instance at All time — no holes.
 
 - **2026-09-01** — **Logo opens the dashboard from anywhere**, on branch
   `feat/dashboard-logo-link`. Owner dogfooded ADR-0041's dashboard for
