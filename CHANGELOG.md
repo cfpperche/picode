@@ -59,6 +59,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Video (and image) preview fits the pane.** A portrait `.mp4` no longer
+  grows a scrollbar and pushes its controls off-screen: Preview sizes the
+  player to the tab and keeps the aspect ratio (`object-fit: contain`).
+  Markdown, SVG and mermaid still scroll.
+
 - **Tabs keep their surface's state.** Leaving a file tree, git graph or
   app tab and coming back no longer resets it. The tree keeps its
   expanded folders, its scroll offset and the diff it had open; the
