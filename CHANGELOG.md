@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **PiCode logo opens the spend/activity dashboard from anywhere.** The
+  dashboard (ADR-0041) only ever showed with zero tabs open — closing
+  every agent/terminal just to check spend wasn't a real workflow. The
+  "PiCode" wordmark in the sidebar header is now a button: click it to
+  pin the dashboard over whatever's open, without closing any tab.
+  Opening or switching to any real tab (including the one that was open
+  before pinning) unpins it automatically.
 - **Session observability dashboard replaces "No agents yet" when work
   already exists (ADR-0041).** The main pane, with no tab open, used to
   say "No agents yet — add a project folder" even beside a sidebar full

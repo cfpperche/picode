@@ -43,6 +43,7 @@ export default function Sidebar({
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
   onGitGraph,
   onFileTree,
+  onOpenDashboard,
   apps, onOpenApp,
 }) {
   const [width, setWidth] = useState(() => {
@@ -146,7 +147,7 @@ export default function Sidebar({
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
         <span className="brand-title">
-          <span className="brand-name">PiCode</span>
+          <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
           {/* Five tabs eat the header (ADR-0036); below ~286px the version
               would push the name into ellipsis, so it yields (it lives in
               the user menu too). The name never truncates. */}

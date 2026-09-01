@@ -113,7 +113,13 @@ body {
 .brand-title {
   display: flex; align-items: baseline; gap: 8px; min-width: 0;
 }
-.brand-name { font-weight: 650; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-name {
+  font: inherit; font-weight: 650; letter-spacing: .2px; color: inherit;
+  background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.brand-name:hover { color: var(--accent); }
+.brand-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand-ver {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
   /* Source builds append the revision (v0.1.0+0550fa2): squeeze with an
@@ -1179,6 +1185,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .workspace-view.file-on #empty,
 .workspace-view.file-on .chat-surface,
 .workspace-view.file-on .term-surface { display: none !important; }
+/* Dashboard pinned via the logo (App.jsx dashboardPinned) while a real tab
+   is still open underneath: hide every surface by construction rather than
+   naming each one — .term-on/.file-on above name surfaces one at a time
+   and this is the one case that must never let a stale surface bleed
+   through beside it. .main-tabs stays visible so the open tabs are still
+   there to click back into. */
+.workspace-view.dashboard-on > *:not(.main-tabs):not(.dashboard-view) { display: none !important; }
 .file-surface {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   min-width: 0; background: var(--bg-panel);

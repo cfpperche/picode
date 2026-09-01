@@ -221,6 +221,33 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **Logo opens the dashboard from anywhere**, on branch
+  `feat/dashboard-logo-link`. Owner dogfooded ADR-0041's dashboard for
+  real and found it unreachable in practice: it only ever showed with
+  zero tabs open, so checking spend meant closing every open agent
+  first. Considered a 6th sidebar icon (ADR-0026 already flagged the
+  header as tight — 4 icons yield the version string below ~286px);
+  owner's call instead: make the existing "PiCode" wordmark clickable.
+  `App.jsx` gained `dashboardPinned` state — `showHome` is now
+  `(noTabs || dashboardPinned) && hasData` — and a `.dashboard-on` class
+  on `#workspace-view` (`> *:not(.main-tabs):not(.dashboard-view) {
+  display:none}`) hides whatever surface was showing underneath, rather
+  than enumerating every surface type the way `.term-on`/`.file-on`
+  already do (those two only ever named the cases that visibly
+  collided; this one has to be exhaustive by construction). Every
+  open/select entry point (`openTab`, `openTermTab`, `openFileTab`,
+  `openGitTab`, `openTreeTab`) unpins on call — an early version tried a
+  single `useEffect` keyed on `selectedId` instead, which looked
+  simpler but silently failed to unpin when the user clicked the very
+  tab that was already selected before pinning (its value never
+  changed, so the effect never re-fired): caught live via `agent-browser`
+  clicking the same already-open tab twice, not by reasoning about the
+  code. Verified against real session data (workspace with an open
+  agent + 4 terminals): pin via logo, dismiss via the same tab, dismiss
+  via a different terminal (the direct `openTermTab` path, which
+  bypasses `openTab` entirely) — all three re-tested after the fix.
+  `overlayAudit` clean, both themes screenshotted.
+
 - **2026-09-01** — **Session observability dashboard (ADR-0041)**, on
   branch `feat/session-dashboard`. Owner rejected a first attempt
   (`feat/home-dashboard`, unmerged): a `HomeView` that listed workspaces/

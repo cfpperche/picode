@@ -85,6 +85,7 @@ export default function App() {
   const [formWs, setFormWs] = useState("");
   const [tabs, setTabs] = useState(() => readOpenTabs().ids);
   const [tabsReady, setTabsReady] = useState(false);
+  const [dashboardPinned, setDashboardPinned] = useState(false);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
   const [host, setHost] = useState("local");
@@ -699,6 +700,7 @@ export default function App() {
   }, [draft, kind, selectedId]);
 
   function openTab(id, list) {
+    setDashboardPinned(false);
     if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
     if (isGitTab(id) || isTreeTab(id) || isAppTab(id)) {
       setGoneId("");
@@ -745,6 +747,7 @@ export default function App() {
   }
 
   function openFileTab(kind, ownerId, path) {
+    setDashboardPinned(false);
     if (!ownerId || !path) return;
     const id = fileTabId(kind, ownerId, path);
     setGoneId("");
@@ -760,6 +763,7 @@ export default function App() {
   // under a provisional id and onGitKey renames it to g:<key> — which is also
   // where two owners of the same repo collapse onto one tab (ADR-0022).
   function openGitTab(kind, ownerId, ownerName) {
+    setDashboardPinned(false);
     if (!ownerId) return;
     const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalGitId(kind, ownerId);
@@ -799,6 +803,7 @@ export default function App() {
   // under a provisional id and onTreeKey renames it to d:<root> — which is
   // also where two owners of the same folder collapse onto one tab (ADR-0030).
   function openTreeTab(kind, ownerId, ownerName) {
+    setDashboardPinned(false);
     if (!ownerId) return;
     const known = Object.entries(treeOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalTreeId(kind, ownerId);
@@ -1217,6 +1222,7 @@ export default function App() {
   }
 
   async function openTermTab(id) {
+    setDashboardPinned(false);
     if (!id) return;
     const tab = termTabId(id);
     setGoneId("");
@@ -1878,7 +1884,7 @@ export default function App() {
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
-  const showHome = noTabs && hasData;
+  const showHome = (noTabs || dashboardPinned) && hasData;
 
   return (
     <div id="app">
@@ -1908,6 +1914,7 @@ export default function App() {
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
+        onOpenDashboard={() => setDashboardPinned(true)}
         apps={apps}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
         onChat={(id) => {
@@ -1931,7 +1938,7 @@ export default function App() {
       />
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "")} hidden={onPane}>
           <AgentTabs
             tabs={tabs}
             workspaces={workspaces}
