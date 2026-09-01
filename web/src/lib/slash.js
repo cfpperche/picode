@@ -26,6 +26,7 @@ export const SLASH = [
   { id: "changelog", label: "/changelog", hint: "pi version history", run: "changelog" },
   { id: "share", label: "/share", hint: "Secret GitHub gist", run: "share" },
   { id: "llama", label: "/llama", hint: "llama.cpp router models", run: "llama" },
+  { id: "automate", label: "/automate", hint: "Draft an automation from a description", run: "automate" },
 ];
 
 const CORE_NAMES = new Set(SLASH.map((c) => c.label.slice(1)));

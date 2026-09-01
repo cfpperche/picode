@@ -66,6 +66,9 @@ function workspaceAPI(workspaces, freeAgents, selectedId, suffix) {
   return "/api/workspaces/" + id + suffix + q;
 }
 import { extraSlash } from "../lib/slash.js";
+import { isAutomateCommand, automatePrompt, parseAutomateReply } from "../lib/automateDraft.js";
+import { writeAutomationDraft } from "../lib/automationDraft.js";
+import { isValidCron } from "../lib/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "../lib/openTabs.js";
 import { sessionsHash, sessionsRoute } from "../lib/routes.js";
 import SessionsView from "../components/SessionsView.jsx";
@@ -131,6 +134,7 @@ export default function App() {
   const [items, setItems] = useState([]);
   const itemsRef = useRef([]);
   itemsRef.current = items;
+  const automateRef = useRef(null); // {agentId, description, agentName, workspaceId}: a /automate turn in flight
   const [earlierRemaining, setEarlierRemaining] = useState(0);
   const earlierSkipRef = useRef(0);
   const earlierLoadingRef = useRef(false);
@@ -958,6 +962,7 @@ export default function App() {
         setStreaming(false);
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
+        if (automateRef.current) { const aid = env.agentId || (panel && panel.agentId); setTimeout(() => finishAutomate(aid), 0); }
         if (selectedId) loadStatus();
         fetchRoleState();
         pinNewestSession();
@@ -1305,6 +1310,7 @@ export default function App() {
   }
 
   async function stopAgent(id) {
+    if (automateRef.current && automateRef.current.agentId === id) automateRef.current = null;
     const loc = locate(workspaces, freeAgents, id);
     if (!loc || !loc.agent) return;
     try {
@@ -1624,6 +1630,7 @@ export default function App() {
   }
 
   async function abortTurn() {
+    automateRef.current = null;
     if (!agent) return;
     optimisticRef.current = false;
     setStreaming(false);
@@ -1711,10 +1718,15 @@ export default function App() {
     }).finally(() => { flushingRef.current = false; });
   }
 
-  async function sendTask(text, images) {
+  async function sendTask(text, images, opts) {
     const payload = (typeof text === "string" ? text : draft).trim();
     const pics = images || [];
     if ((!payload && !pics.length) || !agent) return;
+    const shown = opts && opts.display ? opts.display : payload;
+    if (!(opts && opts.display) && !pics.length) {
+      const desc = isAutomateCommand(payload);
+      if (desc !== null) { setDraft(""); clearDraft(agent.id); await startAutomate(desc); return; }
+    }
     const busy = streamingRef.current || waitingRef.current;
     let sendKind = kind;
     if (busy && sendKind !== "steer" && sendKind !== "follow_up") sendKind = "follow_up";
@@ -1732,7 +1744,7 @@ export default function App() {
         setItems((cur) => [...cur, {
           kind: "block", cls: "user", actor: "You", chip: "follow_up",
           pending: true, qid: "q-" + Date.now(),
-          text: payload, images: pics.map((p) => p.url),
+          text: shown, images: pics.map((p) => p.url),
           queueImages: pics.map((p) => ({ mimeType: p.mime, data: p.data })),
           ts: Date.now(),
         }]);
@@ -1745,7 +1757,7 @@ export default function App() {
       // Optimistic UI: the agent may take seconds to boot (huge session);
       // show the turn now and reconcile when the server answers.
       const sentTs = Date.now();
-      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: payload, images: pics.map((p) => p.url), ts: sentTs }]);
+      setItems((cur) => [...cur, { kind: "block", cls: "user", actor: "You", chip: sendKind, text: shown, images: pics.map((p) => p.url), ts: sentTs }]);
       setDraft("");
       clearDraft(agent.id);
       pendingPayload.current = "";
@@ -1790,6 +1802,41 @@ export default function App() {
         setTermWanted((s) => { const n = new Set(s); n.delete(agent.id); return n; });
       }
     } catch (e) { toastError(e); }
+  }
+
+  // /automate (ADR-0046 v2): the current agent drafts the config; the
+  // editor opens pre-filled once the turn settles. No server change — the
+  // turn is correlated client-side, like slashNoteTarget for ask cards.
+  async function startAutomate(description) {
+    if (!agent) {
+      toast.info("Open an agent first, or create the automation by hand.");
+      go("automations");
+      return;
+    }
+    let desc = (description || "").trim();
+    if (!desc) {
+      desc = await askPrompt({ title: "Describe the automation", message: "Example: every weekday at 9, summarize what changed in this repo since yesterday.", confirmLabel: "Draft" });
+      desc = (desc || "").trim();
+      if (!desc) return;
+    }
+    automateRef.current = { agentId: agent.id, description: desc, agentName: displayAgentName(agent, selected), workspaceId: agent.workspaceId };
+    await sendTask(automatePrompt(desc, { workspaceName: selected ? selected.name : "" }), [], { display: "/automate " + desc });
+  }
+
+  function finishAutomate(agentId) {
+    const pending = automateRef.current;
+    if (!pending || pending.agentId !== agentId) return;
+    automateRef.current = null;
+    const cfg = parseAutomateReply(lastAssistantText(itemsRef.current), isValidCron);
+    const ws = pending.workspaceId && pending.workspaceId !== "ws_free" ? pending.workspaceId : "";
+    if (cfg) {
+      writeAutomationDraft({ ...cfg, workspaceId: ws, source: "automate", sourceLabel: pending.agentName });
+      toast.ok("Draft ready — review it, then Create.");
+    } else {
+      writeAutomationDraft({ prompt: pending.description, workspaceId: ws, source: "automate", sourceLabel: pending.agentName });
+      toast.info("Couldn't read a config from the reply — the editor opens with your description.");
+    }
+    location.hash = "#/automations/new";
   }
 
   function setTheme(mode) {
@@ -2080,6 +2127,7 @@ export default function App() {
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "go-providers-new") { go("providers-new"); return; }
               if (cmd.run === "llama") { setLlamaOpen(true); return; }
+              if (cmd.run === "automate") { await startAutomate(""); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
                 if (agent && agent.mode !== "stopped") await stopAgent(selectedId);

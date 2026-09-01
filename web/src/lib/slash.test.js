@@ -67,3 +67,11 @@ test("extension commands do not replace PiCode /compact", () => {
   assert.equal(hits[0].run, "compact");
   assert.ok(!hits.some((c) => c.id === "ext:compact"));
 });
+
+test("/automate is a PiCode UI command", () => {
+  const hits = filterSlash("/auto");
+  assert.equal(hits[0].id, "automate");
+  assert.equal(hits[0].run, "automate");
+  // Free text after the command hides the menu; App intercepts it on send.
+  assert.equal(filterSlash("/automate nightly tests").length, 0);
+});
