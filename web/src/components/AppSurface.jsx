@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, humanizeError } from "../lib/api.js";
@@ -29,6 +29,10 @@ const LIST_KEY = "picode-app-split-w";
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
 export default function AppSurface({ appId, hidden, manifest, onClose }) {
+  // Native radio `name` grouping is document-wide, not component-scoped —
+  // without a per-mount id, a second open app (or the same app reopened)
+  // would fight this one over which segment shows checked.
+  const tabsName = useId();
   const [path, setPath] = useState("");
   const [view, setView] = useState(null); // normalized tree
   const [unsupported, setUnsupported] = useState(false);
@@ -188,9 +192,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
         ) : null}
         <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : ""} label={title} size={14} /></span>
         <h2 className="ft-title" title={title}>{title}</h2>
-        <span className="ft-spacer" />
-        <div className="app-head-controls" data-align-row>
-          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={setPath} />
+        <div className="app-head-left" data-align-row>
+          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={setPath} name={tabsName} />
           {totalItems > 0 ? (
             <span className="app-search-wrap">
               <input
@@ -204,6 +207,9 @@ export default function AppSurface({ appId, hidden, manifest, onClose }) {
               />
             </span>
           ) : null}
+        </div>
+        <span className="ft-spacer" />
+        <div className="app-head-right" data-align-row>
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
             Refresh
           </button>
@@ -269,29 +275,27 @@ function PaneBlocks({ blocks, ctx, badge }) {
   );
 }
 
-// A segmented nav/filter strip, optional per view (ADR-0036: an
-// additive View field, not a new block type). Buttons, not radios — this
-// navigates between views, it isn't a single form value. Reuses the same
-// onNavigate/path plumbing a list row's Path already drives, so no new
-// wiring exists just for tabs.
-function TabStrip({ tabs, path, onNavigate }) {
+// A segmented filter strip, optional per view (ADR-0036: an additive View
+// field, not a new block type). Radio group, not a tablist: the owner's
+// call — a button-group read clearer than an underline once it sat in the
+// header next to the search box. `name` must be per-mount (native radios
+// group by name across the whole document, not per component) — the
+// caller passes a useId() value. Reuses the same onNavigate/path plumbing
+// a list row's Path already drives, so no new wiring exists just for tabs.
+function TabStrip({ tabs, path, onNavigate, name }) {
   if (!tabs || tabs.length === 0) return null;
   return (
-    <nav className="app-tabs" role="tablist" aria-label="Filter" data-align-row>
+    <div className="app-tabs" role="radiogroup" aria-label="Filter" data-align-row>
       {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          className="app-tab"
-          aria-selected={t.path === path}
-          onClick={() => onNavigate(t.path)}
-        >
-          {t.label}
-          {t.badge ? <span className="app-tab-badge">{t.badge}</span> : null}
-        </button>
+        <label className="app-tab-opt" key={t.id}>
+          <input type="radio" name={name} checked={t.path === path} onChange={() => onNavigate(t.path)} />
+          <span className="app-tab-face">
+            {t.label}
+            {t.badge ? <span className="app-tab-badge">{t.badge}</span> : null}
+          </span>
+        </label>
       ))}
-    </nav>
+    </div>
   );
 }
 

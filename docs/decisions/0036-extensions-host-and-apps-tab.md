@@ -244,6 +244,35 @@ The four block types remain frozen; this amendment adds no field to the
 wire contract at all, only host-side rendering behavior around the `Tabs`
 field the prior amendment already shipped.
 
+## Amendment 2026-09-01 — tabs restyled as a radio group; search rejoins them on the left
+
+Same-day follow-up from the owner, purely presentational: the previous
+amendment's underline tab strip becomes a segmented button group, and the
+header's left/right balance changes with it.
+
+- **`.app-tabs` renders as `role="radiogroup"`** of real `<input
+  type="radio">` segments (the `.termset-seg` mechanics, reused as-is — a
+  hidden full-segment input plus a visible face span, `:checked` styling
+  the selected segment). This reverses the original View.Tabs amendment's
+  explicit call ("Underlined, not a pill group... Buttons, not radios —
+  this navigates between views, it isn't a single form value") — the
+  owner's call to make now that the strip sits in header chrome next to a
+  search box, where a button-group reads clearer. `Tab.Path` still drives
+  the same `onNavigate`/`setPath` call; nothing changed server-side or on
+  the wire.
+- **Header order changes**: tabs and the search box move to sit together
+  immediately after the title, left-aligned; `Refresh`/`Close` move to the
+  far right, pushed there by `.ft-spacer` between the two groups. Each
+  group gets its own `data-align-row` wrapper for the same reason as
+  before — comparing tabs-and-search against Refresh/Close would be
+  comparing unrelated clusters, not one row of controls.
+- A native radio group picks up arrow-key roving selection for free,
+  which the button/tablist version never had.
+
+No primitive, field, or wire behavior changed — this amendment is here
+only because the last one described the now-superseded visual, and this
+doc is the one place that history is supposed to be legible.
+
 ## Sources
 
 - VS Code built-in extensions: <https://github.com/microsoft/vscode/tree/main/extensions>;
