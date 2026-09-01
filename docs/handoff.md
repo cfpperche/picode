@@ -261,7 +261,15 @@ Never exercised, because this machine was already past them:
   branch; `.dlg.dlg-sheet` in app.css reshapes the whole `.dlg-*` family;
   `lib/dialogPolicy.test.js` walks `web/src` and fails on any raw import
   outside the primitive + `Palette`/`Hotkeys`. Rule written into
-  `docs/guidelines.md` and the uiux-review checklist.
+  `docs/guidelines.md` and the uiux-review checklist. Owner's phone
+  follow-up (`fix/mobile-sheet-touch`): the free-agent sheet sat half off
+  the screen — Vaul's `repositionInputs` fought `interactive-widget=
+  resizes-content`; the sheet now passes `repositionInputs={false}`. And
+  a finger could not scroll a terminal: xterm scrolls its own buffer on
+  touch but a tmux pane needs wheel events, so the terminal screen turns
+  a vertical drag into one synthetic `wheel` per 16px on `.xterm-screen`
+  (`touch-action: none` on the host), which then takes the desktop's own
+  path (xterm SGR reports / lib/termWheel).
 
 - **2026-09-01 — ADR-0045 Automations** (`feat/automations`): store +
   migrations 016/017, `internal/cron`, `internal/automate`, server routes

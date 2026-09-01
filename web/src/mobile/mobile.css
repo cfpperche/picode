@@ -177,6 +177,7 @@
 .m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; }
 .m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; }
 .m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+.m-term-screen .m-term { touch-action: none; } /* the drag is ours: wheel events for the pane, not a page scroll */
 .m-fab {
   position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 6;
   width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-strong);

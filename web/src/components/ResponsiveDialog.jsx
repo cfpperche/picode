@@ -29,9 +29,14 @@ function makeRoot(alert) {
   return function Root({ children, ...props }) {
     const desktop = useMedia(DIALOG_DESKTOP_QUERY);
     const Base = lib(desktop, alert).Root;
+    // Sheet only: Vaul's own input repositioning fights the viewport
+    // resize the mobile shell already asks for (interactive-widget=
+    // resizes-content) — a focused Name or Provider field left the sheet
+    // halfway off the screen. The browser moves the sheet; Vaul must not.
+    const extra = desktop ? {} : { repositionInputs: false };
     return (
       <Ctx.Provider value={{ desktop, alert }}>
-        <Base {...props}>{children}</Base>
+        <Base {...extra} {...props}>{children}</Base>
       </Ctx.Provider>
     );
   };

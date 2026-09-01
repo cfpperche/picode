@@ -112,6 +112,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Mobile: a finger scrolls a terminal; the New agent sheet stays on
+  screen.** Touch drags on the terminal now become the wheel events a tmux
+  pane scrolls by; the bottom sheet no longer lets Vaul reposition itself
+  when a field takes focus (the browser already resizes the viewport).
 - **Mobile: `!!` in the composer threw instead of explaining.** The old
   shell called a toast helper it never imported.
 - **Apps host: consistent tab height, and the list pane next to a
