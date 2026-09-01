@@ -51,8 +51,13 @@ What exists:
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
+- **ADR-0044** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
 
 ## In flight
+
+**ADR-0044 Automations on `feat/automations`** (2026-09-01). Backend, UI,
+docs done; dogfooded on a scratch instance (Run now → `pong` Inbox result,
+webhook 401/413/202, busy 409, cost cap, daemon restart). Not merged.
 
 **ADR-0043 Track B on `feat/ext-track-b`.** Track A dogfood on Windows Chrome
 passed (console `picode-nmh.exe` + skip `--parent-window`). Track B wires
@@ -130,6 +135,10 @@ render megabytes.
 
 ## Next up
 
+1. **Automations v2 (ADR-0044 "later")** — templates as JSON (Devin's
+   suggested cards), composer `/automate <describe>` that asks the current
+   agent to emit the config into the editor, connectors (GitHub / Slack /
+   Sentry) as webhook recipes, cost on runs closed by a restart.
 **ADR-0043 Track C** (actuator on the current tab) after Track B merges.
 Track D/E stay parked.
 
@@ -200,6 +209,13 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **Automations (ADR-0044):** cost cap is a 30 s poll (overshoots by one
+  poll); runs interrupted by a restart show `$0.00`; the runs table and
+  list poll (15 s) — no live event; two due automations share the active
+  `auth.json` credential; the webhook is reachable wherever the server is
+  (ADR-0007 token-auth debt applies beyond the tailnet); no automated e2e
+  of a real `start` run (verified by hand on a scratch instance, the
+  server test harness's fake pi does not settle a turn).
 - ADR-0028: npm publish for `pi-roles` is not wired (path-triggered workflow +
   `pi-roles-v*` tag). Local path install only. Live RPC dogfood on Grok passed.
 - ADR-0022's occupant scan: the cliff is gone for agents sharing a directory
@@ -231,6 +247,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — ADR-0044 Automations** (`feat/automations`): store +
+  migrations 016/017, `internal/cron`, `internal/automate`, server routes
+  + runner, `Automations.jsx`, guide, benchmark study of Devin/Cursor/
+  Claude Code/Codex/GitHub. Visual gate: empty, blocked (pi missing),
+  editor, detail with secret, list with runs — overlayAudit ok.
 - **2026-09-01** — **Chrome extension Track B**, on branch `feat/ext-track-b`.
   `make desktop` builds `picode-nmh.exe`; `picode-desktop extension-install`
   registers that console host. Side panel pings `kind=extension`.

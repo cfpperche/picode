@@ -13,6 +13,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Automations: run an agent on a schedule or from a webhook (ADR-0044).**
+  User menu → **Automations**. An automation is a prompt plus when to run
+  it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or
+  a webhook URL with a secret shown once — plus limits: max cost per run
+  and max runs per hour/day/week. Each run is a fresh session on the
+  automation's own agent, so it appears in the sidebar and the dashboard
+  like any other; **Run now** tries it immediately. The list shows a
+  30-day runs sparkline and the last result; the detail page lists every
+  run with trigger, result, cost and a link to the agent. Results land in
+  the Inbox as the agent's final message; a skipped or failed run (busy,
+  rate cap, cost cap, pi missing, daemon restarted) files one note.
+  Nothing runs while the machine is off; a missed slot is caught up once.
+  Guide: `www/guide/automations.md`.
 - **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or
