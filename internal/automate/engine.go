@@ -1,4 +1,4 @@
-// Package automate is the automations scheduler (ADR-0044): a one-minute
+// Package automate is the automations scheduler (ADR-0045): a one-minute
 // ticker in the daemon that fires due automations through a Runner. It
 // owns *when*; the Runner (internal/server) owns *how* a run happens.
 // Modelled on internal/backup/loop.go — no machine crontab, no session-

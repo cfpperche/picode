@@ -95,7 +95,7 @@ stay on their own routes.
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** per vault account (ADR-0031) |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
-| `#/automations` | Automations (ADR-0044) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
+| `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping). The Chrome extension (ADR-0043) pings as `kind=extension` and shows as **Chrome extension** on this machine. |
 
 A tab owns its surface's state for as long as it is open: terminals, file
@@ -485,7 +485,7 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
   per agent (enable/disable, precedence layers) writing the same config
   files the adapter reads. We orchestrate the ecosystem; we don't fork it.
 
-### Automations (ADR-0044)
+### Automations (ADR-0045)
 
 `internal/automate` ticks every minute (same shape as the backup loop,
 started in `cmd/picode` with the process context, not the HTTP server)

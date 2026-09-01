@@ -1,4 +1,4 @@
-# ADR-0044: Automations — scheduled and webhook-triggered agent runs
+# ADR-0045: Automations — scheduled and webhook-triggered agent runs
 
 - **Status**: accepted
 - **Date**: 2026-09-01

@@ -116,7 +116,7 @@ export function pairsToMap(pairs) {
   return out;
 }
 
-// Automations editor (ADR-0044). Numbers arrive as strings from inputs;
+// Automations editor (ADR-0045). Numbers arrive as strings from inputs;
 // the server re-validates everything.
 const numField = z.string().trim();
 

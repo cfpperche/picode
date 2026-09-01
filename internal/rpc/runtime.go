@@ -77,7 +77,7 @@ type ManagedAgent struct {
 	waiting       *UIDialog     // blocking extension_ui_request, if any
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
-	observer      *RunObserver  // automations engine watching this run (ADR-0044)
+	observer      *RunObserver  // automations engine watching this run (ADR-0045)
 }
 
 // RunObserver is set by an owner that files its own Inbox items for the

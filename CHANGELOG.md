@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Automations: run an agent on a schedule or from a webhook (ADR-0044).**
+- **Automations: run an agent on a schedule or from a webhook (ADR-0045).**
   User menu → **Automations**. An automation is a prompt plus when to run
   it — Hourly / Daily / Weekdays / Weekly (or a custom cron line) and/or
   a webhook URL with a secret shown once — plus limits: max cost per run

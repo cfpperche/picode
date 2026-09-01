@@ -56,7 +56,7 @@ const (
 	InboxFromTerminal = "terminal"
 	InboxFromSystem   = "system"
 	// InboxFromAutomation items are filed by the automations engine
-	// (ADR-0044); SourceID is the automation id. Nobody replies to them,
+	// (ADR-0045); SourceID is the automation id. Nobody replies to them,
 	// so RespondAndForward never forwards for this kind.
 	InboxFromAutomation = "automation"
 )

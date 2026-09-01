@@ -14,7 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// Automations routes (ADR-0044). Same localhost trust model as the rest
+// Automations routes (ADR-0045). Same localhost trust model as the rest
 // of the API (ADR-0007) — except /fire, which is meant to be called by
 // other tools and therefore carries its own per-automation secret.
 func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {

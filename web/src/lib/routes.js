@@ -286,7 +286,7 @@ export function appRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
-// Automations (ADR-0044): "#/automations" is the list, "#/automations/new"
+// Automations (ADR-0045): "#/automations" is the list, "#/automations/new"
 // the editor, "#/automations/<id>" one automation. null = not ours.
 export function automationRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";

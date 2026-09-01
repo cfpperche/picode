@@ -51,11 +51,11 @@ What exists:
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
-- **ADR-0044** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
+- **ADR-0045** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
 
 ## In flight
 
-**ADR-0044 Automations on `feat/automations`** (2026-09-01). Backend, UI,
+**ADR-0045 Automations on `feat/automations`** (2026-09-01). Backend, UI,
 docs done; dogfooded on a scratch instance (Run now → `pong` Inbox result,
 webhook 401/413/202, busy 409, cost cap, daemon restart). Not merged.
 
@@ -135,7 +135,7 @@ render megabytes.
 
 ## Next up
 
-1. **Automations v2 (ADR-0044 "later")** — templates as JSON (Devin's
+1. **Automations v2 (ADR-0045 "later")** — templates as JSON (Devin's
    suggested cards), composer `/automate <describe>` that asks the current
    agent to emit the config into the editor, connectors (GitHub / Slack /
    Sentry) as webhook recipes, cost on runs closed by a restart.
@@ -209,7 +209,7 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
-- **Automations (ADR-0044):** cost cap is a 30 s poll (overshoots by one
+- **Automations (ADR-0045):** cost cap is a 30 s poll (overshoots by one
   poll); runs interrupted by a restart show `$0.00`; the runs table and
   list poll (15 s) — no live event; two due automations share the active
   `auth.json` credential; the webhook is reachable wherever the server is
@@ -247,7 +247,7 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
-- **2026-09-01 — ADR-0044 Automations** (`feat/automations`): store +
+- **2026-09-01 — ADR-0045 Automations** (`feat/automations`): store +
   migrations 016/017, `internal/cron`, `internal/automate`, server routes
   + runner, `Automations.jsx`, guide, benchmark study of Devin/Cursor/
   Claude Code/Codex/GitHub. Visual gate: empty, blocked (pi missing),
