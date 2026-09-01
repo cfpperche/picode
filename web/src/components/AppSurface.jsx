@@ -28,7 +28,7 @@ const LIST_KEY = "picode-app-split-w";
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath }) {
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -81,6 +81,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   }, [appId]);
 
   useEffect(() => { load(path); }, [path, load]);
+  // refreshKey (ADR-0044 phase 3): the phone's pull-to-refresh bumps it.
+  useEffect(() => { if (refreshKey) loadRef.current(pathRef.current); }, [refreshKey]);
   loadRef.current = load;
   pathRef.current = path;
   useEffect(() => {
@@ -428,12 +430,34 @@ const ROW_ICONS = { check: IconCheck, clock: IconClock, trash: IconTrash };
 // width and never set the row's height.
 function Row({ item, onNavigate, onAction, active }) {
   const has = item.path && onNavigate;
+  // Touch has no hover: a left swipe reveals the row's actions (Done,
+  // Snooze, Delete), a tap anywhere else puts them away. Desktop keeps
+  // hover/focus; the class only adds a third way in.
+  const [swiped, setSwiped] = useState(false);
+  const touch = useRef(null);
+  const onTouchStart = (e) => { if (e.touches.length === 1) touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, done: false }; };
+  const onTouchMove = (e) => {
+    const t = touch.current;
+    if (!t || t.done || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - t.x;
+    const dy = e.touches[0].clientY - t.y;
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { t.done = true; return; } // a scroll, not a swipe
+    if (dx < -32) { setSwiped(true); t.done = true; }
+    else if (dx > 32) { setSwiped(false); t.done = true; }
+  };
+  const onTouchEnd = () => { touch.current = null; };
   return (
-    <li className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "")}>
+    <li
+      className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "")}
+      onTouchStart={item.actions.length ? onTouchStart : undefined}
+      onTouchMove={item.actions.length ? onTouchMove : undefined}
+      onTouchEnd={item.actions.length ? onTouchEnd : undefined}
+      onTouchCancel={item.actions.length ? onTouchEnd : undefined}
+    >
       <button
         type="button"
         className="app-row-main"
-        onClick={() => { if (has) onNavigate(item.path); }}
+        onClick={() => { if (swiped) { setSwiped(false); return; } if (has) onNavigate(item.path); }}
         disabled={!has}
       >
         <span className="app-row-dot" aria-hidden="true" />

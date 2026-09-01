@@ -14,6 +14,10 @@ describe("mobileRoute", () => {
     assert.deepEqual(mobileRoute("#/agents"), { screen: "work", id: "", section: "agents" });
     assert.deepEqual(mobileRoute("#/agent/ag%3A1"), { screen: "agent", id: "ag:1", section: "" });
     assert.deepEqual(mobileRoute("#/term/t%201"), { screen: "term", id: "t 1", section: "" });
+    assert.deepEqual(mobileRoute("#/changes/a/ag1"), { screen: "changes", id: "ag1", section: "agent" });
+    assert.deepEqual(mobileRoute("#/changes/w/ws%201"), { screen: "changes", id: "ws 1", section: "workspace" });
+    assert.equal(mobileRoute("#/changes/x/ag1").screen, "now");
+    assert.equal(mobileHash("changes", "t1", "term"), "#/changes/t/t1");
     assert.deepEqual(mobileRoute("#/more"), { screen: "more", id: "", section: "" });
     assert.deepEqual(mobileRoute("#/more/providers"), { screen: "more", id: "", section: "providers" });
     assert.deepEqual(mobileRoute("#/more/nope"), { screen: "more", id: "", section: "" });
@@ -46,6 +50,10 @@ describe("mobileRoute", () => {
     assert.equal(tabOf(mobileRoute("#/")), "now");
     assert.equal(parentHash(mobileRoute("#/agent/a1")), "#/work");
     assert.equal(parentHash(mobileRoute("#/term/t1")), "#/work/terminals");
+    assert.equal(parentHash(mobileRoute("#/changes/a/ag1")), "#/agent/ag1");
+    assert.equal(parentHash(mobileRoute("#/changes/t/t1")), "#/term/t1");
+    assert.equal(parentHash(mobileRoute("#/changes/w/w1")), "#/work");
+    assert.equal(tabOf(mobileRoute("#/changes/a/ag1")), "work");
     assert.equal(parentHash(mobileRoute("#/inbox/x")), "#/inbox");
     assert.equal(parentHash(mobileRoute("#/more/system")), "#/more");
     assert.equal(parentHash(mobileRoute("#/more")), "#/");

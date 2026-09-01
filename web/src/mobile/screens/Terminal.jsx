@@ -5,13 +5,13 @@ import TermSurface from "../../components/TermSurface.jsx";
 import { terms } from "../../lib/terms.js";
 import { api, humanizeError } from "../../lib/api.js";
 import { termLine } from "../../lib/repoLine.js";
-import { IconKeyboard, IconX } from "../../components/Icons.jsx";
+import { IconKeyboard, IconGit } from "../../components/Icons.jsx";
 
 // The pushed terminal screen (#/term/<id>, the desktop's route): the same
 // xterm the desktop attaches to the tmux session. The keys a soft keyboard
 // lacks live behind a floating button so the pane keeps the whole screen
 // until they are wanted. Opening (re)creates the tmux session if closed.
-export default function TerminalScreen({ term, onBack, onRemove, busy }) {
+export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenChanges }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [keys, setKeys] = useState(false);
@@ -92,7 +92,14 @@ export default function TerminalScreen({ term, onBack, onRemove, busy }) {
         title={live.name || "Terminal"}
         sub={line.text}
         onBack={onBack}
-        right={<button type="button" className="btn btn-sm" disabled={busy} onClick={() => onRemove(term)}>Remove</button>}
+        right={(
+          <>
+            {live.git && live.git.dirty ? (
+              <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("term", term.id, live.name || "Terminal")}><IconGit size={13} /> {live.git.dirty}</button>
+            ) : null}
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={() => onRemove(term)}>Remove</button>
+          </>
+        )}
       />
       <div className="m-term" ref={hostRef}>
         {error ? (

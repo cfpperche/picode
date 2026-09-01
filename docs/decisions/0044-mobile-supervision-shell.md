@@ -139,3 +139,16 @@ zoom (viewport meta rewritten on mount so the desktop keeps the browser
 default, `touch-action: manipulation`, pinch gestures cancelled); row
 actions are icons (▶ ■ 🗑) with `aria-label`s, not words. Back from an agent lands on Work; from a
 terminal on Work → Terminals.
+
+## Phase 3 (2026-09-01): polish from the phone
+
+- **Pull-to-refresh** on Now, Work and Inbox (`usePullToRefresh`, a one-line
+  indicator, no spinner theatre); it refetches everything the screen reads.
+- **Swipe** left on an Inbox row reveals its actions (Done, Snooze, Delete)
+  — touch has no hover, and those buttons were hover-only. Desktop unchanged.
+- **Changes**, read-only: `#/changes/<a|t|w>/<id>` shows an owner's
+  uncommitted working tree through the git graph's own `UncommittedDetail`
+  (which learned the workspace owner kind). Entry points: the agent screen's
+  state row, the terminal header and the workspace card, each only when the
+  tree is dirty, with the count. Nothing here stages, commits or edits —
+  Cursor's line ("not a mobile IDE") holds.

@@ -5,6 +5,8 @@ import { freeTerminals, workspaceTerminals } from "../../lib/termGroups.js";
 import { shortPath } from "../../lib/repoLine.js";
 import { IconPlus } from "../../components/Icons.jsx";
 import { WORK_SECTIONS } from "../../lib/mobileRoutes.js";
+import PullScreen from "../components/PullScreen.jsx";
+import { IconGit } from "../../components/Icons.jsx";
 
 const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Terminals" };
 
@@ -13,10 +15,10 @@ const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Termina
 // terminals; Agents = the free ones (no folder); Terminals = the free ones
 // too — a workspace's terminal is listed once, on its card.
 export default function Work({ section, onSection, loaded, workspaces, freeAgents, terminals, workingIds, busyId,
-  onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm }) {
+  onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges, onRefresh }) {
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
   return (
-    <div className="m-screen">
+    <PullScreen onRefresh={onRefresh}>
       <div className="m-screen-head">
         <div className="dash-range m-seg m-work-seg" role="radiogroup" aria-label="Work view">
           {WORK_SECTIONS.map((s) => (
@@ -34,17 +36,17 @@ export default function Work({ section, onSection, loaded, workspaces, freeAgent
       </div>
       {!loaded ? null : sec === "workspaces" ? (
         <Workspaces workspaces={workspaces} terminals={terminals} workingIds={workingIds} busyId={busyId}
-          onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onStart={onStart} onStop={onStop} onRemoveTerm={onRemoveTerm} onCreate={onCreate} onNewTerm={onNewTerm} />
+          onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onStart={onStart} onStop={onStop} onRemoveTerm={onRemoveTerm} onCreate={onCreate} onNewTerm={onNewTerm} onOpenChanges={onOpenChanges} />
       ) : sec === "agents" ? (
         <FreeAgents freeAgents={freeAgents} workingIds={workingIds} busyId={busyId} onOpenAgent={onOpenAgent} onStart={onStart} onStop={onStop} onCreate={onCreate} />
       ) : (
         <Terminals terminals={terminals} busyId={busyId} onOpenTerm={onOpenTerm} onRemoveTerm={onRemoveTerm} onNewTerm={onNewTerm} />
       )}
-    </div>
+    </PullScreen>
   );
 }
 
-function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm }) {
+function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges }) {
   if (!workspaces || workspaces.length === 0) {
     return (
       <div className="m-blank">
@@ -75,6 +77,9 @@ function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, on
         <div className="m-ws-actions">
           <button type="button" className="btn btn-sm" onClick={() => onCreate("agent", ws)}><IconPlus size={13} /> Agent</button>
           <button type="button" className="btn btn-sm" onClick={() => onNewTerm(ws)}><IconPlus size={13} /> Terminal</button>
+          {ws.git && ws.git.dirty ? (
+            <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button>
+          ) : null}
         </div>
       </section>
     );

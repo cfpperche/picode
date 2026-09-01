@@ -15,7 +15,9 @@ export default function UncommittedDetail({ owner, onClose }) {
   const [open, setOpen] = useState({});
   const [diffs, setDiffs] = useState({});
 
-  const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
+  // Owner kinds: agent (default), term, and — for the phone's Changes
+  // screen — a workspace folder itself.
+  const base = owner && owner.kind === "term" ? "/api/terminals/" : owner && owner.kind === "workspace" ? "/api/workspaces/" : "/api/agents/";
   const ownerId = owner ? owner.id : "";
 
   useEffect(() => {

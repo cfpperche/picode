@@ -206,7 +206,7 @@ Never exercised, because this machine was already past them:
 ## Backlog
 
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
-- Mobile phase 2 shipped (ADR-0047) but **not yet proved on a real phone**: enable on Chrome Android / an iPhone Home-Screen install, `Send test`, then a real `ASK:` with the desktop closed. Phase 3: swipe actions on inbox rows, pull-to-refresh, read-only Changes screen.
+- Mobile phase 2 (ADR-0047) **proved on the owner's iPhone**: subscribe, `Send test`, a blocking inbox item with the desktop closed → push → tap → Accept → follow-up queued for the agent. Phase 3 shipped (pull-to-refresh, swipe, Changes). Not yet exercised on a real device: the live-dialog push path (needs an extension prompt with the desktop closed), swipe and pull on real touch.
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
 - Cold start parses the whole session JSONL (10 s on a 129 MB session) — filed upstream: [pi#8843](https://github.com/earendil-works/pi/issues/8843) (lazy resume / load checkpoint).
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
@@ -254,6 +254,17 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-01** — **Mobile phase 3 (ADR-0044 addendum)**, on branch
+  `feat/mobile-phase3`: `usePullToRefresh` + `PullScreen` (Now, Work;
+  Inbox via `AppSurface.refreshKey`), touch swipe on `AppSurface` rows
+  (`app-row-swiped` reveals the hover-only actions), `#/changes/<kind>/<id>`
+  → `Changes.jsx` wrapping `UncommittedDetail` (now accepts owner kind
+  `workspace`); entry buttons on the agent state row, the terminal header
+  and the workspace card when `git.dirty > 0`. QA on scratch with the
+  real dirty checkout: file list + expanded patch, synthesized touch
+  swipe reveals actions, synthesized pull shows "Release to refresh" and
+  refetches.
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap

@@ -13,13 +13,14 @@ import { formatMoney } from "../../lib/providerUsage.js";
 import { extraSlash } from "../../lib/slash.js";
 import { stuckToBottom } from "../../lib/stickScroll.js";
 import { eventsToItems } from "../../lib/replay.js";
+import { IconGit } from "../../components/Icons.jsx";
 
 // The pushed agent screen: header (name · state), a meta line (model ·
 // cost · where), Chat or — for an agent living in a tmux TUI — Terminal,
 // the shared Conversation with its ask card, and the shared Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop }) {
+export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenChanges }) {
   const sock = useAgentSocket(agent);
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
@@ -97,6 +98,9 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
       <ScreenHeader title={name} sub={meta} onBack={onBack} right={right} />
       <div className="m-agent-state">
         <StateChip state={state} />
+        {agent.git && agent.git.dirty ? (
+          <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("agent", id, name)}><IconGit size={13} /> {agent.git.dirty} changed</button>
+        ) : null}
         {interactive ? (
           <div className="dash-range m-seg" role="radiogroup" aria-label="View">
             {[["chat", "Chat"], ["term", "Terminal"]].map(([v, label]) => (

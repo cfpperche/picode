@@ -21,6 +21,7 @@ import Inbox from "./screens/Inbox.jsx";
 import Work from "./screens/Work.jsx";
 import Agent from "./screens/Agent.jsx";
 import TerminalScreen from "./screens/Terminal.jsx";
+import Changes from "./screens/Changes.jsx";
 import More from "./screens/More.jsx";
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
 import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
@@ -146,6 +147,19 @@ export default function MobileApp() {
   function openTerm(id) {
     if (id) push(mobileHash("term", id));
   }
+  function openChanges(kind, id, title) {
+    if (id) push(mobileHash("changes", id, kind));
+  }
+  // Pull-to-refresh: everything the visible screens read, at once.
+  async function refreshAll() {
+    await Promise.all([
+      reload().catch(() => {}),
+      api("/api/inbox?blocking=1").then((b) => setInbox(b.items || [])).catch(() => {}),
+      api("/api/inbox").then((all) => setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5))).catch(() => {}),
+      api("/api/apps").then((l) => setApps(normalizeManifests(l))).catch(() => {}),
+      route.screen === "now" ? api("/api/sessions/stats?range=today").then(setStats).catch(() => {}) : Promise.resolve(),
+    ]);
+  }
   function setSection(sec) {
     setWorkSection(sec);
     writeWorkSection(sec);
@@ -227,10 +241,17 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "agent" || route.screen === "term" || (route.screen === "more" && !!route.section);
+  const pushed = route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section);
   let body = null;
-  if (route.screen === "term") {
-    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} />;
+  if (route.screen === "changes") {
+    const owner = route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
+      : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
+      : { workspace: workspaces.find((w) => w.id === route.id) };
+    const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")
+      : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
+    body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
+  } else if (route.screen === "term") {
+    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenChanges={openChanges} />;
   } else if (route.screen === "agent") {
     body = (
       <Agent
@@ -242,6 +263,7 @@ export default function MobileApp() {
         onBack={() => goBack(route)}
         onStart={startAgent}
         onStop={stopAgent}
+        onOpenChanges={openChanges}
       />
     );
   } else if (route.screen === "inbox") {
@@ -251,7 +273,8 @@ export default function MobileApp() {
       <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
-        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} />
+        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
+        onOpenChanges={openChanges} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
     body = (
@@ -263,7 +286,7 @@ export default function MobileApp() {
     body = (
       <Now loaded={loaded} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
         fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
-        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))}
+        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
         onCreate={(kind) => setCreate({ kind, workspace: null })} />
     );
   }

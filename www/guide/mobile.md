@@ -34,6 +34,10 @@ asking), the composer with **prompt / steer / follow-up** and dictation, and
 **Stop** to abort the current turn. An agent living in a terminal shows a
 **Chat | Terminal** switch.
 
+Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
+left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
+terminal or a workspace opens its uncommitted changes, read-only.
+
 Tap a terminal to attach to it. Under the terminal a **key bar** gives you
 what the phone keyboard lacks: Esc, Tab, Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+L,
 arrows, and `/ | - ~`.

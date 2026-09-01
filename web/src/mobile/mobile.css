@@ -250,3 +250,23 @@
   color: #fff; font-size: 12px; font-weight: 600;
 }
 @media (prefers-reduced-motion: reduce) { #m-app * { transition: none !important; } }
+
+/* ---- phase 3: pull-to-refresh, swipe, changes ---- */
+.m-pull { flex: none; margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--text-secondary); min-height: 18px; }
+.m-pull.is-armed { color: var(--accent); }
+.m-changes-btn { display: inline-flex; gap: 4px; }
+.m-agent-state .m-changes-btn { margin-left: auto; }
+.m-changes { padding: 0 0 24px; gap: 0; }
+.m-changes .m-head { margin: 0; }
+.m-changes .gg-detail { width: auto; max-width: none; border: 0; border-radius: 0; margin: 0; }
+.m-changes .gg-detail-head { padding: 10px var(--m-pad) 6px; }
+.m-changes .gg-detail-head .btn { display: none; } /* Back is the header's */
+.m-changes .gg-detail-body { padding: 0 var(--m-pad); }
+.m-changes .gg-file-head { min-height: var(--m-tap); }
+.m-changes .diff { overflow-x: auto; }
+/* Inbox rows on touch: a left swipe reveals the row actions. */
+#m-app .app-row { touch-action: pan-y; }
+#m-app .app-row-swiped .app-row-actions { opacity: 1; }
+#m-app .app-row-swiped .app-row-line1 .app-when { opacity: 0; }
+#m-app .app-row-swiped { background: var(--bg-hover); }
+#m-app .app-row-actions .ws-icon-btn { width: 40px; height: 40px; }

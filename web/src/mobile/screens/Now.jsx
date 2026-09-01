@@ -7,11 +7,12 @@ import { termLine } from "../../lib/repoLine.js";
 import { displayAgentName } from "../../lib/tree.js";
 import { shortModel } from "../../lib/chip.js";
 import { relTime, absTime } from "../../lib/relTime.js";
+import PullScreen from "../components/PullScreen.jsx";
 
 // The home is a queue of decisions (PagerDuty's "top open incidents"),
 // then who is running, then today's numbers, then what finished. Nothing
 // here duplicates the Agents tab: an idle agent is one tap away, not a row.
-export default function Now({ loaded, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal }) {
+export default function Now({ loaded, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal, onRefresh }) {
   const runningCount = running.length + (liveTerms || []).length;
   if (loaded && fleetTotal === 0) {
     return (
@@ -25,7 +26,7 @@ export default function Now({ loaded, entries, running, liveTerms, workingIds, s
     );
   }
   return (
-    <div className="m-screen">
+    <PullScreen onRefresh={onRefresh}>
       <section className="m-section">
         <h2 className="m-section-label">Needs you{entries.length ? <span className="m-count">{entries.length}</span> : null}</h2>
         {!loaded ? <Skel /> : entries.length === 0 ? (
@@ -97,7 +98,7 @@ export default function Now({ loaded, entries, running, liveTerms, workingIds, s
           </ul>
         )}
       </section>
-    </div>
+    </PullScreen>
   );
 }
 
