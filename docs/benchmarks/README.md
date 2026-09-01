@@ -15,6 +15,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [pingdotgg/t3code](https://github.com/pingdotgg/t3code) | Agent-harness control surface (Claude/Codex/Cursor/Grok/OpenCode) | Runtime normalization, composer depth, URL-routed threads, waiting state | Open repo — file-path receipts |
 | [getpaseo/paseo](https://github.com/getpaseo/paseo) | Daemon + clients for Claude/Codex/Copilot/OpenCode/**Pi** | Same ADE mission, different bet (PTY+hooks, task graphs). They already speak Pi | Open repo — file-path receipts |
 | [herdrdev/herdr](https://github.com/herdrdev/herdr) | Rust PTY runtime for guest CLIs | Semantic idle/working/blocked, socket API, later worktrees. **Not** the editor bar | Open repo — file-path receipts |
+| [Devin](https://devin.ai) | Hosted autonomous engineer (Cognition) | **Automations** (triggers → session, ACU/rate caps, activity log, NL-generated config), blocked-and-wake sessions (ADR-0037). Not a runtime or editor bar | Public docs + owner's org UI — hosted, no clone |
 
 **Adaptation rule** (same as Cursor): borrow a pattern only if it makes
 *Pi agent control* better. We are not a multi-runtime harness (t3code)
@@ -23,6 +24,7 @@ and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
 
 ## Studies
 
+- [2026-09-01 — Devin Automations (and peers)](2026-09-01-devin-automations.md)
 - [2026-09-01 — LLM observability dashboards](2026-09-01-llm-observability-dashboards.md)
 - [2026-08-30 — Copying out of a browser terminal backed by tmux](2026-08-30-web-terminal-clipboard.md)
 - [2026-08-27 — Herdr](2026-08-27-herdr.md)
