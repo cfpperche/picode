@@ -290,6 +290,62 @@ Never exercised, because this machine was already past them:
     854.9008726400006 — last-digit float ordering only). Commit
     `d532c31c` on the same branch.
 
+- **2026-09-01** — **Apps host: tab height unified, split pane
+  resizable** (`feat/apps-host-chrome`). Owner used the just-shipped
+  Inbox tabs and flagged two chrome inconsistencies: "tabbar" height
+  differs by location, and a "sidebar" (the Inbox's list pane) isn't
+  resizable — clarified to mean the apps host's `.app-split` list pane,
+  not `#sidebar` (confirmed live via dispatched PointerEvents that
+  `#sidebar`'s own resize already works correctly; CDP's synthetic
+  mouse events just don't trigger it reliably, a test-harness quirk,
+  not a product bug).
+  Audited every `role="tab"`/`role="tablist"` in `web/src/components/`:
+  4 patterns, 3 heights — `.mtab` (window tab strip) and `.brand-tab`
+  (sidebar's own Workspaces/Agents/Terminals/Apps/Pins switcher) both
+  already resolve to 40px via `--chrome-h` (structural — that row is
+  shared with the sidebar header, left alone); `.pref-tab` (Preferences
+  nav) was `36px` hardcoded; `.app-tab` (Inbox Active/Done/All) was
+  `30px` hardcoded, the value introduced this session without
+  reconciling it against anything else. Both now reference `--ctl-h`
+  (36px) — already the file's dominant control-height token, and the
+  smaller visual delta for the Inbox. `.termset-seg-face` (Terminal
+  Settings scope picker) stays on `--ctl-h` unchanged: confirmed it's a
+  mutually-exclusive value picker (radio group), not view navigation —
+  already correct, not part of the inconsistency.
+  Surveyed every existing drag-to-resize sizer before adding a 5th:
+  `Sidebar.jsx` (`picode-sidebar-w`), `FileTreeSurface.jsx`
+  (`picode-ft-w`, `.ft-split`/`.ft-sizer`), `FilePane.jsx`
+  (`picode-file-w`), `GitGraphSurface.jsx` (vertical,
+  `picode.gg.detail-h`) — all four persist to `localStorage`, all four
+  use a bare 6px hover-highlight handle with no permanent affordance.
+  `.app-split` (`AppSurface.jsx`) converted from CSS Grid to flexbox
+  (nothing else in `app.css` depended on it being a grid — checked) so
+  the new `.app-split-sizer` could use the same
+  flex-sibling-with-negative-margin technique as `.ft-sizer` instead of
+  fighting the stacked-breakpoint media query with `!important` (a
+  pattern that doesn't otherwise exist in this file). New `AppSurface.jsx`
+  state (`listW`/`resizing`/`stacked`, the last one now tracked live via
+  `matchMedia("(min-width: 881px)").addEventListener("change", …)`
+  rather than the one-shot check the mount effect already had) and an
+  `onSizerDown` handler copied in the same shape as the other four —
+  deliberately not extracted into a shared hook, since the codebase has
+  independently reimplemented this same ~15-line pattern four times
+  already rather than factoring it out. Persistence key
+  (`picode-app-split-w`) is global, not per-app-id, matching
+  `FileTreeSurface`'s own global `TREE_KEY` precedent — one open
+  question inherited unchanged from that precedent: two split-app tabs
+  open at once don't live-sync a drag between them, only the next
+  mount picks up the saved width.
+  QA on isolated :8616: tab height measured 36px (was 30) in a live
+  DOM read; list pane measured 380→530px across a real drag and held
+  530px after a full page reload; at 760px width the sizer is absent
+  from the DOM (not just hidden) and `.app-split`'s computed
+  `flex-direction` is `column`; dark theme screenshot clean. No new
+  tests: the JS runner (`node --test src/lib/*.test.js`) only covers
+  `web/src/lib/`, there is no `.test.jsx` or DOM harness in the repo,
+  and this change adds no new pure-logic surface to test (the clamp
+  math is inline, same as the four precedents it copies).
+
 - **2026-09-01** — **Per-agent `--session-dir` (ADR-0040)**, on branch
   `worktree-pi-tui-session-dir`. Owner reported (screenshots) that after
   ADR-0039 shipped, an Agent's **chat** picker correctly showed only its
@@ -458,6 +514,16 @@ Never exercised, because this machine was already past them:
   handler running; fixed by adding `note` to the loose kinds.
   Verified on the scratch rig (line renders, chip prefills, reload keeps
   2 notes); gates green (276 js + 60 pkg).
+
+- **2026-09-01** — **portrait video preview fits the pane** (`feat/video-preview-fit`):
+  a 1080×1920 `.mp4` used to set `width: min(100%, 960px)` with no max-height,
+  so Preview grew a scrollbar and hid the controls under the viewport.
+  `.file-preview-fit` is a one-cell grid that can shrink below intrinsic size;
+  the `<video>` / `<img>` then `object-fit: contain` inside it. Markdown, SVG
+  and mermaid still scroll. Scratch `:8460` QA: video 290×516 inside a 548px
+  pane, `paneScroll === paneClient`, `overlayAudit ok`. Captures: happy
+  portrait, Raw ("Can't show this file."), gone, decode error.
+  visual-review: PASS (file-video-portrait-fit.png + overlayAudit ok; card 5/5).
 
 - **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
   the file tree, git graph and app surfaces were rendered only while

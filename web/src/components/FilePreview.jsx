@@ -85,7 +85,7 @@ function Media({ src, tag, label }) {
   if (err) return <p className="file-pane-msg">{err}</p>;
   if (tag === "img") {
     return (
-      <div className="file-preview">
+      <div className="file-preview file-preview-fit">
         <img className="file-preview-svg" src={src} alt="" onError={() => setErr("Can't preview this image.")} />
       </div>
     );
@@ -98,7 +98,7 @@ function Media({ src, tag, label }) {
     );
   }
   return (
-    <div className="file-preview">
+    <div className="file-preview file-preview-fit">
       <video className="file-preview-video" src={src} controls onError={() => setErr("Can't preview this video.")} />
     </div>
   );

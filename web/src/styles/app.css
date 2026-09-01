@@ -951,6 +951,16 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .um-item:hover, .um-item[data-highlighted] { background: var(--bg-panel); outline: none; }
 .um-item.um-danger { color: var(--danger); }
 .um-item svg { color: var(--text-secondary); }
+.um-item[aria-disabled="true"] { color: var(--text-secondary); cursor: default; }
+.um-item[aria-disabled="true"]:hover { background: none; }
+.um-item[aria-disabled="true"] svg { opacity: .6; }
+.ctx-tip {
+  z-index: 41; max-width: 200px;
+  padding: 6px 8px; border-radius: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);
+  font-size: 11.5px; color: var(--text-secondary);
+}
 .um-install { padding: 6px 8px 8px; }
 .um-install .btn { width: 100%; }
 .um-version {
@@ -1264,7 +1274,26 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   flex: 1; min-height: 0; overflow: auto; padding: 16px;
   display: flex; align-items: flex-start; justify-content: center;
 }
+/* Portrait video/image must shrink to the pane, not grow a scrollbar.
+   One grid cell that can collapse below intrinsic size; the media then
+   maxes to that cell and keeps its ratio. Markdown/SVG/mermaid still scroll. */
+.file-preview-fit {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
 .file-preview-svg { max-width: 100%; height: auto; display: block; }
+.file-preview-fit > .file-preview-svg,
+.file-preview-fit > .file-preview-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+}
 .file-preview.mermaid-svg { display: block; padding: 16px; }
 .file-preview-md {
   display: block; text-align: left; max-width: 52rem; margin: 0 auto;
@@ -1280,8 +1309,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .file-preview-frame {
   flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-base);
 }
-.file-preview-audio, .file-preview-video { max-width: 100%; }
-.file-preview-video { width: min(100%, 960px); }
+.file-preview-audio { max-width: 100%; }
+.file-preview-video { display: block; }
 .file-preview-3d-wrap { display: block; padding: 0; height: 100%; }
 .file-preview-3d { width: 100%; height: min(70vh, 560px); }
 .file-card {
@@ -2630,7 +2659,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   border-bottom: 1px solid var(--border);
 }
 .pref-tab {
-  display: inline-flex; align-items: center; height: 36px; padding: 0 12px;
+  display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 12px;
   border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
   background: none; color: var(--text-secondary); text-decoration: none;
   font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
@@ -3331,6 +3360,23 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .app-head-icon { display: grid; place-items: center; color: var(--text-secondary); }
 .app-back { padding: 0 6px; }
+/* Tabs, search, Refresh, Close: the header's control cluster. Grouped so
+   [data-align-row] checks only same-kind controls against each other —
+   the title (.ft-title) sits outside it and legitimately differs in
+   height, which would otherwise read as a false misalignment. */
+/* flex-wrap, not nowrap: the sidebar rail eats a fixed chunk of the window,
+   so this cluster's *available* width tracks the app surface, not the
+   viewport — a media query keyed to window width can still leave too
+   little room. Wrapping onto a further line beats clipping Close off the
+   edge of the pane. */
+.app-head-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 880px) {
+  /* Same breakpoint the split pane already stacks at. Icon/title/spacer
+     keep the first line; the control cluster gets a full-width second
+     line instead of being left to wrap wherever the browser finds room. */
+  .app-surface .ft-head { flex-wrap: wrap; }
+  .app-surface .ft-head .app-head-controls { flex-basis: 100%; margin-top: 6px; }
+}
 .app-body {
   flex: 1; overflow-y: auto; padding: 12px;
   display: flex; flex-direction: column; gap: 16px;
@@ -3342,21 +3388,27 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
    breakpoint the panes stack — the list first, detail under it. */
 .app-split {
   flex: 1; min-height: 0;
-  display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  display: flex;
 }
 .app-pane { min-width: 0; min-height: 0; overflow-y: auto; padding: 10px 12px; }
 .app-pane-list {
+  flex: 0 0 380px;
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 14px;
 }
-.app-pane-detail { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+.app-pane-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+/* Drag handle between list and detail — only rendered (AppSurface.jsx)
+   when the split isn't stacked. Same flex-sibling-with-negative-margin
+   technique as .ft-sizer: a real flex item that costs no layout width. */
+.app-split-sizer { width: 6px; margin: 0 -3px; flex: none; cursor: col-resize; z-index: 6; }
+.app-split-sizer:hover, .app-split.resizing .app-split-sizer { background: var(--accent); opacity: .45; }
 @media (max-width: 880px) {
   /* Stacked: the list on top, the detail under it. Rows stop stretching
      so the timestamp does not drift a screen away from its title. */
-  .app-split { grid-template-columns: minmax(0, 1fr); }
+  .app-split { flex-direction: column; }
   .app-pane { overflow-y: visible; }
   .app-split { overflow-y: auto; }
-  .app-pane-list { border-right: 0; border-bottom: 1px solid var(--border); }
+  .app-pane-list { flex-basis: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .app-pane-list .app-list { max-width: 640px; }
 }
 /* Detail body, measure and the action footer. */
@@ -3383,17 +3435,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-variant-numeric: tabular-nums;
 }
 
-/* Segmented nav/filter strip (optional per view). Underlined, not a
-   pill group like .termset-seg — these are different VIEWS of the list,
-   not one control's mutually exclusive value. */
-.app-tabs {
-  display: flex; gap: 2px;
-  margin: -12px -12px 10px; padding: 0 12px;
-  border-bottom: 1px solid var(--border);
-}
+/* Segmented nav/filter strip (optional per view), rendered inline in the
+   host header (ft-head) beside the search box and Refresh/Close — never
+   inside the scrolling pane. Underlined, not a pill group like
+   .termset-seg — these are different VIEWS of the list, not one control's
+   mutually exclusive value. */
+.app-tabs { display: flex; align-items: center; gap: 2px; flex: none; }
 .app-tab {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 8px; margin-bottom: -1px;
+  height: var(--ctl-h); padding: 0 8px;
   border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   background: none; color: var(--text-secondary);
   font: inherit; font-size: 12px; cursor: pointer;
@@ -3408,6 +3458,26 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   color: var(--text-secondary); background: var(--bg-hover);
   border-radius: 999px; padding: 0 5px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Filter box (host-generic, ADR-0036 amendment). Unlike git graph's search
+   (.gg-search, ADR-0038 — dims/highlights only, a drawn graph is
+   positional), this one hides non-matches: a list block has no layout to
+   protect, and "filtro" is what was asked for. */
+.app-search-wrap { display: inline-flex; align-items: center; }
+.app-search {
+  width: 160px; height: var(--ctl-h); padding: 0 8px; box-sizing: border-box;
+  font: inherit; font-size: 12px; color: var(--text-primary);
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.app-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* "The search hid everything" — distinct from the app's own view.empty
+   ("there is nothing"). One line + one action, same idiom as .ft-msg's
+   error state, sized for a pane that already has its own padding. */
+.app-search-empty {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; margin: 0 0 4px;
+  color: var(--text-secondary); font-size: 12.5px;
 }
 
 /* Detail header: the item's own title, then its meta strip. */

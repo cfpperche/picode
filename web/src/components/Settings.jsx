@@ -7,6 +7,7 @@ import PageFrame from "./PageFrame.jsx";
 import ThemeCard from "./ThemeCard.jsx";
 import { toast, toastError } from "../lib/toast.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
+import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
 import FolderField from "./FolderField.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
@@ -18,6 +19,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   const [moving, setMoving] = useState(false);
   const [err, setErr] = useState("");
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
+  const [ctxPrefs, setCtxPrefs] = useState(readContextMenuPrefs);
 
   useEffect(() => {
     if (hidden) return;
@@ -30,6 +32,10 @@ export default function Settings({ hidden, themeMode, onTheme }) {
 
   function saveToast(patch) {
     setToastPrefs(persistToastPrefs({ ...toastPrefs, ...patch }));
+  }
+
+  function saveCtx(patch) {
+    setCtxPrefs(persistContextMenuPrefs({ ...ctxPrefs, ...patch }));
   }
 
   async function applyPort() {
@@ -62,7 +68,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
           <a
             key={id}
             href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
@@ -79,6 +85,18 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
           <ThemeCard option="dark" label="Dark" desc="Low light" active={themeMode === "dark"} onPick={onTheme} icon={<IconMoon size={15} />} />
+        </div>
+      </section>
+
+      <section className="settings-section" hidden={sec !== "shortcuts"}>
+        <h3 className="sr-only">Shortcuts</h3>
+        <div className="set-rows">
+          <div className="set-row">
+            <label htmlFor="ctx-modifier">Browser menu on right-click</label>
+            <select id="ctx-modifier" value={ctxPrefs.bypassModifier} onChange={(e) => saveCtx({ bypassModifier: e.target.value })}>
+              {CTX_MODIFIERS.map((m) => <option key={m} value={m}>{m[0].toUpperCase() + m.slice(1)} + right-click</option>)}
+            </select>
+          </div>
         </div>
       </section>
 
