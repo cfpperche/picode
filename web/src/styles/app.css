@@ -3783,7 +3783,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 /* Automations (ADR-0044) — list rows, detail, editor, runs. */
 .auto-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .auto-toolbar .btn { height: var(--ctl-h); }
-.auto-count { font-size: 12px; color: var(--text-secondary); }
+.auto-count { display: inline-flex; align-items: center; height: var(--ctl-h); font-size: 12px; color: var(--text-secondary); }
 .auto-blocked {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px;
   padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
@@ -3822,6 +3822,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .auto-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .auto-detail-actions { display: flex; align-items: center; gap: 6px; }
 .auto-detail-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.auto-switch-cell { display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 4px; }
 .auto-detail-title { font-size: 15px; font-weight: 650; margin: 8px 0 2px; }
 .auto-detail .auto-when { white-space: normal; }
 .auto-prompt {
@@ -3873,6 +3874,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .auto-field .dlg-input.auto-num, .auto-details .dlg-input.auto-num { width: 90px; height: var(--ctl-h); margin: 0; }
 .auto-seg { margin-top: 0; }
 .auto-hint { font-size: 12px; color: var(--text-secondary); }
+/* Hints sit on control rows: give them the control height so [data-align-row] stays even. */
+.auto-inline > .auto-hint { display: inline-flex; align-items: center; height: var(--ctl-h); }
 .auto-hint.bad { color: var(--danger); }
 .auto-details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
 .auto-details summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-secondary); }

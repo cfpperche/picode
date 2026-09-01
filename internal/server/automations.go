@@ -52,8 +52,8 @@ func (deps Deps) automationView(a store.Automation, now time.Time) automationVie
 	}
 	if a.Enabled && a.Cron != nil {
 		if sched, err := cron.Parse(*a.Cron); err == nil {
-			if next, ok := sched.Next(now.Truncate(time.Minute)); ok {
-				s := next.Add(automate.Jitter(a.ID, sched.Interval(now))).Format(time.RFC3339)
+			if next, ok := automate.NextFire(sched, a.ID, now); ok {
+				s := next.Format(time.RFC3339)
 				v.NextFireAt = &s
 			}
 		}

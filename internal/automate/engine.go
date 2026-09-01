@@ -133,6 +133,18 @@ func Jitter(id string, interval time.Duration) time.Duration {
 	return time.Duration(int64(h.Sum32())%limitMin) * time.Minute
 }
 
+// NextFire is when automation id fires next after now: the first slot s
+// with s+jitter still ahead, plus that jitter — the same arithmetic Due
+// uses, so the list never promises a time the engine will not keep.
+func NextFire(sched cron.Schedule, id string, now time.Time) (time.Time, bool) {
+	jitter := Jitter(id, sched.Interval(now))
+	s, ok := sched.Next(now.Truncate(time.Minute).Add(-jitter))
+	if !ok {
+		return time.Time{}, false
+	}
+	return s.Add(jitter), true
+}
+
 // Due answers whether automation a should fire at now (minute-truncated).
 // It returns the slot being honoured and its trigger:
 //   - schedule: now-jitter matches the cron and that slot has not fired;

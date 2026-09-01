@@ -133,3 +133,22 @@ func TestReconcileFailsStaleRunsAndNotifies(t *testing.T) {
 		t.Fatalf("inbox = %+v", items)
 	}
 }
+
+func TestNextFireMatchesDue(t *testing.T) {
+	daily, _ := cron.Parse("0 9 * * *")
+	j := Jitter("x", 24*time.Hour)
+	// Created at 09:03 with jitter j >= 5m: today's slot still fires at 09:00+j.
+	if j >= 5*time.Minute {
+		next, ok := NextFire(daily, "x", local("2026-09-01 09:03"))
+		if !ok || !next.Equal(local("2026-09-01 09:00").Add(j)) {
+			t.Fatalf("next = %v (jitter %v)", next, j)
+		}
+		if _, trig, ok := Due(daily, store.Automation{ID: "x"}, next); !ok || trig != store.TriggerSchedule {
+			t.Fatalf("Due disagrees with NextFire at %v", next)
+		}
+	}
+	next, ok := NextFire(daily, "x", local("2026-09-01 12:00"))
+	if !ok || !next.Equal(local("2026-09-02 09:00").Add(j)) {
+		t.Fatalf("tomorrow = %v", next)
+	}
+}

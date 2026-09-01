@@ -216,8 +216,17 @@ function whenLine(a) {
   if (a.cron) parts.push(describeCron(a.cron));
   if (a.webhook) parts.push("Webhook");
   if (a.action === "message") parts.push("Messages an agent");
-  if (a.enabled && a.nextFireAt) parts.push("next in " + relTime(a.nextFireAt, Date.now() - 2 * (Date.parse(a.nextFireAt) - Date.now())).replace(/^now$/, "a minute"));
+  if (a.enabled && a.nextFireAt) parts.push("next " + untilText(a.nextFireAt));
   return parts.join(" · ");
+}
+
+// untilText("2026-09-01T17:53:00-03:00") -> "in 16m" / "in 3h" / "in 2d" / "any minute".
+function untilText(iso, now = Date.now()) {
+  const d = Date.parse(iso || "") - now;
+  if (!Number.isFinite(d) || d < 60_000) return "any minute";
+  if (d < 3_600_000) return "in " + Math.round(d / 60_000) + "m";
+  if (d < 86_400_000) return "in " + Math.round(d / 3_600_000) + "h";
+  return "in " + Math.round(d / 86_400_000) + "d";
 }
 
 function Spark({ points }) {
@@ -283,9 +292,11 @@ function Detail({ a, catalog, workspaces, agents, reveal, onDismissSecret, onRun
       <div className="auto-detail-head" data-align-row>
         <a className="btn btn-ghost btn-sm" href={automationsHash("")}><IconChevronLeft /> All automations</a>
         <div className="auto-detail-actions" data-align-row>
-          <Switch.Root className="rx-switch" checked={a.enabled} onCheckedChange={onToggle} aria-label={(a.enabled ? "Disable " : "Enable ") + a.name}>
-            <Switch.Thumb className="rx-switch-thumb" />
-          </Switch.Root>
+          <span className="auto-switch-cell">
+            <Switch.Root className="rx-switch" checked={a.enabled} onCheckedChange={onToggle} aria-label={(a.enabled ? "Disable " : "Enable ") + a.name}>
+              <Switch.Thumb className="rx-switch-thumb" />
+            </Switch.Root>
+          </span>
           <button type="button" className="btn btn-ghost" onClick={onRun} disabled={a.running}><IconPlay /> Run now</button>
           <button type="button" className="btn btn-ghost" onClick={() => setEditing(true)}><IconPencil /> Edit</button>
           <button type="button" className="btn btn-ghost btn-danger" onClick={onDelete}><IconTrash /> Delete</button>
@@ -406,7 +417,7 @@ function Editor({ initial, catalog, workspaces, agents, onSaved, onCancel }) {
 
   useEffect(() => { if (nameRef.current) nameRef.current.focus(); }, []);
 
-  const cron = f.preset === "custom" ? f.cron : presetToCron(f);
+  const cron = f.preset === "custom" ? f.cron : presetToCron({ kind: f.preset, time: f.time, dow: f.dow });
   const cronErr = f.scheduleOn ? cronError(cron) : "";
 
   async function save(e) {
