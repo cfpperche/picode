@@ -65,7 +65,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
-    wireTermWheel(term, sendBytes, paneEl);
+    wireTermWheel(term, sendBytes);
     wireTermKeys(term, sendBytes);
     wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
     wireTermFit(entry);

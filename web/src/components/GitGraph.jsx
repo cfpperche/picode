@@ -37,7 +37,8 @@ function refLabel(ref) {
 }
 
 export default function GitGraph({
-  graph, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
+  graph, showRemoteBranches, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
+  onEndReached, loadingEarlier,
 }) {
   const commits = graph.commits || [];
   const listRef = useRef(null);
@@ -87,6 +88,7 @@ export default function GitGraph({
   const refsByHash = useMemo(() => {
     const map = new Map();
     for (const ref of graph.refs || []) {
+      if (ref.kind === "remote" && !showRemoteBranches) continue;
       if (!map.has(ref.hash)) map.set(ref.hash, []);
       map.get(ref.hash).push(ref);
     }
@@ -94,7 +96,7 @@ export default function GitGraph({
       list.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
     }
     return map;
-  }, [graph.refs]);
+  }, [graph.refs, showRemoteBranches]);
 
   const agentsByBranch = useMemo(() => {
     const map = new Map();
@@ -126,8 +128,22 @@ export default function GitGraph({
     </li>
   );
 
+  // Earlier commits arrive when the reader nears the bottom; the threshold is
+  // a couple of screens so the rows are there before the scrollbar hits the
+  // end. The parent debounces (busy + window-full guards), so calling on
+  // every scroll event is fine.
+  const onScroll = (e) => {
+    if (!onEndReached) return;
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < el.clientHeight) onEndReached();
+  };
+
   return (
-    <div className="gg-rows" style={{ "--gg-graph-w": width + "px", "--gg-row-h": GRID.y + "px" }}>
+    <div
+      className="gg-rows"
+      style={{ "--gg-graph-w": width + "px", "--gg-row-h": GRID.y + "px" }}
+      onScroll={onScroll}
+    >
       <svg
         className="gg-svg"
         width={width}
@@ -225,6 +241,11 @@ export default function GitGraph({
             </Fragment>
           );
         })}
+        {graph.more ? (
+          <li className="gg-loadmore" aria-live="polite">
+            {loadingEarlier ? "Loading earlier commits…" : "Scroll for earlier commits"}
+          </li>
+        ) : null}
       </ol>
     </div>
   );

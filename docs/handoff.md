@@ -25,7 +25,7 @@ What exists:
 - `/llama` dialog on the **current view** (URL, Save, Retry, load/unload, HF download). Link **Set up llama.cpp** → `www/guide/llama.md`. **No GUI installer** (reverted).
 - Voice **V1 shipped** (dictation + Grok composer + browser TTS). Owner dogfood done (Chrome Windows mic).
 - Public docs: VitePress `www/` → GitHub Pages. GUI chrome carries **state**, not docs. ADRs 0001–0013.
-- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). No npm/architecture in the view.
+- `#/mcps` missing adapter: one line + Open packages (`www/guide/mcp.md`). A terminal tab (or gone agent) does not hide an installed adapter — same as Packages. Load error is Retry, not the install prompt. No npm/architecture in the view.
 - MCP / Packages / Settings name the selected agent (icon + name) as the first line in the card. Scope pills say **This agent**. Sidebar agent click from a pane goes to `#/`.
 - MCP **Use from…** mirrors other apps. User picks; Off hides a server. Empty host files are not offered.
 - MCP Add **More**: env on command servers; headers + Sign in / Token on URL servers.
@@ -226,7 +226,9 @@ Never exercised, because this machine was already past them:
   `handleListSessions` (`internal/server/sessions.go`): `agent=<id>` only
   resolved a cwd, then listed every `.jsonl` pi had written there,
   unfiltered — confirmed against live code, not just the report.
-  - New `agent_sessions` table (migration `014_agent_session_history.sql`)
+  - New `agent_sessions` table (migration `015_agent_session_history.sql`;
+    renumbered from `014` after merging main, which had independently
+    claimed `014_inbox.sql` for ADR-0037)
     historizes every session id/path an agent is pointed at.
     `store.UpdateAgent` historizes on every `SessionPath` write (resume/
     fork/clone/adopt/import, one hook, not nine call sites).
@@ -248,7 +250,7 @@ Never exercised, because this machine was already past them:
     ignores argv, not a change to production spawn logic.
   - Tests: new unit coverage in `internal/store`
     (`CLIFlagsForSpawn`, the historization hook, and a migration test
-    that genuinely re-applies `014_...sql` via `Store.migrate()` against
+    that genuinely re-applies `015_...sql` via `Store.migrate()` against
     a pre-existing `session_path`, not a hand-copied approximation) and
     `internal/server` (two agents sharing a cwd each see only their own
     session; an unowned file is invisible to both but still shows in
@@ -295,266 +297,168 @@ Never exercised, because this machine was already past them:
   Verified on the scratch rig (line renders, chip prefills, reload keeps
   2 notes); gates green (276 js + 60 pkg).
 
-- **2026-08-31** — **`/roles` chat UX pass** (`feat/roles-chat-ux`; owner
-  verdict on the shipped surfaces: "que porcaria de UIUX … texto seco,
-  zero identificação"). P0+P1 of the approved plan:
-  - Ask cards remember the slash command that opened them (`cmd` on the
-    card, `cmdOf()` in `askForm.js`) — the open stepper now has a
-    `ROLES <args>` header with Cancel in the corner; pills connect with
-    `›`; the combo trigger names the field ("Choose provider…").
-  - Confirms are a block (question + file chip + verbs); titles starting
-    Delete/Remove get **Delete** (danger-at-rest, scoped to `.ask-confirm`)
-    / **Keep** instead of Yes/No.
-  - `summaryLine` refactored over a typed `summaryParts()` (definition /
-    role / cleared / kept / empty / text); `AskOutcome` renders finished
-    flows as one-liners with mark + `ROLES` badge + chips (provider icon
-    via `ProviderFace`, thinking, scope, file). The nothing-to-clear line
-    carries a "Set one up → /roles add" chip that prefills the composer
-    (`onPrefill` threaded App → ChatSurface → Conversation).
-  - Extension 0.4.1: confirm-No notifies `Kept <rel>` so the line stops
-    degrading to "this agent · No". TUI otherwise untouched.
-  - Verified on the scratch rig, light+dark, reload persistence (cmd and
-    note serialize through ask-memory; cancelled still drops by design),
-    overlayAudit ok on the dropdown. Gates green (274 js + 60 + 60 pkg).
-    P2 (slash-bubble compaction, spacing rhythm) not started — follow-up.
+- **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
+  the file tree, git graph and app surfaces were rendered only while
+  selected, so every tab switch unmounted them and threw away the
+  expanded folders, the scrolled-in history with its open commit,
+  search and branch filter, and the app's open item. They now follow
+  the shape `TermSurface` already used — one mounted instance per open
+  tab, `hidden` while another is selected — in `App.jsx` via
+  `tabs.filter(isTreeTab|isGitTab|isAppTab).map(...)`, with the
+  handlers closing over the tab's own id (a hidden tree resolving its
+  root used to rename whatever tab was selected). `hidden` is set on
+  every `<section>` a surface can return, skeleton and error included:
+  one branch left out paints its skeleton beside the visible tab.
+  New `web/src/lib/keepScroll.js` — `useKeptScroll(hidden, selectors)`
+  restores scroll offsets in a layout effect (display:none drops the
+  scroll box, so reading it at hide time reads 0) using a *capturing*
+  listener, which is how `.gg-rows` is covered without threading a ref
+  through `GitGraph`. Refresh discipline: hidden surfaces skip the
+  window-focus refetch (otherwise every open tab re-reads folders
+  nobody is looking at), and a reveal refetches only past
+  `REVEAL_STALE_MS` (10s) — the git graph is deliberately excluded,
+  its refresh has been manual since the ADR-0038 poll was dropped.
+  QA on isolated :8613: 501-commit graph + open commit + `fix` search
+  + scroll 3000 survived a switch; inbox item stayed open; tree kept 3
+  folders and scroll 750; cycling all three tabs showed 3 mounted, 1
+  visible, 1 overflowing scroller each time; branches overlay
+  `overlayAudit ok`. Accepted cost: a restored tab loads eagerly at
+  boot (one browse+gitstatus per tree tab), far less than the
+  websocket+xterm terminals already pay. Not covered: a browser reload
+  still starts collapsed — the state lives in the mounted component,
+  and a reload is a new page.
 
-- **2026-08-31** — Remove workspace can delete local data (ADR-0035):
-  opt-in checkbox + GitHub-style typed folder-name confirmation; server
-  re-verifies the name and refuses root/home (guard sabotage-tested);
-  remote repo never touched. Clone-form segmented now full-width with
-  folder/git icons. QA on 8448: wrong name keeps Remove disabled, right
-  name deletes the folder from disk, plain remove keeps it; light+dark
-  read, overlayAudit ok. **visual-review: PASS** (shots 10-13; card 5/5).
+- **2026-09-01** — **Inbox UI refined** (branch `worktree-feat-inbox-ux`):
+  split view (list left / detail right; stacked and scroll-into-view
+  under 880px), rows with unread dot + relative time (absolute on hover)
+  + kind lozenge + hairline-separated meta, per-row hairlines with the
+  selected row flush and stripe-marked, sections as uppercase eyebrows
+  with counts and a divider between them, icon-only Done/Snooze revealed
+  on hover/focus (the timestamp steps aside), reply form with
+  Ctrl+Enter, one filled button per row (the app declares
+  `Action.primary`), approvals gained **Decline** (forwards a real "no"
+  instead of silence), centred blankslates for empty inbox and empty
+  detail pane. Apps host grew optional fields only — layout/pane/empty
+  hints, block+row meta/at, row tone/unread, action icon/primary — the
+  four block types are unchanged (ADR-0036 amendment 2026-09-01).
+  Global side-fixes: `.md pre` never had block styling (fences rendered
+  as inline chips) and Tailwind's preflight had stripped markdown list
+  markers — both fixed for every markdown surface.
+  New: `scripts/inbox-smoke.sh <base-url> [agent-id]` fills one item of
+  every shape (incl. long title, dead-agent question, snoozed, answered)
+  for visual QA; `web/src/lib/relTime.js` is the shared relative-time
+  helper (SessionsView/Packages still carry their own divergent copies —
+  worth folding into it next time either is touched).
+  Reviewed against Sentry/Linear/Geist/Primer/Grafana/Atlassian specs;
+  measured computed styles to check claims (meta/timestamps were already
+  on the right tokens). **Known, deliberately left**: `.btn-primary` in
+  dark is `#7c8cf8` with white text (~2.5:1) — a product-wide contrast
+  bug, not inbox-specific; fix deserves its own pass. No keyboard list
+  navigation (j/k) yet.
 
-- **2026-08-31** — **pi-roles: choose the save target; `/roles clear`**
-  (`feat/roles-scope`, ADR-0033 amendment). Owner asked how the chat
-  session picker scopes (folder, confirmed by reading `session.List` /
-  `AgentCwd` — sessions and roles are both per-cwd, not per-agent; only
-  `agent.SessionPath` differs) and then approved this instead of only
-  documenting the workaround (`cp` the overlay to the workspace file, or
-  edit from a plain terminal).
-  - `pickStart`/`pickAnswer` (`packages/pi-roles/src/logic.ts`) gained a
-    `scope` stage: under `PI_ROLES_AGENT`, thinking is followed by a
-    **Save to** select (*this agent* / *workspace* / `‹ back`); without
-    the env the question is skipped, as before. `editFlow`/`addFlow` in
-    `extensions/roles.ts` resolve a `layerFor()` (agent overlay vs.
-    `.pi/roles.json`) from the answer.
-  - New command **`/roles clear [agent|workspace]`**: confirm, then
-    delete the whole file. No arg under the env asks which; a lock whose
-    role stops resolving falls back to `/auto`.
-  - Chat: `fieldLabel`/`summaryLine` (`web/src/lib/askForm.js`) learned
-    the `Save`/`Clear` labels and the `(workspace)` suffix on the
-    definition line.
-  - **Bug caught in the same dogfood pass, fixed before shipping**: the
-    existing role-picker regex (`/\broles?\b/`) also matched "Delete
-    this roles file?", mislabeling the confirm's "Yes" as a role name —
-    `/roles clear agent` rendered `Yes — .pi/roles/qa-213680.json`
-    instead of `Cleared …`. Narrowed to `/^roles\b/` (only the role
-    *picker* titles) and made the delete-confirm title itself carry the
-    `Clear` label too, since the arg form (`clear agent`) skips the
-    select step and needs the confirm alone to still gate the
-    note-vs-fallback branch in `summaryLine`. Regression tests added
-    (`askForm.test.js`, `logic.test.ts`).
-  - Verified live on the roles-adversarial scratch rig (`PICODE_DATA`
-    + port 8471, scratch `HOME` pointed at this worktree's package):
-    Save-to appears/steps back correctly, workspace vs. agent writes
-    land in the right file, `/roles clear` (both arg and no-arg forms,
-    both scopes) deletes and reports correctly, "nothing to clear" warns
-    without a stuck card, the ordinary `/roles` role picker still labels
-    "Role". Gates: fmt/vet/test/test-js green, `npm test` 60/60,
-    `make build` ok. **Merged to main and deployed to :8445.**
+- **2026-09-01** — **The repository root is now pinned to main by git
+  itself**, not by convention (AGENTS.md §5). `.githooks/reference-transaction`
+  aborts a `git switch`/`git checkout` that would move the root checkout off
+  main; `.githooks/pre-commit` refuses feature commits made there. Git has no
+  pre-checkout hook, but a branch switch is a symref update of HEAD and a
+  reference transaction can be aborted (git ≥ 2.28) — so enforcement is
+  tool-agnostic: it holds for every agent runtime, editor and script, which a
+  Claude-Code-only hook would not.
+  The trap worth remembering: `git worktree add -b <branch>` writes the NEW
+  worktree's HEAD through the *same* transaction, from the same directory,
+  with the same git dir, the same common dir and the same
+  `ref:refs/heads/...` payload — the naive hook blocked the very flow it is
+  meant to force. The only discriminator is the invoking command, read from
+  `/proc/$PPID/cmdline` (with a `ps` fallback); so the hook is Linux/WSL-first
+  by design.
+  `make hooks` wires `core.hooksPath` (implied by `make dev` and `make ci`);
+  a clone that never ran make has no guard, and `git -c core.hooksPath= …`
+  bypasses everything — this is protection against carelessness, not malice.
+  Escape hatch: `PICODE_ALLOW_SWITCH=1`. Note `gh pr checkout <N>` shells out
+  to `git checkout` and is therefore refused in the root: review PRs from a
+  worktree, or use the override.
+  Verified on a clone of this repo, not in theory: switch/-c/checkout -b
+  blocked, worktree add + switch/commit inside a worktree fine, commit on
+  main in the root fine, `checkout -- <file>` fine, return to main always
+  allowed, override works, and pre-commit blocks a feature commit when the
+  root is off main. GitHub Actions calls individual make targets, so it never
+  sets hooksPath.
 
-- **2026-08-31** — New workspace can clone a remote repo (ADR-0034):
-  "Local folder | Clone repository" switch in the same dialog, URL →
-  derived editable name/destination, blocking `POST /api/workspaces/clone`
-  with host git credentials and prompts disabled, same-origin destination
-  adopted. New `internal/gitclone` package; argv-injection defenses
-  sabotage-tested. QA on an isolated 8447 server: real clone of
-  octocat/Hello-World, `/tree/<branch>` honored, adopt, 409, classified
-  not-found error, dark + 480px drawer, overlayAudit ok.
-  **visual-review: PASS** (shots 01–09; card 5/5).
+- **2026-09-01** — **`make ci` now proves the git guards instead of assuming
+  them.** `scripts/hooks-selftest.sh` runs the whole policy matrix against a
+  throwaway repo (never this clone): switch/`-c`/`checkout -b` refused in the
+  root, worktree add + switch + feature commit inside a worktree allowed,
+  commit on main in the root allowed, `checkout -- <path>` allowed, override
+  works, return to main always allowed, and pre-commit refusing a feature
+  commit when the root is off main. Wired as `make hooks-check` (a `make ci`
+  prerequisite) and as a Linux-only step in GitHub CI, which calls individual
+  make targets and would otherwise never see it.
+  It is sabotage-verified both ways: removing the parent-command
+  discriminator makes the worktree checks fail (the guard would block the
+  flow it demands), and making the hook permissive makes the refusal checks
+  fail. Either regression is silent without this test.
+  `make hooks` moved into `scripts/hooks-enable.sh` and now **fails** when
+  `core.hooksPath` was redirected elsewhere. Trap found while building it:
+  `core.hooksPath` is a path-type config, so git reads it back **absolute**
+  from a linked worktree even when written as `.githooks` — comparing the
+  literal string reported every correctly-configured worktree as broken,
+  which would have failed `make ci` for every agent. The script compares
+  resolved paths against the main worktree's `.githooks`.
 
-- **2026-08-31** — **`/roles` chat stepper: adversarial review + redo**
-  (`fix/roles-adversarial`, **merged to main and deployed to :8445**;
-  running agents must be restarted to reload the path package). The
-  owner called the shipped stepper
-  broken; the review confirmed the cancel-as-back design was the root
-  cause and replaced it. What changed:
-  - **Extension (ADR-0028 amendment):** cancel aborts the whole flow;
-    going back is an explicit `‹ back` option on selects with a prior
-    field. `pickAssignment` is now a pure state machine in
-    `packages/pi-roles/src/logic.ts` (`pickStart`/`pickAnswer`, tested).
-    A lock that lands on the already-running model still notifies, so the
-    UI always gets a definition. pi-roles → 0.3.0.
-  - **Web:** optimistic Working ends at the first real signal (dialog,
-    notify, answer, `task_delivered` + 3s fallback) — never sticks;
-    the completion notify folds into the card as its definition line
-    (`default — xai/grok-4.6 · high`); back-walk answers `‹ back`
-    instead of auto-cancelling; ask-memory gained a per-agent live slot
-    (fresh agents persist across reload) and no longer cross-writes
-    slots on tab switch; process exit / agent stop closes open cards;
-    Stop shows while waiting, not only streaming; a queued follow-up is
-    marked sent at flush time (was delivered twice).
-  - **Go:** `deliver`/`SendTurn` no longer fail a task at the 60s
-    deadline while a dialog is pending (a human thinking in a picker is
-    delivery, not failure) — this was the red `context deadline
-    exceeded` bubble. Regression test `TestSlowDialogIsDeliveredNotFailed`.
-  - Decision table rows 1–9 verified in a scratch instance by browser
-    (screenshots read; overlayAudit ok). Row 10 (TUI) verified by the
-    package state machine tests + design (still one select at a time;
-    Esc now aborts instead of stepping back — documented in README/ADR).
-  - **Debt:** the TUI flow was not exercised interactively this session
-    (no tmux dogfood) — behavior change is Esc=abort + visible `‹ back`
-    rows. If the owner dislikes `‹ back` in the TUI list, the option can
-    be dropped there only at the cost of reintroducing cancel ambiguity.
-  - **Not done (refused per owner):** no `#/roles` page, no modal wizard;
-    the flow stays in the conversation (C1).
+- **2026-09-01** — **Two Inbox fixes, both found by testing the feature
+  live** (`pi install -l ./packages/pi-inbox`, a real `ask_human` turn).
 
-- **2026-08-31** — Ask back-step: reopen the clicked pill, skip mismatched
-  dialogs. Merged and deployed. Reload the agent. **superseded by the
-  adversarial redo above** (auto-cancel walk removed).
+  **Typography**: the split-view refactor had set `.app-surface { font-
+  family: var(--sans) }`, flipping the whole app surface (titles, meta,
+  buttons, section labels) to sans. That breaks the house rule — `body`
+  is mono by default and only `.conversation` (chat prose) opts into
+  sans; git graph, file tree, sidebar, settings all stay mono. Removed
+  both overrides (`.app-surface` and `.app-surface .ft-title`) and the
+  reply textarea's explicit `--sans`; the surface now inherits mono like
+  every other list/detail app in the product.
 
-- **2026-08-31** — Ask form UX: definition line persists, back on pills,
-  compact stepper. Merged and deployed. Reload the agent for `/roles` back.
-  **visual-review: UNVERIFIED** (owner dogfood).
+  **Park-and-wake gap**: replying to a question from an agent parked in
+  a TUI/tmux session queued a `follow_up` task that nothing ever drains
+  — `deliverLoop` only exists for the RPC runtime (ADR-0037 promised
+  "the agent picks it up on the next start" without that caveat).
+  Fixed by refusing early: `store.RespondAndForward` gained a
+  `deliverable AgentDeliverable` parameter; when it says no the item is
+  annotated and stays open instead of enqueueing a message that would
+  sit forever. `deps.agentInteractive` (internal/server/agents.go, next
+  to the existing `runMode`) computes it from `Runtime.Get` + tmux.
+  **The regression that shipped first**: the raw `/api/inbox/{id}/respond`
+  route negated correctly; `internal/server/apps.go`'s `appsHost()` —
+  which the actual UI goes through — passed the same boolean straight
+  through under a *differently named* field
+  (`Host.AgentInteractive`, true=interactive) into a parameter
+  expecting the opposite polarity (`deliverable`, true=ok). Silently
+  inverted: the UI accepted the reply and queued it forever. Caught
+  live in the browser, not by the unit test I'd written for the app
+  layer — that test set the Host field directly, bypassing `appsHost()`
+  entirely, so it could not see the wiring bug. Fixed by unifying the
+  name and polarity (`Host.AgentDeliverable`, matching
+  `store.AgentDeliverable` exactly) and adding
+  `TestInboxAppActionRespondInteractiveAgent`, an HTTP round trip
+  through the real apps route against a real tmux session — sabotage-
+  verified: reintroducing the missing negation fails it.
+  Also hardened in passing: `rpc.Runtime.Get` panicked on a nil
+  receiver (`r.mu.Lock()`); every other test server in this codebase
+  either sets `Runtime` or gets lucky and never calls `runMode`/
+  `agentInteractive`. Now nil-safe, matching the rest of the codebase's
+  nil-safe accessors (`apps.Registry`, `Deps.Apps`).
+  `pi-inbox` stays installed in this workspace's `.pi/settings.json`
+  (`../packages/pi-inbox`, relative — portable across clones) as the
+  live proof the package works; nothing else depends on it being there.
 
-- **2026-08-31** — File tree header shows the full folder path (mono,
-  ellipsized, `title` tooltip) instead of just the basename — the owner
-  noted the tab strip already carries the name, the header is where you
-  confirm which folder. `.ft-title` gained `min-width:0` so a long path
-  can no longer push Reveal/Refresh/Close off the header.
-
-- **2026-08-31** — Extension select in chat is one growing form (pills +
-  filter dropdown), then a pill line. Merged and deployed.
-  **visual-review: UNVERIFIED** (owner dogfood on 8445).
-
-- **2026-08-31** — Z.AI Usage parse: GLM Coding Plan now sends
-  `CREDIT_LIMIT` (unit 3/5 = 5h, unit 6/1 = week) instead of
-  `TOKENS_LIMIT`. Live Pro payload (0% / 100%) is the test fixture.
-  Merged `fix/zai-credit-limit`.
-
-- **2026-08-31** — pi-roles v2 (ADR-0033): per-agent overlay via `PI_ROLES_AGENT`.
-  Workspace `.pi/roles.json` stays the default; `/roles` in a PiCode agent
-  writes `.pi/roles/<id>.json`. Merged and deployed. Reload the agent.
-  **visual-review: n/a** (no UI chrome).
-
-- **2026-08-31** — **Provider Usage V3** (ADR-0031). Usage is per vault
-  account (`GET/POST /api/providers/{id}/accounts/{aid}/usage[/reset]`)
-  without swapping `auth.json`. OpenRouter / MiniMax / MiniMax CN / Kimi
-  API keys get meters. Grok resets try PiCode OAuth, then Grok CLI
-  `~/.grok/auth.json`, then `GROK_COOKIE`. Qwen Token Plan stays hidden
-  (no API-key quota JSON). Chrome cookie dump refused. QA on :8451 —
-  Usage on each account row, OpenRouter credits, empty/error/auth
-  overlays. **visual-review: PASS**. Merged `feat/provider-usage-v3`.
-
-- **2026-08-31** — Stop during `/roles` cancels the dialog and clears Working.
-  Merged `fix/abort-clears-extension-wait`.
-
-- **2026-08-31** — **File tree V2** (ADR-0032): Changes rows expand into
-  working-tree diffs (`gitgraph.WorkingDiff`; `gitLoose` keeps stdout on
-  --no-index's exit 1, /dev/null fallback only for ls-files-empty paths —
-  both sabotage-proven); `POST …/reveal` opens the folder in the host
-  file manager (`internal/osopen`, extracted from backup, WSL dedup);
-  focus/visibility refresh instead of polling; branch pill badges
-  `gitinfo.Dirty` (porcelain -uall count; cost: +1 subprocess per row per
-  list, recorded in the ADR with the ?dirty=1 fallback).
-
-- **2026-08-31** — `/roles edit|add` picks provider, then model, then thinking.
-  Merged and deployed. Reload the agent to load the path package. **visual-review: n/a**.
-
-- **2026-08-31** — **Provider Usage V2** (ADR-0031). ZAI and OpenCode Go
-  API keys get Usage. Codex/Grok banked resets show in the dialog; Redeem
-  confirms then `POST /usage/reset`. Grok reset row is omitted if the
-  grok.com call needs cookies — weekly windows still load.
-
-- **2026-08-31** — Sidebar row2 refined into pills (owner feedback after
-  testing the file tree): `.ws-pill` — [folder + dir] opens the tree,
-  [git + branch] opens the graph; repoLine/termLine expose `dir` alone.
-  QA on :8501 — repo/non-repo rows, dark, 180px narrow. **visual-review:
-  PASS**.
-
-- **2026-08-31** — Packages Installed row is back when opened from a
-  terminal tab (machine packages were never deleted). Merged
-  `fix/packages-list-when-terminal`.
-
-- **2026-08-31** — **Provider Usage dialog** (ADR-0031). `#/providers` shows
-  **Usage** only when `quotaKind` matches the active oauth slot (Claude,
-  Codex, Copilot, Kimi, xAI). `GET /api/providers/{id}/usage` fetches vendor
-  windows in-process; tokens stay on the server. Dialog: skeleton → bars /
-  empty / error / Sign in. Statusbar still does not invent quotas.
-  visual-review: PASS (usage-windows/empty/error/loading/auth, overlayAudit ok).
-
-- **2026-08-31** — **File tree per workspace/terminal/agent** (ADR-0030):
-  `#/tree/<w|t|a>/<id>` opens a read-only tree of the owner's folder, tab
-  deduped by canonical root (`d:<root>`, owners in `picode-tree-owners`).
-  A **Changes** section on top lists `…/gitstatus` (porcelain `-z -uall`,
-  re-anchored to the owner's cwd; rename records consume two NUL fields —
-  sabotage-proven); changed files and ancestor folders carry kind dots.
-  Workspaces became file-reading owners (`browse|text|blob|file|gitstatus`,
-  `ws_free` refused) so empty workspaces (ADR-0027) browse too; terminals
-  gained `/browse` at the live pane cwd; `browseAgentDir` answers `root`.
-  Entry points: row2 folder icon (agents/terminals), Files on the
-  workspace card + palette. Terminal trees pin; manual Refresh after a
-  `cd` renames/merges the tab. Known limit inherited from the git graph:
-  navigating by URL to an owner created seconds ago can flash "gone"
-  until the app's list refreshes. QA: dedupe, cd+rename, empty/non-repo/
-  deleted-folder states, dark/light, overlayAudit ok.
-
-- **2026-08-31** — User menu fit: popover 236→268px so the Theme/Layout
-  segments ("Desktop · Auto · Mobile" + icons, mono 12px) stop clipping;
-  segments are equal-width and centered; Install app spans the row
-  (`.um-install`) and carries IconDownload (mobile drawer inherits the
-  icon). Isolated visual on :8507. **visual-review: PASS**.
-
-- **2026-08-31** — Merged `feat/model-roles` as ADR-0028/0029 (numbers
-  shifted: main already had 0025 tmux catalog and 0026 sidebar). Isolated
-  visual on :8477; installed :8445 untouched. **visual-review: PASS**.
-
-- **2026-08-31** — **Workspaces start empty** (ADR-0027): POST /api/workspaces
-  registers the folder only; the New-workspace form is name + folder
-  (Provider/Model/Thinking and the session shortcut stay on agent forms);
-  `workspaceView.Agent` is a pointer with omitempty (the zero-object read
-  as a truthy agent everywhere); empty-workspace open/close/sessions/status
-  answer 409. connectPanel now takes the agent id (fixed: with two agents
-  it connected to the workspace's first). Also shipped: workspace cards
-  wear the project favicon (`GET /api/workspaces/{id}/favicon`, confined,
-  sandbox CSP; fallback IconFolder — debt: a favicon added mid-session
-  shows only after reload, and faviconRels is a fixed list), the
-  Workspaces tab icon is lucide Folders, and the folder picker's address
-  bar filters/navigates as you type (lib/pathFilter.js + useDebounced).
-
-
-- **2026-08-31** — **ADR-0036 + ADR-0037 accepted** (docs only, no code
-  yet): extensions host — apps as manifest + schema-driven primitives
-  (no in-process JS ever, iframe deferred to v2, WASM deferred), fifth
-  sidebar tab with an app grid seeded first-party; and the Inbox — core
-  data plane (SQLite mailbox, `POST /api/inbox`, blocking-count badge)
-  with the view as the first app, `packages/pi-inbox` giving agents
-  async `notify_human`/`ask_human`. Web-benchmark research with sources
-  in both ADRs. Next step: implementation plan for the 0036 pipeline.
-
-- **2026-08-31** — **Apps host pipeline (ADR-0036)** on branch
-  `worktree-feat-apps-host`: `internal/apps` (Manifest/Badge/Host,
-  primitives View/Block/ListItem/Form/Field/Action + Validate, explicit
-  Registry, hidden demo app), routes `GET /api/apps` (badges inline,
-  failure-proof), `GET /api/apps/{id}/view?path=`, `POST
-  /api/apps/{id}/action`; `Deps.Apps` nil-safe; env read in cmd only.
-  Web: `x:<id>` tabs + `#/app/<id>` (all six dispatch points), fifth
-  sidebar tab with grid/badges (tabs tighten to 26px under 240px so
-  PiCode fits at 180px), AppSurface renderer (Field methods mirror
-  rpc.UIDialog; Confirm→ConfirmDialog, toast/view/path results),
-  palette entries, `lib/appPrimitives.js` normalizers. QA on isolated
-  :8611 with PICODE_DEMO_APP=1: grid+badge, list→detail→danger
-  confirm→toast+replaced view, path navigation, form (4 methods),
-  gone card, no-env placeholder + empty `apps: []`. `make ci` green.
-  Note: first screenshot at 1.5s settle caught boot mid-flight —
-  use `--wait-ms 4000` for boot-dependent shots.
-
-- **2026-08-31** — **ADR-0036 amended** (owner decision after the host
-  shipped): in the marketplace era the sandboxed iframe (separate
-  origin + bridge + published tokens/component package) is the
-  first-class body surface for third-party apps; primitives stay as the
-  cheap default, the host-chrome tissue, and the ONLY surface for
-  sensitive actions (agent approvals, destructive confirms — tokens
-  don't stop phishing, host-rendered controls do); the primitive
-  vocabulary is frozen at the four blocks. v1 refusals unchanged.
+- **2026-09-01** — **pi-inbox + pi-roles coexistence verified live.**
+  `.pi/settings.json` now carries both as project packages
+  (`../packages/pi-inbox`, `../packages/pi-roles`); `npm:pi-agent-
+  browser-native` moved out of the project list but stays active from
+  the user's machine-wide settings, so nothing lost there. Two real
+  `pi -p --no-session` turns with both extensions loaded: (1) no
+  `PICODE_AGENT_ID` — `ask_human` filed correctly under the
+  `sourceKind: system, sourceId: "pi (unmanaged)"` fallback; (2) a real
+  free agent, identity attributed correctly, reply POSTed → 200, item
+  `done`, `follow_up` task `queued` → agent started managed →
+  `delivered` in ~4s. No load conflict between the two extensions in
+  either case.

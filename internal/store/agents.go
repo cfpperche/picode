@@ -279,13 +279,18 @@ func (a Agent) CLIFlagsForSpawn(sessionID string) []string {
 // RolesAgentEnv is the process env pi-roles reads for a per-agent overlay (ADR-0033).
 const RolesAgentEnv = "PI_ROLES_AGENT"
 
+// AgentIDEnv is the neutral agent identity for packages that talk back
+// to PiCode (pi-inbox, ADR-0037). Same value as RolesAgentEnv, package-
+// agnostic name.
+const AgentIDEnv = "PICODE_AGENT_ID"
+
 // SpawnEnv is extra process env for this agent. Empty ID yields nothing.
 func (a Agent) SpawnEnv() []string {
 	id := strings.TrimSpace(a.ID)
 	if id == "" {
 		return nil
 	}
-	return []string{RolesAgentEnv + "=" + id}
+	return []string{RolesAgentEnv + "=" + id, AgentIDEnv + "=" + id}
 }
 
 // SetAgentPackages replaces the agent's extra packages (pi -e on every start).

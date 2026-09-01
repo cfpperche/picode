@@ -108,7 +108,7 @@ func TestUpdateAgentHistorizesSessionPath(t *testing.T) {
 
 // TestMigrationBackfillsExistingSessionPath simulates upgrading a
 // pre-ADR-0039 database: an agent already has a session_path when
-// migration 014 runs. Re-applies the real embedded migration (not a
+// migration 015 runs. Re-applies the real embedded migration (not a
 // hand-copied approximation of it) against that state.
 func TestMigrationBackfillsExistingSessionPath(t *testing.T) {
 	s := openTest(t)
@@ -122,12 +122,12 @@ func TestMigrationBackfillsExistingSessionPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Undo migration 014 as if it had never run, then let Store.migrate
+	// Undo migration 015 as if it had never run, then let Store.migrate
 	// re-apply it for real.
 	if _, err := s.db.Exec(`DROP TABLE agent_sessions`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = 14`); err != nil {
+	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = 15`); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.migrate(); err != nil {

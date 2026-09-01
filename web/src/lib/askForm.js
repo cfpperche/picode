@@ -208,6 +208,7 @@ function cap(s) {
 export function fieldLabel(title) {
   const t = String(title || "").toLowerCase();
   if (t.includes("save to")) return "Save";
+  if (t.includes("remove from")) return "From";
   // Both the scope select ("Clear which config?") and the confirm that
   // follows it ("Delete this roles file?") — the confirm is the only step
   // when the scope came as a command argument, so it alone must still
@@ -247,6 +248,8 @@ export function summaryParts(steps, note) {
   }
   if (!answers.length) return null;
   const text = String(note || "");
+  // A finished remove reads as its result line.
+  if (/^Removed /.test(text)) return { kind: "text", text };
   // A finished clear flow reads as its result, not as a definition.
   if (by.Clear) {
     let m = /^Cleared\s+(\S+)/.exec(text);
@@ -256,7 +259,9 @@ export function summaryParts(steps, note) {
     if (/^Nothing to clear/.test(text)) return { kind: "empty", text };
     return { kind: "text", text: text || answers.join(" · ") };
   }
-  const role = by.Role || by.Name || "";
+  // Role picker options may carry the definition ("vision — xai/… · med"):
+  // only the name belongs in the line.
+  const role = (by.Role || by.Name || "").split(" — ")[0];
   const scope = by.Save === "workspace" ? "workspace" : "";
   let thinking = by.Thinking && by.Thinking !== "none" ? by.Thinking : "";
   let model = by.Provider && by.Model ? by.Provider + "/" + by.Model : "";

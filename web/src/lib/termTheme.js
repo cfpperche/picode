@@ -140,6 +140,9 @@ export function xtermOptions() {
     theme: xtermTheme(p.theme),
     scrollback: p.scrollback,
     rightClickSelectsWord: true,
+    // FitAddon reserves 14px for an overview ruler we never render (no
+    // decorations use it) — shrink it so the right edge isn't a dead gutter.
+    overviewRuler: { width: 1 },
   };
 }
 

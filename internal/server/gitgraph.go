@@ -16,7 +16,9 @@ import (
 
 const (
 	defaultGraphLimit = 250
-	maxGraphLimit     = 2000
+	// Load earlier doubles the window client-side; the ceiling only exists so
+	// a hand-written URL cannot ask for the unbounded history of a huge repo.
+	maxGraphLimit = 10000
 )
 
 // occupant is an agent living in one of the repository's worktrees. It is why
@@ -131,7 +133,11 @@ func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
 	// safe direction. The other order can hand out a token newer than the
 	// graph and go quiet on a stale picture.
 	_, token, _ := gitgraph.Token(cwd)
-	g := gitgraph.Load(cwd, graphLimit(r))
+	g := gitgraph.LoadFiltered(cwd, gitgraph.LoadOptions{
+		Limit:          graphLimit(r),
+		Branches:       graphBranches(r),
+		ExcludeRemotes: !graphRemotes(r),
+	})
 	if g == nil {
 		writeErr(w, http.StatusNotFound, "not a git repository")
 		return
@@ -150,6 +156,32 @@ func graphLimit(r *http.Request) int {
 		return maxGraphLimit
 	}
 	return n
+}
+
+// graphBranches reads the repeated ?branches= params. Repeated, not
+// comma-joined: a ref name may legally contain a comma. Absent, or present
+// with only blank values, means no restriction (Show All) — nil, not an
+// empty non-nil slice, which is the signal gitgraph.LoadFiltered uses to
+// tell "no restriction" apart from "restricted to nothing valid".
+func graphBranches(r *http.Request) []string {
+	vals := r.URL.Query()["branches"]
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// graphRemotes reads ?remotes=0|1. Anything but the literal "0" means
+// remotes are included — tolerant of drift, same spirit as graphLimit
+// clamping rather than erroring on bad input.
+func graphRemotes(r *http.Request) bool {
+	return strings.TrimSpace(r.URL.Query().Get("remotes")) != "0"
 }
 
 func (deps Deps) graphView(g *gitgraph.Graph) graphView {

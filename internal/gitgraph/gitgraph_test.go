@@ -174,6 +174,165 @@ func TestMoreWhenLimitIsReached(t *testing.T) {
 	}
 }
 
+func TestValidateBranchesDropsUnknownDeduplicatesAndTrims(t *testing.T) {
+	refs := []Ref{
+		{Name: "main", Kind: "head", Hash: "a"},
+		{Name: "origin/main", Kind: "remote", Hash: "a"},
+		{Name: "v1.0", Kind: "tag", Hash: "a"},
+	}
+	got := validateBranches([]string{"main", "origin/main", "main", "v1.0", "nope"}, refs)
+	want := []string{"main", "origin/main"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("validateBranches = %v, want %v (known head + remote kept in order, dup and tag dropped)", got, want)
+	}
+}
+
+func TestLoadFilteredRestrictsToExactlyTheSelectedBranches(t *testing.T) {
+	dir := repo(t) // main: "first"
+	run(t, dir, "git", "checkout", "-b", "feature")
+	write(t, dir, "b", "b")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "second")
+	run(t, dir, "git", "checkout", "main")
+	write(t, dir, "c", "c")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "third")
+	// main: first, third. feature: first, second.
+
+	onFeature := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"feature"}})
+	if subs := subjects(onFeature.Commits); !sameSet(subs, []string{"first", "second"}) {
+		t.Fatalf("Branches=[feature] = %v, want {first, second}", subs)
+	}
+	onMain := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"main"}})
+	if subs := subjects(onMain.Commits); !sameSet(subs, []string{"first", "third"}) {
+		t.Fatalf("Branches=[main] = %v, want {first, third}", subs)
+	}
+	union := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"feature", "main"}})
+	if subs := subjects(union.Commits); !sameSet(subs, []string{"first", "second", "third"}) {
+		t.Fatalf("Branches=[feature,main] = %v, want the union", subs)
+	}
+}
+
+func TestLoadFilteredDropsUnrecognizedBranchName(t *testing.T) {
+	dir := repo(t)
+	got := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"main", "--upload-pack=/bin/sh"}})
+	if subs := subjects(got.Commits); !sameSet(subs, []string{"first"}) {
+		t.Fatalf("a bogus name must be dropped, not reach git: got %v", subs)
+	}
+}
+
+func TestLoadFilteredAllUnknownBranchesYieldsNoCommits(t *testing.T) {
+	dir := repo(t)
+	g := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"nope", "--also-bogus"}})
+	if g == nil || len(g.Commits) != 0 {
+		t.Fatalf("an all-unrecognized selection must yield no commits, not fall back to everything: %+v", g)
+	}
+	if g.More {
+		t.Fatal("no commits cannot mean there are more")
+	}
+}
+
+// git itself refuses to create a branch shaped like a flag (check-ref-format
+// rejects "-weird"), so validateBranches can never let one through from a
+// real ref list — but loadCommits is the layer that would actually pay for
+// that if the invariant ever broke, so it gets its own direct test. "--all"
+// is a real git-log flag and a name no branch can ever have; without
+// --end-of-options in the seed, passing it would silently expand the walk to
+// every branch (the exact shape of a flag-injection payload) instead of
+// failing to resolve a revision named "--all".
+func TestLoadCommitsEndOfOptionsPreventsFlagInjection(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "checkout", "-b", "feature")
+	write(t, dir, "b", "b")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "second")
+	run(t, dir, "git", "checkout", "main")
+	// main only reaches "first"; "second" lives solely on feature.
+
+	commits := loadCommits(dir, 50, []string{"--all"}, true)
+	if subs := subjects(commits); contains(subs, "second") {
+		t.Fatalf("\"--all\" must not be read as a flag and expand the walk: got %v", subs)
+	}
+}
+
+func TestLoadFilteredRemotesFalseExcludesRemoteOnlyCommits(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "checkout", "-b", "remoteish")
+	write(t, dir, "r", "r")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "remote-only")
+	hash := strings.TrimSpace(runOut(t, dir, "git", "rev-parse", "HEAD"))
+	run(t, dir, "git", "checkout", "main")
+	run(t, dir, "git", "update-ref", "refs/remotes/origin/remoteish", hash)
+	run(t, dir, "git", "branch", "-D", "remoteish")
+	// "remote-only" is now reachable only via refs/remotes/origin/remoteish.
+
+	without := LoadFiltered(dir, LoadOptions{Limit: 50, ExcludeRemotes: true})
+	if subs := subjects(without.Commits); contains(subs, "remote-only") {
+		t.Fatalf("ExcludeRemotes must drop a remote-only commit: got %v", subs)
+	}
+	with := LoadFiltered(dir, LoadOptions{Limit: 50, ExcludeRemotes: false})
+	if subs := subjects(with.Commits); !contains(subs, "remote-only") {
+		t.Fatalf("remotes included must surface a remote-only commit: got %v", subs)
+	}
+}
+
+func TestLoadFilteredMoreUnderRestrictedWalk(t *testing.T) {
+	dir := repo(t)
+	for i := 0; i < 3; i++ {
+		write(t, dir, "f", string(rune('a'+i)))
+		run(t, dir, "git", "add", ".")
+		run(t, dir, "git", "commit", "-m", "c")
+	}
+	if g := LoadFiltered(dir, LoadOptions{Limit: 2, Branches: []string{"main"}}); g == nil || !g.More {
+		t.Fatalf("limit reached under a restricted walk must set More: %+v", g)
+	}
+	if g := LoadFiltered(dir, LoadOptions{Limit: 50, Branches: []string{"main"}}); g == nil || g.More {
+		t.Fatalf("whole (restricted) history must not set More: %+v", g)
+	}
+}
+
+func subjects(commits []Commit) []string {
+	out := make([]string, len(commits))
+	for i, c := range commits {
+		out[i] = c.Subject
+	}
+	return out
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+func sameSet(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for _, w := range want {
+		if !contains(got, w) {
+			return false
+		}
+	}
+	return true
+}
+
+func runOut(t *testing.T, dir, name string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
+	}
+	return string(out)
+}
+
 func TestNameFromKey(t *testing.T) {
 	for _, c := range []struct{ key, want string }{
 		{"/home/u/picode/.git", "picode"},

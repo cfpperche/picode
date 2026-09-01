@@ -4,7 +4,7 @@ import { bashLine } from "../lib/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { applyTermChrome } from "../lib/termTheme.js";
 import { closeTerm } from "../lib/terms.js";
-import { termWorkspaceId } from "../lib/termGroups.js";
+import { termWorkspaceId, workspaceForTerminal } from "../lib/termGroups.js";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
@@ -117,6 +117,8 @@ export default function App() {
   const flushingRef = useRef(false);
   // Which agent the items on screen belong to (guards ask-memory writes).
   const itemsAgentRef = useRef("");
+  // Active pi-roles state for the composer chip (null = no chip).
+  const [roleState, setRoleState] = useState(null);
   // Last snapshot per panel: reconciles restored open asks against reality.
   const snapWaitingRef = useRef({ agentId: "", waiting: false });
   const [items, setItems] = useState([]);
@@ -175,6 +177,9 @@ export default function App() {
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
   const agent = located && located.agent;
+  // A workspace terminal tab still has that folder as the packages/MCP context
+  // (machine list must not disappear — same rule as GET /api/packages).
+  const paneWs = selected || (isTermTab(selectedId) ? workspaceForTerminal(terminals, workspaces, tabTermId(selectedId)) : null);
   agentIdRef.current = (agent && agent.id) || null;
   // Compaction progress is a live line at the end of the chat (not the
   // composer statusbar); CompactLive owns its own per-second tick.
@@ -214,7 +219,7 @@ export default function App() {
     };
   }, []);
 
-  const pkgWs = selected ? selected.id : "";
+  const pkgWs = paneWs ? paneWs.id : "";
   useEffect(() => {
     let stop = false;
     async function load() {
@@ -355,6 +360,19 @@ export default function App() {
       });
     } catch { /* live chat stays */ }
   }, [selectedId, workspaces, freeAgents]);
+
+  const fetchRoleState = useCallback(async () => {
+    const id = selectedRef.current;
+    if (!id) { setRoleState(null); return; }
+    try {
+      const d = await api("/api/agents/" + id + "/role-state");
+      if (selectedRef.current === id) setRoleState((d && d.state) || null);
+    } catch { /* keep the last known state */ }
+  }, []);
+  useEffect(() => {
+    setRoleState(null);
+    if (selectedId) fetchRoleState();
+  }, [selectedId, fetchRoleState]);
 
   useEffect(() => { loadSessions(); }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
@@ -895,6 +913,7 @@ export default function App() {
     switch (ev.type) {
       case "snapshot":
         optimisticRef.current = false;
+        fetchRoleState();
         snapWaitingRef.current = { agentId: panel.agentId, waiting: !!ev.waiting };
         setStreaming(!!ev.streaming);
         streamingRef.current = !!ev.streaming;
@@ -917,6 +936,7 @@ export default function App() {
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
         if (selectedId) loadStatus();
+        fetchRoleState();
         pinNewestSession();
         queueMicrotask(() => flushFollowUp());
         break;
@@ -1109,6 +1129,8 @@ export default function App() {
           });
         } else if (method === "notify") {
           const msg = ev.message || "Notice";
+          // Any roles/extension notify may mean the mode changed.
+          fetchRoleState();
           // Any notify from an extension command ends an unconfirmed Working.
           if (optimisticRef.current) {
             optimisticRef.current = false;
@@ -1946,34 +1968,47 @@ export default function App() {
             path={isFileTab(selectedId) ? (parseFileTab(selectedId) || {}).path : ""}
             onClose={() => isFileTab(selectedId) && closeTab(selectedId)}
           />
-          {isGitTab(selectedId) && gitOwners[selectedId] ? (
-            <GitGraphSurface
-              key={selectedId}
-              owner={gitOwners[selectedId]}
-              onKey={(key) => onGitKey(selectedId, key)}
-              onClose={() => closeTab(selectedId)}
-            />
-          ) : null}
-          {isTreeTab(selectedId) && treeOwners[selectedId] ? (
-            <FileTreeSurface
-              key={selectedId}
-              owner={treeOwners[selectedId]}
-              onKey={(root) => onTreeKey(selectedId, root)}
-              onOpenFile={(p) => {
-                const o = treeOwners[selectedId];
-                if (o) openFileTab(o.kind, o.id, p);
-              }}
-              onClose={() => closeTab(selectedId)}
-            />
-          ) : null}
-          {isAppTab(selectedId) ? (
+          {/* Same rule as the trees below: the loaded history, the open
+              commit, the search and the branch filter belong to the tab. */}
+          {tabs.filter(isGitTab).map((id) => {
+            const o = gitOwners[id];
+            if (!o) return null;
+            return (
+              <GitGraphSurface
+                key={id}
+                owner={o}
+                hidden={selectedId !== id}
+                onKey={(key) => onGitKey(id, key)}
+                onClose={() => closeTab(id)}
+              />
+            );
+          })}
+          {/* One mounted tree per tab, like the terminals above: leaving a tab
+              must not collapse the folders the reader opened. State lives as
+              long as the tab does — closing it is what forgets. */}
+          {tabs.filter(isTreeTab).map((id) => {
+            const o = treeOwners[id];
+            if (!o) return null;
+            return (
+              <FileTreeSurface
+                key={id}
+                owner={o}
+                hidden={selectedId !== id}
+                onKey={(root) => onTreeKey(id, root)}
+                onOpenFile={(p) => openFileTab(o.kind, o.id, p)}
+                onClose={() => closeTab(id)}
+              />
+            );
+          })}
+          {tabs.filter(isAppTab).map((id) => (
             <AppSurface
-              key={selectedId}
-              appId={tabAppId(selectedId)}
-              manifest={apps.find((a) => a.id === tabAppId(selectedId)) || null}
-              onClose={() => closeTab(selectedId)}
+              key={id}
+              appId={tabAppId(id)}
+              hidden={selectedId !== id}
+              manifest={apps.find((a) => a.id === tabAppId(id)) || null}
+              onClose={() => closeTab(id)}
             />
-          ) : null}
+          ))}
           <ChatSurface
             hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
             stopped={stopped}
@@ -2119,6 +2154,7 @@ export default function App() {
             }}
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
+              roleState, onRoleCommand: (cmd) => sendTask(cmd),
               slashExtra, atAgents, onAgentPage: go, pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               onAbort: abortTurn,
@@ -2228,22 +2264,22 @@ export default function App() {
         />
         <Mcps
           hidden={route !== "mcps"}
-          workspaceId={selected ? selected.id : ""}
-          workspaceName={selected ? selected.name : ""}
-          workspacePath={selected ? selected.path : ""}
-          agentId={selectedId || ""}
+          workspaceId={paneWs ? paneWs.id : ""}
+          workspaceName={paneWs ? paneWs.name : ""}
+          workspacePath={paneWs ? paneWs.path : ""}
+          agentId={agent ? agent.id : ""}
           agentName={displayAgentName(agent, selected)}
           agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
           agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
           onReload={async () => {
             if (!agent || agent.mode === "stopped") return;
             const was = agent.mode;
-            await stopAgent(selectedId);
-            if (was === "interactive") await openInteractive(selectedId);
-            else await startManaged(selectedId);
+            await stopAgent(agent.id);
+            if (was === "interactive") await openInteractive(agent.id);
+            else await startManaged(agent.id);
           }}
         />
-        <Packages hidden={route !== "packages"} workspaceId={selected ? selected.id : ""} workspaceName={selected ? selected.name : ""} workspacePath={selected ? selected.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
+        <Packages hidden={route !== "packages"} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}

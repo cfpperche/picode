@@ -33,7 +33,7 @@ current `session_path`), in both run modes, and records every session
 id/path an agent is ever pointed at — first spawn, resume, fork, clone,
 adopt, import — in a new append-only `agent_sessions` table
 (`internal/store/agent_sessions.go`, migration
-`014_agent_session_history.sql`). This is parallel to, not a replacement
+`015_agent_session_history.sql`). This is parallel to, not a replacement
 for, `agents.session_path` (which keeps its existing "current pointer
 only" contract). `handleListSessions` filters `session.List(cwd)` to rows
 owned by the requesting agent, always including its current session as a

@@ -160,6 +160,33 @@ webviews coexisting for a decade, each in its role, neither legacy.
 Everything shipped in v1 — manifest, registry, tab, grid, badges, tab
 family, routes — is surface-agnostic and carries over unchanged.
 
+## Amendment 2026-09-01 — the first app grew fields, not block types
+
+Dogfooding did what it was supposed to: the Inbox (ADR-0037) hit the
+walls of a v1 vocabulary that could only say title/subtitle/badge, and
+the surface read like a terminal dump. The growth is deliberately the
+kind the freeze allows — **the four block types stand unchanged**; what
+was added is optional, additive metadata plus one layout hint:
+
+- `View.Layout` (`"" | "split"`) and `Block.Pane` (`"" | "list" |
+  "detail"`) — a *hint*, not a container: blocks stay a flat list and the
+  host decides the arrangement (list left, detail right; stacked under
+  880px). `View.Empty` carries the app's own blankslate line so the host
+  can own how emptiness looks without inventing the copy.
+- `Block.Title` / `Meta` / `At` and `ListItem.Meta` / `At` / `Tone` /
+  `Unread`, plus `Action.Icon`. Timestamps travel as RFC3339 and are
+  formatted by the host (relative in the row, absolute on hover) — an
+  app never pre-formats time.
+- `APIVersion` stays 1: the fields are optional and the embedded UI ships
+  in the same binary as the server, so both sides move together. A
+  client that ignores them renders exactly what it rendered before —
+  proven by the demo app, which was not touched.
+
+The tone vocabulary is deliberately small and semantic (`info|ok|warn|
+danger`), with red reserved for destruction: an approval that *asks*
+about a destructive action reads `warn`, and only the Ignore button that
+denies an agent its reply is `danger`.
+
 ## Sources
 
 - VS Code built-in extensions: <https://github.com/microsoft/vscode/tree/main/extensions>;

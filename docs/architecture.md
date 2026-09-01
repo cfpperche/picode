@@ -97,6 +97,14 @@ stay on their own routes.
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
 
+A tab owns its surface's state for as long as it is open: terminals, file
+trees, git graphs and apps each keep one mounted instance per tab, hidden
+(not destroyed) while another tab is selected, so expanded folders, scroll
+offsets, loaded history, searches and the open item survive a switch and die
+only with the tab. A hidden surface takes no part in the window-focus refresh
+— revealing it refetches instead, and only when its last read is older than
+10s; the git graph refreshes on demand only, so a reveal never refetches it.
+
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Composer `/` also lists **extension commands** from the running managed agent
 (`GET /api/agents/{id}/slash` → RPC `get_commands`, ADR-0029). Picking one
@@ -107,7 +115,11 @@ The sidebar has five flat tabs, one kind each (ADR-0026, fifth added by ADR-0036
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
-(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). Add accepts
+(`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`
+or `?workspace=` that is not an agent/workspace (terminal tab `t:…`, stale id)
+is ignored — same as packages — so adapter status still comes from machine
+packages. A workspace terminal tab still carries that folder as MCP/Packages
+context. Add accepts
 optional `env`, `headers`, `auth` (`oauth`|`bearer`) and `bearerToken`.
 Live status (`idle`/`live`/`failed`/`signin`) comes from the adapter snapshot when
 the GUI agent is running (`-e` silent bridge). OAuth rows with tokens in the OS
@@ -235,12 +247,37 @@ HTTP API (Go 1.22 method patterns):
   apiVersion}` plus a live `badge` (`count` = actionable, `dot` =
   activity) per app; the poll target for the Apps tab. A badge failure
   degrades to no badge, never a failed list. First-party apps only,
-  assembled in `cmd/picode` (`PICODE_DEMO_APP=1` adds a hidden QA app).
+  assembled in `cmd/picode`; the registry seeds the **Inbox** (ADR-0037)
+  and `PICODE_DEMO_APP=1` adds a hidden QA app.
 - `GET /api/apps/{id}/view?path=…` — one screen of an app as a tree of
   UI primitives (list / detail-markdown / form / actions) the SPA
   renders with host components; `apiVersion` gates rendering on both
   sides. `POST /api/apps/{id}/action` — `{action, path, args}` →
-  `{toast?, view?, path?}`.
+  `{toast?, view?, path?}`. A view may hint `layout:"split"` and tag
+  blocks with `pane:"list"|"detail"` (list left, detail right; stacked
+  under 880px), name its own blankslate line in `empty`, and decorate
+  rows with `meta`, `at` (RFC3339 — the host formats it, relative in the
+  row and absolute on hover), `tone` (`info|ok|warn|danger`), `unread`
+  and per-action `icon`. Block types stay the frozen four (ADR-0036
+  amendments).
+- `POST /api/inbox` — file an inbox item (ADR-0037): `{kind:
+  fyi|question|approval|result, sourceKind: agent|terminal|system,
+  sourceId?, workspaceId?, reason, title, body?, blocking?,
+  allowedResponses?}`. Localhost trust model (ADR-0007); provenance is
+  mandatory and bodies render as markdown, never HTML. Questions and
+  approvals block by nature. `GET /api/inbox?state=&blocking=` lists
+  (snoozed hidden until due). `POST /api/inbox/{id}/respond` `{verb:
+  accept|edit|respond|ignore, text}` answers and marks done; an
+  agent-sourced question forwards the reply as a durable `follow_up`
+  task (source `inbox`) — a stopped agent drains it on next start, a
+  deleted agent yields 409 and the item stays open, annotated. `POST
+  /api/inbox/{id}/state` triages (`unread|read|done`, `snoozedUntil`).
+  PiCode itself files items from the RPC pump: a run that settles with
+  no `/ws/agent` subscriber becomes a `result` carrying the agent's
+  final message (an unread result per agent is superseded, not piled);
+  an unexpected process exit becomes an `fyi` (a requested Stop files
+  nothing). Agents file via `packages/pi-inbox` (`notify_human`,
+  `ask_human`), identified by `PICODE_AGENT_ID` set on every spawn.
 - `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
   public/static/app/src/app/www/docs; svg > png > ico), read-only and
   confined to the folder; the workspace card wears it.

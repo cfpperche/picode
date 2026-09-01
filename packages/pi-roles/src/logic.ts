@@ -479,3 +479,106 @@ function askCurrent(st: PickState): PickOutcome {
 	if (st.stage === "model") return askModel(st);
 	return askThinking(st);
 }
+
+/** "vision — xai/grok-4.5 · medium" for selects; plain name when unset. */
+export function roleOption(name: string, assignment?: Assignment): string {
+	if (name === "auto") return "auto — route by content";
+	if (!assignment) return name;
+	const t = assignment.thinking ? ` · ${assignment.thinking}` : "";
+	return `${name} — ${assignment.model}${t}`;
+}
+
+/** The role name back out of a decorated select choice. */
+export function roleFromChoice(choice: string): string {
+	const i = choice.indexOf(" — ");
+	return i < 0 ? choice : choice.slice(0, i);
+}
+
+/** Every role of a config, in picker order, with its assignment. */
+export function roleEntries(config: RolesConfig): Array<{ name: string; assignment?: Assignment }> {
+	const out: Array<{ name: string; assignment?: Assignment }> = [];
+	for (const name of BUILTIN_ROLES) {
+		const a = config.builtin[name];
+		if (a) out.push({ name, assignment: a });
+	}
+	for (const c of config.custom) out.push({ name: c.name, assignment: { model: c.model, ...(c.thinking ? { thinking: c.thinking } : {}) } });
+	return out;
+}
+
+/**
+ * Active-role state file (v1) — the contract PiCode's composer chip reads
+ * (ADR-0033 amendment #2). Written under ~/.pi/agent/roles-state/<agent>.json
+ * whenever the mode or the effective role list changes; ephemeral, safe to
+ * delete. `roles` carries the effective definitions so the chip's dropdown
+ * needs no second source.
+ */
+export type RoleState = {
+	v: 1;
+	mode: "auto" | "lock";
+	role?: string;
+	model?: string;
+	thinking?: ThinkingLevel;
+	roles: Array<{ name: string; model?: string; thinking?: ThinkingLevel }>;
+};
+
+export function stateJson(mode: Mode, config: RolesConfig | null): RoleState {
+	const cfg = config ?? emptyConfig();
+	const roles = roleEntries(cfg).map((e) => ({
+		name: e.name,
+		...(e.assignment ? { model: e.assignment.model } : {}),
+		...(e.assignment && e.assignment.thinking ? { thinking: e.assignment.thinking } : {}),
+	}));
+	if (mode.kind === "lock") {
+		const a = resolveRole(cfg, mode.role);
+		return {
+			v: 1,
+			mode: "lock",
+			role: mode.role,
+			...(a ? { model: a.model } : {}),
+			...(a && a.thinking ? { thinking: a.thinking } : {}),
+			roles,
+		};
+	}
+	return { v: 1, mode: "auto", roles };
+}
+
+/** Parse a state file; null when unreadable or from a future version. */
+export function parseState(raw: unknown): RoleState | null {
+	if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+	const rec = raw as Record<string, unknown>;
+	if (rec.v !== 1) return null;
+	if (rec.mode !== "auto" && rec.mode !== "lock") return null;
+	const st: RoleState = { v: 1, mode: rec.mode, roles: [] };
+	if (typeof rec.role === "string") st.role = rec.role;
+	if (typeof rec.model === "string") st.model = rec.model;
+	if (typeof rec.thinking === "string" && THINKING.has(rec.thinking)) {
+		st.thinking = rec.thinking as ThinkingLevel;
+	}
+	if (Array.isArray(rec.roles)) {
+		for (const r of rec.roles) {
+			if (r && typeof r === "object" && typeof (r as Record<string, unknown>).name === "string") {
+				const rr = r as Record<string, unknown>;
+				st.roles.push({
+					name: rr.name as string,
+					...(typeof rr.model === "string" ? { model: rr.model } : {}),
+					...(typeof rr.thinking === "string" && THINKING.has(rr.thinking)
+						? { thinking: rr.thinking as ThinkingLevel }
+						: {}),
+				});
+			}
+		}
+	}
+	return st;
+}
+
+/** Which layers hold a custom preset — drives remove's smart-skip. */
+export function removeScopes(
+	workspace: RolesConfig,
+	overlay: RolesConfig,
+	name: string,
+): PickScope[] {
+	const out: PickScope[] = [];
+	if (overlay.custom.some((c) => c.name === name)) out.push("agent");
+	if (workspace.custom.some((c) => c.name === name)) out.push("workspace");
+	return out;
+}

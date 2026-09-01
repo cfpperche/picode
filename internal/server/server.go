@@ -76,6 +76,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
 	registerSlashRes(mux, deps)
+	registerRolesState(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
 	registerTerminalSettingsRoutes(mux, deps)
@@ -94,6 +95,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerOAuthRoutes(mux)
 	registerBackupRoutes(mux, deps)
 	registerAppsRoutes(mux, deps)
+	registerInboxRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
@@ -129,8 +131,11 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":    "picode",
-		"version": version.Version,
+		"name": "picode",
+		// The running build's identity ("0.1.0+0550fa2" on source builds);
+		// semver-only consumers use "semver".
+		"version": version.Build(),
+		"semver":  version.Version,
 	})
 }
 

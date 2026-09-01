@@ -25,6 +25,100 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Git graph: Branches picker + Show Remote Branches.** A new toolbar
+  control (VS Code Git Graph-inspired) actually restricts which commits
+  are walked — pick one or more local/remote branches to see only their
+  reachable history, or "Show All" for the default. A separate checkbox
+  hides remote-tracking branches from the picker, the ref pills, and
+  (while "Show All" is active) the walk itself. Selection persists per
+  repository; the toggle is a global preference. `GET .../git` gains
+  optional repeated `?branches=` and `?remotes=0|1` params — absent,
+  the response is byte-for-byte what it was before this change. The
+  panel drops below its trigger and lists its branches in full (the
+  shared `.cockpit-pop` positioning and 220px menu height are built for
+  composer chips docked at the foot of the screen: from a header they
+  flew the list up over the tab bar and sliced its last row).
+
+### Changed
+
+- **The Inbox reads like an inbox.** It opens as a split view — the
+  needs-you queue and the feed on the left, the selected item on the
+  right — and rows became real rows: unread dot, title, relative
+  timestamp (absolute on hover), a kind lozenge coloured by tone, and
+  source · reason chips separated by drawn hairlines that vanish with
+  their chip. Done and Snooze are icon-only and appear on hover or
+  keyboard focus, so they no longer set the row height. Sections are
+  uppercase eyebrows with counts, the empty inbox is a centred
+  blankslate, and the whole app surface finally opts into the sans font
+  (timestamps and lozenges stay mono). Reply and Ignore share one button
+  row, destructive last. The apps host grew the optional fields this
+  needed — layout/pane hints, row meta/at/tone/unread, action icons —
+  without adding a fifth block type (ADR-0036 amendment). Markdown lists
+  everywhere got their bullets back (Tailwind's preflight had stripped
+  them).
+
+- **Git graph history loads by scrolling.** Nearing the bottom of the
+  list fetches an older window on demand; the Load earlier button is
+  gone (a sentinel row under the last commit shows load progress). The
+  server's window ceiling rose from 2000 to 10000 commits.
+- **Git graph refresh is manual again.** The ADR-0038 token poll is
+  removed: with several agents committing it kept a graph load in
+  flight so often that the header buttons sat disabled and the view
+  jumped. Refresh / Load-on-scroll / opening the tab are the fetches.
+- **Agent and terminal cards break into three lines** in the sidebar:
+  name, folder pill and git-branch pill each get a row, so long paths
+  and branch names truncate later.
+
+### Fixed
+
+- **Tabs keep their surface's state.** Leaving a file tree, git graph or
+  app tab and coming back no longer resets it. The tree keeps its
+  expanded folders, its scroll offset and the diff it had open; the
+  graph keeps the history scrolled into view, the open commit, the
+  search and the branch filter; the app keeps the item the reader
+  opened. Each open tab now holds one mounted surface, hidden instead of
+  destroyed — the shape the terminals already used. Refreshes stay
+  honest: a hidden surface skips the window-focus refetch, and revealing
+  one refetches only when its last read is over 10s old (the git graph,
+  whose refresh is manual by decision, never refetches on reveal). State
+  still dies with the tab — closing it forgets.
+
+- **Git graph no longer refetches on every app render.** The surface
+  kept `onKey` (a fresh closure per parent render) in its load
+  callback's deps, so every sidebar poll re-ran the fetch — buttons
+  flickered as if an auto-refresh survived.
+
+### Fixed
+
+- **The sidebar version tells the truth.** Source builds show the running
+  revision (`v0.1.0+0550fa2`) instead of a frozen `v0.1.0`; stamped
+  release builds stay clean (`Stamped` ldflag in the release workflow).
+  `/api/version` gains `semver` for comparisons; `picode update` prints
+  the full build identity. (No dirty marker: Go stamps `vcs.modified`
+  from the primary checkout, not the worktree being built.)
+
+### Fixed
+
+- **The role chip dies with the package.** `role-state` now answers only
+  while pi-roles is on the agent's effective package list — an
+  uninstall no longer leaves an orphaned chip fed by a stale state file.
+- **`/roles auto`** is accepted as an alias for `/auto`.
+
+### Added
+
+- **Inbox (ADR-0037).** The first real app on the apps host: a durable
+  mailbox where agents, terminals and PiCode itself message the human.
+  `POST /api/inbox` files items (fyi / question / approval / result,
+  with mandatory provenance); the Inbox app shows a needs-me queue and
+  a feed, with respond/accept/ignore, done and snooze — answering a
+  question forwards the reply to the agent as a durable follow-up task
+  that survives restarts (a stopped agent picks it up on next start).
+  PiCode files a `result` when a run finishes unobserved (carrying the
+  agent's actual final message) and an `fyi` when a pi process dies
+  unexpectedly. New opt-in pi package `packages/pi-inbox` (MIT) gives
+  agents `notify_human` and `ask_human` — asking ends the turn and the
+  reply arrives as a follow-up. Apps-tab badge counts blocking items.
+
 - **Git graph v2 (ADR-0038).** Clicking a commit now opens its detail
   inline, directly below the clicked row — the graph lines detour around
   the panel — and the panel is resizable by dragging its bottom edge
@@ -40,6 +134,17 @@ to the `[Unreleased]` section. The repository's official language is English
   tab is visible. Remote branch pills get a cloud icon and their own
   colour, with the `origin/` prefix set off from the branch name.
 
+- **The composer shows the active role.** A chip before Provider —
+  `auto`, or a locked `vision · grok-4.5` in accent — appears whenever
+  pi-roles publishes its state (no package, no chip). Its dropdown lists
+  every role with its definition; picking one sends `/role <name>` (or
+  `/auto`), and **Edit roles…** opens the in-thread stepper. Locks now
+  **survive agent restarts** (state file contract v1, ADR-0033
+  amendment #2; `GET /api/agents/{id}/role-state`).
+- **Role selects show definitions** (`vision — xai/grok-4.5 · medium`)
+  in `/roles`, `/roles edit` and `/roles remove` — in chat and TUI
+  alike; and **`/roles remove` asks the scope only when it must** (one
+  layer → no question; both → a `Remove from` select).
 - **Apps host (ADR-0036).** A fifth sidebar tab shows a grid of app
   tiles drawn from `GET /api/apps` manifests; an app opens as a main
   tab (`#/app/<id>`) whose content is a versioned tree of UI primitives
@@ -111,6 +216,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **MCP page detects the adapter from a terminal tab.** Opening `#/mcps`
+  with a terminal (or a gone agent) selected no longer 404s and pretends
+  `pi-mcp-adapter` is missing. Same rule as Packages: a tab that is not
+  an agent is ignored, and a workspace terminal still carries that
+  folder as context so machine packages stay visible. A load error is
+  Retry, not the install prompt.
 - **`/roles` no longer leaves the thread on Working forever.** An
   optimistic Working now ends at the first real signal (dialog, notify,
   answer, or a short post-delivery fallback) — including the silent case

@@ -140,7 +140,9 @@ export default function Sidebar({
           >
             <IconFolder size={12} /><span className="ws-pill-text">{repo.dir}</span>
           </button>
-          {repo.git ? (
+        </div>
+        {repo.git ? (
+          <div className="ws-row2">
             <button
               type="button"
               className="ws-pill"
@@ -149,8 +151,8 @@ export default function Sidebar({
             >
               <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>{repo.git.dirty ? <span className="ws-pill-badge">{repo.git.dirty}</span> : null}
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <span className="ws-actions">
           {mode === "stopped"
             ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
@@ -174,18 +176,20 @@ export default function Sidebar({
           <span className="tree-icon"><IconTerminal size={14} /></span>
           <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
         </div>
-        {(() => { const line = termLine(t); return (
+        {(() => { const line = termLine(t); return (<>
         <div className="ws-row2">
           <button type="button" className="ws-pill" title={"Files — " + t.cwd} onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}>
             <IconFolder size={12} /><span className="ws-pill-text">{line.dir}</span>
           </button>
-          {line.git ? (
+        </div>
+        {line.git ? (
+          <div className="ws-row2">
             <button type="button" className="ws-pill" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}>
               <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>{line.git.dirty ? <span className="ws-pill-badge">{line.git.dirty}</span> : null}
             </button>
-          ) : null}
-        </div>
-        ); })()}
+          </div>
+        ) : null}
+        </>); })()}
         <span className="ws-actions">
           <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
           <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
@@ -207,7 +211,7 @@ export default function Sidebar({
           {/* Five tabs eat the header (ADR-0036); below ~286px the version
               would push the name into ellipsis, so it yields (it lives in
               the user menu too). The name never truncates. */}
-          {width >= 286 ? <span className="brand-ver" id="ver">{version ? "v" + version : "v—"}</span> : null}
+          {width >= 286 ? <span className="brand-ver" id="ver" title={version ? "v" + version : ""}>{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className={"brand-tabs" + (width < 240 ? " brand-tabs-tight" : "")} role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>

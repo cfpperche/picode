@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Belt to the reference-transaction guard: even if the root checkout ends up
+# off main (an override, an older git without reference-transaction, a
+# bypassed hook), feature work must not be committed from it — that is the
+# state that blocks every other agent (AGENTS.md §5).
+#
+# Escape hatch: PICODE_ALLOW_SWITCH=1 git commit …  (or --no-verify)
+
+[ -n "$PICODE_ALLOW_SWITCH" ] && exit 0
+
+gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
+cd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+[ "$gd" = "$cd" ] || exit 0  # linked worktree: any branch is fine
+
+# A merge, rebase or cherry-pick in progress commits on its own terms.
+for state in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply; do
+  [ -e "$gd/$state" ] && exit 0
+done
+
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0  # detached: not ours to judge
+[ "$branch" = "main" ] && exit 0
+
+printf '\n  Refusing to commit on %s in the repository root.\n' "$branch" >&2
+printf '  The root checkout is shared; feature commits belong to a worktree:\n\n' >&2
+printf '      git worktree add .worktrees/<name> -b %s\n\n' "$branch" >&2
+printf '  Then commit there. Root commits are for main only.\n\n' >&2
+exit 1

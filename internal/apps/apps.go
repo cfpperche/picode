@@ -35,6 +35,14 @@ type Manifest struct {
 type Host struct {
 	Store   *store.Store
 	DataDir string
+	// AgentDeliverable answers whether a reply queued for this agent will
+	// be drained automatically — false only when the agent is currently
+	// running in a TUI/tmux session, which nothing watches for follow_up
+	// tasks (ADR-0037's Inbox). Same type and same polarity as
+	// store.AgentDeliverable on purpose: two names for one true/false
+	// meaning is how this got inverted the first time. Optional — nil
+	// means "assume yes" (tests, the demo app).
+	AgentDeliverable store.AgentDeliverable
 }
 
 // App is one first-party app. Implementations must be safe for
@@ -80,7 +88,7 @@ func (r *Registry) Find(id string) (App, bool) {
 // BuiltIns assembles the first-party apps. demo adds the hidden QA app
 // (the caller reads PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
-	var list []App
+	list := []App{inboxApp{}} // ADR-0037: the Inbox is the first production app
 	if demo {
 		list = append(list, demoApp{})
 	}

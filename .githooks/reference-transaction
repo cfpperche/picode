@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Keep the repository root on main (AGENTS.md §5): feature work belongs in a
+# worktree, so parallel agents never fight over one working tree.
+#
+# Git has no pre-checkout hook — but a branch switch is a symref update of
+# HEAD, and a reference transaction can be aborted. This is enforced by git
+# itself, so it holds for every tool that drives the repo (any agent
+# runtime, any editor, a shell, a script), not just one of them.
+#
+# Install: git config core.hooksPath .githooks  (`make hooks` does it)
+# Escape hatch: PICODE_ALLOW_SWITCH=1 git switch <branch>
+
+[ "$1" = "prepared" ] || exit 0
+[ -n "$PICODE_ALLOW_SWITCH" ] && exit 0
+
+# Primary worktree only. In a linked worktree the git dir is
+# .git/worktrees/<name> while the common dir is the repo's .git — and there,
+# switching branches is exactly the right thing to do.
+gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
+cd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+[ "$gd" = "$cd" ] || exit 0
+
+# `git worktree add -b <branch>` writes the NEW worktree's HEAD through this
+# same transaction, from this same directory, with the same git dir and the
+# same `ref:refs/heads/...` payload. The invoking command is the only thing
+# that separates "move this checkout" from "create a worktree", so read it
+# off the parent process (the git process running the operation).
+parent=$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null || ps -o args= -p "$PPID" 2>/dev/null)
+case "$parent" in
+  *"git switch"*|*"git checkout"*) ;;
+  *) exit 0 ;;  # worktree add, reset, merge, rebase, fetch, … not our business
+esac
+
+while read -r _old new ref; do
+  [ "$ref" = "HEAD" ] || continue
+  case "$new" in
+    ref:refs/heads/main) ;;  # coming home is always allowed
+    ref:*)
+      printf '\n  Refusing to move the repository root to %s.\n' "${new#ref:refs/heads/}" >&2
+      printf '  This checkout stays on main so parallel agents never collide.\n' >&2
+      printf '  Isolate the work instead:\n\n' >&2
+      printf '      git worktree add .worktrees/<name> -b feat/<name>\n\n' >&2
+      printf '  Deliberate one-off: PICODE_ALLOW_SWITCH=1 git switch <branch>\n\n' >&2
+      exit 1
+      ;;
+  esac
+done
+exit 0

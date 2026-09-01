@@ -92,6 +92,69 @@ func TestMCPMatrix(t *testing.T) {
 	}
 }
 
+func TestMCPUnknownAgentStillReportsAdapter(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	ts := newTestServer(t, "cat")
+	settings := filepath.Join(home, ".pi", "agent", "settings.json")
+
+	rows := []struct {
+		name      string
+		install   bool
+		agent     string
+		workspace string
+		installed bool
+	}{
+		{"no adapter, no agent", false, "", "", false},
+		{"no adapter, terminal tab", false, "t:terminal-4-027c76", "", false},
+		{"adapter, no agent", true, "", "", true},
+		{"adapter, terminal tab", true, "t:terminal-4-027c76", "", true},
+		{"adapter, stale agent", true, "gone-agent", "", true},
+		{"adapter, terminal as workspace", true, "", "t:terminal-4-027c76", true},
+		{"adapter, workspace+terminal agent", true, "t:terminal-4-027c76", "t:terminal-4-027c76", true},
+	}
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			if row.install {
+				if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(settings, []byte(`{"packages":["npm:pi-mcp-adapter"]}`), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				_ = os.Remove(settings)
+			}
+			q := ts.URL + "/api/mcp"
+			sep := "?"
+			if row.agent != "" {
+				q += sep + "agent=" + row.agent
+				sep = "&"
+			}
+			if row.workspace != "" {
+				q += sep + "workspace=" + row.workspace
+			}
+			res, err := ts.Client().Get(q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.StatusCode != http.StatusOK {
+				t.Fatalf("GET status %d", res.StatusCode)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			_ = res.Body.Close()
+			ad, _ := body["adapter"].(map[string]any)
+			if ad["installed"] != row.installed {
+				t.Fatalf("adapter.installed = %v, want %v", ad["installed"], row.installed)
+			}
+		})
+	}
+}
+
 func TestMCPProjectAndAgent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
