@@ -2324,7 +2324,6 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .create-drawer .form-new input,
 .create-drawer .cfg-fields select { width: 100%; }
 .folder-field { display: flex; gap: 6px; align-items: center; }
-.folder-field input { flex: 1; min-width: 0; }
 .folder-field .btn { flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .dlg-overlay-folder { z-index: 82; }
 .dlg-folder { z-index: 83; width: min(440px, calc(100vw - 32px)); }
@@ -2364,7 +2363,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .folder-row:hover { background: var(--bg-hover); }
 .folder-row-meta { color: var(--text-secondary); font-size: 11px; }
 .folder-mkdir { display: flex; gap: 6px; align-items: center; }
-.folder-mkdir .dlg-input { margin-top: 0; flex: 1; min-width: 0; }
+.folder-mkdir .dlg-input, .folder-field .dlg-input { margin-top: 0; flex: 1; min-width: 0; }
 .folder-mkdir .btn, .folder-field .btn {
   flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
 }
@@ -2824,9 +2823,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 /* Search (ADR-0038): dims and highlights over the loaded window, hides nothing. */
 .gg-search-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .gg-search {
-  width: 180px; height: 24px; padding: 0 8px;
+  width: 180px; height: var(--ctl-h); padding: 0 8px; box-sizing: border-box;
   font: inherit; font-size: 12px; color: var(--text-primary);
-  background: var(--bg-base); border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
 }
 .gg-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 .gg-search-count {

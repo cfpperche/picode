@@ -17,7 +17,7 @@ export default function FolderField({ name, placeholder, resetKey, value, onChan
 
   return (
     <div className="folder-field">
-      <input name={name} type="text" value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} autoComplete="off" />
+      <input className="dlg-input" name={name} type="text" value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} autoComplete="off" />
       <button type="button" className="btn btn-ghost btn-sm" title="Browse" onClick={() => setOpen(true)}>
         <IconFolder size={14} /> Browse
       </button>
