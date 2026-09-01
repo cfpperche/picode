@@ -18,8 +18,13 @@ func registerAppsRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/apps/{id}/action", handleAppAction(deps))
 }
 
-func appsHost(deps Deps) apps.Host {
-	return apps.Host{Store: deps.Store, DataDir: deps.DataDir}
+func appsHost(deps Deps, r *http.Request) apps.Host {
+	return apps.Host{
+		Store: deps.Store, DataDir: deps.DataDir,
+		// Negate once, right here, matching handleRespondInbox's own
+		// wiring (internal/server/inbox.go) — deliverable, not interactive.
+		AgentDeliverable: func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) },
+	}
 }
 
 type appRow struct {
@@ -36,7 +41,7 @@ func handleListApps(deps Deps) http.HandlerFunc {
 		for _, a := range deps.Apps.All() {
 			row := appRow{Manifest: a.Manifest()}
 			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-			if b, err := a.Badge(ctx, appsHost(deps)); err == nil {
+			if b, err := a.Badge(ctx, appsHost(deps, r)); err == nil {
 				row.Badge = b
 			}
 			cancel()
@@ -56,7 +61,7 @@ func handleAppView(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "no such app")
 			return
 		}
-		v, err := a.View(r.Context(), appsHost(deps), r.URL.Query().Get("path"))
+		v, err := a.View(r.Context(), appsHost(deps, r), r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -81,7 +86,7 @@ func handleAppAction(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "action is required")
 			return
 		}
-		res, err := a.Action(r.Context(), appsHost(deps), req)
+		res, err := a.Action(r.Context(), appsHost(deps, r), req)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

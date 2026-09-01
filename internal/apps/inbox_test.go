@@ -194,4 +194,19 @@ func TestInboxActions(t *testing.T) {
 	if got, _ := h.Store.GetInboxItem(q2.ID); got.State == store.InboxDone {
 		t.Fatalf("dead-agent item closed")
 	}
+
+	// An agent running in a TUI has no delivery loop draining follow_up —
+	// the Action handler must refuse via h.AgentDeliverable, not enqueue
+	// a reply that sits forever (the gap found live with grok-a7f396).
+	h.AgentDeliverable = func(string) bool { return false }
+	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q3", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "hi"}}); err == nil || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("interactive-agent error = %v", err)
+	}
+	if got, _ := h.Store.GetInboxItem(q3.ID); got.State == store.InboxDone {
+		t.Fatalf("interactive-agent item closed")
+	}
+	if tasks, _ := h.Store.ListTasks(ag.ID, 10); len(tasks) != 1 { // still just the earlier successful one
+		t.Fatalf("interactive agent got a queued task: %+v", tasks)
+	}
 }

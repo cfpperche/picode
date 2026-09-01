@@ -2,6 +2,7 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -236,9 +237,15 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		if verb == store.VerbRespond && strings.TrimSpace(text) == "" {
 			return ActionResult{}, fmt.Errorf("write a reply first")
 		}
-		if _, err := h.Store.RespondAndForward(id, verb, text); err != nil {
+		if _, err := h.Store.RespondAndForward(id, verb, text, h.AgentDeliverable); err != nil {
+			// These surface verbatim as a toast (handleAppAction writes
+			// err.Error() straight through), so they read as UI copy —
+			// sentence case, not the lowercase Go error-string convention.
+			if errors.Is(err, store.ErrAgentInteractive) {
+				return ActionResult{}, fmt.Errorf("Reply not delivered — the agent is running in an interactive terminal; the item stays open")
+			}
 			if strings.Contains(err.Error(), "agent no longer exists") {
-				return ActionResult{}, fmt.Errorf("reply not delivered — the agent no longer exists; the item stays open")
+				return ActionResult{}, fmt.Errorf("Reply not delivered — the agent no longer exists; the item stays open")
 			}
 			return ActionResult{}, err
 		}

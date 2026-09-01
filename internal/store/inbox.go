@@ -3,10 +3,25 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 )
+
+// ErrAgentInteractive is returned by RespondAndForward when the target
+// agent is currently running in an interactive (TUI/tmux) session: the
+// only thing that drains a queued follow_up task is the RPC runtime's
+// deliverLoop, which a TUI session has none of. Enqueueing anyway would
+// tell the human "sent" for a message that silently sits forever.
+var ErrAgentInteractive = errors.New("store: agent is running interactively; replies are not delivered automatically")
+
+// AgentDeliverable answers whether a queued reply for this agent will be
+// drained automatically. The store package has no tmux or RPC-runtime
+// import, so the caller (internal/server, internal/apps) supplies this —
+// nil means "assume yes" (tests, the demo app, any caller that hasn't
+// wired reachability).
+type AgentDeliverable func(agentID string) bool
 
 // Inbox (ADR-0037): the durable mailbox between agents/terminals and the
 // human. Items carry provenance (source, reason) and a triage state;
@@ -385,7 +400,7 @@ func (s *Store) FileAgentResult(agentID, workspaceID, title, body, reason string
 // follow_up task (park-and-wake: a stopped agent drains it on next
 // start). An agent row that no longer exists annotates the item and
 // leaves it open — a visible failure, never a lost message.
-func (s *Store) RespondAndForward(id, verb, text string) (InboxItem, error) {
+func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDeliverable) (InboxItem, error) {
 	it, err := s.GetInboxItem(id)
 	if err != nil {
 		return InboxItem{}, err
@@ -408,6 +423,12 @@ func (s *Store) RespondAndForward(id, verb, text string) (InboxItem, error) {
 		(it.Kind == InboxQuestion || it.Kind == InboxApproval) &&
 		verb != VerbIgnore
 	if needsForward {
+		if deliverable != nil && !deliverable(it.SourceID) {
+			_ = s.AnnotateInboxItem(id, "Reply not delivered: the agent is running in an interactive terminal, "+
+				"which does not pick up follow-up messages automatically. Open its terminal and paste the reply, "+
+				"or stop the agent and start it managed so replies deliver on their own.")
+			return InboxItem{}, ErrAgentInteractive
+		}
 		payload := fmt.Sprintf("Human reply to your question %q: %s", it.Title, text)
 		if verb == VerbAccept && strings.TrimSpace(text) == "" {
 			payload = fmt.Sprintf("The human accepted: %q", it.Title)

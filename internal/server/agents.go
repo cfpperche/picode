@@ -62,6 +62,22 @@ func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
 	return modeStopped
 }
 
+// agentInteractive is runMode narrowed to the one question the inbox
+// needs (ADR-0037): is this agent currently in a TUI/tmux session with
+// no delivery loop watching it? Managed and stopped both answer false —
+// managed drains immediately, stopped is the legitimate park-and-wake
+// case (the queue drains on the next managed start).
+func (deps Deps) agentInteractive(ctx context.Context, agentID string) bool {
+	if deps.Runtime.Get(agentID) != nil {
+		return false
+	}
+	if !deps.Tmux.Available() {
+		return false
+	}
+	has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID))
+	return err == nil && has
+}
+
 func handleManagedStart(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentID := r.PathValue("id")

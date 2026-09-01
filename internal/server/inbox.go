@@ -85,8 +85,13 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "text is required for a "+req.Verb)
 			return
 		}
-		it, err := deps.Store.RespondAndForward(r.PathValue("id"), req.Verb, req.Text)
+		deliverable := func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) }
+		it, err := deps.Store.RespondAndForward(r.PathValue("id"), req.Verb, req.Text, deliverable)
 		if err != nil {
+			if errors.Is(err, store.ErrAgentInteractive) {
+				writeErr(w, http.StatusConflict, "agent is running in an interactive terminal — reply not delivered automatically; the item stays open")
+				return
+			}
 			if errors.Is(err, store.ErrNotFound) {
 				// The item exists but its agent is gone (annotated), or the
 				// item id itself is unknown — the message distinguishes.

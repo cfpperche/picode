@@ -2,13 +2,16 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -128,6 +131,115 @@ func TestInboxRespondDeadAgent(t *testing.T) {
 	res, _ = inboxPost(t, ts, "/api/inbox/nope/respond", `{"verb":"ignore"}`)
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("unknown item = %d", res.StatusCode)
+	}
+}
+
+// TestInboxRespondInteractiveAgent covers the gap found live: replying to
+// an agent parked in a TUI/tmux session queued a follow_up task nothing
+// ever drains (deliverLoop only runs for the RPC runtime). The route must
+// refuse before enqueueing, not silently accept a reply that never lands.
+func TestInboxRespondInteractiveAgent(t *testing.T) {
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux not available")
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	tm := tmux.New()
+	ws, _ := st.AddWorkspace("wsx", t.TempDir())
+	ag, err := st.AddAgent(ws.ID, "helper", "")
+	if err != nil {
+		t.Fatalf("agent: %v", err)
+	}
+	name := tmux.SessionName(ag.ID)
+	if err := tm.NewSession(context.Background(), name, ws.Path, "cat"); err != nil {
+		t.Skipf("tmux session unavailable in this environment: %v", err)
+	}
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), name) })
+
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tm, AgentCmd: "cat"}).Handler)
+	t.Cleanup(ts.Close)
+
+	_, out := inboxPost(t, ts, "/api/inbox",
+		`{"kind":"question","sourceKind":"agent","sourceId":"`+ag.ID+`","reason":"r","title":"q","body":"?"}`)
+	id, _ := out["id"].(string)
+	res, body := inboxPost(t, ts, "/api/inbox/"+id+"/respond", `{"verb":"respond","text":"hi"}`)
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("interactive agent = %d %v", res.StatusCode, body)
+	}
+	after, _ := st.GetInboxItem(id)
+	if after.State == store.InboxDone || !strings.Contains(after.Body, "interactive terminal") {
+		t.Fatalf("item after refusal = %+v", after)
+	}
+	if tasks, _ := st.ListTasks(ag.ID, 10); len(tasks) != 0 {
+		t.Fatalf("a task was queued for an undeliverable agent: %+v", tasks)
+	}
+}
+
+// TestInboxAppActionRespondInteractiveAgent is the regression test for the
+// bug the above test's sibling did NOT catch: the raw /api/inbox/respond
+// route and the Inbox app's /api/apps/inbox/action route each build their
+// own AgentDeliverable closure (internal/server/inbox.go vs
+// internal/server/apps.go's appsHost). The first negated
+// deps.agentInteractive correctly; the second passed it straight through
+// under the old, differently-named field — silently inverted, so a reply
+// to a TUI agent was accepted and queued forever. A unit test that sets
+// apps.Host.AgentDeliverable by hand (internal/apps/inbox_test.go) cannot
+// see this: the bug lived entirely in appsHost()'s wiring. Only a real
+// HTTP round trip through the apps route, against a real tmux session,
+// exercises it.
+func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux not available")
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	tm := tmux.New()
+	ws, _ := st.AddWorkspace("wsx", t.TempDir())
+	ag, err := st.AddAgent(ws.ID, "helper", "")
+	if err != nil {
+		t.Fatalf("agent: %v", err)
+	}
+	name := tmux.SessionName(ag.ID)
+	if err := tm.NewSession(context.Background(), name, ws.Path, "cat"); err != nil {
+		t.Skipf("tmux session unavailable in this environment: %v", err)
+	}
+	t.Cleanup(func() { _ = tm.KillSession(context.Background(), name) })
+
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
+		Store: st, Tmux: tm, AgentCmd: "cat", Apps: apps.NewRegistry(apps.BuiltIns(false)...),
+	}).Handler)
+	t.Cleanup(ts.Close)
+
+	_, out := inboxPost(t, ts, "/api/inbox",
+		`{"kind":"question","sourceKind":"agent","sourceId":"`+ag.ID+`","reason":"r","title":"q","body":"?"}`)
+	id, _ := out["id"].(string)
+
+	res, err := http.Post(ts.URL+"/api/apps/inbox/action", "application/json",
+		bytes.NewBufferString(`{"action":"respond","path":"item/`+id+`","args":{"reply":"hi"}}`))
+	if err != nil {
+		t.Fatalf("POST action: %v", err)
+	}
+	body, _ := json.Marshal(map[string]any{})
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("app action to an interactive agent = %d, want 400 (refused)", res.StatusCode)
+	}
+	after, _ := st.GetInboxItem(id)
+	if after.State == store.InboxDone {
+		t.Fatalf("interactive-agent item was closed by the app action route")
+	}
+	if !strings.Contains(after.Body, "interactive terminal") {
+		t.Fatalf("no actionable annotation: %q", after.Body)
+	}
+	if tasks, _ := st.ListTasks(ag.ID, 10); len(tasks) != 0 {
+		t.Fatalf("app action queued a task for an undeliverable agent: %+v", tasks)
 	}
 }
 

@@ -325,3 +325,48 @@ Never exercised, because this machine was already past them:
   literal string reported every correctly-configured worktree as broken,
   which would have failed `make ci` for every agent. The script compares
   resolved paths against the main worktree's `.githooks`.
+
+- **2026-09-01** — **Two Inbox fixes, both found by testing the feature
+  live** (`pi install -l ./packages/pi-inbox`, a real `ask_human` turn).
+
+  **Typography**: the split-view refactor had set `.app-surface { font-
+  family: var(--sans) }`, flipping the whole app surface (titles, meta,
+  buttons, section labels) to sans. That breaks the house rule — `body`
+  is mono by default and only `.conversation` (chat prose) opts into
+  sans; git graph, file tree, sidebar, settings all stay mono. Removed
+  both overrides (`.app-surface` and `.app-surface .ft-title`) and the
+  reply textarea's explicit `--sans`; the surface now inherits mono like
+  every other list/detail app in the product.
+
+  **Park-and-wake gap**: replying to a question from an agent parked in
+  a TUI/tmux session queued a `follow_up` task that nothing ever drains
+  — `deliverLoop` only exists for the RPC runtime (ADR-0037 promised
+  "the agent picks it up on the next start" without that caveat).
+  Fixed by refusing early: `store.RespondAndForward` gained a
+  `deliverable AgentDeliverable` parameter; when it says no the item is
+  annotated and stays open instead of enqueueing a message that would
+  sit forever. `deps.agentInteractive` (internal/server/agents.go, next
+  to the existing `runMode`) computes it from `Runtime.Get` + tmux.
+  **The regression that shipped first**: the raw `/api/inbox/{id}/respond`
+  route negated correctly; `internal/server/apps.go`'s `appsHost()` —
+  which the actual UI goes through — passed the same boolean straight
+  through under a *differently named* field
+  (`Host.AgentInteractive`, true=interactive) into a parameter
+  expecting the opposite polarity (`deliverable`, true=ok). Silently
+  inverted: the UI accepted the reply and queued it forever. Caught
+  live in the browser, not by the unit test I'd written for the app
+  layer — that test set the Host field directly, bypassing `appsHost()`
+  entirely, so it could not see the wiring bug. Fixed by unifying the
+  name and polarity (`Host.AgentDeliverable`, matching
+  `store.AgentDeliverable` exactly) and adding
+  `TestInboxAppActionRespondInteractiveAgent`, an HTTP round trip
+  through the real apps route against a real tmux session — sabotage-
+  verified: reintroducing the missing negation fails it.
+  Also hardened in passing: `rpc.Runtime.Get` panicked on a nil
+  receiver (`r.mu.Lock()`); every other test server in this codebase
+  either sets `Runtime` or gets lucky and never calls `runMode`/
+  `agentInteractive`. Now nil-safe, matching the rest of the codebase's
+  nil-safe accessors (`apps.Registry`, `Deps.Apps`).
+  `pi-inbox` stays installed in this workspace's `.pi/settings.json`
+  (`../packages/pi-inbox`, relative — portable across clones) as the
+  live proof the package works; nothing else depends on it being there.

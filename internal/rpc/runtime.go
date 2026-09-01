@@ -175,6 +175,9 @@ func (r *Runtime) Stop(agentID string) bool {
 
 // Get returns the managed agent, if running.
 func (r *Runtime) Get(agentID string) *ManagedAgent {
+	if r == nil {
+		return nil
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.agents[agentID]
