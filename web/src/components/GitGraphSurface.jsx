@@ -34,9 +34,6 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   });
   const [query, setQuery] = useState("");
   const keyRef = useRef("");
-  const tokenRef = useRef("");
-  const busyRef = useRef(false);
-  busyRef.current = busy;
 
   // Search dims and highlights, never hides (ADR-0038): the lanes are
   // positional. Enter walks the matches without opening any of them — the
@@ -64,6 +61,13 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
   const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
   const ownerId = owner ? owner.id : "";
 
+  // onKey lives in a ref so `load` stays stable across parent re-renders. The
+  // App re-renders on every sidebar poll and hands down a fresh onKey closure;
+  // with onKey in load's deps that meant a full refetch per App render — the
+  // graph flickered as if it still auto-refreshed.
+  const onKeyRef = useRef(onKey);
+  onKeyRef.current = onKey;
+
   const load = useCallback(
     async (want) => {
       if (!ownerId) return;
@@ -72,10 +76,9 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
         const g = await api(`${base}${encodeURIComponent(ownerId)}/git?limit=${want}`);
         setGraph(g);
         setError("");
-        if (g && g.token) tokenRef.current = g.token;
         if (g && g.key && g.key !== keyRef.current) {
           keyRef.current = g.key;
-          if (onKey) onKey(g.key, g.name);
+          if (onKeyRef.current) onKeyRef.current(g.key, g.name);
         }
       } catch (e) {
         // Keep the last good graph on a refetch; only a first load goes blank.
@@ -84,43 +87,30 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
         setBusy(false);
       }
     },
-    [base, ownerId, onKey],
+    [base, ownerId],
   );
 
   useEffect(() => {
     load(limit);
   }, [load, limit]);
 
-  // Auto-refresh (ADR-0038, superseding 0030's manual-only for the graph):
-  // poll a cheap token and refetch only when it moves. The surface only
-  // mounts while its tab is selected, so unmounting stops the poll; the
-  // hidden-document guard covers a backgrounded browser. Errors are ignored —
-  // the Refresh button stays the valve.
-  useEffect(() => {
-    if (!ownerId) return undefined;
-    let stop = false;
-    const tick = async () => {
-      if (stop || document.hidden || busyRef.current) return;
-      try {
-        const h = await api(`${base}${encodeURIComponent(ownerId)}/git/head`);
-        if (!stop && h && h.token && tokenRef.current && h.token !== tokenRef.current) {
-          tokenRef.current = h.token;
-          load(limit);
-        }
-      } catch { /* ignore; manual Refresh still works */ }
-    };
-    const id = setInterval(tick, 5000);
-    const onVis = () => { if (!document.hidden) tick(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      stop = true;
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [base, ownerId, load, limit]);
+  // Refresh is manual again (back to ADR-0030; the ADR-0038 token poll is
+  // gone). With several agents committing, the poll kept a ~340ms graph load
+  // in flight so often that busy disabled Load earlier and Refresh most of
+  // the time, and the view jumped underneath the reader.
+
+  // Earlier commits load on demand: reaching the bottom of the scroll doubles
+  // the window (no button — the scrollbar is the request). The count==limit
+  // guard stops the growth once the server clamps a request, so a huge repo
+  // cannot put a wiggle-the-scrollbar refetch loop at the bottom.
+  const onEndReached = useCallback(() => {
+    if (busy || !graph || !graph.more) return;
+    if ((graph.commits || []).length < limit) return;
+    setLimit(limit * 2);
+  }, [busy, graph, limit]);
 
   // A parent link can point below the loaded window. Growing it once is the
-  // polite attempt; past that, the answer is the Load earlier button, not a
+  // polite attempt; past that, the answer is scrolling to the bottom, not a
   // fetch loop.
   const grewFor = useRef("");
   const selectCommit = useCallback(
@@ -226,11 +216,6 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
             ) : null}
           </span>
         ) : null}
-        {graph.more ? (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setLimit(limit * 2)} disabled={busy}>
-            Load earlier
-          </button>
-        ) : null}
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(limit)} disabled={busy}>
           Refresh
         </button>
@@ -244,7 +229,7 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
       {error ? <p className="gg-warn">{error}</p> : null}
       {selectedMissing ? (
         <p className="gg-warn">
-          That commit is earlier than the loaded window — Load earlier to reach it.
+          That commit is earlier than the loaded window — scroll to the bottom to load more history.
         </p>
       ) : null}
 
@@ -261,6 +246,8 @@ export default function GitGraphSurface({ owner, onKey, onClose }) {
           activeMatch={activeMatch}
           detailHeight={detailH}
           onSizerDown={onSizerDown}
+          onEndReached={onEndReached}
+          loadingEarlier={busy}
           detail={
             selected === UNCOMMITTED ? (
               <UncommittedDetail owner={owner} onClose={() => setSelected("")} />

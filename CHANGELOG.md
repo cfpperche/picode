@@ -11,6 +11,27 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Git graph history loads by scrolling.** Nearing the bottom of the
+  list fetches an older window on demand; the Load earlier button is
+  gone (a sentinel row under the last commit shows load progress). The
+  server's window ceiling rose from 2000 to 10000 commits.
+- **Git graph refresh is manual again.** The ADR-0038 token poll is
+  removed: with several agents committing it kept a graph load in
+  flight so often that the header buttons sat disabled and the view
+  jumped. Refresh / Load-on-scroll / opening the tab are the fetches.
+- **Agent and terminal cards break into three lines** in the sidebar:
+  name, folder pill and git-branch pill each get a row, so long paths
+  and branch names truncate later.
+
+### Fixed
+
+- **Git graph no longer refetches on every app render.** The surface
+  kept `onKey` (a fresh closure per parent render) in its load
+  callback's deps, so every sidebar poll re-ran the fetch — buttons
+  flickered as if an auto-refresh survived.
+
 ### Fixed
 
 - **The sidebar version tells the truth.** Source builds show the running

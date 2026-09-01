@@ -16,7 +16,9 @@ import (
 
 const (
 	defaultGraphLimit = 250
-	maxGraphLimit     = 2000
+	// Load earlier doubles the window client-side; the ceiling only exists so
+	// a hand-written URL cannot ask for the unbounded history of a huge repo.
+	maxGraphLimit = 10000
 )
 
 // occupant is an agent living in one of the repository's worktrees. It is why
