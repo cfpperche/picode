@@ -73,7 +73,7 @@ export default function TerminalDock({
     const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
-    wireTermWheel(term, sendBytes, paneEl);
+    wireTermWheel(term, sendBytes);
     wireTermKeys(term, sendBytes);
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
