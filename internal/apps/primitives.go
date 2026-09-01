@@ -7,10 +7,13 @@ import "fmt"
 // field names and method enum (select|confirm|input|editor) so app forms
 // and pi extension dialogs stay one language.
 
-// View is one screen of an app.
+// View is one screen of an app. Layout is a hint, not a container: the
+// host decides how to arrange the blocks it gets.
 type View struct {
 	APIVersion int     `json:"apiVersion"`
 	Title      string  `json:"title"`
+	Layout     string  `json:"layout,omitempty"` // "" (stacked) | "split"
+	Empty      string  `json:"empty,omitempty"`  // blankslate line when Blocks is empty
 	Blocks     []Block `json:"blocks"`
 }
 
@@ -18,6 +21,10 @@ type View struct {
 // meaningful; the rest stay empty.
 type Block struct {
 	Type     string     `json:"type"`               // "list" | "detail" | "form" | "actions"
+	Title    string     `json:"title,omitempty"`    // section label above the block
+	Meta     []string   `json:"meta,omitempty"`     // header meta strip, beside Title
+	At       string     `json:"at,omitempty"`       // RFC3339, formatted by the host
+	Pane     string     `json:"pane,omitempty"`     // "" | "list" | "detail" — split layout only
 	Items    []ListItem `json:"items,omitempty"`    // list
 	Markdown string     `json:"markdown,omitempty"` // detail
 	Form     *Form      `json:"form,omitempty"`     // form
@@ -25,12 +32,18 @@ type Block struct {
 }
 
 // ListItem is one row. Path, when set, navigates the view there on click.
+// Meta renders as a separated strip; At is RFC3339 the host formats
+// itself (relative in the row, absolute on hover) — never pre-format.
 type ListItem struct {
 	ID       string   `json:"id"`
 	Title    string   `json:"title"`
 	Subtitle string   `json:"subtitle,omitempty"`
+	Meta     []string `json:"meta,omitempty"`
+	At       string   `json:"at,omitempty"`
 	Icon     string   `json:"icon,omitempty"`
 	Badge    string   `json:"badge,omitempty"` // short pill text on the row
+	Tone     string   `json:"tone,omitempty"`  // "" | "info" | "ok" | "warn" | "danger"
+	Unread   bool     `json:"unread,omitempty"`
 	Path     string   `json:"path,omitempty"`
 	Actions  []Action `json:"actions,omitempty"`
 }
@@ -54,10 +67,13 @@ type Field struct {
 }
 
 // Action is a button. Confirm, when set, prompts before firing; Danger
-// styles it destructive.
+// styles it destructive; Icon lets a row action render as a quiet glyph
+// (the label stays as its accessible name).
 type Action struct {
 	ID      string            `json:"id"`
 	Label   string            `json:"label"`
+	Icon    string            `json:"icon,omitempty"`
+	Primary bool              `json:"primary,omitempty"` // the decision, not merely the first button
 	Confirm string            `json:"confirm,omitempty"`
 	Danger  bool              `json:"danger,omitempty"`
 	Args    map[string]string `json:"args,omitempty"`
@@ -86,18 +102,43 @@ func validMethod(m string) bool {
 	return false
 }
 
+func validLayout(l string) bool {
+	return l == "" || l == "split"
+}
+
+func validPane(p string) bool {
+	return p == "" || p == "list" || p == "detail"
+}
+
+func validTone(t string) bool {
+	switch t {
+	case "", "info", "ok", "warn", "danger":
+		return true
+	}
+	return false
+}
+
 // Validate enforces the vocabulary so a bad tree fails in tests, not in
 // the renderer.
 func (v View) Validate() error {
 	if v.APIVersion != APIVersion {
 		return fmt.Errorf("view: apiVersion %d, want %d", v.APIVersion, APIVersion)
 	}
+	if !validLayout(v.Layout) {
+		return fmt.Errorf("view: layout %q unknown", v.Layout)
+	}
 	for i, b := range v.Blocks {
+		if !validPane(b.Pane) {
+			return fmt.Errorf("view: block %d pane %q unknown", i, b.Pane)
+		}
 		switch b.Type {
 		case "list":
 			for j, it := range b.Items {
 				if it.ID == "" || it.Title == "" {
 					return fmt.Errorf("view: block %d item %d needs id and title", i, j)
+				}
+				if !validTone(it.Tone) {
+					return fmt.Errorf("view: block %d item %d tone %q unknown", i, j, it.Tone)
 				}
 				if err := validActions(it.Actions); err != nil {
 					return fmt.Errorf("view: block %d item %d: %w", i, j, err)

@@ -234,7 +234,13 @@ HTTP API (Go 1.22 method patterns):
   UI primitives (list / detail-markdown / form / actions) the SPA
   renders with host components; `apiVersion` gates rendering on both
   sides. `POST /api/apps/{id}/action` — `{action, path, args}` →
-  `{toast?, view?, path?}`.
+  `{toast?, view?, path?}`. A view may hint `layout:"split"` and tag
+  blocks with `pane:"list"|"detail"` (list left, detail right; stacked
+  under 880px), name its own blankslate line in `empty`, and decorate
+  rows with `meta`, `at` (RFC3339 — the host formats it, relative in the
+  row and absolute on hover), `tone` (`info|ok|warn|danger`), `unread`
+  and per-action `icon`. Block types stay the frozen four (ADR-0036
+  amendments).
 - `POST /api/inbox` — file an inbox item (ADR-0037): `{kind:
   fyi|question|approval|result, sourceKind: agent|terminal|system,
   sourceId?, workspaceId?, reason, title, body?, blocking?,

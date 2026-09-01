@@ -85,3 +85,48 @@ test("aggregateBadge sums counts; dot only without counts", () => {
   );
   assert.deepEqual(aggregateBadge(null), { count: 0, dot: false });
 });
+
+test("normalizeView keeps the split layout and pane hints", () => {
+  const v = normalizeView({
+    apiVersion: 1,
+    title: "Inbox",
+    layout: "split",
+    blocks: [
+      { type: "list", pane: "list", title: "Needs you", items: [{ id: "a", title: "A" }] },
+      { type: "detail", pane: "detail", title: "A", meta: ["agent", "needs input"], at: "2026-09-01T00:00:00Z", markdown: "body" },
+    ],
+  });
+  assert.equal(v.layout, "split");
+  assert.equal(v.blocks[0].pane, "list");
+  assert.equal(v.blocks[0].title, "Needs you");
+  assert.deepEqual(v.blocks[1].meta, ["agent", "needs input"]);
+  assert.equal(v.blocks[1].at, "2026-09-01T00:00:00Z");
+  // Unknown layouts and panes degrade to the stacked default.
+  assert.equal(normalizeView({ apiVersion: 1, layout: "carousel", blocks: [] }).layout, "");
+  const oddPane = normalizeView({ apiVersion: 1, blocks: [{ type: "detail", pane: "middle", markdown: "x" }] });
+  assert.equal(oddPane.blocks[0].pane, "");
+});
+
+test("normalizeView preserves the row fields a dense list needs", () => {
+  const v = normalizeView({
+    apiVersion: 1,
+    blocks: [{ type: "list", items: [{
+      id: "a", title: "A",
+      meta: ["helper", "needs input", 7],
+      at: "2026-09-01T00:00:00Z",
+      tone: "warn", unread: true, badge: "question",
+      actions: [{ id: "done", label: "Done", icon: "check" }],
+    }] }],
+  });
+  const row = v.blocks[0].items[0];
+  assert.deepEqual(row.meta, ["helper", "needs input"]); // non-strings dropped
+  assert.equal(row.at, "2026-09-01T00:00:00Z");
+  assert.equal(row.tone, "warn");
+  assert.equal(row.unread, true);
+  assert.equal(row.badge, "question");
+  assert.equal(row.actions[0].icon, "check");
+  // An unknown tone falls back to neutral rather than leaking through.
+  const odd = normalizeView({ apiVersion: 1, blocks: [{ type: "list", items: [{ id: "a", title: "A", tone: "chartreuse" }] }] });
+  assert.equal(odd.blocks[0].items[0].tone, "");
+  assert.equal(odd.blocks[0].items[0].unread, false);
+});

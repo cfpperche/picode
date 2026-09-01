@@ -583,3 +583,31 @@ Never exercised, because this machine was already past them:
   annotation + item open. `make ci` green. Live pi smoke of pi-inbox
   (`pi -e packages/pi-inbox/extensions/inbox.ts` + ask_human) left for
   the owner — spends provider credits.
+
+- **2026-09-01** — **Inbox UI refined** (branch `worktree-feat-inbox-ux`):
+  split view (list left / detail right; stacked and scroll-into-view
+  under 880px), rows with unread dot + relative time (absolute on hover)
+  + kind lozenge + hairline-separated meta, per-row hairlines with the
+  selected row flush and stripe-marked, sections as uppercase eyebrows
+  with counts and a divider between them, icon-only Done/Snooze revealed
+  on hover/focus (the timestamp steps aside), reply form with
+  Ctrl+Enter, one filled button per row (the app declares
+  `Action.primary`), approvals gained **Decline** (forwards a real "no"
+  instead of silence), centred blankslates for empty inbox and empty
+  detail pane. Apps host grew optional fields only — layout/pane/empty
+  hints, block+row meta/at, row tone/unread, action icon/primary — the
+  four block types are unchanged (ADR-0036 amendment 2026-09-01).
+  Global side-fixes: `.md pre` never had block styling (fences rendered
+  as inline chips) and Tailwind's preflight had stripped markdown list
+  markers — both fixed for every markdown surface.
+  New: `scripts/inbox-smoke.sh <base-url> [agent-id]` fills one item of
+  every shape (incl. long title, dead-agent question, snoozed, answered)
+  for visual QA; `web/src/lib/relTime.js` is the shared relative-time
+  helper (SessionsView/Packages still carry their own divergent copies —
+  worth folding into it next time either is touched).
+  Reviewed against Sentry/Linear/Geist/Primer/Grafana/Atlassian specs;
+  measured computed styles to check claims (meta/timestamps were already
+  on the right tokens). **Known, deliberately left**: `.btn-primary` in
+  dark is `#7c8cf8` with white text (~2.5:1) — a product-wide contrast
+  bug, not inbox-specific; fix deserves its own pass. No keyboard list
+  navigation (j/k) yet.

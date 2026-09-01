@@ -54,8 +54,10 @@ func TestInboxRootView(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("empty root invalid: %v", err)
 	}
-	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "Inbox zero") {
-		t.Fatalf("empty root = %+v", v.Blocks)
+	// Inbox zero drops the split and hands the host a blankslate line
+	// instead of faking content with a markdown block.
+	if v.Layout != "" || len(v.Blocks) != 0 || !strings.Contains(v.Empty, "Inbox zero") {
+		t.Fatalf("empty root = %q %q %+v", v.Layout, v.Empty, v.Blocks)
 	}
 
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "needs input", Title: "q", Body: "?"})
@@ -64,15 +66,27 @@ func TestInboxRootView(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("root invalid: %v", err)
 	}
-	// detail(Needs you) + list + detail(Feed) + list
-	if len(v.Blocks) != 4 || v.Blocks[1].Type != "list" || v.Blocks[3].Type != "list" {
-		t.Fatalf("root blocks = %+v", v.Blocks)
+	// Split: two list panes titled by section, no markdown headers.
+	if v.Layout != "split" || len(v.Blocks) != 2 {
+		t.Fatalf("root blocks = %q %+v", v.Layout, v.Blocks)
 	}
-	if v.Blocks[1].Items[0].ID != q.ID || v.Blocks[1].Items[0].Path != "item/"+q.ID {
-		t.Fatalf("needs-me row = %+v", v.Blocks[1].Items)
+	needs, feed := v.Blocks[0], v.Blocks[1]
+	if needs.Type != "list" || needs.Pane != "list" || needs.Title != "Needs you" {
+		t.Fatalf("needs-me block = %+v", needs)
 	}
-	feedRow := v.Blocks[3].Items[0]
-	if feedRow.ID != f.ID || len(feedRow.Actions) != 2 {
+	if feed.Title != "Feed" || feed.Pane != "list" {
+		t.Fatalf("feed block = %+v", feed)
+	}
+	row := needs.Items[0]
+	if row.ID != q.ID || row.Path != "item/"+q.ID {
+		t.Fatalf("needs-me row = %+v", row)
+	}
+	// The row now carries what the host needs to draw a real row.
+	if !row.Unread || row.Tone != "info" || row.Badge != store.InboxQuestion || row.At == "" || len(row.Meta) != 2 {
+		t.Fatalf("row meta lost: %+v", row)
+	}
+	feedRow := feed.Items[0]
+	if feedRow.ID != f.ID || len(feedRow.Actions) != 2 || feedRow.Actions[0].Icon == "" {
 		t.Fatalf("feed row = %+v", feedRow)
 	}
 }
