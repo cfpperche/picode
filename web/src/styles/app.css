@@ -1011,10 +1011,12 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .empty-card p { color: var(--text-secondary); margin-bottom: 18px; }
 
 /* ============ dashboard (session spend/activity/sessions/fleet + breakdowns) ============ */
-.dashboard-view {
-  flex: 1; overflow-y: auto; padding: 24px 28px 40px;
-  max-width: 1040px; width: 100%; margin: 0 auto;
-}
+/* The outer element is the scroller and spans the whole pane, so its
+   scrollbar sits at the pane's right edge; the inner wrapper is what is
+   capped and centred (an owner report: a centred 1040px scroller put the
+   bar in the middle of a wide window). */
+.dashboard-view { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 40px; }
+.dash-inner { max-width: 1040px; width: 100%; margin: 0 auto; }
 .dash-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .dash-asof-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .dash-asof { font-size: 11.5px; color: var(--text-secondary); }

@@ -275,7 +275,13 @@ Never exercised, because this machine was already past them:
   `feat/dashboard-masonry`: `.dash-grid-2` is now CSS multi-column
   (`columns: 2`, `break-inside: avoid`), panels pack top-to-bottom per
   column; label column widened to `minmax(110px,190px)`. Re-captured on
-  the scratch instance at All time — no holes.
+  the scratch instance at All time — no holes. Second report: the
+  scrollbar sat mid-window — `.dashboard-view` was both the scroller
+  and the 1040px centred box. `feat/dashboard-scroll`: the outer element
+  scrolls full-width, a new `.dash-inner` wrapper carries the cap and
+  centring (`.dashboard-on` still keys on `.dashboard-view`). Measured
+  on scratch at 1700px: scroller right = window right, inner right =
+  1492.
 
 - **2026-09-01** — **Logo opens the dashboard from anywhere**, on branch
   `feat/dashboard-logo-link`. Owner dogfooded ADR-0041's dashboard for

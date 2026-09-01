@@ -131,6 +131,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
 
   return (
     <div className="dashboard-view">
+      <div className="dash-inner">
       <div className="dash-head">
         <DateRangePicker value={range} onChange={onRange} />
         <span className="dash-asof-wrap">
@@ -251,6 +252,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
