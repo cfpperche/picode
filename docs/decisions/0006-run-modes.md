@@ -1,6 +1,7 @@
 # ADR-0006: Agent run modes — one live pi process per agent
 
-- **Status**: accepted (amends ADR-0002's simultaneous dual-channel model)
+- **Status**: accepted (amends ADR-0002's simultaneous dual-channel model);
+  the session-visibility clause below is itself narrowed by ADR-0039
 - **Date**: 2026-08-24
 
 ## Context
@@ -26,6 +27,11 @@ Mode switching is explicit and safe: starting one mode stops the other
 first. Sessions remain per-process as pi creates them (keyed by cwd);
 both modes see the workspace's session history via the session reader
 (read-only), and `/resume` semantics stay available inside the TUI.
+**Narrowed by ADR-0039**: "sees the workspace's session history" was the
+whole cwd bucket, unfiltered by who created each file — the per-agent
+resume picker now shows only sessions PiCode has recorded as this
+agent's own. The single-writer/read-only-index facts above are unchanged;
+only the *listing* an agent's own picker shows is scoped.
 
 ## Consequences
 

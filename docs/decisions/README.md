@@ -13,7 +13,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0009](0009-lifecycle-surfaces.md) | Catalog from pi; auth via `/login`; MCP not in wizard | accepted |
 | [0010](0010-pi-packages.md) | Packages via `pi install`; no in-app marketplace | accepted |
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
-| [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted |
+| [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted, session-visibility clause amended by 0039 |
 | [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted |
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted, amended by 0026, 0027 |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
@@ -43,3 +43,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0036](0036-extensions-host-and-apps-tab.md) | Extensions host — apps on schema-driven primitives, Apps sidebar tab | accepted, amended 2026-08-31 (iframe first-class in marketplace era; primitives frozen) |
 | [0037](0037-inbox-async-agent-human-messages.md) | Inbox — async agent↔human messages; core data plane, view as first app | accepted |
 | [0038](0038-git-graph-v2.md) | Git graph v2 — inline detail, uncommitted row, search, token auto-refresh | accepted, amends 0022, supersedes 0030 on refresh for the graph |
+| [0039](0039-per-agent-session-ownership.md) | Per-agent session ownership, tracked in PiCode (`--session-id`, not a private pi dir) | accepted, amends 0006 |

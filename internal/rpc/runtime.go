@@ -119,7 +119,14 @@ func (r *Runtime) Start(agentID, path string) error {
 	var extraEnv []string
 	if r.store != nil {
 		if a, err := r.store.GetAgent(agentID); err == nil {
-			args = append(args, a.CLIFlags()...)
+			sid := ""
+			if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
+				// Fresh start: mint a session id up front so pi's
+				// auto-created session is attributable to this agent
+				// from the moment it exists (ADR-0039).
+				sid = r.store.NewPendingAgentSession(agentID)
+			}
+			args = append(args, a.CLIFlagsForSpawn(sid)...)
 			extraEnv = append(extraEnv, a.SpawnEnv()...)
 		}
 	}

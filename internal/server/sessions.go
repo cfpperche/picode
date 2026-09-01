@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -22,7 +23,12 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		list, err := session.List(store.AgentCwd(wk, agent))
+		all, err := session.List(store.AgentCwd(wk, agent))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		owned, err := deps.Store.AgentSessionKeys(agent.ID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -30,7 +36,45 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 		cur := ""
 		if agent.SessionPath != nil {
 			cur = *agent.SessionPath
-		} else if len(list) > 0 {
+		}
+		// ADR-0039: this agent's own history only — not every JSONL pi
+		// ever wrote for this cwd (that bucket is shared by every Agent
+		// and, for a bare `pi` run by hand, every Terminal too).
+		list := make([]session.Summary, 0, len(all))
+		haveCurrent := false
+		resolvedCurrent := false
+		for _, s := range all {
+			byPath := owned.Paths[s.Path]
+			byID := s.ID != "" && owned.IDs[s.ID]
+			if !byPath && !byID {
+				continue
+			}
+			if byID && !byPath {
+				// A fresh spawn's pre-minted --session-id (ADR-0039) now
+				// has a real file: persist the path so other consumers
+				// of agents.session_path (e.g. the manage view's inUseBy
+				// guard) don't depend on this endpoint being called
+				// again. all is newest-first, so the first unresolved
+				// match is this agent's most recent session.
+				deps.Store.ResolveAgentSessionID(agent.ID, s.ID, s.Path)
+				if agent.SessionPath == nil && !resolvedCurrent {
+					_, _ = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &s.Path})
+					resolvedCurrent = true
+				}
+			}
+			list = append(list, s)
+			if s.Path == cur {
+				haveCurrent = true
+			}
+		}
+		// Safety net: the agent's current session is always visible even
+		// if a DB hiccup kept it from being historized.
+		if cur != "" && !haveCurrent {
+			if s, err := session.Summarize(cur); err == nil {
+				list = append(list, s)
+				sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
+			}
+		} else if cur == "" && len(list) > 0 {
 			cur = list[0].Path
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"sessions": list, "current": cur})
@@ -235,8 +279,21 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 		if err != nil {
 			return err
 		}
-		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), wk.Path, agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...)
+		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), wk.Path, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...)
 	default:
 		return nil
 	}
+}
+
+// spawnFlags is agent.CLIFlags() plus, for a fresh start (no current
+// SessionPath), a freshly minted --session-id (ADR-0039) — so a pi
+// process spawned interactively in tmux is attributable to this agent
+// from the moment it creates its session file, the same as managed mode
+// (rpc.Runtime.Start). Resuming agents are unaffected: CLIFlags() already
+// pins --session to the known path.
+func (deps Deps) spawnFlags(agent store.Agent) []string {
+	if agent.SessionPath != nil && strings.TrimSpace(*agent.SessionPath) != "" {
+		return agent.CLIFlags()
+	}
+	return agent.CLIFlagsForSpawn(deps.Store.NewPendingAgentSession(agent.ID))
 }

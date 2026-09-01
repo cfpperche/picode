@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **An Agent's session picker no longer shows other tabs' sessions
+  (ADR-0039).** Pi buckets session files by folder, not by who created
+  them, so an Agent and a Terminal (or two Agents) sharing a cwd used to
+  see each other's history in **Search sessions**. PiCode now mints a
+  session id before every fresh chat and tracks which agent owns which
+  session; the picker only shows an agent's own. Terminals are
+  unaffected — they never had a session concept — and the machine-wide
+  "All sessions" / per-workspace "Manage sessions" views still show
+  everything, unfiltered, for cleanup.
+
 ### Added
 
 - **Inbox: Active/Done/All tabs + delete.** Answered, accepted and

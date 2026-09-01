@@ -46,6 +46,7 @@ What exists:
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
+- **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 
 ## In flight
 
@@ -250,6 +251,84 @@ Never exercised, because this machine was already past them:
   compares the acted-on id against the currently-open item's own id,
   and only then collapses — a regression test
   (`TestInboxDeleteSiblingRowWhileDetailOpen`) pins the distinction.
+
+- **2026-09-01** — **Per-agent session ownership (ADR-0039)**, on branch
+  `worktree-session-ownership`. Owner reported (screenshot) an Agent tab's
+  Search sessions picker showing a session that actually belonged to a
+  Terminal in the same folder. Root cause traced to
+  `handleListSessions` (`internal/server/sessions.go`): `agent=<id>` only
+  resolved a cwd, then listed every `.jsonl` pi had written there,
+  unfiltered — confirmed against live code, not just the report.
+  - New `agent_sessions` table (migration `015_agent_session_history.sql`;
+    renumbered from `014` after merging main, which had independently
+    claimed `014_inbox.sql` for ADR-0037)
+    historizes every session id/path an agent is pointed at.
+    `store.UpdateAgent` historizes on every `SessionPath` write (resume/
+    fork/clone/adopt/import, one hook, not nine call sites).
+  - Fresh spawns pre-mint a pi `--session-id` (confirmed live against the
+    installed `pi 0.84.4`: creates-if-missing, reuses on repeat, not
+    gated behind `--mode`) so a brand-new session is attributable from
+    the moment it exists — `Agent.CLIFlagsForSpawn`, wired at the two
+    real spawn chokepoints: `rpc.Runtime.Start` (managed) and a new
+    `Deps.spawnFlags` helper (5 interactive/tmux call sites).
+    `handleListSessions` filters `session.List(cwd)` against the agent's
+    own historized set; current session is always shown as a safety net.
+  - Terminals needed zero changes — confirmed they have no `SessionPath`
+    field and never call this endpoint. Machine-wide `/sessions/manage`
+    and `/sessions/all` deliberately stay unfiltered.
+  - Caught in the same pass: the new `--session-id` flag broke
+    `TestOpenCloseLifecycle`, which used bare `cat` as pi's stand-in
+    (relies on zero args to block on stdin; real cat errors on
+    unrecognized `--` flags). Fixed with a tiny wrapper script that
+    ignores argv, not a change to production spawn logic.
+  - Tests: new unit coverage in `internal/store`
+    (`CLIFlagsForSpawn`, the historization hook, and a migration test
+    that genuinely re-applies `015_...sql` via `Store.migrate()` against
+    a pre-existing `session_path`, not a hand-copied approximation) and
+    `internal/server` (two agents sharing a cwd each see only their own
+    session; an unowned file is invisible to both but still shows in
+    `/sessions/manage`). `make fmt-check`/`vet`/`test` green.
+  - `make ci` (fmt-check, vet, test, test-js, build) green — no frontend
+    files touched; `SessionBar.jsx` needed no changes since the scoping
+    is entirely server-side.
+  - **Verified live**, not just by unit test: scratch `HOME`/`PICODE_DATA`
+    instance on :8491 (real `pi 0.84.4`, real auth), one workspace, two
+    agents both defaulted to the same cwd — the exact shared-cwd
+    precondition from the bug. Managed-started both, sent each a real
+    prompt ("pong" / "ping"). Each agent's picker showed **only its own**
+    session; `/sessions/manage` showed both, unfiltered, as intended.
+  - **Second bug found in that same live pass, fixed before calling this
+    done**: `agents.session_path` (not just the new `agent_sessions`
+    table) never got backfilled after a *fresh* spawn — only an explicit
+    resume ever wrote it. Harmless for the picker itself (it falls back
+    to the newest owned session), but `/sessions/manage`'s `inUseBy` —
+    the guard that stops the orphan-cleanup sweep from deleting an
+    actively-used session — reads `agents.session_path` directly, so a
+    freshly-started, never-resumed agent's session looked orphaned.
+    `ResolveAgentSessionID` already existed for exactly this (written,
+    never wired); `handleListSessions` now calls it — and backfills
+    `agents.session_path` — the first time it notices an owned-by-id
+    session whose path wasn't known yet. Re-verified live after the fix:
+    `inUseBy` correctly attributes each session to its own agent.
+    Regression test added (`TestListSessionsResolvesFreshSessionPath`).
+  - Not yet merged to main or deployed to `:8445` — branch
+    `worktree-session-ownership` is ready for review.
+
+- **2026-08-31** — **`/roles` empty-state copy + notify-as-thread-line**
+  (`fix/roles-empty-copy`). Owner asked why `/vision` is listed with no
+  roles configured — it is (commands register at package load; config is
+  read at run time, ADR-0028 dormant contract) — and approved fixing what
+  it *answers* instead: lock commands with no config now say
+  `No roles yet — /roles edit vision creates the first one.` (logic.ts),
+  and a notify that answers a still-quiet slash segment becomes a thread
+  **note line** (new item kind `note`: mark + command badge + text, the
+  `/roles …` fragment as a prefill chip) instead of a fading toast —
+  `slashNoteTarget()` in askForm.js decides; ask-memory persists notes.
+  **Bug found while verifying**: `groupTurns` (turns.js:10) silently
+  swallowed the new item kind — the note rendered nowhere despite the
+  handler running; fixed by adding `note` to the loose kinds.
+  Verified on the scratch rig (line renders, chip prefills, reload keeps
+  2 notes); gates green (276 js + 60 pkg).
 
 - **2026-09-01** — **tab surfaces keep their state** (`fix/tab-state`):
   the file tree, git graph and app surfaces were rendered only while

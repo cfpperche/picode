@@ -327,7 +327,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusServiceUnavailable, "pi is not installed or not on PATH")
 				return
 			}
-			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -386,7 +386,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !has {
-			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...); err != nil {
+			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -635,7 +635,7 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 			return
 		}
-		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, agent.SpawnEnv(), deps.AgentCmd, agent.CLIFlags()...); err != nil {
+		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return

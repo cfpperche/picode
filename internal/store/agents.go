@@ -218,6 +218,12 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
+	if p.SessionPath != nil && a.SessionPath != nil {
+		// Best-effort: every session_path this agent is ever pointed at
+		// (resume/fork/clone/adopt/import) gets historized here, in one
+		// place, so no call site can forget (ADR-0039).
+		_ = s.RecordAgentSessionPath(id, *a.SessionPath)
+	}
 	return s.GetAgent(id)
 }
 
@@ -252,6 +258,22 @@ func (a Agent) CLIFlags() []string {
 		}
 	}
 	return args
+}
+
+// CLIFlagsForSpawn is CLIFlags() plus a pre-assigned --session-id for a
+// fresh start (ADR-0039), so pi's auto-created session is attributable to
+// this agent from the moment it exists. sessionID is ignored when empty
+// (a store hiccup in NewPendingAgentSession — degrade to plain
+// CLIFlags()) or when the agent already has a SessionPath (resuming:
+// CLIFlags() already passes --session for that path; --session-id must
+// not also be passed).
+func (a Agent) CLIFlagsForSpawn(sessionID string) []string {
+	args := a.CLIFlags()
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" || (a.SessionPath != nil && strings.TrimSpace(*a.SessionPath) != "") {
+		return args
+	}
+	return append(args, "--session-id", sessionID)
 }
 
 // RolesAgentEnv is the process env pi-roles reads for a per-agent overlay (ADR-0033).
