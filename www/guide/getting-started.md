@@ -19,4 +19,7 @@ make dev          # run from the repo without installing
 
 Green padlock: `make cert` (mkcert). See the [README](https://github.com/cfpperche/picode#quick-start) for TLS and bind details.
 
+To send the tab you are looking at to an agent, load the Chrome extension.
+Guide: [Chrome extension](/guide/browser-extension).
+
 Personal use is free under PolyForm Noncommercial. Company use needs a [commercial license](/license).

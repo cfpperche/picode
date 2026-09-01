@@ -47,3 +47,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0040](0040-per-agent-session-dir.md) | Per-agent `--session-dir` — extends ownership into pi's own native TUI picker | accepted, amends 0039 |
 | [0041](0041-session-observability-dashboard.md) | Session observability dashboard (spend/activity/fleet) replaces the no-tabs-open home | accepted, amended by 0042 |
 | [0042](0042-dashboard-v2-breakdowns.md) | Dashboard v2 — model/workspace/token/tool/reliability breakdowns, live refresh, fingerprint cache | accepted, amends 0041 |
+| [0043](0043-browser-extension-native-host.md) | Chrome extension is a native-messaging client of existing agents | accepted |

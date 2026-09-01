@@ -10,6 +10,7 @@
 // Subcommands (run without args to start the server):
 //
 //	picode screenshot --url <url> --out <file.png>
+//	picode extension-install   (Chrome native host, ADR-0043)
 package main
 
 import (
@@ -32,6 +33,7 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
+	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/config"
 	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/proclock"
@@ -69,20 +71,26 @@ func main() {
 // Keeping the list here — rather than repeating it in the guard above — is
 // what stops the two from drifting apart.
 func dispatch(cmd string, args []string) bool {
-	switch cmd {
-	case "screenshot":
+	switch {
+	case browserhost.IsHostArg(cmd):
+		runBrowserHost()
+	case cmd == "screenshot":
 		runScreenshot(args)
-	case "install":
+	case cmd == "install":
 		runInstall()
-	case "provision":
+	case cmd == "provision":
 		runProvision(args)
-	case "update":
+	case cmd == "update":
 		runUpdate()
-	case "deploy":
+	case cmd == "deploy":
 		runDeploy()
-	case "uninstall":
+	case cmd == "uninstall":
 		runUninstall(args)
-	case "help", "-h", "--help":
+	case cmd == "extension-install":
+		runExtensionInstall()
+	case cmd == "extension-uninstall":
+		runExtensionUninstall()
+	case cmd == "help" || cmd == "-h" || cmd == "--help":
 		usage()
 	default:
 		return false
@@ -103,6 +111,8 @@ Usage:
   picode update               check GitHub for a newer release (and install it if there is one)
   picode deploy               replace the installed binary with this one and restart (repo)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
+  picode extension-install    register the Chrome native host (ADR-0043)
+  picode extension-uninstall  remove that host registration
   picode screenshot [flags]   capture a page to PNG (visual-review loop)
     --url string    page to capture (required)
     --out string    destination PNG (required)

@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-08-31.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-01.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -95,7 +95,7 @@ stay on their own routes.
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** per vault account (ADR-0031) |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
-| `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping) |
+| `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping). The Chrome extension (ADR-0043) is a native-messaging client, not this page — Track B may list it here. |
 
 A tab owns its surface's state for as long as it is open: terminals, file
 trees, git graphs and apps each keep one mounted instance per tab, hidden
@@ -495,6 +495,17 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 - **Trust boundary**: personal machine / tailnet (same stance as agentdeck);
   no app-level auth — token auth is a recorded debt if ever exposed beyond
   the tailnet. PiCode executes with the user's permissions, like Pi itself.
+
+### Chrome extension (ADR-0043)
+
+`ext/` is a sideload MV3 extension: side panel + context menu send the
+current tab (URL, title, selection, optional JPEG) to an existing agent.
+It is not an App (ADR-0036) and not a pi package (ADR-0010). Transport is
+Chrome native messaging to the same product binary (`picode` on
+Linux/macOS; `picode-desktop` on Windows/WSL), which re-reads
+`server.json` and calls `GET/POST /api/extension/*`. Isolated Chromium
+(`agent_browser`) stays the automation engine. v1 is Chrome-only and
+sensor-only; actuating the page is a later track.
 
 ## Explicit non-goals
 

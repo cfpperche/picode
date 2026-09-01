@@ -128,6 +128,8 @@ docs/decisions/    ADRs — one decision per file, immutable once accepted
 docs/screenshots/  committed visual evidence (see its README)
 .pi/               Pi harness: skills, project settings
 cmd/picode/        entrypoint
+ext/               Chrome MV3 extension, sideload (ADR-0043)
+internal/browserhost/  native-messaging host + Chrome install
 internal/server/   HTTP server + API
 internal/web/      UI loader: from disk by default, embedded with `-tags embedui` (ADR-0023).
                    public/ is Vite output and is NOT committed

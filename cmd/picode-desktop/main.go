@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/desktop"
 	"github.com/cfpperche/picode/internal/provision"
 	"github.com/cfpperche/picode/internal/version"
@@ -34,24 +35,30 @@ func main() {
 
 	desktop.WSLExe = desktop.ResolveWSLExe()
 
-	switch command() {
-	case "doctor":
+	switch cmd := command(); {
+	case browserhost.IsHostArg(cmd):
+		exit(runBrowserHost(*distro, *user))
+	case cmd == "doctor":
 		exit(runDoctor(*distro, *user))
-	case "install":
+	case cmd == "install":
 		exit(runInstall(*distro, *user))
-	case "uninstall":
+	case cmd == "uninstall":
 		exit(runUninstall())
-	case "update":
+	case cmd == "update":
 		exit(runUpdate())
-	case "version":
+	case cmd == "extension-install":
+		exit(runExtensionInstall())
+	case cmd == "extension-uninstall":
+		exit(runExtensionUninstall())
+	case cmd == "version":
 		fmt.Printf("picode-desktop %s\n", version.Version)
-	case "help":
+	case cmd == "help":
 		usage()
 	default:
-		if *tray || command() == "" {
+		if *tray || cmd == "" {
 			exit(runTray(*distro, *user))
 		}
-		fmt.Fprintf(os.Stderr, "unknown command %q\n", command())
+		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		usage()
 		os.Exit(2)
 	}
@@ -89,6 +96,8 @@ Usage:
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
   picode-desktop update          replace this program with a newer release
+  picode-desktop extension-install    register the Chrome native host (ADR-0043)
+  picode-desktop extension-uninstall  remove that host registration
   picode-desktop version         print this build's version
 
 Flags:

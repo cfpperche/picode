@@ -50,8 +50,15 @@ What exists:
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
+- **ADR-0043** Chrome extension Track A (sensor): `ext/` MV3 side panel + context menu; `picode extension-install` / `picode-desktop extension-install`; `GET/POST /api/extension/*`. Isolated Chromium unchanged. Chrome-only, screenshot opt-in, stopped = Start and send, interactive refused. Not an App, not a pi package.
 
 ## In flight
+
+**ADR-0043 Track A coded, not dogfooded on the owner's Chrome.** Linux unit
+tests cover the decision table except live start-and-send (needs a real
+`pi` RPC) and the WSL+Windows Chrome path (row 10). `picode-desktop` is
+`windowsgui`; if native-messaging stdio is dead on Windows, a console
+sibling is the fix (named in the ADR), not a protocol change.
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -123,6 +130,11 @@ pane opens, and a 59-file commit reports `truncated` rather than trying to
 render megabytes.
 
 ## Next up
+
+**ADR-0043 Track A dogfood.** Load `ext/` unpacked, `picode extension-install`
+(Linux Chrome) or `picode-desktop extension-install` (Windows Chrome / WSL).
+Prove one Send of an https tab to a running agent. Then Track B (Devices +
+Preferences one-liner). Track C/D/E stay parked.
 
 **Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
 2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
@@ -222,6 +234,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **Chrome extension Track A (ADR-0043)**, on branch
+  `feat/browser-extension`. Sideload `ext/`; native host in `picode` /
+  `picode-desktop`; `GET/POST /api/extension/*`. Sensor only (URL, title,
+  selection, optional JPEG). Stopped agents Start and send; interactive
+  refused; busy maps to follow_up via existing `SendTurn`. visual-review:
+  PASS (ext-host / ext-down / ext-none / ext-chrome / ext-form / ext-terminal
+  preview states; no SPA overlay). Owner dogfood of Windows Chrome still
+  open (Next up).
 - **2026-09-01** — **Dashboard v2 (ADR-0042)**, on branch
   `feat/dashboard-v2`. Owner asked for a benchmark sweep and a v2 plan
   after dogfooding v1; the plan was approved as written (four tiles,

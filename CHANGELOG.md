@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Chrome extension sends the current tab to an existing agent (ADR-0043).**
+  Sideload `ext/` in Chrome, then `picode extension-install` (or
+  `picode-desktop extension-install` when Chrome is on Windows and PiCode
+  is in WSL). Side panel and right-click **Send to PiCode** pass URL,
+  title, selection and an optional screenshot. A stopped agent starts
+  first; a busy one queues a follow-up; an agent in the terminal is left
+  alone. Isolated Chromium (`agent_browser`) is unchanged. Guide:
+  `www/guide/browser-extension.md`.
 - **Dashboard v2: breakdowns, live refresh (ADR-0042).** The home
   dashboard now answers the questions v1 left open: which **model** and
   which **workspace** the money went to, how the period's **tokens**

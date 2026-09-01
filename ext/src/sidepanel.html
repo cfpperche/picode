@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PiCode</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="bar">
+    <span class="brand">PiCode</span>
+    <a id="open" class="link" hidden href="#">Open PiCode</a>
+  </header>
+
+  <p id="empty" class="empty" hidden></p>
+  <p id="action-wrap" class="action-wrap" hidden>
+    <button type="button" id="empty-action" class="btn"></button>
+  </p>
+
+  <form id="form" hidden>
+    <label class="lbl" for="agent">Agent</label>
+    <select id="agent" class="ctl"></select>
+    <p id="agent-note" class="note" hidden></p>
+
+    <p id="page" class="page"></p>
+
+    <label class="lbl" for="msg">Message</label>
+    <textarea id="msg" class="ctl area" rows="5" placeholder="What should the agent do with this page?"></textarea>
+
+    <label id="shot-row" class="check" hidden>
+      <input type="checkbox" id="shot" />
+      Include screenshot
+    </label>
+
+    <div class="row" data-align-row>
+      <button type="submit" id="send" class="btn primary">Send</button>
+    </div>
+    <p id="status" class="note" hidden></p>
+  </form>
+
+  <div id="skel" class="skel" aria-hidden="true">
+    <div class="skel-line"></div>
+    <div class="skel-box"></div>
+    <div class="skel-line short"></div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

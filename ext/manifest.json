@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "PiCode",
+  "version": "0.1.0",
+  "description": "Send the current tab to a PiCode agent.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqYZFsLtPjJVgsZiImAVbNE6L65OD/PTYRyT4JQLW+1+yq4YjCOAr60q0efIYHzXpjeUu2Xp+FRPAtzKdnVBEEz6R7aW1V6L/mFOVt+JyBgnt/XeM13WosQiMrrcHu9JVeUo3ZtAxSuL6TyNX1acoocISxMaeE9je1RhogBlr2GrNvloHtYDFRi4lnMlP258nQcVrQC7CzCDouxxUukl2NcXvJ77HfbM9eDIa+CAQL+dfqwiO/v8pe2DIeCEoXgEcqa6DxgNJ3HTINtpOj8SosK00TvPqeDbqK0iuOYReq1Nfa8OAt4xROboertNhKMOHHINmbLpWJrNBQoU1lRZGJQIDAQAB",
+  "icons": {
+    "16": "icons/icon-192.png",
+    "32": "icons/icon-192.png",
+    "48": "icons/icon-192.png",
+    "128": "icons/icon-192.png"
+  },
+  "action": {
+    "default_title": "PiCode",
+    "default_icon": {
+      "16": "icons/icon-192.png",
+      "32": "icons/icon-192.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "permissions": [
+    "sidePanel",
+    "contextMenus",
+    "nativeMessaging",
+    "commands",
+    "tabs",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Period",
+        "mac": "Command+Shift+Period"
+      },
+      "description": "Open the PiCode side panel"
+    }
+  }
+}

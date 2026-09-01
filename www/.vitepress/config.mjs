@@ -26,6 +26,7 @@ export default defineConfig({
           { text: "Packages", link: "/guide/packages" },
           { text: "MCP", link: "/guide/mcp" },
           { text: "llama.cpp", link: "/guide/llama" },
+          { text: "Chrome extension", link: "/guide/browser-extension" },
         ],
       },
       {
