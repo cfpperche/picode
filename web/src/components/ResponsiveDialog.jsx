@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useLayoutEffect, useRef } from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import * as RadixAlert from "@radix-ui/react-alert-dialog";
 import { Drawer } from "vaul";
@@ -58,8 +58,52 @@ function Content({ className, children, ...props }) {
   const { desktop, alert } = useContext(Ctx);
   const Base = lib(desktop, alert).Content;
   if (desktop) return <Base className={className} {...props}>{children}</Base>;
+  return <SheetContent Base={Base} className={className} {...props}>{children}</SheetContent>;
+}
+
+// The sheet never focuses a field on its own: on a phone, focus is the
+// keyboard, and the keyboard covers half the sheet the user has not read
+// yet. Radix's open-autofocus is cancelled (whatever the caller wanted on
+// the desktop), and a React `autoFocus` — which fires during commit,
+// before any handler — is undone right after mount. A tap on a field is
+// the only way the keyboard comes up.
+function SheetContent({ Base, className, children, onOpenAutoFocus, ...props }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    // Focus a field takes on its own — a React `autoFocus` during this
+    // commit, a cmdk/Radix effect a tick later — is handed back to the
+    // sheet, for the sheet's first 800ms or until the user touches
+    // anything. Focus, not blur, so the dialog keeps a focus owner. Vaul
+    // does not always forward the ref: fall back to the newest sheet.
+    const sheets = document.querySelectorAll(".dlg-sheet");
+    const node = ref.current || sheets[sheets.length - 1] || null;
+    if (!node) return undefined;
+    const isField = (el) => el && el !== node && node.contains(el) && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+    const take = () => { if (isField(document.activeElement)) node.focus({ preventScroll: true }); };
+    take();
+    let armed = true;
+    const disarm = () => { armed = false; };
+    const onFocus = (e) => { if (armed && isField(e.target)) node.focus({ preventScroll: true }); };
+    document.addEventListener("focusin", onFocus, true);
+    document.addEventListener("pointerdown", disarm, true);
+    document.addEventListener("touchstart", disarm, true);
+    document.addEventListener("keydown", disarm, true);
+    const stop = setTimeout(disarm, 800);
+    return () => {
+      clearTimeout(stop);
+      document.removeEventListener("focusin", onFocus, true);
+      document.removeEventListener("pointerdown", disarm, true);
+      document.removeEventListener("touchstart", disarm, true);
+      document.removeEventListener("keydown", disarm, true);
+    };
+  }, []);
   return (
-    <Base className={[className, "dlg-sheet"].filter(Boolean).join(" ")} {...props}>
+    <Base
+      ref={ref}
+      className={[className, "dlg-sheet"].filter(Boolean).join(" ")}
+      {...props}
+      onOpenAutoFocus={(e) => e.preventDefault()}
+    >
       <div className="create-handle" aria-hidden="true" />
       {children}
     </Base>

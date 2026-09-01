@@ -24,6 +24,12 @@ visual switch is one CSS rule, `.dlg.dlg-sheet`, which beats every
 `.dlg-*` width, so the existing class vocabulary keeps meaning "this
 dialog's content" on both shapes.
 
+On the phone the sheet never focuses a field on its own (owner: "os
+diálogos não deveriam ativar o teclado do celular automaticamente"):
+Radix's open-autofocus is cancelled and a React `autoFocus` is undone
+right after mount, so the keyboard — which would cover half the sheet
+before it is read — comes up only on a tap. The desktop keeps autofocus.
+
 The rule is enforced, not remembered: `web/src/lib/dialogPolicy.test.js`
 fails `make test-js` when any file outside the primitive imports
 `@radix-ui/react-dialog`, `@radix-ui/react-alert-dialog` or `vaul`. Two

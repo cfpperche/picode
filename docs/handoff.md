@@ -269,7 +269,10 @@ Never exercised, because this machine was already past them:
   touch but a tmux pane needs wheel events, so the terminal screen turns
   a vertical drag into one synthetic `wheel` per 16px on `.xterm-screen`
   (`touch-action: none` on the host), which then takes the desktop's own
-  path (xterm SGR reports / lib/termWheel).
+  path (xterm SGR reports / lib/termWheel). Then: "os diálogos não
+  deveriam ativar o teclado automaticamente" — `SheetContent` in
+  ResponsiveDialog cancels Radix open-autofocus and blurs a React
+  `autoFocus` in a layout effect; desktop unchanged.
 
 - **2026-09-01 — ADR-0045 Automations** (`feat/automations`): store +
   migrations 016/017, `internal/cron`, `internal/automate`, server routes

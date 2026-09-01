@@ -24,6 +24,9 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
   `web/src/lib/dialogPolicy.test.js` fails the build on a raw import; the
   only allowlisted exceptions are desktop-only surfaces (`Palette`,
   `Hotkeys`). Anchored popovers are not modals and stay Radix Popover.
+  On the phone the sheet never focuses a field by itself — the keyboard
+  comes up only on a tap — so `autoFocus` on a dialog input is a desktop
+  convenience the primitive undoes below 720px; do not work around it.
 
 ## Public site (`www/`)
 
