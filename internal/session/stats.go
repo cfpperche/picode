@@ -138,7 +138,9 @@ func (a *statsAcc) scanFile(path string, mtime time.Time) {
 			ts := entryTS(raw)
 			t := mtime
 			if ts > 0 {
-				t = time.Unix(ts, 0)
+				// pi writes message.timestamp in epoch milliseconds
+				// (JS Date.now() convention), not seconds.
+				t = time.UnixMilli(ts)
 			}
 			a.add(path, t, provider, costFrom(raw["message"]))
 		}

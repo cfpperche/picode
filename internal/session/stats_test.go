@@ -17,11 +17,13 @@ func mustWrite(t *testing.T, dir, name, body string) string {
 	return p
 }
 
+// unixTS is seconds, for readability at call sites (time.Time.Unix()) — pi's
+// real wire format is epoch milliseconds, so the embedded value is scaled.
 func msgLine(unixTS int64, cost float64) string {
 	if unixTS == 0 {
 		return fmt.Sprintf(`{"type":"message","message":{"role":"assistant","usage":{"cost":{"total":%v}}}}`, cost)
 	}
-	return fmt.Sprintf(`{"type":"message","message":{"role":"assistant","timestamp":%d,"usage":{"cost":{"total":%v}}}}`, unixTS, cost)
+	return fmt.Sprintf(`{"type":"message","message":{"role":"assistant","timestamp":%d,"usage":{"cost":{"total":%v}}}}`, unixTS*1000, cost)
 }
 
 func TestStatsRootBucketsByMessageDay(t *testing.T) {
