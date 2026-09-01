@@ -27,6 +27,7 @@ func registerSessionOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("PUT /api/session-cleanup", handleCleanupSetting(deps))
 	mux.HandleFunc("GET /api/sessions/all", handleAllSessions(deps))
 	mux.HandleFunc("DELETE /api/sessions/all", handleDeleteAnySession(deps))
+	mux.HandleFunc("GET /api/sessions/stats", handleSessionStats(deps))
 }
 
 func handleAgentTree(deps Deps) http.HandlerFunc {

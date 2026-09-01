@@ -112,3 +112,19 @@ export function writeTreeOwners(map) {
     /* private mode, quota — the tab simply will not survive a reload */
   }
 }
+
+const DASH_RANGE_KEY = "picode-dash-range";
+const DASH_RANGES = ["today", "7d", "30d", "all"];
+
+// The dashboard's date-range choice is a per-viewer preference, not a
+// navigable identity — it has no hash route (see ADR on the session
+// observability dashboard), same reasoning as termView/git/tree owners above.
+export function readDashboardRange() {
+  const v = (() => { try { return localStorage.getItem(DASH_RANGE_KEY) || ""; } catch { return ""; } })();
+  return DASH_RANGES.includes(v) ? v : "7d";
+}
+
+export function writeDashboardRange(range) {
+  if (!DASH_RANGES.includes(range)) return;
+  try { localStorage.setItem(DASH_RANGE_KEY, range); } catch { /* private mode, quota */ }
+}

@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Session observability dashboard replaces "No agents yet" when work
+  already exists (ADR-0041).** The main pane, with no tab open, used to
+  say "No agents yet — add a project folder" even beside a sidebar full
+  of workspaces, agents and terminals. It now shows spend, activity, and
+  fleet-health tiles for the selected period (Today/7d/30d/All), plus a
+  spend-by-provider breakdown — not another list of the entities the
+  sidebar already shows. New `GET /api/sessions/stats` endpoint aggregates
+  session cost/message counts at message granularity (not file mtime, so
+  a multi-day session's cost lands on the days it actually happened). The
+  original first-run card is untouched and still shows when the
+  environment is genuinely empty.
+
 ### Fixed
 
 - **Pi's own "Resume Session" picker, inside the interactive TUI, now

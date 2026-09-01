@@ -12,6 +12,7 @@ import { eventsToItems } from "../lib/replay.js";
 import { readCompacting, writeCompacting } from "../lib/compact.js";
 import Sidebar from "../components/Sidebar.jsx";
 import AgentTabs from "../components/AgentTabs.jsx";
+import DashboardView from "../components/DashboardView.jsx";
 import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
@@ -1860,6 +1861,8 @@ export default function App() {
   const sessionsWs = sessionsWsId ? workspaces.find((w) => w.id === sessionsWsId) : null;
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
+  const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
+  const showHome = noTabs && hasData;
 
   return (
     <div id="app">
@@ -1925,12 +1928,12 @@ export default function App() {
             onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
           />
 
-          <div id="empty" className="empty" hidden={!noTabs && !missing}>
+          <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
             <div className="empty-card">
               {missing ? (
                 <>
                   <h2>{isAppTab(goneId) ? "That app is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : isTreeTab(goneId) && goneId.startsWith("d:@w:") ? "That workspace is gone." : "That agent is gone."}</h2>
-                  {(workspaces.length + freeAgents.length + terminals.length) > 0 ? (
+                  {hasData ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (
                     <>
@@ -1948,6 +1951,8 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} /> : null}
 
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);

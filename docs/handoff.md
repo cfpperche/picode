@@ -48,6 +48,7 @@ What exists:
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
+- **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 
 ## In flight
 
@@ -219,6 +220,57 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-01** — **Session observability dashboard (ADR-0041)**, on
+  branch `feat/session-dashboard`. Owner rejected a first attempt
+  (`feat/home-dashboard`, unmerged): a `HomeView` that listed workspaces/
+  agents/terminals in the no-tabs-open main pane — "ux fraca... sem
+  sentido visto que a sidebar já está disponível" — and asked for
+  analytics/observability instead, explicit that it should not just be
+  another quick-access list.
+  - Research surfaced two existing refusals that needed reconciling
+    before building anything: `docs/design/session-surface-roadmap.md`'s
+    "Cost as a new page | it belongs on the session chip" (about *one
+    session's* cost; this is a fleet aggregate, different question) and
+    the "X is not the home" pattern used twice against other surfaces
+    annexing the live agent-conversation identity (this only ever renders
+    when nothing is open, so nothing is displaced). Owner confirmed this
+    reading explicitly before implementation.
+  - New `GET /api/sessions/stats?range=today|7d|30d|all`
+    (`internal/session/stats.go`, `internal/server/session_stats.go`):
+    scans session JSONL at **message** granularity (`entryTS`/`costFrom`,
+    already unexported in the same package) rather than bucketing by
+    `Summary.UpdatedAt` — file-mtime bucketing would dump a multi-day
+    session's whole cost onto one day. Response carries only aggregates,
+    never `Preview`/raw rows (sabotage-tested). `range=all` has no cheap
+    pre-filter and no cache — accepted debt, same posture `ListAll()`
+    already has.
+  - Frontend: `DashboardView.jsx` + `StatTile.jsx` (value/delta/sparkline)
+    + `SpendByProvider.jsx` (ranked one-hue bar list) + `DateRangePicker.jsx`
+    (native radio segmented control, mirrors `.termset-seg`). New
+    `lib/sparkline.js` (pure SVG path geometry, mirrors the
+    `lib/gitgraph.js`/`GitGraph.jsx` split — no charting dependency
+    added) and `lib/dashboardStats.js`, both unit-tested. Range choice
+    persists per-viewer in `localStorage` (`lib/openTabs.js`), not the
+    hash router — this app's `#` routes name what's open, never a view
+    filter.
+  - Visual-review caught one real defect before ship: the stat-tile
+    loading skeleton's `<span class="skel-line">` had no block-level
+    context (`.stat-tile-skel` lacked `display: flex`, unlike the
+    sibling `.spend-skel` that already worked), so the skeleton bar was
+    invisible — fixed, re-verified against an artificially slowed
+    fixture (`agent-browser wait --fn` polling for `.stat-tile-skel`,
+    since local fetches are normally too fast to catch by a fixed delay).
+  - Cross-check: `range=all`'s `current.cost` matched `/api/sessions/all`'s
+    summed `Summary.Cost` exactly (7.33 == 7.33) on the same fixture data
+    — two independent code paths agreeing.
+  - Ported the `WorkspaceRows.jsx` extraction (`AgentRow`/`TermRow` pulled
+    out of `Sidebar.jsx`) from the abandoned `feat/home-dashboard` branch
+    via `git apply` of just that file pair — still valid on its own,
+    independent of the rejected `HomeView` it was built for. `HomeView.jsx`
+    and its ADR were not ported.
+  - Not merged; `feat/home-dashboard` (superseded, unmerged) left as-is
+    for the owner to delete at their convenience.
 
 - **2026-09-01** — **Per-agent `--session-dir` (ADR-0040)**, on branch
   `worktree-pi-tui-session-dir`. Owner reported (screenshots) that after

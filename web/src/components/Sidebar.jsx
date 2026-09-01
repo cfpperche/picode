@@ -2,22 +2,20 @@ import { useEffect, useState } from "react";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer from "./ShareDrawer.jsx";
-import { IconChat, IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconPlay, IconStop, IconX, IconGit, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { aggregateBadge } from "../lib/appPrimitives.js";
 import { agentsOf, displayAgentName } from "../lib/tree.js";
-import { shortModel } from "../lib/chip.js";
-import { repoLine, termLine } from "../lib/repoLine.js";
 import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
-import ProviderFaces, { ProviderFace } from "./ProviderFaces.jsx";
-import PiSpinner from "./PiSpinner.jsx";
+import ProviderFaces from "./ProviderFaces.jsx";
+import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
 
 // Workspace cards wear the project's favicon when it has one (ADR-0027).
 // Failures are remembered per page-load so a card without a favicon costs
 // one 404, not one per render; a favicon added mid-session shows on reload.
 const faviconFailed = new Set();
-function WsFavicon({ ws }) {
+export function WsFavicon({ ws }) {
   const [failed, setFailed] = useState(faviconFailed.has(ws.id));
   if (failed) return <IconFolder size={16} />;
   return (
@@ -112,89 +110,30 @@ export default function Sidebar({
   }
 
   function agentRow(ag, ws) {
-    const mode = ag.mode || "stopped";
-    const label = displayAgentName(ag, ws);
-    const model = shortModel(ag.model || "");
-    const title = model ? label + " - " + model : label;
-    const repo = repoLine(ag, ws);
     return (
-      <li
+      <AgentRow
         key={ag.id}
-        className={"ws-item" + (ag.id === selectedId ? " active" : "")}
-        onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
-      >
-        <div className="ws-row1">
-          {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
-          <span className="ws-name" title={title}>
-            <button type="button" className="ws-name-btn" title="Rename" onClick={() => onRenameAgent && onRenameAgent(ag, label)}>{label}</button>
-            {model ? <span className="ws-model"> - {model}</span> : null}
-          </span>
-          {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
-        </div>
-        <div className="ws-row2">
-          <button
-            type="button"
-            className="ws-pill"
-            title={"Files — " + (ws ? ws.path : (ag.workPath || ""))}
-            onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("agent", ag.id, label); }}
-          >
-            <IconFolder size={12} /><span className="ws-pill-text">{repo.dir}</span>
-          </button>
-        </div>
-        {repo.git ? (
-          <div className="ws-row2">
-            <button
-              type="button"
-              className="ws-pill"
-              title={"Git graph" + (repo.git.branch ? " — " + repo.git.branch : "")}
-              onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("agent", ag.id, label); }}
-            >
-              <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>{repo.git.dirty ? <span className="ws-pill-badge">{repo.git.dirty}</span> : null}
-            </button>
-          </div>
-        ) : null}
-        <span className="ws-actions">
-          {mode === "stopped"
-            ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
-            : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
-          <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
-          <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
-          <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
-        </span>
-      </li>
+        agent={ag} ws={ws}
+        selectedId={selectedId} onSelect={onSelect}
+        workingId={workingId} workingIds={workingIds} waitingId={waitingId}
+        onFileTree={onFileTree} onGitGraph={onGitGraph}
+        onRenameAgent={onRenameAgent}
+        onRun={onRun} onStop={onStop}
+        onRemoveAgent={onRemoveAgent} onRemove={onRemove}
+        onChat={onChat} onTerm={onTerm} termView={termView}
+      />
     );
   }
 
   function termRow(t) {
     return (
-      <li
+      <TermRow
         key={t.id}
-        className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
-        onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
-      >
-        <div className="ws-row1">
-          <span className="tree-icon"><IconTerminal size={14} /></span>
-          <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
-        </div>
-        {(() => { const line = termLine(t); return (<>
-        <div className="ws-row2">
-          <button type="button" className="ws-pill" title={"Files — " + t.cwd} onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}>
-            <IconFolder size={12} /><span className="ws-pill-text">{line.dir}</span>
-          </button>
-        </div>
-        {line.git ? (
-          <div className="ws-row2">
-            <button type="button" className="ws-pill" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}>
-              <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>{line.git.dirty ? <span className="ws-pill-badge">{line.git.dirty}</span> : null}
-            </button>
-          </div>
-        ) : null}
-        </>); })()}
-        <span className="ws-actions">
-          <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
-          <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
-        </span>
-      </li>
+        term={t}
+        selectedId={selectedId} onSelectTerm={onSelectTerm}
+        onFileTree={onFileTree} onGitGraph={onGitGraph}
+        onRenameTerm={onRenameTerm} onRemoveTerm={onRemoveTerm}
+      />
     );
   }
 
