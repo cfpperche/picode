@@ -11,12 +11,12 @@ import (
 )
 
 func runBrowserHost(distro, user string) error {
-	a, err := resolve(distro, user)
-	if err != nil {
-		return err
-	}
 	client := browserhost.NewClient()
 	client.Resolve = func() (string, error) {
+		a, err := resolve(distro, user)
+		if err != nil {
+			return "", err
+		}
 		return desktop.ServerURL(a.runner, a.distro, a.user)
 	}
 	return browserhost.Serve(os.Stdin, os.Stdout, client.Handle)
@@ -31,12 +31,20 @@ func runExtensionInstall() error {
 	if err != nil {
 		return err
 	}
+	nmh, err := browserhost.WindowsHostPath(exe)
+	if err != nil {
+		return err
+	}
 	dir := windowsManifestDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
+	dest := filepath.Join(dir, browserhost.WindowsHostExe)
+	if err := browserhost.CopyFile(nmh, dest); err != nil {
+		return err
+	}
 	path := filepath.Join(dir, browserhost.HostName+".json")
-	raw, err := json.MarshalIndent(browserhost.NewManifest(exe), "", "  ")
+	raw, err := json.MarshalIndent(browserhost.NewManifest(dest), "", "  ")
 	if err != nil {
 		return err
 	}

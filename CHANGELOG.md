@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Chrome extension shows up as a device; Windows install ships a console host (ADR-0043 Track B).** `make desktop` now also builds `picode-nmh.exe`. `picode-desktop extension-install` registers that console binary (the tray exe cannot speak native messaging). Opening the side panel pings PiCode as **Chrome extension** on `#/devices`. Preferences → Server says connected, or one line + Open guide when not.
 - **Chrome extension sends the current tab to an existing agent (ADR-0043).**
   Sideload `ext/` in Chrome, then `picode extension-install` (or
   `picode-desktop extension-install` when Chrome is on Windows and PiCode

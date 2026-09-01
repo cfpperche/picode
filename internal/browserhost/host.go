@@ -23,6 +23,10 @@ const ExtensionID = "beoccbnjejkjjjcmcfhnnklbjaaddolp"
 // ExtensionOrigin is what Chrome passes as argv[1] when it launches the host.
 const ExtensionOrigin = "chrome-extension://" + ExtensionID + "/"
 
+// WindowsHostExe is the console sibling Chrome actually launches. The tray
+// binary is -H=windowsgui and cannot speak native messaging.
+const WindowsHostExe = "picode-nmh.exe"
+
 // MaxMessage is Chrome's native-messaging cap (1 MiB). We refuse anything
 // larger rather than letting Chrome drop the connection.
 const MaxMessage = 1024 * 1024
@@ -34,12 +38,13 @@ func IsHostArg(arg string) bool {
 
 // Request is one framed message from the extension.
 type Request struct {
-	Type    string `json:"type"`
-	ID      string `json:"id,omitempty"`
-	AgentID string `json:"agentId,omitempty"`
-	Message string `json:"message,omitempty"`
-	Tab     *Tab   `json:"tab,omitempty"`
-	Image   *Image `json:"image,omitempty"`
+	Type     string `json:"type"`
+	ID       string `json:"id,omitempty"`
+	AgentID  string `json:"agentId,omitempty"`
+	DeviceID string `json:"deviceId,omitempty"`
+	Message  string `json:"message,omitempty"`
+	Tab      *Tab   `json:"tab,omitempty"`
+	Image    *Image `json:"image,omitempty"`
 }
 
 // Tab is the current page the human is looking at.

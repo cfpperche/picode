@@ -16,17 +16,25 @@ func TestLabel(t *testing.T) {
 
 func TestPingHostAndRemote(t *testing.T) {
 	r := New([]string{"192.168.15.110"})
-	host := r.Ping("aaa", "Mozilla/5.0 (Windows NT 10.0)", "127.0.0.1:1234", false)
+	host := r.Ping("aaa", "Mozilla/5.0 (Windows NT 10.0)", "127.0.0.1:1234", false, "")
 	if !host.Host || !host.Online || host.Name != "Windows" {
 		t.Fatalf("host = %+v", host)
 	}
-	phone := r.Ping("bbb", "Mozilla/5.0 (iPhone)", "100.87.149.83:9999", false)
+	phone := r.Ping("bbb", "Mozilla/5.0 (iPhone)", "100.87.149.83:9999", false, "")
 	if phone.Host || phone.Name != "iPhone" || phone.IP != "100.87.149.83" {
 		t.Fatalf("phone = %+v", phone)
 	}
 	list := r.List()
 	if len(list) != 2 || !list[0].Host {
 		t.Fatalf("list = %+v", list)
+	}
+}
+
+func TestPingExtension(t *testing.T) {
+	r := New(nil)
+	d := r.Ping("ext:abc", "Go-http-client/1.1", "127.0.0.1:9", true, "extension")
+	if d.Name != "Chrome extension" || d.Kind != "extension" || !d.Host {
+		t.Fatalf("%+v", d)
 	}
 }
 

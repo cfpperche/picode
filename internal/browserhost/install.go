@@ -3,6 +3,7 @@ package browserhost
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -101,6 +102,47 @@ func WindowsRegistryDeleteArgs() []string {
 		"delete", `HKCU\Software\Google\Chrome\NativeMessagingHosts\` + HostName,
 		"/f",
 	}
+}
+
+// WindowsHostPath is the console host Chrome should launch. desktopExe is
+// picode-desktop.exe; the nmh sibling must sit next to it.
+func WindowsHostPath(desktopExe string) (string, error) {
+	if desktopExe == "" {
+		return "", fmt.Errorf("browserhost: no desktop executable")
+	}
+	dir := filepath.Dir(desktopExe)
+	nmh := filepath.Join(dir, WindowsHostExe)
+	if st, err := os.Stat(nmh); err != nil || st.IsDir() {
+		return "", fmt.Errorf("picode-nmh.exe is missing next to picode-desktop — run make desktop")
+	}
+	return nmh, nil
+}
+
+// CopyFile writes src onto dst (0755). Same path is a no-op.
+func CopyFile(src, dst string) error {
+	src, err := filepath.Abs(src)
+	if err != nil {
+		return err
+	}
+	dst, err = filepath.Abs(dst)
+	if err != nil {
+		return err
+	}
+	if src == dst {
+		return nil
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // RemoveHostManifest deletes the Chrome and Chromium host files if present.

@@ -25,12 +25,13 @@ func handleDevicePing(deps *Deps) http.HandlerFunc {
 		var req struct {
 			ID   string `json:"id"`
 			Host bool   `json:"host"`
+			Kind string `json:"kind"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
 			writeErr(w, http.StatusBadRequest, "id required")
 			return
 		}
-		dev := deps.presence().Ping(req.ID, r.UserAgent(), r.RemoteAddr, req.Host)
+		dev := deps.presence().Ping(req.ID, r.UserAgent(), r.RemoteAddr, req.Host, req.Kind)
 		writeJSON(w, http.StatusOK, dev)
 	}
 }
