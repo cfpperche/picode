@@ -61,14 +61,14 @@ What exists:
 
 ## In flight
 
-**ADR-0046 Automations on `feat/automations`** (2026-09-01). Backend, UI,
-docs done; dogfooded on a scratch instance (Run now → `pong` Inbox result,
-webhook 401/413/202, busy 409, cost cap, daemon restart). Not merged.
+**ADR-0045 Automations — merged to `main` and shipping.** Scheduler,
+webhook, notify channel, gateway hook route, `/automate` + templates;
+editor/detail UI fixes and the message-run amendment landed 2026-09-02.
+Owed: acceptance runs listed under *Next up* (owner's sudo).
 
-**ADR-0043 Track B on `feat/ext-track-b`.** Track A dogfood on Windows Chrome
-passed (console `picode-nmh.exe` + skip `--parent-window`). Track B wires
-that install into `make desktop` / `extension-install`, devices presence,
-and a Preferences → Server one-liner. Not yet merged.
+**ADR-0043 extension — Tracks A and B merged** (`78131e53`, `25ec36a5`); the
+Windows console host (`picode-nmh.exe`) and the `--parent-window` fix are
+dogfooded on the owner's Chrome. Track C (actuator) is next, in a worktree.
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
