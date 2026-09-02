@@ -92,12 +92,12 @@ func (s *Store) AllAgentSessionPaths() (map[string]bool, error) {
 
 // SealPendingAgentSessions closes the attribution window that
 // NewPendingAgentSession opened: every pending id whose file already
-// exists gets its path recorded, so a later spawn's
-// ResolvePendingAgentSession cannot adopt it. An explicit "new session"
-// must stay new — adoption (ADR-0053) exists to heal a *lost* pointer,
-// not to override the user asking for a fresh thread. Pending ids with
-// no file are left alone: they can never be adopted, and their file may
-// still appear (a slow pi).
+// exists gets its ownership moved to a path row, so a later spawn's
+// ResolvePendingAgentSession cannot adopt it. An explicit "new
+// session" must stay new — adoption (ADR-0053) exists to heal a
+// *lost* pointer, not to override the user asking for a fresh thread.
+// Pending ids with no file are left alone: they can never be
+// adopted, and their file may still appear (a slow pi).
 func (s *Store) SealPendingAgentSessions(agentID string) {
 	ids, err := s.PendingAgentSessionIDs(agentID)
 	if err != nil || len(ids) == 0 {
@@ -112,9 +112,21 @@ func (s *Store) SealPendingAgentSessions(agentID string) {
 		return
 	}
 	for _, f := range files { // newest first; order irrelevant here
-		if pending[f.ID] {
-			s.ResolveAgentSessionID(agentID, f.ID, f.Path)
+		if !pending[f.ID] {
+			continue
 		}
+		// The pending row cannot simply grow a session_path: a path row
+		// for the same file may already exist (the pointer went through
+		// a path-recording flow), and (agent_id, session_path) is
+		// UNIQUE — the UPDATE would collide and leave the id row
+		// pending, so the next spawn would re-adopt the thread the
+		// user just abandoned. Move the attribution instead: delete
+		// the id row, record the path (ON CONFLICT DO NOTHING — the
+		// existing path row already proves ownership).
+		if _, err := s.db.Exec(`DELETE FROM agent_sessions WHERE agent_id=? AND session_id=? AND session_path IS NULL`, agentID, f.ID); err != nil {
+			continue
+		}
+		_ = s.RecordAgentSessionPath(agentID, f.Path)
 	}
 }
 

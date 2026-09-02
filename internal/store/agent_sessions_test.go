@@ -285,8 +285,13 @@ func TestSealPendingAgentSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !keys.Paths[p] || !keys.IDs[withFile] {
+	// Ownership moved to the path row; the id attribution is gone —
+	// that is what makes the thread unadoptable.
+	if !keys.Paths[p] {
 		t.Fatalf("sealed session no longer owned: %+v", keys)
+	}
+	if keys.IDs[withFile] {
+		t.Fatalf("sealed id row should have been replaced by path ownership: %+v", keys)
 	}
 	pending, err := s.PendingAgentSessionIDs(agent.ID)
 	if err != nil {
@@ -303,6 +308,67 @@ func TestSealPendingAgentSessions(t *testing.T) {
 		t.Fatalf("seal must not set the pointer, got %q", *a.SessionPath)
 	}
 	// The point of sealing: adoption can no longer pick the thread up.
+	if got := s.ResolvePendingAgentSession(agent.ID); got != "" {
+		t.Fatalf("adoption after seal = %q, want \"\"", got)
+	}
+}
+
+// The live collision: a session becomes current through a path-recording
+// flow (resume, or a pointer backfill), so the table holds BOTH the
+// pending id row and a path row for the same file. Sealing must move
+// ownership to the path row anyway — a plain UPDATE would collide on
+// UNIQUE (agent_id, session_path), leave the id row pending, and the
+// next spawn would re-adopt the thread an explicit New just abandoned.
+func TestSealPendingWithSiblingPathRow(t *testing.T) {
+	s := openTest(t)
+	old := session.TestRoot
+	session.TestRoot = t.TempDir()
+	t.Cleanup(func() { session.TestRoot = old })
+
+	proj := t.TempDir()
+	_, agent, err := addWorkspaceWithAgent(s, "App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := session.AgentDir(agent.ID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sid := s.NewPendingAgentSession(agent.ID)
+	p := filepath.Join(dir, "twin.jsonl")
+	body := `{"type":"session","id":"` + sid + `","cwd":"` + proj + `"}` + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The pointer went through a path-recording flow: both rows exist.
+	if err := s.RecordAgentSessionPath(agent.ID, p); err != nil {
+		t.Fatal(err)
+	}
+	empty := ""
+	if _, err := s.UpdateAgent(agent.ID, AgentPatch{SessionPath: &empty}); err != nil {
+		t.Fatal(err)
+	}
+
+	s.SealPendingAgentSessions(agent.ID)
+
+	// The pending row is gone; ownership lives on the path row, and
+	// adoption can no longer pick the file up.
+	ids, err := s.PendingAgentSessionIDs(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		if id == sid {
+			t.Fatalf("pending id row survived the seal")
+		}
+	}
+	keys, err := s.AgentSessionKeys(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !keys.Paths[p] {
+		t.Fatalf("sealed session lost its path ownership: %+v", keys.Paths)
+	}
 	if got := s.ResolvePendingAgentSession(agent.ID); got != "" {
 		t.Fatalf("adoption after seal = %q, want \"\"", got)
 	}
