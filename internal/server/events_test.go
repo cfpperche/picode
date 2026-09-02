@@ -103,7 +103,7 @@ func TestEventsHelloLiveReplayReset(t *testing.T) {
 	}
 	res.Body.Close()
 	live := readFrames(t, body, 1, 3*time.Second)[0]
-	if live.Event != "inbox.created" || live.ID == "" || !strings.Contains(live.Data, `"title":"note"`) {
+	if live.Event != "change" || live.ID == "" || !strings.Contains(live.Data, `"type":"inbox.created"`) || !strings.Contains(live.Data, `"title":"note"`) {
 		t.Fatalf("live = %+v", live)
 	}
 	ev, err := eventFrom(live.Data)
@@ -117,7 +117,7 @@ func TestEventsHelloLiveReplayReset(t *testing.T) {
 	_ = st.SetSetting("b", "2")
 	body, closeStream = openStream(t, ts, live.ID)
 	frames := readFrames(t, body, 3, 3*time.Second)
-	if frames[0].Event != "hello" || frames[1].Event != "setting.updated" || frames[2].Event != "setting.updated" {
+	if frames[0].Event != "hello" || frames[1].Event != "change" || !strings.Contains(frames[2].Data, `"type":"setting.updated"`) {
 		t.Fatalf("replay = %+v", frames)
 	}
 	closeStream()
@@ -142,7 +142,7 @@ func TestEventsEphemeralHasNoID(t *testing.T) {
 	readFrames(t, body, 1, 3*time.Second)
 	f.Ephemeral("device.online", map[string]string{"id": "d1"})
 	fr := readFrames(t, body, 1, 3*time.Second)[0]
-	if fr.ID != "" || fr.Event != "device.online" {
+	if fr.ID != "" || fr.Event != "change" || !strings.Contains(fr.Data, `"type":"device.online"`) {
 		t.Fatalf("ephemeral = %+v", fr)
 	}
 }

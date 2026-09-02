@@ -80,7 +80,8 @@ type ManagedAgent struct {
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
 	observer      *RunObserver  // automations engine watching this run (ADR-0045)
-	cost          float64       // sum of usage.cost.total over assistant message_end events
+	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
+	cost          float64 // sum of usage.cost.total over assistant message_end events
 }
 
 // RunObserver is set by an owner that files its own Inbox items for the
@@ -142,6 +143,11 @@ type Runtime struct {
 	agents map[string]*ManagedAgent
 	store  *store.Store
 	onExit func(agentID string)
+
+	// OnState fires on every live-state edge of a managed agent — streaming
+	// on/off, a dialog raised or answered — so the change feed can tell
+	// every shell who is running without a socket per agent (ADR-0048).
+	OnState func(agentID string, streaming, waiting bool, dialog *UIDialog)
 
 	// OnWaiting fires when a managed agent raises a dialog and nobody has
 	// its socket open (ADR-0047: the push notifier calls the phone).
@@ -207,6 +213,7 @@ func (r *Runtime) Start(agentID, path string) error {
 		hub:       NewHub(),
 		store:     r.store,
 		onWaiting: r.OnWaiting,
+		onState:   r.OnState,
 		cancel:    cancel,
 		done:      make(chan struct{}),
 		settledCh: closedChan(), // settled until a prompt is accepted
@@ -270,6 +277,22 @@ func closedChan() chan struct{} {
 	return ch
 }
 
+// announceState pushes the current live state to Runtime.OnState.
+func (ma *ManagedAgent) announceState() {
+	ma.mu.Lock()
+	fn := ma.onState
+	streaming, waiting := ma.streaming, ma.waiting != nil
+	var d *UIDialog
+	if ma.waiting != nil {
+		c := *ma.waiting
+		d = &c
+	}
+	ma.mu.Unlock()
+	if fn != nil {
+		fn(ma.AgentID, streaming, waiting, d)
+	}
+}
+
 // markSettled swaps the settled broadcast channel.
 func (ma *ManagedAgent) markSettled() {
 	ma.mu.Lock()
@@ -297,6 +320,7 @@ func (ma *ManagedAgent) pumpEvents() {
 			// fresh wait channel: not settled anymore
 			ma.settledCh = make(chan struct{})
 			ma.mu.Unlock()
+			ma.announceState()
 		case "agent_end":
 			// Stash the agent's actual final message: ADR-0037 result items
 			// carry the real answer, never a generated wrapper.
@@ -318,6 +342,7 @@ func (ma *ManagedAgent) pumpEvents() {
 			}
 		case "agent_settled":
 			ma.markSettled()
+			ma.announceState()
 			if o := ma.runObserver(); o != nil {
 				if o.OnSettled != nil {
 					ma.mu.Lock()
@@ -461,7 +486,7 @@ func (ma *ManagedAgent) deliverLoop() {
 			_ = ma.store.AppendEvent("task.failed", &ma.AgentID, nil,
 				map[string]string{"taskId": task.ID, "error": err.Error()})
 			ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
-				"type": "task.failed", "taskId": task.ID, "error": err.Error(),
+				"type": "task_failed", "taskId": task.ID, "error": err.Error(),
 			}))
 			continue
 		}
@@ -469,7 +494,7 @@ func (ma *ManagedAgent) deliverLoop() {
 		_ = ma.store.AppendEvent("task.delivered", &ma.AgentID, nil,
 			map[string]string{"taskId": task.ID, "kind": task.Kind})
 		ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
-			"type": "task.delivered", "taskId": task.ID, "kind": task.Kind,
+			"type": "task_delivered", "taskId": task.ID, "kind": task.Kind,
 		}))
 	}
 }
@@ -546,6 +571,7 @@ func (ma *ManagedAgent) Abort(ctx context.Context) error {
 	d := ma.waiting
 	ma.waiting = nil
 	ma.mu.Unlock()
+	ma.announceState()
 	if d != nil {
 		_ = ma.client.SendRaw(map[string]any{
 			"type": "extension_ui_response", "id": d.ID, "cancelled": true,
@@ -708,6 +734,7 @@ func (ma *ManagedAgent) noteUIRequest(ev Event) {
 	ma.mu.Lock()
 	ma.waiting = d
 	ma.mu.Unlock()
+	ma.announceState()
 	ma.armTimeout(d.ID, d.Timeout)
 	if ma.onWaiting != nil && ma.hub.Len() == 0 {
 		name, _ := ma.agentIdentity()
@@ -727,6 +754,7 @@ func (ma *ManagedAgent) armTimeout(id string, ms int) {
 		}
 		ma.waiting = nil
 		ma.mu.Unlock()
+		ma.announceState()
 		ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
 			"type": "extension_ui_timeout", "id": id,
 		}))
@@ -742,6 +770,7 @@ func (ma *ManagedAgent) ReplyUI(id, value string, confirmed *bool, cancelled boo
 	}
 	ma.waiting = nil
 	ma.mu.Unlock()
+	ma.announceState()
 	body := map[string]any{"type": "extension_ui_response", "id": id}
 	if cancelled {
 		body["cancelled"] = true

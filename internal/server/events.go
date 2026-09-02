@@ -19,8 +19,9 @@ var eventsHeartbeat = 25 * time.Second
 // handleEvents is the change feed over server-sent events (ADR-0048).
 //
 //	hello  {bootId, latest}   first frame; a new bootId means a new binary
-//	<type> {Event}            durable events carry id: for Last-Event-ID
-//	<type> {Event}            ephemeral events carry no id
+//	change {Event}            durable events carry id: for Last-Event-ID;
+//	                          ephemeral ones (id 0) carry none. The entity
+//	                          type is Event.type, so one listener suffices.
 //	reset  {}                 the cursor is older than retention: refresh all
 //
 // The cursor comes from Last-Event-ID (browser reconnect) or ?after=.
@@ -85,7 +86,7 @@ func handleEvents(deps Deps) http.HandlerFunc {
 			return
 		}
 		for _, ev := range replay {
-			if !write(ev.ID, ev.Type, ev) {
+			if !write(ev.ID, "change", ev) {
 				return
 			}
 		}
@@ -96,7 +97,7 @@ func handleEvents(deps Deps) http.HandlerFunc {
 			case <-r.Context().Done():
 				return
 			case ev := <-live:
-				if !write(ev.ID, ev.Type, ev) {
+				if !write(ev.ID, "change", ev) {
 					return
 				}
 			case <-beat.C:

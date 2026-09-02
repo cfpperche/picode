@@ -318,6 +318,9 @@ func serve() {
 	// agents ride it as ephemeral notices.
 	changes := &feed.Feed{Store: st}
 	st.OnEvent = changes.Publish
+	runtime.OnState = func(agentID string, streaming, waiting bool, dialog *rpc.UIDialog) {
+		changes.Ephemeral("agent.state", map[string]any{"agentId": agentID, "streaming": streaming, "waiting": waiting, "dialog": dialog})
+	}
 	runtime.OnWaiting = func(agentID, agentName, title, message string) {
 		changes.Ephemeral("agent.waiting", map[string]string{"agentId": agentID, "agentName": agentName, "title": title, "message": message})
 	}
