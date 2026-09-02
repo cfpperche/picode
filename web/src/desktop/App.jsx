@@ -41,7 +41,7 @@ const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "../lib/feed.js";
-import { applyFleet, touches } from "../lib/feedReducers.js";
+import { applyFleet, applyTui, applyUsage, touches } from "../lib/feedReducers.js";
 import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -426,9 +426,20 @@ export default function App() {
   useEffect(() => { loadStatus(); }, [selectedId, sessionCurrent, loadStatus]);
   useEffect(() => {
     if (!agent || agent.mode !== "managed") return;
-    const t = setInterval(() => loadStatus(), 15000);
+    const t = setInterval(() => { if (!feedConnected()) loadStatus(); }, 15000);
     return () => clearInterval(t);
   }, [agent && agent.mode, selectedId, loadStatus]);
+  // agent.usage (ADR-0048): add this message's tokens and cost to the bar
+  // instead of rescanning the session file; a settle still refetches so
+  // the file stays the authority.
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "agent.usage" && ev.data && ev.data.agentId === selectedRef.current) setStatusBar((bar) => applyUsage(bar, ev.data));
+  }), []);
+  // refreshFleetFallback: after a local mutation the store's own event
+  // already patched the lists; only refetch when the feed is not there.
+  const refreshFleetFallback = useCallback(async () => {
+    if (!feedConnected()) await refreshFleetFallback();
+  }, [loadWorkspaces]);
 
   useEffect(() => {
     (async () => {
@@ -440,7 +451,7 @@ export default function App() {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
-        const list = await loadWorkspaces();
+        const list = await refreshFleetFallback();
         let free = [];
         try { free = await api("/api/agents?free=1"); } catch { free = []; }
         let terms = [];
@@ -530,8 +541,15 @@ export default function App() {
       } catch { /* transient */ }
     }
     poll();
-    const t = setInterval(poll, 3000);
-    return () => { stop = true; clearInterval(t); };
+    // The server scrapes tmux itself now and publishes agent.tui
+    // (ADR-0048); this 3 s loop only runs while the feed is down, and
+    // once on (re)open to reconcile.
+    const t = setInterval(() => { if (!feedConnected()) poll(); }, 3000);
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") poll();
+      else if (ev.type === "agent.tui") setTuiWorking((cur) => applyTui(cur, ev));
+    });
+    return () => { stop = true; clearInterval(t); unsub(); };
   }, [workspaces, freeAgents, selectedId]);
   useEffect(() => {
     // Badge refresh (ADR-0036). Gentler than the 3s tui-working loop; the
@@ -1248,7 +1266,7 @@ export default function App() {
     if (!loc || !loc.agent) return;
     try {
       await api(`/api/agents/${loc.agent.id}/managed/start`, { method: "POST" });
-      const list = await loadWorkspaces();
+      const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
     } catch (err) { toastError(err); }
   }
@@ -1327,7 +1345,7 @@ export default function App() {
     if (!loc || !loc.agent) return;
     try {
       await api(`/api/agents/${loc.agent.id}/open`, { method: "POST" });
-      const list = await loadWorkspaces();
+      const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
       if (!opts || opts.dock !== false) {
         setTermWanted((s) => new Set(s).add(loc.agent.id));
@@ -1349,7 +1367,7 @@ export default function App() {
       setWaiting(false);
       setStatus("stopped");
       setItems((cur) => cancelOpenAsks(cur));
-      await loadWorkspaces();
+      await refreshFleetFallback();
     } catch (err) { toastError(err); }
   }
 
@@ -1402,7 +1420,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      await loadWorkspaces();
+      await refreshFleetFallback();
     } catch (err) { toastError(err); }
   }
 
@@ -1418,7 +1436,7 @@ export default function App() {
       closeShellTerm(ag.id);
       setTabs((t) => t.filter((x) => x !== ag.id));
       if (selectedId === ag.id) setSelectedId(null);
-      await loadWorkspaces();
+      await refreshFleetFallback();
     } catch (err) { toastError(err); }
   }
 
@@ -1462,7 +1480,7 @@ export default function App() {
       }
       setTabs((t) => t.filter((x) => x !== ws.id && !ids.includes(x)));
       if (selectedId === ws.id || ids.includes(selectedId)) setSelectedId(null);
-      await loadWorkspaces();
+      await refreshFleetFallback();
     } catch (err) { toastError(err); }
   }
 
@@ -1526,7 +1544,7 @@ export default function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: body.name, provider: body.provider, model: body.model, thinking: body.thinking }),
         });
-        await loadWorkspaces();
+        await refreshFleetFallback();
         openTab(ag.id);
       }
       e.target.reset();
@@ -1541,7 +1559,7 @@ export default function App() {
     if (!selectedId) return;
     try {
       await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });
-      await loadWorkspaces();
+      await refreshFleetFallback();
       await loadSessions();
     } catch (e) { toastError(e); }
   }
@@ -1605,7 +1623,7 @@ export default function App() {
       } else {
         toast.ok("Session compacted.");
       }
-      await loadWorkspaces();
+      await refreshFleetFallback();
       await loadSessions(selectedId);
       await loadStatus();
     } catch (e) {
@@ -1908,7 +1926,7 @@ export default function App() {
       setTreeOpen(false);
       if (res && res.cancelled) { toast.info("Cancelled."); return; }
       toast.ok("Continued from that prompt.");
-      await loadWorkspaces();
+      await refreshFleetFallback();
       await loadSessions(selectedId);
     } catch (e) { toastError(e); }
   }
@@ -1926,7 +1944,7 @@ export default function App() {
       setTreeOpen(false);
       if (res && res.cancelled) { toast.info("Cancelled."); return; }
       toast.ok("Duplicated.");
-      await loadWorkspaces();
+      await refreshFleetFallback();
       await loadSessions(selectedId);
     } catch (e) { toastError(e); }
   }
@@ -2247,7 +2265,7 @@ export default function App() {
                   try {
                     await api("/api/agents/" + selectedId + "/import", { method: "POST", body: fd });
                     toast.ok("Session imported.");
-                    await loadWorkspaces();
+                    await refreshFleetFallback();
                     await loadSessions();
                   } catch (e) { toastError(e); }
                 };
@@ -2271,7 +2289,7 @@ export default function App() {
                   onNew={async () => {
                     try {
                       await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });
-                      await loadWorkspaces();
+                      await refreshFleetFallback();
                       await loadSessions();
                     } catch (e) { toastError(e); }
                   }}
@@ -2282,7 +2300,7 @@ export default function App() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ path }),
                       });
-                      await loadWorkspaces();
+                      await refreshFleetFallback();
                       await loadSessions();
                     } catch (e) { toastError(e); }
                   }}
@@ -2431,7 +2449,7 @@ export default function App() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ path }),
             });
-            await loadWorkspaces();
+            await refreshFleetFallback();
             setShowForm(false);
             if (ag && ag.id) openTab(ag.id);
           } catch (err) { setFormError(humanizeError(err && err.message ? err.message : String(err))); }

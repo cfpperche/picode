@@ -321,6 +321,10 @@ func serve() {
 	runtime.OnState = func(agentID string, streaming, waiting bool, dialog *rpc.UIDialog) {
 		changes.Ephemeral("agent.state", map[string]any{"agentId": agentID, "streaming": streaming, "waiting": waiting, "dialog": dialog})
 	}
+	runtime.OnUsage = func(agentID string, u rpc.Usage) {
+		changes.Ephemeral("agent.usage", map[string]any{"agentId": agentID, "input": u.Input, "output": u.Output,
+			"cacheRead": u.CacheRead, "cacheWrite": u.CacheWrite, "totalTokens": u.TotalTokens, "cost": u.Cost})
+	}
 	runtime.OnWaiting = func(agentID, agentName, title, message string) {
 		changes.Ephemeral("agent.waiting", map[string]string{"agentId": agentID, "agentName": agentName, "title": title, "message": message})
 	}
@@ -329,7 +333,14 @@ func serve() {
 	// consumes the feed and stays quiet while a browser on this machine
 	// is alive.
 	devices := presence.New(share.ReachableIPv4())
-	devices.OnChange = func(d presence.Device) { changes.Ephemeral("device.online", d) }
+	devices.OnChange = func(d presence.Device) {
+		if d.Online {
+			changes.Ephemeral("device.online", d)
+		} else {
+			changes.Ephemeral("device.offline", d)
+		}
+	}
+	go devices.Watch(backupCtx, 5*time.Second) // process-scoped, like the backup loop
 	var notifier *push.Notifier
 	if keys, err := push.LoadOrCreate(dataDir); err != nil {
 		log.Printf("push: disabled: %v", err)
@@ -364,6 +375,10 @@ func serve() {
 		// the env read lives here, never inside internal/apps.
 		Apps: apps.NewRegistry(apps.BuiltIns(os.Getenv("PICODE_DEMO_APP") == "1")...),
 	}
+
+	// tmux watcher (ADR-0048 follow-up): one scrape per tick for the whole
+	// fleet, published as agent.tui, instead of one per browser per 3 s.
+	go server.StartTuiWatch(backupCtx, deps, 3*time.Second)
 
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.

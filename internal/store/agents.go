@@ -139,8 +139,21 @@ const (
 	StatusStopped      = "stopped"
 )
 
-// SetAgentRuntime updates the cached runtime status of an agent.
+// SetAgentRuntime updates the cached runtime status of an agent. The
+// announced agent.status carries mode "stopped" for a stop and "" for a
+// start whose mode the caller did not say (see SetAgentRuntimeMode).
 func (s *Store) SetAgentRuntime(id, status string) error {
+	mode := ""
+	if status != StatusRunning {
+		mode = "stopped"
+	}
+	return s.SetAgentRuntimeMode(id, status, mode)
+}
+
+// SetAgentRuntimeMode is SetAgentRuntime with the run mode the server
+// knows (managed | interactive | stopped), so the change feed can patch a
+// start without a refetch (ADR-0048).
+func (s *Store) SetAgentRuntimeMode(id, status, mode string) error {
 	var startedAt any
 	if status == StatusRunning {
 		startedAt = nowUTC()
@@ -153,7 +166,7 @@ func (s *Store) SetAgentRuntime(id, status string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	s.note("agent.status", &id, nil, map[string]string{"id": id, "lastStatus": status})
+	s.note("agent.status", &id, nil, map[string]string{"id": id, "lastStatus": status, "mode": mode})
 	return nil
 }
 

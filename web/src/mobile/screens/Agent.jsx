@@ -14,6 +14,8 @@ import { extraSlash } from "../../lib/slash.js";
 import { stuckToBottom } from "../../lib/stickScroll.js";
 import { eventsToItems } from "../../lib/replay.js";
 import { IconGit } from "../../components/Icons.jsx";
+import { subscribeFeed } from "../../lib/feed.js";
+import { applyUsage } from "../../lib/feedReducers.js";
 
 // The pushed agent screen: header (name · state), a meta line (model ·
 // cost · where), Chat or — for an agent living in a tmux TUI — Terminal,
@@ -66,6 +68,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
     const wsId = workspace ? workspace.id : "ws_free";
     setBar(await api("/api/workspaces/" + encodeURIComponent(wsId) + "/status?agent=" + encodeURIComponent(id)));
   }, 15000, !!id && !stopped);
+  useEffect(() => subscribeFeed((ev) => { if (ev.type === "agent.usage" && ev.data && ev.data.agentId === id) setBar((bar) => applyUsage(bar, ev.data)); }), [id]);
 
   useEffect(() => {
     const el = convRef.current;

@@ -3,6 +3,7 @@
 package presence
 
 import (
+	"context"
 	"net"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ type rec struct {
 	id, name, ip, kind string
 	host               bool
 	first, last        time.Time
+	online             bool // last announced state, so Expire fires once per transition
 }
 
 // Registry is an in-memory set of live clients.
@@ -35,8 +37,9 @@ type Registry struct {
 	items map[string]*rec
 	local map[string]bool
 
-	// OnChange fires (outside the lock) when a device first appears or
-	// comes back from stale (ADR-0048: an ephemeral device.online notice).
+	// OnChange fires (outside the lock) when a device first appears, comes
+	// back from stale, or goes stale (ADR-0048: ephemeral device.online /
+	// device.offline notices; Device.Online says which).
 	OnChange func(Device)
 }
 
@@ -90,10 +93,47 @@ func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) De
 	it.host = claimedHost || r.local[ip]
 	it.last = now
 	d := r.view(it, now)
+	it.online = true
 	if !wasOnline && r.OnChange != nil {
 		go r.OnChange(d)
 	}
 	return d
+}
+
+// Expire announces every device that went stale since the last call —
+// silence is the only signal a device has gone, so a ticker asks.
+func (r *Registry) Expire() []Device {
+	now := time.Now().UTC()
+	r.mu.Lock()
+	var gone []Device
+	for _, it := range r.items {
+		if it.online && now.Sub(it.last) >= staleAfter {
+			it.online = false
+			gone = append(gone, r.view(it, now))
+		}
+	}
+	fn := r.OnChange
+	r.mu.Unlock()
+	if fn != nil {
+		for _, d := range gone {
+			fn(d)
+		}
+	}
+	return gone
+}
+
+// Watch runs Expire every interval until ctx ends.
+func (r *Registry) Watch(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			r.Expire()
+		}
+	}
 }
 
 // List returns devices, newest last-seen first. Stale ones stay until

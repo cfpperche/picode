@@ -81,6 +81,7 @@ type ManagedAgent struct {
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
 	observer      *RunObserver  // automations engine watching this run (ADR-0045)
 	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
+	onUsage       func(agentID string, u Usage)
 	cost          float64 // sum of usage.cost.total over assistant message_end events
 }
 
@@ -105,20 +106,48 @@ func (ma *ManagedAgent) Cost() float64 {
 // messageCost reads usage.cost.total from a message_end / turn_end event
 // whose message is an assistant message; 0 otherwise.
 func messageCost(ev Event) float64 {
+	u, ok := messageUsage(ev)
+	if !ok {
+		return 0
+	}
+	return u.Cost
+}
+
+// Usage is one assistant message's token accounting as pi reports it —
+// the same keys internal/session's scanUsage sums from the session file.
+type Usage struct {
+	Input       int     `json:"input"`
+	Output      int     `json:"output"`
+	CacheRead   int     `json:"cacheRead"`
+	CacheWrite  int     `json:"cacheWrite"`
+	TotalTokens int     `json:"totalTokens"` // context size after this message, when pi reports it
+	Cost        float64 `json:"cost"`
+}
+
+// messageUsage decodes message.usage from a message_end event for an
+// assistant message; ok is false for any other message.
+func messageUsage(ev Event) (Usage, bool) {
 	var end struct {
 		Message struct {
 			Role  string `json:"role"`
 			Usage struct {
-				Cost struct {
+				Input       float64 `json:"input"`
+				Output      float64 `json:"output"`
+				CacheRead   float64 `json:"cacheRead"`
+				CacheWrite  float64 `json:"cacheWrite"`
+				TotalTokens float64 `json:"totalTokens"`
+				Cost        struct {
 					Total float64 `json:"total"`
 				} `json:"cost"`
 			} `json:"usage"`
 		} `json:"message"`
 	}
 	if err := json.Unmarshal(ev, &end); err != nil || end.Message.Role != "assistant" {
-		return 0
+		return Usage{}, false
 	}
-	return end.Message.Usage.Cost.Total
+	u := end.Message.Usage
+	return Usage{Input: int(u.Input), Output: int(u.Output), CacheRead: int(u.CacheRead), CacheWrite: int(u.CacheWrite),
+		TotalTokens: int(u.TotalTokens), Cost: u.Cost.Total}, true
 }
 
 // Observe attaches (or with nil detaches) the run observer.
@@ -143,6 +172,11 @@ type Runtime struct {
 	agents map[string]*ManagedAgent
 	store  *store.Store
 	onExit func(agentID string)
+
+	// OnUsage fires after every assistant message with that message's
+	// token accounting, so the status bar can add it up instead of
+	// rescanning the session file (ADR-0048 ephemeral agent.usage).
+	OnUsage func(agentID string, u Usage)
 
 	// OnState fires on every live-state edge of a managed agent — streaming
 	// on/off, a dialog raised or answered — so the change feed can tell
@@ -214,6 +248,7 @@ func (r *Runtime) Start(agentID, path string) error {
 		store:     r.store,
 		onWaiting: r.OnWaiting,
 		onState:   r.OnState,
+		onUsage:   r.OnUsage,
 		cancel:    cancel,
 		done:      make(chan struct{}),
 		settledCh: closedChan(), // settled until a prompt is accepted
@@ -330,13 +365,17 @@ func (ma *ManagedAgent) pumpEvents() {
 				ma.mu.Unlock()
 			}
 		case "message_end":
-			if c := messageCost(ev); c > 0 {
+			if u, ok := messageUsage(ev); ok {
 				ma.mu.Lock()
-				ma.cost += c
+				ma.cost += u.Cost
 				total := ma.cost
 				o := ma.observer
+				onUsage := ma.onUsage
 				ma.mu.Unlock()
-				if o != nil && o.OnCost != nil {
+				if onUsage != nil && (u.Cost > 0 || u.Input > 0 || u.Output > 0) {
+					onUsage(ma.AgentID, u)
+				}
+				if o != nil && o.OnCost != nil && u.Cost > 0 {
 					o.OnCost(total)
 				}
 			}

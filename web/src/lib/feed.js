@@ -51,6 +51,13 @@ function kick() {
   if (typeof window !== "undefined" && typeof window.__picodeKickHealth === "function") window.__picodeKickHealth();
 }
 
+// While the stream is up the health watch idles at HEALTH_IDLE_MS; any
+// stream error kicks it back to its fast cadence.
+const HEALTH_IDLE_MS = 20000;
+function pace(connectedNow) {
+  if (typeof window !== "undefined" && typeof window.__picodeHealthPace === "function") window.__picodeHealthPace(connectedNow ? HEALTH_IDLE_MS : 0);
+}
+
 // parseChange(data, lastEventId) -> event object or null. Exported for tests.
 export function parseChange(data, lastEventId) {
   let ev = null;
@@ -71,12 +78,14 @@ export function startFeed({ EventSourceImpl, onState } = {}) {
 
   source.onopen = () => {
     connected = true;
+    pace(true);
     const first = !wasOpen;
     wasOpen = true;
     if (onState) onState("open");
     emit({ type: "feed.open", data: { first } });
   };
   source.onerror = () => {
+    pace(false);
     if (connected) {
       connected = false;
       if (onState) onState("down");

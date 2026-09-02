@@ -113,7 +113,7 @@ func ensureChat(r *http.Request, deps Deps, id string) (*rpc.ManagedAgent, error
 		if err := deps.Runtime.Start(id, cwd); err != nil {
 			return nil, err
 		}
-		_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+		_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "managed")
 		select {
 		case <-time.After(600 * time.Millisecond):
 		case <-r.Context().Done():

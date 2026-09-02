@@ -261,7 +261,7 @@ func (deps Deps) startManaged(agent store.Agent) error {
 	if err := deps.Runtime.Start(agent.ID, cwd); err != nil {
 		return fmt.Errorf("start managed: %w", err)
 	}
-	_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+	_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "managed")
 	_ = deps.Store.AppendEvent("agent_managed_started", &agent.ID, &wk.ID, nil)
 	return nil
 }

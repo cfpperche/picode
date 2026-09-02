@@ -117,7 +117,7 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, "start managed: "+err.Error())
 			return
 		}
-		_ = deps.Store.SetAgentRuntime(agentID, store.StatusRunning)
+		_ = deps.Store.SetAgentRuntimeMode(agentID, store.StatusRunning, "managed")
 		_ = deps.Store.AppendEvent("agent_managed_started", &agentID, &wk.ID, nil)
 		writeJSON(w, http.StatusCreated, map[string]any{"mode": modeManaged})
 	}
@@ -331,7 +331,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
-			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
 		}
 		cmd := "/login"
 		if req.Provider != "" {
@@ -390,7 +390,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
-			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
 		}
 		if err := deps.Tmux.SendKeys(r.Context(), name, req.Text, "Enter"); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -425,7 +425,7 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
-			_ = deps.Store.SetAgentRuntime(id, store.StatusRunning)
+			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "managed")
 			select {
 			case <-time.After(600 * time.Millisecond):
 			case <-r.Context().Done():
@@ -627,7 +627,7 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 		name := tmux.SessionName(agent.ID)
 		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
-			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+			_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
 			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})
 			return
 		}
@@ -641,7 +641,7 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return
 		}
-		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+		_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
 		_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
 		writeJSON(w, http.StatusCreated, map[string]any{"running": true, "session": name})
 	}

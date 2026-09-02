@@ -12,12 +12,12 @@ export default function Devices({ hidden }) {
     let on = true;
     const load = () => api("/api/devices").then((d) => { if (on) setList(d || []); }).catch(() => {});
     load();
-    // Presence goes stale silently (a device stops pinging), so a slow poll
-    // stays; the 4 s one is the fallback for when the feed is down.
+    // The server announces device.online / device.offline (its expiry
+    // ticker turns silence into an event); the 4 s poll is the fallback
+    // for when the feed is down.
     const t = setInterval(() => { if (!feedConnected()) load(); }, 4000);
-    const slow = setInterval(load, 30000);
     const unsub = subscribeFeed((ev) => { if (touches(ev, ["device"]) || ev.type === "feed.open") load(); });
-    return () => { on = false; clearInterval(t); clearInterval(slow); unsub(); };
+    return () => { on = false; clearInterval(t); unsub(); };
   }, [hidden]);
 
   const remote = list.filter((d) => !d.host);

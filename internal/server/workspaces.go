@@ -269,7 +269,7 @@ func handleOpen(deps Deps) http.HandlerFunc {
 		// ADR-0006: exclusive run mode — stop managed first.
 		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
-			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+			_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
 			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})
 			return
 		}
@@ -285,7 +285,7 @@ func handleOpen(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return
 		}
-		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusRunning)
+		_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
 		_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
 		writeJSON(w, http.StatusCreated, map[string]any{"running": true, "session": name})
 	}

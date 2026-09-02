@@ -3,7 +3,7 @@ import { api } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
 import { startFeed, subscribeFeed } from "../lib/feed.js";
-import { touches } from "../lib/feedReducers.js";
+import { applyTui, touches } from "../lib/feedReducers.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { normalizeManifests } from "../lib/appPrimitives.js";
 import { needsYou } from "../lib/needsYou.js";
@@ -120,6 +120,7 @@ export default function MobileApp() {
     const d = await api("/api/tui-working?ids=" + encodeURIComponent(interactiveIds.join(",")));
     setTuiWorking(d.working || []);
   }, 3000, interactiveIds.length > 0);
+  useEffect(() => subscribeFeed((ev) => { if (ev.type === "agent.tui") setTuiWorking((cur) => applyTui(cur, ev)); }), []);
 
   const entries = useMemo(() => needsYou({ workspaces, freeAgents, inbox }), [workspaces, freeAgents, inbox]);
   const running = useMemo(() => flatAgents(workspaces, freeAgents).filter((x) => agentState(x.agent, tuiWorking) !== "stopped"), [workspaces, freeAgents, tuiWorking]);

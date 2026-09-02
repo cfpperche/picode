@@ -66,18 +66,23 @@ export function applyFleet(state, ev) {
         freeAgents: freeAgents.filter((a) => a.id !== d.id),
       };
     case "agent.status": {
-      // lastStatus alone cannot say managed vs interactive: a start needs a
-      // refetch; a stop can be applied.
+      // A start carries the mode the server started it in (managed |
+      // interactive); a start without one cannot be applied faithfully.
       const running = d.lastStatus === "running";
+      const mode = running ? d.mode : "stopped";
+      if (running && mode !== "managed" && mode !== "interactive") {
+        return workspaces.some((w) => (w.agents || []).some((a) => a.id === d.id)) || freeAgents.some((a) => a.id === d.id) ? null : state;
+      }
       let found = false;
       const patch = (a) => {
         if (a.id !== d.id) return a;
         found = true;
-        return running ? a : { ...a, running: false, mode: "stopped", streaming: false, waiting: false, dialog: undefined, lastStatus: d.lastStatus };
+        return running
+          ? { ...a, running: true, mode, lastStatus: d.lastStatus }
+          : { ...a, running: false, mode: "stopped", streaming: false, waiting: false, dialog: undefined, lastStatus: d.lastStatus };
       };
       const next = { ...state, workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).map(patch) })), freeAgents: freeAgents.map(patch) };
-      if (!found) return state;
-      return running ? null : next;
+      return found ? next : state;
     }
     case "agent.state": {
       let found = false;
@@ -99,6 +104,38 @@ export function applyFleet(state, ev) {
     default:
       return state;
   }
+}
+
+// applyTui(ids, ev) -> the working-id list after an agent.tui event.
+export function applyTui(ids, ev) {
+  const list = ids || [];
+  const d = ev && ev.data ? ev.data : {};
+  if (ev.type !== "agent.tui" || !d.agentId) return list;
+  const has = list.includes(d.agentId);
+  if (d.working && !has) return [...list, d.agentId];
+  if (!d.working && has) return list.filter((id) => id !== d.agentId);
+  return list;
+}
+
+// applyUsage(bar, u) -> the status bar after one assistant message's
+// usage, the same arithmetic internal/session's scanUsage does over the
+// file: sums for tokens and cost, last totalTokens as the context size,
+// this message's cache hit. null bar (never fetched) stays null.
+export function applyUsage(bar, u) {
+  if (!bar || !u) return bar;
+  const next = { ...bar };
+  next.cost = (bar.cost || 0) + (u.cost || 0);
+  next.input = (bar.input || 0) + (u.input || 0);
+  next.output = (bar.output || 0) + (u.output || 0);
+  next.cacheRead = (bar.cacheRead || 0) + (u.cacheRead || 0);
+  next.cacheWrite = (bar.cacheWrite || 0) + (u.cacheWrite || 0);
+  const denom = (u.input || 0) + (u.cacheRead || 0);
+  if (denom > 0) next.cacheHit = (100 * (u.cacheRead || 0)) / denom;
+  if (u.totalTokens > 0) {
+    next.contextTokens = u.totalTokens;
+    if (bar.contextWindow > 0) next.contextPercent = (100 * u.totalTokens) / bar.contextWindow;
+  }
+  return next;
 }
 
 // applyInbox(items, ev) -> next | null | same. items newest first.

@@ -32,6 +32,7 @@ export function startReconnectWatch({
   let timer = 0;
   let stopped = false;
   let boot = null;
+  let pace = okMs;
 
   async function tick() {
     if (stopped) return;
@@ -60,7 +61,14 @@ export function startReconnectWatch({
         if (onState) onState("down");
       }
     }
-    timer = setTimeout(tick, down ? downMs : okMs);
+    timer = setTimeout(tick, down ? downMs : pace);
+  }
+
+  // setPace: the change feed (ADR-0048) already detects a new binary and
+  // a lost server, so while it is connected the health poll can idle;
+  // any feed error kicks an immediate tick regardless of pace.
+  function setPace(ms) {
+    pace = Math.max(okMs, ms || okMs);
   }
 
   function kick() {
@@ -80,6 +88,7 @@ export function startReconnectWatch({
   tick();
   if (typeof window !== "undefined") {
     window.__picodeKickHealth = kick;
+    window.__picodeHealthPace = setPace;
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", kick);
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", kick);
@@ -89,6 +98,7 @@ export function startReconnectWatch({
     clearTimeout(timer);
     if (typeof window !== "undefined") {
       delete window.__picodeKickHealth;
+      delete window.__picodeHealthPace;
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("online", kick);
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", kick);

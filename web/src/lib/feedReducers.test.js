@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyFleet, applyInbox, applyAutomations, applyRuns, touches } from "./feedReducers.js";
+import { applyFleet, applyInbox, applyAutomations, applyRuns, applyTui, applyUsage, touches } from "./feedReducers.js";
 
 const ws = (id, agents = []) => ({ id, name: id, path: "/" + id, agents });
 const ag = (id, workspaceId, extra = {}) => ({ id, workspaceId, name: id, lastStatus: "never_started", running: false, mode: "stopped", streaming: false, waiting: false, ...extra });
@@ -27,7 +27,11 @@ test("fleet: workspaces and agents are added, updated and removed in place", () 
 
 test("fleet: status and live state", () => {
   const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "managed", streaming: true })])], freeAgents: [], terminals: [] };
-  assert.equal(applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running" } }), null, "a start needs mode → refetch");
+  assert.equal(applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running" } }), null, "a start without mode → refetch");
+  const started = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running", mode: "interactive" } });
+  assert.equal(started.workspaces[0].agents[0].mode, "interactive");
+  assert.equal(started.workspaces[0].agents[0].running, true);
+  assert.equal(applyFleet(s, { type: "agent.status", data: { id: "ghost", lastStatus: "running" } }), s, "unknown agent stays untouched");
   const stopped = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "stopped" } });
   assert.equal(stopped.workspaces[0].agents[0].mode, "stopped");
   assert.equal(stopped.workspaces[0].agents[0].streaming, false);
@@ -86,4 +90,24 @@ test("automations and runs reducers", () => {
   assert.equal(applyRuns(runs, "x", { type: "run.created", data: { id: "r9", automationId: "other" } }), runs);
   assert.equal(touches({ type: "inbox.created" }, ["inbox", "apps"]), true);
   assert.equal(touches({ type: "run.created" }, ["inbox"]), false);
+});
+
+test("tui and usage reducers", () => {
+  let ids = [];
+  ids = applyTui(ids, { type: "agent.tui", data: { agentId: "a", working: true } });
+  ids = applyTui(ids, { type: "agent.tui", data: { agentId: "a", working: true } });
+  assert.deepEqual(ids, ["a"]);
+  ids = applyTui(ids, { type: "agent.tui", data: { agentId: "a", working: false } });
+  assert.deepEqual(ids, []);
+  assert.equal(applyUsage(null, { cost: 1 }), null);
+  const bar = applyUsage({ cost: 0.5, input: 10, cacheRead: 30, contextWindow: 1000, contextPercent: 5 }, { cost: 0.25, input: 20, output: 5, cacheRead: 60, cacheWrite: 1, totalTokens: 400 });
+  assert.equal(bar.cost, 0.75);
+  assert.equal(bar.input, 30);
+  assert.equal(bar.output, 5);
+  assert.equal(bar.cacheRead, 90);
+  assert.equal(bar.cacheHit, 75);
+  assert.equal(bar.contextTokens, 400);
+  assert.equal(bar.contextPercent, 40);
+  const noCtx = applyUsage({ cost: 0 }, { cost: 0.1, input: 1 });
+  assert.equal(noCtx.contextTokens, undefined);
 });
