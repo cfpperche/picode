@@ -48,6 +48,7 @@ What exists:
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
+- **ADR-0053** a pending session resolves at spawn: before minting a fresh `--session-id`, both spawn chokepoints adopt the newest file matching an earlier run's pending id (`store.ResolvePendingAgentSession`), so chat → TUI → chat stays on **one session** instead of minting a competitor each hop; the chat picker unions the cwd bucket with the private dir (fresh sessions were invisible there — an actively-used agent read as "No sessions yet"); and the desktop status bar fetches `/status?agent=<selected>`, so a new agent no longer opens with the workspace's first agent's context/spend/cache. Tested row by row (spawn table + picker table); gap: `Runtime.Start`'s identical adoption branch has no live managed-spawn test.
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0047** Web Push: `internal/push` (stdlib VAPID + RFC 8291), `store` migration 018, `/api/push/*`, `PushPrefs.jsx`; presence-aware (host online → no push); real-device dogfood pending (needs the mkcert cert on the phone; iOS needs Home Screen install).
 - **ADR-0046** one modal primitive: `components/ResponsiveDialog.jsx` (Radix dialog ≥720px, Vaul sheet below, `Alert` for confirms); `.dlg.dlg-sheet` CSS; `lib/dialogPolicy.test.js` refuses raw dialog/drawer imports outside it (allowlist: `Palette`, `Hotkeys`).
@@ -148,6 +149,12 @@ render megabytes.
    workspace create / clone, config PATCH); outbound webhooks fed by the
    log; a fake pi fixture that emits `usage.totalTokens` so the context
    bar can be tested end to end.
+2. **ADR-0053 leftovers** — a live managed-spawn test for
+   `Runtime.Start`'s adoption branch (needs a fake pi RPC fixture; the
+   spawnFlags twin is table-tested); decide whether a chat send that
+   would kill a *working* TUI should confirm first (refused for now —
+   with adoption the loss is one in-flight turn; see the ADR's
+   alternatives).
 2. **Automations** — `pi-automate` only if `/automate`'s fence parsing
    proves flaky. Notify URL, webhook recipes and the gateway hook route
    shipped 2026-09-02.
@@ -284,6 +291,22 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — Session isolation follow-through** (`fix/session-followthrough`):
+  owner filed one bug with three faces on a freshly created agent: the bar
+  opened with another agent's context/spend/cache, the picker said "No
+  sessions yet" after it had chatted, and opening its TUI started a new
+  session (then a chat send killed the TUI's work). Root causes: the picker
+  never saw ADR-0040's private dir (so the lazy `session_path` backfill
+  never fired), every run-mode switch minted a competing `--session-id`,
+  and the desktop `/status` fetch omitted `?agent=` (server falls back to
+  the workspace's first agent). Fix = ADR-0053: adopt-at-spawn + picker
+  union + agent-scoped bar, table-tested; verified in the browser against a
+  scratch instance with a two-agent fixture (mobile's bar bare, alpha's bar
+  showing its own $23.88). Also fixed here: a pre-existing cross-line code
+  span in `www/guide/remote-server.md` broke the Pages build on `main`
+  (`make docs` failed before and after my changes until that span was
+  closed — reproduced on main first, fix committed in this branch).
 
 - **2026-09-02 — Chat follows an automation's turn** (`fix/chat-follows-automation-run`):
   owner: run "Running" but the chat showed nothing. Three causes in the
