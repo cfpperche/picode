@@ -263,6 +263,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — /pair confirms on POST** (`fix/pair-confirm-post`): the
+  iPhone camera prefetched the pairing link, spending the one-time code
+  before Safari opened it ("This link was already used"). GET /pair now
+  renders a one-tap page and only the POST pairs; a browser that already
+  holds a session goes straight in; error copy points at Devices.
 - **2026-09-02 — One pairing QR, tailnet first** (`fix/pair-one-qr`):
   owner scanned two different QRs (Devices and Open on phone) and the LAN
   address did not reach the phone. Devices → Pair a device now opens the

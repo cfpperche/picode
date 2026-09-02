@@ -28,7 +28,8 @@ func registerAuthRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/auth/logout", handleAuthLogout(deps))
 	mux.HandleFunc("PUT /api/auth/mode", handleAuthMode(deps))
 	mux.HandleFunc("POST /api/auth/token/rotate", handleAuthRotate(deps))
-	mux.HandleFunc("GET /pair", handlePair(deps))
+	mux.HandleFunc("GET /pair", handlePairPage(deps))
+	mux.HandleFunc("POST /pair", handlePair(deps))
 }
 
 func handleAuthSession(deps Deps) http.HandlerFunc {
@@ -197,36 +198,70 @@ func handleAuthRotate(deps Deps) http.HandlerFunc {
 	}
 }
 
-// handlePair is the link a QR or a message carries: spend the code, set
-// the cookie, land in the app. Failures are a plain page — a person, not
-// a script, is on the other side.
+const askNewLink = "Ask for a new one on a paired device: Devices → Pair a device."
+
+func appHome(r *http.Request) string {
+	if strings.Contains(strings.ToLower(r.UserAgent()), "mobile") {
+		return "/?mobile=1"
+	}
+	return "/"
+}
+
+// handlePairPage is the link a QR or a message carries. A GET must not
+// spend the code: phones and chat apps prefetch links before the person
+// opens them (an iPhone camera scan did exactly that). So the page asks
+// for one tap, and the POST below does the pairing. A browser that is
+// already paired goes straight in.
+func handlePairPage(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie(auth.CookieName); err == nil && c.Value != "" {
+			if _, err := deps.Store.LookupSession(c.Value); err == nil {
+				http.Redirect(w, r, appHome(r), http.StatusSeeOther)
+				return
+			}
+		}
+		code := strings.TrimSpace(r.URL.Query().Get("code"))
+		if code == "" {
+			pairPage(w, http.StatusBadRequest, "This link is not valid.", "")
+			return
+		}
+		form := `<form method="post" action="/pair"><input type="hidden" name="code" value="` + html.EscapeString(code) + `">` +
+			`<input type="hidden" name="device" value="` + html.EscapeString(strings.TrimSpace(r.URL.Query().Get("device"))) + `">` +
+			`<button type="submit" style="font:inherit;font-weight:600;padding:12px 20px;border-radius:8px;border:0;background:#2f6fed;color:#fff;width:100%%">Pair this device</button></form>`
+		pairPage(w, http.StatusOK, "This link pairs this browser with PiCode on "+html.EscapeString(r.Host)+". It works once.", form)
+	}
+}
+
+// handlePair spends the code (POST from the page above), sets the cookie
+// and lands in the app. Failures are a plain page — a person, not a
+// script, is on the other side.
 func handlePair(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		code := strings.TrimSpace(r.URL.Query().Get("code"))
-		device := strings.TrimSpace(r.URL.Query().Get("device"))
+		if err := r.ParseForm(); err != nil {
+			pairPage(w, http.StatusBadRequest, "This link is not valid.", "")
+			return
+		}
+		code := strings.TrimSpace(r.Form.Get("code"))
+		device := strings.TrimSpace(r.Form.Get("device"))
 		_, err := deps.Auth.Pair(w, r, code, device)
 		switch {
 		case err == nil:
-			next := "/"
-			if strings.Contains(strings.ToLower(r.UserAgent()), "mobile") {
-				next = "/?mobile=1"
-			}
-			http.Redirect(w, r, next, http.StatusSeeOther)
+			http.Redirect(w, r, appHome(r), http.StatusSeeOther)
 		case auth.IsTooMany(err):
-			pairPage(w, http.StatusTooManyRequests, "Too many attempts. Wait ten minutes and open a fresh link.")
+			pairPage(w, http.StatusTooManyRequests, "Too many attempts. Wait ten minutes and open a fresh link.", "")
 		case errors.Is(err, store.ErrPairingUsed):
-			pairPage(w, http.StatusGone, "This link was already used. Ask for a new one from Preferences → Server on a paired device.")
+			pairPage(w, http.StatusGone, "This link was already used. "+askNewLink, "")
 		case errors.Is(err, store.ErrPairingExpired):
-			pairPage(w, http.StatusGone, "This link expired. Ask for a new one from Preferences → Server on a paired device.")
+			pairPage(w, http.StatusGone, "This link expired. "+askNewLink, "")
 		default:
-			pairPage(w, http.StatusBadRequest, "This link is not valid.")
+			pairPage(w, http.StatusBadRequest, "This link is not valid. "+askNewLink, "")
 		}
 	}
 }
 
-func pairPage(w http.ResponseWriter, code int, msg string) {
+func pairPage(w http.ResponseWriter, code int, msg, extra string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	_, _ = fmt.Fprintf(w, `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PiCode</title>
-<body style="font:15px/1.5 system-ui,sans-serif;margin:40px auto;max-width:28em;padding:0 16px;color:#222"><h1 style="font-size:18px">Pairing</h1><p>%s</p></body>`, html.EscapeString(msg))
+<body style="font:15px/1.5 system-ui,sans-serif;margin:40px auto;max-width:28em;padding:0 16px;color:#222"><h1 style="font-size:18px">Pair with PiCode</h1><p>%s</p>%s</body>`, html.EscapeString(msg), extra)
 }
