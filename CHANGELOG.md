@@ -77,6 +77,10 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Mobile Inbox matches the other tabs.** It no longer shows its own
+  "Inbox" title; like Now, Work and More, the tab bar is the chrome and
+  the filters are the sticky head.
+
 - **Mobile in Safari, without the installed web app.** The sticky heads
   (Work, Inbox, and every pushed screen) no longer lose their top under
   the status bar, and the terminal's keys button moved from a floating

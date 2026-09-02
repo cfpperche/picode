@@ -231,7 +231,10 @@
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 8px;
   background: var(--bg-base); border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }
-.m-inbox .ft-title { font-size: 18px; }
+/* The four main tabs share one chrome — the tab bar — so the Inbox
+   shows no title of its own (the section keeps its aria-label); the
+   sticky head is the filters. */
+.m-inbox .ft-head .app-head-icon, .m-inbox .ft-head .ft-title { display: none; }
 .m-inbox .app-head-left { width: 100%; }
 .m-inbox .app-head-right { display: none; }          /* Refresh: pull, reveal and focus already do it */
 .m-inbox .app-search-wrap { flex: 1; }

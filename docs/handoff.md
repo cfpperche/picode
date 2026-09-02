@@ -296,6 +296,10 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Mobile Inbox without a title** (`fix/mobile-inbox-no-title`):
+  owner: the Inbox was the only main tab with a header. CSS hides the
+  AppSurface icon + `.ft-title` under `.m-inbox`; the filters stay as
+  the sticky head; the section keeps its aria-label.
 - **2026-09-02 — Mobile shell in Safari's own tab** (`fix/mobile-safari-headers`):
   owner's iPhone screenshots — heads clipped under the status bar,
   keys button over the TUI. Sticky heads lose the negative margin and
