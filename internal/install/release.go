@@ -1,6 +1,8 @@
 package install
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +25,11 @@ type Release struct {
 	URL      string
 	Asset    string
 	AssetURL string
+	SumsURL  string // the SHA256SUMS asset; "" when the release has none
 }
+
+// SumsAsset is the checksum file release.yml publishes beside the binaries.
+const SumsAsset = "SHA256SUMS"
 
 type ghRelease struct {
 	TagName string `json:"tag_name"`
@@ -108,13 +114,65 @@ func LatestReleaseFor(want string) (Release, error) {
 	}
 	rel := Release{Tag: stripV(g.TagName), URL: g.HTMLURL}
 	for _, a := range g.Assets {
-		if a.Name == want || a.Name == want+".tar.gz" {
+		if a.Name == SumsAsset {
+			rel.SumsURL = a.BrowserDownloadURL
+		}
+		if rel.Asset == "" && (a.Name == want || a.Name == want+".tar.gz") {
 			rel.Asset = a.Name
 			rel.AssetURL = a.BrowserDownloadURL
-			break
 		}
 	}
 	return rel, nil
+}
+
+// Fetch reads a small release asset (the checksum file) into memory.
+func Fetch(url string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "picode")
+	res, err := HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch: %s", res.Status)
+	}
+	return io.ReadAll(io.LimitReader(res.Body, 1<<20))
+}
+
+// VerifySHA256 checks the file at path against the sha256sum-style
+// listing (ADR-0050): "<hex>  <name>" per line, "*name" accepted. An
+// asset missing from the listing is a failure, not a pass.
+func VerifySHA256(path string, sums []byte, asset string) error {
+	want := ""
+	for _, line := range strings.Split(string(sums), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		if strings.TrimPrefix(fields[1], "*") == asset {
+			want = strings.ToLower(fields[0])
+		}
+	}
+	if want == "" {
+		return fmt.Errorf("%s is not listed in %s", asset, SumsAsset)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); got != want {
+		return fmt.Errorf("checksum mismatch for %s: got %s, %s says %s", asset, got[:12], SumsAsset, want[:12])
+	}
+	return nil
 }
 
 // Download writes url to dest (0755).

@@ -1,9 +1,14 @@
 package install
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -61,5 +66,25 @@ func TestLatestReleaseOK(t *testing.T) {
 	rel, err := LatestRelease()
 	if err != nil || rel.Tag != "0.2.0" {
 		t.Fatalf("%+v %v", rel, err)
+	}
+}
+
+func TestVerifySHA256(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "picode-linux-amd64")
+	if err := os.WriteFile(path, []byte("binary bytes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("binary bytes"))
+	good := hex.EncodeToString(sum[:])
+	sums := []byte("deadbeef  picode-darwin-arm64\n" + good + " *picode-linux-amd64\n")
+	if err := VerifySHA256(path, sums, "picode-linux-amd64"); err != nil {
+		t.Fatalf("good: %v", err)
+	}
+	if err := VerifySHA256(path, []byte(strings.Repeat("0", 64)+"  picode-linux-amd64\n"), "picode-linux-amd64"); err == nil || !strings.Contains(err.Error(), "mismatch") {
+		t.Fatalf("tampered: %v", err)
+	}
+	if err := VerifySHA256(path, sums, "picode-windows-amd64.exe"); err == nil || !strings.Contains(err.Error(), "not listed") {
+		t.Fatalf("missing: %v", err)
 	}
 }
