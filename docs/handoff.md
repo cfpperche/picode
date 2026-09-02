@@ -48,7 +48,7 @@ What exists:
 - **ADR-0033** pi-roles v2: `PI_ROLES_AGENT` overlays `.pi/roles/<id>.json` on the workspace file. PiCode sets the env on RPC and TUI start. Amendment: `/roles edit|add` end with a **Save to** select (this agent / workspace) under the env; `/roles clear [agent|workspace]` deletes a whole roles file.
 - **ADR-0039** per-agent session ownership: an Agent's **Search sessions** picker now shows only sessions PiCode has recorded as that agent's own (`agent_sessions` table), not every pi JSONL in the shared cwd bucket. Fresh spawns pre-mint a `--session-id`; resume/fork/clone/adopt/import historize the path they point at. Machine-wide "All sessions" / "Manage sessions" stay unfiltered on purpose.
 - **ADR-0040** per-agent `--session-dir`: every agent spawn (both run modes) also gets its own private `~/.pi/agent/sessions/<agentID>/`, so pi's **own** native "Resume Session" TUI picker — unreachable by ADR-0039's DB filter — is scoped too. Verified live: two agents sharing a cwd, each attached via tmux, each agent's own in-TUI resume overlay shows only its own session. Terminals unaffected (never call `CLIFlags()`). Orphan sweep also now protects any session in `agent_sessions`, not just an agent's *current* pointer.
-- **ADR-0053** a pending session resolves at spawn: before minting a fresh `--session-id`, both spawn chokepoints adopt the newest file matching an earlier run's pending id (`store.ResolvePendingAgentSession`), so chat → TUI → chat stays on **one session** instead of minting a competitor each hop; the chat picker unions the cwd bucket with the private dir (fresh sessions were invisible there — an actively-used agent read as "No sessions yet"); and the desktop status bar fetches `/status?agent=<selected>`, so a new agent no longer opens with the workspace's first agent's context/spend/cache. Tested row by row (spawn table + picker table); gap: `Runtime.Start`'s identical adoption branch has no live managed-spawn test. **Deployed and verified on the owner's machine 2026-09-02** — the owner's "not fixed" report traced to the installed 16:49 binary, which predated these commits.
+- **ADR-0053** a pending session resolves at spawn: before minting a fresh `--session-id`, both spawn chokepoints adopt the newest file matching an earlier run's pending id (`store.ResolvePendingAgentSession`), so chat → TUI → chat stays on **one session** instead of minting a competitor each hop; the chat picker unions the cwd bucket with the private dir (fresh sessions were invisible there — an actively-used agent read as "No sessions yet"); and the desktop status bar fetches `/status?agent=<selected>`, so a new agent no longer opens with the workspace's first agent's context/spend/cache. Tested row by row (spawn table + picker table); gap: `Runtime.Start`'s identical adoption branch has no live managed-spawn test. **Deployed and verified on the owner's machine 2026-09-02** — the owner's "not fixed" report traced to the installed 16:49 binary, which predated these commits. Same-day follow-up: the explicit **+ New** seals pendings before the restart so adoption never overrides it (fix/new-session-fresh-start).
 - **ADR-0041** session observability dashboard: the no-tabs-open main pane now shows spend/activity/fleet stat tiles + spend-by-provider (Today/7d/30d/All), replacing both the bare "No agents yet" copy for that case and the branch's own earlier rejected `HomeView` (workspace/agent list) attempt. `GET /api/sessions/stats` bucket at message granularity via `entryTS`, not file mtime. No chart library; hand-rolled SVG mirrors the `GitGraph.jsx`/`lib/gitgraph.js` split.
 - **ADR-0047** Web Push: `internal/push` (stdlib VAPID + RFC 8291), `store` migration 018, `/api/push/*`, `PushPrefs.jsx`; presence-aware (host online → no push); real-device dogfood pending (needs the mkcert cert on the phone; iOS needs Home Screen install).
 - **ADR-0046** one modal primitive: `components/ResponsiveDialog.jsx` (Radix dialog ≥720px, Vaul sheet below, `Alert` for confirms); `.dlg.dlg-sheet` CSS; `lib/dialogPolicy.test.js` refuses raw dialog/drawer imports outside it (allowlist: `Palette`, `Hotkeys`).
@@ -295,6 +295,25 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — the composer's "+ New" starts a fresh session for real**
+  (`fix/new-session-fresh-start`). The button cleared the pointer and
+  then lost it three ways: the restart spawned in `wk.Path` (free
+  agents: the `ws_free` sentinel → "That folder doesn't exist" — the
+  toast the owner screenshotted), ADR-0053 adoption re-adopted the
+  abandoned thread, and the list's newest-fallback re-selected it.
+  Fixes: `restartSameMode` resolves `store.AgentCwd` (+MkdirAll);
+  `store.SealPendingAgentSessions` closes the adoption window — and
+  moves attribution to the path row, because a plain UPDATE collided
+  with the sibling path row on UNIQUE (agent_id, session_path)
+  (probed live on agente-auto's DB); the list fallback now surfaces
+  only a pointer the loop itself healed; the web pane clears
+  optimistically. Decision table pinned (resume→list, New stopped→
+  fresh, next spawn mints fresh ≠ abandoned id, free agent + TUI open,
+  free agent + chat running). Deployed and verified live on
+  agente-auto: chat clears, no toast, old sessions still listed,
+  tmux respawned in the agent's own folder; overlayAudit ok.
+  visual-review: PASS (qa2-before/qa2-after-stable.png, card 5/5).
 
 - **2026-09-02 — Mobile Inbox without a title** (`fix/mobile-inbox-no-title`):
   owner: the Inbox was the only main tab with a header. CSS hides the

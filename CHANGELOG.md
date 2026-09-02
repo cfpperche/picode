@@ -13,6 +13,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The composer's "+ New" now actually starts a fresh session.** It
+  cleared the agent's session pointer and then lost it three ways: the
+  restart spawned in the workspace's path instead of the agent's own
+  folder (free agents died with "That folder doesn't exist"), the
+  spawn re-adopted the thread just abandoned (the pending session row
+  survived sealing because promoting it collided with the sibling path
+  row on UNIQUE (agent_id, session_path)), and the session list
+  re-selected the abandoned thread as current. All three are fixed —
+  adoption (ADR-0053) now only heals a genuinely lost pointer — so
+  "+ New" clears the chat and the next message opens a new session, on
+  workspace and free agents alike, with the old thread still resumable
+  from the picker.
 - **A new agent no longer inherits another agent's session numbers
   (ADR-0053).** The composer status bar — context, tokens, cache hit,
   spend, and the Sessions chip's cost with it — now follows the
