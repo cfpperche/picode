@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-	parseToken,
-	rejectUnauthorizedFor,
+	MAX_BODY,
+	MAX_TITLE,
 	agentIdentity,
 	buildAskPayload,
 	buildNotifyPayload,
-	MAX_BODY,
-	MAX_TITLE,
 	parseServerJson,
+	parseToken,
+	rejectUnauthorizedFor,
 	resolveDataDir,
+	resolveServerUrl,
+	resolveToken,
 } from "../src/logic.ts";
 
 test("resolveDataDir prefers PICODE_DATA, falls back to ~/.picode", () => {
@@ -71,4 +73,22 @@ test("rejectUnauthorizedFor trusts nothing but loopback", () => {
 	assert.equal(rejectUnauthorizedFor("https://127.0.0.1:8445"), false);
 	assert.equal(rejectUnauthorizedFor("https://box.tail.ts.net:8445"), true);
 	assert.equal(rejectUnauthorizedFor("nonsense"), true);
+});
+
+test("resolveServerUrl: PICODE_URL wins, else server.json", () => {
+	const good = { url: "https://localhost:8445" };
+	assert.deepEqual(resolveServerUrl({ PICODE_URL: "https://box.tail.ts.net:8445/" }, JSON.stringify(good)), { ok: true, url: "https://box.tail.ts.net:8445" });
+	assert.deepEqual(resolveServerUrl({}, JSON.stringify(good)), { ok: true, url: "https://localhost:8445" });
+	assert.equal(resolveServerUrl({}, null).ok, false);
+	assert.equal(resolveServerUrl({ PICODE_URL: "box:8445" }, null).ok, false);
+	assert.equal(resolveServerUrl({ PICODE_URL: "https://box:8445/api" }, null).ok, false);
+});
+
+test("resolveToken: PICODE_TOKEN wins over the file", () => {
+	const file = "a".repeat(64);
+	const env = "b".repeat(64);
+	assert.equal(resolveToken({ PICODE_TOKEN: env }, file), env);
+	assert.equal(resolveToken({}, file), file);
+	assert.equal(resolveToken({ PICODE_TOKEN: "nope" }, file), file);
+	assert.equal(resolveToken({}, null), "");
 });

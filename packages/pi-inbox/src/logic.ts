@@ -43,6 +43,25 @@ export function parseToken(text: string | null | undefined): string {
 }
 
 /**
+ * Where to post (ADR-0050): PICODE_URL names a PiCode on another
+ * machine and wins; else server.json (text may be null when absent).
+ */
+export function resolveServerUrl(env: Record<string, string | undefined>, serverJson: string | null): ServerInfo {
+	const explicit = (env.PICODE_URL || "").trim();
+	if (explicit) {
+		if (!/^https?:\/\/[^\s/]+\/?$/.test(explicit)) return { ok: false, error: "PICODE_URL must be an origin like https://box:8445" };
+		return { ok: true, url: explicit.replace(/\/+$/, "") };
+	}
+	if (serverJson === null) return { ok: false, error: "no server.json" };
+	return parseServerJson(serverJson);
+}
+
+/** The bearer: PICODE_TOKEN (remote) wins over the token file's text. */
+export function resolveToken(env: Record<string, string | undefined>, fileText: string | null | undefined): string {
+	return parseToken(env.PICODE_TOKEN) || parseToken(fileText);
+}
+
+/**
  * TLS policy for the one request: a self-signed / mkcert cert on
  * loopback is accepted; anything else must present a trusted chain.
  */

@@ -18,38 +18,39 @@ import { Type } from "typebox";
 import {
 	buildAskPayload,
 	buildNotifyPayload,
-	parseServerJson,
-	parseToken,
 	rejectUnauthorizedFor,
 	resolveDataDir,
-	type InboxPayload,
+	resolveServerUrl,
+	resolveToken,
 } from "../src/logic.ts";
 
 const UNREACHABLE =
 	"PiCode is not reachable (no server.json or connection refused) — could not file to the inbox. " +
 	"Proceed without human input or surface this in your final message.";
 
-/** Re-read server.json every call: the port can rebind at runtime. */
+/** Re-read server.json every call: the port can rebind at runtime. PICODE_URL wins (ADR-0050). */
 function serverUrl(): string | null {
 	const dir = resolveDataDir(process.env, homedir());
-	let text: string;
+	let text: string | null = null;
 	try {
 		text = readFileSync(join(dir, "server.json"), "utf8");
 	} catch {
-		return null;
+		text = null;
 	}
-	const info = parseServerJson(text);
+	const info = resolveServerUrl(process.env, text);
 	return info.ok ? info.url : null;
 }
 
-/** The install token (ADR-0049), re-read per call so a rotation lands. */
+/** The bearer (ADR-0049), re-read per call so a rotation lands; PICODE_TOKEN wins. */
 function installToken(): string {
 	const dir = resolveDataDir(process.env, homedir());
+	let text: string | null = null;
 	try {
-		return parseToken(readFileSync(join(dir, "token"), "utf8"));
+		text = readFileSync(join(dir, "token"), "utf8");
 	} catch {
-		return "";
+		text = null;
 	}
+	return resolveToken(process.env, text);
 }
 
 // node:https directly (zero deps — an extension resolves modules from its

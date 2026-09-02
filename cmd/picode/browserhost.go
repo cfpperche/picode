@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cfpperche/picode/internal/browserhost"
 )
@@ -16,7 +19,36 @@ func runBrowserHost() {
 	}
 }
 
-func runExtensionInstall() {
+func runExtensionInstall(args []string) {
+	fs := flag.NewFlagSet("extension-install", flag.ExitOnError)
+	server := fs.String("server", "", "PiCode on another machine, e.g. https://box.tailxxxx.ts.net:8445 (ADR-0050)")
+	token := fs.String("token", "", "that server's install token (picode token, on the server); prompted when --server is set and this is empty")
+	ca := fs.String("ca", "", "PEM file to trust for that server (mkcert rootCA.pem copied from it); optional")
+	if err := fs.Parse(args); err != nil {
+		log.Fatalf("extension-install: %v", err)
+	}
+	if *server != "" {
+		tok := strings.TrimSpace(*token)
+		if tok == "" {
+			fmt.Print("Install token for " + *server + " (echoes): ")
+			line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			tok = strings.TrimSpace(line)
+		}
+		if tok == "" {
+			log.Fatalf("extension-install: a remote server needs its install token")
+		}
+		if *ca != "" {
+			if abs, err := filepath.Abs(*ca); err == nil {
+				*ca = abs
+			}
+		}
+		path, err := browserhost.WriteRemote(browserhost.Remote{URL: *server, Token: tok, CAFile: *ca})
+		if err != nil {
+			log.Fatalf("extension-install: %v", err)
+		}
+		fmt.Println("Remote PiCode recorded in " + path)
+		fmt.Println("  the extension and scripts on this machine will talk to " + strings.TrimRight(*server, "/"))
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("extension-install: %v", err)

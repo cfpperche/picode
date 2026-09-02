@@ -3,10 +3,13 @@ package browserhost
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,12 +23,11 @@ type Client struct {
 	HTTP    *http.Client
 }
 
-// NewClient reads ~/.picode/server.json (or PICODE_DATA) on every call.
+// NewClient reads <data>/remote.json, else server.json, on every call.
+// HTTP is nil: the client is picked per request from the resolved URL
+// (see clientFor).
 func NewClient() *Client {
-	return &Client{
-		Resolve: ReadServerURL,
-		HTTP:    insecureClient(),
-	}
+	return &Client{Resolve: ReadServerURL}
 }
 
 func insecureClient() *http.Client {
@@ -35,6 +37,87 @@ func insecureClient() *http.Client {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		},
 	}
+}
+
+// Remote is <data>/remote.json (ADR-0050): a PiCode on another machine.
+// When present it wins over server.json and the local token, which
+// describe a daemon that is not there.
+type Remote struct {
+	URL    string `json:"url"`
+	Token  string `json:"token"`
+	CAFile string `json:"caFile,omitempty"` // PEM to trust for that server (mkcert root)
+}
+
+// RemoteFile is the file name inside the data dir.
+const RemoteFile = "remote.json"
+
+// ReadRemote parses the remote file; ok is false when absent or unusable.
+func ReadRemote() (Remote, bool) {
+	b, err := os.ReadFile(filepath.Join(dataDir(), RemoteFile))
+	if err != nil {
+		return Remote{}, false
+	}
+	var rc Remote
+	if json.Unmarshal(b, &rc) != nil || !strings.HasPrefix(rc.URL, "http") {
+		return Remote{}, false
+	}
+	rc.URL = strings.TrimRight(strings.TrimSpace(rc.URL), "/")
+	rc.Token = strings.TrimSpace(rc.Token)
+	return rc, true
+}
+
+// WriteRemote records a remote PiCode (0600: it holds the token).
+func WriteRemote(rc Remote) (string, error) {
+	rc.URL = strings.TrimRight(strings.TrimSpace(rc.URL), "/")
+	if !strings.HasPrefix(rc.URL, "https://") && !strings.HasPrefix(rc.URL, "http://") {
+		return "", fmt.Errorf("server must be an http(s) URL")
+	}
+	raw, err := json.MarshalIndent(rc, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(dataDir(), RemoteFile)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	return path, os.WriteFile(path, append(raw, '\n'), 0o600)
+}
+
+// VerifyTLSFor: a self-signed or mkcert cert is accepted for loopback and
+// for IP literals (the LAN/tailnet addresses mkcert covers); a name must
+// present a chain the system — or remote.json's caFile — trusts.
+func VerifyTLSFor(base string) bool {
+	u, err := url.Parse(base)
+	if err != nil {
+		return true
+	}
+	h := u.Hostname()
+	if h == "localhost" || net.ParseIP(h) != nil {
+		return false
+	}
+	return true
+}
+
+// clientFor picks the HTTP client for a resolved base URL.
+func (c *Client) clientFor(base string) *http.Client {
+	if c != nil && c.HTTP != nil {
+		return c.HTTP
+	}
+	if !VerifyTLSFor(base) {
+		return insecureClient()
+	}
+	cfg := &tls.Config{}
+	if rc, ok := ReadRemote(); ok && rc.CAFile != "" {
+		if pem, err := os.ReadFile(rc.CAFile); err == nil {
+			pool, _ := x509.SystemCertPool()
+			if pool == nil {
+				pool = x509.NewCertPool()
+			}
+			pool.AppendCertsFromPEM(pem)
+			cfg.RootCAs = pool
+		}
+	}
+	return &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{TLSClientConfig: cfg}}
 }
 
 // Handle is the native-messaging Handler.
@@ -143,7 +226,7 @@ func (c *Client) get(url string, dest any) error {
 		return err
 	}
 	authorize(req)
-	res, err := c.http().Do(req)
+	res, err := c.clientFor(url).Do(req)
 	if err != nil {
 		return fmt.Errorf("PiCode is not running")
 	}
@@ -162,7 +245,7 @@ func (c *Client) post(url string, payload any, dest any) (int, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	authorize(req)
-	res, err := c.http().Do(req)
+	res, err := c.clientFor(url).Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("PiCode is not running")
 	}
@@ -196,13 +279,6 @@ func decode(res *http.Response, dest any) error {
 	return json.Unmarshal(b, dest)
 }
 
-func (c *Client) http() *http.Client {
-	if c != nil && c.HTTP != nil {
-		return c.HTTP
-	}
-	return insecureClient()
-}
-
 func (c *Client) noteDevice(base, id string) {
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -222,10 +298,15 @@ func down(req Request, err error) Reply {
 	return Reply{OK: false, Type: req.Type, ID: req.ID, Error: msg, Code: "picode_down"}
 }
 
-// ReadServerURL parses <data>/server.json. The file is rewritten on every
-// bind, so callers should not cache it across requests.
-// authorize adds the install token (<data>/token, ADR-0049) when present.
+// authorize adds the bearer: remote.json's token when a remote is
+// configured, else the install token (<data>/token, ADR-0049).
 func authorize(req *http.Request) {
+	if rc, ok := ReadRemote(); ok {
+		if rc.Token != "" {
+			req.Header.Set("Authorization", "Bearer "+rc.Token)
+		}
+		return
+	}
 	b, err := os.ReadFile(filepath.Join(dataDir(), "token"))
 	if err != nil {
 		return
@@ -235,7 +316,13 @@ func authorize(req *http.Request) {
 	}
 }
 
+// ReadServerURL is remote.json's URL when present, else <data>/server.json.
+// server.json is rewritten on every bind, so callers should not cache it
+// across requests.
 func ReadServerURL() (string, error) {
+	if rc, ok := ReadRemote(); ok {
+		return rc.URL, nil
+	}
 	path := filepath.Join(dataDir(), "server.json")
 	b, err := os.ReadFile(path)
 	if err != nil {
