@@ -1,8 +1,19 @@
 package share
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"github.com/cfpperche/picode/internal/tlsutil"
+	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestUsablePhoneIP(t *testing.T) {
@@ -69,5 +80,41 @@ func TestDiagnoseLoopbackBindFails(t *testing.T) {
 		if c.ID == "bind" && c.OK {
 			t.Fatal("loopback bind should fail")
 		}
+	}
+}
+
+func TestPublicURLOnTheTailnetNameIsTrusted(t *testing.T) {
+	dir := t.TempDir()
+	name := "box.tail1234.ts.net"
+	// A leaf for the name, where the daemon keeps the Tailscale one.
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: name}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().AddDate(0, 3, 0), DNSNames: []string{name}}
+	der, _ := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	keyDER, _ := x509.MarshalECPrivateKey(key)
+	writePEMFile := func(path, typ string, b []byte) {
+		f, _ := os.Create(path)
+		_ = pem.Encode(f, &pem.Block{Type: typ, Bytes: b})
+		_ = f.Close()
+	}
+	writePEMFile(filepath.Join(dir, tlsutil.TailscaleCertFile), "CERTIFICATE", der)
+	writePEMFile(filepath.Join(dir, tlsutil.TailscaleKeyFile), "EC PRIVATE KEY", keyDER)
+
+	rep := Diagnose(Input{DataDir: dir, Port: 8445, BindHost: "0.0.0.0", PublicURL: "https://" + name + ":8445"})
+	if rep.URL != "https://"+name+":8445/" || !rep.Trusted {
+		t.Fatalf("url %q trusted %v", rep.URL, rep.Trusted)
+	}
+	var pub *Target
+	for i := range rep.Targets {
+		if rep.Targets[i].Kind == "public" {
+			pub = &rep.Targets[i]
+		}
+	}
+	if pub == nil || !pub.Trusted {
+		t.Fatalf("public target %+v", pub)
+	}
+	// Another public host is not trusted by that leaf.
+	rep = Diagnose(Input{DataDir: dir, Port: 8445, BindHost: "0.0.0.0", PublicURL: "https://other.example:8445"})
+	if rep.Trusted {
+		t.Fatal("a leaf for the tailnet name must not vouch for another host")
 	}
 }

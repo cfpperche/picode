@@ -176,10 +176,16 @@ func Diagnose(in Input) Report {
 		if u, err := url.Parse(pub); err == nil && u.Host != "" {
 			host = u.Host
 		}
-		rep.Targets = append(rep.Targets, Target{
-			URL: pub + "/", Kind: "public", Addr: host, OnCert: true,
-			Note: "The address you configured for this server",
-		})
+		t := Target{URL: pub + "/", Kind: "public", Addr: host, OnCert: true, Note: "The address you configured for this server"}
+		// A public URL on the tailnet name is served with the Tailscale
+		// leaf: nothing to install on the phone.
+		if u, err := url.Parse(pub); err == nil && !in.Insecure {
+			if st := tlsutil.TailscaleLeaf(in.DataDir, u.Hostname()); st.Present && st.Covers {
+				t.Trusted = true
+				t.Note = "The address you configured — nothing to install"
+			}
+		}
+		rep.Targets = append(rep.Targets, t)
 		rep.URLs = append(rep.URLs, pub+"/")
 		anyCovered = true
 	}
@@ -244,8 +250,8 @@ func Diagnose(in Input) Report {
 	pick(func(Target) bool { return true })
 
 	for _, t := range rep.Targets {
-		if t.URL == rep.URL {
-			rep.Trusted = t.Trusted
+		if t.URL == rep.URL && t.Trusted {
+			rep.Trusted = true // the same URL may be listed twice (public + tailnet name)
 		}
 	}
 	rep.Ready = httpsOK && bindOK && reachOK && (mkcertOK || rep.Trusted) && rep.URL != ""
