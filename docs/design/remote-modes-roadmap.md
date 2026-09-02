@@ -48,7 +48,17 @@ served next to the mkcert leaf by the name the client asks for
 drawer lists the tailnet name as a trusted target that skips the trust
 page. Left for later: reconnect tolerating one missed ping on mobile.
 
-## Track C — shared tailnet server
+## Track C — shared tailnet server (shipped 2026-09-02, ADR-0051)
+
+`internal/gateway` (identity from `tailscale whois`, login → Linux user
+map in `/etc/picode/gateway.json`, per-request backend from the member's
+`server.json`, auto-pair on first visit, header hygiene, SSE/WebSocket
+pass-through); `picode gateway [install|status]`, `picode users
+add|remove|list`, `picode provision --user U --shared`; member daemons
+configured by environment (`PICODE_AUTH_MODE`, `PICODE_PUBLIC_URL` join
+the DB > env > default rule). Original sketch follows.
+
+### Track C — original sketch
 
 `picode provision --user` creates a per-user daemon (`127.0.0.1` or a
 unix socket, `auth.mode=all`); `picode gateway` (system unit, tailnet

@@ -47,6 +47,15 @@ to the `[Unreleased]` section. The repository's official language is English
   `sudo tailscale set --operator=$USER`; `picode provision --dry-run`
   says so).
 
+- **Several people can share one box (ADR-0051).** `sudo picode gateway
+  install` puts a front door on the tailnet; `sudo picode provision
+  --user alice --shared` gives Alice her own PiCode as her own Linux
+  user; `sudo picode users add alice@example.com alice` lets her in.
+  She opens `https://<box name>`, taps **Pair this iPhone** once per
+  device, and is in her own PiCode — her agents, files, credentials and
+  devices, nobody else's. No password: the tailnet already knows who she
+  is. Guide: `www/guide/shared-server.md`.
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as

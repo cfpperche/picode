@@ -105,6 +105,8 @@ export NODE_EXTRA_CA_CERTS=/path/to/rootCA.pem   # Node must trust the server's 
 
 Agents the server itself runs need nothing: they inherit `PICODE_DATA`.
 
+Several people on one box? See [Share one server](./shared-server).
+
 ## What stays on the server
 
 - **Reveal**, the **folder picker**, **llama.cpp** and **`gh`** act on the

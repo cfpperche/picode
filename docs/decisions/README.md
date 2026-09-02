@@ -55,3 +55,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0048](0048-change-feed.md) | The change feed — every mutation is a durable event, served over SSE with replay; polls become fallback | accepted, amends 0037 and 0047 |
 | [0049](0049-auth-pairing.md) | Authentication — paired devices, install token, Host/Origin gate; modes off / remote / all | accepted, supersedes 0007 on "no app-level auth" |
 | [0050](0050-tailnet-server.md) | A PiCode you own on a tailnet server — host/public URL settings, env drop-in, verified updates, provision server checks, off-box clients (`remote.json`); `tailscale cert` by SNI deferred to B.2 | accepted (B.1 + B.2), amends 0007, 0018/0020, 0043, 0049 |
+| [0051](0051-shared-tailnet-server.md) | Shared tailnet box — a daemon per Linux user behind `picode gateway`, identity from `tailscale whois`, `/etc/picode/gateway.json`, `provision --shared` | accepted, amends 0049, 0050, 0020 |

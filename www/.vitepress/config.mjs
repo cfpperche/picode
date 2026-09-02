@@ -34,6 +34,7 @@ export default defineConfig({
           { text: "Automations", link: "/guide/automations" },
           { text: "Security and pairing", link: "/guide/security" },
           { text: "On a server", link: "/guide/remote-server" },
+          { text: "Share one server", link: "/guide/shared-server" },
           { text: "On your phone", link: "/guide/mobile" },
         ],
       },

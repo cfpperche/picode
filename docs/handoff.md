@@ -141,7 +141,7 @@ render megabytes.
 
 ## Next up
 
-1. **Remote modes, Track C (ADR-0051)** — shared tailnet server: one daemon per Linux user (`picode provision --user`, loopback bind, `auth.mode=all`) behind `picode gateway` routing by Tailscale identity. Then D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`. Owner's box: `sudo tailscale set --operator=goat` once, so the tailnet certificate issues (see `provision --dry-run`, row `tailnet-cert`).
+1. **Remote modes, Track D (ADR-0052)** — public access: OIDC (Google/GitHub, stdlib) in the gateway for logins that are not on the tailnet, rate limits on `/pair` and the callback, security headers, `X-Forwarded-*` trusted only from a configured proxy CIDR, external TLS (Caddy / Cloudflare Tunnel recipes). Roadmap: `docs/design/remote-modes-roadmap.md`. **Track C acceptance still owed on a real second account** (needs the owner's sudo): `sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`.
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
@@ -286,6 +286,21 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Track C, shared tailnet box (ADR-0051)**
+  (`feat/shared-server`): `internal/gateway` — config (`/etc/picode/
+  gateway.json`, login → Linux user), identity via `tailscale whois`
+  (60 s cache, non-tailnet refused), backend from the member's own
+  `server.json`/`token`, reverse proxy with header hygiene and
+  `FlushInterval: -1`, first-visit auto-pair (mint with the daemon's
+  token, redirect to `/pair`), branded 403/503/502 pages. CLI: `picode
+  gateway [install|status] [--insecure-listen]`, `picode users`,
+  `provision --shared` (`MemberSteps`: account, linger, binary, env
+  drop-in, member's own pass via `runuser`, loopback health). Daemon
+  side: `PICODE_AUTH_MODE` and `PICODE_PUBLIC_URL` env fallbacks;
+  `share.Diagnose` treats a proxied daemon as trusted; no trust listener
+  when insecure. Scratch seams: `PICODE_GATEWAY_FAKE_IDENTITY` and
+  `PICODE_GATEWAY_FAKE_HOMES`, only with a loopback plain listener.
+  Not yet done: the two-real-accounts acceptance run (owner's sudo).
 - **2026-09-02 — GitHub Pages frozen since 2026-08-29**
   (`fix/pages-dead-links`). VitePress 1.6.4 fails the build on a bare
   `https://localhost:8445` in `www/guide/getting-started.md` (dead-link
