@@ -174,6 +174,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **New terminal no longer duplicates its sidebar card.** `createTerminal`
+  appended the freshly created terminal to state unconditionally; when the
+  change-feed's own `terminal.created` event (already deduplicated) landed
+  first, the later append added a second row with the same id. The append
+  now skips if the id is already present, matching the pattern
+  `openTermTab` already used.
 - **Inbox rows open on the first tap on iPhone.** The hover-only row
   actions made iOS treat the first tap as a hover; hover rules now apply
   only where a pointer can hover, and touch uses the swipe.

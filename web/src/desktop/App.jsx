@@ -1297,7 +1297,7 @@ export default function App() {
     try {
       const body = wsId ? JSON.stringify({ workspaceId: wsId }) : "{}";
       const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body });
-      setTerminals((cur) => [...cur, page]);
+      setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
       await openTermTab(page.id);
     } catch (err) { toastError(err); }
   }
