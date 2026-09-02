@@ -212,7 +212,7 @@ Never exercised, because this machine was already past them:
 ## Backlog
 
 - llama.cpp: in-app installer / start router, SSE progress + cancel, delete `.gguf`, Ollama/vLLM (`models.json`).
-- Mobile phase 2 (ADR-0047) **proved on the owner's iPhone**: subscribe, `Send test`, a blocking inbox item with the desktop closed → push → tap → Accept → follow-up queued for the agent. Phase 3 shipped (pull-to-refresh, swipe, Changes). Not yet exercised on a real device: the live-dialog push path (needs an extension prompt with the desktop closed), swipe and pull on real touch.
+- Mobile phases 2 and 3 **fully proved on the owner's iPhone**, real device throughout — this line closes the loop: subscribe, `Send test`, a blocking inbox item with the desktop closed → push → tap → Accept → follow-up queued for the agent (ADR-0047); the live-dialog push path (an extension prompt with the desktop closed) confirmed too; pull-to-refresh and the Inbox row swipe confirmed on real touch (ADR-0044 phase 3). Nothing left to validate here — the mobile shell's three phases are done end to end.
 - `/tree` in-place leaf jump needs pi RPC `navigate_tree` ([pi#8645](https://github.com/earendil-works/pi/issues/8645)); today click forks.
 - Cold start parses the whole session JSONL (10 s on a 129 MB session) — filed upstream: [pi#8843](https://github.com/earendil-works/pi/issues/8843) (lazy resume / load checkpoint).
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
