@@ -19,8 +19,13 @@ release.
 
 `picode provision` (ADR-0020) converges a machine on all of that at once:
 `[boot] systemd=true` in `/etc/wsl.conf`, lingering so the unit starts
-without a login, a valid certificate, the unit itself, and `/api/health` as
-proof. Every step is check → fix → verify, and a step that finds nothing to
+without a login, a valid certificate, the unit itself, `/api/health` as
+proof, and — for a server (ADR-0050) — `pi` on PATH, Tailscale up, and
+whether other machines can reach the daemon. `--dry-run` is the doctor.
+`picode install --env KEY=VALUE` keeps the service environment in
+`~/.config/systemd/user/picode.service.d/env.conf`, which deploys and
+updates leave alone; `picode update` verifies the release's `SHA256SUMS`
+before it restarts on the new binary. Every step is check → fix → verify, and a step that finds nothing to
 do changes nothing at all — `/etc/wsl.conf` is merged line by line after a
 backup, so a file that already satisfies the check comes back byte for byte
 identical. `--dry-run` reports the plan; `--json` feeds it to a caller. Root
@@ -107,7 +112,7 @@ stay on their own routes.
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
 | `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
-| `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server port, **backup** (ADR-0014); tabs `#/preferences/<section>` |
+| `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** per vault account (ADR-0031) |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
@@ -551,10 +556,15 @@ store, never around it.
   `scripts/setup-cert.sh` (SANs: localhost + LAN + tailscale; CA exported to
   the Windows trust store on WSL) or a generated self-signed cert as the
   zero-config bootstrap. `PICODE_INSECURE=1` disables TLS (dev only).
-- **Port**: default range `8445-8455`, first free port wins; **editable in
-  the Settings UI at runtime** (graceful rebind: bind-new-first, revert on
-  failure — see ADR-0007). Precedence: UI/DB > `PICODE_PORT` env > default.
-  Discovery: `~/.picode/server.json`.
+- **Port and bind**: default range `8445-8455` on `0.0.0.0`, first free
+  port wins; both **editable in the Settings UI at runtime** (graceful
+  rebind: bind-new-first, revert on failure — ADR-0007, ADR-0050).
+  Precedence: UI/DB > `PICODE_PORT`/`PICODE_HOST` env > default. A
+  **public URL** setting (advisory, no env) is the origin other machines
+  use: pairing links, the phone drawer and `server.json` carry it.
+  Discovery: `~/.picode/server.json` (`url` for clients on this machine,
+  `bind`, `publicUrl`); a client on another machine reads
+  `~/.picode/remote.json` (`url`, `token`, `caFile`) instead.
 - **Trust boundary**: a paired device (ADR-0049), no longer a network.
   `internal/auth` gates every `/api` and `/ws` request: principal from
   the `picode_session` cookie or `Authorization: Bearer` (install token
@@ -573,7 +583,9 @@ current tab (URL, title, selection, optional JPEG) to an existing agent.
 It is not an App (ADR-0036) and not a pi package (ADR-0010). Transport is
 Chrome native messaging to the same product binary (`picode` on
 Linux/macOS; `picode-desktop` on Windows/WSL), which re-reads
-`server.json` and calls `GET/POST /api/extension/*`. Isolated Chromium
+`server.json` — or `remote.json` when the PiCode is on another machine
+(ADR-0050) — and calls `GET/POST /api/extension/*` with the install
+token. Isolated Chromium
 (`agent_browser`) stays the automation engine. v1 is Chrome-only and
 sensor-only; actuating the page is a later track.
 

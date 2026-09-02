@@ -26,6 +26,21 @@ to the `[Unreleased]` section. The repository's official language is English
   local PiCode. Guide: `www/guide/security.md`. This is the first step
   of the remote-modes roadmap (`docs/design/remote-modes-roadmap.md`).
 
+- **PiCode on a server you own (ADR-0050).** Preferences → Server gained
+  **Reach this server**: where PiCode binds (all interfaces, this
+  machine only, or one address such as the tailnet) and the **public
+  URL** other machines use — PiCode suggests the tailnet name and IP.
+  Pairing links, `server.json` and the phone drawer use it. `picode
+  install --env KEY=VALUE` records the service environment in a systemd
+  drop-in that updates keep; `picode update` now verifies the release's
+  `SHA256SUMS` before installing; `picode provision --dry-run` also
+  reports `pi` on PATH, Tailscale, and whether other machines can reach
+  this daemon. The Chrome extension on another PC and `pi-inbox` on a
+  laptop can point at a remote PiCode (`picode extension-install
+  --server --token`, `PICODE_URL`/`PICODE_TOKEN`). The install token is
+  now a device on the Devices page, so a connected Chrome extension shows
+  there. Guide: `www/guide/remote-server.md`.
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as

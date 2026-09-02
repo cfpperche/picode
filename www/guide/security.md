@@ -34,6 +34,10 @@ PiCode: it prints a link.
 
 ## Scripts, the Chrome extension and pi tools
 
+Running PiCode on another machine? [On a server](./remote-server) covers
+the public URL, the extension from a second PC and `pi-inbox` over the
+tailnet.
+
 They read the install token from `~/.picode/token` and send it as
 `Authorization: Bearer …`. Rotate it with `picode token rotate` or from
 Preferences → Server, where the pairing rule also lives. Automation webhooks keep their own secret and never

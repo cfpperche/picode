@@ -141,7 +141,7 @@ render megabytes.
 
 ## Next up
 
-1. **Remote modes, Track B (ADR-0050)** — `tailscale cert`, public URL / bind settings, drop-in env, `picode doctor`, off-box clients, release install path. Then C (shared: per-user daemons + gateway) and D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`.
+1. **Remote modes, Track B.2 (ADR-0050 amendment)** — `tailscale cert` for the MagicDNS name served by SNI next to the mkcert leaf (`tlsutil.LiveConfig` picks by `ClientHelloInfo.ServerName`), renewed in-process; then the phone needs no CA on the tailnet name. Dogfood B.1 on a real box first. Then C (shared: per-user daemons + gateway) and D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`.
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
@@ -286,6 +286,19 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Track B.1, a PiCode on a tailnet server (ADR-0050)**
+  (`feat/tailnet-server`): `server.host` and `server.public_url` are
+  settings with routes (`PUT /api/server/host` rebinds, `/public-url` is
+  advisory) and a Reach-this-server block in Preferences → Server that
+  suggests the tailnet name/IP; `server.json` gained `bind` and
+  `publicUrl`; `picode install --env` writes a systemd drop-in; `picode
+  update` verifies `SHA256SUMS`; `provision --dry-run` gained pi/tailnet/
+  reach rows (no `doctor` verb — same engine); `remote.json` +
+  `extension-install --server --token --ca` point the native host at
+  another machine, `pi-inbox` reads `PICODE_URL`/`PICODE_TOKEN`. Bug fixed
+  on the way: the install token is now a real token session, so the
+  extension shows on Devices. Guide: `www/guide/remote-server.md`.
+  Deferred to B.2: `tailscale cert` by SNI (see ADR-0050).
 - **2026-09-02 — Sidebar no longer duplicates a just-created terminal**
   (`feat/zai-reset-and-terminal-dup`). Owner screenshot: two identical
   "Terminal 4" cards after clicking "+". Root cause: `store.CreateTerminalIn`

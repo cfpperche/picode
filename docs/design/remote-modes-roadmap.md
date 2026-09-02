@@ -27,15 +27,24 @@ pairing link.
 
 ## Track B — tailnet server, one owner
 
-`tailscale cert` issuer in `internal/tlsutil` with in-process renewal;
-`server.public_url` and `server.host` settings (today env-only);
-systemd drop-in writer for env; `picode update` verifies `SHA256SUMS`;
-release-binary install path documented; `picode doctor`; off-box clients
-via `~/.picode/remote.json` (`picode extension-install --server --token`);
-`server.json` advertises the public URL; the share drawer prefers the
-tailnet target; reconnect tolerates one missed ping on mobile. Documented
-limits: reveal / folder picker / llama / `gh` act on the server; OAuth
-loopback callbacks need a port-forward or a device-code provider.
+**B.1 (shipped 2026-09-02, ADR-0050):** `server.host` and
+`server.public_url` settings with a Reach-this-server block in
+Preferences; `server.json` advertises `bind` and `publicUrl`; systemd env
+drop-in (`picode install --env`); `picode update` verifies `SHA256SUMS`;
+release-binary install path in `www/guide/remote-server.md`; server
+checks in `provision --dry-run` (pi, tailnet, reach — no separate
+`doctor`); off-box clients via `~/.picode/remote.json` (`picode
+extension-install --server --token --ca`) and `PICODE_URL`/`PICODE_TOKEN`
+for `pi-inbox`; the phone drawer lists the public target first. The
+install token became a token session (Devices shows the extension).
+Documented limits: reveal / folder picker / llama / `gh` act on the
+server; OAuth loopback callbacks need a port-forward or a device-code
+provider; `pi-inbox` needs `NODE_EXTRA_CA_CERTS` for a name.
+
+**B.2 (next):** `tailscale cert` for the MagicDNS name served by SNI next
+to the mkcert leaf (`tlsutil.LiveConfig` picks by `ServerName`), renewed
+in-process — the phone then needs no CA on the tailnet name. Also:
+reconnect tolerates one missed ping on mobile.
 
 ## Track C — shared tailnet server
 

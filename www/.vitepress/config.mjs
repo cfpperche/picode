@@ -29,6 +29,7 @@ export default defineConfig({
           { text: "Chrome extension", link: "/guide/browser-extension" },
           { text: "Automations", link: "/guide/automations" },
           { text: "Security and pairing", link: "/guide/security" },
+          { text: "On a server", link: "/guide/remote-server" },
           { text: "On your phone", link: "/guide/mobile" },
         ],
       },
