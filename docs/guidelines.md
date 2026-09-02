@@ -30,12 +30,18 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 
 ## Public site (`www/`)
 
-- Markdown in `www/`. VitePress builds static HTML (`npm run build` in `www/`).
+- Markdown in `www/`. VitePress builds static HTML (`make docs`).
 - Live: `https://cfpperche.github.io/picode/`
 - Slash-menu hints open **a new tab** at `/commands#{id}` (`id` = `SLASH[].id`).
   No in-app docs route, no iframe.
 - Command copy lives in `www/commands.md` as `## /name {#id}` headings.
 - English. Short paragraphs. Tables for TUI vs PiCode.
+- Example local URLs (`https://localhost:8445`) are **inline code**, not
+  markdown links. VitePress treats a bare `https://…` as a crawlable
+  link and fails the build — that froze GitHub Pages from 2026-08-29.
+  `ignoreDeadLinks` in `www/.vitepress/config.mjs` also skips localhost
+  and 127.0.0.1. `make docs` is in `make ci`; do not rely on the Pages
+  workflow as the first gate.
 
 ## Related pi documentation (when applicable)
 

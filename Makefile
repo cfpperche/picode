@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web build restart deploy install test test-js fmt fmt-check vet ci clean
+.PHONY: help hooks hooks-check dev ui web docs build restart deploy install test test-js fmt fmt-check vet ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -34,6 +34,15 @@ $(NODE_STAMP): web/package-lock.json
 
 web: $(NODE_STAMP) ## Build the React UI into internal/web/public (ADR-0008)
 	cd web && npm run build
+
+WWW_STAMP := www/node_modules/.package-lock.json
+
+$(WWW_STAMP): www/package-lock.json
+	cd www && npm ci
+	@touch $(WWW_STAMP)
+
+docs: $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
+	cd www && npm run build
 
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 	./scripts/setup-cert.sh
@@ -80,7 +89,7 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: hooks-check fmt-check vet test test-js build ## Everything CI runs (includes UI build)
+ci: hooks-check fmt-check vet test test-js build docs ## Everything CI runs (includes UI + public docs)
 
 clean: ## Remove build artifacts
-	rm -rf bin/ web/node_modules/
+	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist

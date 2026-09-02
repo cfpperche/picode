@@ -6,6 +6,10 @@ export default defineConfig({
   base: "/picode/",
   cleanUrls: true,
   lastUpdated: true,
+  // Example URLs for the local app are not pages on this site. A bare
+  // https://localhost:8445 in prose is a crawlable link and fails the
+  // build — that froze GitHub Pages from 2026-08-29 until this config.
+  ignoreDeadLinks: [/^https?:\/\/localhost/, /^https?:\/\/127\.0\.0\.1/],
   head: [
     ["link", { rel: "icon", href: "/picode/favicon.svg", type: "image/svg+xml" }],
     ["link", { rel: "apple-touch-icon", href: "/picode/apple-touch-icon.png" }],

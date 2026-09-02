@@ -195,6 +195,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Public docs on GitHub Pages were frozen since 2026-08-29.**
+  VitePress treats a bare `https://localhost:8445` in Getting started as
+  a crawlable link and fails the build, so every Pages deploy since then
+  exited 1 and the live site stayed on the 2026-08-26 artifact (MCP 404,
+  newer guides missing). The URL is now inline code; localhost /
+  127.0.0.1 links are ignored; `make docs` is part of `make ci`.
 - **New terminal no longer duplicates its sidebar card.** `createTerminal`
   appended the freshly created terminal to state unconditionally; when the
   change-feed's own `terminal.created` event (already deduplicated) landed
