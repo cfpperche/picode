@@ -65,6 +65,7 @@ type Env struct {
 	User    string // the account PiCode runs as — the target
 	Acting  string // the account this process actually runs as
 	Home    string // the target's home, where the unit and data live
+	UID     string // the target's numeric uid ("" when unknown)
 	DataDir string
 	Exe     string // the binary to install
 	PathEnv string // PATH snapshot for the unit (ADR-0018)
@@ -89,14 +90,17 @@ func Detect(target string) (Env, error) {
 		return env, fmt.Errorf("current user: %w", err)
 	}
 	env.Acting = u.Username
-	env.User, env.Home = u.Username, u.HomeDir
+	env.User, env.Home, env.UID = u.Username, u.HomeDir, u.Uid
 
 	if target != "" && target != env.User {
 		t, err := user.Lookup(target)
 		if err != nil {
-			return env, fmt.Errorf("user %q: %w", target, err)
+			// A member that does not exist yet (ADR-0051): --shared creates
+			// the account; until then the home is where useradd will put it.
+			env.User, env.Home, env.UID = target, "/home/"+target, ""
+		} else {
+			env.User, env.Home, env.UID = t.Username, t.HomeDir, t.Uid
 		}
-		env.User, env.Home = t.Username, t.HomeDir
 	}
 
 	env.DataDir = filepath.Join(env.Home, ".picode")

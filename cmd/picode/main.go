@@ -97,6 +97,10 @@ func dispatch(cmd string, args []string) bool {
 		runPair()
 	case cmd == "token":
 		runToken(args)
+	case cmd == "gateway":
+		runGateway(args)
+	case cmd == "users":
+		runUsers(args)
 	case cmd == "extension-install":
 		runExtensionInstall(args)
 	case cmd == "extension-uninstall":
@@ -124,6 +128,11 @@ Usage:
     --json          emit results as JSON
     --user string   provision for this account (default: the current user)
   picode update               check GitHub for a newer release; verifies SHA256SUMS, then installs
+  picode gateway              serve the shared box's front door (ADR-0051; needs /etc/picode/gateway.json)
+  picode gateway install      root: binary to /usr/local/bin, config, system unit, start
+  picode gateway status       config, certificate, whois self-test, members
+  picode users add L U        root: map a Tailscale login to a Linux user; remove L; list
+  picode provision --user U --shared   root: create/prepare a member's account and daemon
   picode deploy               replace the installed binary with this one and restart (repo)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
   picode extension-install    register the Chrome native host (ADR-0043)
@@ -479,7 +488,9 @@ func serve() {
 	state.port.Store(int64(port))
 	writeServerJSON(dataDir, cfg, port)
 	logStartup(cfg, dataDir, port)
-	share.EnsureTrustHTTP()
+	if !cfg.Insecure {
+		share.EnsureTrustHTTP() // hands out the mkcert CA; pointless behind a gateway
+	}
 
 	// Serving loop: rebind on demand — bind-new-then-drop-old, revert the
 	// setting on failure so the current server never disappears.

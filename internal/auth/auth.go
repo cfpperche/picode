@@ -138,21 +138,21 @@ func (s *Service) RotateToken() (string, error) {
 // TokenPath is where scripts read the install token.
 func (s *Service) TokenPath() string { return s.tokenPath }
 
-// Mode reads the setting; anything unknown or unset is remote.
+// Mode: the setting, else PICODE_AUTH_MODE (how a provisioned member
+// daemon starts in mode all, ADR-0051), else remote.
 func (s *Service) Mode() string {
-	if s.cfg.Store == nil {
-		return ModeRemote
+	if s.cfg.Store != nil {
+		if v, ok, err := s.cfg.Store.GetSetting(ModeSettingKey); err == nil && ok && validMode(v) {
+			return v
+		}
 	}
-	v, ok, err := s.cfg.Store.GetSetting(ModeSettingKey)
-	if err != nil || !ok {
-		return ModeRemote
-	}
-	switch v {
-	case ModeOff, ModeRemote, ModeAll:
+	if v := os.Getenv("PICODE_AUTH_MODE"); validMode(v) {
 		return v
 	}
 	return ModeRemote
 }
+
+func validMode(v string) bool { return v == ModeOff || v == ModeRemote || v == ModeAll }
 
 // SetMode persists a mode.
 func (s *Service) SetMode(mode string) error {

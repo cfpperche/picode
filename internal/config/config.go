@@ -77,9 +77,10 @@ type Config struct {
 	PublicURL string // the origin other machines use; "" when none (ADR-0050)
 }
 
-// Settings keys edited by the Settings UI (ADR-0007, ADR-0050). Host and
-// port share one precedence: DB > env > default. The public URL has no
-// env: it is advisory, and a server that needs it has a UI to set it.
+// Settings keys edited by the Settings UI (ADR-0007, ADR-0050). Host,
+// port and public URL share one precedence: DB > env > default. The env
+// is how a provisioned member daemon (ADR-0051) is configured before it
+// has a UI.
 const (
 	PortSettingKey      = "server.port"
 	HostSettingKey      = "server.host"
@@ -141,13 +142,18 @@ func Resolve(dbGet func(key string) (string, bool, error)) (Config, error) {
 		DataDir:  getenv("PICODE_DATA", filepath.Join(home, ".picode")),
 		Insecure: os.Getenv("PICODE_INSECURE") == "1",
 	}
+	if v := os.Getenv("PICODE_PUBLIC_URL"); v != "" {
+		if p, err := ValidatePublicURL(v, cfg.Insecure); err == nil {
+			cfg.PublicURL = p
+		}
+	}
 	if dbGet != nil {
 		if v, ok, err := dbGet(HostSettingKey); err == nil && ok {
 			if h, err := ValidateHost(v); err == nil {
 				cfg.Host = h
 			}
 		}
-		if v, ok, err := dbGet(PublicURLSettingKey); err == nil && ok {
+		if v, ok, err := dbGet(PublicURLSettingKey); err == nil && ok && strings.TrimSpace(v) != "" {
 			if p, err := ValidatePublicURL(v, cfg.Insecure); err == nil {
 				cfg.PublicURL = p
 			}

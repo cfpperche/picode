@@ -118,3 +118,15 @@ func TestPublicURLOnTheTailnetNameIsTrusted(t *testing.T) {
 		t.Fatal("a leaf for the tailnet name must not vouch for another host")
 	}
 }
+
+func TestBehindAGatewayThePublicURLIsTheOnlyTrustedTarget(t *testing.T) {
+	rep := Diagnose(Input{DataDir: t.TempDir(), Port: 8446, BindHost: "127.0.0.1", Insecure: true, PublicURL: "https://box.tail1234.ts.net"})
+	if rep.URL != "https://box.tail1234.ts.net/" || !rep.Trusted || !rep.Ready {
+		t.Fatalf("url %q trusted %v ready %v checks %+v", rep.URL, rep.Trusted, rep.Ready, rep.Checks)
+	}
+	for _, c := range rep.Checks {
+		if !c.OK {
+			t.Fatalf("check %s failed behind a gateway: %s", c.ID, c.Action)
+		}
+	}
+}

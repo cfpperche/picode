@@ -238,3 +238,20 @@ func TestTokenRotation(t *testing.T) {
 		t.Fatal("new token rejected")
 	}
 }
+
+func TestModeEnvFallback(t *testing.T) {
+	t.Setenv("PICODE_AUTH_MODE", "all")
+	s, st := newService(t, "")
+	if s.Mode() != ModeAll {
+		t.Fatal("env should set the mode when the setting is absent")
+	}
+	_ = st.SetSetting(ModeSettingKey, ModeOff)
+	if s.Mode() != ModeOff {
+		t.Fatal("the setting wins over the env")
+	}
+	t.Setenv("PICODE_AUTH_MODE", "bogus")
+	_ = st.SetSetting(ModeSettingKey, "")
+	if s.Mode() != ModeRemote {
+		t.Fatal("unknown values fall back to remote")
+	}
+}

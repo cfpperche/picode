@@ -18,15 +18,23 @@ func runProvision(args []string) {
 	dryRun := fs.Bool("dry-run", false, "report what would change, touch nothing")
 	asJSON := fs.Bool("json", false, "emit results as JSON")
 	target := fs.String("user", "", "provision for this account (default: the current user)")
+	shared := fs.Bool("shared", false, "a member of a shared box (ADR-0051): create the account, its environment and daemon behind the gateway; root, with --user")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("provision: %v", err)
+	}
+	if *shared && *target == "" {
+		log.Fatalf("provision: --shared needs --user <linux user>")
 	}
 
 	env, err := provision.Detect(*target)
 	if err != nil {
 		log.Fatalf("provision: %v", err)
 	}
-	results := provision.Run(env, provision.Steps(), *dryRun)
+	steps := provision.Steps()
+	if *shared {
+		steps = provision.MemberSteps()
+	}
+	results := provision.Run(env, steps, *dryRun)
 
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)

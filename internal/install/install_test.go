@@ -80,3 +80,12 @@ func TestLockPID(t *testing.T) {
 		t.Fatalf("got %d", lockPID(p))
 	}
 }
+
+func TestGatewayUnitFile(t *testing.T) {
+	u := GatewayUnitFile("/usr/local/bin/picode", "/etc/picode/gateway.json")
+	for _, want := range []string{"ExecStart=/usr/local/bin/picode gateway --config /etc/picode/gateway.json", "After=network-online.target tailscaled.service", "WantedBy=multi-user.target", "Restart=on-failure"} {
+		if !strings.Contains(u, want) {
+			t.Errorf("missing %q in:\n%s", want, u)
+		}
+	}
+}

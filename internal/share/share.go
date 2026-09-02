@@ -131,23 +131,27 @@ func Diagnose(in Input) Report {
 		scheme = "http"
 	}
 
+	// Behind a gateway (ADR-0051): plain HTTP on loopback, TLS is the
+	// gateway's, and the public URL is the only address that matters.
+	proxied := in.Insecure && strings.TrimSpace(in.PublicURL) != ""
 	httpsOK := !in.Insecure
 	rep.Checks = append(rep.Checks, Check{
-		ID: "https", OK: httpsOK, Title: "HTTPS",
-		Action: unless(httpsOK, "Restart without PICODE_INSECURE=1"),
+		ID: "https", OK: httpsOK || proxied, Title: "HTTPS",
+		Action: unless(httpsOK || proxied, "Restart without PICODE_INSECURE=1"),
 	})
 
 	bindOK := in.BindHost == "" || in.BindHost == "0.0.0.0" || in.BindHost == "::"
 	if ip := net.ParseIP(in.BindHost); ip != nil && !ip.IsLoopback() && !ip.IsUnspecified() {
 		bindOK = true
 	}
+	bindOK = bindOK || proxied // the gateway is the reachable bind
 	rep.Checks = append(rep.Checks, Check{
 		ID: "bind", OK: bindOK, Title: "Reachable bind",
 		Action: unless(bindOK, "Bind 0.0.0.0 so other devices can connect"),
 	})
 
 	addrs := ReachableIPv4()
-	reachOK := len(addrs) > 0
+	reachOK := len(addrs) > 0 || proxied
 	rep.Checks = append(rep.Checks, Check{
 		ID: "address", OK: reachOK, Title: "An address the phone can use",
 		Action: unless(reachOK, "Join Tailscale (works on any network) or the same Wi-Fi as this machine"),
@@ -178,8 +182,12 @@ func Diagnose(in Input) Report {
 		}
 		t := Target{URL: pub + "/", Kind: "public", Addr: host, OnCert: true, Note: "The address you configured for this server"}
 		// A public URL on the tailnet name is served with the Tailscale
-		// leaf: nothing to install on the phone.
-		if u, err := url.Parse(pub); err == nil && !in.Insecure {
+		// leaf: nothing to install on the phone. Behind a gateway the
+		// gateway's certificate is the phone's concern, not ours.
+		if proxied {
+			t.Trusted = true
+			t.Note = "Through the gateway — nothing to install"
+		} else if u, err := url.Parse(pub); err == nil {
 			if st := tlsutil.TailscaleLeaf(in.DataDir, u.Hostname()); st.Present && st.Covers {
 				t.Trusted = true
 				t.Note = "The address you configured — nothing to install"
@@ -223,7 +231,7 @@ func Diagnose(in Input) Report {
 
 	mkcertOK := httpsOK && issuerMKCert(issuer)
 	rep.Checks = append(rep.Checks, Check{
-		ID: "ca", OK: mkcertOK, Title: "Trusted local CA (mkcert)",
+		ID: "ca", OK: mkcertOK || proxied, Title: "Trusted local CA (mkcert)",
 		Action: unless(mkcertOK, "Run make cert, then install the CA on the phone — or use the tailnet name, which needs none"),
 	})
 
@@ -254,7 +262,7 @@ func Diagnose(in Input) Report {
 			rep.Trusted = true // the same URL may be listed twice (public + tailnet name)
 		}
 	}
-	rep.Ready = httpsOK && bindOK && reachOK && (mkcertOK || rep.Trusted) && rep.URL != ""
+	rep.Ready = (httpsOK || proxied) && bindOK && reachOK && (mkcertOK || rep.Trusted) && rep.URL != ""
 	return rep
 }
 

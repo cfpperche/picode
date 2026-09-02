@@ -135,6 +135,7 @@ func TestValidatePublicURL(t *testing.T) {
 func TestResolveHostPrecedence(t *testing.T) {
 	t.Setenv("PICODE_HOST", "127.0.0.1")
 	t.Setenv("PICODE_PORT", "")
+	t.Setenv("PICODE_PUBLIC_URL", "")
 	db := map[string]string{}
 	get := func(k string) (string, bool, error) { v, ok := db[k]; return v, ok, nil }
 	cfg, err := Resolve(get)
@@ -150,5 +151,20 @@ func TestResolveHostPrecedence(t *testing.T) {
 	db[HostSettingKey] = "not-an-ip"
 	if cfg, _ = Resolve(get); cfg.Host != "127.0.0.1" {
 		t.Fatalf("bad db host should fall back to env: %+v", cfg)
+	}
+}
+
+func TestResolvePublicURLEnvFallback(t *testing.T) {
+	t.Setenv("PICODE_HOST", "")
+	t.Setenv("PICODE_PORT", "")
+	t.Setenv("PICODE_PUBLIC_URL", "https://box.tail.ts.net")
+	db := map[string]string{}
+	get := func(k string) (string, bool, error) { v, ok := db[k]; return v, ok, nil }
+	if cfg, _ := Resolve(get); cfg.PublicURL != "https://box.tail.ts.net" {
+		t.Fatalf("env: %+v", cfg)
+	}
+	db[PublicURLSettingKey] = "https://other.tail.ts.net"
+	if cfg, _ := Resolve(get); cfg.PublicURL != "https://other.tail.ts.net" {
+		t.Fatalf("db wins: %+v", cfg)
 	}
 }
