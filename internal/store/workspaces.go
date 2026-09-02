@@ -70,14 +70,14 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, error) {
 	if err != nil {
 		return Workspace{}, err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { s.rollback(tx) }()
 
 	// Idempotent by path.
 	var existing Workspace
 	err = tx.QueryRow(`SELECT id, name, path, created_at FROM workspaces WHERE path = ?`, abs).
 		Scan(&existing.ID, &existing.Name, &existing.Path, &existing.CreatedAt)
 	if err == nil {
-		if err := tx.Commit(); err != nil {
+		if err := s.commit(tx); err != nil {
 			return Workspace{}, err
 		}
 		return existing, nil
@@ -91,10 +91,10 @@ func (s *Store) AddWorkspace(name, path string) (Workspace, error) {
 		w.ID, w.Name, w.Path, w.CreatedAt); err != nil {
 		return Workspace{}, fmt.Errorf("store: insert workspace: %w", err)
 	}
-	if err := s.AppendEventTx(tx, "workspace_added", nil, &w.ID, nil); err != nil {
+	if err := s.AppendEventTx(tx, "workspace.added", nil, &w.ID, w); err != nil {
 		return Workspace{}, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(tx); err != nil {
 		return Workspace{}, err
 	}
 	return w, nil
@@ -142,7 +142,7 @@ func (s *Store) RemoveWorkspace(id string) (removed bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("store: remove workspace: %w", err)
 	}
-	defer tx.Rollback()
+	defer s.rollback(tx)
 	if _, err := tx.Exec(`DELETE FROM terminal_settings WHERE scope IN (SELECT id FROM terminals WHERE workspace_id = ?)`, id); err != nil {
 		return false, fmt.Errorf("store: remove workspace terminal settings: %w", err)
 	}
@@ -157,7 +157,12 @@ func (s *Store) RemoveWorkspace(id string) (removed bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	if err := tx.Commit(); err != nil {
+	if n > 0 {
+		if err := s.AppendEventTx(tx, "workspace.deleted", nil, nil, idData(id)); err != nil {
+			return false, err
+		}
+	}
+	if err := s.commit(tx); err != nil {
 		return false, fmt.Errorf("store: remove workspace: %w", err)
 	}
 	return n > 0, nil

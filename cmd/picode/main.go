@@ -36,6 +36,7 @@ import (
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/config"
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/proclock"
@@ -312,10 +313,20 @@ func serve() {
 	rebindCh := make(chan struct{}, 1)
 	state := &serveState{}
 
-	// Web Push (ADR-0047): one VAPID key per install, the notifier
-	// listens to inbox writes and unobserved dialogs, and stays quiet
-	// while a browser on this machine is alive.
+	// Change feed (ADR-0048): every committed store event fans out to
+	// SSE subscribers and in-process listeners; presence and waiting
+	// agents ride it as ephemeral notices.
+	changes := &feed.Feed{Store: st}
+	st.OnEvent = changes.Publish
+	runtime.OnWaiting = func(agentID, agentName, title, message string) {
+		changes.Ephemeral("agent.waiting", map[string]string{"agentId": agentID, "agentName": agentName, "title": title, "message": message})
+	}
+
+	// Web Push (ADR-0047): one VAPID key per install; the notifier
+	// consumes the feed and stays quiet while a browser on this machine
+	// is alive.
 	devices := presence.New(share.ReachableIPv4())
+	devices.OnChange = func(d presence.Device) { changes.Ephemeral("device.online", d) }
 	var notifier *push.Notifier
 	if keys, err := push.LoadOrCreate(dataDir); err != nil {
 		log.Printf("push: disabled: %v", err)
@@ -326,8 +337,7 @@ func serve() {
 			Presence: devices,
 			Log:      log.Default(),
 		}
-		st.OnInboxCreated = notifier.OnInbox
-		runtime.OnWaiting = notifier.OnWaiting
+		changes.Listen(notifier.OnEvent)
 	}
 
 	deps := server.Deps{
@@ -339,6 +349,7 @@ func serve() {
 		Backup:   bak,
 		Presence: devices,
 		Push:     notifier,
+		Feed:     changes,
 		Rebind: func() {
 			select {
 			case rebindCh <- struct{}{}:

@@ -259,6 +259,7 @@ func (s *Store) CreateAutomation(p AutomationParams) (Automation, string, error)
 		a.LastFiredAt, a.CreatedAt, a.UpdatedAt); err != nil {
 		return Automation{}, "", fmt.Errorf("store: create automation: %w", err)
 	}
+	s.note("automation.created", nil, nil, a) // workspace may be gone: not a workspaces FK
 	return a, secret, nil
 }
 
@@ -360,7 +361,17 @@ func (s *Store) UpdateAutomation(id string, p AutomationPatch) (Automation, erro
 		a.Thinking, a.Cron, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin, a.UpdatedAt, id); err != nil {
 		return Automation{}, fmt.Errorf("store: update automation: %w", err)
 	}
-	return s.GetAutomation(id)
+	return s.automationChanged(id)
+}
+
+// automationChanged reloads the row and announces automation.updated.
+func (s *Store) automationChanged(id string) (Automation, error) {
+	a, err := s.GetAutomation(id)
+	if err != nil {
+		return Automation{}, err
+	}
+	s.note("automation.updated", nil, nil, a)
+	return a, nil
 }
 
 // SetAutomationWebhook turns the webhook on (minting a fresh secret,
@@ -375,7 +386,10 @@ func (s *Store) SetAutomationWebhook(id string, on bool) (string, error) {
 		if a.Cron == nil {
 			return "", fmt.Errorf("an automation needs a schedule or a webhook")
 		}
-		_, err = s.db.Exec(`UPDATE automations SET webhook_hash=NULL, updated_at=? WHERE id=?`, nowUTC(), id)
+		if _, err = s.db.Exec(`UPDATE automations SET webhook_hash=NULL, updated_at=? WHERE id=?`, nowUTC(), id); err != nil {
+			return "", err
+		}
+		_, err = s.automationChanged(id)
 		return "", err
 	}
 	plain, hash, err := newWebhookSecret()
@@ -384,6 +398,9 @@ func (s *Store) SetAutomationWebhook(id string, on bool) (string, error) {
 	}
 	if _, err := s.db.Exec(`UPDATE automations SET webhook_hash=?, updated_at=? WHERE id=?`, hash, nowUTC(), id); err != nil {
 		return "", fmt.Errorf("store: set webhook: %w", err)
+	}
+	if _, err := s.automationChanged(id); err != nil {
+		return "", err
 	}
 	return plain, nil
 }
@@ -411,12 +428,16 @@ func (s *Store) SetAutomationAgent(id, agentID string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	_, err = s.automationChanged(id)
+	return err
 }
 
 // TouchAutomationFired stamps last_fired_at (schedule + catch-up bookkeeping).
 func (s *Store) TouchAutomationFired(id string, t time.Time) error {
-	_, err := s.db.Exec(`UPDATE automations SET last_fired_at=? WHERE id=?`, t.UTC().Format(time.RFC3339Nano), id)
+	if _, err := s.db.Exec(`UPDATE automations SET last_fired_at=? WHERE id=?`, t.UTC().Format(time.RFC3339Nano), id); err != nil {
+		return err
+	}
+	_, err := s.automationChanged(id)
 	return err
 }
 
@@ -427,7 +448,7 @@ func (s *Store) DeleteAutomation(id string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { s.rollback(tx) }()
 	if _, err := tx.Exec(`DELETE FROM automation_runs WHERE automation_id = ?`, id); err != nil {
 		return fmt.Errorf("store: delete runs: %w", err)
 	}
@@ -438,7 +459,10 @@ func (s *Store) DeleteAutomation(id string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	return tx.Commit()
+	if err := s.AppendEventTx(tx, "automation.deleted", nil, nil, idData(id)); err != nil {
+		return err
+	}
+	return s.commit(tx)
 }
 
 // CreateRun records an invocation. status is running for a real run, or
@@ -463,13 +487,19 @@ func (s *Store) CreateRun(automationID, trigger, status, reason string) (Run, er
 		VALUES (?, ?, ?, ?, ?, ?, ?)`, r.ID, r.AutomationID, r.Trigger, r.Status, r.Reason, r.FiredAt, r.FinishedAt); err != nil {
 		return Run{}, fmt.Errorf("store: create run: %w", err)
 	}
+	s.note("run.created", nil, nil, r)
 	return r, nil
 }
 
 // SetRunSession attaches the pi session file once the agent has one.
 func (s *Store) SetRunSession(id, sessionPath string) error {
-	_, err := s.db.Exec(`UPDATE automation_runs SET session_path=? WHERE id=?`, emptyToNil(sessionPath), id)
-	return err
+	if _, err := s.db.Exec(`UPDATE automation_runs SET session_path=? WHERE id=?`, emptyToNil(sessionPath), id); err != nil {
+		return err
+	}
+	if r, err := s.GetRun(id); err == nil {
+		s.note("run.updated", nil, nil, r)
+	}
+	return nil
 }
 
 // FinishRun closes a running row. Idempotent on already-finished rows
@@ -480,10 +510,15 @@ func (s *Store) FinishRun(id, status, reason string, cost float64) error {
 	default:
 		return fmt.Errorf("store: invalid finish status %q", status)
 	}
-	_, err := s.db.Exec(`UPDATE automation_runs SET status=?, reason=?, cost_usd=?, finished_at=?
+	res, err := s.db.Exec(`UPDATE automation_runs SET status=?, reason=?, cost_usd=?, finished_at=?
 		WHERE id=? AND status=?`, status, reason, cost, nowUTC(), id, RunRunning)
 	if err != nil {
 		return fmt.Errorf("store: finish run: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		if r, err := s.GetRun(id); err == nil {
+			s.note("run.finished", nil, nil, r)
+		}
 	}
 	return nil
 }

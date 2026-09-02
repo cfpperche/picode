@@ -458,18 +458,18 @@ func (ma *ManagedAgent) deliverLoop() {
 
 		if err := ma.deliver(task); err != nil {
 			_ = ma.store.FinishTask(task.ID, store.TaskFailed, err.Error())
-			_ = ma.store.AppendEvent("task_failed", &ma.AgentID, nil,
+			_ = ma.store.AppendEvent("task.failed", &ma.AgentID, nil,
 				map[string]string{"taskId": task.ID, "error": err.Error()})
 			ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
-				"type": "task_failed", "taskId": task.ID, "error": err.Error(),
+				"type": "task.failed", "taskId": task.ID, "error": err.Error(),
 			}))
 			continue
 		}
 		_ = ma.store.FinishTask(task.ID, store.TaskDelivered, "")
-		_ = ma.store.AppendEvent("task_delivered", &ma.AgentID, nil,
+		_ = ma.store.AppendEvent("task.delivered", &ma.AgentID, nil,
 			map[string]string{"taskId": task.ID, "kind": task.Kind})
 		ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
-			"type": "task_delivered", "taskId": task.ID, "kind": task.Kind,
+			"type": "task.delivered", "taskId": task.ID, "kind": task.Kind,
 		}))
 	}
 }

@@ -75,6 +75,7 @@ func (s *Store) UpsertPushSubscription(endpoint, p256dh, auth, deviceID, userAge
 	if err != nil {
 		return PushSubscription{}, err
 	}
+	s.note("push.updated", nil, nil, nil)
 	return s.GetPushSubscription(endpoint)
 }
 
@@ -113,12 +114,16 @@ func (s *Store) SetPushPrefs(endpoint string, prefs PushPrefs) (PushSubscription
 	if n, _ := res.RowsAffected(); n == 0 {
 		return PushSubscription{}, ErrNotFound
 	}
+	s.note("push.updated", nil, nil, nil) // endpoints are secrets: type only
 	return s.GetPushSubscription(endpoint)
 }
 
 func (s *Store) DeletePushSubscription(endpoint string) error {
-	_, err := s.db.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint)
-	return err
+	if _, err := s.db.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint); err != nil {
+		return err
+	}
+	s.note("push.updated", nil, nil, nil)
+	return nil
 }
 
 func (s *Store) MarkPushOK(endpoint string) error {

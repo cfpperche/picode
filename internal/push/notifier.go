@@ -48,7 +48,35 @@ func (n *Notifier) doSend(ctx context.Context, t Target, payload []byte, ttl int
 	return n.Sender.Send(ctx, t, payload, ttl, urgency, topic)
 }
 
-// OnInbox is store.Store.OnInboxCreated.
+// OnEvent is the feed consumer (ADR-0048): inbox.created and a
+// superseded result (inbox.updated, kind result, still unread) go through
+// the inbox table; agent.waiting (ephemeral) through the dialog row.
+func (n *Notifier) OnEvent(ev store.Event) {
+	if n == nil {
+		return
+	}
+	switch ev.Type {
+	case "inbox.created", "inbox.updated":
+		var it store.InboxItem
+		if err := json.Unmarshal(ev.Data, &it); err != nil || it.ID == "" {
+			return
+		}
+		if ev.Type == "inbox.updated" && !(it.Kind == store.InboxResult && it.State == store.InboxUnread) {
+			return
+		}
+		n.OnInbox(it)
+	case "agent.waiting":
+		var w struct {
+			AgentID, AgentName, Title, Message string
+		}
+		if err := json.Unmarshal(ev.Data, &w); err != nil || w.AgentID == "" {
+			return
+		}
+		n.OnWaiting(w.AgentID, w.AgentName, w.Title, w.Message)
+	}
+}
+
+// OnInbox decides for one inbox item (created, or a superseded result).
 func (n *Notifier) OnInbox(it store.InboxItem) {
 	if n == nil {
 		return

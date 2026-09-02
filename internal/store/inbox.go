@@ -219,9 +219,7 @@ func (s *Store) CreateInboxItem(p InboxItemParams) (InboxItem, error) {
 		it.Title, it.Body, boolInt(it.Blocking), string(allowed), it.State, it.CreatedAt, it.UpdatedAt); err != nil {
 		return InboxItem{}, fmt.Errorf("store: create inbox item: %w", err)
 	}
-	if s.OnInboxCreated != nil {
-		s.OnInboxCreated(it)
-	}
+	s.note("inbox.created", nil, nil, it) // source may be an automation or terminal: not an agents FK
 	return it, nil
 }
 
@@ -313,7 +311,17 @@ func (s *Store) RespondInboxItem(id, verb, text string) (InboxItem, error) {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return InboxItem{}, ErrNotFound
 	}
-	return s.GetInboxItem(id)
+	return s.inboxChanged(id)
+}
+
+// inboxChanged reloads the item and announces inbox.updated.
+func (s *Store) inboxChanged(id string) (InboxItem, error) {
+	it, err := s.GetInboxItem(id)
+	if err != nil {
+		return InboxItem{}, err
+	}
+	s.note("inbox.updated", nil, nil, it)
+	return it, nil
 }
 
 // SetInboxItemState triages an item (unread/read/done) and/or snoozes it.
@@ -342,7 +350,7 @@ func (s *Store) SetInboxItemState(id, state string, snoozedUntil *string) (Inbox
 	if n, _ := res.RowsAffected(); n == 0 {
 		return InboxItem{}, ErrNotFound
 	}
-	return s.GetInboxItem(id)
+	return s.inboxChanged(id)
 }
 
 // AnnotateInboxItem appends a visible note to the item body (e.g. a
@@ -356,6 +364,7 @@ func (s *Store) AnnotateInboxItem(id, note string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	_, _ = s.inboxChanged(id)
 	return nil
 }
 
@@ -389,6 +398,7 @@ func (s *Store) DeleteInboxItem(id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
+	s.note("inbox.deleted", nil, nil, idData(id))
 	return nil
 }
 
@@ -400,6 +410,9 @@ func (s *Store) DeleteDoneInboxItems() (int, error) {
 		return 0, fmt.Errorf("store: clear done inbox items: %w", err)
 	}
 	n, _ := res.RowsAffected()
+	if n > 0 {
+		s.note("inbox.cleared", nil, nil, map[string]int64{"count": n})
+	}
 	return int(n), nil
 }
 
@@ -446,13 +459,10 @@ func (s *Store) FileAgentResult(agentID, workspaceID, title, body, reason string
 			title, body, reason, now, existing); err != nil {
 			return InboxItem{}, fmt.Errorf("store: update result item: %w", err)
 		}
-		it, err := s.GetInboxItem(existing)
-		// A superseded result is news too; the notifier's tag collapses
-		// it onto the earlier notification for the same agent.
-		if err == nil && s.OnInboxCreated != nil {
-			s.OnInboxCreated(it)
-		}
-		return it, err
+		// A superseded result is news too (inbox.updated with state
+		// unread); the notifier's tag collapses it onto the earlier
+		// notification for the same agent.
+		return s.inboxChanged(existing)
 	}
 	return s.CreateInboxItem(InboxItemParams{
 		Kind: InboxResult, SourceKind: InboxFromAgent, SourceID: agentID,

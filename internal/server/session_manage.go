@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -273,6 +274,11 @@ func StartSessionSweep(deps Deps) {
 	sweep := func() {
 		if days := cleanupDaysSetting(deps); days > 0 {
 			sweepOrphanSessions(deps, days)
+		}
+		// Change-log retention (ADR-0048): a cursor older than this gets
+		// a reset instead of a replay.
+		if deps.Store != nil {
+			_, _ = deps.Store.PruneEvents(time.Now().Add(-feed.DefaultRetention))
 		}
 	}
 	go func() {

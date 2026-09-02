@@ -47,6 +47,7 @@ func (s *Store) SetTerminalSettings(scope string, v map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("store: save terminal settings %q: %w", scope, err)
 	}
+	s.note("terminal_settings.updated", nil, nil, map[string]string{"scope": scope})
 	return nil
 }
 
@@ -56,5 +57,6 @@ func (s *Store) DeleteTerminalSettings(scope string) error {
 	if _, err := s.db.Exec(`DELETE FROM terminal_settings WHERE scope = ?`, scope); err != nil {
 		return fmt.Errorf("store: delete terminal settings %q: %w", scope, err)
 	}
+	s.note("terminal_settings.updated", nil, nil, map[string]string{"scope": scope})
 	return nil
 }

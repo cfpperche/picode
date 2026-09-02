@@ -127,7 +127,9 @@ func (s *Store) CreateTerminalIn(workspaceID, name, cwd string) (Terminal, error
 		id, name, cwd, workspaceID, now); err != nil {
 		return Terminal{}, fmt.Errorf("store: insert terminal: %w", err)
 	}
-	return Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now}, nil
+	t := Terminal{ID: id, Name: name, Cwd: cwd, WorkspaceID: workspaceID, CreatedAt: now}
+	s.note("terminal.created", nil, nil, t) // terminals have no workspace FK (ADR-0026)
+	return t, nil
 }
 
 func (s *Store) CountTerminals() (int, error) {
@@ -154,7 +156,12 @@ func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
 	if n == 0 {
 		return Terminal{}, ErrNotFound
 	}
-	return s.GetTerminal(id)
+	t, err := s.GetTerminal(id)
+	if err != nil {
+		return Terminal{}, err
+	}
+	s.note("terminal.updated", nil, nil, t)
+	return t, nil
 }
 
 func (s *Store) DeleteTerminal(id string) error {
@@ -166,6 +173,7 @@ func (s *Store) DeleteTerminal(id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
+	s.note("terminal.deleted", nil, nil, idData(id))
 	// The overrides are keyed by this id and nothing else refers to them, so
 	// they go with it. Ids are never reused, so a row left behind would only
 	// ever be dead weight — but dead weight that a future flag would read.

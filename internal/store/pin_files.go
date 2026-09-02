@@ -111,6 +111,7 @@ func (s *Store) AddPinFile(pinID, name, mime string, size int64) (PinFile, error
 		f.ID, f.PinID, f.Kind, f.Name, f.Mime, f.Size, f.CreatedAt); err != nil {
 		return PinFile{}, fmt.Errorf("store: add pin file: %w", err)
 	}
+	s.note("pin.updated", nil, nil, idData(pinID))
 	return f, nil
 }
 
@@ -123,6 +124,7 @@ func (s *Store) DeletePinFile(pinID, id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
+	s.note("pin.updated", nil, nil, idData(pinID))
 	return nil
 }
 
@@ -173,6 +175,7 @@ func (s *Store) AddPinSketch(pinID, name, source, baseID string, previewSize int
 		f.ID, f.PinID, f.Kind, f.Name, f.Mime, f.Size, f.CreatedAt, f.Source, f.BaseFileID); err != nil {
 		return PinFile{}, fmt.Errorf("store: add sketch: %w", err)
 	}
+	s.note("pin.updated", nil, nil, idData(pinID))
 	return f, nil
 }
 
@@ -194,5 +197,6 @@ func (s *Store) UpdatePinSketch(pinID, id, name string, previewSize int64) (PinF
 	if _, err := s.db.Exec(`UPDATE pin_files SET name = ?, size = ? WHERE id = ? AND pin_id = ?`, f.Name, f.Size, id, pinID); err != nil {
 		return PinFile{}, fmt.Errorf("store: update sketch: %w", err)
 	}
+	s.note("pin.updated", nil, nil, idData(pinID))
 	return f, nil
 }

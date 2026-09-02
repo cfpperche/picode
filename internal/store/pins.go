@@ -115,6 +115,7 @@ func (s *Store) CreatePin(title string, tags []string, body string) (Pin, error)
 		p.ID, p.Title, encodePackages(p.Tags), p.Body, p.CreatedAt, p.UpdatedAt); err != nil {
 		return Pin{}, fmt.Errorf("store: create pin: %w", err)
 	}
+	s.note("pin.created", nil, nil, p)
 	return p, nil
 }
 
@@ -133,7 +134,12 @@ func (s *Store) UpdatePin(id, title string, tags []string, body string) (Pin, er
 	if n == 0 {
 		return Pin{}, ErrNotFound
 	}
-	return s.GetPin(id)
+	p, err := s.GetPin(id)
+	if err != nil {
+		return Pin{}, err
+	}
+	s.note("pin.updated", nil, nil, p)
+	return p, nil
 }
 
 func (s *Store) DeletePin(id string) error {
@@ -145,5 +151,6 @@ func (s *Store) DeletePin(id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
+	s.note("pin.deleted", nil, nil, idData(id))
 	return nil
 }

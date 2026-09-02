@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite" // pure-Go SQLite driver (no CGO; single-binary)
@@ -27,11 +28,14 @@ type Store struct {
 	db   *sql.DB
 	path string
 
-	// OnInboxCreated fires after an inbox item is created or a result
-	// item is superseded (ADR-0047: the push notifier listens). Called
+	// OnEvent fires after every committed event (ADR-0048: the change
+	// feed listens; push and the UI consume the feed). Called
 	// synchronously on the writer's goroutine; the listener must return
 	// fast. Optional.
-	OnInboxCreated func(InboxItem)
+	OnEvent func(Event)
+
+	pendMu  sync.Mutex
+	pending map[*sql.Tx][]Event // events appended in an open tx, announced on commit
 }
 
 // Open creates/opens the database at path, applies pragmas and migrations,
@@ -94,14 +98,14 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("store: tx migration %d: %w", version, err)
 		}
 		if _, err := tx.Exec(string(body)); err != nil {
-			_ = tx.Rollback()
+			s.rollback(tx)
 			return fmt.Errorf("store: apply migration %d: %w", version, err)
 		}
 		if _, err := tx.Exec(`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, version, nowUTC()); err != nil {
-			_ = tx.Rollback()
+			s.rollback(tx)
 			return fmt.Errorf("store: record migration %d: %w", version, err)
 		}
-		if err := tx.Commit(); err != nil {
+		if err := s.commit(tx); err != nil {
 			return fmt.Errorf("store: commit migration %d: %w", version, err)
 		}
 	}
@@ -137,7 +141,7 @@ func (s *Store) importLegacy(path string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { s.rollback(tx) }()
 	for _, w := range legacy {
 		created := w.CreatedAt
 		if created == "" {
@@ -151,7 +155,7 @@ func (s *Store) importLegacy(path string) error {
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(tx); err != nil {
 		return err
 	}
 	return os.Rename(path, path+".migrated")

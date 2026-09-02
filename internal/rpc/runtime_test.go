@@ -75,7 +75,7 @@ func TestManagedDeliveryEngine(t *testing.T) {
 			if err := json.Unmarshal(msg, &env); err != nil {
 				continue
 			}
-			if env.Event.Type == "task_delivered" {
+			if env.Event.Type == "task.delivered" {
 				delivered = true
 			}
 		case <-time.After(100 * time.Millisecond):
@@ -94,9 +94,9 @@ func TestManagedDeliveryEngine(t *testing.T) {
 	sawEnq, sawDel := false, false
 	for _, e := range evts {
 		switch e.Type {
-		case "task_enqueued":
+		case "task.enqueued":
 			sawEnq = true
-		case "task_delivered":
+		case "task.delivered":
 			sawDel = true
 		}
 	}
@@ -383,10 +383,10 @@ func TestSlowDialogIsDeliveredNotFailed(t *testing.T) {
 			if err := json.Unmarshal(msg, &env); err != nil {
 				continue
 			}
-			if env.Event.Type == "task_failed" {
+			if env.Event.Type == "task.failed" {
 				t.Fatalf("task_failed while a dialog was pending: %s", env.Event.Error)
 			}
-			if env.Event.Type == "task_delivered" {
+			if env.Event.Type == "task.delivered" {
 				if err := ma.ReplyUI("ui-ask", "", nil, true); err != nil {
 					t.Fatalf("cancel: %v", err)
 				}

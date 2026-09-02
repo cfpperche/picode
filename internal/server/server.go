@@ -24,6 +24,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -53,6 +54,7 @@ type Deps struct {
 	Backup       *backup.Engine
 	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
 	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
+	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -99,6 +101,7 @@ func New(addr string, deps Deps) *http.Server {
 	registerAppsRoutes(mux, deps)
 	registerInboxRoutes(mux, deps)
 	registerAutomationRoutes(mux, deps)
+	mux.HandleFunc("GET /api/events", handleEvents(deps))
 	registerExtensionRoutes(mux, deps)
 	registerPushRoutes(mux, deps)
 

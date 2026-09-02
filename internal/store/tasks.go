@@ -64,7 +64,7 @@ func (s *Store) EnqueueTask(agentID, kind, payload, source string) (Task, error)
 	if err != nil {
 		return Task{}, err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { s.rollback(tx) }()
 
 	var agentExists int
 	if err := tx.QueryRow(`SELECT COUNT(1) FROM agents WHERE id = ?`, agentID).Scan(&agentExists); err != nil || agentExists == 0 {
@@ -74,10 +74,10 @@ func (s *Store) EnqueueTask(agentID, kind, payload, source string) (Task, error)
 		t.ID, t.AgentID, t.Kind, t.Payload, t.Source, t.Status, t.CreatedAt); err != nil {
 		return Task{}, fmt.Errorf("store: insert task: %w", err)
 	}
-	if err := s.AppendEventTx(tx, "task_enqueued", &agentID, nil, map[string]string{"taskId": t.ID, "kind": t.Kind}); err != nil {
+	if err := s.AppendEventTx(tx, "task.enqueued", &agentID, nil, t); err != nil {
 		return Task{}, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(tx); err != nil {
 		return Task{}, err
 	}
 	return t, nil
@@ -111,7 +111,7 @@ func (s *Store) ClaimNextTask(agentID string) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { s.rollback(tx) }()
 
 	var t Task
 	row := tx.QueryRow(`SELECT `+taskCols+` FROM tasks WHERE agent_id = ? AND status = ? ORDER BY created_at LIMIT 1`, agentID, TaskQueued)
@@ -125,7 +125,7 @@ func (s *Store) ClaimNextTask(agentID string) (Task, error) {
 	if _, err := tx.Exec(`UPDATE tasks SET status = ?, attempts = attempts + 1 WHERE id = ?`, TaskDelivering, t.ID); err != nil {
 		return Task{}, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(tx); err != nil {
 		return Task{}, err
 	}
 	t.Status = TaskDelivering
@@ -151,5 +151,6 @@ func (s *Store) FinishTask(id, status string, taskErr string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	s.note("task.finished", nil, nil, map[string]string{"id": id, "status": status})
 	return nil
 }

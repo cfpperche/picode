@@ -34,6 +34,10 @@ type Registry struct {
 	mu    sync.Mutex
 	items map[string]*rec
 	local map[string]bool
+
+	// OnChange fires (outside the lock) when a device first appears or
+	// comes back from stale (ADR-0048: an ephemeral device.online notice).
+	OnChange func(Device)
 }
 
 // New builds a registry. localIPs are treated as the host machine.
@@ -71,6 +75,7 @@ func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) De
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	it, ok := r.items[id]
+	wasOnline := ok && r.view(it, now).Online
 	if !ok {
 		it = &rec{id: id, first: now}
 		r.items[id] = it
@@ -84,7 +89,11 @@ func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) De
 	it.ip = ip
 	it.host = claimedHost || r.local[ip]
 	it.last = now
-	return r.view(it, now)
+	d := r.view(it, now)
+	if !wasOnline && r.OnChange != nil {
+		go r.OnChange(d)
+	}
+	return d
 }
 
 // List returns devices, newest last-seen first. Stale ones stay until

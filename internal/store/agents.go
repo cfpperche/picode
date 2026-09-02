@@ -153,6 +153,7 @@ func (s *Store) SetAgentRuntime(id, status string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	s.note("agent.status", &id, nil, map[string]string{"id": id, "lastStatus": status})
 	return nil
 }
 
@@ -226,7 +227,7 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 		// place, so no call site can forget (ADR-0039).
 		_ = s.RecordAgentSessionPath(id, *a.SessionPath)
 	}
-	return s.GetAgent(id)
+	return s.agentChanged(id)
 }
 
 // CLIFlags are the pi argv extras for this agent's stored config (ADR-0009).
@@ -328,7 +329,17 @@ func (s *Store) SetAgentPackages(id string, srcs []string) (Agent, error) {
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: agent packages: %w", err)
 	}
-	return s.GetAgent(id)
+	return s.agentChanged(id)
+}
+
+// agentChanged reloads the row and announces agent.updated.
+func (s *Store) agentChanged(id string) (Agent, error) {
+	a, err := s.GetAgent(id)
+	if err != nil {
+		return Agent{}, err
+	}
+	s.note("agent.updated", &id, &a.WorkspaceID, a)
+	return a, nil
 }
 
 const (
@@ -382,7 +393,12 @@ func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
 		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
-	return s.GetAgent(a.ID)
+	a, err := s.GetAgent(a.ID)
+	if err != nil {
+		return Agent{}, err
+	}
+	s.note("agent.added", &a.ID, &a.WorkspaceID, a)
+	return a, nil
 }
 
 // ListAgents returns agents in a workspace, oldest first.
@@ -440,5 +456,6 @@ func (s *Store) DeleteAgent(id string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	s.note("agent.deleted", nil, nil, idData(id))
 	return nil
 }
