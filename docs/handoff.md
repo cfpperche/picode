@@ -290,7 +290,19 @@ Never exercised, because this machine was already past them:
   and the workspace card when `git.dirty > 0`. QA on scratch with the
   real dirty checkout: file list + expanded patch, synthesized touch
   swipe reveals actions, synthesized pull shows "Release to refresh" and
-  refetches. Owner on the phone: pull did not fire on Inbox and the
+  refetches. Then: "a página inteira rola, o header mais botões devem
+  ficar fixos e somente as listas devem rolar" — `.m-screen-head` (Work's
+  segmented control + New, More's title) and `.m-inbox .ft-head`
+  (Active/Done/All + filter) now use the same negative-margin/sticky-top
+  trick `.m-head` already used for pushed screens, pinning them to the
+  scroll container's own top edge while the rows beneath slide past
+  (`fix/mobile-sticky-headers`). Agent and Terminal screens needed no
+  change — their content panes already size via flex `min-height:0` and
+  scroll internally, so the outer `.m-screen` never engages there.
+  Verified on scratch with seeded overflow (9 workspaces, 13 inbox
+  items): `getComputedStyle(...).position === "sticky"` and the header's
+  `getBoundingClientRect().top` unchanged at `scrollTop 300`. Owner on
+  the phone: pull did not fire on Inbox and the
   stacked split overflowed. `fix/mobile-inbox-subroute`: `AppSurface`
   `paneMode="list"|"detail"` + `onOpenItem`; mobile Inbox = list tab
   (`PullScreen` is the scroller) + pushed `#/inbox/<id>` item screen with
