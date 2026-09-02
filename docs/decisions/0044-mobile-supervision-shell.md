@@ -162,3 +162,16 @@ rows — the screen itself scrolls, so pull works), and an item is
 `AppSurface` gained `paneMode: "list" | "detail"` (+ `onOpenItem`) for it;
 the desktop's split is untouched. A notification tap lands on the item
 screen, and answering it pops back to the list.
+
+## Amendment 2026-09-02 — Safari without the installed web app
+
+The sticky heads (screen head, pushed-screen head, the Inbox filter
+head) used a negative top margin plus `top: calc(-12px - env(safe-area-
+inset-top))` so the head's own padding would sit under the translucent
+status bar of the installed web app. Chrome and Safari place a sticky
+box with a negative margin differently, and in Safari's own tab nothing
+covers that strip: the head's top was clipped. Now a screen that has a
+sticky head hands it the top padding (`:has()`), the head has no
+negative margin and sticks at `top: 0`; the safe-area strip is the
+head's padding in both modes. The terminal's keys toggle moved from a
+floating button (it sat on the TUI's status lines) into the header.

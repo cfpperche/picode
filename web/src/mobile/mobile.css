@@ -21,6 +21,12 @@
 #m-app input, #m-app select, #m-app textarea { font-size: 16px; } /* no iOS zoom on focus */
 #m-app .dlg-input { font-size: 16px; }
 
+/* A screen with a sticky head hands its top padding to the head: the
+   head owns the safe-area strip and sticks at top: 0. No negative
+   margins — Chrome and Safari place a sticky box with a negative margin
+   differently, and in Safari without the installed web app the head's
+   top was simply clipped. */
+.m-screen:has(> .m-screen-head), .m-screen:has(> .m-head), .m-screen:has(.ft-head) { padding-top: 0; }
 /* ---- frame: no header, the tab bar is the chrome ---- */
 .m-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .m-screen {
@@ -31,8 +37,8 @@
 }
 .m-screen-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px;
-  position: sticky; top: calc(-12px - env(safe-area-inset-top)); z-index: 4;
-  margin: calc(-12px - env(safe-area-inset-top)) calc(-1 * var(--m-pad)) 12px;
+  position: sticky; top: 0; z-index: 4;
+  margin: 0 calc(-1 * var(--m-pad)) 12px;
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 10px;
   background: var(--bg-base);
 }
@@ -65,8 +71,8 @@
 .m-head {
   flex: none; display: grid; grid-template-columns: var(--m-tap) minmax(0, 1fr) auto; align-items: center; gap: 6px;
   min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--m-pad) 0 4px;
-  margin: calc(-12px - env(safe-area-inset-top)) calc(-1 * var(--m-pad)) 0; background: var(--bg-panel); border-bottom: 1px solid var(--border);
-  position: sticky; top: calc(-12px - env(safe-area-inset-top)); z-index: 5;
+  margin: 0 calc(-1 * var(--m-pad)) 0; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 5;
 }
 .m-head-back, .m-head-spacer {
   width: var(--m-tap); height: var(--m-tap); display: inline-flex; align-items: center; justify-content: center;
@@ -184,13 +190,10 @@
 .m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; }
 .m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
 .m-term-screen .m-term { touch-action: none; } /* the drag is ours: wheel events for the pane, not a page scroll */
-.m-fab {
-  position: absolute; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 6;
-  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-strong);
-  background: var(--bg-elevated); color: var(--text-primary); display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 18px color-mix(in srgb, #000 35%, transparent); cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.m-fab:active { background: var(--bg-hover); }
+/* The keys toggle lives in the header (a floating button sat on the
+   TUI's status lines). */
+.m-keys-btn { padding: 0 10px; }
+.m-keys-btn.on { color: var(--accent); border-color: var(--accent); }
 .m-term-screen { position: relative; }
 .m-keybar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
 .m-key-close { flex: 0 0 44px; color: var(--text-secondary); }
@@ -223,8 +226,8 @@
 .m-inbox .app-surface, .m-inbox-item .app-surface { flex: none; overflow: visible; min-height: 0; background: transparent; }
 .m-inbox .app-body, .m-inbox-item .app-body { overflow: visible; padding: 8px 0 0; }
 .m-inbox .ft-head {
-  position: sticky; top: calc(-12px - env(safe-area-inset-top)); z-index: 4;
-  margin: calc(-12px - env(safe-area-inset-top)) calc(-1 * var(--m-pad)) 8px;
+  position: sticky; top: 0; z-index: 4;
+  margin: 0 calc(-1 * var(--m-pad)) 8px;
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 8px;
   background: var(--bg-base); border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }

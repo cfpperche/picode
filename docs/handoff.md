@@ -296,6 +296,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Mobile shell in Safari's own tab** (`fix/mobile-safari-headers`):
+  owner's iPhone screenshots — heads clipped under the status bar,
+  keys button over the TUI. Sticky heads lose the negative margin and
+  the negative `top`; the screen hands its top padding to the head via
+  `:has()` (`mobile.css`); the terminal's keys toggle is a header
+  button (`.m-keys-btn`), `.m-fab` removed. Measured in Chromium at
+  390×480: head border box at 0 at rest and when scrolled.
 - **2026-09-02 — Content-Security-Policy (ADR-0052 amendment)**
   (`feat/csp`): `internal/server/csp.go` — the app shell's inline theme
   bootstrap is allowed by sha256 hash computed from the served

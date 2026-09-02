@@ -97,6 +97,11 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
             {live.git && live.git.dirty ? (
               <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("term", term.id, live.name || "Terminal")}><IconGit size={13} /> {live.git.dirty}</button>
             ) : null}
+            {page && !error ? (
+              <button type="button" className={"btn btn-sm m-keys-btn" + (keys ? " on" : "")} title="Terminal keys" aria-label={keys ? "Hide terminal keys" : "Show terminal keys"} aria-pressed={keys} onPointerDown={(e) => e.preventDefault()} onClick={() => setKeys((k) => !k)}>
+                <IconKeyboard size={16} />
+              </button>
+            ) : null}
             <button type="button" className="btn btn-sm" disabled={busy} onClick={() => onRemove(term)}>Remove</button>
           </>
         )}
@@ -111,11 +116,6 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
         )}
       </div>
       {page && !error && keys ? <KeyBar onKey={sendKey} onClose={() => setKeys(false)} /> : null}
-      {page && !error && !keys ? (
-        <button type="button" className="m-fab" title="Keys" aria-label="Show terminal keys" onPointerDown={(e) => e.preventDefault()} onClick={() => setKeys(true)}>
-          <IconKeyboard size={20} />
-        </button>
-      ) : null}
     </div>
   );
 }

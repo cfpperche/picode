@@ -77,6 +77,11 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Mobile in Safari, without the installed web app.** The sticky heads
+  (Work, Inbox, and every pushed screen) no longer lose their top under
+  the status bar, and the terminal's keys button moved from a floating
+  circle over the TUI's status lines into the screen header.
+
 - **A content-security policy on every page.** The app and the pairing
   and gateway pages now tell the browser exactly which scripts, styles
   and connections are allowed — the app's own bundle, its one startup
