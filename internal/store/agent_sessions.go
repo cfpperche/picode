@@ -4,6 +4,9 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"strings"
+
+	"github.com/cfpperche/picode/internal/session"
 )
 
 // RecordAgentSessionPath historizes a concrete session file this agent now
@@ -94,6 +97,73 @@ func (s *Store) AllAgentSessionPaths() (map[string]bool, error) {
 func (s *Store) ResolveAgentSessionID(agentID, sessionID, path string) {
 	_, _ = s.db.Exec(`UPDATE agent_sessions SET session_path = ? WHERE agent_id = ? AND session_id = ? AND session_path IS NULL`,
 		path, agentID, sessionID)
+}
+
+// PendingAgentSessionIDs is the session ids this agent is already
+// attributed (historized by NewPendingAgentSession, ADR-0039) but whose
+// file path nobody has recorded yet.
+func (s *Store) PendingAgentSessionIDs(agentID string) ([]string, error) {
+	rows, err := s.db.Query(`SELECT session_id FROM agent_sessions
+		WHERE agent_id = ? AND session_id IS NOT NULL AND session_id != ''
+		AND (session_path IS NULL OR session_path = '')`, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("store: pending agent sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("store: pending agent sessions: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// ResolvePendingAgentSession matches the agent's pending session ids
+// against the files actually on disk in its private session dir
+// (ADR-0040) and adopts the newest one: the row gets its path, and an
+// agent with no current session gets agents.session_path backfilled.
+// Returns the adopted path, or "" when nothing pending has a file — the
+// fresh-agent case, where the caller mints a new id.
+//
+// Why spawn needs this: ADR-0039's backfill ran only inside the chat
+// picker, so a run-mode switch between picker reads (open the agent's
+// TUI, send from the chat) found SessionPath empty and minted a
+// competing session — the chat and the TUI drifted onto different
+// threads, each sure the other's work was "someone else's session".
+func (s *Store) ResolvePendingAgentSession(agentID string) string {
+	ids, err := s.PendingAgentSessionIDs(agentID)
+	if err != nil || len(ids) == 0 {
+		return ""
+	}
+	pending := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		pending[id] = true
+	}
+	files, err := session.ListDirs(session.AgentDir(agentID))
+	if err != nil || len(files) == 0 {
+		return ""
+	}
+	newest := ""
+	for _, f := range files { // newest first
+		if !pending[f.ID] {
+			continue
+		}
+		s.ResolveAgentSessionID(agentID, f.ID, f.Path)
+		if newest == "" {
+			newest = f.Path
+		}
+	}
+	if newest == "" {
+		return ""
+	}
+	if a, err := s.GetAgent(agentID); err == nil &&
+		(a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "") {
+		_, _ = s.UpdateAgent(agentID, AgentPatch{SessionPath: &newest})
+	}
+	return newest
 }
 
 // newSessionID mints a v4 UUID in the shape pi's --session-id expects.

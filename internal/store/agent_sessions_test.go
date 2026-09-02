@@ -1,6 +1,13 @@
 package store
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/cfpperche/picode/internal/session"
+)
 
 func TestAgentSessionsHistory(t *testing.T) {
 	s := openTest(t)
@@ -140,5 +147,103 @@ func TestMigrationBackfillsExistingSessionPath(t *testing.T) {
 	}
 	if !keys.Paths[path] {
 		t.Fatalf("backfill did not historize pre-existing session_path: %+v", keys)
+	}
+}
+
+// TestResolvePendingAgentSession exercises the adopt-at-spawn lookup
+// (ADR-0053): a pending --session-id from an earlier run (ADR-0039)
+// whose file has since appeared in the agent's private dir (ADR-0040)
+// resolves to that file instead of the caller minting a competitor.
+//
+//	pending id | file in private dir | return | row path     | session_path
+//	-----------+---------------------+--------+--------------+---------------------
+//	yes        | yes (newest wins)   | path   | resolved     | backfilled when empty
+//	yes        | no                  | ""     | untouched    | untouched
+//	yes        | yes                 | path   | resolved     | kept (already set)
+func TestResolvePendingAgentSession(t *testing.T) {
+	s := openTest(t)
+	old := session.TestRoot
+	session.TestRoot = t.TempDir()
+	t.Cleanup(func() { session.TestRoot = old })
+
+	proj := t.TempDir()
+	ws, agent, err := addWorkspaceWithAgent(s, "App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Nothing pending: no ids, no files — the plain fresh-agent case.
+	if got := s.ResolvePendingAgentSession(agent.ID); got != "" {
+		t.Fatalf("resolve with nothing pending = %q, want \"\"", got)
+	}
+
+	// Pending id whose file exists: adopted, newest wins when two pend.
+	older := s.NewPendingAgentSession(agent.ID)
+	newer := s.NewPendingAgentSession(agent.ID)
+	if older == "" || newer == "" {
+		t.Fatal("NewPendingAgentSession returned empty id")
+	}
+	dir := session.AgentDir(agent.ID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeSessionFile := func(name, sid string, mod time.Time) string {
+		t.Helper()
+		p := filepath.Join(dir, name)
+		body := `{"type":"session","id":"` + sid + `","cwd":"` + proj + `"}` + "\n"
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mod, mod); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	oldPath := writeSessionFile("old.jsonl", older, time.Now().Add(-time.Hour))
+	newPath := writeSessionFile("new.jsonl", newer, time.Now())
+
+	got := s.ResolvePendingAgentSession(agent.ID)
+	if got != newPath {
+		t.Fatalf("resolve = %q, want newest %q (over %q)", got, newPath, oldPath)
+	}
+	keys, err := s.AgentSessionKeys(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !keys.Paths[newPath] || !keys.Paths[oldPath] {
+		t.Fatalf("rows not resolved: %+v", keys.Paths)
+	}
+	a, err := s.GetAgent(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.SessionPath == nil || *a.SessionPath != newPath {
+		t.Fatalf("session_path = %v, want %q", a.SessionPath, newPath)
+	}
+
+	// An agent whose current session is already set keeps it.
+	sid := s.NewPendingAgentSession(agent.ID)
+	keep := writeSessionFile("third.jsonl", sid, time.Now())
+	if got := s.ResolvePendingAgentSession(agent.ID); got != keep {
+		t.Fatalf("resolve = %q, want %q", got, keep)
+	}
+	a, err = s.GetAgent(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.SessionPath == nil || *a.SessionPath != newPath {
+		t.Fatalf("resolve overwrote a live session_path: %v", a.SessionPath)
+	}
+
+	// Pending id with no file on disk yet: nothing to adopt.
+	fresh, err := s.AddAgent(ws.ID, "Fresh", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sid := s.NewPendingAgentSession(fresh.ID); sid == "" {
+		t.Fatal("mint failed")
+	}
+	if got := s.ResolvePendingAgentSession(fresh.ID); got != "" {
+		t.Fatalf("resolve without a file = %q, want \"\"", got)
 	}
 }

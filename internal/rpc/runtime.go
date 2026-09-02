@@ -223,10 +223,18 @@ func (r *Runtime) Start(agentID, path string) error {
 		if a, err := r.store.GetAgent(agentID); err == nil {
 			sid := ""
 			if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
-				// Fresh start: mint a session id up front so pi's
-				// auto-created session is attributable to this agent
-				// from the moment it exists (ADR-0039).
-				sid = r.store.NewPendingAgentSession(agentID)
+				// No current pointer — but an earlier run's pending
+				// --session-id (ADR-0039) may already have a file on
+				// disk: adopt it so the chat continues where the agent's
+				// TUI or previous managed run left off (ADR-0053).
+				if p := r.store.ResolvePendingAgentSession(agentID); p != "" {
+					a.SessionPath = &p
+				} else {
+					// Fresh start: mint a session id up front so pi's
+					// auto-created session is attributable to this agent
+					// from the moment it exists (ADR-0039).
+					sid = r.store.NewPendingAgentSession(agentID)
+				}
 			}
 			args = append(args, a.CLIFlagsForSpawn(sid)...)
 			extraEnv = append(extraEnv, a.SpawnEnv()...)
