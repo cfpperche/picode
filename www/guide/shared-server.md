@@ -7,6 +7,12 @@ Tailscale itself) and sends them to theirs.
 
 ## For the admin
 
+Start here on a fresh box — not with `picode install`. The gateway is
+the only PiCode piece you install by hand; every person's PiCode comes
+from `provision --shared`, already configured to live behind it. (Have
+a PiCode of your own on the box already? See "Which path" in
+[On a server](./remote-server#which-path).)
+
 On the box, once (Tailscale running, MagicDNS and HTTPS certificates
 enabled for the tailnet):
 
