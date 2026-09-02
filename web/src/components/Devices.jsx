@@ -86,13 +86,15 @@ export default function Devices({ hidden }) {
               </li>
             ))}
           </ul>
-          <div className="devs-actions" data-align-row>
-            <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
-            <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
+          <div className="devs-foot">
+            <div className="devs-actions" data-align-row>
+              <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
+              <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
+            </div>
+            {extOnline ? null : (
+              <p className="settings-desc dev-ext-note">Chrome extension: not connected. <a href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a></p>
+            )}
           </div>
-          {extOnline ? null : (
-            <p className="settings-desc dev-ext-note">Chrome extension: not connected. <a href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a></p>
-          )}
         </>
       )}
       {unpaired.length ? (

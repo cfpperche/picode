@@ -286,6 +286,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Devices footer spacing + centering.** List rows
+  unchanged. `.devs-foot` adds 16px spacer + divider under the last
+  device; Pair / Copy link and the extension note are centred. Empty
+  state untouched. visual-review: PASS (devices-foot.png + overlayAudit
+  ok; card 5/5).
 - **2026-09-02 — `picode gateway uninstall [--purge]`**: the owner asked
   how to remove the gateway completely, not just disable it. Stops and
   removes the system unit; `--purge` deletes `/etc/picode` and the

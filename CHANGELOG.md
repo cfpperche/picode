@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Devices footer.** The paired-device list is unchanged. A spacer and
+  a divider now sit between the last row and **Pair a device** / **Copy
+  a pairing link**, and those buttons plus the Chrome-extension note are
+  centred in the card.
+
 - **Other devices must pair before they can use PiCode (ADR-0049).** A
   browser on the machine that runs PiCode keeps working as before. A
   phone or another computer now needs a one-time pairing link: scan the

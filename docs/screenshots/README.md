@@ -17,7 +17,7 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
-Working captures stay in `var/screenshots/`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
+Working captures stay in `var/screenshots/`. Devices footer (list + centred Pair/Copy): `devices-foot.png`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
 Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,
 `usage-openrouter.png`. `usage-loading.png` is V1 skeleton.
