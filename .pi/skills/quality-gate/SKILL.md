@@ -29,6 +29,8 @@ passed gate reported falsely.
      next state, not a static wait then a jump.
    - New non-stdlib dependency? It needs explicit justification in the
      commit/PR description (AGENTS.md rule #3). No justification = remove it.
+   - Store mutation without an event, or a new poll against `/api/*`
+     without a stated reason the feed cannot cover (ADR-0048) → FAIL.
 7. **Changelog check**: is anything in this diff user-visible?
    - Yes → there must be a new entry under `[Unreleased]` in
      `CHANGELOG.md` (Keep a Changelog verbs: Added/Changed/Fixed/Removed).

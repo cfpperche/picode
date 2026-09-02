@@ -166,6 +166,13 @@ supersede it with a new one instead.
 - **Empty states are required.** A list, gallery, or collapsible section
   that can have zero items must show a one-line placeholder (and the add
   action if one exists). Never a blank well. Never a "0" count badge.
+- **State changes go through the store and announce themselves (ADR-0048).**
+  A mutation is a store method that appends its event in the same
+  transaction; writing to SQLite around the store, or adding a mutator
+  without a row in `TestEveryMutationAppendsAnEvent`, is a bug. UI lists
+  subscribe to the feed (`web/src/lib/feed.js`) and patch or refetch; a
+  new `setInterval` against `/api/*` needs a reason the feed cannot cover
+  (metrics, presence, tmux).
 - Commits: imperative, scoped (`server: add /api/version endpoint`).
 - Docs: short paragraphs, tables for comparisons, diagrams over prose.
 - The audience includes terminal-averse users: UI copy avoids jargon;
