@@ -169,7 +169,17 @@ appears in an unrelated agent's picker. Every agent spawn also carries a
 private `--session-dir` (`~/.pi/agent/sessions/<agentID>/`, ADR-0040), so
 pi's **own** native "Resume Session" picker inside its interactive TUI —
 which reads sessions straight off disk and has no knowledge of PiCode's
-API — is scoped the same way, not just PiCode's chat surface. The
+API — is scoped the same way, not just PiCode's chat surface. The picker
+lists the union of the cwd bucket and the agent's private dir, since
+ADR-0040 is where fresh sessions actually land. Before any spawn mints a
+fresh `--session-id`, it first **adopts**: pending ids from an earlier
+run are matched against the files in the private dir and the newest
+match becomes a plain `--session` resume with `agents.session_path`
+backfilled (ADR-0053) — so switching between the chat and the agent's
+own TUI continues one session instead of minting a competitor each hop.
+The composer status bar is per agent too: the desktop app fetches
+`/status?agent=<selected>`; without the parameter the endpoint answers
+for the workspace's first agent (ADR-0053). The
 machine-wide/workspace-wide housekeeping views (`/sessions/manage`,
 `/sessions/all`, below) are unfiltered on purpose and union in every
 agent's private dir alongside the shared cwd bucket: they exist to show

@@ -11,6 +11,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **A new agent no longer inherits another agent's session numbers
+  (ADR-0053).** The composer status bar — context, tokens, cache hit,
+  spend, and the Sessions chip's cost with it — now follows the
+  **selected** agent; it used to show the workspace's first agent
+  instead, so a freshly created agent appeared to start with a
+  sibling's context and spend. Opening an agent's TUI from the chat
+  (and sending from the chat while the TUI is open) now **resumes the
+  agent's current session** instead of silently starting a new one each
+  hop, so the two doors onto an agent stay on one thread. The agent's
+  own session picker also sees sessions stored in its private session
+  directory — they were invisible since the per-agent session dirs
+  shipped (ADR-0040), which is what read as "No sessions yet" on an
+  agent that had already chatted.
+
 ### Changed
 
 - **Devices footer.** The paired-device list is unchanged. A spacer and
