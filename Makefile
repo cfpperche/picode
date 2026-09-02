@@ -62,6 +62,9 @@ desktop: ## Cross-compile the Windows tray + console native host (ADR-0020 / 004
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
 		go build -ldflags "-s -w" -o bin/picode-nmh.exe ./cmd/picode-desktop
 
+desktop-restart: desktop ## Swap the Windows exes and relaunch the tray via the logon task (NEVER `&` from WSL — scripts/desktop-swap.sh)
+	./scripts/desktop-swap.sh
+
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 
 test: ## Run all Go tests

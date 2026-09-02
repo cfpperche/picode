@@ -294,6 +294,17 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — `make desktop-restart` guardrail after the tray/VM outage.**
+  Swapping the Windows exes, this session killed the tray and relaunched it
+  with `picode-desktop --tray &` from a WSL tool shell; the process died with
+  the shell, the keepalive died with it, and the 60s WSL idle timeout
+  reclaimed the VM — server down, open tmux sessions lost. Fix: the swap is
+  now one audited command, `scripts/desktop-swap.sh` (kill → copy → re-register
+  host → `schtasks /run /tn PiCodeDesktop` → verify tasklist), wired as
+  `make desktop-restart` and listed in AGENTS.md's commands table. The script
+  header and the make help state the rule: never background a Windows exe
+  from WSL. Ran once for real after the fix: exes swapped, tray up, bootId
+  unchanged (no VM bounce).
 - **2026-09-02 — Chrome extension Track C, the actuator (ADR-0054)**
   (`feat/ext-track-c`). Send with "Let the agent act on this page" →
   `[browser-act]` prompt intro → settle watcher parses the last

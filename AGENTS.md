@@ -115,6 +115,7 @@ At session end, run `/skill:handoff-update`.
 | `make build` | UI + `bin/picode` |
 | `make install` | Copy to `~/.local/bin` and enable systemd --user |
 | `make deploy` | Rebuild + restart the installed service |
+| `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch the tray via the logon task — the only supported restart; never background a Windows exe from WSL |
 | `make test` / `make test-js` / `make vet` / `make fmt` | Quality gates (Go tests, frontend tests) |
 | `make ci` | Everything CI runs |
 
