@@ -49,7 +49,7 @@ func TestPairGetDoesNotConsume(t *testing.T) {
 		t.Fatalf("GET /pair = %v %v", res, err)
 	}
 	body := readBody(res)
-	if !strings.Contains(body, "Pair this device") || !strings.Contains(body, `name="code"`) {
+	if !strings.Contains(body, `class="pair-btn"`) || !strings.Contains(body, `name="code"`) {
 		t.Fatalf("page = %s", body)
 	}
 	// Twice: still fine, nothing consumed.

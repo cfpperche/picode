@@ -263,6 +263,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — /pair got PiCode's own look** (`fix/pair-page-branding`):
+  the confirm and error pages were an unstyled system page with no
+  branding — owner: "pessima UXUI, sem branding do picode". Rewrote
+  `pairPage`/`pairPageTemplate` in `internal/server/auth.go` as a
+  dark-first card matching the app's tokens (bg/border/accent, the π
+  wordmark, "The browser is a door, not a cage." footer), with
+  `prefers-color-scheme: light` for a light OS. The heading and button
+  now name the device (`presence.Label`): "Pair this iPhone", "Pair this
+  Browser" for an unrecognized UA. No React here — this loads before any
+  cookie exists, so the CSS is inlined rather than shared with app.css.
 - **2026-09-02 — /pair confirms on POST** (`fix/pair-confirm-post`): the
   iPhone camera prefetched the pairing link, spending the one-time code
   before Safari opened it ("This link was already used"). GET /pair now

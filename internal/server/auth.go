@@ -11,6 +11,7 @@ import (
 	"net/url"
 
 	"github.com/cfpperche/picode/internal/auth"
+	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -222,13 +223,20 @@ func handlePairPage(deps Deps) http.HandlerFunc {
 		}
 		code := strings.TrimSpace(r.URL.Query().Get("code"))
 		if code == "" {
-			pairPage(w, http.StatusBadRequest, "This link is not valid.", "")
+			pairPage(w, http.StatusBadRequest, pairView{Heading: "This link is not valid", Body: "Ask for a new one on a paired device: Devices → Pair a device."})
 			return
 		}
-		form := `<form method="post" action="/pair"><input type="hidden" name="code" value="` + html.EscapeString(code) + `">` +
-			`<input type="hidden" name="device" value="` + html.EscapeString(strings.TrimSpace(r.URL.Query().Get("device"))) + `">` +
-			`<button type="submit" style="font:inherit;font-weight:600;padding:12px 20px;border-radius:8px;border:0;background:#2f6fed;color:#fff;width:100%%">Pair this device</button></form>`
-		pairPage(w, http.StatusOK, "This link pairs this browser with PiCode on "+html.EscapeString(r.Host)+". It works once.", form)
+		device := strings.TrimSpace(r.URL.Query().Get("device"))
+		who := presence.Label(r.UserAgent())
+		form := `<form method="post" action="/pair">` +
+			`<input type="hidden" name="code" value="` + html.EscapeString(code) + `">` +
+			`<input type="hidden" name="device" value="` + html.EscapeString(device) + `">` +
+			`<button type="submit" class="pair-btn">Pair this ` + html.EscapeString(who) + `</button></form>`
+		pairPage(w, http.StatusOK, pairView{
+			Heading: "Pair this " + who,
+			Body:    "This link connects this browser to PiCode on <strong>" + html.EscapeString(r.Host) + "</strong>. It only works once.",
+			Extra:   form,
+		})
 	}
 }
 
@@ -238,7 +246,7 @@ func handlePairPage(deps Deps) http.HandlerFunc {
 func handlePair(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
-			pairPage(w, http.StatusBadRequest, "This link is not valid.", "")
+			pairPage(w, http.StatusBadRequest, pairView{Heading: "This link is not valid", Body: askNewLink})
 			return
 		}
 		code := strings.TrimSpace(r.Form.Get("code"))
@@ -248,20 +256,98 @@ func handlePair(deps Deps) http.HandlerFunc {
 		case err == nil:
 			http.Redirect(w, r, appHome(r), http.StatusSeeOther)
 		case auth.IsTooMany(err):
-			pairPage(w, http.StatusTooManyRequests, "Too many attempts. Wait ten minutes and open a fresh link.", "")
+			pairPage(w, http.StatusTooManyRequests, pairView{Heading: "Too many attempts", Body: "Wait ten minutes, then open a fresh link."})
 		case errors.Is(err, store.ErrPairingUsed):
-			pairPage(w, http.StatusGone, "This link was already used. "+askNewLink, "")
+			pairPage(w, http.StatusGone, pairView{Heading: "This link was already used", Body: askNewLink})
 		case errors.Is(err, store.ErrPairingExpired):
-			pairPage(w, http.StatusGone, "This link expired. "+askNewLink, "")
+			pairPage(w, http.StatusGone, pairView{Heading: "This link expired", Body: askNewLink})
 		default:
-			pairPage(w, http.StatusBadRequest, "This link is not valid. "+askNewLink, "")
+			pairPage(w, http.StatusBadRequest, pairView{Heading: "This link is not valid", Body: askNewLink})
 		}
 	}
 }
 
-func pairPage(w http.ResponseWriter, code int, msg, extra string) {
+// pairView is one branded page: a heading, a line of body copy (may
+// contain simple inline HTML the caller has already escaped where it
+// echoes user input) and an optional extra block (the confirm form).
+type pairView struct {
+	Heading string
+	Body    string
+	Extra   string
+}
+
+// pairPage renders the /pair surface with PiCode's own look — dark-first,
+// the same tokens and π mark as the app shell — instead of an unstyled
+// system page. It is server-rendered (no React here: this loads before
+// any cookie exists), so the palette is inlined rather than shared with
+// app.css.
+func pairPage(w http.ResponseWriter, code int, v pairView) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	_, _ = fmt.Fprintf(w, `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>PiCode</title>
-<body style="font:15px/1.5 system-ui,sans-serif;margin:40px auto;max-width:28em;padding:0 16px;color:#222"><h1 style="font-size:18px">Pair with PiCode</h1><p>%s</p>%s</body>`, html.EscapeString(msg), extra)
+	_, _ = fmt.Fprintf(w, pairPageTemplate, html.EscapeString(v.Heading)+" · PiCode", html.EscapeString(v.Heading), v.Body, v.Extra)
 }
+
+const pairPageTemplate = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0e11">
+<title>%s</title>
+<style>
+:root {
+  --bg-base: #0e0e11; --bg-panel: #16161c; --border: #232329; --border-strong: #2c2c34;
+  --text-primary: #ececf1; --text-secondary: #9b9ba7; --accent: #7c8cf8;
+  --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  --serif: Georgia, ui-serif, serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-base: #ffffff; --bg-panel: #f7f8fa; --border: #dfe3ea; --border-strong: #c9cedb;
+    --text-primary: #16181d; --text-secondary: #5b6472; --accent: #2f6fed;
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--bg-base); color: var(--text-primary);
+  font: 15px/1.55 var(--sans);
+}
+.pair-card {
+  width: 100%%; max-width: 380px; background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px 26px 26px;
+}
+.pair-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.pair-mark {
+  font: 700 26px/1 var(--serif); color: var(--accent); width: 32px; text-align: center;
+}
+.pair-name { font-weight: 650; letter-spacing: .2px; font-size: 15px; }
+.pair-heading { font-size: 18px; font-weight: 650; margin: 0 0 10px; line-height: 1.3; }
+.pair-body { margin: 0; color: var(--text-secondary); font-size: 13.5px; }
+.pair-body strong { color: var(--text-primary); font-weight: 600; }
+.pair-btn {
+  font: inherit; font-weight: 600; font-size: 14px; width: 100%%; margin-top: 20px;
+  height: 44px; border-radius: 9px; border: 0; cursor: pointer;
+  background: var(--accent); color: #fff; transition: filter 120ms ease-out;
+}
+.pair-btn:hover { filter: brightness(1.08); }
+.pair-btn:active { filter: brightness(0.96); }
+.pair-foot { margin: 18px 0 0; font-size: 11.5px; color: var(--text-secondary); text-align: center; }
+</style>
+</head>
+<body>
+  <main class="pair-card" role="main">
+    <div class="pair-brand">
+      <span class="pair-mark" aria-hidden="true">π</span>
+      <span class="pair-name">PiCode</span>
+    </div>
+    <h1 class="pair-heading">%s</h1>
+    <p class="pair-body">%s</p>
+    %s
+    <p class="pair-foot">The browser is a door, not a cage.</p>
+  </main>
+</body>
+</html>
+`
