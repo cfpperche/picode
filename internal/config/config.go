@@ -6,6 +6,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -68,14 +70,64 @@ const DefaultPortRange = "8445-8455"
 
 // Config is the resolved runtime configuration.
 type Config struct {
-	Host     string // bind host
-	Port     PortConfig
-	DataDir  string // db, certs, server.json
-	Insecure bool   // disable TLS (dev / behind proxy)
+	Host      string // bind host
+	Port      PortConfig
+	DataDir   string // db, certs, server.json
+	Insecure  bool   // disable TLS (dev / behind proxy)
+	PublicURL string // the origin other machines use; "" when none (ADR-0050)
 }
 
-// PortSettingKey is the DB settings key edited by the Settings UI.
-const PortSettingKey = "server.port"
+// Settings keys edited by the Settings UI (ADR-0007, ADR-0050). Host and
+// port share one precedence: DB > env > default. The public URL has no
+// env: it is advisory, and a server that needs it has a UI to set it.
+const (
+	PortSettingKey      = "server.port"
+	HostSettingKey      = "server.host"
+	PublicURLSettingKey = "server.public_url"
+)
+
+// DefaultHost binds every interface (ADR-0007).
+const DefaultHost = "0.0.0.0"
+
+// ValidateHost accepts an unspecified address or an IP literal. Names are
+// refused: a bind is an interface, and a name that resolves elsewhere
+// tomorrow would silently take the server off the machine.
+func ValidateHost(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", fmt.Errorf("config: empty host")
+	}
+	if net.ParseIP(s) == nil {
+		return "", fmt.Errorf("config: host must be an IP address (0.0.0.0 for every interface)")
+	}
+	return s, nil
+}
+
+// ValidatePublicURL normalises "https://host[:port]". Empty clears it.
+// Plain http is only allowed when TLS is off (behind a proxy, dev).
+func ValidatePublicURL(s string, insecure bool) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" || u.Hostname() == "" {
+		return "", fmt.Errorf("config: public URL must look like https://host:port")
+	}
+	switch u.Scheme {
+	case "https":
+	case "http":
+		if !insecure {
+			return "", fmt.Errorf("config: public URL must be https (this server serves TLS)")
+		}
+	default:
+		return "", fmt.Errorf("config: public URL must be https://")
+	}
+	if (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return "", fmt.Errorf("config: public URL is an origin — no path, query or credentials")
+	}
+	return u.Scheme + "://" + strings.ToLower(u.Host), nil
+}
 
 // Resolve builds the effective config. dbGet returns ("", false, nil) when
 // the setting is absent.
@@ -85,9 +137,21 @@ func Resolve(dbGet func(key string) (string, bool, error)) (Config, error) {
 		home = u.HomeDir
 	}
 	cfg := Config{
-		Host:     getenv("PICODE_HOST", "0.0.0.0"),
+		Host:     getenv("PICODE_HOST", DefaultHost),
 		DataDir:  getenv("PICODE_DATA", filepath.Join(home, ".picode")),
 		Insecure: os.Getenv("PICODE_INSECURE") == "1",
+	}
+	if dbGet != nil {
+		if v, ok, err := dbGet(HostSettingKey); err == nil && ok {
+			if h, err := ValidateHost(v); err == nil {
+				cfg.Host = h
+			}
+		}
+		if v, ok, err := dbGet(PublicURLSettingKey); err == nil && ok {
+			if p, err := ValidatePublicURL(v, cfg.Insecure); err == nil {
+				cfg.PublicURL = p
+			}
+		}
 	}
 
 	// Precedence: DB (UI) > env > default.

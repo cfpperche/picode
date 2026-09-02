@@ -15,10 +15,11 @@ func handleShare(deps Deps) http.HandlerFunc {
 			port = deps.PortSnapshot().Current
 		}
 		rep := share.Diagnose(share.Input{
-			Insecure: deps.Insecure,
-			BindHost: deps.BindHost,
-			Port:     port,
-			DataDir:  deps.DataDir,
+			Insecure:  deps.Insecure,
+			BindHost:  deps.BindHost,
+			Port:      port,
+			DataDir:   deps.DataDir,
+			PublicURL: deps.publicURL(),
 		})
 		if tp := share.EnsureTrustHTTP(); tp != "" {
 			rep.TrustPort = tp

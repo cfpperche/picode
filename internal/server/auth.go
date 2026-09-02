@@ -149,7 +149,7 @@ func (deps Deps) pairLinks(r *http.Request, code string) (link, qr string) {
 	if deps.PortSnapshot != nil {
 		port = deps.PortSnapshot().Current
 	}
-	rep := share.Diagnose(share.Input{Insecure: deps.Insecure, BindHost: deps.BindHost, Port: port, DataDir: deps.DataDir})
+	rep := share.Diagnose(share.Input{Insecure: deps.Insecure, BindHost: deps.BindHost, Port: port, DataDir: deps.DataDir, PublicURL: deps.publicURL()})
 	if rep.URL == "" {
 		link = deps.Auth.PairURL(r, code)
 		return link, link

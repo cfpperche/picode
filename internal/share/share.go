@@ -5,9 +5,11 @@ package share
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -46,16 +48,17 @@ type Report struct {
 
 // Input is live server state needed to diagnose.
 type Input struct {
-	Insecure bool
-	BindHost string
-	Port     int
-	DataDir  string
+	Insecure  bool
+	BindHost  string
+	Port      int
+	DataDir   string
+	PublicURL string // configured origin (ADR-0050); listed first when set
 }
 
 // SyncCert reissues the mkcert leaf when current phone-usable IPs are
 // missing from the SAN list. No-op if mkcert is absent or already in sync.
 // The running server reloads the files on the next handshake (tlsutil.LiveConfig).
-func SyncCert(dataDir string) {
+func SyncCert(dataDir string, extra ...string) {
 	if dataDir == "" {
 		return
 	}
@@ -63,6 +66,11 @@ func SyncCert(dataDir string) {
 		return
 	}
 	want := DesiredNames()
+	for _, e := range extra {
+		if e = strings.TrimSpace(e); e != "" && !hasSAN(want, e) {
+			want = append(want, e)
+		}
+	}
 	sans, issuer := certInfo(dataDir)
 	if !issuerMKCert(issuer) {
 		return
@@ -110,7 +118,11 @@ func missingAny(have, want []string) bool {
 
 // Diagnose returns readiness for a phone-scannable URL.
 func Diagnose(in Input) Report {
-	SyncCert(in.DataDir)
+	pubHost := ""
+	if u, err := url.Parse(in.PublicURL); err == nil && u.Host != "" {
+		pubHost = u.Hostname()
+	}
+	SyncCert(in.DataDir, pubHost)
 	rep := Report{URLs: []string{}, Targets: []Target{}}
 	scheme := "https"
 	if in.Insecure {
@@ -143,6 +155,18 @@ func Diagnose(in Input) Report {
 	tsOfficial := officialTailscale()
 
 	var anyCovered bool
+	if pub := strings.TrimRight(in.PublicURL, "/"); pub != "" {
+		host := pub
+		if u, err := url.Parse(pub); err == nil && u.Host != "" {
+			host = u.Host
+		}
+		rep.Targets = append(rep.Targets, Target{
+			URL: pub + "/", Kind: "public", Addr: host, OnCert: true,
+			Note: "The address you configured for this server",
+		})
+		rep.URLs = append(rep.URLs, pub+"/")
+		anyCovered = true
+	}
 	for _, a := range addrs {
 		kind := "lan"
 		if isTailnet(net.ParseIP(a)) {
@@ -196,6 +220,7 @@ func Diagnose(in Input) Report {
 			}
 		}
 	}
+	pick(func(t Target) bool { return t.Kind == "public" })
 	pick(func(t Target) bool { return t.Kind == "tailnet" && t.Addr == tsOfficial })
 	pick(func(t Target) bool { return t.Kind == "lan" })
 	pick(func(t Target) bool { return t.Kind == "tailnet" })
@@ -218,6 +243,28 @@ func officialTailscale() string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// TailscaleIPv4 is this node's tailnet address, "" without Tailscale.
+func TailscaleIPv4() string { return officialTailscale() }
+
+// MagicDNSName is this node's tailnet name (box.tailxxxx.ts.net), ""
+// when Tailscale is absent, down, or MagicDNS is off.
+func MagicDNSName() string {
+	out, err := exec.Command("tailscale", "status", "--json").Output()
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		BackendState string `json:"BackendState"`
+		Self         struct {
+			DNSName string `json:"DNSName"`
+		} `json:"Self"`
+	}
+	if json.Unmarshal(out, &st) != nil || st.BackendState != "Running" {
+		return ""
+	}
+	return strings.TrimSuffix(strings.TrimSpace(st.Self.DNSName), ".")
 }
 
 // ReachableIPv4 lists phone-usable IPv4s on real interfaces (not lo/docker).

@@ -15,12 +15,19 @@ import AccessSection from "./AccessSection.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
+import { z } from "zod";
+
+const publicUrlSchema = z.string().trim().regex(/^https?:\/\/[^\s/]+\/?$/, "An origin like https://box.tailxxxx.ts.net:8445").or(z.literal(""));
 
 export default function Settings({ hidden, themeMode, onTheme }) {
   const [port, setPort] = useState("");
   const [note, setNote] = useState("");
   const [moving, setMoving] = useState(false);
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState(null); // GET /api/server
+  const [bind, setBind] = useState("");
+  const [pubUrl, setPubUrl] = useState("");
+  const [reachErr, setReachErr] = useState("");
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
   const [ctxPrefs, setCtxPrefs] = useState(readContextMenuPrefs);
 
@@ -30,8 +37,53 @@ export default function Settings({ hidden, themeMode, onTheme }) {
       setPort(String(info.current));
       setNote(`Serving on port ${info.current} (configured: ${info.configured}).`);
       setMoving(false);
+      setInfo(info);
+      setBind(info.host || "0.0.0.0");
+      setPubUrl(info.publicUrl || "");
     }).catch(() => setNote("Server state unavailable."));
   }, [hidden]);
+
+  // Reconnect on the address the server moves to (ADR-0050): the reply
+  // leaves on the old listener; the new one is up 1.5 s later.
+  function reconnect(host, portNo) {
+    const scheme = location.protocol === "http:" ? "http" : "https";
+    setMoving(true);
+    setTimeout(() => { location.replace(`${scheme}://${host}:${portNo}/#/preferences/server`); }, 1500);
+  }
+
+  async function applyBind() {
+    setReachErr("");
+    try {
+      const res = await api("/api/server/host", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: bind }),
+      });
+      if (res.moving) {
+        // An unspecified bind still answers on the name we are using;
+        // a specific one only answers there.
+        const host = bind === "0.0.0.0" || bind === "::" ? location.hostname : bind;
+        setNote(`Moving to ${host} — reconnecting…`);
+        reconnect(host, info ? info.current : port);
+      } else toast.ok("Bind unchanged.");
+    } catch (e) { setReachErr(e.message); }
+  }
+
+  async function applyPublicUrl(value = pubUrl) {
+    setReachErr("");
+    const parsed = publicUrlSchema.safeParse(value);
+    if (!parsed.success) { setReachErr(parsed.error.issues[0].message); return; }
+    try {
+      const res = await api("/api/server/public-url", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: parsed.data }),
+      });
+      setPubUrl(res.publicUrl || "");
+      setInfo((i) => (i ? { ...i, publicUrl: res.publicUrl || "" } : i));
+      toast.ok(res.publicUrl ? "Public URL saved." : "Public URL cleared.");
+    } catch (e) { setReachErr(e.message); }
+  }
 
   function saveToast(patch) {
     setToastPrefs(persistToastPrefs({ ...toastPrefs, ...patch }));
@@ -159,6 +211,40 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         </div>
         <p id="port-error" className="form-error" hidden={!err}>{err}</p>
         <p id="port-note" className={"port-note" + (moving ? " moving" : "")}>{note}</p>
+
+        <h4 className="devs-h">Reach this server</h4>
+        <p className="settings-desc">Where PiCode listens, and the address other machines should use. The public URL goes into pairing links, <code>server.json</code> and the phone drawer; it does not move the listener.</p>
+        <div className="set-rows">
+          <div className="set-row" data-align-row>
+            <label htmlFor="bind-select">Bind</label>
+            <span className="reach-ctl">
+              <select id="bind-select" value={bind} onChange={(e) => setBind(e.target.value)} disabled={!info}>
+                <option value="0.0.0.0">All interfaces (0.0.0.0)</option>
+                <option value="127.0.0.1">This machine only (127.0.0.1)</option>
+                {(info ? info.interfaces : []).map((i) => (
+                  <option key={i.ip} value={i.ip}>{i.kind === "tailnet" ? "Tailnet only" : "LAN"} ({i.ip})</option>
+                ))}
+                {info && bind && !["0.0.0.0", "127.0.0.1"].includes(bind) && !(info.interfaces || []).some((i) => i.ip === bind) ? <option value={bind}>{bind}</option> : null}
+              </select>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={applyBind} disabled={!info || bind === (info && info.host)}>Apply</button>
+            </span>
+          </div>
+          <div className="set-row" data-align-row>
+            <label htmlFor="public-url">Public URL</label>
+            <span className="reach-ctl">
+              <input id="public-url" type="url" placeholder="https://box.tailxxxx.ts.net:8445" autoComplete="off" spellCheck={false} value={pubUrl} onChange={(e) => setPubUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") applyPublicUrl(); }} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => applyPublicUrl()} disabled={!info || pubUrl === (info && info.publicUrl)}>Apply</button>
+            </span>
+          </div>
+        </div>
+        {info && (info.suggestions.magicDns || info.suggestions.tailscaleIp) ? (
+          <p className="settings-desc reach-suggest">On the tailnet this box is{" "}
+            {info.suggestions.magicDns ? <button type="button" className="chip" onClick={() => { const v = `https://${info.suggestions.magicDns}:${info.current}`; setPubUrl(v); applyPublicUrl(v); }}>{info.suggestions.magicDns}</button> : null}
+            {info.suggestions.magicDns && info.suggestions.tailscaleIp ? " or " : ""}
+            {info.suggestions.tailscaleIp ? <button type="button" className="chip" onClick={() => { const v = `https://${info.suggestions.tailscaleIp}:${info.current}`; setPubUrl(v); applyPublicUrl(v); }}>{info.suggestions.tailscaleIp}</button> : null}
+            . Click one to use it.</p>
+        ) : null}
+        <p className="form-error" hidden={!reachErr}>{reachErr}</p>
         <AccessSection hidden={hidden || sec !== "server"} />
       </section>
 

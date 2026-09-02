@@ -7,18 +7,39 @@ import (
 	"strconv"
 
 	"github.com/cfpperche/picode/internal/config"
+	"github.com/cfpperche/picode/internal/share"
 )
 
-// PortSnapshot reports the live port state to the UI.
+// PortSnapshot reports the live server state to the UI.
 type PortSnapshot struct {
 	Current    int    `json:"current"`    // actually bound port
 	Configured string `json:"configured"` // configured port/range string
 	URL        string `json:"url"`        // best-guess user-facing URL
+	Host       string `json:"host"`       // bind host (ADR-0050)
+	PublicURL  string `json:"publicUrl"`  // configured origin, "" when none
+}
+
+// serverInfo is GET /api/server: the snapshot plus what the machine
+// offers, so Preferences → Server can list binds and suggest a public URL.
+type serverInfo struct {
+	PortSnapshot
+	Interfaces  []ifaceInfo `json:"interfaces"`
+	Suggestions struct {
+		TailscaleIP string `json:"tailscaleIp,omitempty"`
+		MagicDNS    string `json:"magicDns,omitempty"`
+	} `json:"suggestions"`
+}
+
+type ifaceInfo struct {
+	IP   string `json:"ip"`
+	Kind string `json:"kind"` // lan | tailnet
 }
 
 func registerServerRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/server", handleServerInfo(deps))
 	mux.HandleFunc("PUT /api/server/port", handlePortChange(deps))
+	mux.HandleFunc("PUT /api/server/host", handleHostChange(deps))
+	mux.HandleFunc("PUT /api/server/public-url", handlePublicURLChange(deps))
 }
 
 func handleServerInfo(deps Deps) http.HandlerFunc {
@@ -27,8 +48,108 @@ func handleServerInfo(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "port state unavailable")
 			return
 		}
-		writeJSON(w, http.StatusOK, deps.PortSnapshot())
+		info := serverInfo{PortSnapshot: deps.PortSnapshot(), Interfaces: []ifaceInfo{}}
+		ts := share.TailscaleIPv4()
+		for _, ip := range share.ReachableIPv4() {
+			kind := "lan"
+			if ip == ts {
+				kind = "tailnet"
+			}
+			info.Interfaces = append(info.Interfaces, ifaceInfo{IP: ip, Kind: kind})
+		}
+		info.Suggestions.TailscaleIP = ts
+		info.Suggestions.MagicDNS = share.MagicDNSName()
+		writeJSON(w, http.StatusOK, info)
 	}
+}
+
+// handleHostChange moves the bind (ADR-0050): validated, probe-bound on
+// the current port, persisted, then the main loop rebinds. Same contract
+// as the port: the answer leaves on the old listener.
+func handleHostChange(deps Deps) http.HandlerFunc {
+	var req struct {
+		Host string `json:"host"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Rebind == nil || deps.PortSnapshot == nil {
+			writeErr(w, http.StatusServiceUnavailable, "bind management unavailable")
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		host, err := config.ValidateHost(req.Host)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		snap := deps.PortSnapshot()
+		if host == snap.Host {
+			writeJSON(w, http.StatusOK, map[string]any{"moving": false, "host": host})
+			return
+		}
+		if ip := net.ParseIP(host); !ip.IsUnspecified() && !ip.IsLoopback() && !onLocalInterface(host) {
+			writeErr(w, http.StatusBadRequest, host+" is not an address of this machine")
+			return
+		}
+		// The current listener holds the port on the old host; on an
+		// unspecified bind that also covers the new one, so the probe is
+		// only meaningful when moving from a specific address.
+		if snap.Host != "" && !net.ParseIP(snap.Host).IsUnspecified() {
+			if probe, lerr := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(snap.Current))); lerr == nil {
+				_ = probe.Close()
+			} else {
+				writeErr(w, http.StatusConflict, "cannot bind "+host+": "+lerr.Error())
+				return
+			}
+		}
+		if serr := deps.Store.SetSetting(config.HostSettingKey, host); serr != nil {
+			writeErr(w, http.StatusInternalServerError, serr.Error())
+			return
+		}
+		_ = deps.Store.AppendEvent("server_host_changed", nil, nil, map[string]string{"from": snap.Host, "to": host})
+		deps.Rebind()
+		writeJSON(w, http.StatusAccepted, map[string]any{"moving": true, "host": host, "note": "reconnecting on the new address"})
+	}
+}
+
+// handlePublicURLChange records the origin other machines use (ADR-0050).
+// Advisory: pairing links, server.json and the share drawer read it; no
+// listener moves. Empty clears it.
+func handlePublicURLChange(deps Deps) http.HandlerFunc {
+	var req struct {
+		URL string `json:"url"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		pub, err := config.ValidatePublicURL(req.URL, deps.Insecure)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if serr := deps.Store.SetSetting(config.PublicURLSettingKey, pub); serr != nil {
+			writeErr(w, http.StatusInternalServerError, serr.Error())
+			return
+		}
+		if deps.Rebind != nil {
+			deps.Rebind() // refresh the snapshot and server.json; the listener stays
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"publicUrl": pub})
+	}
+}
+
+func onLocalInterface(ip string) bool {
+	addrs, _ := net.InterfaceAddrs()
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.String() == ip {
+			return true
+		}
+	}
+	return false
 }
 
 // handlePortChange applies a new port (specific, e.g. "8446") chosen in the
@@ -89,4 +210,12 @@ func handlePortChange(deps Deps) http.HandlerFunc {
 			"note":   "reconnecting on the new port",
 		})
 	}
+}
+
+// publicURL is the configured origin from the live snapshot, "" when none.
+func (deps Deps) publicURL() string {
+	if deps.PortSnapshot == nil {
+		return ""
+	}
+	return deps.PortSnapshot().PublicURL
 }

@@ -93,3 +93,62 @@ func TestResolvePrecedence(t *testing.T) {
 		t.Errorf("default port = %s, want %s", cfg.Port, DefaultPortRange)
 	}
 }
+
+func TestValidateHost(t *testing.T) {
+	for _, ok := range []string{"0.0.0.0", "127.0.0.1", " 100.87.149.83 ", "::"} {
+		if _, err := ValidateHost(ok); err != nil {
+			t.Errorf("ValidateHost(%q): %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "localhost", "box.tail.ts.net", "0.0.0.0:8445"} {
+		if _, err := ValidateHost(bad); err == nil {
+			t.Errorf("ValidateHost(%q) accepted", bad)
+		}
+	}
+}
+
+func TestValidatePublicURL(t *testing.T) {
+	cases := []struct {
+		in       string
+		insecure bool
+		want     string
+		wantErr  bool
+	}{
+		{"", false, "", false},
+		{"https://box.tail.ts.net:8445", false, "https://box.tail.ts.net:8445", false},
+		{"https://BOX.tail.ts.net:8445/", false, "https://box.tail.ts.net:8445", false},
+		{"http://box:8445", false, "", true},
+		{"http://box:8445", true, "http://box:8445", false},
+		{"https://box:8445/app", false, "", true},
+		{"https://user:pw@box", false, "", true},
+		{"box:8445", false, "", true},
+		{"ftp://box", false, "", true},
+	}
+	for _, c := range cases {
+		got, err := ValidatePublicURL(c.in, c.insecure)
+		if c.wantErr != (err != nil) || got != c.want {
+			t.Errorf("ValidatePublicURL(%q, %v) = %q, %v; want %q, err=%v", c.in, c.insecure, got, err, c.want, c.wantErr)
+		}
+	}
+}
+
+func TestResolveHostPrecedence(t *testing.T) {
+	t.Setenv("PICODE_HOST", "127.0.0.1")
+	t.Setenv("PICODE_PORT", "")
+	db := map[string]string{}
+	get := func(k string) (string, bool, error) { v, ok := db[k]; return v, ok, nil }
+	cfg, err := Resolve(get)
+	if err != nil || cfg.Host != "127.0.0.1" || cfg.PublicURL != "" {
+		t.Fatalf("env host: %+v %v", cfg, err)
+	}
+	db[HostSettingKey] = "100.64.0.9"
+	db[PublicURLSettingKey] = "https://box.tail.ts.net:8445"
+	cfg, _ = Resolve(get)
+	if cfg.Host != "100.64.0.9" || cfg.PublicURL != "https://box.tail.ts.net:8445" {
+		t.Fatalf("db wins: %+v", cfg)
+	}
+	db[HostSettingKey] = "not-an-ip"
+	if cfg, _ = Resolve(get); cfg.Host != "127.0.0.1" {
+		t.Fatalf("bad db host should fall back to env: %+v", cfg)
+	}
+}

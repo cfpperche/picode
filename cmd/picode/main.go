@@ -84,7 +84,7 @@ func dispatch(cmd string, args []string) bool {
 	case cmd == "screenshot":
 		runScreenshot(args)
 	case cmd == "install":
-		runInstall()
+		runInstall(args)
 	case cmd == "provision":
 		runProvision(args)
 	case cmd == "update":
@@ -98,7 +98,7 @@ func dispatch(cmd string, args []string) bool {
 	case cmd == "token":
 		runToken(args)
 	case cmd == "extension-install":
-		runExtensionInstall()
+		runExtensionInstall(args)
 	case cmd == "extension-uninstall":
 		runExtensionUninstall()
 	case cmd == "help" || cmd == "-h" || cmd == "--help":
@@ -116,15 +116,20 @@ Usage:
   picode [flags]              start the server
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
-  picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
+  picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
+    --env KEY=VALUE   service environment (repeatable), e.g. --env PICODE_DATA=/srv/picode;
+                      written to ~/.config/systemd/user/picode.service.d/env.conf
   picode provision [flags]    converge this machine on what PiCode needs (ADR-0020)
     --dry-run       report what would change, touch nothing
     --json          emit results as JSON
     --user string   provision for this account (default: the current user)
-  picode update               check GitHub for a newer release (and install it if there is one)
+  picode update               check GitHub for a newer release; verifies SHA256SUMS, then installs
   picode deploy               replace the installed binary with this one and restart (repo)
   picode uninstall [--purge]  stop that; --purge also deletes ~/.picode
   picode extension-install    register the Chrome native host (ADR-0043)
+    --server URL    a PiCode on another machine (writes <data>/remote.json)
+    --token T       that server's install token (prompted if omitted)
+    --ca FILE       PEM to trust for it (its mkcert rootCA.pem), optional
   picode extension-uninstall  remove that host registration
   picode screenshot [flags]   capture a page to PNG (visual-review loop)
     --url string    page to capture (required)
@@ -162,8 +167,27 @@ func shippable(cmd string) {
 		"`go build` produces a binary that reads the UI from disk.", cmd)
 }
 
-func runInstall() {
+// envFlags collects repeatable --env KEY=VALUE.
+type envFlags map[string]string
+
+func (e envFlags) String() string { return "" }
+func (e envFlags) Set(s string) error {
+	k, v, err := install.ParseEnvFlag(s)
+	if err != nil {
+		return err
+	}
+	e[k] = v
+	return nil
+}
+
+func runInstall(args []string) {
 	shippable("install")
+	fs := flag.NewFlagSet("install", flag.ExitOnError)
+	env := envFlags{}
+	fs.Var(env, "env", "KEY=VALUE for the service environment (repeatable; ADR-0050)")
+	if err := fs.Parse(args); err != nil {
+		log.Fatalf("install: %v", err)
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("install: %v", err)
@@ -171,6 +195,13 @@ func runInstall() {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("install: %v", err)
+	}
+	if len(env) > 0 {
+		path, err := install.WriteEnvDropIn(home, env)
+		if err != nil {
+			log.Fatalf("install: %v", err)
+		}
+		fmt.Println("Service environment written to " + path)
 	}
 	fmt.Println("Installing PiCode (systemd --user)…")
 	if err := install.Install(exe, home, os.Getenv("PATH")); err != nil {
@@ -228,10 +259,21 @@ func runUpdate() {
 	}
 	_ = tmp.Close()
 	defer os.Remove(tmp.Name())
+	if rel.SumsURL == "" {
+		log.Fatalf("update: release %s has no %s — refusing to install an unverified binary", rel.Tag, install.SumsAsset)
+	}
 	fmt.Println("Downloading…")
 	if err := install.Download(rel.AssetURL, tmp.Name()); err != nil {
 		log.Fatalf("update: %v", err)
 	}
+	sums, err := install.Fetch(rel.SumsURL)
+	if err != nil {
+		log.Fatalf("update: %s: %v", install.SumsAsset, err)
+	}
+	if err := install.VerifySHA256(tmp.Name(), sums, rel.Asset); err != nil {
+		log.Fatalf("update: %v", err)
+	}
+	fmt.Println("Checksum verified.")
 	if err := install.Deploy(tmp.Name(), home, os.Getenv("PATH")); err != nil {
 		log.Fatalf("update: %v", err)
 	}
@@ -271,10 +313,16 @@ func (s *serveState) snapshot() server.PortSnapshot {
 	if cfg.Insecure {
 		scheme = "http"
 	}
+	url := fmt.Sprintf("%s://%s:%d", scheme, advertiseHost(cfg.Host), port)
+	if cfg.PublicURL != "" {
+		url = cfg.PublicURL
+	}
 	return server.PortSnapshot{
 		Current:    port,
 		Configured: cfg.Port.String(),
-		URL:        fmt.Sprintf("%s://%s:%d", scheme, advertiseHost(cfg.Host), port),
+		URL:        url,
+		Host:       cfg.Host,
+		PublicURL:  cfg.PublicURL,
 	}
 }
 
@@ -439,11 +487,22 @@ func serve() {
 				log.Printf("server: bad port setting (%v) — keeping current", rerr)
 				continue
 			}
+			if newCfg.Host == cfg.Host && newCfg.Port == cfg.Port {
+				// Only advisory state changed (public URL): refresh what
+				// clients read, keep the listener.
+				cfg = newCfg
+				deps.BindHost = cfg.Host
+				state.cfg.Store(cfg)
+				writeServerJSON(dataDir, cfg, port)
+				logStartup(cfg, dataDir, port)
+				continue
+			}
 			newSrv, newPort, berr := bindAndServe(newCfg, deps)
 			if berr != nil {
-				log.Printf("server: rebind failed (%v) — reverting to %s, keeping port %d",
-					berr, cfg.Port, port)
+				log.Printf("server: rebind failed (%v) — reverting to %s on %s, keeping port %d",
+					berr, cfg.Port, cfg.Host, port)
 				_ = st.SetSetting(config.PortSettingKey, cfg.Port.String())
+				_ = st.SetSetting(config.HostSettingKey, cfg.Host)
 				continue
 			}
 			gracefulShutdown(srv)
@@ -470,6 +529,9 @@ func logStartup(cfg config.Config, dataDir string, port int) {
 	}
 	log.Printf("")
 	log.Printf("  PiCode listening on  %s://%s:%d", scheme, advertiseHost(cfg.Host), port)
+	if cfg.PublicURL != "" {
+		log.Printf("  public URL           %s", cfg.PublicURL)
+	}
 	log.Printf("  data dir             %s", dataDir)
 	log.Printf("")
 }
@@ -525,22 +587,27 @@ func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error
 	return srv, port, nil
 }
 
-// writeServerJSON drops the discovery file for scripts/CLI.
+// writeServerJSON drops the discovery file for scripts/CLI. url is the
+// address a client on this machine uses (localhost unless the bind is a
+// specific address); publicUrl is the configured origin for everyone
+// else (ADR-0050), "" when none.
 func writeServerJSON(dataDir string, cfg config.Config, port int) {
 	host := advertiseHost(cfg.Host)
 	scheme := "https"
 	if cfg.Insecure {
 		scheme = "http"
 	}
-	body := fmt.Sprintf(`{"url":%q,"scheme":%q,"host":%q,"port":%d,"pid":%d,"time":%q}`,
-		fmt.Sprintf("%s://%s:%d", scheme, host, port), scheme, host, port, os.Getpid(),
+	body := fmt.Sprintf(`{"url":%q,"scheme":%q,"host":%q,"bind":%q,"port":%d,"publicUrl":%q,"pid":%d,"time":%q}`,
+		fmt.Sprintf("%s://%s:%d", scheme, host, port), scheme, host, cfg.Host, port, cfg.PublicURL, os.Getpid(),
 		time.Now().UTC().Format(time.RFC3339))
 	_ = os.MkdirAll(dataDir, 0o755)
 	_ = os.WriteFile(filepath.Join(dataDir, "server.json"), []byte(body+"\n"), 0o644)
 }
 
+// advertiseHost is the name a client on this machine dials: localhost
+// when the bind covers loopback, else the specific address bound.
 func advertiseHost(host string) string {
-	if host == "0.0.0.0" || host == "::" {
+	if host == "" || host == "0.0.0.0" || host == "::" || host == "127.0.0.1" || host == "::1" {
 		return "localhost"
 	}
 	return host
