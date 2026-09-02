@@ -498,15 +498,34 @@ func serve() {
 				continue
 			}
 			newSrv, newPort, berr := bindAndServe(newCfg, deps)
-			if berr != nil {
+			if berr != nil && newCfg.Host != cfg.Host {
+				// A host change on the same port cannot bind-new-first:
+				// 0.0.0.0 and a specific address overlap. Drop the old
+				// listener, bind the new one, and put the old one back if
+				// that fails — the server never stays down.
+				log.Printf("server: %v — moving the listener to %s", berr, newCfg.Host)
+				gracefulShutdown(srv)
+				newSrv, newPort, berr = bindAndServe(newCfg, deps)
+				if berr != nil {
+					log.Printf("server: bind on %s failed (%v) — restoring %s", newCfg.Host, berr, cfg.Host)
+					_ = st.SetSetting(config.HostSettingKey, cfg.Host)
+					_ = st.SetSetting(config.PortSettingKey, cfg.Port.String())
+					if srv, port, berr = bindAndServe(cfg, deps); berr != nil {
+						log.Fatalf("server: cannot restore the listener on %s: %v", cfg.Host, berr)
+					}
+					continue
+				}
+				srv, port, cfg = newSrv, newPort, newCfg
+			} else if berr != nil {
 				log.Printf("server: rebind failed (%v) — reverting to %s on %s, keeping port %d",
 					berr, cfg.Port, cfg.Host, port)
 				_ = st.SetSetting(config.PortSettingKey, cfg.Port.String())
 				_ = st.SetSetting(config.HostSettingKey, cfg.Host)
 				continue
+			} else {
+				gracefulShutdown(srv)
+				srv, port, cfg = newSrv, newPort, newCfg
 			}
-			gracefulShutdown(srv)
-			srv, port, cfg = newSrv, newPort, newCfg
 			deps.BindHost = cfg.Host
 			deps.Insecure = cfg.Insecure
 			state.cfg.Store(cfg)
@@ -542,12 +561,23 @@ func gracefulShutdown(srv *http.Server) {
 	cancel()
 }
 
+// keepsLoopback: a bind to one specific outside address (the tailnet, a
+// LAN card) still listens on 127.0.0.1, so this machine — its browser,
+// its scripts, `picode pair` — never loses the server (ADR-0050). Only
+// an explicit loopback bind, or an unspecified one that already covers
+// it, needs nothing extra.
+func keepsLoopback(host string) bool {
+	ip := net.ParseIP(host)
+	return ip != nil && !ip.IsUnspecified() && !ip.IsLoopback()
+}
+
 // bindAndServe tries the configured port range in order and serves the app
-// on the first free port.
+// on the first free port — on the configured host, plus loopback when the
+// host is a specific outside address.
 func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error) {
 	handler := server.New("127.0.0.1:0", deps).Handler // addr unused; we serve explicitly
 
-	var ln net.Listener
+	var lns []net.Listener
 	var port int
 	var lastErr error
 	for p := cfg.Port.Min; p <= cfg.Port.Max; p++ {
@@ -556,34 +586,45 @@ func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error
 			lastErr = err
 			continue
 		}
-		ln = l
+		lns = append(lns, l)
 		port = p
 		break
 	}
-	if ln == nil {
+	if len(lns) == 0 {
 		return nil, 0, fmt.Errorf("no free port in %s: %w", cfg.Port, lastErr)
+	}
+	if keepsLoopback(cfg.Host) {
+		if l, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port))); err == nil {
+			lns = append(lns, l)
+		} else {
+			log.Printf("server: loopback listener on %d unavailable (%v) — only %s answers", port, err, cfg.Host)
+		}
 	}
 
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	go func() {
-		var err error
-		if cfg.Insecure {
-			err = srv.Serve(ln)
-		} else {
-			if _, cerr := tlsutil.Ensure(cfg.DataDir); cerr != nil {
-				log.Fatalf("tls: %v", cerr)
+	if !cfg.Insecure {
+		if _, cerr := tlsutil.Ensure(cfg.DataDir); cerr != nil {
+			log.Fatalf("tls: %v", cerr)
+		}
+		tlsutil.WarnIfExpiring(cfg.DataDir, 30*24*time.Hour)
+		srv.TLSConfig = tlsutil.LiveConfig(cfg.DataDir)
+	}
+	for _, ln := range lns {
+		go func(ln net.Listener) {
+			var err error
+			if cfg.Insecure {
+				err = srv.Serve(ln)
+			} else {
+				err = srv.ServeTLS(ln, "", "")
 			}
-			tlsutil.WarnIfExpiring(cfg.DataDir, 30*24*time.Hour)
-			srv.TLSConfig = tlsutil.LiveConfig(cfg.DataDir)
-			err = srv.ServeTLS(ln, "", "")
-		}
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("serve: %v", err)
-		}
-	}()
+			if err != nil && err != http.ErrServerClosed {
+				log.Fatalf("serve: %v", err)
+			}
+		}(ln)
+	}
 	return srv, port, nil
 }
 

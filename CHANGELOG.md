@@ -28,7 +28,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 - **PiCode on a server you own (ADR-0050).** Preferences → Server gained
   **Reach this server**: where PiCode binds (all interfaces, this
-  machine only, or one address such as the tailnet) and the **public
+  machine only, or one address such as the tailnet — which keeps this
+  machine's own access) and the **public
   URL** other machines use — PiCode suggests the tailnet name and IP.
   Pairing links, `server.json` and the phone drawer use it. `picode
   install --env KEY=VALUE` records the service environment in a systemd

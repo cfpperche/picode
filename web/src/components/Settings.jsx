@@ -45,10 +45,10 @@ export default function Settings({ hidden, themeMode, onTheme }) {
 
   // Reconnect on the address the server moves to (ADR-0050): the reply
   // leaves on the old listener; the new one is up 1.5 s later.
-  function reconnect(host, portNo) {
+  function reconnect(host, portNo, delay = 1500) {
     const scheme = location.protocol === "http:" ? "http" : "https";
     setMoving(true);
-    setTimeout(() => { location.replace(`${scheme}://${host}:${portNo}/#/preferences/server`); }, 1500);
+    setTimeout(() => { location.replace(`${scheme}://${host}:${portNo}/#/preferences/server`); }, delay);
   }
 
   async function applyBind() {
@@ -60,11 +60,15 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         body: JSON.stringify({ host: bind }),
       });
       if (res.moving) {
-        // An unspecified bind still answers on the name we are using;
-        // a specific one only answers there.
-        const host = bind === "0.0.0.0" || bind === "::" ? location.hostname : bind;
-        setNote(`Moving to ${host} — reconnecting…`);
-        reconnect(host, info ? info.current : port);
+        // Loopback always stays (ADR-0050), and an unspecified bind
+        // covers every address: this tab keeps its origin unless it
+        // came in on an outside address the new bind leaves behind.
+        const here = location.hostname;
+        const local = here === "localhost" || here === "127.0.0.1" || here === "::1" || here === "[::1]";
+        const keep = local || bind === "0.0.0.0" || bind === "::" || bind === here;
+        const host = keep ? here : bind;
+        setNote(keep ? "Moving the listener — reconnecting…" : `This address stops answering; reconnecting on ${host}…`);
+        reconnect(host, info ? info.current : port, 2500);
       } else toast.ok("Bind unchanged.");
     } catch (e) { setReachErr(e.message); }
   }
@@ -222,7 +226,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
                 <option value="0.0.0.0">All interfaces (0.0.0.0)</option>
                 <option value="127.0.0.1">This machine only (127.0.0.1)</option>
                 {(info ? info.interfaces : []).map((i) => (
-                  <option key={i.ip} value={i.ip}>{i.kind === "tailnet" ? "Tailnet only" : "LAN"} ({i.ip})</option>
+                  <option key={i.ip} value={i.ip}>{i.kind === "tailnet" ? "Tailnet and this machine" : "LAN and this machine"} ({i.ip})</option>
                 ))}
                 {info && bind && !["0.0.0.0", "127.0.0.1"].includes(bind) && !(info.interfaces || []).some((i) => i.ip === bind) ? <option value={bind}>{bind}</option> : null}
               </select>

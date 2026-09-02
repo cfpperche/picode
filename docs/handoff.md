@@ -286,6 +286,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Bind keeps loopback (ADR-0050 amendment)**
+  (`fix/bind-keeps-loopback`): the owner chose *Tailnet only* and the
+  tab hung: the new bind on the same port could not bind-new-first
+  (0.0.0.0 overlaps), the loop reverted, and the UI had already moved to
+  the tailnet address (unreachable from the Windows browser, and with
+  no cookie there). Now an outside bind also listens on 127.0.0.1; host
+  changes shut the old listener, bind the new, restore on failure; the
+  tab keeps a local origin; the options read "Tailnet and this machine".
 - **2026-09-02 — Track B.1, a PiCode on a tailnet server (ADR-0050)**
   (`feat/tailnet-server`): `server.host` and `server.public_url` are
   settings with routes (`PUT /api/server/host` rebinds, `/public-url` is

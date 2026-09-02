@@ -63,9 +63,9 @@ func handleServerInfo(deps Deps) http.HandlerFunc {
 	}
 }
 
-// handleHostChange moves the bind (ADR-0050): validated, probe-bound on
-// the current port, persisted, then the main loop rebinds. Same contract
-// as the port: the answer leaves on the old listener.
+// handleHostChange moves the bind (ADR-0050): validated, persisted, then
+// the main loop moves the listener (loopback stays whenever the bind is
+// an outside address). The answer leaves on the old listener.
 func handleHostChange(deps Deps) http.HandlerFunc {
 	var req struct {
 		Host string `json:"host"`
@@ -93,17 +93,10 @@ func handleHostChange(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, host+" is not an address of this machine")
 			return
 		}
-		// The current listener holds the port on the old host; on an
-		// unspecified bind that also covers the new one, so the probe is
-		// only meaningful when moving from a specific address.
-		if snap.Host != "" && !net.ParseIP(snap.Host).IsUnspecified() {
-			if probe, lerr := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(snap.Current))); lerr == nil {
-				_ = probe.Close()
-			} else {
-				writeErr(w, http.StatusConflict, "cannot bind "+host+": "+lerr.Error())
-				return
-			}
-		}
+		// No probe: the old listener holds the port on an address that
+		// overlaps the new one (0.0.0.0 covers every specific address).
+		// The main loop moves the listener and restores the old one if
+		// the new bind fails.
 		if serr := deps.Store.SetSetting(config.HostSettingKey, host); serr != nil {
 			writeErr(w, http.StatusInternalServerError, serr.Error())
 			return

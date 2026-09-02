@@ -39,8 +39,9 @@ a warning (`provision` issues it).
 Open the app once from the server itself (or from your PC on the LAN)
 and go to **Preferences → Server → Reach this server**:
 
-- **Bind** — *All interfaces* is the default. *Tailnet only* binds the
-  Tailscale address, so the LAN cannot reach it at all.
+- **Bind** — *All interfaces* is the default. *Tailnet and this machine*
+  binds the Tailscale address plus loopback, so the LAN cannot reach it
+  but the box itself (its browser, `picode pair`, scripts) always can.
 - **Public URL** — the address every other machine uses:
   `https://box.tailxxxx.ts.net:8445` (the tailnet name PiCode suggests)
   or the tailnet IP. It goes into pairing links, `server.json` and the

@@ -108,3 +108,15 @@ phone trusts the mkcert CA once, through the QR's trust page.
   issuance, M3 terminates TLS at a proxy (ADR-0052).
 - **`NODE_TLS_REJECT_UNAUTHORIZED=0` for `pi-inbox` remote** — rejected:
   it disables verification for every request the agent makes.
+
+## Amendments
+
+- **2026-09-02 — a bind to an outside address keeps loopback.** The
+  owner's first click on *Tailnet only* took `localhost` away: the new
+  bind on the same port could not bind-new-first (0.0.0.0 overlaps every
+  address), the loop reverted, and the tab had already moved to the
+  tailnet address — unreachable from the Windows browser and without a
+  cookie there. Now a bind to a specific outside address also listens on
+  `127.0.0.1` on the same port ("Tailnet and this machine", never
+  "instead of"); a host change drops the old listener, binds the new one
+  and restores the old one if that fails; the tab keeps a local origin.
