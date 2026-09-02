@@ -10,13 +10,14 @@ tell it where it lives.
   pair your devices. No gateway.
 - **Several people** — [Share one server](./shared-server). You do
   **not** run `picode install` first: `sudo picode gateway install`
-  puts the front door up, and `sudo picode provision --user <name>
-  --shared` installs each person's PiCode already configured to live
-  behind it. Started alone and want to share later? Install the gateway,
-  add the others with `--shared`, and turn your own PiCode into a member
-  from Preferences → Server: Bind *This machine only*, *Every device
-  pairs*, public URL `https://<box name>`; then `sudo picode users add
-  <your login> <your user>`.
+  puts the front door up, and
+  `sudo picode provision --user <name> --shared` installs each
+  person's PiCode already configured to live behind it. Started alone
+  and want to share later? Install the gateway, add the others with
+  `--shared`, and turn your own PiCode into a member from
+  Preferences → Server: Bind *This machine only*, *Every device
+  pairs*, public URL `https://<box name>`; then
+  `sudo picode users add <your login> <your user>`.
 
 ## 1. Install from a release
 
