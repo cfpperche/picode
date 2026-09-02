@@ -55,8 +55,24 @@ as Bind.
 
 On the server's own browser, or any paired device: **Devices → Pair a
 device**, or the phone icon. With a public URL set, the QR carries it.
-The phone installs the local certificate once (the QR goes through the
-trust page first), then pairs. See [Security and pairing](./security).
+See [Security and pairing](./security).
+
+**With Tailscale, the phone installs nothing.** PiCode asks Tailscale
+for a certificate for the box's tailnet name (`box.tailxxxx.ts.net`),
+signed by a public authority every phone already trusts, and renews it
+by itself. The drawer lists that name first, marked as needing nothing.
+Two things have to be true once:
+
+- HTTPS certificates are enabled for your tailnet (Tailscale admin
+  console → DNS → HTTPS Certificates).
+- `tailscale cert` may run as your user: `sudo tailscale set
+  --operator=$USER` once. Until then `picode provision --dry-run` shows
+  the `tailnet-cert` row with that hint, and the IP addresses keep
+  working with the local certificate (installed once on the phone
+  through the QR's trust page).
+
+Without Tailscale, the local certificate serves everything, as on a
+laptop.
 
 ## 4. The Chrome extension on another PC
 

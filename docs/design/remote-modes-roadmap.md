@@ -41,10 +41,12 @@ Documented limits: reveal / folder picker / llama / `gh` act on the
 server; OAuth loopback callbacks need a port-forward or a device-code
 provider; `pi-inbox` needs `NODE_EXTRA_CA_CERTS` for a name.
 
-**B.2 (next):** `tailscale cert` for the MagicDNS name served by SNI next
-to the mkcert leaf (`tlsutil.LiveConfig` picks by `ServerName`), renewed
-in-process — the phone then needs no CA on the tailnet name. Also:
-reconnect tolerates one missed ping on mobile.
+**B.2 (shipped 2026-09-02):** `tailscale cert` for the MagicDNS name,
+served next to the mkcert leaf by the name the client asks for
+(`tlsutil.LiveConfig`), issued and renewed by the daemon
+(`KeepTailscaleCert`) and by `provision` (`tailnet-cert` row); the phone
+drawer lists the tailnet name as a trusted target that skips the trust
+page. Left for later: reconnect tolerating one missed ping on mobile.
 
 ## Track C — shared tailnet server
 

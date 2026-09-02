@@ -41,6 +41,11 @@ to the `[Unreleased]` section. The repository's official language is English
   --server --token`, `PICODE_URL`/`PICODE_TOKEN`). The install token is
   now a device on the Devices page, so a connected Chrome extension shows
   there. Guide: `www/guide/remote-server.md`.
+  With Tailscale, PiCode asks it for a certificate for the box's tailnet
+  name and renews it by itself: the phone drawer lists that name first
+  and a phone opens it with nothing to install (one-time:
+  `sudo tailscale set --operator=$USER`; `picode provision --dry-run`
+  says so).
 
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when

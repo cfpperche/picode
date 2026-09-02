@@ -23,7 +23,7 @@ func handleShare(deps Deps) http.HandlerFunc {
 		})
 		if tp := share.EnsureTrustHTTP(); tp != "" {
 			rep.TrustPort = tp
-			if rep.URL != "" {
+			if rep.URL != "" && !rep.Trusted {
 				if u, err := url.Parse(rep.URL); err == nil {
 					base := share.TrustURL(u.Hostname(), tp)
 					rep.TrustURL = base + "?next=" + url.QueryEscape(rep.URL)

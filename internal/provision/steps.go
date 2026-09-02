@@ -1,6 +1,7 @@
 package provision
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -33,7 +34,67 @@ var lookPath = exec.LookPath
 // logout before the unit is worth enabling, and the service has to be up
 // before health can mean anything.
 func Steps() []Step {
-	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep(), piStep(), tailnetStep(), reachStep()}
+	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep(), piStep(), tailnetStep(), tailnetCertStep(), reachStep()}
+}
+
+// tailnetCertStep keeps the Tailscale-issued leaf for this node's name
+// (ADR-0050 B.2): the address a phone opens with nothing installed. The
+// daemon renews it daily too; this is the hand that runs it first, and
+// the row that says why it cannot (usually the operator permission).
+func tailnetCertStep() Step {
+	return Step{
+		ID:    "tailnet-cert",
+		Title: "Tailscale certificate for the tailnet name",
+		Scope: ScopeUser,
+		Check: func(env Env) State {
+			if _, err := lookPath("tailscale"); err != nil {
+				return ok("no Tailscale — the local certificate serves everything")
+			}
+			name := magicDNSName()
+			if name == "" {
+				return ok("tailscale is not running — nothing to issue")
+			}
+			st := tlsutil.TailscaleLeaf(env.DataDir, name)
+			if st.Present && st.Covers && time.Until(st.NotAfter) >= tlsutil.RenewWithin {
+				return ok("%s valid until %s", name, st.NotAfter.Format(time.DateOnly))
+			}
+			if !st.Present {
+				return needsFix("no certificate for %s yet", name)
+			}
+			if !st.Covers {
+				return needsFix("the certificate on disk is for another name")
+			}
+			return needsFix("certificate for %s expires %s", name, st.NotAfter.Format(time.DateOnly))
+		},
+		Fix: func(env Env) error {
+			name := magicDNSName()
+			if name == "" {
+				return fmt.Errorf("tailscale is not running")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			return tlsutil.IssueTailscale(ctx, env.DataDir, name)
+		},
+	}
+}
+
+// magicDNSName reads this node's tailnet name through the same process
+// boundary the other steps use.
+func magicDNSName() string {
+	raw, err := output("tailscale", "status", "--json")
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		BackendState string `json:"BackendState"`
+		Self         struct {
+			DNSName string `json:"DNSName"`
+		} `json:"Self"`
+	}
+	if json.Unmarshal([]byte(raw), &st) != nil || st.BackendState != "Running" {
+		return ""
+	}
+	return strings.TrimSuffix(strings.TrimSpace(st.Self.DNSName), ".")
 }
 
 // piStep: agents are `pi` processes the unit spawns, so the binary has to

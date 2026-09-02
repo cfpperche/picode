@@ -27,17 +27,19 @@ type Check struct {
 
 // Target is one candidate URL a phone might use.
 type Target struct {
-	URL    string `json:"url"`
-	Kind   string `json:"kind"` // lan | tailnet
-	Addr   string `json:"addr"`
-	OnCert bool   `json:"onCert"`
-	Reason string `json:"reason,omitempty"`
-	Note   string `json:"note,omitempty"` // what the phone needs for this address to work
+	URL     string `json:"url"`
+	Kind    string `json:"kind"` // lan | tailnet
+	Addr    string `json:"addr"`
+	OnCert  bool   `json:"onCert"`
+	Trusted bool   `json:"trusted"` // a public chain: the phone installs nothing (Tailscale leaf, B.2)
+	Reason  string `json:"reason,omitempty"`
+	Note    string `json:"note,omitempty"` // what the phone needs for this address to work
 }
 
 // Report is the payload for GET /api/share.
 type Report struct {
 	Ready     bool     `json:"ready"`
+	Trusted   bool     `json:"trusted"` // the picked URL needs no certificate on the phone
 	URL       string   `json:"url,omitempty"`
 	URLs      []string `json:"urls"`
 	Targets   []Target `json:"targets"`
@@ -155,6 +157,20 @@ func Diagnose(in Input) Report {
 	tsOfficial := officialTailscale()
 
 	var anyCovered bool
+	// The tailnet name, served with the Tailscale-issued leaf (B.2): the
+	// one address a phone opens with nothing installed.
+	if name := MagicDNSName(); name != "" && !in.Insecure {
+		st := tlsutil.TailscaleLeaf(in.DataDir, name)
+		t := Target{URL: fmt.Sprintf("https://%s:%d/", name, in.Port), Kind: "tailnet", Addr: name, OnCert: st.Present && st.Covers, Trusted: st.Present && st.Covers}
+		if t.OnCert {
+			t.Note = "Any network, with Tailscale on the phone — nothing to install"
+			anyCovered = true
+		} else {
+			t.Reason = "Tailscale certificate not issued yet — `sudo tailscale set --operator=$USER` once, then `picode provision`"
+		}
+		rep.Targets = append(rep.Targets, t)
+		rep.URLs = append(rep.URLs, t.URL)
+	}
 	if pub := strings.TrimRight(in.PublicURL, "/"); pub != "" {
 		host := pub
 		if u, err := url.Parse(pub); err == nil && u.Host != "" {
@@ -202,7 +218,7 @@ func Diagnose(in Input) Report {
 	mkcertOK := httpsOK && issuerMKCert(issuer)
 	rep.Checks = append(rep.Checks, Check{
 		ID: "ca", OK: mkcertOK, Title: "Trusted local CA (mkcert)",
-		Action: unless(mkcertOK, "Run make cert, then install the CA on the phone"),
+		Action: unless(mkcertOK, "Run make cert, then install the CA on the phone — or use the tailnet name, which needs none"),
 	})
 
 	// Prefer the official tailscale IP: it works from any network and needs
@@ -221,12 +237,18 @@ func Diagnose(in Input) Report {
 		}
 	}
 	pick(func(t Target) bool { return t.Kind == "public" })
+	pick(func(t Target) bool { return t.Trusted })
 	pick(func(t Target) bool { return t.Kind == "tailnet" && t.Addr == tsOfficial })
 	pick(func(t Target) bool { return t.Kind == "lan" })
 	pick(func(t Target) bool { return t.Kind == "tailnet" })
 	pick(func(Target) bool { return true })
 
-	rep.Ready = httpsOK && bindOK && reachOK && mkcertOK && rep.URL != ""
+	for _, t := range rep.Targets {
+		if t.URL == rep.URL {
+			rep.Trusted = t.Trusted
+		}
+	}
+	rep.Ready = httpsOK && bindOK && reachOK && (mkcertOK || rep.Trusted) && rep.URL != ""
 	return rep
 }
 

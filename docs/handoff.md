@@ -141,7 +141,7 @@ render megabytes.
 
 ## Next up
 
-1. **Remote modes, Track B.2 (ADR-0050 amendment)** — `tailscale cert` for the MagicDNS name served by SNI next to the mkcert leaf (`tlsutil.LiveConfig` picks by `ClientHelloInfo.ServerName`), renewed in-process; then the phone needs no CA on the tailnet name. Dogfood B.1 on a real box first. Then C (shared: per-user daemons + gateway) and D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`.
+1. **Remote modes, Track C (ADR-0051)** — shared tailnet server: one daemon per Linux user (`picode provision --user`, loopback bind, `auth.mode=all`) behind `picode gateway` routing by Tailscale identity. Then D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`. Owner's box: `sudo tailscale set --operator=goat` once, so the tailnet certificate issues (see `provision --dry-run`, row `tailnet-cert`).
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
@@ -286,6 +286,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Track B.2, the Tailscale certificate (ADR-0050
+  amendment)** (`feat/tailscale-cert`): `internal/tlsutil/tailscale.go`
+  issues `tailscale-cert.pem`/`-key.pem` for the MagicDNS name via
+  `tailscale cert`, `LiveConfig` picks the leaf by the requested name,
+  `KeepTailscaleCert` renews daily (logs a failure once, with tailscale's
+  hint); `provision` row `tailnet-cert`; `share.Diagnose` lists the name
+  as a `trusted` target picked first after a public URL, the trust page
+  is skipped for it (drawer and `pairLinks`). On this WSL box issuance
+  needs `sudo tailscale set --operator=goat` once — not run by the agent.
 - **2026-09-02 — Bind keeps loopback (ADR-0050 amendment)**
   (`fix/bind-keeps-loopback`): the owner chose *Tailnet only* and the
   tab hung: the new bind on the same port could not bind-new-first

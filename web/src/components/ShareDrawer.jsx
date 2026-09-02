@@ -32,7 +32,9 @@ export default function ShareDrawer({ open, onClose }) {
   const chosen = targets.find((t) => t.url === url) || (url ? { url, onCert: true, kind: "" } : null);
   const appURL = pairCode && url ? url.replace(/\/+$/, "") + "/pair?code=" + encodeURIComponent(pairCode) : withHash(url);
   const host = chosen && chosen.addr;
-  const qrURL = trustPage(report && report.trustPort, host, appURL);
+  // A publicly trusted target (the tailnet name with its Tailscale
+  // certificate) skips the trust page: there is nothing to install.
+  const qrURL = chosen && chosen.trusted ? appURL : trustPage(report && report.trustPort, host, appURL);
   const canQR = !!qrURL;
 
   useEffect(() => {

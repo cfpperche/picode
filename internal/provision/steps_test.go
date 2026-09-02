@@ -2,6 +2,7 @@ package provision
 
 import (
 	"errors"
+	"github.com/cfpperche/picode/internal/tlsutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,7 +211,7 @@ func TestServerURL(t *testing.T) {
 // Steps must stay in dependency order: fixing the service before systemd runs,
 // or checking health before the service exists, reports nonsense.
 func TestStepsAreInDependencyOrder(t *testing.T) {
-	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health", "pi", "tailnet", "reach"}
+	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health", "pi", "tailnet", "tailnet-cert", "reach"}
 	steps := Steps()
 	if len(steps) != len(want) {
 		t.Fatalf("got %d steps, want %d", len(steps), len(want))
@@ -284,5 +285,37 @@ func TestReachStep(t *testing.T) {
 	output = func(string, ...string) (string, error) { return "100.64.0.9\n", nil }
 	if got := reachStep().Check(env); got.Status != StatusOK || !strings.Contains(got.Detail, "100.64.0.9:8445") {
 		t.Fatalf("tailnet ip: %+v", got)
+	}
+}
+
+func TestTailnetCertStep(t *testing.T) {
+	oldL, oldO := lookPath, output
+	t.Cleanup(func() { lookPath, output = oldL, oldO })
+	dir := t.TempDir()
+	env := Env{DataDir: dir}
+
+	lookPath = func(string) (string, error) { return "", errors.New("no") }
+	if got := tailnetCertStep().Check(env); got.Status != StatusOK {
+		t.Fatalf("absent: %+v", got)
+	}
+	lookPath = func(string) (string, error) { return "/usr/bin/tailscale", nil }
+	output = func(string, ...string) (string, error) { return `{"BackendState":"Stopped"}`, nil }
+	if got := tailnetCertStep().Check(env); got.Status != StatusOK {
+		t.Fatalf("stopped: %+v", got)
+	}
+	output = func(string, ...string) (string, error) {
+		return `{"BackendState":"Running","Self":{"DNSName":"box.tail1234.ts.net."}}`, nil
+	}
+	if got := tailnetCertStep().Check(env); got.Status != StatusFix || !strings.Contains(got.Detail, "no certificate") {
+		t.Fatalf("missing: %+v", got)
+	}
+	// A leaf on disk for other names (the local one, renamed) is "another name".
+	if _, err := tlsutil.Ensure(dir); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Rename(filepath.Join(dir, tlsutil.CertFile), filepath.Join(dir, tlsutil.TailscaleCertFile))
+	_ = os.Rename(filepath.Join(dir, tlsutil.KeyFile), filepath.Join(dir, tlsutil.TailscaleKeyFile))
+	if got := tailnetCertStep().Check(env); got.Status != StatusFix || !strings.Contains(got.Detail, "another name") {
+		t.Fatalf("other name: %+v", got)
 	}
 }

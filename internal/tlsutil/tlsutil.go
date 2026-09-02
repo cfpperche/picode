@@ -124,13 +124,26 @@ func WarnIfExpiring(dataDir string, within time.Duration) {
 	}
 }
 
-// LiveConfig reloads cert.pem/key.pem on every handshake so a renewed
-// mkcert file is picked up without rebuilding or restarting.
+// LiveConfig reloads the certificate files on every handshake so a
+// renewed file is picked up without restarting. Two leaves may exist:
+// the mkcert/self-signed one (localhost, IPs) and the Tailscale one
+// (the MagicDNS name, publicly trusted). The client's requested name
+// picks: a name the Tailscale leaf covers gets it, everything else — IP
+// literals send no name at all — gets the local one.
 func LiveConfig(dataDir string) *tls.Config {
 	certPath := filepath.Join(dataDir, CertFile)
 	keyPath := filepath.Join(dataDir, KeyFile)
+	tsCert := filepath.Join(dataDir, TailscaleCertFile)
+	tsKey := filepath.Join(dataDir, TailscaleKeyFile)
 	return &tls.Config{
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+		GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			if name := hello.ServerName; name != "" {
+				if c, err := tls.LoadX509KeyPair(tsCert, tsKey); err == nil && len(c.Certificate) > 0 {
+					if leaf, err := x509.ParseCertificate(c.Certificate[0]); err == nil && leaf.VerifyHostname(name) == nil {
+						return &c, nil
+					}
+				}
+			}
 			c, err := tls.LoadX509KeyPair(certPath, keyPath)
 			if err != nil {
 				return nil, err

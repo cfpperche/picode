@@ -1,6 +1,6 @@
 # ADR-0050: A PiCode you own on a tailnet server
 
-- **Status:** accepted (B.1, 2026-09-02); B.2 pending — see "Deferred"
+- **Status:** accepted (B.1 and B.2, 2026-09-02)
 - **Amends:** ADR-0007 (host and public URL become settings; the "no public DNS" alternative is re-opened as B.2), ADR-0018/0020 (the unit gains an environment drop-in), ADR-0043 (the native host can target another machine), ADR-0049 (the install token is a token session)
 - **Roadmap:** `docs/design/remote-modes-roadmap.md`, Track B
 
@@ -120,3 +120,18 @@ phone trusts the mkcert CA once, through the QR's trust page.
   `127.0.0.1` on the same port ("Tailnet and this machine", never
   "instead of"); a host change drops the old listener, binds the new one
   and restores the old one if that fails; the tab keeps a local origin.
+- **2026-09-02 — B.2: the Tailscale certificate, served by name.** A
+  second leaf, `tailscale-cert.pem`/`tailscale-key.pem`, issued by
+  `tailscale cert` for the node's MagicDNS name and signed by a public
+  CA. `tlsutil.LiveConfig` picks per handshake: a client that asks for a
+  name the Tailscale leaf covers gets it; everything else (IP literals
+  send no name) gets the mkcert/self-signed leaf. The daemon issues it
+  when missing or within 30 days of expiry and re-checks daily
+  (`KeepTailscaleCert`), logging a failure once with tailscale's own
+  hint — usually `sudo tailscale set --operator=$USER`, needed once.
+  `provision` gained the `tailnet-cert` row with the same issue as its
+  fix. The phone drawer lists the tailnet name as a **trusted** target,
+  picked first after a public URL; a trusted pick skips the trust page,
+  and readiness no longer demands mkcert when the pick is trusted.
+  Without Tailscale, or when issuance fails, nothing changes: the mkcert
+  path serves as before. ACME still never runs inside PiCode.

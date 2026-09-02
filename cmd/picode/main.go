@@ -466,6 +466,11 @@ func serve() {
 	deps.BindHost = cfg.Host
 	deps.Insecure = cfg.Insecure
 	state.cfg.Store(cfg)
+	if !cfg.Insecure {
+		// Tailscale leaf for the MagicDNS name (ADR-0050 B.2): issued when
+		// missing or near expiry, checked daily; silent without Tailscale.
+		go tlsutil.KeepTailscaleCert(backupCtx, dataDir, share.MagicDNSName, 24*time.Hour)
+	}
 
 	srv, port, err := bindAndServe(cfg, deps)
 	if err != nil {

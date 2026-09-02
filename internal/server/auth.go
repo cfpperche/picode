@@ -156,6 +156,9 @@ func (deps Deps) pairLinks(r *http.Request, code string) (link, qr string) {
 	}
 	link = auth.PairURLFrom(rep.URL, code)
 	qr = link
+	if rep.Trusted {
+		return link, qr // a public chain: no trust page in the way
+	}
 	if tp := share.EnsureTrustHTTP(); tp != "" {
 		if u, err := url.Parse(rep.URL); err == nil {
 			qr = share.TrustURL(u.Hostname(), tp) + "?next=" + url.QueryEscape(link)
