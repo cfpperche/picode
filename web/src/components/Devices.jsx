@@ -8,6 +8,8 @@ import { askConfirm } from "../lib/confirm.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import PageFrame from "./PageFrame.jsx";
 
+const EXT_GUIDE = "https://cfpperche.github.io/picode/guide/browser-extension";
+
 // Devices (ADR-0043 presence + ADR-0049 identity, one surface): who may
 // enter, and whether they are here right now. Identity is the paired
 // session; liveness is the presence ping that session sends. Access
@@ -55,6 +57,7 @@ export default function Devices({ hidden }) {
   }
 
   const unpaired = live.filter((d) => !d.session && d.online);
+  const extOnline = live.some((d) => d.kind === "extension" && d.online);
 
   return (
     <PageFrame id="devices-view" title="Devices" hidden={hidden}>
@@ -87,6 +90,9 @@ export default function Devices({ hidden }) {
             <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
             <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
           </div>
+          {extOnline ? null : (
+            <p className="settings-desc dev-ext-note">Chrome extension: not connected. <a href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a></p>
+          )}
         </>
       )}
       {unpaired.length ? (

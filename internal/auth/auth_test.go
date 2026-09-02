@@ -187,6 +187,40 @@ func TestPairingFlowAndLockout(t *testing.T) {
 	}
 }
 
+// The install token is a real token session: it lists, a restart keeps
+// it, and rotation revokes the old row instead of just rewriting a file.
+func TestInstallTokenIsASession(t *testing.T) {
+	s, st := newService(t, ModeRemote)
+	tok := strings.TrimSpace(readFile(t, s.TokenPath()))
+	sess, err := st.LookupSession(tok)
+	if err != nil || sess.Kind != store.SessionToken || sess.Label != InstallTokenLabel {
+		t.Fatalf("token row: %+v %v", sess, err)
+	}
+	again, err := New(s.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(readFile(t, again.TokenPath())); got != tok {
+		t.Fatal("a restart minted a new token")
+	}
+	if _, err := s.RotateToken(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.LookupSession(tok); err == nil {
+		t.Fatal("old token row still live after rotation")
+	}
+	list, _ := st.ListSessions()
+	n := 0
+	for _, x := range list {
+		if x.Label == InstallTokenLabel {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("install token rows = %d, want 1", n)
+	}
+}
+
 func TestTokenRotation(t *testing.T) {
 	s, _ := newService(t, ModeRemote)
 	old := strings.TrimSpace(readFile(t, s.TokenPath()))

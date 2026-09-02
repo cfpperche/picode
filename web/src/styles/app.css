@@ -3958,3 +3958,5 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dev-dot-cell { width: 12px; justify-content: center; flex: none; }
 
 .share-note { flex: 1 1 100%; font-size: 11.5px; color: var(--text-secondary); }
+
+.dev-ext-note { margin-top: 12px; }

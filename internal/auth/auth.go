@@ -8,9 +8,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -70,14 +67,16 @@ func From(r *http.Request) *Principal {
 	return p
 }
 
-// Service holds the install token and the pairing rate limiter.
+// InstallTokenLabel names the token session that <DataDir>/token holds.
+const InstallTokenLabel = "Install token"
+
+// Service holds the install token path and the pairing rate limiter.
 type Service struct {
 	cfg       Config
 	tokenPath string
 
-	mu        sync.Mutex
-	tokenHash string
-	fails     map[string]*failWindow
+	mu    sync.Mutex
+	fails map[string]*failWindow
 }
 
 type failWindow struct {
@@ -86,36 +85,53 @@ type failWindow struct {
 	until time.Time
 }
 
-// New loads (or mints) the install token at <DataDir>/token.
+// New loads the install token at <DataDir>/token, or mints one. The
+// token is a token session like any other (label InstallTokenLabel):
+// the file only holds its secret. So it lists on Devices, presence joins
+// onto it, and a bearer is resolved by one path — LookupSession.
 func New(cfg Config) (*Service, error) {
 	s := &Service{cfg: cfg, tokenPath: filepath.Join(cfg.DataDir, TokenFile), fails: map[string]*failWindow{}}
-	tok, err := os.ReadFile(s.tokenPath)
-	if err != nil || len(strings.TrimSpace(string(tok))) < 32 {
+	if _, err := s.currentToken(); err != nil {
 		if _, err := s.RotateToken(); err != nil {
 			return nil, err
 		}
-		return s, nil
 	}
-	s.tokenHash = store.HashSecret(strings.TrimSpace(string(tok)))
 	return s, nil
 }
 
-// RotateToken writes a fresh install token (0600) and returns it.
+// currentToken returns the file's secret when it resolves to a live
+// token session.
+func (s *Service) currentToken() (store.Session, error) {
+	tok, err := os.ReadFile(s.tokenPath)
+	if err != nil {
+		return store.Session{}, err
+	}
+	sess, err := s.cfg.Store.LookupSession(strings.TrimSpace(string(tok)))
+	if err != nil {
+		return store.Session{}, err
+	}
+	if sess.Kind != store.SessionToken {
+		return store.Session{}, fmt.Errorf("auth: token file holds a %s session", sess.Kind)
+	}
+	return sess, nil
+}
+
+// RotateToken revokes the current install-token session, creates a new
+// one and writes its secret to <DataDir>/token (0600). Returns the secret.
 func (s *Service) RotateToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if old, err := s.currentToken(); err == nil {
+		_ = s.cfg.Store.RevokeSession(old.ID)
+	}
+	_, tok, err := s.cfg.Store.CreateSession(store.SessionToken, "", InstallTokenLabel, "", 0)
+	if err != nil {
 		return "", fmt.Errorf("auth: token: %w", err)
 	}
-	tok := hex.EncodeToString(b)
 	if err := os.MkdirAll(filepath.Dir(s.tokenPath), 0o755); err != nil {
 		return "", err
 	}
 	if err := os.WriteFile(s.tokenPath, []byte(tok+"\n"), 0o600); err != nil {
 		return "", fmt.Errorf("auth: write token: %w", err)
 	}
-	s.mu.Lock()
-	s.tokenHash = store.HashSecret(tok)
-	s.mu.Unlock()
 	return tok, nil
 }
 
@@ -278,14 +294,12 @@ func (s *Service) resolve(r *http.Request) *Principal {
 		}
 	}
 	if tok := bearer(r); tok != "" {
-		s.mu.Lock()
-		hash := s.tokenHash
-		s.mu.Unlock()
-		if hash != "" && subtle.ConstantTimeCompare([]byte(store.HashSecret(tok)), []byte(hash)) == 1 {
-			return &Principal{Kind: "install", Session: store.Session{ID: "install", Kind: store.SessionToken, Label: "install token"}, Loopback: loop}
-		}
 		if sess, err := s.cfg.Store.LookupSession(tok); err == nil {
-			return &Principal{Session: sess, Kind: sess.Kind, Loopback: loop}
+			kind := sess.Kind
+			if sess.Label == InstallTokenLabel {
+				kind = "install"
+			}
+			return &Principal{Session: sess, Kind: kind, Loopback: loop}
 		}
 	}
 	return nil
