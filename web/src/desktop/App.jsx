@@ -42,6 +42,7 @@ import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "../lib/feed.js";
 import { applyFleet, applyTui, applyUsage, touches } from "../lib/feedReducers.js";
+import { workspaceStatusPath } from "../lib/statusbar.js";
 import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -420,7 +421,11 @@ export default function App() {
     const loc = locate(workspaces, freeAgents, selectedId);
     const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setStatusBar(null); return; }
-    try { setStatusBar(await api("/api/workspaces/" + id + "/status")); }
+    // The bar is the SELECTED agent's session. Without ?agent= the server
+    // answers with the workspace's first agent, which read as another
+    // agent's context, spend and cache on every later agent's screen.
+    const barAgent = loc && loc.workspace && loc.agent ? loc.agent.id : "";
+    try { setStatusBar(await api(workspaceStatusPath(id, barAgent))); }
     catch { setStatusBar(null); }
   }, [selectedId, workspaces, freeAgents]);
 

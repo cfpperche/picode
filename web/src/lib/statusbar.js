@@ -49,6 +49,15 @@ export function formatSessionCost(n) {
   return "$" + Number(n).toFixed(2);
 }
 
+// Path for the composer status bar fetch. The bar is ONE agent's session,
+// so the agent id is mandatory whenever a workspace agent is selected:
+// without ?agent= the server falls back to the workspace's first agent,
+// and every later agent's screen shows that first agent's context, spend
+// and cache (agentId empty for a free agent — no workspace, no bar).
+export function workspaceStatusPath(wsId, agentId) {
+  return "/api/workspaces/" + encodeURIComponent(wsId) + "/status" + (agentId ? "?agent=" + encodeURIComponent(agentId) : "");
+}
+
 function formatTokens(n) {
   if (n >= 1_000_000) {
     const m = n / 1_000_000;

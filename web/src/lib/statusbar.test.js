@@ -1,4 +1,4 @@
-import { statusSegments, formatSessionCost, fmtElapsed } from "./statusbar.js";
+import { statusSegments, formatSessionCost, fmtElapsed, workspaceStatusPath } from "./statusbar.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -51,4 +51,22 @@ test("fmtElapsed formats minutes and seconds", () => {
   assert.equal(fmtElapsed(9500), "0:09");
   assert.equal(fmtElapsed(65000), "1:05");
   assert.equal(fmtElapsed(600000), "10:00");
+});
+
+test("workspaceStatusPath scopes the bar to one agent", () => {
+  // A workspace agent: the id is mandatory, or the server answers with
+  // the workspace's FIRST agent and every later agent's screen shows
+  // that agent's context, spend and cache.
+  assert.equal(
+    workspaceStatusPath("ws1", "agent-9"),
+    "/api/workspaces/ws1/status?agent=agent-9"
+  );
+  // A free agent has no workspace to scope into: no query.
+  assert.equal(workspaceStatusPath("ws_free", ""), "/api/workspaces/ws_free/status");
+  assert.equal(workspaceStatusPath("ws_free", null), "/api/workspaces/ws_free/status");
+  // Ids are user-visible strings; encode them.
+  assert.equal(
+    workspaceStatusPath("w s", "a&b"),
+    "/api/workspaces/w%20s/status?agent=a%26b"
+  );
 });
