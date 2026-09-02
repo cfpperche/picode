@@ -259,7 +259,17 @@ Never exercised, because this machine was already past them:
   on branch `fix/apps-header-row-spacing`: (1) `AppsGrid` dropped its
   "Apps" section header — the sidebar's icon rail already marks which
   section is open, and the single "Inbox" tile beneath it repeated the
-  same word (owner: "informação duplicada"). (2) `.app-row` (the shared
+  same word (owner: "informação duplicada"). Follow-up
+  (`fix/inbox-done-header`): the owner then pointed at a second
+  duplicate — the Inbox's own "DONE 14" section label directly under
+  the "Done 14" tab pill (same number, same word). `internal/apps/
+  inbox.go`'s `doneView`/`donePane` now build that block with no Title
+  at all (`BlockHead` already renders nothing when title/meta/at are
+  all empty); the "All" tab's own trailing "Done" block keeps its title
+  since there it names one of three real subsets (Needs you/Feed/Done),
+  not a restatement of the active tab. Two inbox_test.go assertions
+  that used the block's Title to find the Done pane now match on the
+  done item's own ID instead. (2) `.app-row` (the shared
   list row `AppSurface.jsx` renders for every app, desktop and mobile)
   dropped its reserved 16px unread-dot gutter, blank on every read row;
   the unread mark is now an inline `●` before the title, the same

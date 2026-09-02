@@ -134,7 +134,11 @@ func donePane(h Host, selected string) ([]Block, error) {
 	if len(items) == 0 {
 		return []Block{}, nil
 	}
-	return []Block{{Type: "list", Pane: "list", Title: "Done", Items: doneRows(h, items)}}, nil
+	// No title: the enclosing Done tab already says so (ADR-0036 amendment
+	// — a second "Done" line directly under the "Done" tab pill was pure
+	// duplication, unlike "Needs you"/"Feed" on Active or the trailing
+	// "Done" block on All, which each name a real subset of that tab).
+	return []Block{{Type: "list", Pane: "list", Items: doneRows(h, items)}}, nil
 }
 
 func (a inboxApp) doneView(h Host) (View, error) {
@@ -153,7 +157,8 @@ func (a inboxApp) doneView(h Host) (View, error) {
 		return v, nil
 	}
 	v.Blocks = []Block{
-		{Type: "list", Pane: "list", Title: "Done", Items: doneRows(h, items)},
+		// Same reasoning as donePane: this list IS the Done tab's content.
+		{Type: "list", Pane: "list", Items: doneRows(h, items)},
 		{Type: "actions", Pane: "list", Actions: []Action{{
 			ID: "clear-done", Label: fmt.Sprintf("Clear all done (%d)", len(items)), Danger: true,
 			Confirm: fmt.Sprintf("Delete all %d done item(s)? This cannot be undone.", len(items)),
