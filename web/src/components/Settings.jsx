@@ -238,9 +238,11 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             <span className="reach-ctl" data-align-row>
               <input id="public-url" type="url" placeholder="https://box.tailxxxx.ts.net:8445" autoComplete="off" spellCheck={false} value={pubUrl} onChange={(e) => setPubUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") applyPublicUrl(); }} />
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => applyPublicUrl()} disabled={!info || pubUrl === (info && info.publicUrl)}>Apply</button>
+              {info && info.publicUrl ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPubUrl(""); applyPublicUrl(""); }} title="Links and clients go back to an address of this machine">Clear</button> : null}
             </span>
           </div>
         </div>
+        <p className="settings-desc">The public URL is an address, not an access rule. To cut a device off, use <a href="#/devices">Devices → Forget</a>; to hide the server from other machines, bind to this machine only.</p>
         {info && (info.suggestions.magicDns || info.suggestions.tailscaleIp) ? (
           <p className="settings-desc reach-suggest">On the tailnet this box is{" "}
             {info.suggestions.magicDns ? <button type="button" className="chip" onClick={() => { const v = `https://${info.suggestions.magicDns}:${info.current}`; setPubUrl(v); applyPublicUrl(v); }}>{info.suggestions.magicDns}</button> : null}

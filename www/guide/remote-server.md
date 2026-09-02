@@ -47,7 +47,11 @@ and go to **Preferences → Server → Reach this server**:
   or the tailnet IP. It goes into pairing links, `server.json` and the
   phone drawer. It does not move the listener.
 
-Both are settings in the database, so they survive updates. For the very
+Both are settings in the database, so they survive updates. **Clear**
+next to the public URL removes it — links go back to an address of this
+machine. That is not a lock: a device that already paired keeps its
+session until you **Forget** it on Devices, and the server keeps
+listening where Bind says. For the very
 first start, before there is a UI, `--env PICODE_HOST=…` does the same
 as Bind.
 
