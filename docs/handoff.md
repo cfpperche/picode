@@ -221,6 +221,29 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **z.ai (GLM Coding Plan) banked quota reset not implemented — endpoint
+  unknown.** Owner pointed at z.ai's `#/manage-apikey/coding-plan/personal/usage`
+  page, which now shows a "Reset Quota" card ("1 Times Unused… Manage")
+  the same shape Codex and Grok already expose via `resets[]` +
+  confirm-to-redeem (ADR-0031, `internal/usage/resets.go`,
+  `UsageDialog.jsx`'s "Redeem" button — that plumbing is generic and
+  z.ai would slot into it with no frontend change). The blocker: Codex's
+  and Grok's reset/redeem endpoints (`chatgpt.com/backend-api/wham/
+  rate-limit-reset-credits[/consume]`, `grok.com/.../GetRemainingResets`
+  + `RedeemReset`) were reverse-engineered from real app traffic. z.ai's
+  quota-*read* endpoint is public (`api.z.ai/api/monitor/usage/quota/limit`,
+  already implemented, API-key auth) but no reset/redeem endpoint for it
+  is documented anywhere searched (z.ai/ZCode docs, GitHub reverse-engineering
+  repos — `openusage`, `pi-zai-usage`, `opencode-glm-quota`). The "Manage"
+  button lives on z.ai's cookie-authenticated web dashboard, not the
+  API-key surface PiCode already talks to, so it may need a different auth
+  path entirely. Also: `usage.RedeemAccount` currently requires an OAuth
+  cred (`okOAuth`, `usage.go:356`) to redeem — z.ai is API-key only
+  (`catalog.LoginAPIKey`), so that gate needs loosening too once the real
+  endpoint is known. Next step: capture the real request the "Manage"
+  button fires (browser DevTools → Network → Copy as cURL) — owner chose
+  to defer this rather than capture it now (2026-09-02).
+
 - **Automations (ADR-0045):** the runs table and list poll (15 s) — no
   live event; two due automations share the active `auth.json`
   credential; the webhook is reachable wherever the server is (ADR-0007
@@ -262,6 +285,23 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — Sidebar no longer duplicates a just-created terminal**
+  (`feat/zai-reset-and-terminal-dup`). Owner screenshot: two identical
+  "Terminal 4" cards after clicking "+". Root cause: `store.CreateTerminalIn`
+  publishes `terminal.created` to the change feed (deduplicated by
+  `applyFleet`) before `handleCreateTerminal` finishes `ensureShell`
+  (spawns the tmux session) and responds — so the SSE subscriber's
+  `setTerminals(next.terminals)` in `App.jsx` almost always lands *before*
+  the POST response, and `createTerminal`'s own `setTerminals((cur) =>
+  [...cur, page])` then appended the same terminal a second time,
+  unconditionally (unlike `openTermTab`, which already replaces-or-appends
+  by id). Fixed by skipping the append when the id is already present.
+  Verified on a scratch instance (`:8471`) via `agent-browser`: created two
+  terminals back to back, sidebar showed exactly one card each
+  (`after-fix.png`). `make fmt-check vet test test-js build` all green.
+  z.ai's own "Reset Quota" ask from the same session is a separate open
+  question — see *Known debts* above.
 
 - **2026-09-02 — /pair got PiCode's own look** (`fix/pair-page-branding`):
   the confirm and error pages were an unstyled system page with no
