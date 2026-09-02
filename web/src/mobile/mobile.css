@@ -195,14 +195,21 @@
 .m-keys-btn { padding: 0 10px; }
 .m-keys-btn.on { color: var(--accent); border-color: var(--accent); }
 .m-term-screen { position: relative; }
-.m-keybar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-.m-key-close { flex: 0 0 44px; color: var(--text-secondary); }
-.m-keybar { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 0 8px; margin: 0 calc(-1 * var(--m-pad)); padding-left: 6px; padding-right: 6px; background: var(--bg-panel); border-top: 1px solid var(--border); }
-.m-keybar-row { display: flex; gap: 4px; }
-.m-key {
-  flex: 1; min-width: 0; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-base);
-  color: var(--text-primary); font: inherit; font-size: 12.5px; font-family: var(--mono); cursor: pointer; -webkit-tap-highlight-color: transparent;
+.m-keybar {
+  flex: none; display: flex; flex-direction: column; gap: 6px;
+  margin: 0 calc(-1 * var(--m-pad)); padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--bg-panel); border-top: 1px solid var(--border);
 }
+.m-keybar-row { display: flex; gap: 10px; }
+.m-keygroup { display: flex; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.m-keygroup-end { flex: 0 0 auto; }
+.m-key {
+  flex: 1; min-width: 0; height: 44px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-base);
+  color: var(--text-primary); font: inherit; font-size: 12.5px; font-family: var(--mono); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+.m-key-icon { flex: 0 0 44px; color: var(--text-secondary); }
+.m-key-close { color: var(--text-secondary); }
 .m-key:active { background: var(--bg-hover); }
 
 /* ---- agent screen ---- */

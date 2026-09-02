@@ -296,6 +296,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Mobile key bar** (`fix/mobile-keybar-focus`): owner:
+  every key opened the iPhone keyboard. `sendKey` refocused xterm
+  unconditionally; now it refocuses only if the terminal host already
+  held the focus, and a ⌨ key (`onType`) is the deliberate way to open
+  the keyboard. `KeyBar` regrouped (escapes/chords · arrows/symbols),
+  44px keys, close at the end of row two. Not browser-verified here
+  (owner tests on the phone).
 - **2026-09-02 — the composer's "+ New" starts a fresh session for real**
   (`fix/new-session-fresh-start`). The button cleared the pointer and
   then lost it three ways: the restart spawned in `wk.Path` (free

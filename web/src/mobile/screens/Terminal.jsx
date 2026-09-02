@@ -69,11 +69,22 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
     return () => { stale = true; };
   }, [id]);
 
+  // A key from the bar never changes whether the phone keyboard is up:
+  // refocus xterm only if it already had the focus (the keyboard was
+  // open and must stay open); otherwise leave the focus alone.
   function sendKey(seq) {
     const entry = terms.get("sh:" + id);
     if (!entry) return;
     if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(new TextEncoder().encode(seq));
-    if (entry.term) entry.term.focus();
+    const host = hostRef.current;
+    const hadFocus = !!(host && document.activeElement && host.contains(document.activeElement));
+    if (hadFocus && entry.term) entry.term.focus();
+  }
+
+  // The ⌨ key: the one deliberate way to bring the phone keyboard up.
+  function typeHere() {
+    const entry = terms.get("sh:" + id);
+    if (entry && entry.term) entry.term.focus();
   }
 
   if (!term) {
@@ -115,7 +126,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
           <p className="m-empty-line m-pad">Attaching…</p>
         )}
       </div>
-      {page && !error && keys ? <KeyBar onKey={sendKey} onClose={() => setKeys(false)} /> : null}
+      {page && !error && keys ? <KeyBar onKey={sendKey} onType={typeHere} onClose={() => setKeys(false)} /> : null}
     </div>
   );
 }

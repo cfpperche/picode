@@ -89,6 +89,12 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Terminal keys on the phone no longer pop the keyboard.** Tapping
+  Esc, Tab, a Ctrl chord or an arrow in the key bar sends it and leaves
+  the phone keyboard as it was; a new ⌨ key is the one that opens it.
+  The bar groups the keys (escapes and chords; arrows and symbols) and
+  keeps the close button at the end of the second row.
+
 - **Mobile Inbox matches the other tabs.** It no longer shows its own
   "Inbox" title; like Now, Work and More, the tab bar is the chrome and
   the filters are the sticky head.
