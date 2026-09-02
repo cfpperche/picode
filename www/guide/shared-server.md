@@ -72,6 +72,12 @@ tailnet already knows who you are. Your devices show up under
 - One Tailscale login maps to one Linux user. A login that is not in
   the map gets "Not on this server", with the command the admin runs.
 
+## Stronger fences, and the internet
+
+Members can run in a container each (`--container`), and the same
+gateway can admit people off the tailnet with a Google or GitHub login:
+[Open it to the internet](./public-access).
+
 ## Limits
 
 - Everything in [On a server](./remote-server) still applies: reveal,

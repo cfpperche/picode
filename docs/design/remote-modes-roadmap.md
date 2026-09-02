@@ -68,7 +68,16 @@ WebSocket and SSE to that person's daemon; `login → linux user` map in
 `/etc/picode/gateway.json`; first visit auto-pairs the device through a
 gateway-signed hop; the gateway never forwards a client's Authorization.
 
-## Track D — public access
+## Track D — public access (shipped 2026-09-02, ADR-0052)
+
+D.1: a plain listener behind a TLS proxy, Google (OIDC) and GitHub
+(OAuth) logins in the standard library, a signed gateway session, the
+same members list for both doors, hardening. D.2: `provision --shared
+--container` runs a member's daemon in a systemd-nspawn container.
+Left for a SaaS track (E), if ever: self-signup, quotas, billing, a VM
+per client, CSP with nonces. Original sketch follows.
+
+### Track D — original sketch
 
 OIDC Authorization Code + PKCE in the gateway (`internal/oidc`, stdlib
 JWKS verification), allow-listed logins; rate limits on `/pair` and the

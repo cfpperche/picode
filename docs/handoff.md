@@ -141,7 +141,8 @@ render megabytes.
 
 ## Next up
 
-1. **Remote modes, Track D (ADR-0052)** — public access: OIDC (Google/GitHub, stdlib) in the gateway for logins that are not on the tailnet, rate limits on `/pair` and the callback, security headers, `X-Forwarded-*` trusted only from a configured proxy CIDR, external TLS (Caddy / Cloudflare Tunnel recipes). Roadmap: `docs/design/remote-modes-roadmap.md`. **Track C acceptance still owed on a real second account** (needs the owner's sudo): `sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`.
+1. **Remote modes — acceptance runs owed** (owner's sudo): Track C on a real second account (`sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`); Track D.2 (`sudo apt install systemd-container debootstrap`, `sudo picode provision --user demo --shared --container`); Track D.1 with a real GitHub OAuth app behind Caddy on a public name. Then decide on Track E (SaaS: signup, quotas, billing, VM per client) — the roadmap sketches it.
+2. **Gateway CSP** — the SPA's inline theme bootstrap needs a nonce before the gateway can send a content-security policy.
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
@@ -286,6 +287,20 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Track D, public access (ADR-0052)** (`feat/public-access`):
+  gateway identity chain (tailnet whois → signed cookie → login page),
+  `plainListen` + `trustedProxies` (last XFF hop from a trusted CIDR
+  only), Google OIDC (discovery, PKCE, nonce, JWKS RS256) and GitHub
+  OAuth (`<login>@github`) in `internal/gateway/oidc.go`, signed session
+  cookie (`session.go`), per-peer limiters on `/-/auth/*` and `POST
+  /pair`, `/-/` routes and a login page, extra security headers;
+  `picode gateway oidc set|unset`, `--plain` (alias `--insecure-listen`),
+  secrets in `gateway.secret.json`; the SPA shows **Sign in** on a 401
+  that carries `login`. D.2: `ContainerSteps` + `install.ContainerUnitFile`
+  (nspawn, private users, limits, host networking), `--container`/`--remove`.
+  Tests: full login round trip against a fake OIDC provider, claim
+  checks (aud/exp/nonce/iss/verified/unknown login), forged cookie,
+  untrusted XFF, logout, limiter, GitHub spelling, unit text, steps.
 - **2026-09-02 — Devices footer spacing + centering.** List rows
   unchanged. `.devs-foot` adds 16px spacer + divider under the last
   device; Pair / Copy link and the extension note are centred. Empty

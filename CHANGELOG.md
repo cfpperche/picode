@@ -61,6 +61,13 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **From any network, with a real login (ADR-0052).** The same gateway
+  can sit behind Caddy or a Cloudflare Tunnel on a public name: people
+  sign in with Google or GitHub (`sudo picode gateway oidc set …`),
+  pair their device once, and land in their own PiCode. Who may enter is
+  still the admin's list. Members can also run in a container each
+  (`provision --shared --container`). Guide: `www/guide/public-access.md`.
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as
