@@ -13,16 +13,29 @@ export function usePullToRefresh(onRefresh) {
     const el = ref.current;
     if (!el) return undefined;
     let startY = null;
+    let startX = null;
+    let axis = ""; // "" undecided | "y" pull | "x" a row swipe, not ours
     let armed = false;
     const THRESHOLD = 64;
+    const SLOP = 10;
     const onStart = (e) => {
       if (e.touches.length !== 1 || el.scrollTop > 0) { startY = null; return; }
       startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      axis = "";
       armed = false;
     };
     const onMove = (e) => {
       if (startY == null || e.touches.length !== 1) return;
       const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+      // Decide the axis once, on the first real movement: a mostly
+      // horizontal drag is a row swipe (Inbox actions), never a pull.
+      if (!axis) {
+        if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        if (axis === "x") { startY = null; return; }
+      }
       if (dy <= 0 || el.scrollTop > 0) { if (armed || state) { armed = false; setState(""); } return; }
       const next = dy > THRESHOLD ? "armed" : "pull";
       armed = next === "armed";

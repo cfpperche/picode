@@ -272,7 +272,10 @@ Never exercised, because this machine was already past them:
   row needed two taps on the iPhone and swipe never showed — iOS Safari
   turns the first tap into hover when `:hover` changes content (the
   hover-only row actions). `fix/inbox-hover-touch`: the `.app-row` hover
-  rules live under `@media (hover: hover)`; touch gets the swipe.
+  rules live under `@media (hover: hover)`; touch gets the swipe. Then: a
+  left swipe was firing the pull — `usePullToRefresh` now decides the
+  axis on the first 10px of movement and stands down for a horizontal
+  drag (`fix/pull-axis`).
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap
