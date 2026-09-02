@@ -10,6 +10,8 @@ import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "../lib/appSearch.js";
 import AppIcon from "./AppIcon.jsx";
 import { IconChevronLeft, IconCheck, IconClock, IconInbox, IconTrash } from "./Icons.jsx";
+import { subscribeFeed } from "../lib/feed.js";
+import { touches } from "../lib/feedReducers.js";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -104,6 +106,13 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     mql.addEventListener("change", sync);
     return () => mql.removeEventListener("change", sync);
   }, []);
+  useEffect(() => {
+    // Change feed (ADR-0048): the app's own entity changed → reload now,
+    // even on a hidden tab (cheap, and the reveal then shows the truth).
+    return subscribeFeed((ev) => {
+      if (ev.type === "feed.reset" || ev.type === "feed.open" || touches(ev, [app.id])) load(path);
+    });
+  }, [load, path, app.id]);
   useEffect(() => {
     // Like the file tree: refresh when the page comes back, no polling. Apps on
     // hidden tabs sit this out — every open tab would re-ask. Their reveal is

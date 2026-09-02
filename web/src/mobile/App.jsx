@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
+import { startFeed, subscribeFeed } from "../lib/feed.js";
+import { touches } from "../lib/feedReducers.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { normalizeManifests } from "../lib/appPrimitives.js";
 import { needsYou } from "../lib/needsYou.js";
@@ -60,6 +62,7 @@ export default function MobileApp() {
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => startPresence(), []);
+  useEffect(() => startFeed(), []);
   // Zoom lock (owner): a supervision console is read at one scale. The
   // meta is rewritten here, not in index.html, so the desktop shell keeps
   // the browser's default; iOS ignores user-scalable, so pinch is also
@@ -94,7 +97,7 @@ export default function MobileApp() {
   }, []);
 
   // Inbox (blocking items for Now, results for the feed) and app badges.
-  usePoll(async () => {
+  const loadInbox = useCallback(async () => {
     const [blocking, all, appList] = await Promise.all([
       api("/api/inbox?blocking=1").catch(() => null),
       api("/api/inbox").catch(() => null),
@@ -103,7 +106,9 @@ export default function MobileApp() {
     if (blocking) setInbox(blocking.items || []);
     if (all) setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5));
     if (appList) setApps(normalizeManifests(appList));
-  }, 15000);
+  }, []);
+  usePoll(loadInbox, 15000);
+  useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["inbox"])) loadInbox().catch(() => {}); }), [loadInbox]);
 
   // Today's headline for the Now screen.
   usePoll(async () => { setStats(await api("/api/sessions/stats?range=today")); }, 60000, route.screen === "now");

@@ -40,6 +40,8 @@ import { normalizeManifests } from "../lib/appPrimitives.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
 import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
+import { startFeed, subscribeFeed, feedConnected } from "../lib/feed.js";
+import { applyFleet, touches } from "../lib/feedReducers.js";
 import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -536,16 +538,40 @@ export default function App() {
     // ADR accepts seconds of badge latency. Boot did the first fetch;
     // errors keep the last known list.
     let stop = false;
-    async function poll() {
+    async function poll(force) {
       if (document.hidden) return;
+      if (!force && feedConnected()) return;
       try {
         const d = await api("/api/apps");
         if (!stop) { setApps(normalizeManifests(d)); setAppsLoaded(true); }
       } catch { /* transient */ }
     }
-    const t = setInterval(poll, 15000);
-    return () => { stop = true; clearInterval(t); };
+    const t = setInterval(() => poll(false), 15000);
+    // Change feed (ADR-0048): badges follow inbox changes at once.
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset" || touches(ev, ["inbox"])) poll(true);
+    });
+    return () => { stop = true; clearInterval(t); unsub(); };
   }, []);
+  // Change feed (ADR-0048): one stream per shell. Fleet events patch the
+  // sidebar in place; anything the reducer cannot apply faithfully
+  // refetches the fleet; (re)open and reset refetch everything.
+  const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
+  fleetRef.current = { workspaces, freeAgents, terminals };
+  useEffect(() => startFeed(), []);
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "feed.open" || ev.type === "feed.reset") {
+      if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
+      return;
+    }
+    if (!touches(ev, ["workspace", "agent", "terminal"])) return;
+    const next = applyFleet(fleetRef.current, ev);
+    if (next === null) { loadWorkspaces().catch(() => {}); return; }
+    if (next === fleetRef.current) return;
+    setWorkspaces(next.workspaces);
+    setFreeAgents(next.freeAgents);
+    setTerminals(next.terminals);
+  }), [loadWorkspaces]);
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
   }), []);

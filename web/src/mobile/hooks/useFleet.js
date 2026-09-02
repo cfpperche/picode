@@ -1,6 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api.js";
 import { agentsOf } from "../../lib/tree.js";
+import { subscribeFeed } from "../../lib/feed.js";
+import { applyFleet, touches } from "../../lib/feedReducers.js";
 import { usePoll } from "./usePoll.js";
 
 // The fleet: every workspace with its agents, plus free agents. Since
@@ -24,6 +26,19 @@ export function useFleet(ms) {
     return list;
   }, []);
   usePoll(reload, ms);
+  // Change feed (ADR-0048): patch in place; anything the reducer cannot
+  // apply faithfully falls back to one reload.
+  const ref = useRef({ workspaces, freeAgents, terminals });
+  ref.current = { workspaces, freeAgents, terminals };
+  useEffect(() => subscribeFeed((ev) => {
+    if (!touches(ev, ["workspace", "agent", "terminal"])) return;
+    const next = applyFleet(ref.current, ev);
+    if (next === null) { reload().catch(() => {}); return; }
+    if (next === ref.current) return;
+    setWorkspaces(next.workspaces);
+    setFreeAgents(next.freeAgents);
+    setTerminals(next.terminals);
+  }), [reload]);
   return { workspaces, freeAgents, terminals, loaded, reload };
 }
 

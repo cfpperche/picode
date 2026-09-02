@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { feedConnected, subscribeFeed } from "../lib/feed.js";
+import { touches } from "../lib/feedReducers.js";
 import PageFrame from "./PageFrame.jsx";
 
 export default function Devices({ hidden }) {
@@ -10,8 +12,12 @@ export default function Devices({ hidden }) {
     let on = true;
     const load = () => api("/api/devices").then((d) => { if (on) setList(d || []); }).catch(() => {});
     load();
-    const t = setInterval(load, 4000);
-    return () => { on = false; clearInterval(t); };
+    // Presence goes stale silently (a device stops pinging), so a slow poll
+    // stays; the 4 s one is the fallback for when the feed is down.
+    const t = setInterval(() => { if (!feedConnected()) load(); }, 4000);
+    const slow = setInterval(load, 30000);
+    const unsub = subscribeFeed((ev) => { if (touches(ev, ["device"]) || ev.type === "feed.open") load(); });
+    return () => { on = false; clearInterval(t); clearInterval(slow); unsub(); };
   }, [hidden]);
 
   const remote = list.filter((d) => !d.host);

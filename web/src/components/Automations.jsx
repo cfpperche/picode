@@ -11,6 +11,8 @@ import { sparklinePath } from "../lib/sparkline.js";
 import { PRESETS, DOW, presetToCron, cronToPreset, describeCron, cronError, isValidCron } from "../lib/cron.js";
 import { readAutomationDraft, writeAutomationDraft, draftFromTemplate } from "../lib/automationDraft.js";
 import { automationRoute, automationsHash, workspaceHash } from "../lib/routes.js";
+import { feedConnected, subscribeFeed } from "../lib/feed.js";
+import { applyAutomations, applyRuns, touches } from "../lib/feedReducers.js";
 import { mentionAgents } from "../lib/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
@@ -56,11 +58,21 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     }
   }
 
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "feed.open" || ev.type === "feed.reset") { load(); return; }
+    if (!touches(ev, ["automation", "run"])) return;
+    setItems((cur) => {
+      const next = applyAutomations(cur, ev);
+      if (next === null) { load(); return cur; }
+      return next;
+    });
+  }), []);
+
   useEffect(() => {
     if (hidden) return;
     load();
     let t = null;
-    const start = () => { if (!t) t = setInterval(load, REFRESH_MS); };
+    const start = () => { if (!t) t = setInterval(() => { if (!feedConnected()) load(); }, REFRESH_MS); };
     const stop = () => { if (t) clearInterval(t); t = null; };
     const vis = () => { if (document.hidden) stop(); else { load(); start(); } };
     if (!document.hidden) start();
@@ -338,9 +350,13 @@ function Detail({ a, catalog, workspaces, agents, templates, reveal, onDismissSe
     let on = true;
     const load = () => api("/api/automations/" + encodeURIComponent(a.id) + "/runs?limit=50").then((d) => { if (on) setRuns(d.items || []); }).catch(() => {});
     load();
-    const t = setInterval(() => { if (!document.hidden) load(); }, REFRESH_MS);
-    return () => { on = false; clearInterval(t); };
-  }, [a.id, a.lastRun && a.lastRun.id, a.running]);
+    const t = setInterval(() => { if (!document.hidden && !feedConnected()) load(); }, REFRESH_MS);
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") { load(); return; }
+      if (touches(ev, ["run"])) setRuns((cur) => (cur === null ? cur : applyRuns(cur, a.id, ev)));
+    });
+    return () => { on = false; clearInterval(t); unsub(); };
+  }, [a.id]);
 
   if (editing) {
     return <Editor initial={a} catalog={catalog} workspaces={workspaces} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;

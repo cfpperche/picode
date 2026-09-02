@@ -1,0 +1,89 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { applyFleet, applyInbox, applyAutomations, applyRuns, touches } from "./feedReducers.js";
+
+const ws = (id, agents = []) => ({ id, name: id, path: "/" + id, agents });
+const ag = (id, workspaceId, extra = {}) => ({ id, workspaceId, name: id, lastStatus: "never_started", running: false, mode: "stopped", streaming: false, waiting: false, ...extra });
+
+test("fleet: workspaces and agents are added, updated and removed in place", () => {
+  let s = { workspaces: [ws("b")], freeAgents: [], terminals: [] };
+  s = applyFleet(s, { type: "workspace.added", data: { id: "a", name: "a", path: "/a" } });
+  assert.deepEqual(s.workspaces.map((w) => w.id), ["a", "b"]);
+  s = applyFleet(s, { type: "agent.added", data: { id: "x", workspaceId: "a", name: "x" } });
+  assert.equal(s.workspaces[0].agents[0].mode, "stopped");
+  s = applyFleet(s, { type: "agent.added", data: { id: "f", workspaceId: "ws_free", name: "f" } });
+  assert.equal(s.freeAgents.length, 1);
+  s = applyFleet(s, { type: "agent.updated", data: { id: "x", workspaceId: "a", name: "renamed", model: "m" } });
+  assert.equal(s.workspaces[0].agents[0].name, "renamed");
+  assert.equal(s.workspaces[0].agents[0].mode, "stopped", "view fields survive a patch");
+  assert.equal(applyFleet(s, { type: "agent.updated", data: { id: "nope", workspaceId: "a" } }), null, "unknown agent → refetch");
+  assert.equal(applyFleet(s, { type: "agent.added", data: { id: "y", workspaceId: "missing" } }), null, "unknown workspace → refetch");
+  s = applyFleet(s, { type: "agent.deleted", data: { id: "x" } });
+  assert.equal(s.workspaces[0].agents.length, 0);
+  s = applyFleet(s, { type: "workspace.deleted", data: { id: "a" } });
+  assert.deepEqual(s.workspaces.map((w) => w.id), ["b"]);
+  assert.equal(applyFleet(s, { type: "pin.created", data: {} }), s, "unrelated events leave state untouched");
+});
+
+test("fleet: status and live state", () => {
+  const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "managed", streaming: true })])], freeAgents: [], terminals: [] };
+  assert.equal(applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running" } }), null, "a start needs mode → refetch");
+  const stopped = applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "stopped" } });
+  assert.equal(stopped.workspaces[0].agents[0].mode, "stopped");
+  assert.equal(stopped.workspaces[0].agents[0].streaming, false);
+  const live = applyFleet(stopped, { type: "agent.state", data: { agentId: "x", streaming: true, waiting: false } });
+  assert.equal(live.workspaces[0].agents[0].mode, "managed");
+  assert.equal(live.workspaces[0].agents[0].streaming, true);
+  const waiting = applyFleet(live, { type: "agent.state", data: { agentId: "x", streaming: false, waiting: true, dialog: { id: "d" } } });
+  assert.equal(waiting.workspaces[0].agents[0].waiting, true);
+  assert.equal(waiting.workspaces[0].agents[0].dialog.id, "d");
+  assert.equal(applyFleet(s, { type: "agent.state", data: { agentId: "ghost", streaming: true } }), s);
+});
+
+test("fleet: terminals", () => {
+  let s = { workspaces: [], freeAgents: [], terminals: [] };
+  s = applyFleet(s, { type: "terminal.created", data: { id: "t1", name: "T", workspaceId: "ws_free" } });
+  assert.equal(s.terminals.length, 1);
+  s = applyFleet(s, { type: "terminal.updated", data: { id: "t1", name: "U", workspaceId: "ws_free" } });
+  assert.equal(s.terminals[0].name, "U");
+  assert.equal(applyFleet(s, { type: "terminal.updated", data: { id: "zz" } }), null);
+  s = applyFleet(s, { type: "terminal.deleted", data: { id: "t1" } });
+  assert.equal(s.terminals.length, 0);
+});
+
+test("inbox reducer", () => {
+  let l = [{ id: "a", state: "unread" }];
+  l = applyInbox(l, { type: "inbox.created", data: { id: "b", state: "unread" } });
+  assert.deepEqual(l.map((i) => i.id), ["b", "a"]);
+  l = applyInbox(l, { type: "inbox.updated", data: { id: "a", state: "done" } });
+  assert.equal(l[1].state, "done");
+  l = applyInbox(l, { type: "inbox.cleared", data: { count: 1 } });
+  assert.deepEqual(l.map((i) => i.id), ["b"]);
+  l = applyInbox(l, { type: "inbox.deleted", data: { id: "b" } });
+  assert.equal(l.length, 0);
+  assert.equal(applyInbox(l, { type: "inbox.created", data: {} }), null);
+});
+
+test("automations and runs reducers", () => {
+  let l = [{ id: "x", name: "X", running: false, lastRun: null, sparkline: [1] }];
+  assert.equal(applyAutomations(l, { type: "automation.created", data: { id: "y" } }), null);
+  l = applyAutomations(l, { type: "automation.updated", data: { id: "x", name: "X2", enabled: false } });
+  assert.equal(l[0].name, "X2");
+  assert.deepEqual(l[0].sparkline, [1], "view extras survive");
+  l = applyAutomations(l, { type: "run.created", data: { id: "r1", automationId: "x", status: "running" } });
+  assert.equal(l[0].running, true);
+  l = applyAutomations(l, { type: "run.finished", data: { id: "r1", automationId: "x", status: "done" } });
+  assert.equal(l[0].running, false);
+  assert.equal(l[0].lastRun.status, "done");
+  l = applyAutomations(l, { type: "automation.deleted", data: { id: "x" } });
+  assert.equal(l.length, 0);
+
+  let runs = [];
+  runs = applyRuns(runs, "x", { type: "run.created", data: { id: "r1", automationId: "x", status: "running" } });
+  runs = applyRuns(runs, "x", { type: "run.finished", data: { id: "r1", automationId: "x", status: "done" } });
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].status, "done");
+  assert.equal(applyRuns(runs, "x", { type: "run.created", data: { id: "r9", automationId: "other" } }), runs);
+  assert.equal(touches({ type: "inbox.created" }, ["inbox", "apps"]), true);
+  assert.equal(touches({ type: "run.created" }, ["inbox"]), false);
+});
