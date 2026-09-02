@@ -195,31 +195,22 @@
 .m-keys-btn { padding: 0 10px; }
 .m-keys-btn.on { color: var(--accent); border-color: var(--accent); }
 .m-term-screen { position: relative; }
+/* Termux's extra keys: two rows of seven equal cells on the terminal's
+   background, flat labels, nothing that can overflow — the grid divides
+   whatever width the phone has. */
 .m-keybar {
-  flex: none; position: relative;
-  margin: 0 calc(-1 * var(--m-pad)); padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
-  background: var(--bg-panel); border-top: 1px solid var(--border);
+  flex: none; display: flex; flex-direction: column;
+  margin: 0 calc(-1 * var(--m-pad)); padding: 2px 0 calc(2px + env(safe-area-inset-bottom));
+  background: var(--bg-base); border-top: 1px solid var(--border);
 }
-/* One row that scrolls sideways: every key keeps its size, nothing is
-   ever clipped by the phone's width (a flex button does not shrink
-   below its label in Safari). A fade says there is more to the right. */
-.m-keybar-row {
-  display: flex; gap: 4px; padding: 0 8px; overflow-x: auto; overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch; scrollbar-width: none; touch-action: pan-x;
-}
-.m-keybar-row::-webkit-scrollbar { display: none; }
-.m-keybar::after {
-  content: ""; position: absolute; top: 8px; right: 0; bottom: calc(8px + env(safe-area-inset-bottom)); width: 28px; pointer-events: none;
-  background: linear-gradient(to right, transparent, var(--bg-panel));
-}
+.m-keybar-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .m-key {
-  flex: none; min-width: 48px; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-base);
-  color: var(--text-primary); font: inherit; font-size: 12.5px; font-family: var(--mono); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  height: 46px; min-width: 0; padding: 0; border: 0; border-radius: 8px; background: transparent;
+  color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .04em;
+  font-family: var(--mono); cursor: pointer; -webkit-tap-highlight-color: transparent;
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
 }
-.m-key-gap { margin-left: 8px; }
-.m-key-icon { color: var(--text-secondary); }
-.m-key-mod.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.m-key-mod.on { color: var(--accent); background: var(--accent-soft); }
 .m-key:active { background: var(--bg-hover); }
 
 /* ---- agent screen ---- */

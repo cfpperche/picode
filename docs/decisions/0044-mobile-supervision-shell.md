@@ -192,3 +192,10 @@ expiry), keys that never summon the phone keyboard with a ⌨ key that
 does, the screen sized to the `visualViewport` so the bar rises above
 the iOS keyboard and xterm refits, and a hardware-keyboard heuristic
 (focus with no viewport shrink) that hides the row.
+
+Follow-up the same evening: the owner chose Termux's layout outright —
+two rows of seven equal cells (`ESC / — HOME ↑ END PGUP` over `⇆ CTRL
+ALT ← ↓ → PGDN`), flat labels on the terminal's background, nothing
+that can overflow. The ⌨ and × keys went: tapping the terminal opens
+the phone keyboard, the header icon toggles the grid. Sticky Ctrl/Alt,
+the viewport lift and the hardware-keyboard heuristic stay underneath.

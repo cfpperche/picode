@@ -157,12 +157,6 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
     if (entry && entry.sticky) setArmed(entry.sticky.arm(mod));
   }
 
-  // The ⌨ key: the one deliberate way to bring the phone keyboard up.
-  function typeHere() {
-    const entry = terms.get("sh:" + id);
-    if (entry && entry.term) entry.term.focus();
-  }
-
   if (!term) {
     return (
       <div className="m-screen">
@@ -202,7 +196,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
           <p className="m-empty-line m-pad">Attaching…</p>
         )}
       </div>
-      {page && !error && keys && !hardKeyboard ? <KeyBar armed={armed} onArm={armKey} onKey={sendKey} onType={typeHere} onClose={() => setKeys(false)} /> : null}
+      {page && !error && keys && !hardKeyboard ? <KeyBar armed={armed} onArm={armKey} onKey={sendKey} /> : null}
     </div>
   );
 }

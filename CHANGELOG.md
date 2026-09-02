@@ -101,6 +101,12 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Terminal keys on the phone, Termux's layout.** Two rows of seven
+  flat cells on the terminal's background — `ESC / — HOME ↑ END PGUP`
+  and `⇆ CTRL ALT ← ↓ → PGDN` — that always fit the screen. Tap the
+  terminal to open the phone keyboard; the header's keyboard icon shows
+  or hides the grid.
+
 - **Terminal keys on the phone, the way real mobile terminals do it.**
   One row that scrolls sideways (nothing is cut off), **sticky Ctrl and
   Alt** — tap once, the next key from the phone keyboard or the row gets

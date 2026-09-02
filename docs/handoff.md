@@ -296,6 +296,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Termux layout for the mobile keys** (`feat/mobile-keys-termux`):
+  owner sent Termux screenshots — "vamos fazer o nosso igual". `KeyBar`
+  is Termux's 2×7 grid (`ROWS`), flat cells on `--bg-base`,
+  `grid-template-columns: repeat(7, minmax(0, 1fr))`; ⌨/× dropped
+  (tap the terminal for the keyboard; header icon toggles). Sticky
+  modifiers, viewport lift and hardware heuristic unchanged.
 - **2026-09-02 — the chat shows when a TUI agent is working**
   (`fix/tui-working-in-chat`). The chat's event socket exists only for
   managed agents, so an interactive agent read as idle there no matter

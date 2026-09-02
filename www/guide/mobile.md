@@ -44,21 +44,24 @@ arrows, and `/ | - ~`.
 
 ## Terminal keys
 
-A terminal on the phone has a key row for what the soft keyboard lacks,
-laid out the way Termux and Blink do it. Tap the header's keyboard icon
-to show it; it scrolls sideways.
+A terminal on the phone has Termux's extra keys: two rows of seven
+cells on the terminal's own background. Tap the header's keyboard icon
+to show or hide them.
 
-- **Ctrl** and **Alt** are sticky: tap once, then the next key — from the
-  phone keyboard or from the row — is sent with that modifier. Ctrl then
-  `c` interrupts; Alt then `b` moves back a word. An armed modifier
-  lights up and expires after five seconds if nothing uses it, so a
-  forgotten Ctrl cannot turn a later `c` into an interrupt.
-- Esc, Tab, the arrows, Home/End, PgUp/PgDn, `^C`, and the symbols a
-  phone keyboard hides (`| ~ / -`).
-- **⌨** opens the phone keyboard; the other keys never do — they leave
-  it as it was. The row rises above the keyboard while you type.
-- With a hardware keyboard attached, the row gets out of the way by
-  itself (the header icon brings it back).
+```
+ESC   /   —   HOME  ↑   END   PGUP
+⇆   CTRL  ALT  ←    ↓   →    PGDN
+```
+
+- **CTRL** and **ALT** are sticky: tap once, then the next key — from
+  the phone keyboard or the grid — is sent with that modifier. CTRL then
+  `c` interrupts; ALT then `b` moves back a word; CTRL then ↑ is the
+  modified arrow. An armed modifier lights up and expires after five
+  seconds if nothing uses it.
+- The grid never opens the phone keyboard; tapping the terminal does,
+  and the grid rises above the keyboard while you type.
+- With a hardware keyboard attached, the grid steps aside (the header
+  icon brings it back).
 
 ## Push notifications
 
