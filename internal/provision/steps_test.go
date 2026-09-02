@@ -210,7 +210,7 @@ func TestServerURL(t *testing.T) {
 // Steps must stay in dependency order: fixing the service before systemd runs,
 // or checking health before the service exists, reports nonsense.
 func TestStepsAreInDependencyOrder(t *testing.T) {
-	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health"}
+	want := []string{"wsl-conf", "systemd", "linger", "cert", "service", "health", "pi", "tailnet", "reach"}
 	steps := Steps()
 	if len(steps) != len(want) {
 		t.Fatalf("got %d steps, want %d", len(steps), len(want))
@@ -219,5 +219,70 @@ func TestStepsAreInDependencyOrder(t *testing.T) {
 		if steps[i].ID != id {
 			t.Errorf("step %d = %q, want %q", i, steps[i].ID, id)
 		}
+	}
+}
+
+func TestPiStep(t *testing.T) {
+	old := lookPath
+	lookPath = func(name string) (string, error) {
+		if name == "pi" {
+			return "/usr/bin/pi", nil
+		}
+		return "", errors.New("no")
+	}
+	t.Cleanup(func() { lookPath = old })
+	if got := piStep().Check(Env{}); got.Status != StatusOK {
+		t.Fatalf("%+v", got)
+	}
+	lookPath = func(string) (string, error) { return "", errors.New("no") }
+	if got := piStep().Check(Env{}); got.Status != StatusBlocked || !strings.Contains(got.Detail, "npm install") {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestTailnetStep(t *testing.T) {
+	oldL, oldO := lookPath, output
+	t.Cleanup(func() { lookPath, output = oldL, oldO })
+
+	lookPath = func(string) (string, error) { return "", errors.New("no") }
+	if got := tailnetStep().Check(Env{}); got.Status != StatusOK || !strings.Contains(got.Detail, "LAN only") {
+		t.Fatalf("absent: %+v", got)
+	}
+	lookPath = func(string) (string, error) { return "/usr/bin/tailscale", nil }
+	output = func(string, ...string) (string, error) {
+		return `{"BackendState":"Running","Self":{"DNSName":"box.tail1234.ts.net.","TailscaleIPs":["100.64.0.9"]}}`, nil
+	}
+	if got := tailnetStep().Check(Env{}); got.Status != StatusOK || !strings.Contains(got.Detail, "box.tail1234.ts.net") {
+		t.Fatalf("running: %+v", got)
+	}
+	output = func(string, ...string) (string, error) { return `{"BackendState":"Stopped"}`, nil }
+	if got := tailnetStep().Check(Env{}); got.Status != StatusBlocked {
+		t.Fatalf("stopped: %+v", got)
+	}
+}
+
+func TestReachStep(t *testing.T) {
+	oldL, oldO := lookPath, output
+	t.Cleanup(func() { lookPath, output = oldL, oldO })
+	lookPath = func(string) (string, error) { return "", errors.New("no") }
+	dir := t.TempDir()
+	env := Env{DataDir: dir}
+	if got := reachStep().Check(env); got.Status != StatusBlocked {
+		t.Fatalf("no server.json: %+v", got)
+	}
+	write := func(body string) { _ = os.WriteFile(filepath.Join(dir, "server.json"), []byte(body), 0o644) }
+	write(`{"url":"https://localhost:8445","bind":"127.0.0.1","port":8445,"publicUrl":""}`)
+	if got := reachStep().Check(env); got.Status != StatusBlocked || !strings.Contains(got.Detail, "loopback") {
+		t.Fatalf("loopback: %+v", got)
+	}
+	write(`{"url":"https://localhost:8445","bind":"0.0.0.0","port":8445,"publicUrl":"https://box.tail.ts.net:8445"}`)
+	if got := reachStep().Check(env); got.Status != StatusOK || !strings.Contains(got.Detail, "box.tail.ts.net") {
+		t.Fatalf("public: %+v", got)
+	}
+	write(`{"url":"https://localhost:8445","bind":"0.0.0.0","port":8445,"publicUrl":""}`)
+	lookPath = func(string) (string, error) { return "/usr/bin/tailscale", nil }
+	output = func(string, ...string) (string, error) { return "100.64.0.9\n", nil }
+	if got := reachStep().Check(env); got.Status != StatusOK || !strings.Contains(got.Detail, "100.64.0.9:8445") {
+		t.Fatalf("tailnet ip: %+v", got)
 	}
 }

@@ -33,7 +33,99 @@ var lookPath = exec.LookPath
 // logout before the unit is worth enabling, and the service has to be up
 // before health can mean anything.
 func Steps() []Step {
-	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep()}
+	return []Step{wslConfStep(), systemdStep(), lingerStep(), certStep(), serviceStep(), healthStep(), piStep(), tailnetStep(), reachStep()}
+}
+
+// piStep: agents are `pi` processes the unit spawns, so the binary has to
+// be on the PATH the unit captured. No fix — installing pi is npm's job
+// and the owner's choice of prefix (ADR-0003).
+func piStep() Step {
+	return Step{
+		ID:    "pi",
+		Title: "pi is on PATH",
+		Scope: ScopeUser,
+		Check: func(env Env) State {
+			if _, err := lookPath("pi"); err == nil {
+				return ok("found")
+			}
+			return blocked("pi not found — `npm install -g @earendil-works/pi-coding-agent`, then `picode deploy` so the unit sees it")
+		},
+		Fix: func(Env) error { return fmt.Errorf("install pi with npm, then picode deploy") },
+	}
+}
+
+// tailnetStep reports whether this box can be reached by its tailnet
+// name — the address the guide recommends (ADR-0050). A machine without
+// Tailscale is fine (LAN only); one with it installed but down is not.
+func tailnetStep() Step {
+	return Step{
+		ID:    "tailnet",
+		Title: "Tailscale is up",
+		Scope: ScopeUser,
+		Check: func(Env) State {
+			if _, err := lookPath("tailscale"); err != nil {
+				return ok("no Tailscale — reachable on the LAN only")
+			}
+			raw, err := output("tailscale", "status", "--json")
+			if err != nil {
+				return blocked("tailscale is installed but not answering — `tailscale up`")
+			}
+			var st struct {
+				BackendState string `json:"BackendState"`
+				Self         struct {
+					DNSName      string   `json:"DNSName"`
+					TailscaleIPs []string `json:"TailscaleIPs"`
+				} `json:"Self"`
+			}
+			if json.Unmarshal([]byte(raw), &st) != nil || st.BackendState != "Running" {
+				return blocked("tailscale is not running (%s) — `tailscale up`", st.BackendState)
+			}
+			name := strings.TrimSuffix(st.Self.DNSName, ".")
+			if name == "" && len(st.Self.TailscaleIPs) > 0 {
+				name = st.Self.TailscaleIPs[0]
+			}
+			return ok("this box is %s on the tailnet", name)
+		},
+		Fix: func(Env) error { return fmt.Errorf("run `tailscale up` as the owner") },
+	}
+}
+
+// reachStep is the server-mode question: can another machine reach this
+// PiCode at all, and does it know its own public address? Read from
+// server.json, so it describes the daemon that is actually running.
+func reachStep() Step {
+	return Step{
+		ID:    "reach",
+		Title: "Reachable from other machines",
+		Scope: ScopeUser,
+		Check: func(env Env) State {
+			b, err := os.ReadFile(filepath.Join(env.DataDir, "server.json"))
+			if err != nil {
+				return blocked("no server.json in %s — PiCode has not started yet", env.DataDir)
+			}
+			var s struct {
+				Bind      string `json:"bind"`
+				PublicURL string `json:"publicUrl"`
+				Port      int    `json:"port"`
+			}
+			if json.Unmarshal(b, &s) != nil {
+				return blocked("server.json is not readable")
+			}
+			if s.Bind == "127.0.0.1" || s.Bind == "::1" {
+				return blocked("bound to loopback — Preferences → Server → Bind: all interfaces (or PICODE_HOST=0.0.0.0)")
+			}
+			if s.PublicURL != "" {
+				return ok("advertises %s", s.PublicURL)
+			}
+			if _, err := lookPath("tailscale"); err == nil {
+				if ip, err := output("tailscale", "ip", "-4"); err == nil && strings.TrimSpace(ip) != "" {
+					return ok("reachable at https://%s:%d — set a public URL so links and clients use one name", strings.TrimSpace(ip), s.Port)
+				}
+			}
+			return ok("reachable on the LAN; no tailnet and no public URL yet")
+		},
+		Fix: func(Env) error { return fmt.Errorf("set the bind and public URL in Preferences → Server") },
+	}
 }
 
 // wslConfStep turns systemd on for the distro. It is the only step that writes
