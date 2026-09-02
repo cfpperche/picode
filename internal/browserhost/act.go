@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ActMaxRounds caps the send → act → result loop (ADR-0053). One round is
+// ActMaxRounds caps the send → act → result loop (ADR-0054). One round is
 // a turn that ended in a picode-act block; the cap is the boundary
 // against MV3-as-Playwright.
 const ActMaxRounds = 3

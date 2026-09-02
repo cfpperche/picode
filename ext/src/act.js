@@ -1,4 +1,4 @@
-// Track C actuation helpers (ADR-0053). Pure logic + grant storage; the
+// Track C actuation helpers (ADR-0054). Pure logic + grant storage; the
 // orchestration lives in sidepanel.js.
 
 function originOf(url) {

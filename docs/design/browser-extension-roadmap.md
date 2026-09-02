@@ -1,7 +1,7 @@
 # Browser extension — implementation roadmap
 
 - **Date:** 2026-09-01
-- **Status:** Track A + B shipped. Track C (actuator) in flight (ADR-0053).
+- **Status:** Track A + B shipped. Track C (actuator) in flight (ADR-0054).
 - **Why:** agents already browse in an isolated Chromium; they cannot see
   the tab the human is on. A Chrome side panel + context menu sends that
   tab to an existing PiCode agent.
@@ -61,7 +61,7 @@ Screenshot is a checkbox, off by default, JPEG under the 1 MB native-messaging c
 
 ## Track C — Actuator (shipped on this branch)
 
-ADR-0053: the agent's reply may end in one ```picode-act fenced block;
+ADR-0054: the agent's reply may end in one ```picode-act fenced block;
 the server validates it into a batch (`act_batches`, migration 021), the
 panel polls for it via the native host, asks once per origin, and executes
 it action by action with visible highlights. Outcomes go back as one more

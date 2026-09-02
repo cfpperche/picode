@@ -1,4 +1,4 @@
-# ADR-0053: Extension actuator — the agent acts on the tab through a granted, visible loop
+# ADR-0054: Extension actuator — the agent acts on the tab through a granted, visible loop
 
 - **Status**: accepted
 - **Date**: 2026-09-02

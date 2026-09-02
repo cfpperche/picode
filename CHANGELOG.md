@@ -152,7 +152,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Let the agent act on the page you're looking at (ADR-0053).** The
+- **Let the agent act on the page you're looking at (ADR-0054).** The
   Chrome extension's side panel gains "Let the agent act on this page":
   the agent replies with steps (click / fill / press / read / scroll),
   the panel asks once per site, then runs them one by one with a visible
