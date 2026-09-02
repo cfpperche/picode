@@ -285,6 +285,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Message runs deliver (ADR-0045 amendment)**
+  (`fix/automation-message-delivers`): owner ran a message automation,
+  got "Done" and an untouched agent. `messageRun` starts an idle agent
+  (`startManaged`, its own session), sends a prompt (SendTurn makes it a
+  follow-up when busy), observes with `runWatch` and stops it on settle;
+  `keepAlive` for an already-running agent (cost cap aborts the turn
+  only); decision table: pi needed unless the agent runs, busy when
+  another run observes the agent; `ManagedAgent.Observed()`. E2E
+  `TestAutomationMessageRunEndToEnd` against the fake pi.
 - **2026-09-02 — Automation detail facts** (`fix/automation-detail-facts`):
   owner: a notify URL saved but nothing on the detail. Facts list gained
   Messages/Runs in (agent + workspace via `workspaceOfAgent`), Model (or

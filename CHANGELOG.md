@@ -74,6 +74,13 @@ to the `[Unreleased]` section. The repository's official language is English
   `/-/hook/<user>/<id>` on a shared or public box, which needs no login.
   The guide gained recipes for GitHub Actions, Sentry and cron.
 
+- **"Message an agent" now actually messages it.** A run used to leave
+  the prompt in the agent's queue and report done; if the agent was
+  closed, nothing happened. Now PiCode starts the agent on its session,
+  delivers the prompt, waits for the answer (cost and limits apply) and
+  closes it again — or, if the agent is open, hands the prompt over as a
+  follow-up and leaves it running.
+
 - **The automation detail says what it does.** Facts now list where it
   runs (or which agent it messages, with its workspace), the model or
   "pi's default", the notify channel (host, with a copy button), and the

@@ -83,6 +83,10 @@ func decideFire(in fireInput) fireDecision {
 		if !in.TargetExists {
 			return fireDecision{Status: store.RunFailed, Reason: reasonTargetGone, Notify: true}
 		}
+		if in.PiMissing && in.AgentMode != modeManaged {
+			// Delivering means running the agent; only an already-running one needs no pi to start.
+			return fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}
+		}
 		if in.AgentMode == modeInteractive {
 			return fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}
 		}
@@ -181,12 +185,63 @@ func (r automationRunner) Fire(a store.Automation, trigger, payload string) (sto
 	}
 	body := composeAutomationPrompt(a.Prompt, trigger, payload, time.Now())
 	if a.Action == store.AutomationMessage {
-		if _, err := deps.Store.EnqueueTask(*a.TargetAgentID, store.TaskFollowUp, body, "automation"); err != nil {
-			return store.Run{}, err
-		}
-		return deps.Store.CreateRun(a.ID, trigger, store.RunDone, reasonQueued)
+		return r.messageRun(ctx, a, trigger, body)
 	}
 	return r.startRun(ctx, a, trigger, body)
+}
+
+// messageRun delivers the prompt to the target agent now (ADR-0045
+// amendment): an idle agent is started on its own session, messaged,
+// watched like a start run and stopped when the turn settles; a running
+// one gets a follow-up turn and stays up. Until 2026-09-02 the message
+// only joined the agent's task queue, which nothing drains while the
+// agent is closed — a "done · queued" run that did nothing.
+func (r automationRunner) messageRun(ctx context.Context, a store.Automation, trigger, body string) (store.Run, error) {
+	deps := r.deps
+	agent, err := deps.Store.GetAgent(*a.TargetAgentID)
+	if err != nil {
+		return store.Run{}, err
+	}
+	wasRunning := deps.Runtime.Get(agent.ID) != nil
+	if ma := deps.Runtime.Get(agent.ID); ma != nil && ma.Observed() {
+		// Another automation's run is on this agent right now.
+		last, _ := deps.Store.LastRun(a.ID)
+		run, err := deps.Store.CreateRun(a.ID, trigger, store.RunSkipped, reasonBusy)
+		if err == nil && shouldNotifySkip(last, store.RunSkipped, reasonBusy) {
+			r.notify(a, store.InboxFYI, reasonBusy, a.Name+" did not run", "The agent is busy with another automation's run.")
+		}
+		return run, err
+	}
+	run, err := deps.Store.CreateRun(a.ID, trigger, store.RunRunning, "")
+	if err != nil {
+		return store.Run{}, err
+	}
+	w := &runWatch{runner: r, a: a, run: run, agentID: agent.ID, started: time.Now(), keepAlive: wasRunning}
+	if !wasRunning {
+		if err := deps.startManaged(agent); err != nil {
+			w.finish(store.RunFailed, reasonStartFailed+": "+err.Error(), true)
+			return deps.Store.GetRun(run.ID)
+		}
+	}
+	ma := deps.Runtime.Get(agent.ID)
+	if ma == nil {
+		w.finish(store.RunFailed, reasonStartFailed, true)
+		return deps.Store.GetRun(run.ID)
+	}
+	ma.Observe(&rpc.RunObserver{OnSettled: w.settled, OnExit: w.exited, OnCost: w.spent})
+	go w.watch(ma)
+	// A prompt when idle; SendTurn turns it into a follow-up when the
+	// agent is mid-turn (a follow_up sent to an idle pi just waits).
+	if err := ma.SendTurn(store.TaskPrompt, body, nil); err != nil {
+		w.finish(store.RunFailed, reasonStartFailed+": "+err.Error(), true)
+		if !wasRunning {
+			go deps.Runtime.Stop(agent.ID)
+		} else {
+			ma.Observe(nil)
+		}
+		return deps.Store.GetRun(run.ID)
+	}
+	return run, nil
 }
 
 func skipBody(reason string) string {
@@ -284,6 +339,9 @@ type runWatch struct {
 	run     store.Run
 	agentID string
 	started time.Time
+	// keepAlive: the agent was the person's, already running — the run
+	// borrows a turn and leaves the process up (message runs).
+	keepAlive bool
 
 	mu        sync.Mutex
 	path      string
@@ -322,6 +380,10 @@ func (w *runWatch) stopAgent() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		_ = ma.Abort(ctx)
 		cancel()
+		if w.keepAlive {
+			ma.Observe(nil) // the person's agent stays up; the run just lets go
+			return
+		}
 	}
 	w.runner.deps.Runtime.Stop(w.agentID)
 }
@@ -422,6 +484,12 @@ func (w *runWatch) settled(final string) {
 			if run, err := w.runner.deps.Store.GetRun(w.run.ID); err == nil {
 				w.runner.notifyOut(w.a, run, store.RunDone, "", body, nil)
 			}
+		}
+		if w.keepAlive {
+			if ma != nil {
+				ma.Observe(nil)
+			}
+			return
 		}
 		w.runner.deps.Runtime.Stop(w.agentID)
 	}()

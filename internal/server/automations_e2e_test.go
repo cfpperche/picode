@@ -94,3 +94,47 @@ func TestAutomationStartRunEndToEnd(t *testing.T) {
 		t.Fatalf("capped run = %v", capped)
 	}
 }
+
+// A `message` run delivers now: the target agent (idle, closed) is
+// started on its own session, gets the prompt, the turn settles with
+// the fake's cost, and the agent is stopped again — not a queued task
+// waiting for someone to open the agent.
+func TestAutomationMessageRunEndToEnd(t *testing.T) {
+	t.Setenv("PICODE_FAKE_RPC", "1")
+	ts := newTestServer(t, os.Args[0])
+	proj := t.TempDir()
+	wsv := addWorkspaceWithAgent(t, ts, "Msg", proj)
+	if len(wsv.Agents) == 0 {
+		t.Fatalf("workspace has no agent: %+v", wsv)
+	}
+	agentID := wsv.Agents[0].ID
+
+	_, before := doJSON(t, "GET", ts.URL+"/api/agents/"+agentID, "", nil)
+	wasRunning := before["running"] == true
+
+	res, out := doJSON(t, "POST", ts.URL+"/api/automations", `{"name":"Ping","action":"message","targetAgentId":"`+agentID+`","prompt":"say hi","cron":"0 9 * * *"}`, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d %v", res.StatusCode, out)
+	}
+	id := out["automation"].(map[string]any)["id"].(string)
+	res, out = doJSON(t, "POST", ts.URL+"/api/automations/"+id+"/run", "", nil)
+	if res.StatusCode != http.StatusAccepted || out["run"].(map[string]any)["status"] != "running" {
+		t.Fatalf("run now = %d %v (a message run must run, not queue)", res.StatusCode, out)
+	}
+	runs := ts.URL + "/api/automations/" + id + "/runs?limit=1"
+	done := waitRun(t, runs, func(r map[string]any) bool { return r["status"] == "done" }, 10*time.Second)
+	if done["reason"] == reasonQueued || done["costUsd"].(float64) < 0.01 {
+		t.Fatalf("message run: %v", done)
+	}
+	// The run borrows the agent and leaves it as it found it: an idle
+	// agent is stopped again, a running one keeps running.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		_, ag := doJSON(t, "GET", ts.URL+"/api/agents/"+agentID, "", nil)
+		if (ag["running"] == true) == wasRunning {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("agent running state after the run should be %v again", wasRunning)
+}

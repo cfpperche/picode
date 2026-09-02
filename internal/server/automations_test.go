@@ -63,7 +63,8 @@ func TestDecideFire(t *testing.T) {
 		{"start_ok", fireInput{Enabled: true, Action: store.AutomationStart, AgentMode: modeStopped}, fireDecision{}},
 		{"target_gone", fireInput{Enabled: true, Action: store.AutomationMessage}, fireDecision{Status: store.RunFailed, Reason: reasonTargetGone, Notify: true}},
 		{"target_interactive", fireInput{Enabled: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeInteractive}, fireDecision{Status: store.RunSkipped, Reason: reasonInTerminal}},
-		{"message_ok_even_without_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeStopped}, fireDecision{}},
+		{"message_needs_pi_to_start_the_agent", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeStopped}, fireDecision{Status: store.RunFailed, Reason: reasonPiMissing, Notify: true}},
+		{"message_to_a_running_agent_needs_no_pi", fireInput{Enabled: true, PiMissing: true, Action: store.AutomationMessage, TargetExists: true, AgentMode: modeManaged}, fireDecision{}},
 	}
 	for _, c := range cases {
 		if got := decideFire(c.in); got != c.want {
@@ -206,7 +207,8 @@ func TestAutomationRunNowBusyAndMessage(t *testing.T) {
 		t.Fatalf("runs = %d %v", res.StatusCode, out)
 	}
 
-	// Message action: queues a follow_up on an existing agent, done/queued.
+	// Message action delivers by running the agent, so without pi it fails
+	// like a start run — and nothing is left in the agent's task queue.
 	w, err := st.AddWorkspace("W", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -215,12 +217,11 @@ func TestAutomationRunNowBusyAndMessage(t *testing.T) {
 	_, out = doJSON(t, "POST", ts.URL+"/api/automations", `{"name":"M","action":"message","targetAgentId":"`+ag.ID+`","prompt":"ping","cron":"0 9 * * *"}`, nil)
 	mid := out["automation"].(map[string]any)["id"].(string)
 	res, out = doJSON(t, "POST", ts.URL+"/api/automations/"+mid+"/run", "", nil)
-	if res.StatusCode != http.StatusAccepted || out["run"].(map[string]any)["reason"] != reasonQueued {
-		t.Fatalf("message run = %d %v", res.StatusCode, out)
+	if res.StatusCode != http.StatusAccepted || out["run"].(map[string]any)["reason"] != reasonPiMissing {
+		t.Fatalf("message run without pi = %d %v", res.StatusCode, out)
 	}
-	tasks, _ := st.ListTasks(ag.ID, 5)
-	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "automation" {
-		t.Fatalf("tasks = %+v", tasks)
+	if tasks, _ := st.ListTasks(ag.ID, 5); len(tasks) != 0 {
+		t.Fatalf("a message run must not leave a queued task: %+v", tasks)
 	}
 	// Target deleted → failed / target gone.
 	_ = st.DeleteAgent(ag.ID)

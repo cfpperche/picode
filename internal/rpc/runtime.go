@@ -157,6 +157,9 @@ func (ma *ManagedAgent) Observe(o *RunObserver) {
 	ma.mu.Unlock()
 }
 
+// Observed reports whether a run is already watching this agent.
+func (ma *ManagedAgent) Observed() bool { return ma.runObserver() != nil }
+
 func (ma *ManagedAgent) runObserver() *RunObserver {
 	ma.mu.Lock()
 	defer ma.mu.Unlock()

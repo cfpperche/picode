@@ -200,3 +200,19 @@ seconds on a network error or 5xx, never on 4xx, and its outcome is an
 `automation.notify` event on the feed. The Inbox item is written first
 and regardless. Only http(s) URLs are accepted; the URL is validated in
 the store, so the API and the editor cannot disagree.
+
+## Amendment 2026-09-02 — "Message an agent" delivers now
+
+Until today a message run only appended a `follow_up` task to the
+target agent's queue and closed itself as `done · queued`. Nothing
+drains that queue while the agent is closed, so the owner's first Run
+now "succeeded" and the agent never heard of it. Now a message run
+**runs**: an idle agent is started on its own session (`startManaged`),
+gets the prompt, is watched exactly like a start run (cost cap, timeout,
+settle, exit) and is stopped again when the turn settles — the session
+file keeps the exchange, so opening the agent shows it. An agent that
+is already running gets the prompt as a follow-up turn and stays up
+(`runWatch.keepAlive`); a cost cap then aborts the turn, not the
+process. The decision table gained a row: a message run needs `pi`
+unless the agent already runs; a second automation's run on the same
+agent is skipped as busy. `reasonQueued` survives only for old rows.

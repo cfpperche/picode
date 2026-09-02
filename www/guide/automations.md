@@ -12,7 +12,6 @@ Open it from the user menu → **Automations**, or `Ctrl+K` → Automations.
 2. **Name** it. The agent that runs it takes the same name.
 3. **What it does** — *Start a new run* (a fresh session each time on the
    automation's own agent, in the workspace you pick) or *Message an agent*
-   (the prompt is queued to an agent you already have).
 4. **Prompt** — what the agent should do each time.
 5. **Schedule** — Hourly, Daily, Weekdays or Weekly at a time, or *Custom*
    for a cron line (`minute hour day month weekday`, your local time zone).
@@ -108,6 +107,16 @@ the cost, a link back to it, and the agent's final message (clipped at
 A failed delivery is retried once after five seconds and then recorded
 as an `automation.notify` event with the error; the run itself is not
 affected.
+
+## Messaging an agent
+
+**Message an agent** sends the prompt to one of your own agents instead
+of starting a new one. If the agent is closed, PiCode starts it on its
+session, delivers the prompt, waits for the answer and closes it again;
+open the agent later and the exchange is in its history. If the agent
+is already open in PiCode, the prompt arrives as a follow-up and the
+agent stays open. An agent open in a terminal is skipped: nothing can
+type into it safely.
 
 ## What a run can end as
 
