@@ -8,8 +8,8 @@ export async function api(path, opts) {
     let msg = res.statusText;
     let body = null;
     try { body = await res.json(); msg = body.error || msg; } catch { /* keep statusText */ }
-    if (res.status === 401 && body && body.pair && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { path } }));
+    if (res.status === 401 && body && (body.pair || body.login) && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { path, login: body.login || "" } }));
     }
     throw new Error(msg);
   }

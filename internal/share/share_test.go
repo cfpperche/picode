@@ -124,6 +124,9 @@ func TestBehindAGatewayThePublicURLIsTheOnlyTrustedTarget(t *testing.T) {
 	if rep.URL != "https://box.tail1234.ts.net/" || !rep.Trusted || !rep.Ready {
 		t.Fatalf("url %q trusted %v ready %v checks %+v", rep.URL, rep.Trusted, rep.Ready, rep.Checks)
 	}
+	if len(rep.Targets) != 1 || rep.Targets[0].Kind != "public" {
+		t.Fatalf("a proxied daemon must not list its interfaces: %+v", rep.Targets)
+	}
 	for _, c := range rep.Checks {
 		if !c.OK {
 			t.Fatalf("check %s failed behind a gateway: %s", c.ID, c.Action)

@@ -67,7 +67,10 @@ func newBackend(t *testing.T, name string) (*backend, *httptest.Server) {
 
 func newGateway(t *testing.T, fake map[string]string, backends map[string]*httptest.Server, tokens map[string]string) (*Server, *httptest.Server) {
 	cfg := Config{Hostname: "box.tail1234.ts.net", Users: map[string]string{"alice@example.com": "alice", "Bob@GitHub": "bob"}}
-	s := New(cfg)
+	s, err := New(cfg, Secrets{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	s.Fake = fake
 	s.Resolve = func(linux string) (Backend, error) {
 		ts, ok := backends[linux]
@@ -130,6 +133,9 @@ func TestRoutesByIdentityAndStripsClaims(t *testing.T) {
 	delete(s.Fake, "127.0.0.1")
 	if res, _ := get(t, gw, "/", nil); res.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("no identity = %d", res.StatusCode)
+	}
+	if res, _ := get(t, gw, "/-/login", nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("no providers: login page = %d", res.StatusCode)
 	}
 	// Mapped but not running → 503 with the provision hint.
 	s.Fake["127.0.0.1"] = "alice@example.com"

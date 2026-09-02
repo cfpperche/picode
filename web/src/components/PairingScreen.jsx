@@ -6,13 +6,26 @@ import { AUTH_REQUIRED_EVENT } from "../lib/api.js";
 // next click is either the link the user was sent, or a link pasted here.
 export default function PairingScreen() {
   const [needed, setNeeded] = useState(false);
+  const [login, setLogin] = useState(""); // the gateway's sign-in page (ADR-0052), when that is what 401 asked for
   const [link, setLink] = useState("");
   useEffect(() => {
-    const on = () => setNeeded(true);
+    const on = (e) => { setNeeded(true); if (e && e.detail && e.detail.login) setLogin(e.detail.login); };
     window.addEventListener(AUTH_REQUIRED_EVENT, on);
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, on);
   }, []);
   if (!needed) return null;
+  if (login) {
+    const next = location.pathname + location.search + location.hash;
+    return (
+      <div className="pair-root" role="dialog" aria-label="Sign in">
+        <div className="pair-card">
+          <h1>Sign in</h1>
+          <p>This PiCode is behind a gateway. Sign in with the account its admin added; your device pairs after that.</p>
+          <a className="btn btn-primary" href={login + "?next=" + encodeURIComponent(next)}>Sign in</a>
+        </div>
+      </div>
+    );
+  }
   function go(e) {
     e.preventDefault();
     const raw = link.trim();

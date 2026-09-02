@@ -132,6 +132,9 @@ Usage:
   picode gateway install      root: binary to /usr/local/bin, config, system unit, start
   picode gateway status       config, certificate, whois self-test, members
   picode gateway uninstall    root: stop and remove the front door; --purge also deletes /etc/picode
+  picode gateway oidc set P ID SECRET [--public-url URL]   root: Google/GitHub login for people off the tailnet (ADR-0052)
+  picode gateway --plain 127.0.0.1:8480   also answer plain HTTP behind a TLS proxy (Caddy, Cloudflare Tunnel)
+  picode provision --user U --shared --container [--remove]   root: the member's daemon in a systemd-nspawn container
   picode users add L U        root: map a Tailscale login to a Linux user; remove L; list
   picode provision --user U --shared   root: create/prepare a member's account and daemon
   picode deploy               replace the installed binary with this one and restart (repo)

@@ -89,3 +89,20 @@ func TestGatewayUnitFile(t *testing.T) {
 		}
 	}
 }
+
+func TestContainerUnitFile(t *testing.T) {
+	u := ContainerUnitFile("alice", "/var/lib/machines/picode-alice", "/home/alice", "/usr/local/bin/picode", map[string]string{"PICODE_HOST": "127.0.0.1", "PICODE_AUTH_MODE": "all"})
+	for _, want := range []string{
+		"Environment=PICODE_AUTH_MODE=all", "Environment=PICODE_HOST=127.0.0.1",
+		"--directory=/var/lib/machines/picode-alice", "--bind=/home/alice", "--bind-ro=/usr/local/bin/picode",
+		"--user=alice", "--private-users=pick", "--setenv=PICODE_AUTH_MODE", "--setenv=PICODE_HOST",
+		"MemoryMax=4G", "CPUQuota=200%", " /usr/local/bin/picode\n",
+	} {
+		if !strings.Contains(u, want) {
+			t.Errorf("missing %q in:\n%s", want, u)
+		}
+	}
+	if ContainerUnitPath("alice") != "/etc/systemd/system/picode-alice.service" {
+		t.Fatal(ContainerUnitPath("alice"))
+	}
+}

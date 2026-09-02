@@ -37,6 +37,11 @@ h1 { font-size: 18px; font-weight: 650; margin: 0 0 10px; line-height: 1.3; }
 p { margin: 0; color: var(--text-secondary); font-size: 13.5px; }
 code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--text-primary); }
 .foot { margin: 18px 0 0; font-size: 11.5px; color: var(--text-secondary); text-align: center; }
+.actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.actions:empty { display: none; }
+.btn { display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px; height: 44px; line-height: 44px; border-radius: 9px; background: var(--accent); color: #fff; }
+.btn:hover { filter: brightness(1.08); }
+a { color: var(--accent); }
 </style>
 </head>
 <body>

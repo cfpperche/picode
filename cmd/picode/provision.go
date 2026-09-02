@@ -19,11 +19,23 @@ func runProvision(args []string) {
 	asJSON := fs.Bool("json", false, "emit results as JSON")
 	target := fs.String("user", "", "provision for this account (default: the current user)")
 	shared := fs.Bool("shared", false, "a member of a shared box (ADR-0051): create the account, its environment and daemon behind the gateway; root, with --user")
+	container := fs.Bool("container", false, "with --shared: run the member's daemon in a systemd-nspawn container (ADR-0052)")
+	remove := fs.Bool("remove", false, "with --shared --container: stop and delete the member's container (account and home stay)")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("provision: %v", err)
 	}
-	if *shared && *target == "" {
+	if (*shared || *container || *remove) && *target == "" {
 		log.Fatalf("provision: --shared needs --user <linux user>")
+	}
+	if *remove {
+		if !*container {
+			log.Fatalf("provision: --remove is for --shared --container")
+		}
+		if err := provision.RemoveContainer(*target); err != nil {
+			log.Fatalf("provision: %v", err)
+		}
+		fmt.Printf("Container for %s removed. The account and /home/%s stay (userdel -r %s deletes them).\n", *target, *target, *target)
+		return
 	}
 
 	env, err := provision.Detect(*target)
@@ -31,7 +43,9 @@ func runProvision(args []string) {
 		log.Fatalf("provision: %v", err)
 	}
 	steps := provision.Steps()
-	if *shared {
+	if *shared && *container {
+		steps = provision.ContainerSteps()
+	} else if *shared {
 		steps = provision.MemberSteps()
 	}
 	results := provision.Run(env, steps, *dryRun)

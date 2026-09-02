@@ -163,7 +163,7 @@ func Diagnose(in Input) Report {
 	var anyCovered bool
 	// The tailnet name, served with the Tailscale-issued leaf (B.2): the
 	// one address a phone opens with nothing installed.
-	if name := MagicDNSName(); name != "" && !in.Insecure {
+	if name := MagicDNSName(); name != "" && !in.Insecure && !proxied {
 		st := tlsutil.TailscaleLeaf(in.DataDir, name)
 		t := Target{URL: fmt.Sprintf("https://%s:%d/", name, in.Port), Kind: "tailnet", Addr: name, OnCert: st.Present && st.Covers, Trusted: st.Present && st.Covers}
 		if t.OnCert {
@@ -196,6 +196,9 @@ func Diagnose(in Input) Report {
 		rep.Targets = append(rep.Targets, t)
 		rep.URLs = append(rep.URLs, pub+"/")
 		anyCovered = true
+	}
+	if proxied {
+		addrs = nil // behind a gateway the interfaces are the gateway's business; nothing else leaks
 	}
 	for _, a := range addrs {
 		kind := "lan"
