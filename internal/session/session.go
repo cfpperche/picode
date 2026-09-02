@@ -49,25 +49,44 @@ func Dir(cwd string) string {
 
 // List summaries for cwd, newest first.
 func List(cwd string) ([]Summary, error) {
-	dir := Dir(cwd)
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []Summary{}, nil
-		}
-		return nil, err
-	}
+	return ListDirs(Dir(cwd))
+}
+
+// ListDirs summaries the JSONL files of already-resolved session
+// directories, newest first, without duplicates. Missing directories are
+// simply empty. The chat picker unions the cwd bucket with the agent's
+// private dir (ADR-0040): since every spawn passes --session-dir, a fresh
+// session lands in the private dir and never in the cwd bucket, so a
+// cwd-only list shows an actively-used agent as having no sessions.
+func ListDirs(dirs ...string) ([]Summary, error) {
+	seen := map[string]bool{}
 	var out []Summary
-	for _, e := range ents {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+	for _, dir := range dirs {
+		if dir == "" {
 			continue
 		}
-		p := filepath.Join(dir, e.Name())
-		s, err := Summarize(p)
+		ents, err := os.ReadDir(dir)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
 		}
-		out = append(out, s)
+		for _, e := range ents {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+				continue
+			}
+			p := filepath.Join(dir, e.Name())
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			s, err := Summarize(p)
+			if err != nil {
+				continue
+			}
+			out = append(out, s)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt > out[j].UpdatedAt })
 	return out, nil

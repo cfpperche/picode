@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDirName(t *testing.T) {
@@ -185,5 +186,55 @@ func TestListMissingDir(t *testing.T) {
 	got, err := List(filepath.Join(t.TempDir(), "nope"))
 	if err != nil || len(got) != 0 {
 		t.Fatalf("got %v %v", got, err)
+	}
+}
+
+// TestListDirs is the picker's union primitive (ADR-0040 follow-through):
+// several resolved directories merge newest-first, a missing directory is
+// just empty, and a path present twice (impossible on disk, cheap to
+// guard) appears once.
+func TestListDirs(t *testing.T) {
+	old := TestRoot
+	TestRoot = t.TempDir()
+	t.Cleanup(func() { TestRoot = old })
+
+	write := func(dir, name, id string, age time.Duration) string {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(dir, name)
+		body := `{"type":"session","id":"` + id + `","cwd":"/tmp"}` + "\n"
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if age > 0 {
+			then := time.Now().Add(-age)
+			if err := os.Chtimes(p, then, then); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return p
+	}
+	a := filepath.Join(TestRoot, "a")
+	b := filepath.Join(TestRoot, "b")
+	pNew := write(a, "new.jsonl", "id-new", 0)
+	pOld := write(b, "old.jsonl", "id-old", time.Hour)
+	_ = write(a, "notes.txt", "ignored", 0)
+
+	got, err := ListDirs(a, filepath.Join(TestRoot, "missing"), b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Path != pNew || got[1].Path != pOld {
+		t.Fatalf("ListDirs = %+v, want [%s, %s] newest first", got, pNew, pOld)
+	}
+	dup, err := ListDirs(a, a)
+	if err != nil || len(dup) != 1 {
+		t.Fatalf("ListDirs duplicate = %+v %v, want 1", dup, err)
+	}
+	none, err := ListDirs("", filepath.Join(TestRoot, "nope"))
+	if err != nil || len(none) != 0 {
+		t.Fatalf("ListDirs empty = %+v %v, want 0", none, err)
 	}
 }

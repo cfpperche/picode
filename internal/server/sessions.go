@@ -23,7 +23,7 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		all, err := session.List(store.AgentCwd(wk, agent))
+		all, err := session.ListDirs(session.Dir(store.AgentCwd(wk, agent)), session.AgentDir(agent.ID))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -296,9 +296,15 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 // SessionPath), a freshly minted --session-id (ADR-0039) — so a pi
 // process spawned interactively in tmux is attributable to this agent
 // from the moment it creates its session file, the same as managed mode
-// (rpc.Runtime.Start). Resuming agents are unaffected: CLIFlags() already
-// pins --session to the known path.
+// (rpc.Runtime.Start). Before minting, an earlier run's pending session
+// is resolved to its file when one exists (ADR-0053): the TUI resumes
+// the chat's thread instead of opening a competing empty one.
 func (deps Deps) spawnFlags(agent store.Agent) []string {
+	if agent.SessionPath == nil || strings.TrimSpace(*agent.SessionPath) == "" {
+		if p := deps.Store.ResolvePendingAgentSession(agent.ID); p != "" {
+			agent.SessionPath = &p
+		}
+	}
 	if agent.SessionPath != nil && strings.TrimSpace(*agent.SessionPath) != "" {
 		return agent.CLIFlags()
 	}
