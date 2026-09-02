@@ -3846,7 +3846,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   background: var(--bg-base); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
   max-height: 220px; overflow: auto;
 }
-.auto-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 12.5px; margin: 0 0 12px; }
+.auto-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 12.5px; margin: 0 0 12px; align-items: center; }
 .auto-facts dt { color: var(--text-secondary); }
 .auto-facts dd { margin: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .auto-notify { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
