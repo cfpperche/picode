@@ -331,8 +331,12 @@ func serviceStep() Step {
 				return blocked("cannot read %s's services as %s — the pass running as %s reports this",
 					env.User, env.Acting, env.User)
 			}
-			if enabled, _ := output("systemctl", "--user", "is-enabled", install.UnitName); strings.TrimSpace(enabled) != "enabled" {
-				return needsFix("unit is present but not enabled")
+			enabled, err := output("systemctl", "--user", "is-enabled", install.UnitName)
+			if err != nil && strings.TrimSpace(enabled) == "" {
+				return blocked("cannot ask systemd about the unit (%v) — run this from a login shell", err)
+			}
+			if strings.TrimSpace(enabled) != "enabled" {
+				return needsFix("unit is present but not enabled (%s)", strings.TrimSpace(enabled))
 			}
 			if active, _ := output("systemctl", "--user", "is-active", install.UnitName); strings.TrimSpace(active) != "active" {
 				return needsFix("unit is enabled but not running")

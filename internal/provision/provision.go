@@ -8,6 +8,8 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/install"
 )
 
 // Scope says who can apply a step's fix. Checks are read-only and always run;
@@ -226,14 +228,20 @@ func InWSL() bool {
 	return strings.Contains(strings.ToLower(string(b)), "microsoft")
 }
 
-// run and output are the process boundary; tests replace them.
+// run and output are the process boundary; tests replace them. Both
+// carry the user-session variables, like install.Run: a check that asks
+// `systemctl --user` from a terminal without them (PiCode's own, a cron
+// job) would otherwise report "not enabled" for a unit that is.
 var run = func(name string, args ...string) error {
-	return exec.Command(name, args...).Run()
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), install.SessionEnv()...)
+	return cmd.Run()
 }
 
 var output = func(name string, args ...string) (string, error) {
 	var buf bytes.Buffer
 	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), install.SessionEnv()...)
 	cmd.Stdout = &buf
 	err := cmd.Run()
 	return buf.String(), err

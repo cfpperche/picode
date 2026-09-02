@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -101,8 +102,14 @@ func TestIssueTailscaleUsesTheCLIAndChecksTheResult(t *testing.T) {
 		return []byte("Use 'sudo tailscale cert ...'.\nTo not require root, use 'sudo tailscale set --operator=$USER' once."), errors.New("exit 1")
 	}
 	err := IssueTailscale(context.Background(), dir, "box.tail1234.ts.net")
-	if err == nil || err.Error() != "tailscale cert: Use 'sudo tailscale cert ...'." {
+	if err == nil || !strings.HasPrefix(err.Error(), "tailscale cert: Use 'sudo tailscale cert ...'.") || !strings.Contains(err.Error(), "--operator") {
 		t.Fatalf("err = %v", err)
+	}
+	tailscaleCmd = func(_ context.Context, args ...string) ([]byte, error) {
+		return []byte("500 Internal Server Error: your Tailscale account does not support getting TLS certs"), errors.New("exit 1")
+	}
+	if err := IssueTailscale(context.Background(), dir, "box.tail1234.ts.net"); err == nil || !strings.Contains(err.Error(), "HTTPS Certificates") {
+		t.Fatalf("account hint: %v", err)
 	}
 	if len(gotArgs) != 6 || gotArgs[0] != "cert" || gotArgs[5] != "box.tail1234.ts.net" {
 		t.Fatalf("args = %v", gotArgs)

@@ -286,6 +286,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — provision reads systemd from any shell**
+  (`fix/provision-session-env`): from a PiCode terminal (no
+  `XDG_RUNTIME_DIR`), the service row said "present but not enabled" and
+  its fix "still fails" — the check's `systemctl --user` could not reach
+  the manager while the fix (install.Run, which fills the session env)
+  could. provision's `run`/`output` now carry `install.SessionEnv()`; a
+  check that still cannot reach systemd says so (blocked) instead of
+  claiming the unit is off. `tailscale cert` errors now carry the action:
+  the account error → enable HTTPS Certificates in the admin console;
+  access denied → `tailscale set --operator`.
 - **2026-09-02 — Track B.2, the Tailscale certificate (ADR-0050
   amendment)** (`feat/tailscale-cert`): `internal/tlsutil/tailscale.go`
   issues `tailscale-cert.pem`/`-key.pem` for the MagicDNS name via

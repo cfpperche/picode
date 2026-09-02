@@ -50,6 +50,10 @@ func sessionEnv(getenv func(string) string, uid int, exists func(string) bool) [
 	return out
 }
 
+// SessionEnv is the variables to add to a child so `systemctl --user`
+// finds the caller's own manager (empty when nothing is missing).
+func SessionEnv() []string { return sessionEnv(os.Getenv, os.Getuid(), pathExists) }
+
 // EnsureUserSession fails when `systemctl --user` has no chance of working, so
 // callers can stop before copying a binary they cannot activate. A var, like
 // Run, so tests can drive both outcomes.

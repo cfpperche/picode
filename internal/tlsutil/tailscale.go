@@ -84,7 +84,13 @@ func IssueTailscale(ctx context.Context, dataDir, name string) error {
 		if msg == "" {
 			msg = err.Error()
 		}
-		return fmt.Errorf("tailscale cert: %s", firstLine(msg))
+		hint := ""
+		if strings.Contains(msg, "does not support getting TLS certs") {
+			hint = " — enable HTTPS Certificates in the Tailscale admin console (DNS → HTTPS Certificates), then run picode provision"
+		} else if strings.Contains(msg, "Access denied") || strings.Contains(msg, "--operator") {
+			hint = " — run `sudo tailscale set --operator=$USER` once"
+		}
+		return fmt.Errorf("tailscale cert: %s%s", firstLine(msg), hint)
 	}
 	_ = os.Chmod(keyPath, 0o600)
 	if st := TailscaleLeaf(dataDir, name); !st.Present || !st.Covers {
