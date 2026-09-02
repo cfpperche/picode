@@ -285,6 +285,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Automation editor layout** (`fix/automation-editor-layout`):
+  owner: "componentes se amontoando, péssima UI/UX". The what-it-does
+  block is a labeled `.auto-grid` (Workspace → Agent, or Workspace →
+  Provider/Model/Thinking); message mode lists the chosen workspace's
+  agents via `agentsOf` (free agents under "No workspace") with their
+  model, and an existing automation's workspace is derived from its
+  target agent; `lib/providers.js usableProviders` filters to signed-in
+  providers (keeping a selected one, marked) and `ConfigFields` uses it
+  too, so New agent matches.
 - **2026-09-02 — Automations notify a channel (ADR-0045 amendment)**
   (`feat/automation-notify`): `notify_url` on automations (migration
   020, validated http(s) in the store), `automate.BuildNotify` (Slack

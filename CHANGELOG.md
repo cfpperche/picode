@@ -74,6 +74,14 @@ to the `[Unreleased]` section. The repository's official language is English
   `/-/hook/<user>/<id>` on a shared or public box, which needs no login.
   The guide gained recipes for GitHub Actions, Sentry and cron.
 
+- **A tidier automation editor.** "What it does" is now labeled cells —
+  Workspace, then Agent (to message) or Provider / Model / Thinking (for
+  a new run) — instead of a row of unlabeled selects. Messaging an
+  agent works like New agent: pick the workspace first, then one of its
+  agents (or the free agents under "No workspace"), shown with their
+  model. Provider lists only offer providers you are signed in to,
+  everywhere in the app.
+
 - **Automations can notify a channel.** Give an automation a Slack-style
   webhook URL (Slack, Discord, Teams, anything that takes JSON) and each
   run ends with one message there: status, name, cost, a link back, and

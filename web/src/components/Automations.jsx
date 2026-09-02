@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import PageFrame from "./PageFrame.jsx";
-import ConfigFields from "./ConfigFields.jsx";
+import { usableProviders } from "../lib/providers.js";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -13,7 +13,7 @@ import { readAutomationDraft, writeAutomationDraft, draftFromTemplate } from "..
 import { automationRoute, automationsHash, workspaceHash } from "../lib/routes.js";
 import { feedConnected, subscribeFeed } from "../lib/feed.js";
 import { applyAutomations, applyRuns, touches } from "../lib/feedReducers.js";
-import { mentionAgents } from "../lib/tree.js";
+import { mentionAgents, agentsOf } from "../lib/tree.js";
 import { IconPlay, IconPlus, IconCopy, IconTrash, IconPencil, IconChevronLeft } from "./Icons.jsx";
 
 const REFRESH_MS = 15_000;
@@ -143,7 +143,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     body = null;
   }
   if (sub === "new") {
-    body = <Editor catalog={catalog} workspaces={workspaces} agents={agents} templates={templates} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
+    body = <Editor catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={onSaved} onCancel={() => { location.hash = automationsHash(""); }} />;
   } else if (sub) {
     body = current ? (
       <Detail
@@ -151,6 +151,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
         catalog={catalog}
         workspaces={workspaces}
         agents={agents}
+        freeAgents={freeAgents}
         templates={templates}
         reveal={reveal && reveal.id === current.id ? reveal.secret : ""}
         onDismissSecret={() => setReveal(null)}
@@ -340,7 +341,7 @@ function money(n) {
   return "$" + (n < 0.01 ? n.toFixed(3) : n.toFixed(2));
 }
 
-function Detail({ a, catalog, workspaces, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved }) {
+function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [runs, setRuns] = useState(null);
   // The daemon knows where a caller can reach it (public URL, or the
@@ -364,7 +365,7 @@ function Detail({ a, catalog, workspaces, agents, templates, reveal, onDismissSe
   }, [a.id]);
 
   if (editing) {
-    return <Editor initial={a} catalog={catalog} workspaces={workspaces} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
+    return <Editor initial={a} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} agents={agents} templates={templates} onSaved={(d) => { setEditing(false); onSaved(d); }} onCancel={() => setEditing(false)} />;
   }
 
   return (
@@ -463,12 +464,22 @@ function RunsTable({ runs, agentId }) {
   );
 }
 
-function emptyForm(initial) {
+function workspaceOfAgent(agentId, workspaces, freeAgents) {
+  if (!agentId) return null;
+  if ((freeAgents || []).some((a) => a.id === agentId)) return "ws_free";
+  for (const ws of workspaces || []) {
+    if (agentsOf(ws).some((a) => a.id === agentId)) return ws.id;
+  }
+  return null;
+}
+
+function emptyForm(initial, workspaces, freeAgents) {
   const p = cronToPreset(initial && initial.cron ? initial.cron : "0 9 * * 1-5");
+  const wsFromAgent = initial && initial.action === "message" ? workspaceOfAgent(initial.targetAgentId, workspaces, freeAgents) : null;
   return {
     origin: initial && initial.source ? { source: initial.source, label: initial.sourceLabel || "" } : null,
     name: initial ? initial.name : "",
-    workspaceId: initial ? initial.workspaceId : "ws_free",
+    workspaceId: wsFromAgent || (initial ? initial.workspaceId : "ws_free"),
     action: initial ? initial.action : "start",
     targetAgentId: (initial && initial.targetAgentId) || "",
     prompt: initial ? initial.prompt : "",
@@ -490,13 +501,31 @@ function emptyForm(initial) {
   };
 }
 
-function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCancel }) {
+function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, onSaved, onCancel }) {
   const [f, setF] = useState(() => {
-    if (initial) return emptyForm(initial);
+    if (initial) return emptyForm(initial, workspaces, freeAgents);
     const draft = readAutomationDraft(isValidCron);
-    return emptyForm(draft ? { ...draft, workspaceId: draft.workspaceId || "ws_free" } : null);
+    return emptyForm(draft ? { ...draft, workspaceId: draft.workspaceId || "ws_free" } : null, workspaces, freeAgents);
   });
   const [tpl, setTpl] = useState("");
+
+  // Agents to message: the ones in the chosen workspace, or the free
+  // ones when no workspace is chosen — the same walk as New agent.
+  const agentOptions = useMemo(() => {
+    if (f.workspaceId === "ws_free") return freeAgents || [];
+    const ws = (workspaces || []).find((w) => w.id === f.workspaceId);
+    return ws ? agentsOf(ws) : [];
+  }, [f.workspaceId, workspaces, freeAgents]);
+  const providerOptions = useMemo(() => usableProviders(catalog, f.provider), [catalog, f.provider]);
+  const modelOptions = useMemo(() => {
+    const p = ((catalog && catalog.providers) || []).find((x) => x.id === f.provider);
+    return p ? p.models : [];
+  }, [catalog, f.provider]);
+  const thinkingLevels = (catalog && catalog.thinking) || ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+  function pickWorkspace(id) {
+    // A different workspace means a different set of agents.
+    set({ workspaceId: id, targetAgentId: "" });
+  }
 
   async function applyTemplate(id) {
     setTpl(id);
@@ -506,7 +535,7 @@ function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCa
       setTpl("");
       return;
     }
-    const next = emptyForm({ ...draftFromTemplate(t), workspaceId: f.workspaceId, provider: f.provider, model: f.model, thinking: f.thinking });
+    const next = emptyForm({ ...draftFromTemplate(t), workspaceId: f.workspaceId, provider: f.provider, model: f.model, thinking: f.thinking }, workspaces, freeAgents);
     setF(next);
   }
   const [err, setErr] = useState("");
@@ -585,23 +614,54 @@ function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCa
           onChange={(v) => set({ action: v })}
           options={[{ id: "start", label: "Start a new run" }, { id: "message", label: "Message an agent" }]}
         />
-        {f.action === "message" ? (
-          <select className="auto-select" value={f.targetAgentId} onChange={(e) => set({ targetAgentId: e.target.value })} aria-label="Agent to message">
-            <option value="">Pick an agent</option>
-            {agents.map((ag) => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
-          </select>
-        ) : (
-          <div className="auto-inline" data-align-row>
-            <select className="auto-select" value={f.workspaceId} onChange={(e) => set({ workspaceId: e.target.value })} aria-label="Workspace">
+        <div className="auto-grid">
+          <label className="auto-cell">
+            <span>Workspace</span>
+            <select className="auto-select" value={f.workspaceId} onChange={(e) => pickWorkspace(e.target.value)} aria-label="Workspace">
               <option value="ws_free">No workspace</option>
               {(workspaces || []).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
-            <ConfigFields catalog={catalog} provider={f.provider} model={f.model} thinking={f.thinking} onChange={(c) => set(c)} idPrefix="auto" row />
-            {f.provider || f.model || f.thinking ? (
-              <button type="button" className="btn btn-ghost" onClick={() => set({ provider: "", model: "", thinking: "" })}>Use defaults</button>
-            ) : <span className="auto-hint">Default model</span>}
-          </div>
-        )}
+          </label>
+          {f.action === "message" ? (
+            <label className="auto-cell auto-cell-wide">
+              <span>Agent</span>
+              <select className="auto-select" value={f.targetAgentId} onChange={(e) => set({ targetAgentId: e.target.value })} aria-label="Agent to message">
+                <option value="">{agentOptions.length ? "Pick an agent" : (f.workspaceId === "ws_free" ? "No agents without a workspace" : "No agents in this workspace")}</option>
+                {agentOptions.map((ag) => <option key={ag.id} value={ag.id}>{ag.name}{ag.model ? " · " + ag.model : ""}</option>)}
+              </select>
+            </label>
+          ) : (
+            <>
+              <label className="auto-cell">
+                <span>Provider</span>
+                <select className="auto-select" value={f.provider} onChange={(e) => set({ provider: e.target.value, model: "" })} aria-label="Provider">
+                  <option value="">Default</option>
+                  {providerOptions.map((p) => <option key={p.id} value={p.id}>{p.id}{p.signedIn ? "" : " (not signed in)"}</option>)}
+                </select>
+              </label>
+              <label className="auto-cell">
+                <span>Model</span>
+                <select className="auto-select" value={f.model} onChange={(e) => set({ model: e.target.value })} disabled={!f.provider} aria-label="Model">
+                  <option value="">{f.provider ? "Default" : "Pick a provider first"}</option>
+                  {f.model && !modelOptions.some((m) => m.id === f.model) ? <option value={f.model}>{f.model}</option> : null}
+                  {modelOptions.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
+                </select>
+              </label>
+              <label className="auto-cell">
+                <span>Thinking</span>
+                <select className="auto-select" value={f.thinking} onChange={(e) => set({ thinking: e.target.value })} aria-label="Thinking">
+                  <option value="">Default</option>
+                  {thinkingLevels.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </label>
+            </>
+          )}
+        </div>
+        <span className="auto-hint">
+          {f.action === "message"
+            ? "The prompt lands as a new message in that agent's current session."
+            : "A fresh agent each run, in that workspace. Empty provider, model or thinking means pi's own defaults."}
+        </span>
       </fieldset>
 
       <label className="auto-field">

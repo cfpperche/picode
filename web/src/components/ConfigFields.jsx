@@ -1,5 +1,7 @@
+import { usableProviders } from "../lib/providers.js";
+
 export default function ConfigFields({ catalog, provider, model, thinking, onChange, idPrefix, row }) {
-  const providers = catalog && catalog.providers ? catalog.providers : [];
+  const providers = usableProviders(catalog, provider);
   const current = providers.find((p) => p.id === provider);
   const models = current ? current.models : [];
   const levels = (catalog && catalog.thinking) || ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
@@ -11,7 +13,7 @@ export default function ConfigFields({ catalog, provider, model, thinking, onCha
         <option value="" disabled>Provider</option>
         {provider && !providers.some((p) => p.id === provider) ? <option value={provider}>{provider}</option> : null}
         {providers.map((p) => (
-          <option key={p.id} value={p.id}>{p.id}</option>
+          <option key={p.id} value={p.id}>{p.id}{p.signedIn ? "" : " (not signed in)"}</option>
         ))}
       </select>
       <select id={pfx + "-model"} value={model} onChange={(e) => onChange({ provider, model: e.target.value, thinking })} disabled={!provider}>

@@ -4005,3 +4005,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
    marks where the list/toolbar ends and Suggested begins. */
 .auto-empty { flex-direction: column; justify-content: center; text-align: center; padding: 28px 16px; }
 .auto-sep { border: 0; border-top: 1px solid var(--border); margin: 20px 0 0; }
+
+/* Automation editor: what-it-does controls as labeled cells that wrap,
+   instead of a row of unlabeled selects fighting for width. */
+.auto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, max-content)); gap: 10px 12px; align-items: end; margin-top: 4px; }
+.auto-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.auto-cell > span { font-size: 11.5px; font-weight: 500; color: var(--text-secondary); }
+.auto-cell .auto-select { width: 100%; min-width: 170px; height: var(--ctl-h); }
+.auto-cell-wide { grid-column: span 2; }
+@media (max-width: 560px) {
+  .auto-grid { grid-template-columns: 1fr; }
+  .auto-cell-wide { grid-column: auto; }
+}
