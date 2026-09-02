@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Lists update live, on the desktop and on the phone (ADR-0048).**
+  PiCode now keeps one open stream per browser tab and pushes every
+  change — a workspace, agent or terminal created anywhere, an Inbox item,
+  an automation run, a device coming online, an agent starting or waiting
+  — so the sidebar, the badges, the Inbox, Automations and the phone's
+  Now / Work screens change the moment it happens instead of on the next
+  poll. A phone that was in the background catches up on what it missed
+  when it comes back. The old timers remain only as a fallback while the
+  stream is down. Every change is also kept for seven days as the
+  daemon's own change history.
+
 - **Automation cost limits stop at the message, not at the next poll.** A
   run's spend is read from pi's own usage after every assistant message,
   so a *Max cost per run* is enforced as soon as it is crossed instead of

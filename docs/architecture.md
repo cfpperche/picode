@@ -205,6 +205,7 @@ list the action; a QR is only drawn when every check passes.
 │  TaskQueue ────── steer / follow_up ───► RPCBridge         │
 │  Broker ───────── inbox routing ───────► PiCode extension  │
 │  SessionReader ── parse ~/.pi/agent/sessions/*.jsonl       │
+│  ChangeFeed ───── events table → SSE /api/events (replay)  │
 │  Automations ──── cron tick / webhook ──► new session      │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -523,6 +524,23 @@ cost fallback. `message` enqueues a
 `POST …/run` (Run now, 409 when busy), `POST …/fire` (webhook:
 `Authorization: Bearer` or `X-Webhook-Secret`, 64 KB cap; 401/404/409/413),
 `GET …/runs`, `GET /api/automations/templates` (built-in list, `automate.Templates()`). Inbox items use `sourceKind: automation`. v2: `/automate <text>` in the composer is intercepted client-side (`lib/automateDraft.js`): the current agent gets a fence-shaped request, the settled reply is parsed into a read-once `sessionStorage` draft (`lib/automationDraft.js`) and `#/automations/new` opens pre-filled; template cards use the same draft slot.
+
+### Change feed (ADR-0048)
+
+Every store mutation appends a typed row to `events` in its own
+transaction (`entity.action`, data = the entity's JSON view); the store
+announces committed rows through `Store.OnEvent`, which `internal/feed`
+fans out to `GET /api/events` subscribers (SSE: `hello` with the bootId,
+`change` frames with `id:` for durable rows, `reset` when a cursor is
+older than the seven-day retention) and to in-process listeners (the
+push notifier). Ephemeral notices — `device.online` from presence,
+`agent.state` on every streaming / dialog edge, `agent.waiting` — ride
+the same stream with id 0. Clients (`web/src/lib/feed.js`) keep one
+`EventSource` per shell, resume from a `sessionStorage` cursor, patch
+lists with `lib/feedReducers.js` and refetch when a reducer returns
+`null`; the old timers only tick while the feed is down. Rule: a state
+change that is not in `events` did not happen — write through the
+store, never around it.
 
 ### Security model (ADR-0007 — supersedes the original localhost-only clause)
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via

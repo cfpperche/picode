@@ -51,4 +51,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0044](0044-mobile-supervision-shell.md) | Mobile shell is a supervision console (Now / Inbox / Work / More + agent and terminal screens), not desktop parity | accepted, amended |
 | [0045](0045-automations.md) | Automations — daemon scheduler + webhook fire ordinary agent sessions; bounds, runs log, Inbox; v2: `/automate` drafts from the current agent, built-in templates | accepted, amends 0037 (source kind), amended 2026-09-01 (v2) |
 | [0046](0046-responsive-dialogs.md) | One modal primitive: Radix dialog ≥720px, Vaul bottom sheet below, enforced by a test | accepted |
-| [0047](0047-web-push.md) | Web Push over VAPID in the standard library; presence-aware; per-device prefs | accepted |
+| [0047](0047-web-push.md) | Web Push over VAPID in the standard library; presence-aware; per-device prefs | accepted, amended by 0048 (consumes the feed) |
+| [0048](0048-change-feed.md) | The change feed — every mutation is a durable event, served over SSE with replay; polls become fallback | accepted, amends 0037 and 0047 |
