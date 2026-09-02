@@ -285,6 +285,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Automation detail facts** (`fix/automation-detail-facts`):
+  owner: a notify URL saved but nothing on the detail. Facts list gained
+  Messages/Runs in (agent + workspace via `workspaceOfAgent`), Model (or
+  "pi's default"), Notifies (host + copy), limits; `whenLine(a, agents)`
+  names the agent (List needed the `agents` prop — a blank root until it
+  had it); the secret box's Done is a primary button.
 - **2026-09-02 — Automation editor layout** (`fix/automation-editor-layout`):
   owner: "componentes se amontoando, péssima UI/UX". The what-it-does
   block is a labeled `.auto-grid` (Workspace → Agent, or Workspace →

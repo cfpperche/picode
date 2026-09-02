@@ -166,7 +166,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
     ) : <Skeleton />;
   } else {
     body = (
-      <List items={items} loadErr={loadErr} piMissing={piMissing} templates={templates} onToggle={toggle} onRun={runNow} />
+      <List items={items} loadErr={loadErr} piMissing={piMissing} templates={templates} agents={agents} onToggle={toggle} onRun={runNow} />
     );
   }
 
@@ -187,7 +187,7 @@ function Skeleton() {
   );
 }
 
-function List({ items, loadErr, piMissing, templates, onToggle, onRun }) {
+function List({ items, loadErr, piMissing, templates, agents, onToggle, onRun }) {
   if (items === null && !loadErr) return <Skeleton />;
   if (loadErr && items === null) {
     return <div className="mcp-empty"><p>{loadErr}</p></div>;
@@ -223,7 +223,7 @@ function List({ items, loadErr, piMissing, templates, onToggle, onRun }) {
                 </Switch.Root>
                 <a className="auto-row-main" href={automationsHash(a.id)}>
                   <span className="auto-name">{a.name}</span>
-                  <span className="auto-when">{whenLine(a)}</span>
+                  <span className="auto-when">{whenLine(a, agents)}</span>
                 </a>
                 <Spark points={a.sparkline} />
                 <LastRun run={a.lastRun} />
@@ -285,14 +285,23 @@ function Suggested({ templates, open }) {
   );
 }
 
-function whenLine(a) {
+// whenLine: the triggers and the next fire. What the automation does
+// (workspace, agent, model, notify) is the facts list on the detail.
+function whenLine(a, agents) {
   const parts = [];
   if (a.cron) parts.push(describeCron(a.cron));
   if (a.webhook) parts.push("Webhook");
+  if (a.action === "message") {
+    const ag = (agents || []).find((x) => x.id === a.targetAgentId);
+    parts.push(ag ? "Messages " + ag.name : "Messages an agent");
+  }
   if (a.notifyUrl) parts.push("Notifies");
-  if (a.action === "message") parts.push("Messages an agent");
   if (a.enabled && a.nextFireAt) parts.push("next " + untilText(a.nextFireAt));
   return parts.join(" · ");
+}
+
+function hostOf(url) {
+  try { return new URL(url).host; } catch { return url; }
 }
 
 // untilText("2026-09-01T17:53:00-03:00") -> "in 16m" / "in 3h" / "in 2d" / "any minute".
@@ -347,6 +356,10 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
   // The daemon knows where a caller can reach it (public URL, or the
   // gateway's hook route); a laptop with neither uses this origin.
   const fireURL = a.webhookUrl || location.origin + "/api/automations/" + encodeURIComponent(a.id) + "/fire";
+  const wsName = a.workspaceId && a.workspaceId !== "ws_free" ? ((workspaces || []).find((w) => w.id === a.workspaceId) || {}).name || "a workspace" : "No workspace";
+  const target = a.action === "message" ? (agents || []).find((x) => x.id === a.targetAgentId) : null;
+  const targetWsId = target ? workspaceOfAgent(target.id, workspaces, freeAgents) : null;
+  const targetWs = targetWsId && targetWsId !== "ws_free" ? ((workspaces || []).find((w) => w.id === targetWsId) || {}).name : (targetWsId === "ws_free" ? "no workspace" : "");
 
   useEffect(() => {
     setEditing(false);
@@ -384,11 +397,16 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
         </div>
       </div>
       <h3 className="auto-detail-title">{a.name}</h3>
-      <p className="auto-when">{whenLine(a)}</p>
+      <p className="auto-when">{whenLine(a, agents)}</p>
       <pre className="auto-prompt">{a.prompt}</pre>
       <dl className="auto-facts">
-        {a.agentId ? <><dt>Agent</dt><dd><a href={workspaceHash(a.agentId)}>{a.agentName || a.name}</a></dd></> : null}
-        {a.model ? <><dt>Model</dt><dd>{a.model}{a.thinking ? " · " + a.thinking : ""}</dd></> : null}
+        {a.action === "message" ? (
+          <><dt>Messages</dt><dd>{target ? <a href={workspaceHash(target.id)}>{target.name}</a> : <span className="auto-hint bad">agent not found — edit and pick one</span>}{targetWs ? " · " + targetWs : ""}</dd></>
+        ) : (
+          <><dt>Runs in</dt><dd>{wsName}{a.agentId ? <> · <a href={workspaceHash(a.agentId)}>{a.agentName || "its agent"}</a></> : null}</dd></>
+        )}
+        {a.action !== "message" ? <><dt>Model</dt><dd>{a.provider || a.model ? [a.provider, a.model].filter(Boolean).join(" / ") + (a.thinking ? " · " + a.thinking : "") : "pi's default"}</dd></> : null}
+        {a.notifyUrl ? <><dt>Notifies</dt><dd><span className="auto-notify" title={a.notifyUrl}>{hostOf(a.notifyUrl)}</span> <CopyButton text={a.notifyUrl} label="Copy notify URL" small /></dd></> : null}
         {a.maxCostUsd ? <><dt>Max cost per run</dt><dd>{money(a.maxCostUsd)}</dd></> : null}
         {a.maxRuns ? <><dt>Max runs</dt><dd>{a.maxRuns} per {windowLabel(a.maxRunsWindowMin)}</dd></> : null}
       </dl>
@@ -407,7 +425,7 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
                 <CopyButton text={reveal} label="Copy secret" />
               </div>
               <p className="auto-secret-note">Send it as <code>Authorization: Bearer</code>. This is the only time it is shown.</p>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={onDismissSecret}>Done</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={onDismissSecret}>Done, I copied it</button>
             </div>
           ) : (
             <button type="button" className="btn btn-ghost btn-sm" onClick={onRotate}>Regenerate secret</button>
@@ -430,10 +448,10 @@ function windowLabel(min) {
   return min + " min";
 }
 
-function CopyButton({ text, label }) {
+function CopyButton({ text, label, small }) {
   const [done, setDone] = useState(false);
   return (
-    <button type="button" className="btn btn-ghost" aria-label={label} onClick={async () => {
+    <button type="button" className={"btn btn-ghost" + (small ? " btn-sm" : "")} aria-label={label} onClick={async () => {
       try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1200); } catch { toast.info("Copy failed — select the text instead."); }
     }}>
       <IconCopy /> {done ? "Copied" : "Copy"}

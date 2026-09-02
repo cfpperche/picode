@@ -3848,7 +3848,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .auto-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 12.5px; margin: 0 0 12px; }
 .auto-facts dt { color: var(--text-secondary); }
-.auto-facts dd { margin: 0; }
+.auto-facts dd { margin: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.auto-notify { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .auto-copy-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .auto-copy-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); flex: none; }
 .auto-code {

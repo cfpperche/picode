@@ -74,6 +74,12 @@ to the `[Unreleased]` section. The repository's official language is English
   `/-/hook/<user>/<id>` on a shared or public box, which needs no login.
   The guide gained recipes for GitHub Actions, Sentry and cron.
 
+- **The automation detail says what it does.** Facts now list where it
+  runs (or which agent it messages, with its workspace), the model or
+  "pi's default", the notify channel (host, with a copy button), and the
+  limits; the summary line names the agent. The one-time secret box ends
+  with a real button, "Done, I copied it".
+
 - **A tidier automation editor.** "What it does" is now labeled cells —
   Workspace, then Agent (to message) or Provider / Model / Thinking (for
   a new run) — instead of a row of unlabeled selects. Messaging an
