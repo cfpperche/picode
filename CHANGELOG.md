@@ -83,6 +83,13 @@ to the `[Unreleased]` section. The repository's official language is English
   that agent in a terminal is refused with a message; stopping it by
   hand ends the run as failed instead of leaving it "running".
 
+- **The chat follows a run it did not start.** Open an agent and let an
+  automation message it: the chat now connects to the running turn, shows
+  the text arriving and the stop button, and when the turn ends the
+  thread shows the prompt and the reply in order. (A free agent's chat
+  never connected to a run before; joining mid-turn drew the reply above
+  the prompt.)
+
 - **The automation detail says what it does.** Facts now list where it
   runs (or which agent it messages, with its workspace), the model or
   "pi's default", the notify channel (host, with a copy button), and the

@@ -285,6 +285,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Chat follows an automation's turn** (`fix/chat-follows-automation-run`):
+  owner: run "Running" but the chat showed nothing. Three causes in the
+  desktop: the panel effect gated on `selected` (the *workspace*), so a
+  free agent never got its socket; a closed panel for the same agent
+  blocked reconnecting (onclose now nulls `panelRef`, the effect checks
+  `readyState`); and a turn nobody typed here (automation, another tab)
+  had no prompt bubble — `foreignTurnRef` reloads the session file on
+  snapshot(streaming) and on settle so the thread mirrors the file, in
+  order. Diagnosed on the scratch with a raw WebSocket and a patched
+  `window.WebSocket` (the app opened no socket at all).
 - **2026-09-02 — Terminal open vs a run in flight** (`fix/automation-run-guard`):
   the owner clicked the agent's terminal icon during a message run; the
   open path's `Runtime.Stop` killed the managed process and the run

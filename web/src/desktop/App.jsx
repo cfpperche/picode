@@ -120,6 +120,7 @@ export default function App() {
   const [streaming, setStreaming] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const streamingRef = useRef(false);
+  const foreignTurnRef = useRef(false); // a turn started by an automation or another tab
   // Working shown before the server confirmed a turn (extension commands
   // never confirm one) — cleared by the first event that says what is
   // actually happening, or by a short fallback after task_delivered.
@@ -974,6 +975,10 @@ export default function App() {
         streamingRef.current = false;
         setWaiting(false);
         setItems((cur) => [...cur, { kind: "sys", text: "— panel disconnected —", err: true }]);
+        // A dead socket must not stand in for a live one: when the agent
+        // comes back managed (an automation run, another tab), the mode
+        // effect reconnects instead of finding "the same panel" here.
+        panelRef.current = null;
       }
       if (window.__picodeKickHealth) window.__picodeKickHealth();
     };
@@ -986,6 +991,10 @@ export default function App() {
         optimisticRef.current = false;
         fetchRoleState();
         snapWaitingRef.current = { agentId: panel.agentId, waiting: !!ev.waiting };
+        // Joining a turn we did not start (an automation's prompt, a
+        // send from another tab): the session file already holds the
+        // prompt, so the thread shows it — and again, in order, on settle.
+        if (ev.streaming) { foreignTurnRef.current = true; queueMicrotask(() => loadSessions(null, { preferNewest: true })); }
         setStreaming(!!ev.streaming);
         streamingRef.current = !!ev.streaming;
         setWaiting(!!ev.waiting);
@@ -995,6 +1004,7 @@ export default function App() {
         else setItems((cur) => cancelOpenAsks(cur));
         break;
       case "agent_start":
+        if (!optimisticRef.current) foreignTurnRef.current = true; // nobody here typed it
         optimisticRef.current = false;
         setStreaming(true);
         streamingRef.current = true;
@@ -1006,6 +1016,10 @@ export default function App() {
         setStreaming(false);
         streamingRef.current = false;
         setStatus((s) => (s === "waiting" ? "waiting" : "idle"));
+        if (foreignTurnRef.current) {
+          foreignTurnRef.current = false;
+          queueMicrotask(() => loadSessions(null, { preferNewest: true }));
+        }
         if (automateRef.current) { const aid = env.agentId || (panel && panel.agentId); setTimeout(() => finishAutomate(aid), 0); }
         if (selectedId) loadStatus();
         fetchRoleState();
@@ -1251,9 +1265,13 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!selected || !agent) { closePanel(); return; }
+    // `selected` is the workspace, and a free agent has none: the panel
+    // follows the agent, never the workspace. (Until 2026-09-02 a free
+    // agent started by an automation never got its chat connected.)
+    if (!agent) { closePanel(); return; }
     if (agent.mode === "managed") {
-      if (!panelRef.current || panelRef.current.agentId !== agent.id) connectPanel(agent.id);
+      const p = panelRef.current;
+      if (!p || p.agentId !== agent.id || (p.sock && p.sock.readyState > 1)) connectPanel(agent.id);
     } else {
       closePanel();
     }
