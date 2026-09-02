@@ -275,7 +275,12 @@ Never exercised, because this machine was already past them:
   rules live under `@media (hover: hover)`; touch gets the swipe. Then: a
   left swipe was firing the pull — `usePullToRefresh` now decides the
   axis on the first 10px of movement and stands down for a horizontal
-  drag (`fix/pull-axis`).
+  drag (`fix/pull-axis`). Owner: "destaca o botão remover com a cor de
+  perigo… faz um motion nesse swipe, tá muito seco" — the row now
+  follows the finger (inline transform during the drag, `--swipe-w` from
+  the action count) and snaps open/shut with `--motion-med`; the actions
+  slide in from the right edge as 40px buttons, Delete in the danger
+  tint; terminal Remove uses the same tint (`feat/swipe-motion`).
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap

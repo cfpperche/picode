@@ -274,9 +274,30 @@
 .m-changes .gg-detail-body { padding: 0 var(--m-pad); }
 .m-changes .gg-file-head { min-height: var(--m-tap); }
 .m-changes .diff { overflow-x: auto; }
-/* Inbox rows on touch: a left swipe reveals the row actions. */
-#m-app .app-row { touch-action: pan-y; }
-#m-app .app-row-swiped .app-row-actions { opacity: 1; }
-#m-app .app-row-swiped .app-row-line1 .app-when { opacity: 0; }
-#m-app .app-row-swiped { background: var(--bg-hover); }
-#m-app .app-row-actions .ws-icon-btn { width: 40px; height: 40px; }
+/* Inbox rows on touch: a left swipe slides the row aside and the actions
+   come in from the right edge. The drag itself sets an inline transform
+   (AppSurface Row); release snaps with these transitions. */
+#m-app .app-row { touch-action: pan-y; overflow: hidden; }
+#m-app .app-row-main { transition: transform var(--motion-med) var(--ease-out); will-change: transform; }
+#m-app .app-row-swiped .app-row-main { transform: translateX(calc(-1 * var(--swipe-w, 96px))); }
+#m-app .app-row-actions {
+  right: 4px; padding-left: 0; gap: 4px;
+  opacity: 0; transform: translateX(16px);
+  transition: opacity var(--motion-med) var(--ease-out), transform var(--motion-med) var(--ease-out);
+}
+#m-app .app-row-swiped .app-row-actions { opacity: 1; transform: translateX(0); }
+#m-app .app-row-actions .ws-icon-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary);
+}
+#m-app .app-row-actions .ws-icon-btn.danger {
+  color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-elevated));
+}
+#m-app .app-row-actions .ws-icon-btn:active { background: var(--bg-hover); }
+#m-app .app-row-actions .ws-icon-btn.danger:active { background: color-mix(in srgb, var(--danger) 22%, var(--bg-elevated)); }
+/* Remove on a terminal row / the terminal header: the same danger tint. */
+#m-app .m-row-act.is-remove { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+#m-app .m-row-act.is-remove:active { background: color-mix(in srgb, var(--danger) 20%, transparent); }
+#m-app .m-term-screen .m-head-right .btn:last-child { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+@media (prefers-reduced-motion: reduce) { #m-app .app-row-main, #m-app .app-row-actions { transition: none; } }
