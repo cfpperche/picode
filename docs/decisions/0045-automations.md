@@ -216,3 +216,11 @@ is already running gets the prompt as a follow-up turn and stays up
 process. The decision table gained a row: a message run needs `pi`
 unless the agent already runs; a second automation's run on the same
 agent is skipped as busy. `reasonQueued` survives only for old rows.
+
+Follow-up the same day: opening the agent in a terminal (the sidebar's
+terminal icon) stopped the managed process under the run (ADR-0006,
+one mode at a time) and the run hung as "running". The terminal-open
+paths now answer 409 while an automation run is on the agent, and a
+process stopped by any other path (an explicit stop) fails the run as
+"stopped during the run" — the run's own stop stays silent
+(`runWatch.letGo`).

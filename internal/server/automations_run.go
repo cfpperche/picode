@@ -30,6 +30,7 @@ const (
 	reasonInTerminal  = "agent in terminal"
 	reasonQueued      = "queued"
 	reasonExited      = "process exited"
+	reasonStopped     = "stopped during the run"
 	reasonTimeout     = "timeout"
 	reasonStartFailed = "start failed"
 )
@@ -342,6 +343,8 @@ type runWatch struct {
 	// keepAlive: the agent was the person's, already running — the run
 	// borrows a turn and leaves the process up (message runs).
 	keepAlive bool
+	// stopping: this run asked for the stop; the exit is expected.
+	stopping bool
 
 	mu        sync.Mutex
 	path      string
@@ -385,6 +388,7 @@ func (w *runWatch) stopAgent() {
 			return
 		}
 	}
+	w.letGo()
 	w.runner.deps.Runtime.Stop(w.agentID)
 }
 
@@ -491,6 +495,7 @@ func (w *runWatch) settled(final string) {
 			}
 			return
 		}
+		w.letGo()
 		w.runner.deps.Runtime.Stop(w.agentID)
 	}()
 }
@@ -498,10 +503,25 @@ func (w *runWatch) settled(final string) {
 // exited: the process died. Expected (we stopped it after settle) is
 // silent; anything else fails the run.
 func (w *runWatch) exited(expected bool) {
-	if expected {
+	w.mu.Lock()
+	ours := w.stopping
+	w.mu.Unlock()
+	if expected && ours {
 		return
 	}
-	go w.finish(store.RunFailed, reasonExited, true)
+	reason := reasonExited
+	if expected {
+		reason = reasonStopped // someone stopped the agent under the run
+	}
+	go w.finish(store.RunFailed, reason, true)
+}
+
+// letGo marks that the run itself is about to stop the process, so the
+// exit that follows is silent.
+func (w *runWatch) letGo() {
+	w.mu.Lock()
+	w.stopping = true
+	w.mu.Unlock()
 }
 
 // watch polls the session cost against the cap and enforces the timeout.
@@ -540,3 +560,18 @@ func (r automationRunner) notify(a store.Automation, kind, reason, title, body s
 		log.Printf("automations: inbox: %v", err)
 	}
 }
+
+// automationRunOn reports whether an automation run is watching this
+// agent's managed process. Opening the agent in a terminal would kill
+// that process (ADR-0006: one mode at a time), so the terminal paths
+// refuse while it is true; an explicit stop still wins, and the run
+// then ends as "stopped during the run".
+func (deps Deps) automationRunOn(agentID string) bool {
+	if deps.Runtime == nil {
+		return false
+	}
+	ma := deps.Runtime.Get(agentID)
+	return ma != nil && ma.Observed()
+}
+
+const runInFlightMsg = "an automation run is in progress on this agent — wait for it to finish, or stop the agent first"

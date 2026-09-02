@@ -285,6 +285,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Terminal open vs a run in flight** (`fix/automation-run-guard`):
+  the owner clicked the agent's terminal icon during a message run; the
+  open path's `Runtime.Stop` killed the managed process and the run
+  hung. `deps.automationRunOn` (ManagedAgent.Observed) → 409 on the four
+  interactive-open paths; `runWatch.exited(expected)` fails the run as
+  `reasonStopped` unless the run itself asked (`letGo`). Unit test.
 - **2026-09-02 — Message runs deliver (ADR-0045 amendment)**
   (`fix/automation-message-delivers`): owner ran a message automation,
   got "Done" and an untouched agent. `messageRun` starts an idle agent

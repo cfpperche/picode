@@ -79,7 +79,9 @@ to the `[Unreleased]` section. The repository's official language is English
   closed, nothing happened. Now PiCode starts the agent on its session,
   delivers the prompt, waits for the answer (cost and limits apply) and
   closes it again — or, if the agent is open, hands the prompt over as a
-  follow-up and leaves it running.
+  follow-up and leaves it running. While a run is on an agent, opening
+  that agent in a terminal is refused with a message; stopping it by
+  hand ends the run as failed instead of leaving it "running".
 
 - **The automation detail says what it does.** Facts now list where it
   runs (or which agent it messages, with its workspace), the model or

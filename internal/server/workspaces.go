@@ -266,6 +266,10 @@ func handleOpen(deps Deps) http.HandlerFunc {
 		}
 
 		name := tmux.SessionName(agent.ID)
+		if deps.automationRunOn(agent.ID) {
+			writeErr(w, http.StatusConflict, runInFlightMsg)
+			return
+		}
 		// ADR-0006: exclusive run mode — stop managed first.
 		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {

@@ -247,3 +247,36 @@ func TestAutomationTemplates(t *testing.T) {
 		t.Fatal("templates route shadowed")
 	}
 }
+
+// A managed process stopped under a run — the agent opened in a terminal,
+// or stopped by hand — fails the run instead of leaving it running
+// forever; the run's own stop stays silent.
+func TestRunWatchExitedUnderTheRun(t *testing.T) {
+	_, st := newAutomationServer(t)
+	a, _, _ := st.CreateAutomation(store.AutomationParams{Name: "x", Action: "start", Prompt: "p", Cron: "0 9 * * *"})
+	run, _ := st.CreateRun(a.ID, store.TriggerManual, store.RunRunning, "")
+	w := &runWatch{runner: automationRunner{deps: Deps{Store: st}}, a: a, run: run, agentID: "none"}
+	w.exited(true)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if r, _ := st.GetRun(run.ID); r.Status == store.RunFailed {
+			if r.Reason != reasonStopped {
+				t.Fatalf("reason %q", r.Reason)
+			}
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if r, _ := st.GetRun(run.ID); r.Status != store.RunFailed {
+		t.Fatal("run not failed after an unexpected stop")
+	}
+
+	run2, _ := st.CreateRun(a.ID, store.TriggerManual, store.RunRunning, "")
+	w2 := &runWatch{runner: automationRunner{deps: Deps{Store: st}}, a: a, run: run2, agentID: "none"}
+	w2.letGo()
+	w2.exited(true)
+	time.Sleep(100 * time.Millisecond)
+	if r, _ := st.GetRun(run2.ID); r.Status != store.RunRunning {
+		t.Fatalf("our own stop must stay silent, got %q", r.Status)
+	}
+}

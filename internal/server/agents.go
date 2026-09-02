@@ -315,6 +315,10 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "tmux is not installed")
 			return
 		}
+		if deps.automationRunOn(id) {
+			writeErr(w, http.StatusConflict, runInFlightMsg)
+			return
+		}
 		deps.Runtime.Stop(id)
 		name := tmux.SessionName(id)
 		has, err := deps.Tmux.HasSession(r.Context(), name)
@@ -376,6 +380,10 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 		}
 		if !deps.Tmux.Available() {
 			writeErr(w, http.StatusServiceUnavailable, "tmux is not installed")
+			return
+		}
+		if deps.automationRunOn(id) {
+			writeErr(w, http.StatusConflict, runInFlightMsg)
 			return
 		}
 		deps.Runtime.Stop(id)
@@ -625,6 +633,10 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 			return
 		}
 		name := tmux.SessionName(agent.ID)
+		if deps.automationRunOn(agent.ID) {
+			writeErr(w, http.StatusConflict, runInFlightMsg)
+			return
+		}
 		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
 			_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
