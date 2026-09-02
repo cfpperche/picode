@@ -263,6 +263,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — One pairing QR, tailnet first** (`fix/pair-one-qr`):
+  owner scanned two different QRs (Devices and Open on phone) and the LAN
+  address did not reach the phone. Devices → Pair a device now opens the
+  phone drawer (`openPairDrawer`, one QR with the LAN/Tailnet choice);
+  `share.Diagnose` prefers the official tailnet address (LAN needs the
+  same Wi-Fi, the Windows firewall rule and WSL mirrored networking);
+  each target carries a `note` saying what it needs; the "address" check
+  no longer claims the phone can reach it. Trust listener: 8470 first,
+  else a random port — the firewall rule only opens 8445/8470.
 - **2026-09-02 — Devices is one surface** (`fix/devices-one-surface`):
   owner asked why the user menu and Preferences both had "Devices". The
   presence page (`#/devices`) now lists paired sessions with liveness

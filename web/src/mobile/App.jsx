@@ -12,7 +12,7 @@ import { closeTerm } from "../lib/terms.js";
 import { mobileHash, tabOf, readWorkSection, writeWorkSection } from "../lib/mobileRoutes.js";
 import { askConfirm } from "../lib/confirm.js";
 import Reconnect from "../components/Reconnect.jsx";
-import ShareDrawer from "../components/ShareDrawer.jsx";
+import ShareDrawer, { OPEN_EVENT } from "../components/ShareDrawer.jsx";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import TabBar from "./components/TabBar.jsx";
@@ -51,6 +51,11 @@ export default function MobileApp() {
   const [tuiWorking, setTuiWorking] = useState([]);
   const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  useEffect(() => {
+    const on = () => setShareOpen(true);
+    window.addEventListener(OPEN_EVENT, on);
+    return () => window.removeEventListener(OPEN_EVENT, on);
+  }, []);
   const [create, setCreate] = useState(null); // { kind, workspace } | null
   const [busyId, setBusyId] = useState("");
   const [lastAgentId, setLastAgentId] = useState(() => { try { return localStorage.getItem(LAST_AGENT_KEY) || ""; } catch { return ""; } });

@@ -3956,3 +3956,5 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .dev-row[data-align-row] > * { display: inline-flex; align-items: center; height: var(--ctl-h); box-sizing: border-box; }
 .dev-row[data-align-row] .btn { margin-left: auto; min-height: var(--ctl-h); }
 .dev-dot-cell { width: 12px; justify-content: center; flex: none; }
+
+.share-note { flex: 1 1 100%; font-size: 11.5px; color: var(--text-secondary); }

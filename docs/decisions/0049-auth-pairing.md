@@ -62,7 +62,9 @@ shell, the mechanism has to be as strong as the ones that guard SSH.
    asked why there were two): paired sessions with label, IP, last seen,
    an online dot joined from the presence ping (which now carries its
    session id), Forget, and Pair a device (QR + link). Preferences →
-   Server keeps the access rule (who must pair) and the install token. A 401 in the SPA shows the pairing screen instead
+   Server keeps the access rule (who must pair) and the install token.
+   Pair a device opens the phone drawer — one QR, with the address the
+   phone can reach chosen first (tailnet over LAN, amended 2026-09-02). A 401 in the SPA shows the pairing screen instead
    of a broken page. The presence "host" flag now means "a desk browser"
    (desktop shell), not "loopback", since the daemon may be elsewhere.
 

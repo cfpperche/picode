@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
-import ShareDrawer from "./ShareDrawer.jsx";
+import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
 import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
@@ -52,6 +52,11 @@ export default function Sidebar({
   });
   const [resizing, setResizing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  useEffect(() => {
+    const on = () => setShareOpen(true);
+    window.addEventListener(OPEN_EVENT, on);
+    return () => window.removeEventListener(OPEN_EVENT, on);
+  }, []);
   const [tab, setTab] = useState(() => {
     try {
       const v = localStorage.getItem(TAB_KEY);

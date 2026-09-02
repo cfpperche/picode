@@ -30,6 +30,7 @@ type Target struct {
 	Addr   string `json:"addr"`
 	OnCert bool   `json:"onCert"`
 	Reason string `json:"reason,omitempty"`
+	Note   string `json:"note,omitempty"` // what the phone needs for this address to work
 }
 
 // Report is the payload for GET /api/share.
@@ -134,8 +135,8 @@ func Diagnose(in Input) Report {
 	addrs := ReachableIPv4()
 	reachOK := len(addrs) > 0
 	rep.Checks = append(rep.Checks, Check{
-		ID: "address", OK: reachOK, Title: "Phone-reachable address",
-		Action: unless(reachOK, "Join Tailscale or a LAN"),
+		ID: "address", OK: reachOK, Title: "An address the phone can use",
+		Action: unless(reachOK, "Join Tailscale (works on any network) or the same Wi-Fi as this machine"),
 	})
 
 	sans, issuer := certInfo(in.DataDir)
@@ -160,6 +161,11 @@ func Diagnose(in Input) Report {
 		if !onCert {
 			t.Reason = "Certificate does not cover " + a + " — run make cert"
 		}
+		if t.Kind == "tailnet" {
+			t.Note = "Any network, with Tailscale on the phone"
+		} else {
+			t.Note = "Same Wi-Fi as this machine; on Windows the firewall rule must exist"
+		}
 		rep.Targets = append(rep.Targets, t)
 		rep.URLs = append(rep.URLs, t.URL)
 	}
@@ -175,8 +181,10 @@ func Diagnose(in Input) Report {
 		Action: unless(mkcertOK, "Run make cert, then install the CA on the phone"),
 	})
 
-	// Prefer a LAN address that is on the cert (same-Wi-Fi phone, no Tailscale),
-	// then the official tailscale IP, then any covered target.
+	// Prefer the official tailscale IP: it works from any network and needs
+	// no firewall rule. A LAN address only works on the same Wi-Fi, behind
+	// the Windows firewall rule, and (on WSL) with mirrored networking —
+	// three things the phone cannot see failing.
 	pick := func(pred func(Target) bool) {
 		if rep.URL != "" {
 			return
@@ -188,8 +196,8 @@ func Diagnose(in Input) Report {
 			}
 		}
 	}
-	pick(func(t Target) bool { return t.Kind == "lan" })
 	pick(func(t Target) bool { return t.Kind == "tailnet" && t.Addr == tsOfficial })
+	pick(func(t Target) bool { return t.Kind == "lan" })
 	pick(func(t Target) bool { return t.Kind == "tailnet" })
 	pick(func(Target) bool { return true })
 

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
+import { openPairDrawer } from "./ShareDrawer.jsx";
 import { feedConnected, subscribeFeed } from "../lib/feed.js";
 import { touches } from "../lib/feedReducers.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -15,8 +15,6 @@ import PageFrame from "./PageFrame.jsx";
 export default function Devices({ hidden }) {
   const [rows, setRows] = useState(null);
   const [live, setLive] = useState([]);
-  const [pairing, setPairing] = useState(null); // {url, qrUrl}
-  const canvasRef = useRef(null);
 
   async function load() {
     try {
@@ -32,13 +30,16 @@ export default function Devices({ hidden }) {
     const unsub = subscribeFeed((ev) => { if (ev.type === "feed.open" || touches(ev, ["device", "session", "pairing"])) load(); });
     return () => { clearInterval(t); unsub(); };
   }, [hidden]);
-  useEffect(() => {
-    if (!pairing || !canvasRef.current) return;
-    QRCode.toCanvas(canvasRef.current, pairing.qrUrl || pairing.url, { width: 180, margin: 1, color: { dark: "#16181d", light: "#ffffff" } });
-  }, [pairing]);
-
-  async function pair() {
-    try { setPairing(await api("/api/auth/pairings", { method: "POST" })); } catch (e) { toastError(e); }
+  // The QR lives in one place: the pairing drawer (phone icon), which
+  // picks the address the phone can reach. A computer with no camera
+  // gets a link on the clipboard instead.
+  function pair() { openPairDrawer(); }
+  async function copyLink() {
+    try {
+      const p = await api("/api/auth/pairings", { method: "POST" });
+      await navigator.clipboard.writeText(p.url);
+      toast.ok("Pairing link copied — it works once, for ten minutes.");
+    } catch (e) { toastError(e); }
   }
   async function forget(row) {
     const ok = await askConfirm({
@@ -84,22 +85,10 @@ export default function Devices({ hidden }) {
           </ul>
           <div className="devs-actions" data-align-row>
             <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
+            <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
           </div>
         </>
       )}
-      {pairing ? (
-        <div className="devs-pairing" role="status">
-          <canvas ref={canvasRef} />
-          <div className="devs-pairing-text">
-            <p>Scan with the phone's camera{pairing.qrUrl && pairing.qrUrl !== pairing.url ? " (it installs the certificate first, then pairs)" : ""}, or open this link on the other device. It works once and expires in ten minutes.</p>
-            <code className="auto-code">{pairing.url}</code>
-            <div className="devs-actions" data-align-row>
-              <button type="button" className="btn btn-ghost" onClick={async () => { try { await navigator.clipboard.writeText(pairing.url); toast.ok("Copied."); } catch { /* ignore */ } }}>Copy link</button>
-              <button type="button" className="btn btn-ghost" onClick={() => setPairing(null)}>Done</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
       {unpaired.length ? (
         <section className="settings-section">
           <h3>Online without pairing</h3>

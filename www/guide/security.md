@@ -16,12 +16,18 @@ requests from foreign origins and unknown host names are refused.
 
 ## Pair a phone or another computer
 
-1. On a device that already works, open **Devices** (user menu) → **Pair
-   a device**, or click the phone icon in the sidebar (the QR carries the
-   pairing link).
-2. Scan the code or open the link on the other device. It works once and
-   expires in ten minutes.
-3. The device appears under **Devices** with an online dot while it is connected. **Forget** revokes it.
+1. On a device that already works, click the phone icon in the sidebar,
+   or **Devices** (user menu) → **Pair a device**: both open the same
+   panel, one QR.
+2. Pick the address the phone can reach. **Tailnet** works from any
+   network with Tailscale on the phone and is chosen first when it
+   exists. **LAN** needs the phone on the same Wi-Fi and, on Windows, the
+   firewall rule PiCode asks for once.
+3. Scan the code with the phone's camera (on iPhone it opens Safari,
+   which can install the certificate first). The link works once and
+   expires in ten minutes. A computer without a camera: **Copy a pairing
+   link** on Devices and open it there.
+4. The device appears under **Devices** with an online dot while it is connected. **Forget** revokes it.
 
 If no device is paired yet, run `picode pair` on the machine that runs
 PiCode: it prints a link.

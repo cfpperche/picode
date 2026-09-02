@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import QRCode from "qrcode";
 
+// OPEN_EVENT lets any surface (Devices, the pairing screen's neighbour)
+// open this drawer without threading state through the shells.
+export const OPEN_EVENT = "picode-open-pair";
+export function openPairDrawer() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
 export default function ShareDrawer({ open, onClose }) {
   const [report, setReport] = useState(null);
   const [picked, setPicked] = useState("");
@@ -39,9 +46,9 @@ export default function ShareDrawer({ open, onClose }) {
 
   return (
     <div className="share-root" onMouseDown={(e) => { if (e.target.classList.contains("share-root")) onClose(); }}>
-      <div className="share-panel" role="dialog" aria-label="Open on phone">
+      <div className="share-panel" role="dialog" aria-label="Pair a device">
         <header className="share-head">
-          <h2>Open on phone</h2>
+          <h2>Pair a device</h2>
           <button type="button" className="dock-icon" onClick={onClose} aria-label="Close">×</button>
         </header>
         {err ? <p className="form-error">{err}</p> : null}
@@ -52,7 +59,7 @@ export default function ShareDrawer({ open, onClose }) {
               <div className="share-qr">
                 <canvas ref={canvasRef} />
                 <p className="share-url">{qrURL}</p>
-                {report.trustPort ? <p className="share-muted">iPhone: use the Camera app (opens Safari). Chrome cannot install the profile. First Tailscale open can take 10–20s.</p> : null}
+                <p className="share-muted">Scan with the phone's camera. The link pairs this phone; it works once and expires in ten minutes.{report.trustPort ? " iPhone: the Camera app opens Safari, which can install the certificate; Chrome cannot." : ""}</p>
               </div>
             ) : null}
             {misses.length ? (
@@ -77,7 +84,7 @@ export default function ShareDrawer({ open, onClose }) {
                     >
                       <span className="share-kind">{t.kind}</span>
                       <span className="share-addr">{t.addr}</span>
-                      {!t.onCert ? <span className="share-why">{t.reason}</span> : null}
+                      {!t.onCert ? <span className="share-why">{t.reason}</span> : t.note ? <span className="share-note">{t.note}</span> : null}
                     </button>
                   </li>
                 ))}
