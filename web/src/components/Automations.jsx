@@ -201,10 +201,11 @@ function List({ items, loadErr, piMissing, templates, onToggle, onRun }) {
       ) : null}
       {items.length === 0 ? (
         <>
-          <div className="mcp-empty">
+          <div className="mcp-empty auto-empty">
             <p>No automations yet.</p>
             <a className="btn btn-primary" href={automationsHash("new")}><IconPlus /> Create automation</a>
           </div>
+          {templates && templates.length ? <hr className="auto-sep" /> : null}
           <Suggested templates={templates} open />
         </>
       ) : (
@@ -233,6 +234,7 @@ function List({ items, loadErr, piMissing, templates, onToggle, onRun }) {
               </li>
             ))}
           </ul>
+          {templates && templates.length ? <hr className="auto-sep" /> : null}
           <Suggested templates={templates} />
         </>
       )}

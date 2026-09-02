@@ -4000,3 +4000,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   /* Rotate is a full-size mobile button (44px); the token code matches it. */
   .devs-actions[data-align-row] .auto-code { min-height: 44px; }
 }
+
+/* Automations: the empty state is one centered column; a separator
+   marks where the list/toolbar ends and Suggested begins. */
+.auto-empty { flex-direction: column; justify-content: center; text-align: center; padding: 28px 16px; }
+.auto-sep { border: 0; border-top: 1px solid var(--border); margin: 20px 0 0; }
