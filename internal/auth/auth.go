@@ -417,7 +417,10 @@ func (s *Service) noteSuccess(ip string) {
 	s.mu.Unlock()
 }
 
-// PairURL builds the link a pairing code turns into.
+// PairURL builds the link a pairing code turns into: the public URL when
+// configured, else the request's own origin. A caller that knows a
+// better reachable base (the share report, when the request came in on
+// loopback) passes it through PairURLFrom.
 func (s *Service) PairURL(r *http.Request, code string) string {
 	base := ""
 	if s.cfg.PublicURL != nil {
@@ -430,7 +433,20 @@ func (s *Service) PairURL(r *http.Request, code string) string {
 		}
 		base = scheme + "://" + r.Host
 	}
-	return base + "/pair?code=" + url.QueryEscape(code)
+	return PairURLFrom(base, code)
+}
+
+// PairURLFrom appends the pairing path to a base origin.
+func PairURLFrom(base, code string) string {
+	return strings.TrimRight(base, "/") + "/pair?code=" + url.QueryEscape(code)
+}
+
+// PublicURL is the configured public origin, "" when none.
+func (s *Service) PublicURL() string {
+	if s.cfg.PublicURL == nil {
+		return ""
+	}
+	return strings.TrimRight(s.cfg.PublicURL(), "/")
 }
 
 // Pair spends a code for the visiting browser: cookie set, session

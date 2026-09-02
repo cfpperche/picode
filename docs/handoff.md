@@ -263,6 +263,10 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Pairing link reachable from the phone** (`fix/pair-url-reachable`):
+  a request on loopback built `https://localhost:8445/pair?…`, which Safari
+  on the phone cannot open. `pairLinks` now takes the share report's
+  reachable address and, with mkcert, wraps the QR in the trust page.
 - **2026-09-01 — ADR-0049 authentication, Track A of the remote-modes
   roadmap** (`feat/auth-core`): gate, modes, pairing, install token,
   Devices UI, CLI, client updates. Dogfood on a populated DB copy (note:

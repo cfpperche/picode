@@ -8,7 +8,10 @@ import (
 	"net/http"
 	"strings"
 
+	"net/url"
+
 	"github.com/cfpperche/picode/internal/auth"
+	"github.com/cfpperche/picode/internal/share"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -90,8 +93,42 @@ func handleAuthPairing(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusCreated, map[string]any{"code": code, "url": deps.Auth.PairURL(r, code), "expiresAt": exp})
+		link, qr := deps.pairLinks(r, code)
+		writeJSON(w, http.StatusCreated, map[string]any{"code": code, "url": link, "qrUrl": qr, "expiresAt": exp})
 	}
+}
+
+// pairLinks: the link another device can actually open, and what the QR
+// should encode. A request on loopback carries "localhost" as its host —
+// useless to a phone — so the share report's reachable address is used,
+// and with an mkcert setup the QR goes through the trust page first, the
+// same path "Open on phone" takes.
+func (deps Deps) pairLinks(r *http.Request, code string) (link, qr string) {
+	if pub := deps.Auth.PublicURL(); pub != "" {
+		link = auth.PairURLFrom(pub, code)
+		return link, link
+	}
+	if !auth.Loopback(r) {
+		link = deps.Auth.PairURL(r, code)
+		return link, link
+	}
+	port := 0
+	if deps.PortSnapshot != nil {
+		port = deps.PortSnapshot().Current
+	}
+	rep := share.Diagnose(share.Input{Insecure: deps.Insecure, BindHost: deps.BindHost, Port: port, DataDir: deps.DataDir})
+	if rep.URL == "" {
+		link = deps.Auth.PairURL(r, code)
+		return link, link
+	}
+	link = auth.PairURLFrom(rep.URL, code)
+	qr = link
+	if tp := share.EnsureTrustHTTP(); tp != "" {
+		if u, err := url.Parse(rep.URL); err == nil {
+			qr = share.TrustURL(u.Hostname(), tp) + "?next=" + url.QueryEscape(link)
+		}
+	}
+	return link, qr
 }
 
 func handleAuthLogout(deps Deps) http.HandlerFunc {

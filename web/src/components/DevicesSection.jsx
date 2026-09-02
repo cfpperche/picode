@@ -34,7 +34,7 @@ export default function DevicesSection({ hidden }) {
   useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["session", "pairing", "setting"])) load(); }), []);
   useEffect(() => {
     if (!pairing || !canvasRef.current) return;
-    QRCode.toCanvas(canvasRef.current, pairing.url, { width: 180, margin: 1, color: { dark: "#16181d", light: "#ffffff" } });
+    QRCode.toCanvas(canvasRef.current, pairing.qrUrl || pairing.url, { width: 180, margin: 1, color: { dark: "#16181d", light: "#ffffff" } });
   }, [pairing]);
 
   async function pair() {
@@ -80,7 +80,7 @@ export default function DevicesSection({ hidden }) {
         <div className="devs-pairing" role="status">
           <canvas ref={canvasRef} />
           <div className="devs-pairing-text">
-            <p>Scan with the phone, or open this link on the other device. It works once and expires in ten minutes.</p>
+            <p>Scan with the phone's camera{pairing.qrUrl && pairing.qrUrl !== pairing.url ? " (it installs the certificate first, then pairs)" : ""}, or open this link on the other device. It works once and expires in ten minutes.</p>
             <code className="auto-code">{pairing.url}</code>
             <div className="devs-actions" data-align-row>
               <button type="button" className="btn btn-ghost" onClick={async () => { try { await navigator.clipboard.writeText(pairing.url); toast.ok("Copied."); } catch { /* ignore */ } }}>Copy link</button>
