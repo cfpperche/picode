@@ -3867,7 +3867,10 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .auto-form { display: flex; flex-direction: column; gap: 14px; }
 .auto-field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .auto-field > span, .auto-field > legend { font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 0; }
-.auto-legend-row { display: flex; align-items: center; gap: 8px; }
+/* A legend sits outside the fieldset's flex flow, so the form gap does
+   not reach it: the switch rows space themselves. */
+.auto-legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.auto-legend-row:last-child { margin-bottom: 0; }
 .auto-legend-row label { font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
 .auto-legend-row .auto-hint { font-weight: 400; }
 .auto-field .dlg-input { margin: 0; height: var(--ctl-h); width: 100%; box-sizing: border-box; }
