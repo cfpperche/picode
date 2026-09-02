@@ -261,6 +261,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — Hotfix: empty sidebar after the feed-debts deploy**
+  (`fix/boot-fleet-load`, `1688619`). The pattern-driven swap of
+  post-mutation `loadWorkspaces()` → `refreshFleetFallback()` also hit
+  the two **boot** loads; with the stream open before boot finished the
+  desktop showed "No workspaces yet" (data untouched — the API and the
+  events log proved it). Lessons: review every site of a mass
+  replacement; dogfood boot paths against a populated database, not the
+  scratch instance's empty one.
 - **2026-09-01 — ADR-0048 debts closed** (`fix/feed-debts`): tmux
   watcher (`agent.tui`), per-message `agent.usage`, `device.offline`
   ticker, run mode on `agent.status` at all ten start sites, health
