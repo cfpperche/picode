@@ -1582,6 +1582,12 @@ export default function App() {
     if (!selectedId) return;
     try {
       await api(workspaceAPI(workspaces, freeAgents, selectedId, "/sessions/new"), { method: "POST" });
+      // Optimistic: the pane clears at once (the server pointer is now
+      // empty — the fresh state); loadSessions reconciles below.
+      itemsAgentRef.current = selectedId || "";
+      setItems(mergeAskMemory(selectedId, "", []));
+      setEarlierRemaining(0);
+      setSessionCurrent("");
       await refreshFleetFallback();
       await loadSessions();
     } catch (e) { toastError(e); }

@@ -247,3 +247,63 @@ func TestResolvePendingAgentSession(t *testing.T) {
 		t.Fatalf("resolve without a file = %q, want \"\"", got)
 	}
 }
+
+// Sealing (the explicit "new session" flow) records every pending id
+// that already has a file, so adoption can never resurrect the thread
+// the user just abandoned — while leaving the fileless pendings (and the
+// agent's pointer) alone. The sealed session stays owned: still listed,
+// still resumable.
+func TestSealPendingAgentSessions(t *testing.T) {
+	s := openTest(t)
+	old := session.TestRoot
+	session.TestRoot = t.TempDir()
+	t.Cleanup(func() { session.TestRoot = old })
+
+	proj := t.TempDir()
+	_, agent, err := addWorkspaceWithAgent(s, "App", proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := session.AgentDir(agent.ID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	withFile := s.NewPendingAgentSession(agent.ID)
+	withoutFile := s.NewPendingAgentSession(agent.ID)
+	if withFile == "" || withoutFile == "" {
+		t.Fatal("NewPendingAgentSession returned empty id")
+	}
+	p := filepath.Join(dir, "sealed.jsonl")
+	body := `{"type":"session","id":"` + withFile + `","cwd":"` + proj + `"}` + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s.SealPendingAgentSessions(agent.ID)
+
+	keys, err := s.AgentSessionKeys(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !keys.Paths[p] || !keys.IDs[withFile] {
+		t.Fatalf("sealed session no longer owned: %+v", keys)
+	}
+	pending, err := s.PendingAgentSessionIDs(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 || pending[0] != withoutFile {
+		t.Fatalf("pending after seal = %v, want only the fileless %q", pending, withoutFile)
+	}
+	a, err := s.GetAgent(agent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.SessionPath != nil && *a.SessionPath != "" {
+		t.Fatalf("seal must not set the pointer, got %q", *a.SessionPath)
+	}
+	// The point of sealing: adoption can no longer pick the thread up.
+	if got := s.ResolvePendingAgentSession(agent.ID); got != "" {
+		t.Fatalf("adoption after seal = %q, want \"\"", got)
+	}
+}

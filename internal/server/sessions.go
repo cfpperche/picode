@@ -43,6 +43,7 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 		list := make([]session.Summary, 0, len(all))
 		haveCurrent := false
 		resolvedCurrent := false
+		backfilled := ""
 		for _, s := range all {
 			byPath := owned.Paths[s.Path]
 			byID := s.ID != "" && owned.IDs[s.ID]
@@ -60,6 +61,7 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 				if agent.SessionPath == nil && !resolvedCurrent {
 					_, _ = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &s.Path})
 					resolvedCurrent = true
+					backfilled = s.Path
 				}
 			}
 			list = append(list, s)
@@ -67,15 +69,27 @@ func handleListSessions(deps Deps) http.HandlerFunc {
 				haveCurrent = true
 			}
 		}
+		// A pointer lost by an older build (a pending id with a file but
+		// no session_path) healed in the loop above; surface it as current
+		// so the chat reopens the thread. An explicit New seals its
+		// pendings, so nothing backfills and current stays "" — the fresh
+		// state the user asked for.
+		if cur == "" && backfilled != "" {
+			cur = backfilled
+			haveCurrent = true
+		}
 		// Safety net: the agent's current session is always visible even
-		// if a DB hiccup kept it from being historized.
+		// if a DB hiccup kept it from being historized. No newest-session
+		// fallback when cur is "": an empty pointer is either a brand-new
+		// agent (nothing to resurrect) or an explicit POST /sessions/new —
+		// the picker must not silently re-select the thread the user just
+		// abandoned. Picking a session from the list (or any spawn's
+		// adoption, ADR-0053) sets the pointer again.
 		if cur != "" && !haveCurrent {
 			if s, err := session.Summarize(cur); err == nil {
 				list = append(list, s)
 				sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
 			}
-		} else if cur == "" && len(list) > 0 {
-			cur = list[0].Path
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"sessions": list, "current": cur})
 	}
@@ -145,6 +159,11 @@ func handleNewSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		// Close the adoption window before the restart below: an explicit
+		// New must mint a fresh --session-id, not re-adopt the thread just
+		// abandoned (ADR-0053 adoption heals a lost pointer; it must not
+		// override the user asking for a new session).
+		deps.Store.SealPendingAgentSessions(agent.ID)
 		mode := deps.runMode(r, agent.ID)
 		if err := restartSameMode(r.Context(), deps, wk, agent.ID, mode); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -276,17 +295,23 @@ func safeSessionPath(path string, dirs ...string) bool {
 }
 
 func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID string, mode agentRunMode) error {
+	// The agent's own cwd, never the workspace's: a free agent's
+	// workspace is the ws_free sentinel (no real path), and a WorkPath
+	// override must win for workspace agents too. This is the same
+	// resolution every Runtime.Start caller uses (agents.go, session_ops.go).
+	ag, err := deps.Store.GetAgent(agentID)
+	if err != nil {
+		return err
+	}
+	cwd := store.AgentCwd(wk, ag)
+	_ = os.MkdirAll(cwd, 0o755)
 	switch mode {
 	case modeManaged:
 		deps.Runtime.Stop(agentID)
-		return deps.Runtime.Start(agentID, wk.Path)
+		return deps.Runtime.Start(agentID, cwd)
 	case modeInteractive:
 		_ = deps.Tmux.KillSession(ctx, tmux.SessionName(agentID))
-		agent, err := deps.Store.GetAgent(agentID)
-		if err != nil {
-			return err
-		}
-		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), wk.Path, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...)
+		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), cwd, ag.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(ag)...)
 	default:
 		return nil
 	}

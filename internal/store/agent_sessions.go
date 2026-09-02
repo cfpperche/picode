@@ -90,6 +90,34 @@ func (s *Store) AllAgentSessionPaths() (map[string]bool, error) {
 	return out, rows.Err()
 }
 
+// SealPendingAgentSessions closes the attribution window that
+// NewPendingAgentSession opened: every pending id whose file already
+// exists gets its path recorded, so a later spawn's
+// ResolvePendingAgentSession cannot adopt it. An explicit "new session"
+// must stay new — adoption (ADR-0053) exists to heal a *lost* pointer,
+// not to override the user asking for a fresh thread. Pending ids with
+// no file are left alone: they can never be adopted, and their file may
+// still appear (a slow pi).
+func (s *Store) SealPendingAgentSessions(agentID string) {
+	ids, err := s.PendingAgentSessionIDs(agentID)
+	if err != nil || len(ids) == 0 {
+		return
+	}
+	pending := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		pending[id] = true
+	}
+	files, err := session.ListDirs(session.AgentDir(agentID))
+	if err != nil {
+		return
+	}
+	for _, f := range files { // newest first; order irrelevant here
+		if pending[f.ID] {
+			s.ResolveAgentSessionID(agentID, f.ID, f.Path)
+		}
+	}
+}
+
 // ResolveAgentSessionID backfills the session_path for a pending
 // session_id row once its file shows up on disk. Cosmetic bookkeeping
 // only — the filter already matches on session_id alone, so a failed or
