@@ -1,7 +1,7 @@
 # Browser extension — implementation roadmap
 
 - **Date:** 2026-09-01
-- **Status:** Track A shipped. Track B in flight (ADR-0043).
+- **Status:** Track A + B shipped. Track C (actuator) in flight (ADR-0053).
 - **Why:** agents already browse in an isolated Chromium; they cannot see
   the tab the human is on. A Chrome side panel + context menu sends that
   tab to an existing PiCode agent.
@@ -59,8 +59,28 @@ Screenshot is a checkbox, off by default, JPEG under the 1 MB native-messaging c
 - `picode-desktop extension-install` copies `picode-nmh.exe` next to the tray and registers that path.
 - Side panel pings `/api/devices/ping` with `kind=extension`. `#/devices` shows **Chrome extension** on this machine. Preferences → Server: one line + Open guide when disconnected.
 
+## Track C — Actuator (shipped on this branch)
+
+ADR-0053: the agent's reply may end in one ```picode-act fenced block;
+the server validates it into a batch (`act_batches`, migration 021), the
+panel polls for it via the native host, asks once per origin, and executes
+it action by action with visible highlights. Outcomes go back as one more
+watched turn; 3 rounds hard cap; Stop ends the loop. The panel must stay
+open — a claimed-but-unexecuted batch is resumable, a pending one expires
+after 10 minutes.
+
+| # | grant | tab | batch | action |
+|---|---|---|---|---|
+| 1 | absent | on origin | any | ask Allow / Not now; Not now = stopped result |
+| 2 | granted | other tab | pending | blocked=origin; not claimed; polls resume |
+| 3 | granted | on origin | pending | claim, execute with highlights |
+| 4 | * | navigates mid-run | claimed | remaining steps = "page changed"; result posted |
+| 5 | * | * | settled, no block | watching flips false; "Done." |
+| 6 | * | * | round ≥ 3 | last round; no follow-up |
+| 7 | * | * | Stop | stopped result; loop ends |
+| 8 | * | observed by another run | send with act | 409 busy; the reply still arrives |
+
 ## Later tracks
 
-- **C:** content script on the active tab, per-origin grant, visible clicks.
 - **D:** `packages/pi-tab` molde `pi-inbox`.
 - **E:** Edge registry copy; Firefox; store.

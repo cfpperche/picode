@@ -1,3 +1,4 @@
+const PA = window.PiCodeAct;
 const GUIDE = "https://cfpperche.github.io/picode/guide/browser-extension";
 const MAX_IMAGE = 700000;
 
@@ -13,6 +14,14 @@ const els = {
   msg: $("msg"),
   shotRow: $("shot-row"),
   shot: $("shot"),
+  actRow: $("act-row"),
+  act: $("act"),
+  actBox: $("act-box"),
+  actLine: $("act-line"),
+  actList: $("act-list"),
+  actStop: $("act-stop"),
+  actAllow: $("act-allow"),
+  actDeny: $("act-deny"),
   send: $("send"),
   status: $("status"),
   open: $("open"),
@@ -63,6 +72,20 @@ function showPreview(kind) {
     tab = { url: "https://linear.app/issue/x", title: "LIN-12 Fix the empty state", selection: "the empty well" };
   }
   showForm();
+  if (kind === "grant") {
+    showActLine("Let PiCode act on https://linear.app?");
+    actButtons(false, true, true);
+  } else if (kind === "acting") {
+    showActLine("Acting on https://linear.app — round 1 of 3");
+    actButtons(true, false, false);
+    els.actList.replaceChildren(
+      actItem({ act: "fill", selector: "#title" }, "ok", "ok"),
+      actItem({ act: "click", selector: "button[type=submit]" }, "wait", "…"),
+      actItem({ act: "read", selector: "main" }, "err", "no match"),
+    );
+  } else if (kind === "actdone") {
+    showActLine("Done — 2 of 3 steps worked.");
+  }
 }
 
 async function load() {
@@ -161,7 +184,11 @@ function currentAgent() {
 function renderPage() {
   const ok = canCapture(tab.url);
   els.shotRow.hidden = !ok;
-  if (!ok) els.shot.checked = false;
+  els.actRow.hidden = !ok;
+  if (!ok) {
+    els.shot.checked = false;
+    els.act.checked = false;
+  }
   if (!tab.url) {
     els.page.textContent = "No tab.";
     return;
@@ -206,6 +233,7 @@ async function send() {
   const agent = currentAgent();
   if (!agent || els.send.disabled) return;
   const pageOk = canCapture(tab.url);
+  const wantsAct = pageOk && els.act.checked;
   els.send.disabled = true;
   els.status.hidden = false;
   els.status.textContent = agent.mode === "stopped" ? "Starting…" : "Sending…";
@@ -213,6 +241,7 @@ async function send() {
     type: "send",
     agentId: agent.id,
     message: els.msg.value.trim(),
+    act: wantsAct,
   };
   if (pageOk) {
     payload.tab = {
@@ -231,11 +260,16 @@ async function send() {
     els.send.disabled = false;
     return;
   }
-  els.status.textContent = "Sent.";
+  els.status.hidden = true;
   els.msg.value = "";
   syncSend();
   if (picodeUrl && agent.id) {
     setOpen(picodeUrl + "/#/agent/" + agent.id);
+  }
+  if (wantsAct && res.watching) {
+    runActLoop(agent.id);
+  } else if (wantsAct && res.actError) {
+    showActLine(res.actError + " The reply still arrives in PiCode.");
   }
 }
 
@@ -301,3 +335,168 @@ function openPiCode() {
 function $(id) {
   return document.getElementById(id);
 }
+
+// ---- Track C: actuation loop (ADR-0053) --------------------------------
+
+let actLoop = { running: false, stop: false };
+const ACT_POLL_MS = 2000;
+const ACT_STEP_MS = 450;
+const ACT_WINDOW_MS = 10 * 60 * 1000;
+
+function showActLine(text) {
+  els.actBox.hidden = false;
+  els.actLine.hidden = false;
+  els.actLine.textContent = text;
+  els.actList.replaceChildren();
+  actButtons(false, false, false);
+}
+
+function actButtons(stop, allow, deny) {
+  els.actBox.hidden = false;
+  els.actStop.hidden = !stop;
+  els.actAllow.hidden = !allow;
+  els.actDeny.hidden = !deny;
+}
+
+async function runActLoop(agentId) {
+  if (actLoop.running) return;
+  actLoop = { running: true, stop: false };
+  const deadline = Date.now() + ACT_WINDOW_MS;
+  try {
+    while (Date.now() < deadline && !actLoop.stop) {
+      const res = await call({ type: "act-next", agentId, tab: { url: PA.originOf(tab.url) } });
+      if (!res.ok) {
+        showActLine(res.error || "PiCode is not running.");
+        return;
+      }
+      if (res.batch) {
+        const again = await handleBatch(res.batch, agentId);
+        if (!again) return;
+        continue;
+      }
+      if (!res.watching) {
+        showActLine("Done. The agent didn't ask to act.");
+        return;
+      }
+      showActLine("Watching for the agent's next step…");
+      await sleep(ACT_POLL_MS);
+    }
+    if (!actLoop.stop) showActLine("Paused. The wait ran out — send again to continue.");
+  } finally {
+    actLoop.running = false;
+  }
+}
+
+// handleBatch runs one granted batch; true = keep polling for round N+1.
+async function handleBatch(batch, agentId) {
+  const origin = batch.origin;
+  const grants = await PA.loadGrants();
+  if (!grants[origin]) {
+    showActLine("Let PiCode act on " + origin + "?");
+    const granted = await askGrant(origin);
+    if (!granted) {
+      await call({ type: "act-result", id: batch.id, stopped: true });
+      showActLine("Skipped. Nothing was touched.");
+      return false;
+    }
+  }
+  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (PA.originOf(active?.url || "") !== origin) {
+    showActLine("Open the " + origin + " tab to continue. The steps are waiting.");
+    return false;
+  }
+  showActLine("Acting on " + origin + " — round " + batch.round + " of " + batch.rounds);
+  actButtons(true, false, false);
+  els.actList.replaceChildren(...batch.actions.map((a) => actItem(a, "wait", "…")));
+  const outcomes = await executeBatch(active.id, batch.actions);
+  if (actLoop.stop) {
+    await call({ type: "act-result", id: batch.id, outcomes, stopped: true });
+    showActLine("Stopped. The page is as the steps left it.");
+    return false;
+  }
+  paintOutcomes(outcomes);
+  const res = await call({ type: "act-result", id: batch.id, outcomes });
+  const oks = outcomes.filter((o) => o.ok).length;
+  if (batch.round >= batch.rounds) {
+    showActLine("Done — " + oks + " of " + outcomes.length + " steps worked. That was the last round.");
+    return false;
+  }
+  if (!res.ok || !res.watching) {
+    showActLine("Done — " + oks + " of " + outcomes.length + " steps worked.");
+    return false;
+  }
+  showActLine("Round " + (batch.round + 1) + " — waiting for the agent…");
+  return true;
+}
+
+function askGrant(origin) {
+  return new Promise((resolve) => {
+    actButtons(false, true, true);
+    els.actAllow.onclick = async () => {
+      await PA.grantOrigin(origin);
+      resolve(true);
+    };
+    els.actDeny.onclick = () => resolve(false);
+  });
+}
+
+async function executeBatch(tabId, actions) {
+  const outcomes = [];
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: PA.actDriver,
+      args: [{ init: actions }],
+    });
+    for (let i = 0; i < actions.length; i++) {
+      if (actLoop.stop) break;
+      await sleep(ACT_STEP_MS);
+      const [inj] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: PA.actDriver,
+        args: [{ step: true }],
+      });
+      const r = inj && inj.result;
+      if (!r || r.done) break;
+      outcomes.push(r.outcome);
+      paintOne(i, r.outcome);
+    }
+  } catch (e) {
+    for (let i = outcomes.length; i < actions.length; i++) {
+      outcomes.push({ act: actions[i].act, selector: actions[i].selector || "", ok: false, error: "page changed" });
+      paintOne(i, outcomes[i]);
+    }
+  }
+  return outcomes;
+}
+
+function actItem(a, cls, st) {
+  const li = document.createElement("li");
+  li.className = "act-item " + cls;
+  const name = document.createElement("span");
+  name.textContent = a.act + (a.selector ? " " + a.selector : a.to ? " to " + a.to : "");
+  const s = document.createElement("span");
+  s.className = "st";
+  s.textContent = st;
+  li.append(name, s);
+  return li;
+}
+
+function paintOne(i, o) {
+  const li = els.actList.children[i];
+  if (!li) return;
+  li.className = "act-item " + (o.ok ? "ok" : "err");
+  li.querySelector(".st").textContent = o.ok ? "ok" : (o.error || "failed");
+}
+
+function paintOutcomes(outcomes) {
+  outcomes.forEach((o, i) => paintOne(i, o));
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+els.actStop.addEventListener("click", () => {
+  actLoop.stop = true;
+});

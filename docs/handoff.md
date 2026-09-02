@@ -55,6 +55,7 @@ What exists:
 - **ADR-0044** mobile shell v2 — supervision console (amended same day: no header; Work tab = workspaces / free agents / terminals; `#/term/<id>` screen with key bar). `web/src/mobile/` is now screens (`Now`, `Inbox`, `Agents`, `Agent`, `More`) + hooks (`useHashRoute`, `usePoll`, `useFleet`, `useAgentSocket`) + components (`TabBar`, `ScreenHeader`, `StateChip`, `NeedsYouCard`, `AgentRow`, `StatStrip`, `CreateSheet`) over pure libs `lib/mobileRoutes.js`, `lib/agentEvents.js` (reducer of the agent WS stream; desktop `handleEvent` untouched), `lib/needsYou.js`, `lib/createSubmit.js` (lifted from `submitNew`). Server: `agentView.streaming/waiting/dialog` from `Runtime.Get(id).Snapshot()`; `AppSurface` gained `initialPath`; `summarizeArgs` moved to `lib/toolArgs.js` (re-exported). The waiting card exists on mobile now — the two "Mobile has no waiting card" lines below are history. Push is the next ADR (phase 2 of the approved plan: Web Push/VAPID in Go stdlib, presence-aware).
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
+- **ADR-0053** extension actuator (Track C): "Let the agent act on this page" — the agent may end a reply with one ```picode-act JSON block; the server validates it into an `act_batches` row (migration 021), the panel polls via the native host, asks once per origin (grant in `chrome.storage.local`, revocable), executes action-by-action with visible highlights (`chrome.scripting`, injected on demand), and posts outcomes back as one more watched turn; 3 rounds cap, Stop, 10-min expiry, claimed batches resumable. Routes: `GET /api/extension/act/next`, `POST /api/extension/act/{id}/result`.
 - **ADR-0045** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
 - **ADR-0049** authentication: `internal/auth` gate wraps the mux (`Deps.Auth`, nil = ungated in tests); modes off/remote/all (`auth.mode`); `auth_sessions` + `auth_pairings` (migration 019); install token `<data>/token`; routes `/api/auth/*` + `/pair`; `picode pair`, `picode token [rotate]`; Devices section in Preferences → Server; pairing screen on 401; QR carries a pairing link; native host and `pi-inbox` send the bearer; `PICODE_DATA` in spawn env. Roadmap: `docs/design/remote-modes-roadmap.md` (Tracks B–D next).
 - **ADR-0048** change feed: `events` is the change log (every store mutation appends in-tx; `Store.OnEvent` after commit; invariant test enumerates mutators), `internal/feed` (replay under the subscribe lock, `ErrReset`, ephemeral id 0), `GET /api/events` (SSE `hello`/`change`/`reset`, `Last-Event-ID` or `?after=`), push consumes the feed (`Notifier.OnEvent`), presence `OnChange` → `device.online`, runtime `OnState` → `agent.state`. Web: `lib/feed.js` (cursor in sessionStorage, bootId kick), `lib/feedReducers.js` (fleet / inbox / automations / runs; `null` = refetch), desktop sidebar + badges + AppSurface + Devices + Automations and mobile `useFleet` / `usePoll` / inbox loop on the feed; timers tick only while the feed is down.
@@ -67,9 +68,10 @@ webhook, notify channel, gateway hook route, `/automate` + templates;
 editor/detail UI fixes and the message-run amendment landed 2026-09-02.
 Owed: acceptance runs listed under *Next up* (owner's sudo).
 
-**ADR-0043 extension — Tracks A and B merged** (`78131e53`, `25ec36a5`); the
-Windows console host (`picode-nmh.exe`) and the `--parent-window` fix are
-dogfooded on the owner's Chrome. Track C (actuator) is next, in a worktree.
+**ADR-0053 Track C on `feat/ext-track-c`** — coded end to end and gated;
+NOT yet live-dogfooded: the loop depends on the model emitting the
+```picode-act block, so the first real send-with-act is the acceptance
+test. Panel states verified via `?preview=` screenshots only.
 
 **ADR-0025 — the whole tmux catalog is a settings surface. Delivered.**
 The owner overruled ADR-0024's "grows from parity gaps" rule: the GUI exposes
@@ -158,8 +160,8 @@ render megabytes.
 2. **Automations** — `pi-automate` only if `/automate`'s fence parsing
    proves flaky. Notify URL, webhook recipes and the gateway hook route
    shipped 2026-09-02.
-**ADR-0043 Track C** (actuator on the current tab) after Track B merges.
-Track D/E stay parked.
+**ADR-0043 Track C** — built on `feat/ext-track-c` (ADR-0053). After merge
+and live dogfood: Track D (`packages/pi-tab`) and E stay parked.
 
 **Watch: retiring the Shift+Enter shim (`web/src/lib/termKeys.js`).** Researched
 2026-08-31 at the owner's request: today it cannot be replaced by tmux/xterm.js
@@ -291,6 +293,18 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — Chrome extension Track C, the actuator (ADR-0054)**
+  (`feat/ext-track-c`). Send with "Let the agent act on this page" →
+  `[browser-act]` prompt intro → settle watcher parses the last
+  ```picode-act block → `act_batches` (migration 021) → panel polls
+  `GET /api/extension/act/next` through the native host (origin-gated
+  claim, blocked stays pending) → per-origin grant → visible
+  step-by-step execution (`chrome.scripting`, one action per injection,
+  highlight + native setters) → outcomes POST back as one more watched
+  turn; 3-round cap, Stop, 10-min expiry. Parser/lifecycle/routes
+  table-tested; panel states captured (`ext-act-grant/-acting/-actdone`).
+  (Actuator ADR numbered 0054 — 0053 went to session isolation.)
 
 - **2026-09-02 — Session isolation follow-through** (`fix/session-followthrough`):
   owner filed one bug with three faces on a freshly created agent: the bar

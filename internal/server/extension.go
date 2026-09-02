@@ -10,12 +10,14 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 func registerExtensionRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("GET /api/extension/agents", handleExtensionAgents(deps))
 	mux.HandleFunc("POST /api/extension/send", handleExtensionSend(deps))
+	registerActRoutes(mux, deps)
 }
 
 type extensionAgent struct {
@@ -85,6 +87,7 @@ func handleExtensionSend(deps Deps) http.HandlerFunc {
 			Message string          `json:"message"`
 			Tab     *extensionTab   `json:"tab"`
 			Image   *extensionImage `json:"image"`
+			Act     bool            `json:"act"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON")
@@ -155,6 +158,13 @@ func handleExtensionSend(deps Deps) http.HandlerFunc {
 		}
 
 		body := composeTabPrompt(req.Tab, req.Message)
+		if req.Act {
+			if tabURL(req.Tab) == "" {
+				writeErr(w, http.StatusBadRequest, "acting needs a page")
+				return
+			}
+			body += "\n\n" + browserhost.ActIntro
+		}
 		rpcImgs := make([]map[string]any, 0, len(imgs))
 		for _, im := range imgs {
 			rpcImgs = append(rpcImgs, map[string]any{
@@ -165,8 +175,27 @@ func handleExtensionSend(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": started})
+		watching := false
+		if req.Act {
+			_ = deps.Store.ExpirePendingActBatches(agent.ID)
+			if err := startActWatch(deps, agent.ID, originOf(tabURL(req.Tab))); err != nil {
+				// The turn was delivered; only the act loop is refused.
+				writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": started, "watching": false, "actError": err.Error()})
+				return
+			}
+			watching = true
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": started, "watching": watching})
 	}
+}
+
+// originOf reduces an absolute URL to scheme://host[:port].
+func originOf(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 func tabURL(tab *extensionTab) string {

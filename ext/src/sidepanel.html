@@ -27,6 +27,11 @@
     <label class="lbl" for="msg">Message</label>
     <textarea id="msg" class="ctl area" rows="5" placeholder="What should the agent do with this page?"></textarea>
 
+    <label id="act-row" class="check" hidden>
+      <input type="checkbox" id="act" />
+      Let the agent act on this page
+    </label>
+
     <label id="shot-row" class="check" hidden>
       <input type="checkbox" id="shot" />
       Include screenshot
@@ -38,12 +43,23 @@
     <p id="status" class="note" hidden></p>
   </form>
 
+  <div id="act-box" hidden>
+    <p id="act-line" class="note"></p>
+    <ul id="act-list" class="act-list"></ul>
+    <div class="row">
+      <button type="button" id="act-stop" class="btn" hidden>Stop</button>
+      <button type="button" id="act-allow" class="btn primary" hidden>Allow</button>
+      <button type="button" id="act-deny" class="btn" hidden>Not now</button>
+    </div>
+  </div>
+
   <div id="skel" class="skel" aria-hidden="true">
     <div class="skel-line"></div>
     <div class="skel-box"></div>
     <div class="skel-line short"></div>
   </div>
 
+  <script src="act.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

@@ -152,6 +152,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Let the agent act on the page you're looking at (ADR-0053).** The
+  Chrome extension's side panel gains "Let the agent act on this page":
+  the agent replies with steps (click / fill / press / read / scroll),
+  the panel asks once per site, then runs them one by one with a visible
+  highlight on each element and feeds the results back — up to 3 rounds,
+  **Stop** always one click away, and the panel must stay open (an
+  unanswered request expires after 10 minutes). Long unattended browser
+  jobs still belong to the agent's own browser, not to this panel.
+
 - **Automations v2: describe it, or start from a template (ADR-0045 amendment).**
   With an agent open, `/automate every weekday at 9, summarize what changed
   since yesterday` makes that agent read the repository and draft the

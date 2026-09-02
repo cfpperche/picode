@@ -58,3 +58,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0051](0051-shared-tailnet-server.md) | Shared tailnet box — a daemon per Linux user behind `picode gateway`, identity from `tailscale whois`, `/etc/picode/gateway.json`, `provision --shared` | accepted, amends 0049, 0050, 0020 |
 | [0052](0052-public-access.md) | Public access — Google/GitHub login at the gateway (stdlib OIDC/OAuth), a plain listener behind a TLS proxy, signed session, hardening; a systemd-nspawn container per member | accepted, amends 0051, 0007 |
 | [0053](0053-pending-session-resolves-at-spawn.md) | A pending session adopts its file at spawn (chat and TUI share one thread); the picker unions the private dir; the status bar follows the selected agent | accepted, amends 0039, 0040 |
+| [0054](0054-extension-actuator.md) | Extension actuator — granted, visible act loop on the current tab (`picode-act` batches) | accepted, fills the hole ADR-0043 left |

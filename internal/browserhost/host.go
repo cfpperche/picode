@@ -38,13 +38,16 @@ func IsHostArg(arg string) bool {
 
 // Request is one framed message from the extension.
 type Request struct {
-	Type     string `json:"type"`
-	ID       string `json:"id,omitempty"`
-	AgentID  string `json:"agentId,omitempty"`
-	DeviceID string `json:"deviceId,omitempty"`
-	Message  string `json:"message,omitempty"`
-	Tab      *Tab   `json:"tab,omitempty"`
-	Image    *Image `json:"image,omitempty"`
+	Type     string       `json:"type"`
+	ID       string       `json:"id,omitempty"`
+	AgentID  string       `json:"agentId,omitempty"`
+	DeviceID string       `json:"deviceId,omitempty"`
+	Message  string       `json:"message,omitempty"`
+	Tab      *Tab         `json:"tab,omitempty"`
+	Image    *Image       `json:"image,omitempty"`
+	Act      bool         `json:"act,omitempty"`
+	Outcomes []ActOutcome `json:"outcomes,omitempty"`
+	Stopped  bool         `json:"stopped,omitempty"`
 }
 
 // Tab is the current page the human is looking at.
@@ -62,14 +65,17 @@ type Image struct {
 
 // Reply is one framed message back to the extension.
 type Reply struct {
-	OK      bool        `json:"ok"`
-	Type    string      `json:"type,omitempty"`
-	ID      string      `json:"id,omitempty"`
-	Error   string      `json:"error,omitempty"`
-	Code    string      `json:"code,omitempty"`
-	URL     string      `json:"url,omitempty"`
-	Agents  []AgentInfo `json:"agents,omitempty"`
-	Started bool        `json:"started,omitempty"`
+	OK       bool          `json:"ok"`
+	Type     string        `json:"type,omitempty"`
+	ID       string        `json:"id,omitempty"`
+	Error    string        `json:"error,omitempty"`
+	Code     string        `json:"code,omitempty"`
+	URL      string        `json:"url,omitempty"`
+	Agents   []AgentInfo   `json:"agents,omitempty"`
+	Started  bool          `json:"started,omitempty"`
+	Watching bool          `json:"watching,omitempty"`
+	Blocked  string        `json:"blocked,omitempty"`
+	Batch    *ActBatchWire `json:"batch,omitempty"`
 }
 
 // AgentInfo is the compact roster the side panel renders.

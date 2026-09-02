@@ -129,6 +129,10 @@ func (c *Client) Handle(req Request) Reply {
 		return c.agents(req)
 	case "send":
 		return c.send(req)
+	case "act-next":
+		return c.actNext(req)
+	case "act-result":
+		return c.actResult(req)
 	default:
 		return Reply{OK: false, Type: req.Type, ID: req.ID, Error: "unknown request", Code: "bad_type"}
 	}
@@ -176,10 +180,14 @@ func (c *Client) send(req Request) Reply {
 	if req.Image != nil {
 		payload["image"] = req.Image
 	}
+	if req.Act {
+		payload["act"] = true
+	}
 	var body struct {
-		OK      bool   `json:"ok"`
-		Error   string `json:"error"`
-		Started bool   `json:"started"`
+		OK       bool   `json:"ok"`
+		Error    string `json:"error"`
+		Started  bool   `json:"started"`
+		Watching bool   `json:"watching"`
 	}
 	status, err := c.post(base+"/api/extension/send", payload, &body)
 	if err != nil {
@@ -202,7 +210,49 @@ func (c *Client) send(req Request) Reply {
 		}
 		return Reply{OK: false, Type: "send", ID: req.ID, Error: msg, Code: code, URL: base}
 	}
-	return Reply{OK: true, Type: "send", ID: req.ID, URL: base, Started: body.Started}
+	return Reply{OK: true, Type: "send", ID: req.ID, URL: base, Started: body.Started, Watching: body.Watching}
+}
+
+// actNext polls the server for the agent's next actuation batch. tab is
+// the asking tab's origin; a batch for another origin is not claimed.
+func (c *Client) actNext(req Request) Reply {
+	base, err := c.base()
+	if err != nil {
+		return down(req, err)
+	}
+	q := "?agent=" + url.QueryEscape(req.AgentID)
+	if req.Tab != nil && req.Tab.URL != "" {
+		q += "&tab=" + url.QueryEscape(req.Tab.URL)
+	}
+	var body struct {
+		Watching bool          `json:"watching"`
+		Blocked  string        `json:"blocked"`
+		Batch    *ActBatchWire `json:"batch"`
+	}
+	if err := c.get(base+"/api/extension/act/next"+q, &body); err != nil {
+		return down(req, err)
+	}
+	c.noteDevice(base, req.DeviceID)
+	return Reply{OK: true, Type: "act-next", ID: req.ID, URL: base,
+		Watching: body.Watching, Blocked: body.Blocked, Batch: body.Batch}
+}
+
+// actResult posts one batch's outcomes back to PiCode.
+func (c *Client) actResult(req Request) Reply {
+	base, err := c.base()
+	if err != nil {
+		return down(req, err)
+	}
+	var body struct {
+		Watching bool `json:"watching"`
+	}
+	if _, err := c.post(base+"/api/extension/act/"+url.PathEscape(req.ID)+"/result", map[string]any{
+		"outcomes": req.Outcomes,
+		"stopped":  req.Stopped,
+	}, &body); err != nil {
+		return Reply{OK: false, Type: "act-result", ID: req.ID, Error: err.Error(), Code: "http", URL: base}
+	}
+	return Reply{OK: true, Type: "act-result", ID: req.ID, URL: base, Watching: body.Watching}
 }
 
 func (c *Client) base() (string, error) {

@@ -78,6 +78,25 @@ body { padding: 12px; }
   white-space: nowrap;
 }
 .note { color: var(--text-secondary); margin-top: 8px; }
+.act-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
+}
+.act-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.act-item .st { margin-left: auto; }
+.act-item.ok .st { color: var(--ok); }
+.act-item.err .st { color: var(--danger); }
+.act-item.wait .st { color: var(--warn); }
 .check {
   display: flex;
   align-items: center;
