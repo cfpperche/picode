@@ -200,6 +200,10 @@ export default function App() {
   // composer statusbar); CompactLive owns its own per-second tick.
   const compactSince = (agent && compacting[agent.id]) || null;
   const stopped = !agent || agent.mode === "stopped";
+  // An interactive (TUI) agent has no event channel: the server scrapes
+  // the pane and publishes agent.tui (ADR-0048). When pi is busy there,
+  // the chat says so instead of reading as idle.
+  const tuiBusy = !!(agent && agent.mode === "interactive" && tuiWorking.includes(agent.id));
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selectedId && termWanted.has(selectedId));
   const atAgents = useMemo(
@@ -2307,6 +2311,7 @@ export default function App() {
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
               slashExtra, atAgents, onAgentPage: go, pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
+              tuiWorking: tuiBusy,
               onAbort: abortTurn,
               lastReply: lastAssistantText(items),
               sessionBar: selectedId ? (
