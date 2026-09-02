@@ -30,8 +30,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: www/package-lock.json
-      - run: npm ci && npm run build
-        working-directory: www
+      - run: make docs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

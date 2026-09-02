@@ -27,6 +27,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Public docs on GitHub Pages were frozen since 2026-08-29.**
+  VitePress treats a bare `https://localhost:8445` in Getting started as
+  a crawlable link and fails the build, so every Pages deploy since then
+  exited 1 and the live site stayed on the 2026-08-26 artifact (MCP 404,
+  newer guides missing). The URL is now inline code; localhost /
+  127.0.0.1 links are ignored; `make docs` is part of `make ci`.
+
 - **Apps host: consistent tab height, and the list pane next to a
   detail is finally resizable.** Three different "row of tabs" widgets
   had drifted to three different heights (40 / 36 / 30px) across the

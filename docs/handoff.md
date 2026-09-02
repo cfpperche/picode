@@ -221,6 +221,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — GitHub Pages frozen since 2026-08-29**
+  (`fix/pages-dead-links`). VitePress 1.6.4 fails the build on a bare
+  `https://localhost:8445` in `www/guide/getting-started.md` (dead-link
+  check). Four Pages runs failed in ~20s; the live site stayed on the
+  last green artifact (2026-08-26), so `/guide/mcp` 404'd even though
+  `mcp.md` is on `origin/main`. Fix: wrap the URL as inline code,
+  `ignoreDeadLinks` for localhost / 127.0.0.1, `make docs` in `make ci`
+  (ubuntu job) so Pages is not the first gate.
+
 - **2026-09-01** — **Session observability dashboard (ADR-0041)**, on
   branch `feat/session-dashboard`. Owner rejected a first attempt
   (`feat/home-dashboard`, unmerged): a `HomeView` that listed workspaces/
