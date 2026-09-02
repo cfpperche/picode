@@ -13,6 +13,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The chat now shows when an agent is working in its TUI.** The chat's
+  event socket only exists for managed agents, so a TUI agent read as
+  idle in the chat no matter what pi was doing: send a message in the
+  terminal, switch to the chat, and nothing hinted at the work. The
+  server already scrapes every interactive pane and publishes
+  `agent.tui` (ADR-0048) — the sidebar and dashboard spun on it, but the
+  chat ignored it. When the selected agent is interactive and its pane
+  says working, the composer now shows a "Working in the terminal"
+  row with an **Open** button that docks the TUI. No fake streaming
+  and no Stop: the row says exactly where the output is landing, and
+  it clears with the TUI's own working line.
+
 - **The composer's "+ New" now actually starts a fresh session.** It
   cleared the agent's session pointer and then lost it three ways: the
   restart spawned in the workspace's path instead of the agent's own

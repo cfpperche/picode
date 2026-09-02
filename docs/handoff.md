@@ -296,6 +296,22 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — the chat shows when a TUI agent is working**
+  (`fix/tui-working-in-chat`). The chat's event socket exists only for
+  managed agents, so an interactive agent read as idle there no matter
+  what pi was doing (owner: sent a message in the TUI, switched to the
+  chat, no working sign). The server already scraped panes and
+  published `agent.tui` (ADR-0048) — sidebar/dashboard spun on it, the
+  chat didn't. When the selected agent is interactive and its pane is
+  working, the composer now shows a "Working in the terminal" row with
+  an Open button that docks the TUI; no fake streaming, no Stop. UI
+  only; the server pieces shipped with ADR-0048 (watch tick 3s).
+  Deployed and verified live on agente-auto: send-keys → row appears
+  within one tick with the spinner, Open docks the TUI mid-work, row
+  clears when the pane's working line ends; overlayAudit ok.
+  visual-review: PASS (qa4-row-live.png + qa4-open-docked.png,
+  card 5/5).
+
 - **2026-09-02 — Mobile terminal keys to the benchmark (ADR-0044
   amendment)** (`feat/mobile-terminal-keys`): library search found
   nothing terminal-aware (simple-keyboard & co. are full QWERTYs), so
