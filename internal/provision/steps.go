@@ -294,7 +294,7 @@ func probeHealth(base string) error {
 		Timeout:   3 * time.Second,
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, //nolint:gosec
 	}
-	res, err := client.Get(strings.TrimSuffix(base, "/") + "/api/health")
+	res, err := client.Get(strings.TrimSuffix(base, "/") + "/api/health") // health needs no token (ADR-0049)
 	if err != nil {
 		return err
 	}

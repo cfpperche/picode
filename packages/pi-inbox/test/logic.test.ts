@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	parseToken,
+	rejectUnauthorizedFor,
 	agentIdentity,
 	buildAskPayload,
 	buildNotifyPayload,
@@ -56,4 +58,17 @@ test("buildAskPayload files a blocking question with context", () => {
 	const bare = buildAskPayload({ question: "Go?" }, {});
 	assert.equal(bare.body, "Go?");
 	assert.equal(bare.sourceKind, "system");
+});
+
+test("parseToken accepts hex tokens only", () => {
+	assert.equal(parseToken(" " + "a".repeat(64) + "\n"), "a".repeat(64));
+	assert.equal(parseToken("not a token"), "");
+	assert.equal(parseToken(null), "");
+});
+
+test("rejectUnauthorizedFor trusts nothing but loopback", () => {
+	assert.equal(rejectUnauthorizedFor("https://localhost:8445"), false);
+	assert.equal(rejectUnauthorizedFor("https://127.0.0.1:8445"), false);
+	assert.equal(rejectUnauthorizedFor("https://box.tail.ts.net:8445"), true);
+	assert.equal(rejectUnauthorizedFor("nonsense"), true);
 });

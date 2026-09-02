@@ -36,6 +36,25 @@ export function parseServerJson(text: string): ServerInfo {
 	return { ok: true, url: url.replace(/\/+$/, "") };
 }
 
+/** The install token beside server.json (ADR-0049); "" when absent. */
+export function parseToken(text: string | null | undefined): string {
+	const t = (text || "").trim();
+	return /^[0-9a-f]{32,128}$/i.test(t) ? t : "";
+}
+
+/**
+ * TLS policy for the one request: a self-signed / mkcert cert on
+ * loopback is accepted; anything else must present a trusted chain.
+ */
+export function rejectUnauthorizedFor(url: string): boolean {
+	try {
+		const h = new URL(url).hostname.replace(/^\[|\]$/g, "");
+		return !(h === "localhost" || h === "127.0.0.1" || h === "::1");
+	} catch {
+		return true;
+	}
+}
+
 /** The identity PiCode stamps on managed and TUI spawns (ADR-0037). */
 export function agentIdentity(env: Record<string, string | undefined>): {
 	sourceKind: "agent" | "system";

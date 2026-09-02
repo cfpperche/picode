@@ -138,7 +138,12 @@ func (c *Client) base() (string, error) {
 }
 
 func (c *Client) get(url string, dest any) error {
-	res, err := c.http().Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	authorize(req)
+	res, err := c.http().Do(req)
 	if err != nil {
 		return fmt.Errorf("PiCode is not running")
 	}
@@ -151,7 +156,13 @@ func (c *Client) post(url string, payload any, dest any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := c.http().Post(url, "application/json", bytes.NewReader(raw))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(raw))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	authorize(req)
+	res, err := c.http().Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("PiCode is not running")
 	}
@@ -213,6 +224,17 @@ func down(req Request, err error) Reply {
 
 // ReadServerURL parses <data>/server.json. The file is rewritten on every
 // bind, so callers should not cache it across requests.
+// authorize adds the install token (<data>/token, ADR-0049) when present.
+func authorize(req *http.Request) {
+	b, err := os.ReadFile(filepath.Join(dataDir(), "token"))
+	if err != nil {
+		return
+	}
+	if tok := strings.TrimSpace(string(b)); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+}
+
 func ReadServerURL() (string, error) {
 	path := filepath.Join(dataDir(), "server.json")
 	b, err := os.ReadFile(path)
@@ -227,6 +249,9 @@ func ReadServerURL() (string, error) {
 	}
 	return strings.TrimRight(s.URL, "/"), nil
 }
+
+// DataDir is where the daemon keeps server.json and the install token.
+func DataDir() string { return dataDir() }
 
 func dataDir() string {
 	if d := strings.TrimSpace(os.Getenv("PICODE_DATA")); d != "" {

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/presence"
@@ -55,6 +56,7 @@ type Deps struct {
 	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
 	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
 	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
+	Auth         *auth.Service  // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -104,15 +106,20 @@ func New(addr string, deps Deps) *http.Server {
 	mux.HandleFunc("GET /api/events", handleEvents(deps))
 	registerExtensionRoutes(mux, deps)
 	registerPushRoutes(mux, deps)
+	registerAuthRoutes(mux, deps)
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
 
 	mux.Handle("/", cacheControl(uiHandler()))
 
+	var handler http.Handler = mux
+	if deps.Auth != nil {
+		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
+	}
 	return &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 }

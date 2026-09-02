@@ -229,6 +229,9 @@ func (r *Runtime) Start(agentID, path string) error {
 			extraEnv = append(extraEnv, a.SpawnEnv()...)
 		}
 	}
+	if r.DataDir != "" {
+		extraEnv = append(extraEnv, "PICODE_DATA="+r.DataDir) // pi packages find server.json and the token
+	}
 	mcp.ClearLive(r.DataDir, agentID)
 	if liveArgs, liveEnv := mcp.AttachLive(r.DataDir, agentID); len(liveArgs) > 0 {
 		args = append(args, liveArgs...)

@@ -19,6 +19,8 @@ import {
 	buildAskPayload,
 	buildNotifyPayload,
 	parseServerJson,
+	parseToken,
+	rejectUnauthorizedFor,
 	resolveDataDir,
 	type InboxPayload,
 } from "../src/logic.ts";
@@ -40,6 +42,16 @@ function serverUrl(): string | null {
 	return info.ok ? info.url : null;
 }
 
+/** The install token (ADR-0049), re-read per call so a rotation lands. */
+function installToken(): string {
+	const dir = resolveDataDir(process.env, homedir());
+	try {
+		return parseToken(readFileSync(join(dir, "token"), "utf8"));
+	} catch {
+		return "";
+	}
+}
+
 // node:https directly (zero deps — an extension resolves modules from its
 // own path, so nothing beyond built-ins is guaranteed). PiCode serves
 // localhost with a self-signed/mkcert cert Node doesn't trust:
@@ -48,12 +60,15 @@ function serverUrl(): string | null {
 function postJSON(url: URL, body: string): Promise<{ status: number; text: string }> {
 	return new Promise((resolve, reject) => {
 		const fn = url.protocol === "https:" ? httpsRequest : httpRequest;
+		const headers: Record<string, string | number> = { "content-type": "application/json", "content-length": Buffer.byteLength(body) };
+		const token = installToken();
+		if (token) headers.authorization = "Bearer " + token;
 		const req = fn(
 			url,
 			{
 				method: "POST",
-				headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
-				rejectUnauthorized: false,
+				headers,
+				rejectUnauthorized: rejectUnauthorizedFor(url.toString()),
 				timeout: 5000,
 			},
 			(res) => {

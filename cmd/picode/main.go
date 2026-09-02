@@ -15,6 +15,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -31,6 +33,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/automate"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/binwatch"
@@ -90,6 +93,10 @@ func dispatch(cmd string, args []string) bool {
 		runDeploy()
 	case cmd == "uninstall":
 		runUninstall(args)
+	case cmd == "pair":
+		runPair()
+	case cmd == "token":
+		runToken(args)
 	case cmd == "extension-install":
 		runExtensionInstall()
 	case cmd == "extension-uninstall":
@@ -107,6 +114,8 @@ func usage() {
 
 Usage:
   picode [flags]              start the server
+  picode pair                 print a one-time link to pair another device
+  picode token [rotate]       print the install token path, or rotate it
   picode install              copy to ~/.local/bin and start on Linux login (systemd --user)
   picode provision [flags]    converge this machine on what PiCode needs (ADR-0020)
     --dry-run       report what would change, touch nothing
@@ -354,8 +363,20 @@ func serve() {
 		changes.Listen(notifier.OnEvent)
 	}
 
+	// Request gate (ADR-0049): install token at <data>/token, loopback
+	// auto-pairs in the default mode, everything else pairs a device.
+	hostname, _ := os.Hostname()
+	gate, err := auth.New(auth.Config{
+		Store: st, DataDir: dataDir, Insecure: os.Getenv("PICODE_INSECURE") == "1", Hostname: hostname,
+		PublicURL: func() string { v, _, _ := st.GetSetting("server.public_url"); return v },
+	})
+	if err != nil {
+		log.Fatalf("auth: %v", err)
+	}
+
 	deps := server.Deps{
 		Store:    st,
+		Auth:     gate,
 		Tmux:     tmux.New(),
 		Runtime:  runtime,
 		AgentCmd: "pi", // ADR-0003: user-installed pi
@@ -552,4 +573,66 @@ func runScreenshot(args []string) {
 		log.Fatalf("%v", err)
 	}
 	fmt.Println(*out)
+}
+
+// runPair prints a one-time pairing link for another device (ADR-0049):
+// the recovery path when no browser is paired yet. It talks to the
+// running daemon with the install token.
+func runPair() {
+	base, err := browserhost.ReadServerURL()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "PiCode is not running (no server.json)")
+		os.Exit(1)
+	}
+	tok, err := os.ReadFile(filepath.Join(browserhost.DataDir(), "token"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "no install token yet — start PiCode once")
+		os.Exit(1)
+	}
+	req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/pairings", strings.NewReader("{}"))
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "PiCode is not reachable:", err)
+		os.Exit(1)
+	}
+	defer res.Body.Close()
+	var out struct {
+		URL       string `json:"url"`
+		ExpiresAt string `json:"expiresAt"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil || out.URL == "" {
+		fmt.Fprintf(os.Stderr, "pairing failed: HTTP %d\n", res.StatusCode)
+		os.Exit(1)
+	}
+	fmt.Println("Open this link on the device to pair (valid 10 minutes):")
+	fmt.Println("  " + out.URL)
+}
+
+// runToken prints the install token path (`picode token`) or rotates it
+// (`picode token rotate`) — rotation restarts nothing; the daemon reads
+// the file again on its next request.
+func runToken(args []string) {
+	path := filepath.Join(browserhost.DataDir(), "token")
+	if len(args) > 0 && args[0] == "rotate" {
+		base, err := browserhost.ReadServerURL()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "PiCode is not running (no server.json)")
+			os.Exit(1)
+		}
+		tok, _ := os.ReadFile(path)
+		req, _ := http.NewRequest(http.MethodPost, base+"/api/auth/token/rotate", nil)
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(tok)))
+		client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} //nolint:gosec
+		res, err := client.Do(req)
+		if err != nil || res.StatusCode != http.StatusOK {
+			fmt.Fprintln(os.Stderr, "rotation failed")
+			os.Exit(1)
+		}
+		res.Body.Close()
+		fmt.Println("Rotated. Scripts read the new token from " + path)
+		return
+	}
+	fmt.Println(path)
 }
