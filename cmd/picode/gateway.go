@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -32,6 +33,7 @@ func runGateway(args []string) {
 	fs := flag.NewFlagSet("gateway", flag.ExitOnError)
 	cfgPath := fs.String("config", gateway.DefaultConfigPath, "gateway config")
 	insecure := fs.String("insecure-listen", "", "serve plain HTTP on this loopback address (tests, or behind an external proxy)")
+	purge := fs.Bool("purge", false, "uninstall: also delete the config directory (config, certificate) and the shared binary")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("gateway: %v", err)
 	}
@@ -40,6 +42,8 @@ func runGateway(args []string) {
 		serveGateway(*cfgPath, *insecure)
 	case "install":
 		installGateway(*cfgPath)
+	case "uninstall":
+		uninstallGateway(*cfgPath, *purge)
 	case "status":
 		gatewayStatus(*cfgPath)
 	default:
@@ -163,6 +167,48 @@ func installGateway(cfgPath string) {
 	fmt.Println("Gateway installed and running (" + install.GatewayUnitName + ").")
 	fmt.Println("  add members:   picode users add <tailscale login> <linux user>")
 	fmt.Println("  create one:    picode provision --user <linux user> --shared")
+}
+
+// uninstallGateway stops and removes the front door. Members' daemons
+// and data are untouched: they are ordinary user units. --purge also
+// removes the config directory (map + certificate) and the shared
+// binary — only sensible once no member unit points at it.
+func uninstallGateway(cfgPath string, purge bool) {
+	mustRoot("picode gateway uninstall")
+	_ = install.Run("systemctl", "disable", "--now", install.GatewayUnitName)
+	if err := os.Remove(install.GatewayUnitPath); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("gateway uninstall: %v", err)
+	}
+	_ = install.Run("systemctl", "daemon-reload")
+	fmt.Println("Gateway stopped and its unit removed.")
+	if !purge {
+		fmt.Println("Kept: " + cfgPath + " (members map, certificate) and " + GatewayBin + ". Add --purge to delete them.")
+		fmt.Println("Members' daemons keep running as their own users; stop one with: runuser -u <user> -- picode uninstall [--purge]")
+		return
+	}
+	dir := filepath.Dir(cfgPath)
+	if err := os.RemoveAll(dir); err != nil {
+		log.Fatalf("gateway uninstall: %v", err)
+	}
+	fmt.Println("Removed " + dir + ".")
+	if members := memberUnitsUsing(GatewayBin); len(members) > 0 {
+		fmt.Println("Kept " + GatewayBin + ": these members' units run it — " + strings.Join(members, ", "))
+	} else if err := os.Remove(GatewayBin); err == nil {
+		fmt.Println("Removed " + GatewayBin + ".")
+	}
+}
+
+// memberUnitsUsing lists Linux users whose picode.service runs bin.
+func memberUnitsUsing(bin string) []string {
+	var out []string
+	homes, _ := filepath.Glob("/home/*/.config/systemd/user/" + install.UnitName)
+	for _, unit := range homes {
+		b, err := os.ReadFile(unit)
+		if err == nil && strings.Contains(string(b), "ExecStart="+bin) {
+			out = append(out, filepath.Base(unit[:len(unit)-len("/.config/systemd/user/"+install.UnitName)]))
+		}
+	}
+	return out
 }
 
 func gatewayStatus(cfgPath string) {

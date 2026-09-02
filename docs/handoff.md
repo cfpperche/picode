@@ -286,6 +286,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — `picode gateway uninstall [--purge]`**: the owner asked
+  how to remove the gateway completely, not just disable it. Stops and
+  removes the system unit; `--purge` deletes `/etc/picode` and the
+  shared binary unless a member unit still runs it. Members are never
+  touched (their own `picode uninstall`).
 - **2026-09-02 — Track C, shared tailnet box (ADR-0051)**
   (`feat/shared-server`): `internal/gateway` — config (`/etc/picode/
   gateway.json`, login → Linux user), identity via `tailscale whois`

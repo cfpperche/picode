@@ -40,6 +40,11 @@ To remove someone: `sudo picode users remove alice@example.com`. Her
 daemon keeps her data; stop it with `sudo runuser -u alice -- picode
 uninstall` (add `--purge` to delete `~alice/.picode`).
 
+To remove the gateway itself: `sudo picode gateway uninstall` stops it
+and deletes its unit; members' daemons keep running as their own users.
+Add `--purge` to delete `/etc/picode` (the map and the certificate) and
+the shared binary when no member unit uses it any more.
+
 ## For a member
 
 Open `https://<box name>` — for example
