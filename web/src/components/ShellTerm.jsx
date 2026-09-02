@@ -1,3 +1,4 @@
+import { createSticky } from "../lib/termSticky.js";
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -61,7 +62,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(paneEl);
-    const entry = { term, fit, paneEl, sock: null, closedByUser: false };
+    const entry = { term, fit, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
     const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
@@ -76,7 +77,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     sock.onopen = () => {
       scheduleTermFit(entry, true);
       term.onData((data) => {
-        const out = termDataFilter(data);
+        const out = entry.sticky.apply(termDataFilter(data)); // phone Ctrl/Alt, armed from the key bar
         if (out === "") return;
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(out));
       });

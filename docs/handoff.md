@@ -296,6 +296,18 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Mobile terminal keys to the benchmark (ADR-0044
+  amendment)** (`feat/mobile-terminal-keys`): library search found
+  nothing terminal-aware (simple-keyboard & co. are full QWERTYs), so
+  the bar matches Termux/Blink/terminal-web: `lib/termSticky.js`
+  (createSticky: arm/apply/applyKey/subscribe, control bytes, modified
+  arrows, 5 s expiry; tested), wired on the ShellTerm entry
+  (`entry.sticky`, filters `term.onData`); `KeyBar` is one scrollable
+  row (`KEYS`), Ctrl/Alt light up (`aria-pressed`); `Terminal.jsx` sizes
+  the screen to `visualViewport` (lift above the iOS keyboard, refit)
+  and hides the row when focus comes with no viewport shrink (hardware
+  keyboard). iPhone verification is the owner's: keys never open the
+  keyboard, ⌨ does, Ctrl then c interrupts, bar above the keyboard.
 - **2026-09-02 — Mobile key bar** (`fix/mobile-keybar-focus`): owner:
   every key opened the iPhone keyboard. `sendKey` refocused xterm
   unconditionally; now it refocuses only if the terminal host already

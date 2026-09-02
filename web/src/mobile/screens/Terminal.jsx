@@ -3,6 +3,7 @@ import ScreenHeader from "../components/ScreenHeader.jsx";
 import KeyBar from "../components/KeyBar.jsx";
 import TermSurface from "../../components/TermSurface.jsx";
 import { terms } from "../../lib/terms.js";
+import { scheduleTermFit } from "../../lib/termFit.js";
 import { api, humanizeError } from "../../lib/api.js";
 import { termLine } from "../../lib/repoLine.js";
 import { IconKeyboard, IconGit } from "../../components/Icons.jsx";
@@ -15,8 +16,77 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [keys, setKeys] = useState(false);
+  const [armed, setArmed] = useState({ ctrl: false, alt: false });
+  const [hardKeyboard, setHardKeyboard] = useState(false);
   const hostRef = useRef(null);
+  const screenRef = useRef(null);
   const id = term && term.id;
+  const entryOf = () => terms.get("sh:" + id);
+
+  // The sticky state lives on the attach (ShellTerm filters the phone's
+  // keystrokes through it); this screen mirrors it for the bar.
+  useEffect(() => {
+    if (!page || error) return undefined;
+    const tick = setInterval(() => {
+      const e = entryOf();
+      if (!e || !e.sticky) return;
+      const st = e.sticky.state();
+      setArmed((cur) => (cur.ctrl === st.ctrl && cur.alt === st.alt ? cur : st));
+    }, 250);
+    let off = null;
+    const e = entryOf();
+    if (e && e.sticky) off = e.sticky.subscribe((st) => setArmed(st));
+    return () => { clearInterval(tick); if (off) off(); };
+  }, [page, error, id]);
+
+  // iOS: the soft keyboard shrinks the visual viewport, not the layout
+  // one, so a bar at the bottom of a 100dvh app ends up under the
+  // keyboard. Size the screen to the visual viewport and refit xterm,
+  // the way terminal-web lifts its bar. No keyboard, no change.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = screenRef.current;
+    if (!vv || !el) return undefined;
+    let focusedAt = 0;
+    const apply = () => {
+      const lift = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      const covered = window.innerHeight - vv.height > 120; // a keyboard, not a toolbar
+      el.style.height = covered ? vv.height + "px" : "";
+      el.style.transform = covered ? "translateY(" + Math.round(vv.offsetTop) + "px)" : "";
+      el.style.setProperty("--m-kb-lift", lift + "px");
+      if (covered) setHardKeyboard(false);
+      const e = entryOf();
+      if (e) scheduleTermFit(e, true);
+    };
+    // A hardware keyboard: the person tapped the terminal, it took
+    // focus, and nothing shrank. Programmatic focus (the attach focuses
+    // xterm) opens no soft keyboard anywhere, so only a focus that
+    // follows a touch counts.
+    let touchedAt = 0;
+    const onPointer = () => { touchedAt = Date.now(); };
+    const onFocusIn = (ev) => {
+      if (!hostRef.current || !hostRef.current.contains(ev.target)) return;
+      if (Date.now() - touchedAt > 500) return;
+      focusedAt = Date.now();
+      setTimeout(() => {
+        if (Date.now() - focusedAt < 280) return;
+        if (window.innerHeight - vv.height <= 120) setHardKeyboard(true);
+      }, 300);
+    };
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("pointerdown", onPointer, true);
+    apply();
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("pointerdown", onPointer, true);
+      el.style.height = "";
+      el.style.transform = "";
+    };
+  }, [id]);
 
   // Touch scroll. xterm only scrolls its own scrollback on touch; a tmux
   // pane (alt screen or mouse tracking) scrolls through wheel events —
@@ -73,12 +143,18 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
   // refocus xterm only if it already had the focus (the keyboard was
   // open and must stay open); otherwise leave the focus alone.
   function sendKey(seq) {
-    const entry = terms.get("sh:" + id);
+    const entry = entryOf();
     if (!entry) return;
-    if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(new TextEncoder().encode(seq));
+    const out = entry.sticky ? entry.sticky.applyKey(seq) : seq;
+    if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(new TextEncoder().encode(out));
     const host = hostRef.current;
     const hadFocus = !!(host && document.activeElement && host.contains(document.activeElement));
     if (hadFocus && entry.term) entry.term.focus();
+  }
+
+  function armKey(mod) {
+    const entry = entryOf();
+    if (entry && entry.sticky) setArmed(entry.sticky.arm(mod));
   }
 
   // The ⌨ key: the one deliberate way to bring the phone keyboard up.
@@ -98,7 +174,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
   const live = page ? { ...term, ...page } : term;
   const line = termLine(live);
   return (
-    <div className="m-screen m-term-screen">
+    <div className="m-screen m-term-screen" ref={screenRef}>
       <ScreenHeader
         title={live.name || "Terminal"}
         sub={line.text}
@@ -109,7 +185,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
               <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("term", term.id, live.name || "Terminal")}><IconGit size={13} /> {live.git.dirty}</button>
             ) : null}
             {page && !error ? (
-              <button type="button" className={"btn btn-sm m-keys-btn" + (keys ? " on" : "")} title="Terminal keys" aria-label={keys ? "Hide terminal keys" : "Show terminal keys"} aria-pressed={keys} onPointerDown={(e) => e.preventDefault()} onClick={() => setKeys((k) => !k)}>
+              <button type="button" className={"btn btn-sm m-keys-btn" + (keys ? " on" : "")} title="Terminal keys" aria-label={keys ? "Hide terminal keys" : "Show terminal keys"} aria-pressed={keys} onPointerDown={(e) => e.preventDefault()} onClick={() => { setHardKeyboard(false); setKeys((k) => !k); }}>
                 <IconKeyboard size={16} />
               </button>
             ) : null}
@@ -126,7 +202,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
           <p className="m-empty-line m-pad">Attaching…</p>
         )}
       </div>
-      {page && !error && keys ? <KeyBar onKey={sendKey} onType={typeHere} onClose={() => setKeys(false)} /> : null}
+      {page && !error && keys && !hardKeyboard ? <KeyBar armed={armed} onArm={armKey} onKey={sendKey} onType={typeHere} onClose={() => setKeys(false)} /> : null}
     </div>
   );
 }

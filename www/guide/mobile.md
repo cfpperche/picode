@@ -42,6 +42,24 @@ Tap a terminal to attach to it. Under the terminal a **key bar** gives you
 what the phone keyboard lacks: Esc, Tab, Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+L,
 arrows, and `/ | - ~`.
 
+## Terminal keys
+
+A terminal on the phone has a key row for what the soft keyboard lacks,
+laid out the way Termux and Blink do it. Tap the header's keyboard icon
+to show it; it scrolls sideways.
+
+- **Ctrl** and **Alt** are sticky: tap once, then the next key — from the
+  phone keyboard or from the row — is sent with that modifier. Ctrl then
+  `c` interrupts; Alt then `b` moves back a word. An armed modifier
+  lights up and expires after five seconds if nothing uses it, so a
+  forgotten Ctrl cannot turn a later `c` into an interrupt.
+- Esc, Tab, the arrows, Home/End, PgUp/PgDn, `^C`, and the symbols a
+  phone keyboard hides (`| ~ / -`).
+- **⌨** opens the phone keyboard; the other keys never do — they leave
+  it as it was. The row rises above the keyboard while you type.
+- With a hardware keyboard attached, the row gets out of the way by
+  itself (the header icon brings it back).
+
 ## Push notifications
 
 More → **Notifications** → **Enable push on this device**. PiCode then

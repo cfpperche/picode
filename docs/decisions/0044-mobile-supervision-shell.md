@@ -175,3 +175,20 @@ sticky head hands it the top padding (`:has()`), the head has no
 negative margin and sticks at `top: 0`; the safe-area strip is the
 head's padding in both modes. The terminal's keys toggle moved from a
 floating button (it sat on the TUI's status lines) into the header.
+
+## Amendment 2026-09-02 — terminal keys: the benchmark, not a library
+
+The owner asked for a ready library before more home-grown code. The
+research (Termux extra keys, Blink smart keys, mtmux, terminal-web —
+xterm.js + tmux like PiCode) found one convergent design and no
+package: the popular virtual keyboards (simple-keyboard, KioskBoard)
+draw a whole QWERTY for forms and know nothing of terminals or sticky
+modifiers. So the bar stays ours and matches the benchmark: one row
+that scrolls sideways (nothing shrinks or clips — a flex `<button>`
+does not shrink below its label in Safari), **sticky Ctrl/Alt**
+(`lib/termSticky.js`, pure: a letter becomes its control byte, Alt
+prefixes ESC, bar arrows take the xterm modified form, a five-second
+expiry), keys that never summon the phone keyboard with a ⌨ key that
+does, the screen sized to the `visualViewport` so the bar rises above
+the iOS keyboard and xterm refits, and a hardware-keyboard heuristic
+(focus with no viewport shrink) that hides the row.

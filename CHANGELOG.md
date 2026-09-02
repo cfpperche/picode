@@ -89,6 +89,14 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Terminal keys on the phone, the way real mobile terminals do it.**
+  One row that scrolls sideways (nothing is cut off), **sticky Ctrl and
+  Alt** — tap once, the next key from the phone keyboard or the row gets
+  the modifier, then it drops (five-second expiry) — plus Esc, Tab,
+  arrows, Home/End, PgUp/PgDn, `^C` and `| ~ / -`. The row rises above
+  the iOS keyboard while you type and steps aside for a hardware
+  keyboard. Guide: `www/guide/mobile.md`.
+
 - **Terminal keys on the phone no longer pop the keyboard.** Tapping
   Esc, Tab, a Ctrl chord or an arrow in the key bar sends it and leaves
   the phone keyboard as it was; a new ⌨ key is the one that opens it.
