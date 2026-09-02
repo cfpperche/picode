@@ -8,17 +8,22 @@ export default function ShareDrawer({ open, onClose }) {
   const [err, setErr] = useState("");
   const canvasRef = useRef(null);
 
+  const [pairCode, setPairCode] = useState("");
   useEffect(() => {
     if (!open) return;
     setErr("");
     setPicked("");
+    setPairCode("");
     api("/api/share").then(setReport).catch((e) => setErr(e.message));
+    // The phone needs to be a paired device (ADR-0049): mint a one-time
+    // code and put it in the link the QR carries.
+    api("/api/auth/pairings", { method: "POST" }).then((p) => setPairCode(p.code || "")).catch(() => {});
   }, [open]);
 
   const targets = (report && report.targets) || [];
   const url = picked || (report && report.url) || "";
   const chosen = targets.find((t) => t.url === url) || (url ? { url, onCert: true, kind: "" } : null);
-  const appURL = withHash(url);
+  const appURL = pairCode && url ? url.replace(/\/+$/, "") + "/pair?code=" + encodeURIComponent(pairCode) : withHash(url);
   const host = chosen && chosen.addr;
   const qrURL = trustPage(report && report.trustPort, host, appURL);
   const canQR = !!qrURL;

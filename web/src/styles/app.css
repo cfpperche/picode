@@ -3921,3 +3921,33 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .push-prefs-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .push-prefs-sub { margin: 18px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
 #m-app .push-prefs-actions .btn { min-height: 44px; flex: 1 1 auto; }
+
+/* Pairing (ADR-0049) */
+.pair-root { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: var(--bg-base); padding: 24px; }
+.pair-card { max-width: 420px; width: 100%; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 20px 24px; }
+.pair-card h1 { font-size: 16px; font-weight: 650; margin: 0 0 8px; }
+.pair-card p { font-size: 13px; line-height: 1.5; color: var(--text-secondary); margin: 0 0 12px; }
+.pair-form { display: flex; gap: 8px; align-items: center; }
+.pair-form .dlg-input { flex: 1; margin: 0; height: var(--ctl-h); }
+.pair-form .btn { height: var(--ctl-h); }
+.pair-muted { font-size: 12px; color: var(--text-secondary); margin: 12px 0 0; }
+.devs { margin-top: 16px; }
+.devs-h { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin: 16px 0 8px; }
+.devs-h:first-child { margin-top: 0; }
+.devs-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.devs-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg-panel); }
+.devs-row .btn { height: var(--ctl-h); min-height: var(--ctl-h); margin-left: auto; }
+.devs-label { display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-h); font-size: 13px; }
+.devs-when { display: inline-flex; align-items: center; height: var(--ctl-h); font-size: 11.5px; color: var(--text-secondary); }
+.devs-tag { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
+.devs-actions { display: flex; align-items: center; gap: 8px; }
+.devs-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.devs-pairing { display: flex; gap: 14px; align-items: flex-start; margin-top: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; background: var(--accent-soft); animation: rise-in var(--motion-med) var(--ease-out); }
+.devs-pairing canvas { border-radius: 6px; background: #fff; flex: none; }
+.devs-pairing-text { min-width: 0; flex: 1; }
+.devs-pairing-text p { margin: 0 0 8px; font-size: 12.5px; color: var(--text-secondary); }
+.devs-pairing-text .auto-code { width: 100%; margin-bottom: 8px; }
+.devs-modes { display: flex; flex-direction: column; gap: 6px; }
+.devs-mode { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.devs-mode input { margin-top: 3px; }
+.devs-hint { font-size: 12px; color: var(--text-secondary); }

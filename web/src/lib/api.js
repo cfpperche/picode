@@ -1,8 +1,16 @@
+// A 401 from our own API means this browser is not paired (ADR-0049):
+// the shells listen for the event and show the pairing screen once.
+export const AUTH_REQUIRED_EVENT = "picode-auth-required";
+
 export async function api(path, opts) {
   const res = await fetch(path, opts);
   if (!res.ok) {
     let msg = res.statusText;
-    try { msg = (await res.json()).error || msg; } catch { /* keep statusText */ }
+    let body = null;
+    try { body = await res.json(); msg = body.error || msg; } catch { /* keep statusText */ }
+    if (res.status === 401 && body && body.pair && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { path } }));
+    }
     throw new Error(msg);
   }
   if (res.status === 204) return null;
