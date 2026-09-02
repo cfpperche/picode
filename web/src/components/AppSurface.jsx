@@ -528,7 +528,6 @@ function Row({ item, onNavigate, onAction, active }) {
         onClick={() => { if (swiped) { setSwiped(false); return; } if (has) onNavigate(item.path); }}
         disabled={!has}
       >
-        <span className="app-row-dot" aria-hidden="true" />
         <span className="app-row-line1">
           <span className="app-row-title">{item.title}</span>
           {item.at ? <span className="app-when" title={absTime(item.at)}>{relTime(item.at)}</span> : null}

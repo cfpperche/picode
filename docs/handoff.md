@@ -255,6 +255,22 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **Two small UI fixes reported from the phone/desktop**,
+  on branch `fix/apps-header-row-spacing`: (1) `AppsGrid` dropped its
+  "Apps" section header — the sidebar's icon rail already marks which
+  section is open, and the single "Inbox" tile beneath it repeated the
+  same word (owner: "informação duplicada"). (2) `.app-row` (the shared
+  list row `AppSurface.jsx` renders for every app, desktop and mobile)
+  dropped its reserved 16px unread-dot gutter, blank on every read row;
+  the unread mark is now an inline `●` before the title, the same
+  convention the mobile Now screen already used. (3) The mobile swipe's
+  `translateX` on `.app-row-actions` was silently replacing that row's
+  own `translateY(-50%)`, so the revealed action buttons rendered
+  vertically off-row ("fica pela metade") — fixed by combining both
+  transforms. Verified on scratch: desktop Apps tab and Inbox list
+  (`overlayAudit` n/a, plain layout), mobile swipe with the action
+  button's rect centred within 3px of the row's.
+
 - **2026-09-01** — **Mobile phase 3 (ADR-0044 addendum)**, on branch
   `feat/mobile-phase3`: `usePullToRefresh` + `PullScreen` (Now, Work;
   Inbox via `AppSurface.refreshKey`), touch swipe on `AppSurface` rows

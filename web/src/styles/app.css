@@ -3699,8 +3699,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .app-row-on { border-bottom-color: transparent; }
 .app-row-main {
   flex: 1; min-width: 0;
-  display: grid; grid-template-columns: 12px minmax(0, 1fr);
-  align-items: center; column-gap: 4px; row-gap: 1px;
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  align-items: center; row-gap: 1px;
   padding: 8px; border: 0; background: none; text-align: left;
   color: var(--text-primary); font: inherit; cursor: pointer;
 }
@@ -3715,17 +3715,19 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .app-row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .app-row-on { background: var(--bg-elevated); box-shadow: inset 2px 0 0 var(--accent); }
 @media (hover: hover) { .app-row-on:hover { background: var(--bg-elevated); } }
-.app-row-dot { grid-column: 1; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
-.app-row-unread .app-row-dot { background: var(--accent); }
 .app-row-line1 {
-  grid-column: 2; display: flex; align-items: baseline; gap: 8px; min-width: 0;
+  grid-column: 1; display: flex; align-items: baseline; gap: 8px; min-width: 0;
 }
-.app-row-line2 { grid-column: 2; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.app-row-line2 { grid-column: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .app-row-title {
   flex: 1; min-width: 0; font-size: 13px; line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Unread: an inline mark against the text, not a reserved gutter every
+   read row pays for (the mark was a column-wide 6px dot + 4px gap of
+   blank space on every row that had nothing to show there). */
 .app-row-unread .app-row-title { font-weight: 600; }
+.app-row-unread .app-row-title::before { content: "\25CF\a0"; color: var(--accent); font-size: 8px; vertical-align: 2px; }
 
 /* Same reveal mechanics as the sidebar's row actions. */
 .app-row-actions {

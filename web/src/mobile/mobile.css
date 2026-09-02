@@ -282,10 +282,10 @@
 #m-app .app-row-swiped .app-row-main { transform: translateX(calc(-1 * var(--swipe-w, 96px))); }
 #m-app .app-row-actions {
   right: 4px; padding-left: 0; gap: 4px;
-  opacity: 0; transform: translateX(16px);
+  opacity: 0; transform: translateY(-50%) translateX(16px);
   transition: opacity var(--motion-med) var(--ease-out), transform var(--motion-med) var(--ease-out);
 }
-#m-app .app-row-swiped .app-row-actions { opacity: 1; transform: translateX(0); }
+#m-app .app-row-swiped .app-row-actions { opacity: 1; transform: translateY(-50%) translateX(0); }
 #m-app .app-row-actions .ws-icon-btn {
   width: 40px; height: 40px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary);
