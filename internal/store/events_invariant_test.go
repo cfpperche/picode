@@ -141,6 +141,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.FinishRun(r.ID, RunDone, "", 0.1) // no-op: no second event
 		}, []string{"run.created", "run.updated", "run.finished"}},
 		{"CreatePin", func(s *Store) { _, _ = s.CreatePin("t", nil, "b") }, []string{"pin.created"}},
+		{"CreateSession + RevokeSession", func(s *Store) {
+			sess, _, _ := s.CreateSession(SessionBrowser, "", "x", "", 0)
+			_ = s.RevokeSession(sess.ID)
+		}, []string{"session.created", "session.revoked"}},
+		{"CreatePairing + ConsumePairing", func(s *Store) {
+			code, _, _ := s.CreatePairing("", time.Minute)
+			_ = s.ConsumePairing(code)
+		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
 	}
 	for _, c := range cases {
