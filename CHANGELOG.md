@@ -77,6 +77,12 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **A content-security policy on every page.** The app and the pairing
+  and gateway pages now tell the browser exactly which scripts, styles
+  and connections are allowed — the app's own bundle, its one startup
+  script by fingerprint, and nothing from elsewhere. Same behaviour on a
+  laptop, a tailnet server or a public box.
+
 - **From any network, with a real login (ADR-0052).** The same gateway
   can sit behind Caddy or a Cloudflare Tunnel on a public name: people
   sign in with Google or GitHub (`sudo picode gateway oidc set …`),

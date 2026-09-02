@@ -56,7 +56,7 @@ you do not know, `pi` is a shell on your machine.
    `Permissions-Policy` (camera, microphone, geolocation off). A
    proxied daemon lists only its public target in `/api/share` — no LAN
    or tailnet addresses leak — and never starts the mkcert trust page.
-   CSP is deferred: the SPA's inline theme bootstrap needs a nonce.
+   CSP shipped the same day (amendment below).
 7. **Secrets stay out of `gateway.json`.** `picode gateway oidc set
    <provider> <id> <secret> --public-url https://…` writes the client
    credentials and the cookie key to `gateway.secret.json` (0600) and
@@ -111,3 +111,25 @@ loopback.
 - **Docker per member** — rejected for now: nspawn ships with systemd,
   needs no daemon, and the unit is a plain text file `provision` can
   converge on.
+
+## Amendment 2026-09-02 — Content-Security-Policy
+
+The daemon sends the policy itself, on HTML responses, so every mode
+gets it — not only the public one. The app shell's one inline script
+(the theme bootstrap, which must run before the stylesheet) is named by
+**hash**, computed from the served `index.html` (`inlineScriptHashes`,
+once for an embedded build, per request for a disk build so `make web`
+keeps working under a running daemon); no nonce, no template. The rest
+is same-origin plus what the app really uses: `wasm-unsafe-eval`
+(model-viewer, excalidraw), `img-src https:` (provider icons from
+unpkg, images in chat), `data:`/`blob:` for screenshots and recordings,
+inline style attributes (React), `worker-src blob:`, and the request's
+own host for `ws://`/`wss://` so every browser's WebSocket passes.
+Assets and API answers carry no policy, which keeps a same-origin
+worker (excalidraw's font subsetter calls `new Function`) in its own
+unrestricted context. `/pair` and the gateway's pages carry a closed
+policy: no scripts, inline styles, nothing external, no framing. The
+gateway forwards the daemon's headers on proxied pages and adds its own
+only to what it renders. Verified in the browser on the desktop shell,
+the chat, Preferences, Automations, Devices and the mobile shell with
+no violations.

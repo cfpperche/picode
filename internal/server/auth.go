@@ -286,6 +286,9 @@ type pairView struct {
 // app.css.
 func pairPage(w http.ResponseWriter, code int, v pairView) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", PageCSP)
+	w.Header().Set("Referrer-Policy", "same-origin")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)
 	_, _ = fmt.Fprintf(w, pairPageTemplate, html.EscapeString(v.Heading)+" · PiCode", html.EscapeString(v.Heading), v.Body, v.Extra)
 }

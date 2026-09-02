@@ -291,6 +291,7 @@ func peerIP(remote string) string {
 // pairing page, so a person sees one product.
 func (s *Server) page(w http.ResponseWriter, code int, heading, body string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", PageCSP)
 	w.WriteHeader(code)
 	_, _ = fmt.Fprintf(w, pageTemplate, html.EscapeString(heading), html.EscapeString(heading), body)
 }

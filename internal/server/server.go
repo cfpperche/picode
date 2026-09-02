@@ -111,7 +111,7 @@ func New(addr string, deps Deps) *http.Server {
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
 
-	mux.Handle("/", cacheControl(uiHandler()))
+	mux.Handle("/", securityHeaders(cacheControl(uiHandler())))
 
 	var handler http.Handler = mux
 	if deps.Auth != nil {

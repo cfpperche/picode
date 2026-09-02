@@ -148,6 +148,7 @@ func safeNext(next string) string {
 // pageExtra is page with a block of actions under the text.
 func (s *Server) pageExtra(w http.ResponseWriter, code int, heading, body, extra string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", PageCSP)
 	w.WriteHeader(code)
 	_, _ = fmt.Fprintf(w, pageTemplate, html.EscapeString(heading), html.EscapeString(heading), body+`<div class="actions">`+extra+`</div>`)
 }

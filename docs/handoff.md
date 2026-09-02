@@ -145,7 +145,6 @@ render megabytes.
 ## Next up
 
 1. **Remote modes — acceptance runs owed** (owner's sudo): Track C on a real second account (`sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`); Track D.2 (`sudo apt install systemd-container debootstrap`, `sudo picode provision --user demo --shared --container`); Track D.1 with a real GitHub OAuth app behind Caddy on a public name. Then decide on Track E (SaaS: signup, quotas, billing, VM per client) — the roadmap sketches it.
-2. **Gateway CSP** — the SPA's inline theme bootstrap needs a nonce before the gateway can send a content-security policy.
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
@@ -294,6 +293,15 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Content-Security-Policy (ADR-0052 amendment)**
+  (`feat/csp`): `internal/server/csp.go` — the app shell's inline theme
+  bootstrap is allowed by sha256 hash computed from the served
+  index.html (no nonce); `script-src 'self' 'wasm-unsafe-eval' <hash>`,
+  inline styles allowed (React), `img-src https:` (unpkg icons),
+  `connect-src` names the request host's ws/wss; assets carry no policy
+  (excalidraw's worker uses `new Function`). `/pair` and gateway pages:
+  `PageCSP` (no scripts, no framing). `securityHeaders` wraps the UI
+  handler. Test skips without a built UI; run after `make build`.
 - **2026-09-02 — `make desktop-restart` guardrail after the tray/VM outage.**
   Swapping the Windows exes, this session killed the tray and relaunched it
   with `picode-desktop --tray &` from a WSL tool shell; the process died with

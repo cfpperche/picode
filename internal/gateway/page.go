@@ -6,6 +6,10 @@ import (
 	"net/http"
 )
 
+// PageCSP is the gateway's own pages' policy (mirrors internal/server):
+// inline styles, no scripts, nothing external, no framing.
+const PageCSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+
 func decodeJSON(res *http.Response, dest any) error {
 	b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
