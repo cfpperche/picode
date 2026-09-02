@@ -384,6 +384,9 @@ func (w *runWatch) finish(status, reason string, notify bool) bool {
 	if notify {
 		title := w.a.Name + " failed"
 		w.runner.notify(w.a, store.InboxFYI, reason, title, failBody(reason))
+		if run, err := w.runner.deps.Store.GetRun(w.run.ID); err == nil {
+			w.runner.notifyOut(w.a, run, store.RunFailed, reason, failBody(reason), nil)
+		}
 	}
 	return true
 }
@@ -416,6 +419,9 @@ func (w *runWatch) settled(final string) {
 				body = "The run finished without a message."
 			}
 			w.runner.notify(w.a, store.InboxResult, "automation finished", w.a.Name+" ran", body)
+			if run, err := w.runner.deps.Store.GetRun(w.run.ID); err == nil {
+				w.runner.notifyOut(w.a, run, store.RunDone, "", body, nil)
+			}
 		}
 		w.runner.deps.Runtime.Stop(w.agentID)
 	}()

@@ -148,10 +148,9 @@ render megabytes.
    workspace create / clone, config PATCH); outbound webhooks fed by the
    log; a fake pi fixture that emits `usage.totalTokens` so the context
    bar can be tested end to end.
-2. **Automations** — outbound notification per automation (a Slack-
-   compatible incoming-webhook URL posted at run end) is the next value
-   item; `pi-automate` only if `/automate`'s fence parsing proves flaky.
-   Webhook recipes and the gateway hook route shipped 2026-09-02.
+2. **Automations** — `pi-automate` only if `/automate`'s fence parsing
+   proves flaky. Notify URL, webhook recipes and the gateway hook route
+   shipped 2026-09-02.
 **ADR-0043 Track C** (actuator on the current tab) after Track B merges.
 Track D/E stay parked.
 
@@ -286,6 +285,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Automations notify a channel (ADR-0045 amendment)**
+  (`feat/automation-notify`): `notify_url` on automations (migration
+  020, validated http(s) in the store), `automate.BuildNotify` (Slack
+  shape, clipped summary), `runner.notifyOut` in
+  `internal/server/automations_notify.go` (background, one retry on
+  network/5xx, `automation.notify` event), hooked into `settled` and the
+  failure path of `finish`; editor field + "Notifies" tag; guide section.
 - **2026-09-02 — Automation webhooks through the gateway (ADR-0045
   amendment)** (`feat/gateway-webhook`): `POST /-/hook/<user>/<id>` on the
   gateway (no identity, per-peer limit, member check, Authorization

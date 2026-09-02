@@ -90,6 +90,25 @@ Sentry event and open a fix branch".
 **Slack slash command / Zapier / n8n** — anything that can POST with a
 header works the same way; the body is free text for the agent.
 
+## Notify a channel when a run ends
+
+Every run lands in the Inbox. To hear about it somewhere else, give the
+automation a **Notify** URL: a Slack incoming webhook
+(`https://hooks.slack.com/services/…`), a Discord webhook with `/slack`
+appended, a Teams incoming webhook, or any endpoint that accepts JSON.
+When a run ends PiCode POSTs one message — ✅/❌, the automation's name,
+the cost, a link back to it, and the agent's final message (clipped at
+1500 characters) — in the Slack shape:
+
+```json
+{"text": "✅ *Nightly tests* ran · $0.12 · <https://box/#/automations/a1|Open in PiCode>\nAll green.",
+ "blocks": [{"type":"section","text":{"type":"mrkdwn","text":"…"}}]}
+```
+
+A failed delivery is retried once after five seconds and then recorded
+as an `automation.notify` event with the error; the run itself is not
+affected.
+
 ## What a run can end as
 
 | Result | Meaning |

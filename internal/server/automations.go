@@ -114,6 +114,7 @@ type automationBody struct {
 	Thinking         *string  `json:"thinking"`
 	Cron             *string  `json:"cron"`
 	Webhook          *bool    `json:"webhook"`
+	NotifyURL        *string  `json:"notifyUrl"`
 	MaxCostUSD       *float64 `json:"maxCostUsd"`
 	MaxRuns          *int     `json:"maxRuns"`
 	MaxRunsWindowMin *int     `json:"maxRunsWindowMin"`
@@ -138,7 +139,7 @@ func handleCreateAutomation(deps Deps) http.HandlerFunc {
 			Name: deref(b.Name), WorkspaceID: deref(b.WorkspaceID), Action: deref(b.Action),
 			TargetAgentID: deref(b.TargetAgentID), Prompt: deref(b.Prompt),
 			Provider: deref(b.Provider), Model: deref(b.Model), Thinking: deref(b.Thinking),
-			Cron: deref(b.Cron), Webhook: deref(b.Webhook), MaxCostUSD: deref(b.MaxCostUSD),
+			Cron: deref(b.Cron), Webhook: deref(b.Webhook), NotifyURL: deref(b.NotifyURL), MaxCostUSD: deref(b.MaxCostUSD),
 			MaxRuns: deref(b.MaxRuns), MaxRunsWindowMin: deref(b.MaxRunsWindowMin),
 		})
 		if err != nil {
@@ -192,7 +193,7 @@ func handlePatchAutomation(deps Deps) http.HandlerFunc {
 		a, err := deps.Store.UpdateAutomation(id, store.AutomationPatch{
 			Name: b.Name, Enabled: b.Enabled, WorkspaceID: b.WorkspaceID, Action: b.Action,
 			TargetAgentID: b.TargetAgentID, Prompt: b.Prompt, Provider: b.Provider, Model: b.Model,
-			Thinking: b.Thinking, Cron: b.Cron, MaxCostUSD: b.MaxCostUSD, MaxRuns: b.MaxRuns,
+			Thinking: b.Thinking, Cron: b.Cron, NotifyURL: b.NotifyURL, MaxCostUSD: b.MaxCostUSD, MaxRuns: b.MaxRuns,
 			MaxRunsWindowMin: b.MaxRunsWindowMin,
 		})
 		if err != nil {

@@ -128,6 +128,7 @@ export const automationSchema = z.object({
   scheduleOn: z.boolean(),
   cron: z.string().trim(),
   webhook: z.boolean(),
+  notifyUrl: z.string().trim(),
   maxCostUsd: numField,
   maxRuns: numField,
   maxRunsWindowMin: numField,
@@ -135,6 +136,7 @@ export const automationSchema = z.object({
   const issue = (message) => ctx.addIssue({ code: "custom", message });
   if (v.action === "message" && !v.targetAgentId) issue("Pick the agent to message.");
   if (!v.scheduleOn && !v.webhook) issue("Turn on a schedule or a webhook.");
+  if (v.notifyUrl && !/^https?:\/\/[^\s]+$/.test(v.notifyUrl)) issue("Notify URL must be an http(s) address.");
   if (v.scheduleOn) {
     const err = cronError(v.cron);
     if (err) issue(err);

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -61,6 +62,7 @@ type Automation struct {
 	Thinking         *string  `json:"thinking"`
 	Cron             *string  `json:"cron"`
 	Webhook          bool     `json:"webhook"`
+	NotifyURL        *string  `json:"notifyUrl"` // POSTed a Slack-style message when a run ends
 	MaxCostUSD       *float64 `json:"maxCostUsd"`
 	MaxRuns          *int     `json:"maxRuns"`
 	MaxRunsWindowMin *int     `json:"maxRunsWindowMin"`
@@ -84,6 +86,7 @@ type AutomationParams struct {
 	Thinking         string
 	Cron             string
 	Webhook          bool
+	NotifyURL        string
 	MaxCostUSD       float64
 	MaxRuns          int
 	MaxRunsWindowMin int
@@ -102,6 +105,7 @@ type AutomationPatch struct {
 	Model            *string
 	Thinking         *string
 	Cron             *string
+	NotifyURL        *string
 	MaxCostUSD       *float64
 	MaxRuns          *int
 	MaxRunsWindowMin *int
@@ -122,13 +126,13 @@ type Run struct {
 
 const automationCols = `id, name, enabled, workspace_id, action, target_agent_id, agent_id, prompt,
 	provider, model, thinking, cron, webhook_hash, max_cost_usd, max_runs, max_runs_window_min,
-	last_fired_at, created_at, updated_at`
+	last_fired_at, created_at, updated_at, notify_url`
 
 func scanAutomation(row interface{ Scan(...any) error }, a *Automation) error {
 	var enabled int
 	if err := row.Scan(&a.ID, &a.Name, &enabled, &a.WorkspaceID, &a.Action, &a.TargetAgentID, &a.AgentID,
 		&a.Prompt, &a.Provider, &a.Model, &a.Thinking, &a.Cron, &a.webhookHash, &a.MaxCostUSD,
-		&a.MaxRuns, &a.MaxRunsWindowMin, &a.LastFiredAt, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		&a.MaxRuns, &a.MaxRunsWindowMin, &a.LastFiredAt, &a.CreatedAt, &a.UpdatedAt, &a.NotifyURL); err != nil {
 		return err
 	}
 	a.Enabled = enabled != 0
@@ -145,6 +149,12 @@ func scanRun(row interface{ Scan(...any) error }, r *Run) error {
 
 // validateAutomation checks the invariants shared by create and update.
 func validateAutomation(a Automation) error {
+	if a.NotifyURL != nil {
+		u, err := url.Parse(*a.NotifyURL)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+			return fmt.Errorf("notify URL must be an http(s) address")
+		}
+	}
 	a.Name = strings.TrimSpace(a.Name)
 	if a.Name == "" {
 		return fmt.Errorf("name is required")
@@ -231,7 +241,7 @@ func (s *Store) CreateAutomation(p AutomationParams) (Automation, string, error)
 		ID: newID(p.Name, "aut"), Name: strings.TrimSpace(p.Name), Enabled: true, WorkspaceID: ws,
 		Action: p.Action, TargetAgentID: emptyToNil(p.TargetAgentID), Prompt: p.Prompt,
 		Provider: emptyToNil(p.Provider), Model: emptyToNil(p.Model), Thinking: emptyToNil(p.Thinking),
-		Cron: emptyToNil(p.Cron), Webhook: p.Webhook,
+		Cron: emptyToNil(p.Cron), Webhook: p.Webhook, NotifyURL: emptyToNil(strings.TrimSpace(p.NotifyURL)),
 		MaxCostUSD: optFloat(p.MaxCostUSD), MaxRuns: optInt(p.MaxRuns), MaxRunsWindowMin: optInt(p.MaxRunsWindowMin),
 		CreatedAt: now, UpdatedAt: now,
 	}
@@ -253,10 +263,10 @@ func (s *Store) CreateAutomation(p AutomationParams) (Automation, string, error)
 		secret, a.webhookHash = plain, &hash
 	}
 	if _, err := s.db.Exec(`INSERT INTO automations (`+automationCols+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ID, a.Name, boolInt(a.Enabled), a.WorkspaceID, a.Action, a.TargetAgentID, a.AgentID, a.Prompt,
 		a.Provider, a.Model, a.Thinking, a.Cron, a.webhookHash, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin,
-		a.LastFiredAt, a.CreatedAt, a.UpdatedAt); err != nil {
+		a.LastFiredAt, a.CreatedAt, a.UpdatedAt, a.NotifyURL); err != nil {
 		return Automation{}, "", fmt.Errorf("store: create automation: %w", err)
 	}
 	s.note("automation.created", nil, nil, a) // workspace may be gone: not a workspaces FK
@@ -338,6 +348,9 @@ func (s *Store) UpdateAutomation(id string, p AutomationPatch) (Automation, erro
 			}
 		}
 	}
+	if p.NotifyURL != nil {
+		a.NotifyURL = emptyToNil(strings.TrimSpace(*p.NotifyURL))
+	}
 	if p.MaxCostUSD != nil {
 		if *p.MaxCostUSD < 0 {
 			return Automation{}, fmt.Errorf("limits cannot be negative")
@@ -355,10 +368,11 @@ func (s *Store) UpdateAutomation(id string, p AutomationPatch) (Automation, erro
 	}
 	a.UpdatedAt = nowUTC()
 	if _, err := s.db.Exec(`UPDATE automations SET name=?, enabled=?, workspace_id=?, action=?, target_agent_id=?,
-		prompt=?, provider=?, model=?, thinking=?, cron=?, max_cost_usd=?, max_runs=?, max_runs_window_min=?, updated_at=?
+		prompt=?, provider=?, model=?, thinking=?, cron=?, max_cost_usd=?, max_runs=?, max_runs_window_min=?, updated_at=?,
+		notify_url=?
 		WHERE id=?`,
 		a.Name, boolInt(a.Enabled), a.WorkspaceID, a.Action, a.TargetAgentID, a.Prompt, a.Provider, a.Model,
-		a.Thinking, a.Cron, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin, a.UpdatedAt, id); err != nil {
+		a.Thinking, a.Cron, a.MaxCostUSD, a.MaxRuns, a.MaxRunsWindowMin, a.UpdatedAt, a.NotifyURL, id); err != nil {
 		return Automation{}, fmt.Errorf("store: update automation: %w", err)
 	}
 	return s.automationChanged(id)

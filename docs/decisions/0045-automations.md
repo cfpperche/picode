@@ -186,3 +186,17 @@ automation view now carries `webhookUrl`, computed by the daemon from
 where it is (own origin, public URL, or the gateway form), so the detail
 page shows the URL a caller can actually use. Recipes (GitHub Actions,
 Sentry, cron) live in the guide.
+
+## Amendment 2026-09-02 — notify when a run ends
+
+An automation may carry a `notify_url` (migration 020). When a run
+finishes — done, or failed by cap, timeout, exit or a start error — the
+daemon POSTs one Slack-shaped message (`text` + `blocks`; the shape
+Discord's `/slack` webhooks and Teams accept) with the status, name,
+cost, a link to the automation on the public URL, and the agent's final
+message clipped at 1500 characters (`automate.BuildNotify`, pure and
+tested). Delivery is in the background, retried once after five
+seconds on a network error or 5xx, never on 4xx, and its outcome is an
+`automation.notify` event on the feed. The Inbox item is written first
+and regardless. Only http(s) URLs are accepted; the URL is validated in
+the store, so the API and the editor cannot disagree.

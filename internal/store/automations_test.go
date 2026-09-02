@@ -178,3 +178,23 @@ func TestInboxAcceptsAutomationSource(t *testing.T) {
 		t.Fatalf("automation source rejected: %v", err)
 	}
 }
+
+func TestAutomationNotifyURL(t *testing.T) {
+	s := openTest(t)
+	a, _, err := s.CreateAutomation(AutomationParams{Name: "n", Action: "start", Prompt: "p", Cron: "0 7 * * *", NotifyURL: " https://hooks.slack.com/services/x "})
+	if err != nil || a.NotifyURL == nil || *a.NotifyURL != "https://hooks.slack.com/services/x" {
+		t.Fatalf("%+v %v", a.NotifyURL, err)
+	}
+	if _, _, err := s.CreateAutomation(AutomationParams{Name: "bad", Action: "start", Prompt: "p", Cron: "0 7 * * *", NotifyURL: "hooks.slack.com/x"}); err == nil {
+		t.Fatal("bare host accepted")
+	}
+	empty := ""
+	b, err := s.UpdateAutomation(a.ID, AutomationPatch{NotifyURL: &empty})
+	if err != nil || b.NotifyURL != nil {
+		t.Fatalf("clear: %+v %v", b.NotifyURL, err)
+	}
+	got, _ := s.GetAutomation(a.ID)
+	if got.NotifyURL != nil {
+		t.Fatal("not persisted")
+	}
+}

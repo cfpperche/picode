@@ -286,6 +286,7 @@ function whenLine(a) {
   const parts = [];
   if (a.cron) parts.push(describeCron(a.cron));
   if (a.webhook) parts.push("Webhook");
+  if (a.notifyUrl) parts.push("Notifies");
   if (a.action === "message") parts.push("Messages an agent");
   if (a.enabled && a.nextFireAt) parts.push("next " + untilText(a.nextFireAt));
   return parts.join(" · ");
@@ -479,6 +480,7 @@ function emptyForm(initial) {
     cron: p.cron,
     advanced: p.kind === "custom",
     webhook: initial ? !!initial.webhook : false,
+    notifyUrl: (initial && initial.notifyUrl) || "",
     maxCostUsd: initial && initial.maxCostUsd ? String(initial.maxCostUsd) : "",
     maxRuns: initial && initial.maxRuns ? String(initial.maxRuns) : "",
     maxRunsWindowMin: initial && initial.maxRunsWindowMin ? String(initial.maxRunsWindowMin) : "60",
@@ -530,6 +532,7 @@ function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCa
       provider: f.provider, model: f.model, thinking: f.thinking,
       cron: f.scheduleOn ? cron : "",
       webhook: f.webhook,
+      notifyUrl: f.notifyUrl.trim(),
       maxCostUsd: f.maxCostUsd === "" ? 0 : Number(f.maxCostUsd),
       maxRuns: f.maxRuns === "" ? 0 : Number(f.maxRuns),
       maxRunsWindowMin: f.maxRuns === "" ? 0 : Number(f.maxRunsWindowMin),
@@ -644,6 +647,12 @@ function Editor({ initial, catalog, workspaces, agents, templates, onSaved, onCa
           <label htmlFor="auto-webhook-on">Webhook</label>
           <span className="auto-hint">Runs when another tool POSTs to its URL. The secret is shown after saving.</span>
         </legend>
+      </fieldset>
+
+      <fieldset className="auto-field">
+        <label htmlFor="auto-notify" className="auto-label">Notify when a run ends</label>
+        <input id="auto-notify" className="dlg-input" type="url" inputMode="url" autoComplete="off" spellCheck={false} value={f.notifyUrl} onChange={(e) => set({ notifyUrl: e.target.value })} placeholder="https://hooks.slack.com/services/… (optional)" />
+        <span className="auto-hint">A Slack-style incoming webhook: Slack, Discord (a /slack webhook), Teams, or anything that takes JSON. It gets the result, the cost and a link. The Inbox gets it regardless.</span>
       </fieldset>
 
       <details className="auto-details" open={f.limits} onToggle={(e) => set({ limits: e.currentTarget.open })}>

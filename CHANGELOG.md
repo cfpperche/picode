@@ -74,6 +74,11 @@ to the `[Unreleased]` section. The repository's official language is English
   `/-/hook/<user>/<id>` on a shared or public box, which needs no login.
   The guide gained recipes for GitHub Actions, Sentry and cron.
 
+- **Automations can notify a channel.** Give an automation a Slack-style
+  webhook URL (Slack, Discord, Teams, anything that takes JSON) and each
+  run ends with one message there: status, name, cost, a link back, and
+  the agent's final words. The Inbox still gets everything.
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as
