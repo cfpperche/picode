@@ -339,9 +339,15 @@ function $(id) {
 // ---- Track C: actuation loop (ADR-0053) --------------------------------
 
 let actLoop = { running: false, stop: false };
+let actGen = 0;          // a new send supersedes the in-flight loop
+let grantCancel = null;  // resolves a pending grant ask (declined)
 const ACT_POLL_MS = 2000;
 const ACT_STEP_MS = 450;
 const ACT_WINDOW_MS = 10 * 60 * 1000;
+
+function stopBatch(batch) {
+  return call({ type: "act-result", id: batch.id, stopped: true }).catch(() => {});
+}
 
 function showActLine(text) {
   els.actBox.hidden = false;
@@ -359,18 +365,30 @@ function actButtons(stop, allow, deny) {
 }
 
 async function runActLoop(agentId) {
-  if (actLoop.running) return;
+  actGen += 1;
+  const gen = actGen;
+  if (grantCancel) { const c = grantCancel; grantCancel = null; c(); }
   actLoop = { running: true, stop: false };
   const deadline = Date.now() + ACT_WINDOW_MS;
   try {
     while (Date.now() < deadline && !actLoop.stop) {
+      if (gen !== actGen) return; // a newer send took over
       const res = await call({ type: "act-next", agentId, tab: { url: PA.originOf(tab.url) } });
+      if (gen !== actGen) return;
       if (!res.ok) {
         showActLine(res.error || "PiCode is not running.");
         return;
       }
       if (res.batch) {
-        const again = await handleBatch(res.batch, agentId);
+        let again = false;
+        try {
+          again = await handleBatch(res.batch, agentId, gen);
+        } catch (e) {
+          // Never leave the agent hanging on a claimed batch.
+          await stopBatch(res.batch);
+          if (gen === actGen) showActLine("Act loop failed: " + ((e && e.message) || e) + ". The agent was told to stop.");
+          return;
+        }
         if (!again) return;
         continue;
       }
@@ -381,25 +399,27 @@ async function runActLoop(agentId) {
       showActLine("Watching for the agent's next step…");
       await sleep(ACT_POLL_MS);
     }
-    if (!actLoop.stop) showActLine("Paused. The wait ran out — send again to continue.");
+    if (!actLoop.stop && gen === actGen) showActLine("Paused. The wait ran out — send again to continue.");
   } finally {
-    actLoop.running = false;
+    if (gen === actGen) actLoop.running = false;
   }
 }
 
 // handleBatch runs one granted batch; true = keep polling for round N+1.
-async function handleBatch(batch, agentId) {
+async function handleBatch(batch, agentId, gen) {
   const origin = batch.origin;
   const grants = await PA.loadGrants();
   if (!grants[origin]) {
     showActLine("Let PiCode act on " + origin + "?");
     const granted = await askGrant(origin);
+    if (gen !== actGen) { await stopBatch(batch); return false; }
     if (!granted) {
-      await call({ type: "act-result", id: batch.id, stopped: true });
+      await stopBatch(batch);
       showActLine("Skipped. Nothing was touched.");
       return false;
     }
   }
+  if (gen !== actGen) { await stopBatch(batch); return false; }
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (PA.originOf(active?.url || "") !== origin) {
     showActLine("Open the " + origin + " tab to continue. The steps are waiting.");
@@ -415,6 +435,7 @@ async function handleBatch(batch, agentId) {
     return false;
   }
   paintOutcomes(outcomes);
+  if (gen !== actGen) return false;
   const res = await call({ type: "act-result", id: batch.id, outcomes });
   const oks = outcomes.filter((o) => o.ok).length;
   if (batch.round >= batch.rounds) {
@@ -432,11 +453,13 @@ async function handleBatch(batch, agentId) {
 function askGrant(origin) {
   return new Promise((resolve) => {
     actButtons(false, true, true);
+    const done = (v) => { grantCancel = null; resolve(v); };
     els.actAllow.onclick = async () => {
       await PA.grantOrigin(origin);
-      resolve(true);
+      done(true);
     };
-    els.actDeny.onclick = () => resolve(false);
+    els.actDeny.onclick = () => done(false);
+    grantCancel = () => done(false);
   });
 }
 
