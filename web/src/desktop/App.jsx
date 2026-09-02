@@ -438,7 +438,7 @@ export default function App() {
   // refreshFleetFallback: after a local mutation the store's own event
   // already patched the lists; only refetch when the feed is not there.
   const refreshFleetFallback = useCallback(async () => {
-    if (!feedConnected()) await refreshFleetFallback();
+    if (!feedConnected()) await loadWorkspaces();
   }, [loadWorkspaces]);
 
   useEffect(() => {
@@ -451,7 +451,7 @@ export default function App() {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
-        const list = await refreshFleetFallback();
+        const list = await loadWorkspaces();
         let free = [];
         try { free = await api("/api/agents?free=1"); } catch { free = []; }
         let terms = [];
