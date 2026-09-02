@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api.js";
 import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";

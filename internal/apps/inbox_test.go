@@ -252,7 +252,10 @@ func TestInboxDoneView(t *testing.T) {
 	if v.Tabs[1].Badge != "1" {
 		t.Fatalf("done badge = %q, want 1", v.Tabs[1].Badge)
 	}
-	if len(v.Blocks) != 2 || v.Blocks[0].Type != "list" || v.Blocks[0].Title != "Done" {
+	// No title on this block (ADR-0036 amendment): the Done tab pill
+	// already says so, so a second "Done" line right under it was
+	// pure duplication.
+	if len(v.Blocks) != 2 || v.Blocks[0].Type != "list" || v.Blocks[0].Title != "" {
 		t.Fatalf("done blocks = %+v", v.Blocks)
 	}
 	row := v.Blocks[0].Items[0]
@@ -345,15 +348,17 @@ func TestInboxItemViewMirrorsDoneList(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("done item view invalid: %v", err)
 	}
+	// The done pane carries no title (ADR-0036 amendment: it would just
+	// repeat the Done tab pill), so identify it by its own row instead.
 	sawDoneList, sawActiveItem := false, false
 	for _, b := range v.Blocks {
 		if b.Pane != "list" {
 			continue
 		}
-		if b.Title == "Done" {
-			sawDoneList = true
-		}
 		for _, it := range b.Items {
+			if it.ID == done.ID {
+				sawDoneList = true
+			}
 			if it.ID == active.ID {
 				sawActiveItem = true
 			}
@@ -391,8 +396,10 @@ func TestInboxItemViewMirrorsDoneList(t *testing.T) {
 		t.Fatalf("active item view: %v", err)
 	}
 	for _, b := range v2.Blocks {
-		if b.Title == "Done" {
-			t.Fatalf("active item's detail pulled in the Done list unexpectedly")
+		for _, it := range b.Items {
+			if it.ID == done.ID {
+				t.Fatalf("active item's detail pulled in the Done list unexpectedly")
+			}
 		}
 	}
 }

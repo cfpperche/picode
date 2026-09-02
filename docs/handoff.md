@@ -268,6 +268,32 @@ Never exercised, because this machine was already past them:
   tui-working in 20 s); `curl -H Last-Event-ID` replayed; daemon
   restart → `hello.bootId` changed → reload. Owner pushed back on an
   invalidation-only design; the durable log is the accepted one.
+- **2026-09-01** — **Two small UI fixes reported from the phone/desktop**,
+  on branch `fix/apps-header-row-spacing`: (1) `AppsGrid` dropped its
+  "Apps" section header — the sidebar's icon rail already marks which
+  section is open, and the single "Inbox" tile beneath it repeated the
+  same word (owner: "informação duplicada"). Follow-up
+  (`fix/inbox-done-header`): the owner then pointed at a second
+  duplicate — the Inbox's own "DONE 14" section label directly under
+  the "Done 14" tab pill (same number, same word). `internal/apps/
+  inbox.go`'s `doneView`/`donePane` now build that block with no Title
+  at all (`BlockHead` already renders nothing when title/meta/at are
+  all empty); the "All" tab's own trailing "Done" block keeps its title
+  since there it names one of three real subsets (Needs you/Feed/Done),
+  not a restatement of the active tab. Two inbox_test.go assertions
+  that used the block's Title to find the Done pane now match on the
+  done item's own ID instead. (2) `.app-row` (the shared
+  list row `AppSurface.jsx` renders for every app, desktop and mobile)
+  dropped its reserved 16px unread-dot gutter, blank on every read row;
+  the unread mark is now an inline `●` before the title, the same
+  convention the mobile Now screen already used. (3) The mobile swipe's
+  `translateX` on `.app-row-actions` was silently replacing that row's
+  own `translateY(-50%)`, so the revealed action buttons rendered
+  vertically off-row ("fica pela metade") — fixed by combining both
+  transforms. Verified on scratch: desktop Apps tab and Inbox list
+  (`overlayAudit` n/a, plain layout), mobile swipe with the action
+  button's rect centred within 3px of the row's.
+
 - **2026-09-01** — **Mobile phase 3 (ADR-0044 addendum)**, on branch
   `feat/mobile-phase3`: `usePullToRefresh` + `PullScreen` (Now, Work;
   Inbox via `AppSurface.refreshKey`), touch swipe on `AppSurface` rows
@@ -277,7 +303,19 @@ Never exercised, because this machine was already past them:
   and the workspace card when `git.dirty > 0`. QA on scratch with the
   real dirty checkout: file list + expanded patch, synthesized touch
   swipe reveals actions, synthesized pull shows "Release to refresh" and
-  refetches. Owner on the phone: pull did not fire on Inbox and the
+  refetches. Then: "a página inteira rola, o header mais botões devem
+  ficar fixos e somente as listas devem rolar" — `.m-screen-head` (Work's
+  segmented control + New, More's title) and `.m-inbox .ft-head`
+  (Active/Done/All + filter) now use the same negative-margin/sticky-top
+  trick `.m-head` already used for pushed screens, pinning them to the
+  scroll container's own top edge while the rows beneath slide past
+  (`fix/mobile-sticky-headers`). Agent and Terminal screens needed no
+  change — their content panes already size via flex `min-height:0` and
+  scroll internally, so the outer `.m-screen` never engages there.
+  Verified on scratch with seeded overflow (9 workspaces, 13 inbox
+  items): `getComputedStyle(...).position === "sticky"` and the header's
+  `getBoundingClientRect().top` unchanged at `scrollTop 300`. Owner on
+  the phone: pull did not fire on Inbox and the
   stacked split overflowed. `fix/mobile-inbox-subroute`: `AppSurface`
   `paneMode="list"|"detail"` + `onOpenItem`; mobile Inbox = list tab
   (`PullScreen` is the scroller) + pushed `#/inbox/<id>` item screen with
@@ -288,7 +326,12 @@ Never exercised, because this machine was already past them:
   rules live under `@media (hover: hover)`; touch gets the swipe. Then: a
   left swipe was firing the pull — `usePullToRefresh` now decides the
   axis on the first 10px of movement and stands down for a horizontal
-  drag (`fix/pull-axis`).
+  drag (`fix/pull-axis`). Owner: "destaca o botão remover com a cor de
+  perigo… faz um motion nesse swipe, tá muito seco" — the row now
+  follows the finger (inline transform during the drag, `--swipe-w` from
+  the action count) and snaps open/shut with `--motion-med`; the actions
+  slide in from the right edge as 40px buttons, Delete in the danger
+  tint; terminal Remove uses the same tint (`feat/swipe-motion`).
 
 - **2026-09-01 — Automations debts closed** (`fix/automations-debts`):
   `RunObserver.OnCost` (sum of `message_end` usage) makes the cost cap

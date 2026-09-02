@@ -484,24 +484,47 @@ const ROW_ICONS = { check: IconCheck, clock: IconClock, trash: IconTrash };
 function Row({ item, onNavigate, onAction, active }) {
   const has = item.path && onNavigate;
   // Touch has no hover: a left swipe reveals the row's actions (Done,
-  // Snooze, Delete), a tap anywhere else puts them away. Desktop keeps
-  // hover/focus; the class only adds a third way in.
+  // Snooze, Delete), a tap anywhere else puts them away. The row follows
+  // the finger while dragging (inline transform, no React state per
+  // move) and snaps open or shut on release with the CSS transition.
+  // Desktop keeps hover/focus; the class only adds a third way in.
   const [swiped, setSwiped] = useState(false);
   const touch = useRef(null);
-  const onTouchStart = (e) => { if (e.touches.length === 1) touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, done: false }; };
+  const mainRef = useRef(null);
+  const reveal = item.actions.length * 44 + 8; // px the actions need
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, axis: "", dx: 0 };
+  };
   const onTouchMove = (e) => {
     const t = touch.current;
-    if (!t || t.done || e.touches.length !== 1) return;
+    if (!t || e.touches.length !== 1) return;
     const dx = e.touches[0].clientX - t.x;
     const dy = e.touches[0].clientY - t.y;
-    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { t.done = true; return; } // a scroll, not a swipe
-    if (dx < -32) { setSwiped(true); t.done = true; }
-    else if (dx > 32) { setSwiped(false); t.done = true; }
+    if (!t.axis) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      t.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (t.axis !== "x") return;
+    t.dx = dx;
+    const base = swiped ? -reveal : 0;
+    const x = Math.max(-reveal, Math.min(0, base + dx));
+    const el = mainRef.current;
+    if (el) { el.style.transition = "none"; el.style.transform = "translateX(" + x + "px)"; }
   };
-  const onTouchEnd = () => { touch.current = null; };
+  const onTouchEnd = () => {
+    const t = touch.current;
+    touch.current = null;
+    const el = mainRef.current;
+    if (el) { el.style.transition = ""; el.style.transform = ""; }
+    if (!t || t.axis !== "x") return;
+    if (t.dx < -reveal / 2) setSwiped(true);
+    else if (t.dx > reveal / 2) setSwiped(false);
+  };
   return (
     <li
       className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "")}
+      style={item.actions.length ? { "--swipe-w": reveal + "px" } : undefined}
       onTouchStart={item.actions.length ? onTouchStart : undefined}
       onTouchMove={item.actions.length ? onTouchMove : undefined}
       onTouchEnd={item.actions.length ? onTouchEnd : undefined}
@@ -510,10 +533,10 @@ function Row({ item, onNavigate, onAction, active }) {
       <button
         type="button"
         className="app-row-main"
+        ref={mainRef}
         onClick={() => { if (swiped) { setSwiped(false); return; } if (has) onNavigate(item.path); }}
         disabled={!has}
       >
-        <span className="app-row-dot" aria-hidden="true" />
         <span className="app-row-line1">
           <span className="app-row-title">{item.title}</span>
           {item.at ? <span className="app-when" title={absTime(item.at)}>{relTime(item.at)}</span> : null}

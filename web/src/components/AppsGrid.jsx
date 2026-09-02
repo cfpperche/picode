@@ -7,9 +7,6 @@ export default function AppsGrid({ apps, onOpen }) {
   const list = apps || [];
   return (
     <div className="side-section">
-      <div className="pins-head">
-        <span className="pins-title">Apps</span>
-      </div>
       {list.length === 0 ? (
         <p className="side-empty pins-empty">No apps yet. Apps extend PiCode with new surfaces; the first ones arrive in a coming release.</p>
       ) : (
