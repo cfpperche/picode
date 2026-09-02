@@ -140,10 +140,11 @@ render megabytes.
 
 ## Next up
 
-1. **Feed follow-ups (ADR-0048)** — server-side tmux watcher publishing
-   `agent.tui` so `tui-working` polling can go; delete the 22
-   post-mutation `loadWorkspaces()` calls in `desktop/App.jsx`; git
-   changes as events for the file tree; outbound webhooks fed by the log.
+1. **Feed follow-ups (ADR-0048)** — git changes as events for the file
+   tree and the sidebar's branch line (would retire the last refetches:
+   workspace create / clone, config PATCH); outbound webhooks fed by the
+   log; a fake pi fixture that emits `usage.totalTokens` so the context
+   bar can be tested end to end.
 2. **Automations connectors** — webhook recipes in the guide (GitHub
    Actions, Sentry) and, if the fence parsing of `/automate` proves flaky
    in daily use, a `pi-automate` tool package for structured drafts.
@@ -260,6 +261,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — ADR-0048 debts closed** (`fix/feed-debts`): tmux
+  watcher (`agent.tui`), per-message `agent.usage`, `device.offline`
+  ticker, run mode on `agent.status` at all ten start sites, health
+  watch idles at 20 s with the feed up, 17 redundant `loadWorkspaces()`
+  → `refreshFleetFallback()`. Lesson: chaining `make build` behind a
+  `grep` masked a vite failure and a broken commit went in for two
+  minutes — verify by exit code, never by grep.
 - **2026-09-01** — **Hotfix: mobile shell crashed to a blank screen on
   every Inbox visit**, on branch `fix/appsurface-feed-crash`. Owner:
   "app no web quebrado nao abre .. erro no console". The concurrent

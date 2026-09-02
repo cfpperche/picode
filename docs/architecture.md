@@ -538,7 +538,11 @@ push notifier). Ephemeral notices — `device.online` from presence,
 the same stream with id 0. Clients (`web/src/lib/feed.js`) keep one
 `EventSource` per shell, resume from a `sessionStorage` cursor, patch
 lists with `lib/feedReducers.js` and refetch when a reducer returns
-`null`; the old timers only tick while the feed is down. Rule: a state
+`null`; the old timers only tick while the feed is down. The server
+also publishes `agent.tui` (tmux watcher, `StartTuiWatch`),
+`agent.usage` (per assistant message, `Runtime.OnUsage`) and
+`device.offline` (`presence.Watch`); `agent.status` carries the run mode
+at every start. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
 

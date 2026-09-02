@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Fewer background requests, same live feel (ADR-0048 follow-up).**
+  The daemon now watches tmux agents itself and tells every open tab when
+  one is working, adds each reply's tokens and cost to the status bar as
+  it happens, and announces a device going offline; a stopped or started
+  agent updates the sidebar without a refetch. While the live stream is
+  connected a tab no longer polls tmux state, the status bar, or Devices,
+  and checks the server's health every 20 s instead of every 2.5 s.
+
 - **Lists update live, on the desktop and on the phone (ADR-0048).**
   PiCode now keeps one open stream per browser tab and pushes every
   change — a workspace, agent or terminal created anywhere, an Inbox item,

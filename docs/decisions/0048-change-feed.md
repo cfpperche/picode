@@ -99,11 +99,20 @@ Decision table (each row tested):
 - **The phone stops polling.** Verified on a scratch instance: with the
   feed connected the only periodic requests are the health ping, the
   presence ping and `tui-working` (tmux agents still have no channel).
-- **Kept for now:** tui-working (a server-side tmux watcher is the next
-  step), the dashboard's 60 s cache-backed poll (an aggregate, not a
-  list), the status bar's 15 s cost poll (a metric), the 22 post-mutation
-  `loadWorkspaces()` calls (idempotent; deleted once the feed has been
-  dogfooded for a while).
+- **Kept:** the dashboard's 60 s cache-backed poll (an aggregate over
+  session files, not a list) and the health watch (the stream's own
+  watchdog, idling at 20 s while the stream is up).
+- **Closed the same day (amendment):** a server-side tmux watcher
+  publishes `agent.tui` (one scrape per tick for the fleet instead of one
+  per browser); `agent.usage` per assistant message lets the status bar
+  add tokens and cost up instead of rescanning the session file;
+  presence turns silence into `device.offline` on a 5 s ticker;
+  `agent.status` carries the run mode (managed / interactive) at every
+  start site so a start patches without a refetch; fifteen post-mutation
+  `loadWorkspaces()` calls became a refetch only while the feed is down.
+  Still refetched on purpose: workspace create / clone and the agent
+  config PATCH, because `git` decoration is view-only and not in any
+  event.
 - **`PICODE_INSECURE` (HTTP/1.1) budgets six connections per origin;** one
   SSE stream plus one agent socket fits. TLS is HTTP/2.
 - **Any mutation that bypasses the store is now a bug**, not a style
