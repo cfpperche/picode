@@ -148,10 +148,10 @@ render megabytes.
    workspace create / clone, config PATCH); outbound webhooks fed by the
    log; a fake pi fixture that emits `usage.totalTokens` so the context
    bar can be tested end to end.
-2. **Automations connectors** — webhook recipes in the guide (GitHub
-   Actions, Sentry) and, if the fence parsing of `/automate` proves flaky
-   in daily use, a `pi-automate` tool package for structured drafts.
-   Cost on runs closed by a restart.
+2. **Automations** — outbound notification per automation (a Slack-
+   compatible incoming-webhook URL posted at run end) is the next value
+   item; `pi-automate` only if `/automate`'s fence parsing proves flaky.
+   Webhook recipes and the gateway hook route shipped 2026-09-02.
 **ADR-0043 Track C** (actuator on the current tab) after Track B merges.
 Track D/E stay parked.
 
@@ -245,12 +245,11 @@ Never exercised, because this machine was already past them:
   button fires (browser DevTools → Network → Copy as cURL) — owner chose
   to defer this rather than capture it now (2026-09-02).
 
-- **Automations (ADR-0045):** the runs table and list poll (15 s) — no
-  live event; two due automations share the active `auth.json`
-  credential; the webhook is reachable wherever the server is (ADR-0007
-  token-auth debt applies beyond the tailnet); `/automate` relies on the
-  agent honouring the JSON fence (fallback opens the editor with the
-  description). Closed 2026-09-01: cost cap is now enforced per assistant
+- **Automations (ADR-0045):** two due automations share the active
+  `auth.json` credential; `/automate` relies on the agent honouring the
+  JSON fence (fallback opens the editor with the description). Closed
+  by ADR-0048: list and runs are live on the feed. Closed 2026-09-02:
+  the webhook is reachable through the gateway (`/-/hook/<user>/<id>`). Closed 2026-09-01: cost cap is now enforced per assistant
   message from pi's own usage events (the 30 s poll remains only for the
   session path, the timeout and a file-based fallback); runs closed by a
   restart are priced from their session file; the server fake pi runs a
@@ -287,6 +286,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Automation webhooks through the gateway (ADR-0045
+  amendment)** (`feat/gateway-webhook`): `POST /-/hook/<user>/<id>` on the
+  gateway (no identity, per-peer limit, member check, Authorization
+  passed through, cookies dropped); the automation view carries
+  `webhookUrl` computed from the daemon's situation (origin / public URL
+  / gateway form, via `os/user.Current`); the detail page shows it; guide
+  recipes for GitHub Actions, Sentry and cron.
 - **2026-09-02 — Track D, public access (ADR-0052)** (`feat/public-access`):
   gateway identity chain (tailnet whois → signed cookie → login page),
   `plainListen` + `trustedProxies` (last XFF hop from a trusted CIDR

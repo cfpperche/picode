@@ -54,9 +54,41 @@ curl -X POST https://localhost:8445/api/automations/<id>/fire \
 ```
 
 The body (up to 64 KB, any format) is appended to the prompt as text. A
-wrong secret answers `401`; **Regenerate secret** replaces it. The URL is
-your PiCode server's, so a caller outside your machine or tailnet needs to
-reach it the same way your browser does.
+wrong secret answers `401`; **Regenerate secret** replaces it.
+
+The detail page shows the URL to use. On a laptop it is your server's
+own (`https://localhost:8445/...`); with a public URL set (Preferences →
+Server) it is that name; behind a gateway (a shared or public box) it
+is `https://<box>/-/hook/<your user>/<id>`, which needs no login — the
+secret is the credential, and the gateway only routes.
+
+### Recipes
+
+**GitHub Actions** — after a deploy, or on a schedule GitHub keeps:
+
+```yaml
+- name: Tell PiCode
+  run: |
+    curl -fsS -X POST "${{ secrets.PICODE_HOOK_URL }}" \
+      -H "Authorization: Bearer ${{ secrets.PICODE_HOOK_SECRET }}" \
+      -H "Content-Type: application/json" \
+      -d "{\"repo\":\"${{ github.repository }}\",\"sha\":\"${{ github.sha }}\",\"ref\":\"${{ github.ref }}\"}"
+```
+
+**Sentry** — Settings → Integrations → Webhooks; paste the URL with the
+secret in it as a query is *not* supported, so use an internal
+integration with a custom header `Authorization: Bearer <secret>`. The
+event JSON lands in the prompt; ask the automation to "summarize the
+Sentry event and open a fix branch".
+
+**Any cron** on another machine:
+
+```
+0 7 * * 1-5  curl -fsS -X POST https://box/-/hook/alice/<id> -H "Authorization: Bearer <secret>" -d "weekday morning"
+```
+
+**Slack slash command / Zapier / n8n** — anything that can POST with a
+header works the same way; the body is free text for the agent.
 
 ## What a run can end as
 

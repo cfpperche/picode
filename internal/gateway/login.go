@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"sort"
 	"strings"
@@ -34,6 +35,8 @@ func (s *Server) own(w http.ResponseWriter, r *http.Request, peer string) {
 	case r.URL.Path == "/-/auth/logout":
 		clearSessionCookie(w)
 		http.Redirect(w, r, "/-/login", http.StatusSeeOther)
+	case strings.HasPrefix(r.URL.Path, "/-/hook/"):
+		s.hook(w, r, peer)
 	default:
 		s.page(w, http.StatusNotFound, "Not here", "There is nothing at "+html.EscapeString(r.URL.Path)+".")
 	}
@@ -147,4 +150,63 @@ func (s *Server) pageExtra(w http.ResponseWriter, code int, heading, body, extra
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	_, _ = fmt.Fprintf(w, pageTemplate, html.EscapeString(heading), html.EscapeString(heading), body+`<div class="actions">`+extra+`</div>`)
+}
+
+// hook is a member's automation webhook from outside (ADR-0045 through
+// ADR-0051/52): POST /-/hook/<linux user>/<automation id>. No identity —
+// the automation's own secret is the credential, checked by the daemon —
+// so the gateway only routes: the user must be a member, the method must
+// be POST, and a peer gets 60 tries a minute. Authorization is passed
+// through untouched (it carries the secret), unlike everywhere else.
+func (s *Server) hook(w http.ResponseWriter, r *http.Request, peer string) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		s.page(w, http.StatusMethodNotAllowed, "POST only", "Automation webhooks are POST requests.")
+		return
+	}
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/-/hook/"), "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		s.page(w, http.StatusNotFound, "Not here", "A webhook looks like /-/hook/&lt;user&gt;/&lt;automation&gt;.")
+		return
+	}
+	if !s.hookLimit.allow(peer) {
+		w.Header().Set("Retry-After", "60")
+		s.page(w, http.StatusTooManyRequests, "Too many calls", "Sixty a minute per caller.")
+		return
+	}
+	linux, id := parts[0], parts[1]
+	if !s.Config.IsMember(linux) {
+		// The same answer as a wrong secret from the daemon: a probe learns nothing.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprint(w, `{"error":"not found"}`)
+		return
+	}
+	be, err := s.Resolve(linux)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprint(w, `{"error":"PiCode is not running for this member"}`)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 80<<10) // the daemon caps at 64 KB; a little headroom for headers/encoding
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(be.URL)
+			pr.Out.URL.Path = "/api/automations/" + url.PathEscape(id) + "/fire"
+			pr.Out.URL.RawPath = ""
+			pr.Out.Host = s.Config.Hostname
+			for _, h := range []string{"Cookie", "Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP"} {
+				pr.Out.Header.Del(h)
+			}
+			pr.Out.Header.Set("X-Forwarded-For", peer)
+			pr.Out.Header.Set("X-Forwarded-Proto", "https")
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"error":"PiCode did not answer"}`)
+		},
+	}
+	proxy.ServeHTTP(w, r)
 }

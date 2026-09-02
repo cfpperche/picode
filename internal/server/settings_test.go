@@ -105,3 +105,21 @@ func TestHostSetting(t *testing.T) {
 		t.Fatalf("stored %q rebinds %d", v, *rebinds)
 	}
 }
+
+func TestWebhookURLFollowsWhereTheDaemonIs(t *testing.T) {
+	snap := func(pub string) func() PortSnapshot {
+		return func() PortSnapshot { return PortSnapshot{PublicURL: pub} }
+	}
+	if got := (Deps{PortSnapshot: snap("")}).webhookURL("a1"); got != "" {
+		t.Fatalf("no public url: %q", got)
+	}
+	if got := (Deps{PortSnapshot: snap("https://box.tail.ts.net:8445/")}).webhookURL("a 1"); got != "https://box.tail.ts.net:8445/api/automations/a%201/fire" {
+		t.Fatalf("public: %q", got)
+	}
+	old := linuxUser
+	linuxUser = "alice"
+	t.Cleanup(func() { linuxUser = old })
+	if got := (Deps{PortSnapshot: snap("https://box.tail.ts.net"), Insecure: true}).webhookURL("a1"); got != "https://box.tail.ts.net/-/hook/alice/a1" {
+		t.Fatalf("gateway: %q", got)
+	}
+}

@@ -34,6 +34,14 @@ func newBackend(t *testing.T, name string) (*backend, *httptest.Server) {
 		default:
 		}
 		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/automations/") && strings.HasSuffix(r.URL.Path, "/fire"):
+			if r.Header.Get("Authorization") != "Bearer hooksecret" {
+				http.Error(w, `{"error":"bad webhook secret"}`, http.StatusUnauthorized)
+				return
+			}
+			body, _ := io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprintf(w, `{"fired":%q,"body":%q,"cookie":%q,"xff":%q}`, r.URL.Path, string(body), r.Header.Get("Cookie"), r.Header.Get("X-Forwarded-For"))
 		case r.URL.Path == "/api/auth/pairings" && r.Method == http.MethodPost:
 			if r.Header.Get("Authorization") != "Bearer "+b.token {
 				http.Error(w, `{"error":"pairing required","pair":true}`, http.StatusUnauthorized)
@@ -302,5 +310,46 @@ func TestResolveReadsServerJSONAndToken(t *testing.T) {
 	be, err := Resolve("alice")
 	if err != nil || be.URL.String() != "http://localhost:8446" || be.Token != "abc" {
 		t.Fatalf("%+v %v", be, err)
+	}
+}
+
+func TestWebhookRouteNeedsNoIdentity(t *testing.T) {
+	_, a := newBackend(t, "alice")
+	// No fake identity at all: the peer is nobody, and the hook still routes.
+	s, gw := newGateway(t, map[string]string{}, map[string]*httptest.Server{"alice": a}, nil)
+	post := func(path, auth, body string) (*http.Response, string) {
+		req, _ := http.NewRequest("POST", gw.URL+path, strings.NewReader(body))
+		if auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		req.Header.Set("Cookie", "picode_session=stolen")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		return res, string(b)
+	}
+	res, body := post("/-/hook/alice/auto-1", "Bearer hooksecret", `{"from":"ci"}`)
+	if res.StatusCode != http.StatusAccepted || !strings.Contains(body, `"fired":"/api/automations/auto-1/fire"`) || !strings.Contains(body, `"body":"{\"from\":\"ci\"}"`) {
+		t.Fatalf("hook: %d %s", res.StatusCode, body)
+	}
+	if !strings.Contains(body, `"cookie":""`) || !strings.Contains(body, `"xff":"127.0.0.1"`) {
+		t.Fatalf("cookie must not pass, peer must: %s", body)
+	}
+	if res, _ := post("/-/hook/alice/auto-1", "Bearer wrong", "{}"); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("wrong secret = %d (the daemon decides)", res.StatusCode)
+	}
+	if res, _ := post("/-/hook/mallory/auto-1", "Bearer hooksecret", "{}"); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("non-member = %d", res.StatusCode)
+	}
+	if res, _ := get(t, gw, "/-/hook/alice/auto-1", nil); res.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET = %d", res.StatusCode)
+	}
+	s.hookLimit = newLimiter(1, time.Minute, time.Minute)
+	post("/-/hook/alice/auto-1", "Bearer hooksecret", "{}")
+	if res, _ := post("/-/hook/alice/auto-1", "Bearer hooksecret", "{}"); res.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("limit = %d", res.StatusCode)
 	}
 }

@@ -37,6 +37,7 @@ type Server struct {
 	trusted   []*net.IPNet
 	pairLimit *limiter
 	authLimit *limiter
+	hookLimit *limiter
 
 	pairMu   sync.Mutex
 	pairLast map[string]time.Time
@@ -49,7 +50,8 @@ type Server struct {
 func New(cfg Config, sec Secrets) (*Server, error) {
 	s := &Server{Config: cfg, Identity: NewIdentity(60 * time.Second), Resolve: Resolve, Log: log.Default(), Secure: true,
 		providers: map[string]*provider{}, pairLast: map[string]time.Time{}, pend: map[string]pending{},
-		pairLimit: newLimiter(5, time.Minute, 10*time.Minute), authLimit: newLimiter(5, time.Minute, 10*time.Minute)}
+		pairLimit: newLimiter(5, time.Minute, 10*time.Minute), authLimit: newLimiter(5, time.Minute, 10*time.Minute),
+		hookLimit: newLimiter(60, time.Minute, time.Minute)}
 	nets, err := cfg.TrustedProxyNets()
 	if err != nil {
 		return nil, err

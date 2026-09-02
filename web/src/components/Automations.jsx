@@ -340,7 +340,9 @@ function money(n) {
 function Detail({ a, catalog, workspaces, agents, templates, reveal, onDismissSecret, onRun, onDelete, onRotate, onToggle, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [runs, setRuns] = useState(null);
-  const fireURL = location.origin + "/api/automations/" + encodeURIComponent(a.id) + "/fire";
+  // The daemon knows where a caller can reach it (public URL, or the
+  // gateway's hook route); a laptop with neither uses this origin.
+  const fireURL = a.webhookUrl || location.origin + "/api/automations/" + encodeURIComponent(a.id) + "/fire";
 
   useEffect(() => {
     setEditing(false);

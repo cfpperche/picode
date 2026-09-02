@@ -255,6 +255,16 @@ func (c *Config) RemoveUser(login string) {
 	}
 }
 
+// IsMember reports whether a Linux user is the target of some login.
+func (c Config) IsMember(linux string) bool {
+	for _, u := range c.Users {
+		if u == linux {
+			return true
+		}
+	}
+	return false
+}
+
 // Logins lists the map, sorted, for `picode users list`.
 func (c Config) Logins() []string {
 	out := make([]string, 0, len(c.Users))

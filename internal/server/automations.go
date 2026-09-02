@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -45,10 +47,14 @@ type automationView struct {
 	NextFireAt *string    `json:"nextFireAt,omitempty"`
 	Sparkline  []int      `json:"sparkline"`
 	AgentName  string     `json:"agentName,omitempty"`
+	WebhookURL string     `json:"webhookUrl,omitempty"` // where a caller reaches /fire from where it is (ADR-0045 amendment)
 }
 
 func (deps Deps) automationView(a store.Automation, now time.Time) automationView {
 	v := automationView{Automation: a, Sparkline: []int{}}
+	if a.Webhook {
+		v.WebhookURL = deps.webhookURL(a.ID)
+	}
 	if last, err := deps.Store.LastRun(a.ID); err == nil && last != nil {
 		v.LastRun = last
 		v.Running = last.Status == store.RunRunning
@@ -313,4 +319,28 @@ func handleListAutomationRuns(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": runs})
 	}
+}
+
+// linuxUser is this daemon's account name, the member key a gateway
+// routes by (ADR-0051); "" when unknown.
+var linuxUser = func() string {
+	if u, err := user.Current(); err == nil {
+		return u.Username
+	}
+	return ""
+}()
+
+// webhookURL is the /fire address a caller can use from where it is:
+// the gateway's hook route when this daemon sits behind one (plain HTTP
+// with a public URL), the public URL when one is set, else "" and the UI
+// falls back to the browser's own origin.
+func (deps Deps) webhookURL(id string) string {
+	pub := strings.TrimRight(deps.publicURL(), "/")
+	if pub == "" {
+		return ""
+	}
+	if deps.Insecure && linuxUser != "" {
+		return pub + "/-/hook/" + url.PathEscape(linuxUser) + "/" + url.PathEscape(id)
+	}
+	return pub + "/api/automations/" + url.PathEscape(id) + "/fire"
 }

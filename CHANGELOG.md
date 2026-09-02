@@ -68,6 +68,12 @@ to the `[Unreleased]` section. The repository's official language is English
   still the admin's list. Members can also run in a container each
   (`provision --shared --container`). Guide: `www/guide/public-access.md`.
 
+- **Automation webhooks work through the gateway.** An automation's
+  detail page now shows the URL a CI job or another tool can call from
+  wherever it is: your server's own, your public URL, or the gateway's
+  `/-/hook/<user>/<id>` on a shared or public box, which needs no login.
+  The guide gained recipes for GitHub Actions, Sentry and cron.
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as

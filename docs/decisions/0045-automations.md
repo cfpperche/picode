@@ -172,3 +172,17 @@ package (structured, but a third package to install before the fast path
 works — revisit if fence parsing proves unreliable); templates that need
 Sentry/Datadog/Slack (webhook recipes belong in the guide, not the chrome);
 a marketplace.
+
+## Amendment 2026-09-02 — the webhook behind a gateway
+
+Tracks C/D (ADR-0051/52) put member daemons behind `picode gateway`,
+which identifies every request — and a CI job has no identity. The
+gateway gains `POST /-/hook/<linux user>/<automation id>`: no identity,
+sixty calls a minute per caller, the user must be a member, and the
+request is proxied to that member's `/api/automations/<id>/fire` with
+`Authorization` passed through (the automation's secret is the
+credential; the daemon still checks it) and cookies dropped. The
+automation view now carries `webhookUrl`, computed by the daemon from
+where it is (own origin, public URL, or the gateway form), so the detail
+page shows the URL a caller can actually use. Recipes (GitHub Actions,
+Sentry, cron) live in the guide.
