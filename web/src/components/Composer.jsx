@@ -6,6 +6,7 @@ import ThinkingChip from "./ThinkingChip.jsx";
 import ModeChip from "./ModeChip.jsx";
 import KindChip from "./KindChip.jsx";
 import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
+import PiSpinner from "./PiSpinner.jsx";
 import AgentPageBar from "./AgentPageBar.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
@@ -32,7 +33,7 @@ const PinSketch = lazy(() => import("./PinSketch.jsx"));
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting, roleState, onRoleCommand,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates,
+  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking,
 }) {
   const appKeyOverrides = readAppKeyOverrides();
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
@@ -577,6 +578,15 @@ export default function Composer({
             </AgentPageBar>
           </div>
         </div>
+        {tuiWorking ? (
+          <div className="composer-tui-working" data-align-row role="status">
+            <PiSpinner title="Working" />
+            <span className="composer-tui-working-text">Working in the terminal — output lands there, not here.</span>
+            <button type="button" className="composer-page" title="Open the terminal" onClick={() => onToggleDock && onToggleDock()}>
+              Open
+            </button>
+          </div>
+        ) : null}
         <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
         {sketch ? (
           <Suspense fallback={null}>
