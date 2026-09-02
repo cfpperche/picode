@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Other devices must pair before they can use PiCode (ADR-0049).** A
+  browser on the machine that runs PiCode keeps working as before. A
+  phone or another computer now needs a one-time pairing link: scan the
+  QR behind the phone icon, or use **Preferences → Server → Pair a
+  device**; on the PiCode machine, `picode pair` prints a link. Paired
+  devices are listed there and can be forgotten. Scripts and the Chrome
+  extension use the install token in `~/.picode/token` (`picode token
+  rotate` replaces it). Pages from other sites can no longer drive a
+  local PiCode. Guide: `www/guide/security.md`. This is the first step
+  of the remote-modes roadmap (`docs/design/remote-modes-roadmap.md`).
+
 - **Fewer background requests, same live feel (ADR-0048 follow-up).**
   The daemon now watches tmux agents itself and tells every open tab when
   one is working, adds each reply's tokens and cost to the status bar as

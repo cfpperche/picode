@@ -555,9 +555,16 @@ store, never around it.
   the Settings UI at runtime** (graceful rebind: bind-new-first, revert on
   failure — see ADR-0007). Precedence: UI/DB > `PICODE_PORT` env > default.
   Discovery: `~/.picode/server.json`.
-- **Trust boundary**: personal machine / tailnet (same stance as agentdeck);
-  no app-level auth — token auth is a recorded debt if ever exposed beyond
-  the tailnet. PiCode executes with the user's permissions, like Pi itself.
+- **Trust boundary**: a paired device (ADR-0049), no longer a network.
+  `internal/auth` gates every `/api` and `/ws` request: principal from
+  the `picode_session` cookie or `Authorization: Bearer` (install token
+  at `<data>/token`, or a token session); `Host` and `Origin` checked in
+  every mode; modes `off | remote (default: loopback auto-pairs) | all`.
+  Pairing codes (`/pair?code=`, ten minutes, one use, lockout after five
+  failures) mint browser sessions; Preferences → Server lists and revokes
+  them. PiCode executes with the user's permissions, like Pi itself.
+  Roadmap for tailnet, shared and public servers:
+  `docs/design/remote-modes-roadmap.md`.
 
 ### Chrome extension (ADR-0043)
 

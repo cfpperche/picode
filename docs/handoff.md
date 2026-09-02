@@ -55,6 +55,7 @@ What exists:
 - **ADR-0042** dashboard v2: same scan now yields `byModel`, `byWorkspace` (server labels cwd → workspace via `canonDir`), `tokens` (+ cache hit), `tools` (top 8), `turns` (assistant/user/errors/aborted/compactions), `topSessions` (top 5, name/cwd/lastAt, never preview); `Series[].turns`. Server memoises per range behind `session.Fingerprint` (stat sweep: count/size/newest mtime). UI: 4 tiles (Sessions + Fleet strip from `workingIds`/`waitingId`), `DailyChart` (`lib/barchart.js`), `RankedBars` (folds tail into "N more"), `TokenBar`, Reliability facts, `TopSessions`; 60 s auto-refresh + 30 s tick, paused when hidden. Not built (refused in the ADR): projection/burn rate, LOC/commits, latency, per-agent context % on the home.
 - **ADR-0043** Chrome extension Track A (sensor) and Track B (devices + Windows console host): `ext/` MV3; `GET/POST /api/extension/*`; `make desktop` also builds `picode-nmh.exe`; side panel pings `kind=extension`. Isolated Chromium unchanged. Chrome-only. Not an App, not a pi package.
 - **ADR-0045** Automations: `#/automations` (user menu, palette). Scheduler goroutine in the daemon (`internal/automate`, 1-min tick, deterministic jitter, single catch-up, boot reconcile) + webhook `POST /api/automations/{id}/fire` (bearer secret, 64 KB). One agent per automation, fresh session per run; `RunObserver` on the managed agent; cost cap / 2 h watchdog; runs table; Inbox `sourceKind: automation` (migration 017 rebuilt `inbox_items`). Decision table in `internal/server/automations_run.go`, tested row by row. v1 only: no templates, no `/automate`.
+- **ADR-0049** authentication: `internal/auth` gate wraps the mux (`Deps.Auth`, nil = ungated in tests); modes off/remote/all (`auth.mode`); `auth_sessions` + `auth_pairings` (migration 019); install token `<data>/token`; routes `/api/auth/*` + `/pair`; `picode pair`, `picode token [rotate]`; Devices section in Preferences → Server; pairing screen on 401; QR carries a pairing link; native host and `pi-inbox` send the bearer; `PICODE_DATA` in spawn env. Roadmap: `docs/design/remote-modes-roadmap.md` (Tracks B–D next).
 - **ADR-0048** change feed: `events` is the change log (every store mutation appends in-tx; `Store.OnEvent` after commit; invariant test enumerates mutators), `internal/feed` (replay under the subscribe lock, `ErrReset`, ephemeral id 0), `GET /api/events` (SSE `hello`/`change`/`reset`, `Last-Event-ID` or `?after=`), push consumes the feed (`Notifier.OnEvent`), presence `OnChange` → `device.online`, runtime `OnState` → `agent.state`. Web: `lib/feed.js` (cursor in sessionStorage, bootId kick), `lib/feedReducers.js` (fleet / inbox / automations / runs; `null` = refetch), desktop sidebar + badges + AppSurface + Devices + Automations and mobile `useFleet` / `usePoll` / inbox loop on the feed; timers tick only while the feed is down.
 - **ADR-0045 v2** `/automate` + templates: `lib/automateDraft.js` (prompt, fence/object parser, command detection), `lib/automationDraft.js` (read-once `sessionStorage` handoff), `automate.Templates()` + `GET /api/automations/templates`, Suggested cards with category chips, *Start from template…* in the editor, "Drafted by / From template" origin line. Turn correlation is client-side (`automateRef` + `agent_settled` + `lastAssistantText`); no server change for `/automate`.
 
@@ -140,7 +141,8 @@ render megabytes.
 
 ## Next up
 
-1. **Feed follow-ups (ADR-0048)** — git changes as events for the file
+1. **Remote modes, Track B (ADR-0050)** — `tailscale cert`, public URL / bind settings, drop-in env, `picode doctor`, off-box clients, release install path. Then C (shared: per-user daemons + gateway) and D (public: OIDC). Roadmap: `docs/design/remote-modes-roadmap.md`.
+2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
    workspace create / clone, config PATCH); outbound webhooks fed by the
    log; a fake pi fixture that emits `usage.totalTokens` so the context
@@ -261,6 +263,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01 — ADR-0049 authentication, Track A of the remote-modes
+  roadmap** (`feat/auth-core`): gate, modes, pairing, install token,
+  Devices UI, CLI, client updates. Dogfood on a populated DB copy (note:
+  the copy carries `server.port`, override it or the scratch collides
+  with :8445): loopback auto-pairs (cookie), LAN without cookie → 401 +
+  pairing screen, bearer works, foreign Origin and unknown Host → 403,
+  pairing link → cookie → app.
 - **2026-09-01 — Hotfix: empty sidebar after the feed-debts deploy**
   (`fix/boot-fleet-load`, `1688619`). The pattern-driven swap of
   post-mutation `loadWorkspaces()` → `refreshFleetFallback()` also hit

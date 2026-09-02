@@ -14,7 +14,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0010](0010-pi-packages.md) | Packages via `pi install`; no in-app marketplace | accepted |
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
 | [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted, session-visibility clause amended by 0039 |
-| [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted |
+| [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted — "no app-level auth" superseded by 0049 |
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted, amended by 0026, 0027 |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
 | [0013](0013-provider-accounts.md) | Extra logins in `~/.picode/accounts.json`; `auth.json` is the active slot | accepted |
@@ -53,3 +53,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0046](0046-responsive-dialogs.md) | One modal primitive: Radix dialog ≥720px, Vaul bottom sheet below, enforced by a test | accepted |
 | [0047](0047-web-push.md) | Web Push over VAPID in the standard library; presence-aware; per-device prefs | accepted, amended by 0048 (consumes the feed) |
 | [0048](0048-change-feed.md) | The change feed — every mutation is a durable event, served over SSE with replay; polls become fallback | accepted, amends 0037 and 0047 |
+| [0049](0049-auth-pairing.md) | Authentication — paired devices, install token, Host/Origin gate; modes off / remote / all | accepted, supersedes 0007 on "no app-level auth" |
