@@ -16,12 +16,12 @@ requests from foreign origins and unknown host names are refused.
 
 ## Pair a phone or another computer
 
-1. On a device that already works, open **Preferences → Server → Pair a
-   device**, or click the phone icon in the sidebar (the QR carries the
+1. On a device that already works, open **Devices** (user menu) → **Pair
+   a device**, or click the phone icon in the sidebar (the QR carries the
    pairing link).
 2. Scan the code or open the link on the other device. It works once and
    expires in ten minutes.
-3. The device appears under **Devices**. **Forget** revokes it.
+3. The device appears under **Devices** with an online dot while it is connected. **Forget** revokes it.
 
 If no device is paired yet, run `picode pair` on the machine that runs
 PiCode: it prints a link.
@@ -30,7 +30,7 @@ PiCode: it prints a link.
 
 They read the install token from `~/.picode/token` and send it as
 `Authorization: Bearer …`. Rotate it with `picode token rotate` or from
-Preferences → Server. Automation webhooks keep their own secret and never
+Preferences → Server, where the pairing rule also lives. Automation webhooks keep their own secret and never
 need the token.
 
 ## What a pairing knows

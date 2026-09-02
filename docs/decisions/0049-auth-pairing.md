@@ -57,9 +57,12 @@ shell, the mechanism has to be as strong as the ones that guard SSH.
    host and `pi-inbox` read it beside `server.json`; `PICODE_DATA` now
    reaches every spawned pi so they find both. `picode token rotate`
    replaces it. Those clients verify TLS unless the host is loopback.
-6. **Devices, in Preferences → Server**: paired sessions with label, IP,
-   last seen, Forget; Pair a device (QR + link); the mode; the token
-   path with Rotate. A 401 in the SPA shows the pairing screen instead
+6. **Devices is one surface** (`#/devices`, amended 2026-09-02: the first
+   cut put a second "Devices" list in Preferences → Server, and the owner
+   asked why there were two): paired sessions with label, IP, last seen,
+   an online dot joined from the presence ping (which now carries its
+   session id), Forget, and Pair a device (QR + link). Preferences →
+   Server keeps the access rule (who must pair) and the install token. A 401 in the SPA shows the pairing screen instead
    of a broken page. The presence "host" flag now means "a desk browser"
    (desktop shell), not "loopback", since the daemon may be elsewhere.
 

@@ -11,7 +11,7 @@ import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES 
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
-import DevicesSection from "./DevicesSection.jsx";
+import AccessSection from "./AccessSection.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
@@ -160,7 +160,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         <p id="port-error" className="form-error" hidden={!err}>{err}</p>
         <p id="port-note" className={"port-note" + (moving ? " moving" : "")}>{note}</p>
         <ExtensionStatus hidden={hidden || sec !== "server"} />
-        <DevicesSection hidden={hidden || sec !== "server"} />
+        <AccessSection hidden={hidden || sec !== "server"} />
       </section>
 
       <BackupSection hidden={hidden || sec !== "backup"} />

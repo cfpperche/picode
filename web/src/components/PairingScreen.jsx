@@ -28,7 +28,7 @@ export default function PairingScreen() {
     <div className="pair-root" role="dialog" aria-label="Pair this device">
       <div className="pair-card">
         <h1>Pair this device</h1>
-        <p>This browser is not paired with this PiCode yet. On a device that is, open <strong>Preferences → Server</strong> and choose <strong>Pair a device</strong>, then open the link or scan the code here.</p>
+        <p>This browser is not paired with this PiCode yet. On a device that is, open <strong>Devices</strong> in the user menu and choose <strong>Pair a device</strong>, then open the link or scan the code here.</p>
         <form onSubmit={go} className="pair-form" noValidate>
           <input className="dlg-input" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste a pairing link or code" autoFocus />
           <button type="submit" className="btn btn-primary">Pair</button>

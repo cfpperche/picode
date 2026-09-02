@@ -263,6 +263,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Devices is one surface** (`fix/devices-one-surface`):
+  owner asked why the user menu and Preferences both had "Devices". The
+  presence page (`#/devices`) now lists paired sessions with liveness
+  joined by session id (`PingSession`); Preferences → Server keeps the
+  pairing rule and the token (`AccessSection`). `DevicesSection` removed.
 - **2026-09-02 — Pairing link reachable from the phone** (`fix/pair-url-reachable`):
   a request on loopback built `https://localhost:8445/pair?…`, which Safari
   on the phone cannot open. `pairLinks` now takes the share report's

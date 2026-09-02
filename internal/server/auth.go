@@ -54,16 +54,47 @@ func handleAuthSessions(deps Deps) http.HandlerFunc {
 		if p := auth.From(r); p != nil {
 			cur = p.Session.ID
 		}
+		// Liveness comes from presence: a ping carries its session id, so
+		// "online" here means "that paired device pinged within 45 s".
+		live := map[string]presenceView{}
+		if deps.Presence != nil {
+			for _, d := range deps.Presence.List() {
+				if d.Session == "" {
+					continue
+				}
+				v := live[d.Session]
+				if d.Online {
+					v.Online = true
+				}
+				if d.LastSeen > v.LastSeen {
+					v.LastSeen = d.LastSeen
+				}
+				if d.Kind != "" {
+					v.Kind = d.Kind
+				}
+				live[d.Session] = v
+			}
+		}
 		type row struct {
 			store.Session
-			Current bool `json:"current"`
+			Current  bool   `json:"current"`
+			Online   bool   `json:"online"`
+			PingKind string `json:"pingKind,omitempty"`
+			PingSeen string `json:"pingSeen,omitempty"`
 		}
 		out := make([]row, 0, len(list))
 		for _, s := range list {
-			out = append(out, row{Session: s, Current: s.ID == cur})
+			v := live[s.ID]
+			out = append(out, row{Session: s, Current: s.ID == cur, Online: v.Online, PingKind: v.Kind, PingSeen: v.LastSeen})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": out, "tokenPath": deps.Auth.TokenPath()})
 	}
+}
+
+type presenceView struct {
+	Online   bool
+	LastSeen string
+	Kind     string
 }
 
 func handleAuthRevoke(deps Deps) http.HandlerFunc {

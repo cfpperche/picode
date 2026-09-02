@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/auth"
 	"net/http"
 
 	"github.com/cfpperche/picode/internal/presence"
@@ -31,7 +32,11 @@ func handleDevicePing(deps *Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "id required")
 			return
 		}
-		dev := deps.presence().Ping(req.ID, r.UserAgent(), r.RemoteAddr, req.Host, req.Kind)
+		sess := ""
+		if p := auth.From(r); p != nil {
+			sess = p.Session.ID
+		}
+		dev := deps.presence().PingSession(req.ID, r.UserAgent(), r.RemoteAddr, req.Host, req.Kind, sess)
 		writeJSON(w, http.StatusOK, dev)
 	}
 }

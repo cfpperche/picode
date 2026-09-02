@@ -22,10 +22,12 @@ type Device struct {
 	Online    bool   `json:"online"`
 	LastSeen  string `json:"lastSeen"`
 	FirstSeen string `json:"firstSeen"`
+	Session   string `json:"session,omitempty"` // the paired session behind this ping (ADR-0049)
 }
 
 type rec struct {
 	id, name, ip, kind string
+	session            string
 	host               bool
 	first, last        time.Time
 	online             bool // last announced state, so Expire fires once per transition
@@ -69,6 +71,12 @@ func (r *Registry) SetLocal(ips []string) {
 // Ping records a heartbeat. id must be a client-generated opaque token.
 // kind "extension" is the Chrome side panel (ADR-0043 Track B).
 func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) Device {
+	return r.PingSession(id, ua, remote, claimedHost, kind, "")
+}
+
+// PingSession is Ping with the authenticated session behind the call,
+// so the Devices page can join liveness onto identity.
+func (r *Registry) PingSession(id, ua, remote string, claimedHost bool, kind, session string) Device {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return Device{}
@@ -91,6 +99,9 @@ func (r *Registry) Ping(id, ua, remote string, claimedHost bool, kind string) De
 	}
 	it.ip = ip
 	it.host = claimedHost || r.local[ip]
+	if session != "" {
+		it.session = session
+	}
 	it.last = now
 	d := r.view(it, now)
 	it.online = true
@@ -171,6 +182,7 @@ func (r *Registry) AnyHostOnline() bool {
 
 func (r *Registry) view(it *rec, now time.Time) Device {
 	return Device{
+		Session:   it.session,
 		ID:        it.id,
 		Name:      it.name,
 		IP:        it.ip,

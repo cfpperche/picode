@@ -3951,3 +3951,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .devs-mode { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .devs-mode input { margin-top: 3px; }
 .devs-hint { font-size: 12px; color: var(--text-secondary); }
+
+/* Devices rows are control rows (Forget is a button): every cell takes the control height. */
+.dev-row[data-align-row] > * { display: inline-flex; align-items: center; height: var(--ctl-h); box-sizing: border-box; }
+.dev-row[data-align-row] .btn { margin-left: auto; min-height: var(--ctl-h); }
+.dev-dot-cell { width: 12px; justify-content: center; flex: none; }

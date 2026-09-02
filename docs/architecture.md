@@ -113,7 +113,7 @@ stay on their own routes.
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
-| `#/devices` | Connected browsers | host vs LAN/tailnet phones (presence ping). The Chrome extension (ADR-0043) pings as `kind=extension` and shows as **Chrome extension** on this machine. |
+| `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. |
 
 A tab owns its surface's state for as long as it is open: terminals, file
 trees, git graphs and apps each keep one mounted instance per tab, hidden
