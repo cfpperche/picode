@@ -3964,13 +3964,27 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 /* Preferences → Server → Reach this server (ADR-0050) */
 .reach-ctl { display: inline-flex; gap: 8px; align-items: center; min-width: 0; }
 .reach-ctl select, .reach-ctl input { min-width: 240px; max-width: 100%; }
+.reach-ctl input[type="url"] {
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
+  font: inherit; font-family: var(--mono); font-size: 12.5px;
+  color: var(--text-primary); background: var(--bg-base);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+}
+.reach-ctl input[type="url"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.reach-ctl select { height: var(--ctl-h); box-sizing: border-box; }
+.reach-ctl .btn { min-height: var(--ctl-h); }
 .reach-suggest { margin-top: 10px; }
 .reach-suggest .chip {
   font: inherit; font-family: var(--mono); font-size: 12px; color: var(--accent);
   background: var(--accent-soft); border: 0; border-radius: 999px; padding: 2px 8px; cursor: pointer;
 }
 .reach-suggest .chip:hover { filter: brightness(1.1); }
-@media (max-width: 560px) {
-  .reach-ctl { flex-wrap: wrap; }
-  .reach-ctl select, .reach-ctl input { min-width: 0; flex: 1 1 100%; }
+@media (max-width: 767px) {
+  /* Narrow: label above, field + Apply on one line (the audit's row). */
+  .reach-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .reach-ctl { display: flex; width: 100%; }
+  .reach-ctl select, .reach-ctl input { min-width: 0; flex: 1 1 auto; }
+  .reach-ctl .btn { flex: none; }
+  /* Rotate is a full-size mobile button (44px); the token code matches it. */
+  .devs-actions[data-align-row] .auto-code { min-height: 44px; }
 }

@@ -215,9 +215,9 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         <h4 className="devs-h">Reach this server</h4>
         <p className="settings-desc">Where PiCode listens, and the address other machines should use. The public URL goes into pairing links, <code>server.json</code> and the phone drawer; it does not move the listener.</p>
         <div className="set-rows">
-          <div className="set-row" data-align-row>
+          <div className="set-row reach-row">
             <label htmlFor="bind-select">Bind</label>
-            <span className="reach-ctl">
+            <span className="reach-ctl" data-align-row>
               <select id="bind-select" value={bind} onChange={(e) => setBind(e.target.value)} disabled={!info}>
                 <option value="0.0.0.0">All interfaces (0.0.0.0)</option>
                 <option value="127.0.0.1">This machine only (127.0.0.1)</option>
@@ -229,9 +229,9 @@ export default function Settings({ hidden, themeMode, onTheme }) {
               <button type="button" className="btn btn-ghost btn-sm" onClick={applyBind} disabled={!info || bind === (info && info.host)}>Apply</button>
             </span>
           </div>
-          <div className="set-row" data-align-row>
+          <div className="set-row reach-row">
             <label htmlFor="public-url">Public URL</label>
-            <span className="reach-ctl">
+            <span className="reach-ctl" data-align-row>
               <input id="public-url" type="url" placeholder="https://box.tailxxxx.ts.net:8445" autoComplete="off" spellCheck={false} value={pubUrl} onChange={(e) => setPubUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") applyPublicUrl(); }} />
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => applyPublicUrl()} disabled={!info || pubUrl === (info && info.publicUrl)}>Apply</button>
             </span>
