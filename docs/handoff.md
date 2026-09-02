@@ -260,6 +260,27 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-01** — **Hotfix: mobile shell crashed to a blank screen on
+  every Inbox visit**, on branch `fix/appsurface-feed-crash`. Owner:
+  "app no web quebrado nao abre .. erro no console". The concurrent
+  ADR-0048 change-feed merge (`a7712ee0`) left
+  `AppSurface.jsx`'s feed-subscription effect referencing `app.id` —
+  `app` was never declared in that component (only the `appId` prop
+  exists). On desktop this went unnoticed: a coincidental `id="app"`
+  element elsewhere in the page made the browser's legacy named-element-
+  as-global-property behavor resolve `app` to that DOM node instead of
+  throwing (`app.id` silently evaluated to the string `"app"`, quietly
+  breaking the auto-reload-on-touch feature but not crashing). The
+  mobile shell has no such element, so the reference genuinely threw
+  `ReferenceError: app is not defined` on every render of the Inbox
+  (list or item screen) — with no error boundary, React 18 unmounts the
+  whole tree, emptying `#root`. Confirmed reproducible on a byte-
+  identical isolated build (not a caching artifact) via an
+  `--init-script` early error listener (agent-browser's own `console`/
+  `errors` capture missed it — too early in the page lifecycle). Fix:
+  both references now read `appId`. Verified: Inbox list and item
+  screens both mount clean on mobile with zero captured errors.
+
 - **2026-09-01 — ADR-0048 change feed** (`feat/change-feed`): durable
   event log + SSE with replay, push and presence on the feed, desktop and
   mobile patch from it. Scratch dogfood: desktop sidebar showed an agent

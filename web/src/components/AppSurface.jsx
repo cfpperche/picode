@@ -110,9 +110,9 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     // Change feed (ADR-0048): the app's own entity changed → reload now,
     // even on a hidden tab (cheap, and the reveal then shows the truth).
     return subscribeFeed((ev) => {
-      if (ev.type === "feed.reset" || ev.type === "feed.open" || touches(ev, [app.id])) load(path);
+      if (ev.type === "feed.reset" || ev.type === "feed.open" || touches(ev, [appId])) load(path);
     });
-  }, [load, path, app.id]);
+  }, [load, path, appId]);
   useEffect(() => {
     // Like the file tree: refresh when the page comes back, no polling. Apps on
     // hidden tabs sit this out — every open tab would re-ask. Their reveal is
