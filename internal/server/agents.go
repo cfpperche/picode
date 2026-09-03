@@ -118,6 +118,54 @@ func (deps Deps) switchAgentToManaged(ctx context.Context, agentID string) (alre
 	return false, nil
 }
 
+// watchBurstReopen closes the reply-switch loop: the inbox reply
+// paused the agent's TUI and ran the reply as a managed turn — when
+// that turn settles, the TUI comes back on the same session and the
+// user continues in the terminal with the answer in the transcript.
+// Yields without reopening if the user takes over first (opens the TUI
+// themselves — interactive means it is back — or stops the agent), and
+// gives up silently after the deadline: from then on the agent stays
+// in chat mode, which the reply already made the default surface.
+func (deps Deps) watchBurstReopen(agentID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		if deps.Tmux == nil || !deps.Tmux.Available() {
+			return
+		}
+		// The user already brought the TUI back — done.
+		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
+			return
+		}
+		// Wait for the parked reply to be claimed (the managed run only
+		// starts processing after the queue drains).
+		if n, err := deps.Store.CountQueuedTasks(agentID); err != nil || n > 0 {
+			if err != nil {
+				return
+			}
+			continue
+		}
+		ma := deps.Runtime.Get(agentID)
+		if ma == nil {
+			// The managed runtime is gone and no TUI session exists:
+			// the user stopped the agent — respect that, reopen nothing.
+			return
+		}
+		if ma.Settled() {
+			deps.openAgentTUI(ctx, agentID)
+			deps.Feed.Ephemeral("burst.reopen", map[string]any{"agentId": agentID})
+			return
+		}
+	}
+}
+
 func handleManagedStart(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentID := r.PathValue("id")

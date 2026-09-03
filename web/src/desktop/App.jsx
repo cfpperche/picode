@@ -570,6 +570,12 @@ export default function App() {
     const unsub = subscribeFeed((ev) => {
       if (ev.type === "feed.open" || ev.type === "feed.reset") poll();
       else if (ev.type === "agent.tui") setTuiWorking((cur) => applyTui(cur, ev));
+      // Reply-switch flip-back: the burst finished and the server
+      // reopened the agent's TUI — dock it so the user lands in the
+      // terminal with the answer in the transcript.
+      else if (ev.type === "burst.reopen" && ev.data && ev.data.agentId) {
+        setTermWanted((s) => new Set(s).add(ev.data.agentId));
+      }
     });
     return () => { stop = true; clearInterval(t); unsub(); };
   }, [workspaces, freeAgents, selectedId]);
