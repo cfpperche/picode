@@ -44,23 +44,55 @@ by hand today; the harness should make the *right* artifact the cheap artifact.
 | **D2 / Mermaid** | Diagrams-as-code with themed CLI render (D2: dark/light themes, elk layout); Mermaid renders in VitePress natively via plugin | Architecture/flow diagrams as committed source with a render target; dark-theme matches site | Hand-drawn PNGs, Figma exports that drift |
 | **Remotion** | React-in-video, programmatic rendering | Nothing by default — license: free only ≤3 people, Company License above; a harness distributing rendered videos to users is exactly its paid tier | Adopting it silently; if the owner explicitly chooses it, fine (user-invoked, their license) |
 | **HyperFrames** (installed here, CLI 0.8.27) | HTML→video composition with seek-safe timeline, workflows for product tours/explainers, TTS voiceover + captions (media-use skill), registry blocks | Tutorial videos authored as committed HTML compositions, rendered by the user/agent on demand to `www/public/videos/` | Bundling the renderer in the binary (ADR-0003: user-installed tools, detect on PATH) |
-| **Playwright / agent-browser** (installed here) | Scriptable browser: screenshots, recordings | `make docs-shots`: drives the real app (or a fixture daemon) into framed, themed PNGs under `www/public/img/` | Manual screenshots that rot |
+| **Playwright / agent-browser** (installed here) | Scriptable browser: screenshots, recordings | `make docs-shots`: drives a **fixture daemon** into framed, themed PNGs under `www/public/img/` — never reuses `docs/screenshots/` (agent work evidence, not user docs) | Manual screenshots that rot |
 | **VitePress default theme** | Hero + features home layout, custom theme entry, CSS variables, local search, dark mode | Brand the site with the app's own tokens (`web/src/styles/app.css`), hero page, section landing pages | A bespoke theme engine (bar #1: one generator, not ours) |
 
 ## The harness, concretely
+
+**Parity principle (owner directive, 2026-09-03):** every image, video and
+animation on the site is *generated from the current codebase*, never
+hand-placed and never reused from `docs/screenshots/` (that directory is
+agent work evidence — visual-review receipts, handoff proof — not user
+docs). The harness owns its capture pipeline end to end:
+
+```
+make docs-shots      # deterministic capture → www/public/img/
+  # 1. boots a fixture daemon: seeded store (synthetic agent names, fixed
+  #    states, fixed spend numbers), known workspace, dark theme, pinned
+  #    viewport, fonts pinned by the runner
+  # 2. drives agent-browser/Playwright over a named surface list
+  #    (surface name → route + action script), settles animations,
+  #    captures framed PNGs
+  # 3. writes www/public/img/manifest.json: git SHA, per-surface source
+  #    inputs (routes + components hashed), asset hashes, capture stamp
+make docs-check      # parity gate (in make ci): recaptures headless and
+  #    byte/pixel-compares against the committed set; drift = FAIL with
+  #    "run make docs-shots". A UI change without regenerated images is
+  #    exactly what this catches.
+make docs-videos --check  # compositions embed www/public/img assets; the
+  #    manifest maps composition → asset hashes + source hash, so a video
+  #    whose surfaces or sources changed since its last render is listed
+  #    as stale (re-render: make docs-videos).
+```
+
+Determinism notes: pixel-perfect cross-OS rendering is not a goal — the
+canonical captures come from one environment (the CI runner or this
+WSL box), recorded in the manifest; pixel-diff uses a small tolerance for
+antialiasing. Fixture data must avoid real names/inboxes by construction.
 
 New files (all in-repo, make-driven, zero new runtimes):
 
 ```
 scripts/
-  docs-shots.mjs      # agent-browser/Playwright: named routes → framed PNGs → www/public/img/
+  docs-fixture.go     # fixture daemon: seeded store (synthetic names/states), fixed workspace
+  docs-shots.mjs      # deterministic capture: named surfaces → framed PNGs → www/public/img/ + manifest.json
   gen-openapi.go      # cmd: walks the mux registrations → www/public/openapi.json (+ coverage report)
   docs-llms.mjs       # builds llms.txt from www/ markdown (agent-ready index)
   docs-coverage.sh    # routes vs /api page, slash commands vs commands.md — report, not gate (v1)
 www/
   .vitepress/theme/   # custom theme: app tokens, dark-first, section landing pages, home hero
   guide/api.md        # Scalar embed of openapi.json
-  public/img/         # committed screenshots + rendered diagrams
+  public/img/         # committed screenshots + rendered diagrams + manifest.json (parity source of truth)
   public/videos/      # rendered tutorials (committed MP4s, rendered on demand)
   llms.txt            # generated agent index
 .vale.ini             # house prose style (English, short, jargon needs a plain-word line)
@@ -74,14 +106,17 @@ Make targets: `make docs-shots`, `make docs-api` (CI fails if `openapi.json` is 
 
 1. **IA + theme** (the "feia"): Diátaxis sidebar quadrants, custom theme with app tokens, home
    hero, section landing pages. No content moves lost — redirects kept.
-2. **Screenshots + illustrations**: `make docs-shots`; first D2/Mermaid diagrams (architecture
-   map, pairing flow, gateway topology); embed into existing guides.
+2. **Screenshots + illustrations + parity gate**: `docs-fixture` + `make docs-shots` +
+   `make docs-check` in CI; first D2/Mermaid diagrams (architecture map, pairing flow, gateway
+   topology); embed into existing guides. The gate lands with the first captures — parity is
+   only real if it is enforced from day one.
 3. **API reference + llms.txt**: route-walking `openapi.json` generator + Scalar page; `llms.txt`;
    `make docs-api` staleness gate in CI.
 4. **Prose gate**: `.vale.ini` + `make docs-lint` in `make ci`; fix findings as they surface.
 5. **Tutorial videos**: 3 HyperFrames compositions (getting started, pairing/devices, automations),
    storyboard committed next to the composition, rendered to `www/public/videos/`, embedded in
-   the matching guides.
+   the matching guides; compositions declare the surfaces they use, `make docs-videos --check`
+   flags stale renders in CI.
 6. **(later, owner's call) agent maintenance loop**: an Automations template that runs
    docs-lint + coverage + staleness on a schedule and files inbox items with diffs — the OpenWiki
    pattern applied to public docs, humans still merge.
@@ -89,8 +124,11 @@ Make targets: `make docs-shots`, `make docs-api` (CI fails if `openapi.json` is 
 ## Open questions for the ADR
 
 1. Theme depth: pure default-theme CSS-variable pass, or a custom theme package? (Default first.)
-2. Screenshots source: a fixture daemon (`picode demo`) vs the owner's real instance — privacy
-   of inbox/agent names in shots argues for fixtures.
+2. ~~Screenshots source~~ **answered by the owner (2026-09-03): fixture daemon** — the harness
+   captures its own shots from seeded synthetic data; parity with the codebase is the requirement,
+   and `docs/screenshots/` (agent evidence) is out of the pipeline. Open sub-question: fixture as
+   a `picode` run mode (`picode demo`, ADR-0006 run modes) vs a Go test-harness binary reusing
+   `internal/store` seeds — ADR decides.
 3. Do rendered videos get committed (binary weight) or built in CI Pages? MP4s of ~1–3 MB × 3
    are acceptable committed; CI rendering adds HyperFrames to Pages build (Node, already there).
 4. Vale vocabulary: adopt Microsoft's style package (MIT) as base or hand-roll the ~20 rules we
