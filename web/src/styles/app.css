@@ -530,6 +530,22 @@ body {
   border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel);
 }
 .pkg-toolbar .settings-link { color: var(--accent); }
+/* Installed | Marketplace: two tabs, one card grid each. */
+.pkg-tabs { display: flex; gap: 2px; margin: 14px 0 12px; border-bottom: 1px solid var(--border); }
+.pkg-tab {
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary); background: none; border: 0;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.pkg-tab:hover { color: var(--text-primary); }
+.pkg-tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
+.pkg-tab-count { font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; }
+.pkg-card-installed .pkg-card-desc.pkg-src { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pkg-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.pkg-behind { color: var(--accent); }
+.pkg-foot-spacer { flex: 1; }
+.pkg-empty { padding: 28px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.pkg-empty-title { font-size: 14px; font-weight: 600; margin: 0; }
 .pkg-installed { margin-bottom: 18px; }
 .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
 .pkg-chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }

@@ -236,9 +236,19 @@ type MutateOpts struct {
 }
 
 // MutateArgs is the pi CLI argv after the binary (tested).
+//
+// Project scope carries --approve, never --no-approve. In pi the flags
+// override project trust for one run: --no-approve treats the folder as
+// untrusted and every write to its .pi/settings.json is refused
+// ("Project is not trusted. Use --approve to modify local package
+// config") — even when trust.json trusts the folder; measured on
+// 0.84.4, `remove -l` refuses without --approve in an untrusted folder
+// too, and --approve does not change trust.json. The click on Install
+// or Remove for this workspace is the approval of that run. The user
+// scope keeps --no-approve: no project is involved.
 func MutateArgs(verb, source string, local bool) []string {
 	if local {
-		return []string{verb, "-l", source, "--no-approve"}
+		return []string{verb, "-l", source, "--approve"}
 	}
 	return []string{verb, source, "--no-approve"}
 }

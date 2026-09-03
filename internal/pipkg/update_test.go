@@ -61,8 +61,14 @@ func TestNewer(t *testing.T) {
 	}
 }
 
+func TestUpdateArgsLocalTrustsTheProject(t *testing.T) {
+	if got := strings.Join(UpdateArgs("../pkg", true), " "); got != "update --extension ../pkg --approve" {
+		t.Fatalf("local update args = %q", got)
+	}
+}
+
 func TestUpdateArgs(t *testing.T) {
-	got := strings.Join(UpdateArgs("npm:foo"), " ")
+	got := strings.Join(UpdateArgs("npm:foo", false), " ")
 	if got != "update --extension npm:foo --no-approve" {
 		t.Fatal(got)
 	}

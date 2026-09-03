@@ -4,6 +4,7 @@ import { askConfirm } from "../lib/confirm.js";
 import { paneContext } from "../lib/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
+import { pkgName } from "../lib/pkgName.js";
 
 export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates }) {
   const [data, setData] = useState(null);
@@ -13,6 +14,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
   const [job, setJob] = useState(null);
+  const [tab, setTab] = useState("installed"); // installed | marketplace
   const [ownUpdates, setOwnUpdates] = useState([]);
   const behind = updates || ownUpdates;
 
@@ -49,7 +51,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   }, [workspaceId, agentId, scope]);
 
   useEffect(() => {
-    if (hidden) return;
+    if (hidden || tab !== "marketplace") return;
     const t = setTimeout(async () => {
       setSearching(true);
       try {
@@ -59,7 +61,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       finally { setSearching(false); }
     }, q ? 280 : 0);
     return () => clearTimeout(t);
-  }, [hidden, q]);
+  }, [hidden, q, tab]);
 
   const installed = useMemo(() => {
     const s = new Set();
@@ -210,94 +212,123 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       ) : null}
       <p className="pkg-fine">Packages run with full access. Only install what you review.</p>
 
-      <section className="pkg-toolbar" data-align-row>
-        <input
-          className="pkg-search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Filter packages…"
-          aria-label="Search gallery"
-        />
-        <span className="pkg-count">{searching && !hits.length ? "Loading…" : searching ? "Updating…" : hits.length ? hits.length + " shown" : "No matches"}</span>
-        <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
-      </section>
+      <div className="pkg-tabs" role="tablist" aria-label="Packages">
+        <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
+          Installed{data ? <span className="pkg-tab-count">{list.length}</span> : null}
+        </button>
+        <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
+      </div>
 
-      {list.length === 0 && data ? (
-        <p className="pkg-fine">None on this machine.</p>
-      ) : null}
-      {list.length > 0 ? (
-        <section className="pkg-installed">
-          <h3>Installed</h3>
-          <ul className="pkg-chips">
+      {tab === "installed" ? (
+        list.length === 0 && data ? (
+          <div className="pkg-empty">
+            <p className="pkg-empty-title">Nothing installed yet</p>
+            <p className="pkg-fine">Pick one in the Marketplace, or paste a source above.</p>
+            <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
+          </div>
+        ) : (
+          <ul className="pkg-grid" role="tabpanel">
             {list.map((p) => {
               const u = behindOf(p);
+              const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
               return (
-              <li key={p.scope + ":" + p.source} className="pkg-chip">
-                <span className="pkg-scope-tag">{p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine"}</span>
-                <span className="pkg-src">{p.source}</span>
-                {u ? (
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
-                ) : null}
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
-              </li>
+                <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
+                  <div className="pkg-preview" aria-hidden="true">
+                    <div className="pkg-preview-frame"><span /><span /><span /></div>
+                  </div>
+                  <div className="pkg-card-body">
+                    <div className="pkg-card-head">
+                      <span className="pkg-card-name" title={p.source}>{pkgName(p.source)}</span>
+                      <span className="pkg-type">{scopeLabel}</span>
+                    </div>
+                    <p className="pkg-card-desc pkg-src" title={p.source}>{p.kind === "path" && p.installedPath ? p.installedPath : p.source}</p>
+                    <div className="pkg-card-meta">
+                      {p.kind ? <span>{p.kind}</span> : null}
+                      {u && u.current ? <span>{u.current}</span> : null}
+                      {u && u.latest ? <span className="pkg-behind">{u.latest} available</span> : null}
+                      {p.kind !== "path" && p.installedPath ? <span className="pkg-path" title={p.installedPath}>{p.installedPath}</span> : null}
+                    </div>
+                    <div className="pkg-card-foot">
+                      {u ? (
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
+                      ) : null}
+                      <span className="pkg-foot-spacer" />
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
+                    </div>
+                  </div>
+                </li>
               );
             })}
           </ul>
-        </section>
-      ) : null}
+        )
+      ) : (
+        <>
+          <section className="pkg-toolbar" data-align-row>
+            <input
+              className="pkg-search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter packages…"
+              aria-label="Search gallery"
+            />
+            <span className="pkg-count">{searching && !hits.length ? "Loading…" : searching ? "Updating…" : hits.length ? hits.length + " shown" : "No matches"}</span>
+            <a className="settings-link" href={gallery} target="_blank" rel="noopener noreferrer">pi.dev ↗</a>
+          </section>
 
-      <ul className="pkg-grid" aria-busy={searching && !hits.length}>
-        {searching && !hits.length ? Array.from({ length: 6 }, (_, i) => (
-          <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
-            <div className="pkg-preview">
-              <div className="pkg-preview-frame"><span /><span /><span /></div>
-            </div>
-            <div className="pkg-card-body">
-              <div className="skel-line w-50" />
-              <div className="skel-line w-90" />
-              <div className="skel-line w-70" />
-              <div className="skel-line w-40" />
-              <div className="skel-line w-80" />
-            </div>
-          </li>
-        )) : null}
-        {hits.map((h) => {
-          const on = installed.has(h.source);
-          return (
-            <li key={h.source} className="pkg-card">
-              <div className={"pkg-preview" + (h.image ? " has-media" : "")} aria-hidden="true">
-                <div className="pkg-preview-frame">
-                  {h.image ? <img src={h.image} alt="" loading="lazy" /> : <><span /><span /><span /></>}
+          <ul className="pkg-grid" role="tabpanel" aria-busy={searching && !hits.length}>
+            {searching && !hits.length ? Array.from({ length: 6 }, (_, i) => (
+              <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
+                <div className="pkg-preview">
+                  <div className="pkg-preview-frame"><span /><span /><span /></div>
                 </div>
-              </div>
-              <div className="pkg-card-body">
-              <div className="pkg-card-head">
-                <span className="pkg-card-name">{h.name}</span>
-                {h.kind ? <span className="pkg-type">{h.kind}</span> : null}
-              </div>
-              {h.description ? <p className="pkg-card-desc">{h.description}</p> : <p className="pkg-card-desc"> </p>}
-              <div className="pkg-card-meta">
-                {h.publisher ? <span>{h.publisher}</span> : null}
-                {h.downloads ? <span>{fmtDown(h.downloads)}</span> : null}
-                {h.updated ? <span>{fmtAge(h.updated)}</span> : null}
-                {h.version ? <span>{h.version}</span> : null}
-              </div>
-              <div className="pkg-card-foot">
-                <code className="pkg-cmd">pi install {h.source}</code>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  disabled={!!job || on}
-                  onClick={() => installSource(h.source)}
-                >
-                  {on ? "Installed" : "Install"}
-                </button>
-              </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <div className="pkg-card-body">
+                  <div className="skel-line w-50" />
+                  <div className="skel-line w-90" />
+                  <div className="skel-line w-70" />
+                  <div className="skel-line w-40" />
+                  <div className="skel-line w-80" />
+                </div>
+              </li>
+            )) : null}
+            {hits.map((h) => {
+              const on = installed.has(h.source);
+              return (
+                <li key={h.source} className="pkg-card">
+                  <div className={"pkg-preview" + (h.image ? " has-media" : "")} aria-hidden="true">
+                    <div className="pkg-preview-frame">
+                      {h.image ? <img src={h.image} alt="" loading="lazy" /> : <><span /><span /><span /></>}
+                    </div>
+                  </div>
+                  <div className="pkg-card-body">
+                    <div className="pkg-card-head">
+                      <span className="pkg-card-name">{h.name}</span>
+                      {h.kind ? <span className="pkg-type">{h.kind}</span> : null}
+                    </div>
+                    {h.description ? <p className="pkg-card-desc">{h.description}</p> : <p className="pkg-card-desc"> </p>}
+                    <div className="pkg-card-meta">
+                      {h.publisher ? <span>{h.publisher}</span> : null}
+                      {h.downloads ? <span>{fmtDown(h.downloads)}</span> : null}
+                      {h.updated ? <span>{fmtAge(h.updated)}</span> : null}
+                      {h.version ? <span>{h.version}</span> : null}
+                    </div>
+                    <div className="pkg-card-foot">
+                      <code className="pkg-cmd">pi install {h.source}</code>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={!!job || on}
+                        onClick={() => installSource(h.source)}
+                      >
+                        {on ? "Installed" : "Install"}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
 
       {job ? <JobOverlay job={job} onClose={() => setJob(null)} /> : null}
     </PageFrame>

@@ -4,7 +4,7 @@ Extras for Pi (search, tools, themes). They run with **full access** — only in
 
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
-In PiCode (`#/packages`) pick a target, then Install.
+In PiCode (`#/packages`) pick a target, then Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
 
 | Target | Who gets it | How |
 |---|---|---|

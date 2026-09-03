@@ -84,9 +84,14 @@ func TestMutateArgs(t *testing.T) {
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("%v", got)
 	}
+	// Project scope: -l and --approve — --no-approve would mark the
+	// project untrusted and pi refuses to write its .pi/settings.json.
 	got = MutateArgs("install", "npm:foo", true)
-	if got[1] != "-l" {
+	if strings.Join(got, " ") != "install -l npm:foo --approve" {
 		t.Fatalf("local: %v", got)
+	}
+	if strings.Join(MutateArgs("remove", "../pkg", true), " ") != "remove -l ../pkg --approve" {
+		t.Fatalf("local remove: %v", MutateArgs("remove", "../pkg", true))
 	}
 }
 

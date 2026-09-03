@@ -384,6 +384,16 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — workspace install refused + Packages tabs**
+  (`fix/packages-local-trust-tabs`): `pi install -l … --no-approve`
+  answered "Project is not trusted. Use --approve"; measured on 0.84.4:
+  `--no-approve` distrusts the project for the run and blocks local
+  config writes even with trust.json trusting the folder; `install -l`
+  works with no flag, `remove -l` in an untrusted folder needs
+  `--approve`, and `--approve` never writes trust.json. `MutateArgs` /
+  `UpdateArgs` pass `--approve` for the project scope (the click is the
+  approval). UI: Installed |
+  Marketplace tabs, installed packages as the same cards (`pkgName`).
 - **2026-09-03 — package update checks ride the change feed**
   (`feat/feed-packages-updates`, phase 4 — polling→feed migration
   complete). Fleet-wide scan ticker publishes `packages.updates` on

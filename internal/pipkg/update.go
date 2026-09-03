@@ -76,8 +76,12 @@ func checkUpdates(ctx context.Context, client *http.Client, base, userDir, proje
 	return out, nil
 }
 
-// UpdateArgs is `pi update --extension <source> --no-approve`.
-func UpdateArgs(source string) []string {
+// UpdateArgs is `pi update --extension <source>`, with --approve for the
+// project scope and --no-approve for the user scope (see MutateArgs).
+func UpdateArgs(source string, local bool) []string {
+	if local {
+		return []string{"update", "--extension", source, "--approve"}
+	}
 	return []string{"update", "--extension", source, "--no-approve"}
 }
 
@@ -92,7 +96,7 @@ func Update(ctx context.Context, piCmd, source string, opts MutateOpts) error {
 	if piCmd == "" {
 		piCmd = "pi"
 	}
-	cmd := exec.CommandContext(ctx, piCmd, UpdateArgs(source)...)
+	cmd := exec.CommandContext(ctx, piCmd, UpdateArgs(source, opts.Local)...)
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}

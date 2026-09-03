@@ -175,6 +175,17 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Installing into a workspace works, and the manager has two tabs.**
+  Project-scope install, remove and update now pass `--approve` to pi
+  instead of `--no-approve` — in pi those flags override project trust
+  for one run, and the old one meant "untrusted", so every write to the
+  folder's `.pi/settings.json` was refused ("Project is not trusted")
+  even for a trusted folder. Your click is the approval; `trust.json` is
+  not touched. The Packages
+  page is now **Installed** (a card per package with its scope, source,
+  path, Update and Remove) and **Marketplace** (the gallery), instead of
+  chips and the gallery on one screen.
+
 - **Removing a path package from the manager works.** pi stores a path
   install relative to its settings directory (`../../picode/packages/x`
   from `~/.pi/agent`) and `pi remove` run from anywhere else answered
