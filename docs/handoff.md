@@ -174,6 +174,16 @@ render megabytes.
 
 ## Next up
 
+0. **Live browser preview (agent_browser) — ADR owed** from the 2026-09-02
+   benchmark study (`docs/benchmarks/2026-09-02-live-browser-preview.md`):
+   proposal is a tool-agnostic `details.preview` contract emitted by the
+   package (or a thin `pi-agent-browser-view` companion) + generic rendering
+   in the conversation (reducer consumes `tool_execution_update`; tool pills
+   render preview images) + a Browser surface on `#/agent/<id>`; v2 proxies
+   `agent-browser stream enable` behind `internal/auth`. No new package
+   system — pi's exists (ADR-0010); only the tool→GUI rendering contract is
+   missing. Decision for the owner: propose the contract upstream to pi
+   first vs. PiCode-side convention.
 1. **Remote modes — acceptance runs owed** (owner's sudo): Track C on a real second account (`sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`); Track D.2 (`sudo apt install systemd-container debootstrap`, `sudo picode provision --user demo --shared --container`); Track D.1 with a real GitHub OAuth app behind Caddy on a public name. Then decide on Track E (SaaS: signup, quotas, billing, VM per client) — the roadmap sketches it.
 2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
    tree and the sidebar's branch line (would retire the last refetches:
@@ -371,6 +381,25 @@ Never exercised, because this machine was already past them:
   overlayAudit ok; e2e: commit cleared the badge, new file re-raised it
   — zero fleet refetches, one tree reload per event).
 
+- **2026-09-02 — Benchmark study: live browser preview in chat / side
+  panel** (`docs/study-browser-preview`). The owner asked to render
+  `agent_browser` work live in the conversation or a side panel, and
+  whether that needs a PiCode package system or a pi package. Researched
+  how Cursor ("screenshots and actions in the chat, as well as the
+  browser window itself either in a separate window or an inline pane"),
+  Devin (session Browser tab + Progress unified log + take-over), Manus
+  (Cloud Browser real-time view + Take Over), Operator (*inference*),
+  Antigravity (browser subagent + action-video artifacts + allow/denylist),
+  Browserbase + browser-use (embeddable live-view iframes, "URL is a
+  credential"), OpenHands (rrweb recordings) and the local `agent-browser`
+  (`stream enable` WebSocket, `record`, `artifactVerification`) solve it.
+  Convergence: activity cards in chat + live surface with take-over.
+  Key gap found: PiCode's web reducer never consumes
+  `tool_execution_update` and tool pills render raw JSON — no image path.
+  Answer: no new package system; add a generic `details.preview`
+  rendering contract to core (never the string `agent_browser`) + a
+  Browser panel fed by it; v2 = auth-gated WS proxy for `stream enable`.
+  ADR is the next step (see *Next up* 0).
 - **2026-09-02 — the inbox refusal to a TUI agent offers Open terminal**
   (`fix/inbox-open-terminal`). Replying to an agent-sourced item whose
   agent runs in a TUI is refused by design (ADR-0037/0006), but the
