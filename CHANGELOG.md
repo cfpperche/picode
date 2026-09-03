@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Inbox replies to a TUI agent now work: the reply switches the agent
+  to chat mode.** Replying used to bounce with "the agent is running in
+  an interactive terminal" — a dead end. Now the respond form warns
+  first ("the terminal session ends and the thread continues in this
+  chat"), and on confirm the reply parks in the agent's queue
+  (`RespondAndPark`), the TUI hands over to managed mode, and the
+  delivery loop drains the queue into the same session thread
+  (ADR-0053 keeps it one thread). The action lands on the agent's chat
+  tab watching it work; the TUI reopens later on the same session.
+  Send-keys injection stays rejected (ADR-0002; ADR-0037 amendment
+  records the benchmark research).
+
 ### Changed
 
 - **Package update checks are a fleet-wide feed scan, not a per-browser

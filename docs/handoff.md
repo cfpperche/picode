@@ -390,6 +390,23 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — Degrau 2 shipped: inbox replies switch a TUI agent to
+  chat mode** (`feat/inbox-reply-switch` + `fix/form-interactive-
+  normalize` + `fix/open-terminal-goto`). The respond form on an
+  interactive agent confirms the trade, parks the reply
+  (`RespondAndPark`), switches the agent to managed (TUI ends — user
+  consented), and the delivery loop drains into the same thread
+  (ADR-0053). The action returns `ActionResult.Goto` ("agentchat:<id>")
+  and the shell undocks the terminal, landing on the chat watching the
+  answer. Open terminal (Degrau 1) navigates out of the inbox the same
+  way (`Goto: "agent:<id>"` → docked TUI). Verified live end to end
+  (qa-switch free agent): confirm dialog, mode → managed, task
+  `delivered`, item responded. ADR-0037 amendment records the decision
+  + the send-keys benchmark research (claude-squad uses guarded
+  send-keys, marked experimental; PiCode keeps it parked). A gate
+  regression (normalizeView dropped the form's interactive flag) was
+  caught in QA and fixed forward.
+
 - **2026-09-03 — workspace install refused + Packages tabs**
   (`fix/packages-local-trust-tabs`): `pi install -l … --no-approve`
   answered "Project is not trusted. Use --approve"; measured on 0.84.4:
