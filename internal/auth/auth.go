@@ -50,6 +50,11 @@ type Config struct {
 	Insecure  bool          // cookies drop Secure over plain HTTP
 	PublicURL func() string // advertised origin, "" when unknown
 	Hostname  string        // machine name, allowed as a Host
+	// SessionLive reports whether a presence ping for that session id
+	// arrived within the staleness window (ADR-0049 amendment: the
+	// loopback reuse must not rotate the cookie out from under a browser
+	// that is actively using it). Nil means nobody is live.
+	SessionLive func(sessionID string) bool
 }
 
 // Principal is the resolved caller. Nil in mode off means anonymous.
@@ -362,7 +367,7 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 					p = &Principal{Kind: "loopback", Session: store.Session{ID: "loopback", Kind: store.SessionToken, Label: "this machine"}, Loopback: true}
 					break
 				}
-				sess, secret, err := s.cfg.Store.CreateSession(store.SessionBrowser, "", "This machine · "+presence.Label(r.UserAgent()), "127.0.0.1", BrowserTTL)
+				sess, secret, err := s.loopbackSession("This machine · " + presence.Label(r.UserAgent()))
 				if err != nil {
 					denied(w, http.StatusInternalServerError, err.Error())
 					return
@@ -385,6 +390,43 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 }
 
 // ---- pairing ----
+
+// loopbackSession answers a browser-like loopback visit with a browser
+// session: reuse when the newest live session with that label already
+// exists and no browser is actively using it (every headless QA profile
+// used to mint its own 90-day row and the Devices list filled with
+// "This machine · Linux" duplicates — ADR-0049 amendment), mint otherwise.
+func (s *Service) loopbackSession(label string) (store.Session, string, error) {
+	if found, err := s.cfg.Store.NewestLiveBrowserSession(label, "127.0.0.1"); err == nil && !s.protected(found) {
+		if sess, secret, err := s.cfg.Store.RotateSessionSecret(found.ID, BrowserTTL); err == nil {
+			return sess, secret, nil
+		}
+	}
+	return s.cfg.Store.CreateSession(store.SessionBrowser, "", label, "127.0.0.1", BrowserTTL)
+}
+
+// reuseBurstWindow: a session younger than this is part of a first-visit
+// burst — a fresh browser fires its first requests in parallel without a
+// cookie, and the winner's Set-Cookie has not reached the losers yet. A
+// ping from the burst itself must not make the racing request mint a
+// duplicate (seen live: two "This machine · Windows" rows 50 ms apart),
+// so young sessions are reused even while live.
+var reuseBurstWindow = 30 * time.Second
+
+// protected reports whether the session must not be rotated: a browser is
+// actively using it (presence) and it is established — not the tail of an
+// arrival burst from the very same browser.
+func (s *Service) protected(sess store.Session) bool {
+	if !s.live(sess.ID) {
+		return false
+	}
+	if created, err := time.Parse(time.RFC3339Nano, sess.CreatedAt); err == nil && time.Since(created) < reuseBurstWindow {
+		return false
+	}
+	return true
+}
+
+func (s *Service) live(id string) bool { return s.cfg.SessionLive != nil && s.cfg.SessionLive(id) }
 
 func clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)

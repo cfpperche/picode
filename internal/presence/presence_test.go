@@ -12,6 +12,9 @@ func TestLabel(t *testing.T) {
 	if Label("Mozilla/5.0 (Windows NT 10.0)") != "Windows" {
 		t.Fatal("windows")
 	}
+	if Label("Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/152.0.7977.64") != "Headless browser" {
+		t.Fatal("headless chrome must not read as a Linux machine")
+	}
 }
 
 func TestPingHostAndRemote(t *testing.T) {

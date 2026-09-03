@@ -412,6 +412,29 @@ func serve() {
 		}
 	}
 	go devices.Watch(backupCtx, 5*time.Second) // process-scoped, like the backup loop
+
+	// Session housekeeping (ADR-0049): PruneSessions existed but had no
+	// caller, so revoked and expired rows piled up forever —Devices showed
+	// every browser session ever minted. Daily sweep, 7-day retention
+	// (ListSessions already hides dead rows, so the lag is invisible).
+	go func() {
+		prune := func() {
+			if _, err := st.PruneSessions(time.Now().Add(-7 * 24 * time.Hour)); err != nil {
+				log.Printf("auth: prune sessions: %v", err)
+			}
+		}
+		prune()
+		t := time.NewTicker(24 * time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-backupCtx.Done():
+				return
+			case <-t.C:
+				prune()
+			}
+		}
+	}()
 	var notifier *push.Notifier
 	if keys, err := push.LoadOrCreate(dataDir); err != nil {
 		log.Printf("push: disabled: %v", err)
@@ -430,7 +453,8 @@ func serve() {
 	hostname, _ := os.Hostname()
 	gate, err := auth.New(auth.Config{
 		Store: st, DataDir: dataDir, Insecure: os.Getenv("PICODE_INSECURE") == "1", Hostname: hostname,
-		PublicURL: func() string { v, _, _ := st.GetSetting("server.public_url"); return v },
+		PublicURL:   func() string { v, _, _ := st.GetSetting("server.public_url"); return v },
+		SessionLive: devices.SessionLive, // ADR-0049 amendment: reuse must not rotate an active session's cookie
 	})
 	if err != nil {
 		log.Fatalf("auth: %v", err)

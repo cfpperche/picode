@@ -135,6 +135,99 @@ func TestDecisionTable(t *testing.T) {
 	}
 }
 
+// ADR-0049 amendment: a browser-like loopback visit reuses the newest live
+// session with its label when no browser is actively using it, instead of
+// minting one row per visit (the Devices duplicates bug).
+func TestLoopbackReusesSession(t *testing.T) {
+	s, st := newService(t, ModeRemote)
+	visit := call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0 (X11; Linux) HeadlessChrome/152"}
+
+	rec := do(s, visit) // first visit mints
+	if rec.Code != 200 || rec.Header().Get("X-Principal") != "browser" {
+		t.Fatalf("first visit = %d %q", rec.Code, rec.Header().Get("X-Principal"))
+	}
+	firstCookie := cookieValue(t, rec)
+	first := liveRows(t, st)
+	if len(first) != 1 {
+		t.Fatalf("first visit rows = %d", len(first))
+	}
+
+	rec = do(s, visit) // second visit reuses the row
+	if len(liveRows(t, st)) != 1 {
+		t.Fatal("second visit minted a new row")
+	}
+	if rec.Header().Get("Set-Cookie") == "" {
+		t.Fatal("reused visit got no cookie")
+	}
+	if _, err := st.LookupSession(firstCookie); err == nil {
+		t.Fatal("old cookie still valid after reuse rotation")
+	}
+	if _, err := st.LookupSession(cookieValue(t, rec)); err != nil {
+		t.Fatal("rotated cookie does not resolve")
+	}
+
+	// A different label is a different device row.
+	do(s, call{method: "GET", path: "/api/workspaces", remote: "127.0.0.1:1", ua: "Mozilla/5.0 (Windows NT 10.0)"})
+	if len(liveRows(t, st)) != 2 {
+		t.Fatal("windows visit did not mint its own row")
+	}
+
+	// A session whose cookie is live in presence is never rotated behind
+	// its browser's back — once it is established (past the arrival-burst
+	// window): the visit mints a fresh row instead.
+	old := reuseBurstWindow
+	reuseBurstWindow = 0
+	defer func() { reuseBurstWindow = old }()
+	live := map[string]bool{first[0].ID: true}
+	s.cfg.SessionLive = func(id string) bool { return live[id] }
+	do(s, visit)
+	if len(liveRows(t, st)) != 3 {
+		t.Fatal("an established live session must be reused, not rotated")
+	}
+	if _, err := st.LookupSession(cookieValue(t, rec)); err != nil {
+		t.Fatal("live session's secret was rotated anyway")
+	}
+
+	// Within the arrival-burst window a live session is still reused: a
+	// fresh browser fires its first requests in parallel without a cookie,
+	// and the loser of the race must not mint a duplicate.
+	rows := liveRows(t, st)
+	live[rows[2].ID] = true // the just-minted row, now pinging
+	rec = do(s, visit)
+	if len(liveRows(t, st)) != 3 {
+		t.Fatal("burst visit minted a duplicate row")
+	}
+	if _, err := st.LookupSession(cookieValue(t, rec)); err != nil {
+		t.Fatal("burst visit did not get a working cookie")
+	}
+}
+
+func cookieValue(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == CookieName {
+			return c.Value
+		}
+	}
+	t.Fatal("no session cookie in response")
+	return ""
+}
+
+func liveRows(t *testing.T, st *store.Store) []store.Session {
+	t.Helper()
+	rows, err := st.ListSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := rows[:0:0]
+	for _, r := range rows {
+		if r.Kind == store.SessionBrowser {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 func TestModes(t *testing.T) {
 	off, _ := newService(t, ModeOff)
 	if rec := do(off, call{method: "GET", path: "/api/workspaces"}); rec.Code != 200 || rec.Header().Get("X-Principal") != "" {

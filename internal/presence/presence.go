@@ -180,6 +180,23 @@ func (r *Registry) AnyHostOnline() bool {
 	return false
 }
 
+// SessionLive reports whether any device pinged under that session id
+// within the staleness window — a browser holding this session's cookie
+// is here right now. The auth gate asks before rotating a loopback
+// session's secret (ADR-0049 amendment), so an active browser never has
+// its cookie rotated out from under it.
+func (r *Registry) SessionLive(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now().UTC()
+	for _, it := range r.items {
+		if it.session == id && now.Sub(it.last) < staleAfter {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Registry) view(it *rec, now time.Time) Device {
 	return Device{
 		Session:   it.session,
@@ -194,10 +211,15 @@ func (r *Registry) view(it *rec, now time.Time) Device {
 	}
 }
 
-// Label turns a User-Agent into a short device name.
+// Label turns a User-Agent into a short device name. Headless browsers
+// (the QA fleets automation runs on this machine) say so instead of
+// borrowing the OS name — a row of "Linux" machines that are really
+// test profiles is how the Devices list filled with duplicates.
 func Label(ua string) string {
 	u := strings.ToLower(ua)
 	switch {
+	case strings.Contains(u, "headlesschrome") || strings.Contains(u, "headless"):
+		return "Headless browser"
 	case strings.Contains(u, "iphone"):
 		return "iPhone"
 	case strings.Contains(u, "ipad"):
