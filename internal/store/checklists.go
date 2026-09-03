@@ -68,6 +68,16 @@ type Checklist struct {
 const maxChecklistItems = 50
 const maxChecklistText = 300
 
+// truncateRunes cuts at max code points; a byte slice can split a UTF-8
+// rune and store a broken character.
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
+
 // ValidateChecklistItems normalizes what the extension sent; an empty
 // list is fine (an "absent" marker carries none).
 func ValidateChecklistItems(items []ChecklistItem) ([]ChecklistItem, error) {
@@ -80,9 +90,7 @@ func ValidateChecklistItems(items []ChecklistItem) ([]ChecklistItem, error) {
 		if text == "" {
 			return nil, fmt.Errorf("store: checklist step %d has no text", i)
 		}
-		if len(text) > maxChecklistText {
-			text = text[:maxChecklistText]
-		}
+		text = truncateRunes(text, maxChecklistText)
 		st := strings.ToLower(strings.TrimSpace(it.Status))
 		if st == "" {
 			st = "pending"
@@ -116,6 +124,21 @@ func (s *Store) SetChecklist(agentID, sessionID string, items []ChecklistItem, a
 	if err != nil {
 		return Checklist{}, fmt.Errorf("store: set checklist: %w", err)
 	}
+	s.note("agent.checklist", &agentID, nil, c)
+	return c, nil
+}
+
+// ClearChecklist drops the agent's row and announces the empty state, so
+// shells drop their entry (the checklist line renders nothing) until the
+// next real list arrives. Idempotent: clearing with no row is fine.
+func (s *Store) ClearChecklist(agentID string) (Checklist, error) {
+	if _, err := s.GetAgent(agentID); err != nil {
+		return Checklist{}, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, agentID); err != nil {
+		return Checklist{}, fmt.Errorf("store: clear checklist: %w", err)
+	}
+	c := Checklist{AgentID: agentID, Items: []ChecklistItem{}, Absent: false}
 	s.note("agent.checklist", &agentID, nil, c)
 	return c, nil
 }

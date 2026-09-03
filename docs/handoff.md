@@ -63,6 +63,26 @@ What exists:
 
 ## In flight
 
+**`fix/checklist-staleness` — checklist row follows the current session
+(ADR-0055), built and gated, not merged.** Adversarial review of
+`packages/pi-checklist` found the daemon row could show a dead session's
+plan as current (fresh start never cleared it) and that absence markers
+carried a previous task's steps (the gate only refuses unplanned tasks,
+so those steps were never this task's plan). Fixes: the extension resets
+the row on `session_start` when the branch holds no checklist
+(`{"reset":true}` → `store.ClearChecklist` → row deleted +
+`agent.checklist` event → shells render silence); absent/blocked POSTs
+are normalized server-side to carry no items; `PICODE_URL` now rejects
+userinfo; step truncation is code-point safe on both ends; direct store
+tests added and `SetChecklist`/`ClearChecklist` joined the ADR-0048
+mutation table (SetChecklist was missing from it). `make ci` green.
+Live dogfood (fresh restart → old line disappears; refusal → "No
+checklist") still owed before merge. Deferred from the review, recorded
+in debt below: chat card hides the refusal text when old items exist
+(L4, needs a visual-review cycle), client/server validation asymmetry
+(L1), reminder-loop guard depends on a pi invariant (comment added in
+the extension).
+
 **Feed migration phase 4 — merged to `main` 2026-09-03, deployed.**
 `StartPackageUpdatesWatch` re-runs the npm update check every
 30 min for the user dir + every registered workspace (serial,
@@ -287,6 +307,18 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **pi-checklist review leftovers (2026-09-03, from
+  `fix/checklist-staleness`):** (L4) the chat card hides the refusal
+  text when the refused call carries previous items — render `it.detail`
+  beside the list on error; needs a visual-review cycle (screenshots of
+  the refused state). (L1) validation asymmetry: the package rejects
+  `IN-PROGRESS`, the server lowercases and accepts it, and the limits
+  differ (30/200 vs 50/300) — a second client could store rows the
+  first never produces. (L3) the reminder cap relies on a pi 0.84.4
+  invariant (follow-up turns do not re-emit `before_agent_start`);
+  documented in the extension — if pi changes it, the cap breaks and
+  the loop needs its own guard.
+
 - **Copilot and Google quota adapters are out of date (found by the
   2026-09-03 providers study).** GitHub retired Copilot *premium requests*
   on 2026-06-01 in favour of token-metered AI Credits with budgets, so
@@ -407,6 +439,16 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — adversarial review of `packages/pi-checklist` + the
+  staleness fixes** (`fix/checklist-staleness`): probed the gate, the
+  reminder loop (confirmed against pi 0.84.4 source that follow-up
+  turns do not re-emit `before_agent_start`, so the 3-reminder cap
+  holds), TLS loopback canonicalization (`0x7f000001` → `127.0.0.1` via
+  WHATWG — solid), agent-id traversal (blocked). Found and fixed the
+  two real ones (stale row on fresh session; stale items on
+  absent/blocked) — see *In flight*. visual-review: UNVERIFIED (no JSX
+  touched).
 
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis

@@ -13,6 +13,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The sidebar checklist line follows the current session, not the last
+  POST (ADR-0055).** A fresh agent session used to leave the daemon row
+  from the dead session in place, so the sidebar kept showing the old
+  task's step as current — on the phone it displaced the model · folder
+  line. A session whose branch holds no checklist now resets the row on
+  start (`{"reset":true}` → row deleted, `agent.checklist` event, shells
+  render silence until a real list arrives), and absence is honest:
+  `absent`/`blocked` markers never carry steps anymore (the gate only
+  refuses unplanned tasks, so any steps on those markers were a previous
+  task's; the server normalizes them away). Also: `PICODE_URL` rejects
+  userinfo (`user:pass@host`) as its error message always claimed, and
+  step-text truncation is code-point safe on both ends (no split emoji),
+  with direct store tests for `ValidateChecklistItems`,
+  `ChecklistLevel`, and the new `ClearChecklist` (which now sits in the
+  ADR-0048 mutation table alongside `SetChecklist`, previously missing).
+
 - **Inbox replies to a TUI agent now work: the reply switches the agent
   to chat mode.** Replying used to bounce with "the agent is running in
   an interactive terminal" — a dead end. Now the respond form warns

@@ -100,7 +100,9 @@ export function normalizeItems(raw: unknown): Item[] {
 		if (!text) throw new Error(`items[${i}].text is required`);
 		const status = o.status === undefined ? "pending" : o.status;
 		if (!(STATUSES as readonly unknown[]).includes(status)) throw new Error(`items[${i}].status must be one of ${STATUSES.join(", ")}`);
-		return { text: text.slice(0, MAX_TEXT), status: status as Status };
+		// Truncate by code points: a code-unit slice can split a surrogate
+		// pair and store a broken character.
+		return { text: Array.from(text).slice(0, MAX_TEXT).join(""), status: status as Status };
 	});
 }
 
@@ -138,14 +140,19 @@ export interface Payload {
 	items: Item[];
 	absent?: boolean;
 	blocked?: boolean;
+	reset?: boolean;
 }
 
 /** The body PiCode receives; the agent id travels in the URL. */
-export function buildPayload(items: readonly Item[], opts: { sessionId?: string; absent?: boolean; blocked?: boolean } = {}): Payload {
+export function buildPayload(
+	opts: { sessionId?: string; absent?: boolean; blocked?: boolean; reset?: boolean } = {},
+	items: readonly Item[] = [],
+): Payload {
 	const out: Payload = { items: items.map((it) => ({ text: it.text, status: it.status })) };
 	if (opts.sessionId) out.sessionId = opts.sessionId;
 	if (opts.absent) out.absent = true;
 	if (opts.blocked) out.blocked = true;
+	if (opts.reset) out.reset = true;
 	return out;
 }
 
@@ -203,7 +210,9 @@ export function parseToken(text: string | null | undefined): string {
 export function resolveServerUrl(env: Record<string, string | undefined>, serverJson: string | null): ServerInfo {
 	const explicit = (env.PICODE_URL || "").trim();
 	if (explicit) {
-		if (!/^https?:\/\/[^\s/]+\/?$/.test(explicit)) return { ok: false, error: "PICODE_URL must be an origin like https://box:8445" };
+		// Origin only — no path, and no userinfo (user:pass@host) even though
+		// the old regex let it through.
+		if (!/^https?:\/\/[^/\s@]+\/?$/.test(explicit)) return { ok: false, error: "PICODE_URL must be an origin like https://box:8445" };
 		return { ok: true, url: explicit.replace(/\/+$/, "") };
 	}
 	if (serverJson === null) return { ok: false, error: "no server.json" };

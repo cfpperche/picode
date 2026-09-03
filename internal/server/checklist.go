@@ -24,14 +24,38 @@ func handleSetChecklist(deps Deps) http.HandlerFunc {
 			Items     []store.ChecklistItem `json:"items"`
 			Absent    bool                  `json:"absent"`
 			Blocked   bool                  `json:"blocked"`
+			Reset     bool                  `json:"reset"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		// A refused change with no list yet is the same fact as a turn that
-		// ended without one: the plan the contract asks for is not there.
-		absent := req.Absent || (req.Blocked && len(req.Items) == 0)
+		// A fresh session with no checklist in its branch resets the row:
+		// whatever the daemon holds is about a dead session, and silence is
+		// the honest line until this session writes a plan (ADR-0055, "no
+		// channel means no line").
+		if req.Reset {
+			c, err := deps.Store.ClearChecklist(r.PathValue("id"))
+			if errors.Is(err, store.ErrNotFound) {
+				writeErr(w, http.StatusNotFound, "agent not found")
+				return
+			}
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, c)
+			return
+		}
+		// A refused change is the same fact as a turn that ended without
+		// one: the plan the contract asks for is not there. The gate only
+		// refuses unplanned tasks, so an absent or blocked POST never
+		// carries a current list — normalize instead of storing stale steps
+		// that would render as this task's plan.
+		absent := req.Absent || req.Blocked
+		if absent {
+			req.Items = nil
+		}
 		c, err := deps.Store.SetChecklist(r.PathValue("id"), req.SessionID, req.Items, absent)
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")

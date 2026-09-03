@@ -53,6 +53,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.DeleteAgent(a.ID)
 		}, []string{"agent.deleted"}},
+		{"SetChecklist", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			s.OnEvent = nil
+			s.OnEvent = recorder(s)
+			_, _ = s.SetChecklist(a.ID, "s1", []ChecklistItem{{Text: "x", Status: "pending"}}, false)
+		}, []string{"agent.checklist"}},
+		{"ClearChecklist", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			_, _ = s.SetChecklist(a.ID, "s1", []ChecklistItem{{Text: "x", Status: "pending"}}, false)
+			s.OnEvent = nil
+			s.OnEvent = recorder(s)
+			_, _ = s.ClearChecklist(a.ID)
+		}, []string{"agent.checklist"}},
 		{"CreateTerminal", func(s *Store) { _, _ = s.CreateTerminalIn("", "t", proj) }, []string{"terminal.created"}},
 		{"RenameTerminal", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "t", proj)

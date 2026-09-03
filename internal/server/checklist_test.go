@@ -60,11 +60,60 @@ func TestChecklistRoutes(t *testing.T) {
 		t.Fatalf("list = %+v", all.Checklists)
 	}
 
-	// A refused change with no list marks absence; the event is on the feed.
+	// A refused change is absence, whatever the body carries: the gate only
+	// refuses unplanned tasks, so stale items must not survive as this
+	// task's plan. Same for an explicit absent marker with items.
 	res, out = inboxPost(t, ts, "/api/agents/"+ag.ID+"/checklist", `{"items":[],"blocked":true}`)
 	if res.StatusCode != http.StatusOK || out["absent"] != true {
 		t.Fatalf("blocked = %d %v", res.StatusCode, out)
 	}
+	res, out = inboxPost(t, ts, "/api/agents/"+ag.ID+"/checklist", `{"items":[{"text":"stale task"}],"blocked":true}`)
+	if res.StatusCode != http.StatusOK || out["absent"] != true {
+		t.Fatalf("blocked with items = %d %v", res.StatusCode, out)
+	}
+	if got := out["items"].([]any); len(got) != 0 {
+		t.Fatalf("blocked kept items: %v", got)
+	}
+	res, out = inboxPost(t, ts, "/api/agents/"+ag.ID+"/checklist", `{"items":[{"text":"also stale"}],"absent":true}`)
+	if res.StatusCode != http.StatusOK || out["absent"] != true {
+		t.Fatalf("absent with items = %d %v", res.StatusCode, out)
+	}
+	if got := out["items"].([]any); len(got) != 0 {
+		t.Fatalf("absent kept items: %v", got)
+	}
+
+	// A fresh session resets the row: the shells drop their entry and the
+	// boot list no longer carries the agent.
+	res, out = inboxPost(t, ts, "/api/agents/"+ag.ID+"/checklist", `{"sessionId":"s2","reset":true}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("reset = %d %v", res.StatusCode, out)
+	}
+	if got := out["items"].([]any); len(got) != 0 {
+		t.Fatalf("reset kept items: %v", got)
+	}
+	r = do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+ag.ID+"/checklist"))
+	_ = json.NewDecoder(r.Body).Decode(&one)
+	r.Body.Close()
+	if one.Checklist != nil {
+		t.Fatalf("after reset get = %+v, want nil", one.Checklist)
+	}
+	r = do(t, ts.Client(), mustGet(t, ts.URL+"/api/checklists"))
+	_ = json.NewDecoder(r.Body).Decode(&all)
+	r.Body.Close()
+	if len(all.Checklists) != 0 {
+		t.Fatalf("after reset list = %+v", all.Checklists)
+	}
+	// Reset is idempotent and unknown agents are still 404.
+	res, _ = inboxPost(t, ts, "/api/agents/"+ag.ID+"/checklist", `{"reset":true}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("second reset = %d", res.StatusCode)
+	}
+	res, _ = inboxPost(t, ts, "/api/agents/nope/checklist", `{"reset":true}`)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("reset unknown = %d", res.StatusCode)
+	}
+
+	// Every set/absent/blocked/reset POST above announced itself.
 	evs, err := st.ListEventsSince(0, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -75,8 +124,8 @@ func TestChecklistRoutes(t *testing.T) {
 			n++
 		}
 	}
-	if n != 2 {
-		t.Fatalf("agent.checklist events = %d, want 2", n)
+	if n != 6 {
+		t.Fatalf("agent.checklist events = %d, want 6", n)
 	}
 
 	// Unknown agent's GET is an empty answer, not an error.

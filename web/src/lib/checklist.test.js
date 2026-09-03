@@ -14,6 +14,17 @@ test("line: in-progress step, else first pending, else n/n, else absent, else no
   assert.equal(currentStep(undefined), null);
 });
 
+test("reset: the clear event lands as silence — no line until a real list arrives", () => {
+  // The daemon answers a reset with the empty, non-absent checklist; the
+  // row keeps its place in the map but renders nothing.
+  const m0 = indexChecklists([{ agentId: "a", items: [{ text: "old task", status: "in-progress" }] }]);
+  assert.equal(checklistLine(m0.a).kind, "step");
+  const m1 = applyChecklists(m0, { type: "agent.checklist", data: { agentId: "a", items: [], absent: false } });
+  assert.equal(checklistLine(m1.a), null);
+  // And a boot fetch after the reset no longer lists the agent.
+  assert.deepEqual(indexChecklists([]), {});
+});
+
 test("map: feed events replace, delete drops, others untouched", () => {
   const m0 = indexChecklists([{ agentId: "a", items: [{ text: "x", status: "pending" }] }, { nope: true }]);
   assert.deepEqual(Object.keys(m0), ["a"]);

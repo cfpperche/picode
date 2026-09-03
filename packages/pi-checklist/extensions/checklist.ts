@@ -123,7 +123,7 @@ export default function piChecklist(pi: ExtensionAPI) {
 			}
 			items = next;
 			planned = true;
-			publish(buildPayload(items, { sessionId }));
+			publish(buildPayload({ sessionId }, items));
 			return { content: [{ type: "text", text: summarize(items) }], details: { items } };
 		},
 		renderCall(args, theme) {
@@ -158,7 +158,15 @@ export default function piChecklist(pi: ExtensionAPI) {
 			entries = [];
 		}
 		items = reconstruct(entries);
-		if (items) publish(buildPayload(items, { sessionId }));
+		if (items) {
+			publish(buildPayload({ sessionId }, items));
+		} else {
+			// A branch with no checklist means any row the daemon still holds
+			// is about a dead session — a fresh start must not show the old
+			// task as current. Reset it; the sidebar shows nothing until this
+			// session writes a plan (no channel, no line).
+			publish(buildPayload({ sessionId, reset: true }));
+		}
 	});
 
 	pi.on("before_agent_start", async (event) => {
@@ -174,7 +182,11 @@ export default function piChecklist(pi: ExtensionAPI) {
 		try {
 			const d = decideGate({ level, toolName: event.toolName, planned });
 			if (!d.block) return undefined;
-			publish(buildPayload(items || [], { sessionId, blocked: true }));
+			// The gate only refuses unplanned tasks, so at block time `items`
+			// can only be a previous task's list (ADR-0055: "the plan the
+			// contract asks for is not there"). Publish absence, never stale
+			// steps that would re-read as this task's plan.
+			publish(buildPayload({ sessionId, blocked: true }));
 			return { block: true, reason: d.reason };
 		} catch {
 			return undefined; // fail open: a broken gate must not stop the agent
@@ -183,11 +195,16 @@ export default function piChecklist(pi: ExtensionAPI) {
 
 	pi.on("agent_end", async () => {
 		if (!decideReminder({ level, planned, sent: reminders })) {
-			if (level === "always" && !planned) publish(buildPayload(items || [], { sessionId, absent: true }));
+			if (level === "always" && !planned) publish(buildPayload({ sessionId, absent: true }));
 			return;
 		}
 		reminders += 1;
-		publish(buildPayload(items || [], { sessionId, absent: true }));
+		publish(buildPayload({ sessionId, absent: true }));
+		// Invariant this relies on (pi 0.84.4): a follow-up sent after
+		// agent_end runs _runAgentPrompt, which does NOT re-emit
+		// before_agent_start — so `reminders` is not reset by our own
+		// reminder turns and the cap below holds. If pi changes that, this
+		// loop needs its own guard, not a bigger cap.
 		pi.sendMessage({ customType: "pi-checklist", content: REMINDER, display: true }, { deliverAs: "followUp", triggerTurn: true });
 	});
 }

@@ -12,6 +12,7 @@ import {
 	reconstruct,
 	REFUSAL,
 	renderLines,
+	resolveServerUrl,
 	summarize,
 } from "../src/logic.ts";
 
@@ -75,9 +76,33 @@ test("summary and lines", () => {
 
 test("payload: items, optional session, markers only when set", () => {
 	const items = normalizeItems([{ text: "a" }]);
-	assert.deepEqual(buildPayload(items), { items: [{ text: "a", status: "pending" }] });
-	assert.deepEqual(buildPayload(items, { sessionId: "s1", blocked: true }), { items: [{ text: "a", status: "pending" }], sessionId: "s1", blocked: true });
-	assert.deepEqual(buildPayload([], { absent: true }), { items: [], absent: true });
+	assert.deepEqual(buildPayload({}, items), { items: [{ text: "a", status: "pending" }] });
+	assert.deepEqual(buildPayload({ sessionId: "s1", blocked: true }, items), { items: [{ text: "a", status: "pending" }], sessionId: "s1", blocked: true });
+	assert.deepEqual(buildPayload({ absent: true }), { items: [], absent: true });
+	assert.deepEqual(buildPayload({ sessionId: "s2", reset: true }), { items: [], sessionId: "s2", reset: true });
+});
+
+test("payload: absent and blocked markers carry no items — stale steps must not read as this task's plan", () => {
+	const items = normalizeItems([{ text: "old task" }]);
+	assert.deepEqual(buildPayload({ sessionId: "s", blocked: true }), { items: [], sessionId: "s", blocked: true });
+	assert.deepEqual(buildPayload({ sessionId: "s", absent: true }), { items: [], sessionId: "s", absent: true });
+	assert.ok(items.length === 1); // the caller's list is untouched, just not sent with the markers
+});
+
+test("server url: PICODE_URL rejects userinfo and paths, server.json keeps its looser shape", () => {
+	assert.equal(resolveServerUrl({ PICODE_URL: "https://user:pass@box:8445" }, null).ok, false);
+	assert.equal(resolveServerUrl({ PICODE_URL: "https://box:8445/prefix" }, null).ok, false);
+	assert.deepEqual(resolveServerUrl({ PICODE_URL: "https://box:8445/" }, null), { ok: true, url: "https://box:8445" });
+	assert.deepEqual(resolveServerUrl({ PICODE_URL: "http://127.0.0.1:9999" }, null), { ok: true, url: "http://127.0.0.1:9999" });
+});
+
+test("items: truncation is code-point safe (no lone surrogates)", () => {
+	// 199 code points of 'a' + one astral emoji = 201 code units / 200 code
+	// points. A code-unit slice cuts the emoji in half; a code-point slice
+	// keeps it whole.
+	const cut = normalizeItems([{ text: "a".repeat(199) + "🎉" }])[0]!.text;
+	assert.equal(Array.from(cut).length, 200);
+	assert.ok(cut.endsWith("🎉"), "astral char survives whole");
 });
 
 test("reconstruct: the last checklist toolResult wins; other entries ignored", () => {

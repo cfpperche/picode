@@ -34,6 +34,12 @@ On every change the extension POSTs
 accepted — never awaited by the turn. With no reachable PiCode the tool,
 the gate and the TUI card still work; only the sidebar stays quiet.
 
+The row the daemon keeps follows the *current session*: a session whose
+branch has no checklist resets the row on start (a fresh start must not
+show the old task as current), and an absent or blocked marker never
+carries steps — a refused change is the absence of this task's plan, not
+the presence of the last one.
+
 ## Known limit
 
 pi 0.84.4's print mode (`pi -p`) hangs on any blocked tool call — a
