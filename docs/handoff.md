@@ -296,6 +296,26 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — LooksWorking anchors to pi's spinner frames**
+  (`fix/looks-working-spinner-frames`). The working check grepped the
+  pane tail for the substring "working": an idle agent whose last
+  reply mentioned the word (this project's own docs/logs do, constantly)
+  spun in the sidebar and showed "Working in the terminal" in the
+  composer — the owner caught mobile doing it at 20:38 while pi sat at
+  its prompt. The indicator is now what pi actually renders: a pane
+  line whose first non-space rune is one of the braille spinner frames
+  (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ — pi 0.84.4 DEFAULT_FRAMES; re-check on pi upgrades).
+  Immune to prose and to a renamed working message; a custom indicator
+  without braille degrades to a benign false-negative. Decision table
+  with real captured tails (working / idle / the false-positive prose)
+  pins it. Deployed (PID 412915); verified live: mobile working →
+  detected via ⠏ while its pane is full of the word, agente-auto idle →
+  not listed. Probes one open design question (unfixed): inbox replies
+  to interactive agents are refused by design (ADR-0037/0006 — the TUI
+  picks up no follow-ups); options range from an "Open terminal" action
+  on the refusal note to send-keys delivery — owner to decide if/when
+  it itches.
+
 - **2026-09-02 — black strip under terminals** (`fix/term-viewport-strip`):
   owner spotted a near-black band at the bottom of every terminal. Cause:
   xterm 6 sets the theme background on `.xterm-scrollable-element`, not

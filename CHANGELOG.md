@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **A TUI agent whose conversation mentions "working" no longer shows
+  as busy while idle.** The working check grepped the pane tail for the
+  substring "working" — so an agent whose last reply merely contained
+  the word (this project's own changelog entries, logs, docs) spun in
+  the sidebar and showed "Working in the terminal" in the composer
+  while pi sat at its prompt. The check now anchors to pi's real
+  indicator: a pane line whose first non-space rune is one of the
+  spinner's braille frames (pi 0.84.4), which nothing else in the TUI
+  produces. Decision table with the real captured tails pins it,
+  including the exact false-positive prose.
+
 - **The chat now shows when an agent is working in its TUI.** The chat's
   event socket only exists for managed agents, so a TUI agent read as
   idle in the chat no matter what pi was doing: send a message in the
