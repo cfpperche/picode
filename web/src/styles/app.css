@@ -1277,6 +1277,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .term-surface[hidden] { display: none !important; }
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
+/* xterm 6 paints the theme background on its inner scrollable element and
+   leaves xterm.css's #000 on .xterm-viewport, so the slack below the last
+   row (up to one row tall) showed as a black strip. The surface behind
+   already carries the theme colour in both modes. */
+.xterm .xterm-viewport { background-color: transparent !important; }
 .workspace-view.term-on #empty,
 .workspace-view.term-on .chat-surface { display: none !important; }
 .workspace-view.file-on #empty,

@@ -296,6 +296,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — black strip under terminals** (`fix/term-viewport-strip`):
+  owner spotted a near-black band at the bottom of every terminal. Cause:
+  xterm 6 sets the theme background on `.xterm-scrollable-element`, not
+  `.xterm-viewport`, which keeps xterm.css's `#000`; the row-remainder
+  showed it. Fix: `.xterm .xterm-viewport { background-color: transparent }`
+  in `app.css` (surface carries the theme colour). Pixel-verified in the
+  scratch shell.
 - **2026-09-02 — Termux layout for the mobile keys** (`feat/mobile-keys-termux`):
   owner sent Termux screenshots — "vamos fazer o nosso igual". `KeyBar`
   is Termux's 2×7 grid (`ROWS`), flat cells on `--bg-base`,

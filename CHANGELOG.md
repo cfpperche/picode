@@ -101,6 +101,11 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **No more black strip under a terminal.** xterm 6 left its stylesheet's
+  black on the viewport while the theme colour went to the inner scroller,
+  so the slack below the last row showed as a strip in every terminal. The
+  viewport is transparent now and the surface's theme colour shows through.
+
 - **Terminal keys on the phone, Termux's layout.** Two rows of seven
   flat cells on the terminal's background — `ESC / — HOME ↑ END PGUP`
   and `⇆ CTRL ALT ← ↓ → PGDN` — that always fit the screen. Tap the
