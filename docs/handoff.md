@@ -63,13 +63,23 @@ What exists:
 
 ## In flight
 
+**Feed migration phase 3 — `feat/feed-git-events` (gated, e2e-verified,
+not merged).** `StartGitWatch` inspects each workspace path and agent
+cwd once per 3 s tick and publishes ephemeral `git.updated` (fleet-wide,
+one Inspect per changed dir); `applyFleet` patches the sidebar pills in
+place (desktop + mobile — both `touches` lists now include "git"), and
+FileTreeSurface reloads itself when its root changes. Verified live: a
+terminal commit cleared the dirty badge with zero fleet refetches; a
+new file re-raised it and appeared in the tree on its own. Terminal
+panes are not watched (their cwd is live tmux state — their pills still
+refresh with the fleet). Phase 4 (`packages.updates`) is pending.
+
 **Feed migration phase 2 — merged to `main` 2026-09-02, deployed.**
 The llama.cpp panel's `runOp` no longer polls `/api/llama` at 1 s while
 an operation runs: the endpoints block until done and the busy row is
 the motion, so one refresh on completion is the only refetch. Verified
 live against a fake router (blocked Load + Unload → exactly one GET).
-Phases 3–4 of the polling→feed migration plan (git events,
-`packages.updates`) are not started.
+Phase 4 (`packages.updates`) is pending.
 
 **Feed migration phase 1 — merged to `main` 2026-09-02, deployed.**
 `StartMcpWatch` (mirrors `tui_watch.go`) reads each running agent's
@@ -315,6 +325,13 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — git pills and the file tree ride the change feed**
+  (`feat/feed-git-events`, phase 3 of the polling→feed plan). Fleet git
+  watcher publishes `git.updated`; sidebar patches in place, tree
+  reloads itself. visual-review: PASS (qa-git-live.png read;
+  overlayAudit ok; e2e: commit cleared the badge, new file re-raised it
+  — zero fleet refetches, one tree reload per event).
 
 - **2026-09-02 — the inbox refusal to a TUI agent offers Open terminal**
   (`fix/inbox-open-terminal`). Replying to an agent-sourced item whose

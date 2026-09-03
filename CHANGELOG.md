@@ -13,6 +13,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The sidebar's git pills and the file tree now follow commits live.**
+  A commit in the terminal used to leave the branch pill and dirty badge
+  stale, and the file tree's Changes list needed a manual Refresh, until
+  something else refetched the fleet. A fleet-wide git watcher inspects
+  each workspace path and agent cwd once per 3 s tick and publishes
+  `git.updated` on the change feed (ADR-0048, same pattern as
+  `agent.tui` / `mcp.updated`); the sidebar patches its pills in place
+  and the open file tree reloads itself, reconciling when the feed
+  (re)opens. Verified live: a commit clears the dirty badge and a new
+  file re-raises it with zero fleet refetches — one tree reload per
+  event.
+
 - **The llama.cpp panel no longer polls while an operation runs.**
   Load / Unload / Download refetched `/api/llama` every second until the
   op finished. The op endpoints already block until the operation is

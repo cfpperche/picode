@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeFeed } from "../lib/feed.js";
 import { api } from "../lib/api.js";
 import { changedDirs, changeKinds, flattenTree, mergeLevel, treeApiBase } from "../lib/fileTree.js";
 import { useKeptScroll } from "../lib/keepScroll.js";
@@ -105,6 +106,17 @@ export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onCl
     setPanel("files");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, ownerId]);
+
+  useEffect(() => subscribeFeed((ev) => {
+    // The git watcher (ADR-0048) publishes one event per changed
+    // directory; this tree's root is one of them, so a commit in the
+    // terminal refreshes the tree and the Changes list on its own.
+    // No polling — the tree refreshes when git moves or when asked, and
+    // reconciles once when the feed (re)opens.
+    const hit = ev.type === "git.updated" && ev.data && ev.data.path === keyRef.current;
+    const reconcile = (ev.type === "feed.open" || ev.type === "feed.reset") && keyRef.current;
+    if (hit || reconcile) loadRef.current([...expandedRef.current]);
+  }), []);
 
   busyRef.current = busy;
   expandedRef.current = expanded;
