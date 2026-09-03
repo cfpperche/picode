@@ -51,6 +51,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tlsutil"
 	"github.com/cfpperche/picode/internal/tmux"
+	providerusage "github.com/cfpperche/picode/internal/usage"
 	"github.com/cfpperche/picode/internal/version"
 	"github.com/cfpperche/picode/internal/web"
 )
@@ -484,6 +485,11 @@ func serve() {
 	// for the whole fleet, published as packages.updates only when a
 	// scope's result changes, instead of one 30 min poll per browser.
 	go server.StartPackageUpdatesWatch(backupCtx, deps, 30*time.Minute)
+
+	// Provider plan windows (ADR-0058): keep the active slot of each
+	// meterable provider warm so #/providers can show a true number
+	// without eight vendor calls on every page load.
+	go server.StartUsageRefresh(backupCtx, deps, providerusage.DefaultRefresh)
 
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.

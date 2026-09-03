@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Command } from "cmdk";
 import PageFrame from "./PageFrame.jsx";
 import { api } from "../lib/api.js";
@@ -10,8 +11,13 @@ import LlamaPanel from "./LlamaPanel.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "../lib/providerRecents.js";
 import { askConfirm } from "../lib/confirm.js";
-import { showUsageButton } from "../lib/providerUsage.js";
+import { showUsageButton, usagePath } from "../lib/providerUsage.js";
 import UsageDialog from "./UsageDialog.jsx";
+import QuotaStrip from "./QuotaStrip.jsx";
+import {
+  blastRadius, formatSpend, identityLine, indexUsage, matchesQuery,
+  sourceLabel, spendByProvider, usageKey,
+} from "../lib/providerRows.js";
 
 function AccountName({ provider, acc, onSaved }) {
   const [editing, setEditing] = useState(false);
@@ -66,6 +72,39 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   const [recents, setRecents] = useState(readRecents);
   const [usageFor, setUsageFor] = useState(null);
+  const [query, setQuery] = useState("");
+  const [usageRows, setUsageRows] = useState(() => new Map());
+  const [spend, setSpend] = useState(() => new Map());
+  const [checking, setChecking] = useState("");
+  const [verifying, setVerifying] = useState("");
+  const [verdicts, setVerdicts] = useState({});
+
+  // The roster reads the server's usage cache — never a vendor. The poll is
+  // a local request that keeps the "fetched 4m ago" reading honest while the
+  // page is open; the daemon is what actually talks to the providers.
+  useEffect(() => {
+    if (hidden) return undefined;
+    let live = true;
+    const load = () => {
+      api("/api/providers/usage")
+        .then((r) => { if (live) setUsageRows(indexUsage(r && r.entries)); })
+        .catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 60000);
+    return () => { live = false; clearInterval(t); };
+  }, [hidden]);
+
+  // Our own spend, from session files — the same aggregate the dashboard
+  // shows, landed next to the account that produced it.
+  useEffect(() => {
+    if (hidden) return undefined;
+    let live = true;
+    api("/api/sessions/stats?range=7d")
+      .then((s) => { if (live) setSpend(spendByProvider(s)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [hidden]);
 
   useEffect(() => {
     if (hidden || !wantAdd) return;
@@ -95,6 +134,69 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     .map((id) => list.find((p) => p.id === id) || { id, signedIn: false, login: "api_key" })
     .filter((p) => !p.signedIn);
 
+  const rosterRows = useMemo(
+    () => signed.filter((p) => matchesQuery(p, query)),
+    [signed.map((p) => p.id).join(","), query, catalog],
+  );
+
+  // One row, fetched now. The dialog still exists for windows, banked resets
+  // and money left; this is the reading the roster shows without it.
+  async function refreshRow(provider, accountId) {
+    const k = usageKey(provider, accountId);
+    setChecking(k);
+    try {
+      const rep = await api(usagePath(provider, accountId));
+      setUsageRows((prev) => {
+        const next = new Map(prev);
+        next.set(k, {
+          provider,
+          accountId: accountId === "live" ? "" : accountId,
+          status: rep.status,
+          plan: rep.plan,
+          email: rep.email,
+          error: rep.error,
+          windows: rep.windows || [],
+          resets: (rep.resets || []).length,
+          fetchedAt: rep.fetchedAt,
+          ageSec: 0,
+        });
+        return next;
+      });
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setChecking("");
+    }
+  }
+
+  // Verify asks pi, not the vendor: pi is what runs the agent, so pi's
+  // answer is the one that matters. No token is spent on a test completion.
+  async function verifyProvider(p) {
+    setVerifying(p.id);
+    try {
+      const res = await api("/api/providers/" + encodeURIComponent(p.id) + "/verify", { method: "POST" });
+      setVerdicts((prev) => ({ ...prev, [p.id]: res }));
+      if (res && res.ok) toast.ok("pi can use " + p.id + ".");
+      else toast.error(p.id + ": " + ((res && (res.reason || res.status)) || "not ready"));
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setVerifying("");
+    }
+  }
+
+  async function pauseAccount(p, acc, paused) {
+    try {
+      await api("/api/providers/" + encodeURIComponent(p.id) + "/accounts/" + encodeURIComponent(acc.id) + "/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paused }),
+      });
+      toast.ok(paused ? "Paused. The credential is kept." : "Resumed.");
+      if (onRefresh) await onRefresh();
+    } catch (ex) { toastError(ex); }
+  }
+
   async function useAccount(provider, aid) {
     try {
       await api("/api/providers/" + encodeURIComponent(provider) + "/accounts/" + encodeURIComponent(aid) + "/activate", { method: "POST" });
@@ -103,10 +205,13 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     } catch (ex) { toastError(ex); }
   }
 
-  async function removeAccount(provider, acc) {
+  async function removeAccount(provider, acc, p) {
+    const radius = blastRadius(p);
     const ok = await askConfirm({
       title: "Sign out " + (acc.label || provider),
-      message: "Remove this login from this machine.",
+      message: radius
+        ? "Remove this login from this machine. " + radius
+        : "Remove this login from this machine.",
       confirmLabel: "Sign out",
       danger: true,
     });
@@ -253,8 +358,17 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
 
   return (
     <PageFrame id="providers-view" title="Providers" hidden={hidden}>
-      <div className="set-row" style={{ marginBottom: 12 }}>
-        <span />
+      <div className="set-row prov-bar">
+        {signed.length > 3 ? (
+          <input
+            className="prov-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search providers and accounts"
+            aria-label="Search providers and accounts"
+          />
+        ) : <span />}
         <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>Add provider</button>
       </div>
       <section className="settings-section">
@@ -262,27 +376,99 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           <p className="side-empty">No providers yet. Add a provider to sign in.</p>
         ) : (
           <ul className="prov-list">
-            {signed.map((p) => {
-              const accs = p.accounts && p.accounts.length ? p.accounts : [{ id: "live", label: "Default", type: p.authType, active: true, quotaKind: p.quotaKind }];
+            {rosterRows.length === 0 ? (
+              <li className="side-empty">No provider matches “{query}”.</li>
+            ) : null}
+            {rosterRows.map((p) => {
+              const envVar = sourceLabel(p);
+              const accs = p.accounts && p.accounts.length
+                ? p.accounts
+                : [{ id: "live", label: envVar || "Default", type: p.authType, active: true, quotaKind: p.quotaKind }];
+              const money = formatSpend(spend.get(p.id));
+              // Pause only makes sense while another live account can take
+              // over; on the last one it is Sign out, and the server says so.
+              const liveAccounts = accs.filter((x) => !x.paused).length;
               return (
                 <li key={p.id} className="prov-group">
-                  <div className="prov-row">
+                  <div className="prov-row prov-head">
                     <ProviderFace id={p.id} />
                     <span className="prov-id">{p.id}</span>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
+                    {money ? <span className="prov-spend" title="What your sessions spent on this provider in the last 7 days">{money} · 7d</span> : null}
+                    {envVar ? null : (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
+                    )}
                   </div>
                   <ul className="prov-accounts">
-                    {accs.map((a) => (
-                      <li key={a.id} className={"prov-row" + (a.active ? "" : " muted")}>
-                        <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
-                        <span className={"prov-auth" + (a.active ? " in" : "")}>{a.type === "oauth" ? "account" : "api key"}{a.active ? " · active" : ""}</span>
-                        {showUsageButton(p, a) ? (
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor({ provider: p, account: a })}>Usage</button>
-                        ) : null}
-                        {!a.active ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button> : null}
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeAccount(p.id, a)}>Sign out</button>
-                      </li>
-                    ))}
+                    {accs.map((a) => {
+                      const k = usageKey(p.id, a.id);
+                      const entry = usageRows.get(k);
+                      const identity = identityLine(a, entry);
+                      const meterable = showUsageButton(p, a);
+                      const verdict = verdicts[p.id];
+                      return (
+                        <li key={a.id} className={"prov-acc" + (a.active && !a.paused ? "" : " muted")}>
+                          <div className="prov-acc-top">
+                            {envVar ? (
+                              <span className="prov-acc-fixed" title={"pi reads this key from " + envVar}>{envVar}</span>
+                            ) : (
+                              <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
+                            )}
+                            <span className={"prov-auth" + (a.active && !a.paused ? " in" : "")}>
+                              {envVar ? "environment" : a.type === "oauth" ? "account" : "api key"}
+                              {a.paused ? " · paused" : a.active ? " · active" : ""}
+                            </span>
+                            {verdict ? (
+                              <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
+                                {verdict.ok ? "pi can use this" : verdict.reason || verdict.status}
+                              </span>
+                            ) : null}
+                            <span className="prov-acc-gap" />
+                            {meterable ? (
+                              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor({ provider: p, account: a })}>Usage</button>
+                            ) : null}
+                            {!a.active && !a.paused && !envVar ? (
+                              <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button>
+                            ) : null}
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <button type="button" className="btn btn-ghost btn-sm prov-more" aria-label={"More actions for " + (a.label || p.id)}>⋯</button>
+                              </DropdownMenu.Trigger>
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content className="prov-menu" align="end" sideOffset={6} collisionPadding={8}>
+                                  <DropdownMenu.Item className="prov-menu-item" onSelect={() => verifyProvider(p)}>
+                                    {verifying === p.id ? "Checking…" : "Verify with pi"}
+                                  </DropdownMenu.Item>
+                                  {!envVar && a.id !== "live" && (a.paused || liveAccounts > 1) ? (
+                                    <DropdownMenu.Item className="prov-menu-item" onSelect={() => pauseAccount(p, a, !a.paused)}>
+                                      {a.paused ? "Resume" : "Pause"}
+                                    </DropdownMenu.Item>
+                                  ) : null}
+                                  {envVar ? (
+                                    <DropdownMenu.Item className="prov-menu-item" disabled>Set by {envVar}</DropdownMenu.Item>
+                                  ) : (
+                                    <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeAccount(p.id, a, p)}>
+                                      Sign out
+                                    </DropdownMenu.Item>
+                                  )}
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                          </div>
+                          {identity || meterable ? (
+                            <div className="prov-acc-bottom">
+                              {identity ? <span className="prov-ident">{identity}</span> : <span />}
+                              {meterable ? (
+                                <QuotaStrip
+                                  entry={entry}
+                                  busy={checking === k}
+                                  onRefresh={() => refreshRow(p.id, a.id)}
+                                />
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </li>
               );

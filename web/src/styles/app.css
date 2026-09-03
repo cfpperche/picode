@@ -481,6 +481,94 @@ body {
 .prov-id { font-family: var(--mono); flex: 1; }
 .prov-auth { color: var(--text-secondary); font-size: 11.5px; }
 .prov-auth.in { color: var(--ok); }
+/* Providers v2 roster: identity, quota and actions on one row. */
+.prov-bar { margin-bottom: 12px; gap: 8px; }
+.prov-search {
+  flex: 1; min-width: 0; max-width: 320px;
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  font: inherit; font-size: 12.5px; outline: none;
+}
+.prov-search:focus { border-color: var(--accent); }
+.prov-head { gap: 8px; }
+.prov-spend {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* An account is two bands: who it is and what it can do on top, what is
+   left of it underneath. One band could not hold an email, two gauges and
+   three controls without truncating the email to nothing. */
+.prov-acc { padding: 6px 0; font-size: 12.5px; }
+.prov-acc + .prov-acc { border-top: 1px solid var(--border); }
+.prov-acc.muted { opacity: 0.62; }
+.prov-acc.muted:hover { opacity: 1; }
+.prov-acc-top { display: flex; align-items: center; gap: 8px; min-height: var(--ctl-h); }
+/* The alias hugs its text so the state pill reads as part of the name,
+   not as a column that drifts with the widest row. */
+.prov-acc-top .prov-acc-label, .prov-acc-top .prov-acc-input { flex: 0 1 auto; max-width: 240px; }
+.prov-acc-gap { flex: 1; }
+.prov-acc-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; min-width: 0;
+}
+.prov-acc-bottom:empty { display: none; }
+.prov-ident {
+  font-size: 11.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.prov-acc-fixed { font-family: var(--mono); font-size: 12px; }
+.prov-verdict { font-size: 11px; }
+.prov-verdict.ok { color: var(--ok); }
+.prov-verdict.bad { color: var(--danger); }
+.prov-more { font-size: 15px; line-height: 1; padding: 0 8px; }
+.prov-menu {
+  min-width: 168px; padding: 4px; z-index: 50;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+.prov-menu-item {
+  display: flex; align-items: center; width: 100%; height: 32px;
+  padding: 0 8px; box-sizing: border-box;
+  border: 0; border-radius: 6px; background: none;
+  color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer;
+}
+.prov-menu-item:hover, .prov-menu-item[data-highlighted] { background: var(--bg-hover); outline: none; }
+.prov-menu-item.danger { color: var(--danger); }
+.prov-menu-item[data-disabled] { color: var(--text-secondary); cursor: default; }
+
+/* The quota reading. A bar is only ever drawn from a number a vendor
+   returned; everything else is a word (ADR-0031, ADR-0058). */
+.quota-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quota-win { display: flex; align-items: center; gap: 5px; }
+.quota-win-id {
+  font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase;
+  letter-spacing: .04em; min-width: 20px;
+}
+.quota-track {
+  width: 46px; height: 5px; border-radius: 99px;
+  background: var(--border); overflow: hidden; flex: none;
+}
+.quota-fill { display: block; height: 100%; border-radius: 99px; background: var(--ok); transition: width 160ms ease; }
+.quota-win.warn .quota-fill { background: var(--warn); }
+.quota-win.bad .quota-fill { background: var(--danger); }
+.quota-pct {
+  font-size: 11px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; min-width: 30px;
+}
+.quota-money {
+  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.quota-note { font-size: 11.5px; color: var(--text-secondary); }
+.quota-refresh {
+  border: 0; background: none; padding: 0 2px; cursor: pointer;
+  font: inherit; font-size: 11px; color: var(--text-secondary);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.quota-live { font-size: 11px; color: var(--ok); }
+.quota-refresh:disabled { cursor: default; opacity: .7; }
+
 .dlg-usage { width: min(420px, calc(100vw - 32px)); }
 .usage-windows { margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; }
 .usage-win-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }

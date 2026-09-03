@@ -24,13 +24,17 @@ type Model struct {
 
 // Provider is a catalog group plus auth.json presence (never key values).
 type Provider struct {
-	ID        string    `json:"id"`
-	SignedIn  bool      `json:"signedIn"`
-	AuthType  string    `json:"authType,omitempty"`  // api_key | oauth
-	Login     string    `json:"login"`               // api_key | oauth | both
-	QuotaKind string    `json:"quotaKind,omitempty"` // oauth | api_key when Usage can fetch
-	Accounts  []Account `json:"accounts,omitempty"`
-	Models    []Model   `json:"models"`
+	ID          string    `json:"id"`
+	SignedIn    bool      `json:"signedIn"`
+	AuthType    string    `json:"authType,omitempty"`    // api_key | oauth
+	Login       string    `json:"login"`                 // api_key | oauth | both
+	QuotaKind   string    `json:"quotaKind,omitempty"`   // oauth | api_key when Usage can fetch
+	Source      string    `json:"source,omitempty"`      // vault | environment
+	EnvVar      string    `json:"envVar,omitempty"`      // env var name when Source is environment
+	Agents      int       `json:"agents,omitempty"`      // agents configured on this provider
+	Automations int       `json:"automations,omitempty"` // automations configured on this provider
+	Accounts    []Account `json:"accounts,omitempty"`
+	Models      []Model   `json:"models"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -82,8 +86,18 @@ func Load(piCmd string) (Report, error) {
 		if a, ok := info[id]; ok {
 			p.SignedIn = true
 			p.AuthType = a
+			p.Source = SourceVault
 			p.Accounts = accountsOf(id)
 			p.QuotaKind = QuotaKind(id, a)
+		} else if name, _, ok := EnvKeyName(id); ok {
+			// pi reads the env var when auth.json has no entry (measured on
+			// pi v0.84.4). The agent works, so the roster must say so — and
+			// must not offer to sign a variable out.
+			p.SignedIn = true
+			p.AuthType = LoginAPIKey
+			p.Source = SourceEnv
+			p.EnvVar = name
+			p.QuotaKind = QuotaKind(id, LoginAPIKey)
 		}
 		rep.Providers = append(rep.Providers, *p)
 	}

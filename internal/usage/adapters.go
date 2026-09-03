@@ -22,6 +22,9 @@ func (c *Client) anthropic(ctx context.Context, cred catalog.OAuthCred, rep *Rep
 		if plan := planFromProfile(pbody); plan != "" {
 			rep.Plan = plan
 		}
+		if email := emailFromProfile(pbody); email != "" {
+			rep.Email = email
+		}
 	}
 	return status, nil
 }
@@ -79,6 +82,30 @@ func parseAnthropicUsage(raw []byte, rep *Report) {
 	}
 }
 
+// emailFromProfile reads the signed-in address so a vault row can say which
+// account it is. The address is the vendor's answer, never the typed label.
+func emailFromProfile(raw []byte) string {
+	var m map[string]any
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	for _, k := range []string{"email", "email_address"} {
+		if s := str(m[k]); s != "" {
+			return s
+		}
+	}
+	for _, nest := range []string{"account", "user", "organization"} {
+		if sub := mapOf(m[nest]); sub != nil {
+			for _, k := range []string{"email", "email_address"} {
+				if s := str(sub[k]); s != "" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func planFromProfile(raw []byte) string {
 	var m map[string]any
 	if json.Unmarshal(raw, &m) != nil {
@@ -86,18 +113,45 @@ func planFromProfile(raw []byte) string {
 	}
 	for _, k := range []string{"plan", "subscription_type", "tier", "organization_type"} {
 		if s := str(m[k]); s != "" {
-			return s
+			return prettyPlan(s)
 		}
 	}
 	if org := mapOf(m["organization"]); org != nil {
-		if s := str(org["plan"]); s != "" {
-			return s
-		}
-		if s := str(org["billing_type"]); s != "" {
-			return s
+		// rate_limit_tier is the field that actually names the tier
+		// ("default_claude_max_5x"); billing_type says "stripe_subscription",
+		// which is how they charge, not what the person has. A row must not
+		// carry that word.
+		for _, k := range []string{"plan", "rate_limit_tier", "organization_type"} {
+			if s := str(org[k]); s != "" {
+				return prettyPlan(s)
+			}
 		}
 	}
 	return ""
+}
+
+// prettyPlan turns a vendor's internal tier id into the words the vendor
+// itself uses on its pricing page. Anything unrecognised is passed through
+// untouched: a plan we cannot name is better shown raw than dropped.
+func prettyPlan(s string) string {
+	key := strings.ToLower(strings.TrimSpace(s))
+	switch key {
+	case "default_claude_max_5x", "claude_max_5x":
+		return "Max 5x"
+	case "default_claude_max_20x", "claude_max_20x":
+		return "Max 20x"
+	case "claude_max", "max":
+		return "Max"
+	case "claude_pro", "pro":
+		return "Pro"
+	case "claude_team", "team":
+		return "Team"
+	case "free", "default_free", "claude_free":
+		return "Free"
+	case "stripe_subscription", "":
+		return ""
+	}
+	return s
 }
 
 func (c *Client) codex(ctx context.Context, cred catalog.OAuthCred, rep *Report) (int, error) {

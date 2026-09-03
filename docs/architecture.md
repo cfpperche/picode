@@ -114,7 +114,7 @@ stay on their own routes.
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
-| `#/providers` | Pi providers | catalog + signed-in state; Sign in; **Usage** per vault account (ADR-0031) |
+| `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
@@ -270,6 +270,18 @@ if it is active). Catalog `quotaKind` on each account tells `#/providers`
 when to show Usage (`oauth` or `api_key`). Banked resets (Codex, Grok)
 ride `resets[]`; `POST …/usage/reset` redeems one after the UI confirms.
 Grok resets also try `~/.grok/auth.json` then `GROK_COOKIE`.
+`GET /api/providers/usage` (ADR-0058) answers the roster from the process
+cache only — never a vendor — with each row's age, so a page load costs
+nothing; `StartUsageRefresh` warms the **active, non-paused** slot of each
+meterable provider every 5 minutes, sequentially. A fetch writes back any
+identity the vendor volunteered (email, normalised plan) onto the vault row.
+`POST /api/providers/{id}/verify` runs `pi auth check --provider <id> --json
+--no-refresh`; `POST …/accounts/{aid}/pause` keeps a credential but takes the
+row out of play (the active one promotes another; the last live one is
+refused). A provider with no `auth.json` entry whose API-key env var is set
+is signed in with `source: "environment"` and `envVar` — pi reads it, so the
+page says so and offers no Sign out. `/api/catalog` also carries how many
+agents and automations name each provider, for the Sign out confirm.
 
 HTTP API (Go 1.22 method patterns):
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.

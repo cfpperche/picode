@@ -17,6 +17,9 @@ type Account struct {
 	Type      string `json:"type"`
 	Active    bool   `json:"active"`
 	QuotaKind string `json:"quotaKind,omitempty"` // oauth | api_key when this row can fetch Usage
+	Email     string `json:"email,omitempty"`     // learned from the vendor, never typed
+	Plan      string `json:"plan,omitempty"`      // learned from the vendor, never typed
+	Paused    bool   `json:"paused,omitempty"`    // kept, but not offered to agents
 }
 
 type vaultFile map[string]vaultProvider
@@ -27,11 +30,14 @@ type vaultProvider struct {
 }
 
 type vaultAccount struct {
-	ID    string          `json:"id"`
-	Label string          `json:"label"`
-	Type  string          `json:"type"`
-	FP    string          `json:"fp"`
-	Cred  json.RawMessage `json:"cred"`
+	ID     string          `json:"id"`
+	Label  string          `json:"label"`
+	Type   string          `json:"type"`
+	FP     string          `json:"fp"`
+	Email  string          `json:"email,omitempty"`
+	Plan   string          `json:"plan,omitempty"`
+	Paused bool            `json:"paused,omitempty"`
+	Cred   json.RawMessage `json:"cred"`
 }
 
 func vaultPath() string {
@@ -221,6 +227,7 @@ func accountsOf(provider string) []Account {
 		out = append(out, Account{
 			ID: a.ID, Label: a.Label, Type: a.Type, Active: a.ID == slot.Active,
 			QuotaKind: QuotaKind(provider, a.Type),
+			Email:     a.Email, Plan: a.Plan, Paused: a.Paused,
 		})
 	}
 	return out
@@ -280,6 +287,9 @@ func ActivateAccount(provider, accountID string) error {
 	var cred json.RawMessage
 	for _, a := range slot.Accounts {
 		if a.ID == accountID {
+			if a.Paused {
+				return fmt.Errorf("account is paused — resume it first")
+			}
 			cred = a.Cred
 			break
 		}
@@ -364,4 +374,96 @@ func clearVaultProvider(provider string) {
 	}
 	delete(v, provider)
 	_ = saveVault(v)
+}
+
+// SetAccountIdentity records what the vendor said this login is (email,
+// plan). Both are read from the provider's own API by internal/usage and
+// are never typed by a person — the label stays the user's alias. A blank
+// value leaves the stored one alone, so one adapter that cannot answer
+// does not erase what another already learned.
+func SetAccountIdentity(provider, accountID, email, plan string) error {
+	provider = strings.TrimSpace(provider)
+	accountID = strings.TrimSpace(accountID)
+	email = strings.TrimSpace(email)
+	plan = strings.TrimSpace(plan)
+	if provider == "" || accountID == "" || (email == "" && plan == "") {
+		return nil
+	}
+	v := loadVault()
+	slot, ok := v[provider]
+	if !ok {
+		return nil
+	}
+	changed := false
+	for i, a := range slot.Accounts {
+		if a.ID != accountID {
+			continue
+		}
+		if email != "" && a.Email != email {
+			slot.Accounts[i].Email = email
+			changed = true
+		}
+		if plan != "" && a.Plan != plan {
+			slot.Accounts[i].Plan = plan
+			changed = true
+		}
+		break
+	}
+	if !changed {
+		return nil
+	}
+	v[provider] = slot
+	return saveVault(v)
+}
+
+// PauseAccount keeps the credential but takes the row out of play: it stops
+// being offered to agents. Pausing the active row promotes another live one,
+// the way RemoveAccount does; pausing the only row is refused, because that
+// is Sign out with extra steps.
+func PauseAccount(provider, accountID string, paused bool) error {
+	provider = strings.TrimSpace(provider)
+	accountID = strings.TrimSpace(accountID)
+	v := loadVault()
+	slot, ok := v[provider]
+	if !ok {
+		return fmt.Errorf("unknown provider")
+	}
+	idx := -1
+	live := 0
+	for i, a := range slot.Accounts {
+		if a.ID == accountID {
+			idx = i
+		}
+		if !a.Paused {
+			live++
+		}
+	}
+	if idx < 0 {
+		return fmt.Errorf("unknown account")
+	}
+	if slot.Accounts[idx].Paused == paused {
+		v[provider] = slot
+		return saveVault(v)
+	}
+	if paused && live <= 1 {
+		return fmt.Errorf("this is the only live account — sign out instead")
+	}
+	slot.Accounts[idx].Paused = paused
+	if paused && slot.Active == accountID {
+		for _, a := range slot.Accounts {
+			if a.ID == accountID || a.Paused {
+				continue
+			}
+			if err := mutateAuth(func(obj map[string]json.RawMessage) error {
+				obj[provider] = a.Cred
+				return nil
+			}); err != nil {
+				return err
+			}
+			slot.Active = a.ID
+			break
+		}
+	}
+	v[provider] = slot
+	return saveVault(v)
 }
