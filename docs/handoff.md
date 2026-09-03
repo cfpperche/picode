@@ -239,13 +239,18 @@ toggle it replaces. The recommendation given to the owner on 2026-08-30 was to
 build them once there are three or four flags, and the store shape is already
 ready for it (overrides are a map, not a column). Not refused, deferred.
 
-**Multi-runtime TUIs in terminals** (owner direction, research in flight in
-another session): the ADE will host TUIs from several agent runtimes — in
-**terminal surfaces only**; agents stay **Pi-only for now**. The unified
-TermSurface/ShellTerm path is the substrate (any tmux session renders the
-same). Known landmine for that research: tmux's `extended-keys-format` is
-server-wide — we force `xterm` (modifyOtherKeys) so Shift+Enter survives,
-but some TUIs prefer csi-u/Kitty; per-session key format may be needed.
+**Multi-runtime TUIs in terminals** (owner direction): the research
+landed 2026-09-03 — study
+`docs/benchmarks/2026-09-03-guest-tui-agent-state.md` + **ADR-0056
+(proposed, owner's call)**: guests keep their TUIs in terminal
+surfaces; sidebar working/needs-you arrives via per-tool sensors
+(Claude hooks → HTTP, Codex `notify`, opencode server events) on the
+ADR-0048 feed; screen-scraping refused as primary; ACP/control is the
+named future track (own ADR; re-measures ADR-0003's Pi-only clause).
+The unified TermSurface/ShellTerm path stays the substrate. Known
+landmine for that track: tmux's `extended-keys-format` is server-wide
+— we force `xterm` (modifyOtherKeys) so Shift+Enter survives, but
+some TUIs prefer csi-u/Kitty; per-session key format may be needed.
 
 **PiCode Desktop is installed and running on the owner's machine. What is
 left is validation — the list below is what has *not* been proved.**
@@ -394,6 +399,23 @@ Never exercised, because this machine was already past them:
   33769826099, the fixed one passes. macOS/Windows redness is older,
   separate debt (see Known debts).
 
+- **2026-09-03 — Guest TUI agent state, benchmarked** (docs-only,
+  `feat/guest-agent-state`): the owner runs Claude Code, Codex, Grok,
+  Antigravity, opencode in PiCode terminals and wants the sidebar's
+  spinner + "needs you" for them. Study
+  `docs/benchmarks/2026-09-03-guest-tui-agent-state.md` (fetched live
+  from ACP docs/registry, Claude Code hooks/statusline/terminal-config,
+  Codex config/app-server/non-interactive docs, opencode server/ACP,
+  Grok CLI, Vibe Kanban, Crystal, Conductor): four integration levels;
+  nobody credible scrapes pixels as the primary source; Claude hooks
+  can POST to HTTP (`Notification` types include `agent_needs_input`),
+  Codex has `notify` + an official app-server, opencode has a server
+  API — and the ACP registry already lists **pi (pi-acp)**.
+  Deliverable: **ADR-0056 (proposed)** — per-tool sensors → ADR-0048
+  feed with pi's state vocabulary + honest `unknown`; scraping refused
+  as primary; ACP/control deferred to a future ADR; ADR-0003's letter
+  (no vendored SDKs) untouched. Awaiting the owner's decision on the
+  ADR.
 - **2026-09-03 — manager could not remove a path package**
   (`fix/pkg-remove-relative`): owner installed `pi-checklist` for the
   machine and Remove failed. Cause: pi stores path sources relative to
