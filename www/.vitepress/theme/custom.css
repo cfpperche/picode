@@ -1,0 +1,100 @@
+/* PiCode docs — the app's design tokens (web/src/styles/app.css) mapped onto
+   the VitePress default theme's variables. Dark-first: the app is dark, the
+   site leads with the same palette; light mode is the app's light theme.
+   Accent #7c8cf8 / #2f6fed, panels #16161c, borders #232329, radius 12. */
+
+:root {
+  /* App light tokens → VitePress */
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f6f7f9;
+  --vp-c-bg-soft: #eef0f4;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-text-1: #16181d;
+  --vp-c-text-2: #5b6472;
+  --vp-c-text-3: #828b99;
+  --vp-c-divider: #dfe3ea;
+  --vp-c-border: #dfe3ea;
+  --vp-c-gutter: #dfe3ea;
+  --vp-c-brand-1: #2f6fed;
+  --vp-c-brand-2: #4f86f2;
+  --vp-c-brand-3: #2f6fed;
+  --vp-c-brand-soft: rgba(47, 111, 237, 0.14);
+  --vp-nav-bg-color: #ffffff;
+  --vp-sidebar-bg-color: #f6f7f9;
+  --vp-code-color: #2f6fed;
+  --vp-code-bg: rgba(47, 111, 237, 0.08);
+  --vp-code-block-bg: #16161c;
+  --vp-code-lang-color: #9b9ba7;
+
+  --pi-font-sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  --pi-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code",
+    Menlo, monospace;
+  --pi-radius-panel: 12px;
+
+  --vp-font-family-base: var(--pi-font-sans);
+  --vp-font-family-mono: var(--pi-font-mono);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #2f6fed, #7c8cf8);
+}
+
+.dark {
+  /* App dark tokens → VitePress */
+  --vp-c-bg: #0e0e11;
+  --vp-c-bg-alt: #0e0e11;
+  --vp-c-bg-soft: #16161c;
+  --vp-c-bg-elv: #16161c;
+  --vp-c-text-1: #ececf1;
+  --vp-c-text-2: #9b9ba7;
+  --vp-c-text-3: #6f6f7c;
+  --vp-c-divider: #232329;
+  --vp-c-border: #232329;
+  --vp-c-gutter: #232329;
+  --vp-c-brand-1: #7c8cf8;
+  --vp-c-brand-2: #99a6fa;
+  --vp-c-brand-3: #7c8cf8;
+  --vp-c-brand-soft: rgba(124, 140, 248, 0.16);
+  --vp-nav-bg-color: #0e0e11;
+  --vp-sidebar-bg-color: #0e0e11;
+  --vp-code-color: #a5b2fb;
+  --vp-code-bg: rgba(124, 140, 248, 0.12);
+  --vp-code-block-bg: #131318;
+  --vp-home-hero-name-background: linear-gradient(120deg, #7c8cf8, #7dcfff);
+}
+
+/* Home feature cards read as app panels: #16161c on #0e0e11, radius 12. */
+.VPFeature {
+  border-radius: var(--pi-radius-panel) !important;
+  background: var(--vp-c-bg-soft) !important;
+}
+
+.VPHero .name,
+.VPHero .text {
+  letter-spacing: -0.02em;
+}
+
+/* Panel radius on code blocks and custom blocks, matching the app. */
+.vp-doc div[class*="language-"],
+.vp-doc .custom-block,
+.VPNavBar .content,
+.VPNavBarMenuLink,
+.DocSearch-Button {
+  border-radius: 8px;
+}
+
+/* JetBrains Mono for code, with the app's inline-code treatment. */
+.vp-doc :not(pre, h1, h2, h3, h4, h5, h6) > code {
+  font-family: var(--pi-font-mono);
+  font-size: 0.9em;
+}
+
+/* Buttons: plain-radius, accent solid like the app's primary buttons. */
+.VPButton.brand {
+  border-radius: 8px;
+}
+.VPButton.brand.brand {
+  background: var(--vp-c-brand-3);
+  border-color: var(--vp-c-brand-3);
+}
+.dark .VPButton.brand.brand {
+  color: #0e0e11;
+}

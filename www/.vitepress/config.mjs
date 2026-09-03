@@ -22,10 +22,18 @@ export default defineConfig({
     ],
     sidebar: [
       {
+        // Diátaxis quadrants (docs/benchmarks.md, Documentation benchmarks):
+        // Start teaches by doing; Guides answer "how do I…"; Run it somewhere
+        // is the self-hosting how-tos; Reference is lookup, not learning.
         text: "Start",
         items: [
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
+        ],
+      },
+      {
+        text: "Guides",
+        items: [
           { text: "Providers", link: "/guide/providers" },
           { text: "Packages", link: "/guide/packages" },
           { text: "Checklist", link: "/guide/checklist" },
@@ -33,6 +41,11 @@ export default defineConfig({
           { text: "llama.cpp", link: "/guide/llama" },
           { text: "Chrome extension", link: "/guide/browser-extension" },
           { text: "Automations", link: "/guide/automations" },
+        ],
+      },
+      {
+        text: "Run it somewhere",
+        items: [
           { text: "Security and pairing", link: "/guide/security" },
           { text: "On a server", link: "/guide/remote-server" },
           { text: "Share one server", link: "/guide/shared-server" },
@@ -51,6 +64,11 @@ export default defineConfig({
     ],
     search: { provider: "local" },
     outline: "deep",
+    editLink: {
+      pattern:
+        "https://github.com/cfpperche/picode/edit/main/www/:path",
+      text: "Edit this page on GitHub",
+    },
     socialLinks: [
       { icon: "github", link: "https://github.com/cfpperche/picode" },
     ],
