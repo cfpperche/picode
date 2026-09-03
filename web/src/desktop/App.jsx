@@ -241,6 +241,7 @@ export default function App() {
   }, []);
 
   const pkgWs = paneWs ? paneWs.id : "";
+  const pkgScope = pkgWs ? "workspace:" + pkgWs : "user";
   useEffect(() => {
     let stop = false;
     async function load() {
@@ -251,8 +252,16 @@ export default function App() {
       } catch { /* keep last */ }
     }
     load();
-    const t = setInterval(load, 30 * 60 * 1000);
-    return () => { stop = true; clearInterval(t); };
+    // Change feed (ADR-0048): the server scans on a slow ticker for the
+    // whole fleet and publishes packages.updates per scope when the
+    // result changes — the event carries the list, so applying it is
+    // free. The interval below is only the feed-down fallback.
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") { load(); return; }
+      if (ev.type === "packages.updates" && ev.data && ev.data.scope === pkgScope) setPkgUpdates(ev.data.updates || []);
+    });
+    const t = setInterval(() => { if (!feedConnected()) load(); }, 30 * 60 * 1000);
+    return () => { stop = true; clearInterval(t); unsub(); };
   }, [pkgWs]);
   useEffect(() => {
     if (route !== "packages") return;
