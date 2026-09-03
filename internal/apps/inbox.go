@@ -438,7 +438,10 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			// Sentence case: surfaces verbatim as a toast.
 			return ActionResult{}, fmt.Errorf("Could not open the terminal: %v", err)
 		}
-		return a.backTo(h, returnPath, "Terminal started — it lives on the agent's tab.")
+		return ActionResult{
+			Toast: "Terminal started — it lives on the agent's tab.",
+			Goto:  "agent:" + it.SourceID,
+		}
 	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
 		text := req.Args["reply"]

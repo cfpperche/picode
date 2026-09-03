@@ -2160,6 +2160,11 @@ export default function App() {
               hidden={selectedId !== id}
               manifest={apps.find((a) => a.id === tabAppId(id)) || null}
               onClose={() => closeTab(id)}
+              onGoto={(g) => {
+                // Apps act as launchers too: "agent:<id>" opens the
+                // agent's tab with its TUI docked (Open terminal).
+                if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
+              }}
             />
           ))}
           <ChatSurface

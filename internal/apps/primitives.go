@@ -104,6 +104,13 @@ type ActionResult struct {
 	Toast string `json:"toast,omitempty"`
 	View  *View  `json:"view,omitempty"`
 	Path  string `json:"path,omitempty"`
+	// Goto asks the shell to leave the app and navigate somewhere it
+	// owns — "agent:<id>" opens the agent's tab with its TUI docked
+	// (the inbox Open-terminal action: acting from the inbox should
+	// take you to the terminal, not leave you where the reply failed).
+	// The shell decides what it can do with it; mobile has no terminal
+	// surface and ignores it.
+	Goto string `json:"goto,omitempty"`
 }
 
 func validMethod(m string) bool {

@@ -34,8 +34,10 @@ const LIST_KEY = "picode-app-split-w";
 // "list" (rows + tabs + search; an item row calls onOpenItem instead of
 // selecting) and "detail" (one item's panes under the shell's own Back
 // header; an action that returns to the root calls onClose). Undefined
-// keeps the desktop's split.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey, paneMode, onOpenItem }) {
+// keeps the desktop's split. onGoto receives an action's goto directive
+// ("agent:<id>") — the shell navigates there (agent tab + docked TUI);
+// mobile has no terminal surface and passes nothing.
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey, paneMode, onOpenItem, onGoto }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -164,6 +166,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         body: JSON.stringify({ action: action.id, path, args: { ...(action.args || {}), ...(args || {}) } }),
       });
       if (res && res.toast) toast(res.toast, "ok");
+      // A goto directive outranks every in-app outcome: the action asks
+      // the shell to leave the app (Open terminal → the agent's tab).
+      if (res && res.goto && onGoto) {
+        onGoto(String(res.goto));
+        return;
+      }
       // A detail screen whose action sends it back to the root is done:
       // the phone pops the screen instead of rendering the root here —
       // whether the app answered with a path, a view, or both.
