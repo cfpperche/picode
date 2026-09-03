@@ -6,6 +6,12 @@ export default defineConfig({
   base: "/picode/",
   cleanUrls: true,
   lastUpdated: true,
+  // Code blocks are dark in BOTH modes (Stripe/GitHub-docs pattern): the
+  // block bg is #16161c even in the light theme, so Shiki must emit dark-
+  // palette tokens or the highlighting disappears into the background.
+  markdown: {
+    theme: { light: "github-dark", dark: "github-dark" },
+  },
   // Example URLs for the local app are not pages on this site. A bare
   // https://localhost:8445 in prose is a crawlable link and fails the
   // build — that froze GitHub Pages from 2026-08-29 until this config.
