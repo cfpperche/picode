@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Prose gate (Vale).** The public docs are now linted for typos and
+  repeated words (`make vale`, part of `make ci` and the CI workflow):
+  in-repo Vale style + committed hunspell dictionary (no network
+  packages), a PiCode vocabulary for product terms, and two real prose
+  fixes it caught on the first run. The pinned binary is downloaded
+  into `bin/` on first use.
 - **Generated HTTP API reference (Scalar + OpenAPI).** Route
   registration in `internal/server` now flows through one `Registrar`
   interface (`registerAll`); `cmd/picode-openapi` walks that same list

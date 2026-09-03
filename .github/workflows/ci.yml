@@ -46,6 +46,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: make docs
 
+      # Prose gate (AGENTS.md: docs travel with code). In-repo style +
+      # dictionary; the only download is the pinned Vale binary.
+      - name: Prose lint (Vale)
+        if: matrix.os == 'ubuntu-latest'
+        run: make vale
+
       - name: Format check
         if: matrix.os == 'ubuntu-latest'
         run: make fmt-check

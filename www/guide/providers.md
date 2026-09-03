@@ -16,7 +16,7 @@ Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/package
 
 Account login opens a browser tab (Claude, Codex) or shows a device code (Copilot, Kimi, xAI). Radius account login stays in the TUI (needs a gateway URL).
 
-**Add account** keeps extra logins in PiCode (`~/.picode/accounts.json`). pi still sees **one** active slot in `auth.json` — **Use** copies that login into the slot. Two agents cannot use two Claudes at the same time (pi limitation).
+**Add account** keeps extra logins in PiCode (`~/.picode/accounts.json`). pi still sees **one** active slot in `auth.json` — **Use** copies that login into the slot. Two agents cannot use two Claude logins at the same time (pi limitation).
 
 **Pause** keeps a login but takes it out of play. The credential stays; the
 account stops being offered. Pausing the one you are using promotes another;

@@ -63,6 +63,24 @@ docs-shots: web ## Capture the current UI into www/public/img (needs agent-brows
 	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
 		sleep 3; node scripts/docs-shots.mjs
 
+
+VALE_VERSION ?= 3.12.0
+VALE := bin/vale
+
+$(VALE): ## Pinned Vale binary (prose linter), downloaded once into bin/
+	@mkdir -p bin
+	@asset=""; case "$$(uname -s)/$$(uname -m)" in \
+		Linux/x86_64) asset="vale_$(VALE_VERSION)_Linux_64-bit" ;; \
+		Linux/aarch64) asset="vale_$(VALE_VERSION)_Linux_arm64" ;; \
+		Darwin/x86_64) asset="vale_$(VALE_VERSION)_macOS_64-bit" ;; \
+		Darwin/arm64) asset="vale_$(VALE_VERSION)_macOS_arm64" ;; \
+		*) echo "unsupported platform for vale: $$(uname -s)/$$(uname -m)"; exit 1 ;; \
+	esac; \
+	curl -fsSL "https://github.com/errata-ai/vale/releases/download/v$(VALE_VERSION)/$$asset.tar.gz" | tar -xz -C bin vale
+	@chmod +x $(VALE)
+
+vale: $(VALE) ## Prose lint on the public docs (spelling + repetition; error gate)
+	$(VALE) --config=.vale.ini --minAlertLevel=error www/*.md www/guide/*.md
 docs-check: ## Parity gate: shipped images match the current UI tree
 	node scripts/docs-check.mjs
 
@@ -115,7 +133,7 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: hooks-check fmt-check vet test test-js build docs docs-check ## Everything CI runs (includes UI + public docs + image parity)
+ci: hooks-check fmt-check vet test test-js build docs docs-check vale ## Everything CI runs (includes UI + public docs + image + prose parity)
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist

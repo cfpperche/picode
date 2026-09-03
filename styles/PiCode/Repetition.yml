@@ -1,0 +1,7 @@
+# "the the", "a a" — classic agent prose slips.
+extends: repetition
+message: "'%s' is repeated."
+level: error
+alpha: true
+tokens:
+  - '[^\s]+'

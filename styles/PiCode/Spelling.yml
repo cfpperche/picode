@@ -1,0 +1,8 @@
+# Typo gate. The en_US dictionary lives in styles/Dictionaries (hunspell,
+# from LibreOffice/dictionaries) so the gate needs no network; product
+# terms are whitelisted via the PiCode vocabulary.
+extends: spelling
+message: "Possible typo: '%s'."
+level: error
+dictionaries:
+  - en_US
