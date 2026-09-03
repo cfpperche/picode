@@ -18,6 +18,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [herdrdev/herdr](https://github.com/herdrdev/herdr) | Rust PTY runtime for guest CLIs | Semantic idle/working/blocked, socket API, later worktrees. **Not** the editor bar | Open repo — file-path receipts |
 | [Agent Client Protocol](https://agentclientprotocol.com) | Open editor↔agent standard (Zed) — JSON-RPC over stdio | The guest-CLI escape hatch: Claude, Codex, Gemini, OpenCode, Kimi, Qwen, Droid, Cursor — and **Pi** (pi-acp) — already speak it | Public docs + registry — study [2026-09-03](2026-09-03-guest-tui-agent-state.md) |
 | [Devin](https://devin.ai) | Hosted autonomous engineer (Cognition) | **Automations** (triggers → session, ACU/rate caps, activity log, NL-generated config), blocked-and-wake sessions (ADR-0037). Not a runtime or editor bar | Public docs + owner's org UI — hosted, no clone |
+| [OpenWiki / docs platforms](2026-09-03-docs-harness.md) | Docs harness study: Diátaxis, Scalar, Vale, Mintlify, Remotion license, HyperFrames, D2 | Public docs completeness/beauty: theme, screenshots pipeline, API reference, prose gate, tutorial videos | Live pages + local receipts, 2026-09-03 |
 
 **Adaptation rule** (same as Cursor): borrow a pattern only if it makes
 *Pi agent control* better. We are not a multi-runtime harness (t3code)
@@ -26,6 +27,7 @@ and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
 
 ## Studies
 
+- [2026-09-03 — Docs harness (theme, screenshots, API reference, prose gate, videos)](2026-09-03-docs-harness.md)
 - [2026-09-03 — Guest TUI agent state (spinner / needs-you for guest CLIs)](2026-09-03-guest-tui-agent-state.md)
 - [2026-09-02 — Live browser preview in chat / side panel](2026-09-02-live-browser-preview.md)
 - [2026-09-01 — Devin Automations (and peers)](2026-09-01-devin-automations.md)
