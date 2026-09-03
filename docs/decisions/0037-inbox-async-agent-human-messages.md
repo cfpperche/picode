@@ -166,3 +166,24 @@ The inbox splits into a **core data plane** and a **first app**.
   <https://forum.cursor.com/t/no-slack-notification-background-agent/152122>
 - Ambient-visibility principles for agent oversight:
   <https://newsletter.victordibia.com/p/4-ux-design-principles-for-multi>
+
+## Amendment — 2026-09-02: the consented switch (Degrau 2)
+
+Replying to an item whose agent runs in a TUI is no longer a pure
+dead-end. The refusal gate stays for the blind path, but the respond
+form carries `interactive: true` when `AgentDeliverable` says false;
+the shell confirms ("the terminal session ends and the thread continues
+in this chat") and re-sends with `_switch: 1`. The store then parks the
+reply via `RespondAndPark` (`RespondAndForward` without the
+deliverable gate), the server switches the agent to managed
+(`Deps.switchAgentToManaged`: TUI session killed — the user consented —
+managed starts on the same cwd), and the delivery loop drains the queue
+into the same session (ADR-0053 adoption). The action lands the user on
+the agent's chat tab via the new `ActionResult.Goto` contract
+("agent:<id>"; mobile has no terminal surface and ignores it).
+
+Send-keys injection into the TUI stays rejected (ADR-0002): benchmark
+research (claude-squad's experimental autoyes + per-CLI content
+sniffing; herdr's bottom-buffer detection) shows the pattern is
+workable but fragile, and PiCode owns a real channel the multiplexers
+lack.
