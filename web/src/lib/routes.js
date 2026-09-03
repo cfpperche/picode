@@ -146,7 +146,7 @@ export function pinRoute(hash) {
 // "terminal" left this list on 2026-08-30: terminal appearance lives on the
 // terminal settings page now (#/termset), beside the behaviour it belongs
 // with. An old #/preferences/terminal link falls back to Appearance.
-const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup"];
+const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "status", "server", "backup"];
 
 export function prefSection(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");

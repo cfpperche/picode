@@ -579,13 +579,26 @@ Never exercised, because this machine was already past them:
   a restart is honest "no signal" (verified live). ADR-0056 accepted
   with the owner's two-tier split (agents deferred; scraping refused).
   Guide: `www/guide/terminal-status.md` (Claude hooks + Codex notify
-  + the `picode-hook` helper). Verified live in the scratch instance:
-  env inheritance inside the pane shell, working→needs-you flip
-  patched the open browser via the feed without reload, desktop
-  chip + tab dot and mobile chip screenshots read; overlayAudit ok;
-  plain-shell terminal stays chipless. visual-review: PASS
-  (qa-term-working-clean / qa-term-needsyou / qa-term-final /
-  qa-term-mobile.png, card 5/5).
+  + the `picode-hook` helper). **Wiring is now one click**
+  (`feat/term-wiring`): Preferences → Terminal status installs the
+  reporter at `<data>/picode-hook` and merges/strips exactly the
+  marked hook entries in `~/.claude/settings.json` (idempotent, user
+  content preserved, corrupt JSON refused with a visible reason);
+  Codex stays manual by design (no stdlib TOML) and shows its state
+  with the guide link. Verified live: enable → hooks + executable
+  reporter → the real script reported a terminal's `working` through
+  the API; disable → only our entries removed; overlayAudit ok after
+  aligning the rows (stretch, not center — two-line labels).
+  Windows gap: the reporter is POSIX sh + curl — fine where the daemon
+  runs (WSL/Linux), unresolved for Windows-hosted daemons.
+  visual-review: PASS (qa-wiring-before2 / qa-wiring-on /
+  qa-wiring-final.png read, card 5/5). Verified earlier in the
+  scratch instance: env inheritance inside the pane shell,
+  working→needs-you flip patched the open browser via the feed
+  without reload, desktop chip + tab dot and mobile chip screenshots
+  read; overlayAudit ok; plain-shell terminal stays chipless.
+  visual-review: PASS (qa-term-working-clean / qa-term-needsyou /
+  qa-term-final / qa-term-mobile.png, card 5/5).
 
 - **2026-09-03 — Providers view v2 shipped** (`feat/providers-v2`,
   ADR-0058, study `docs/benchmarks/2026-09-03-providers-view-v2.md`).

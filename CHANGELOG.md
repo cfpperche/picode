@@ -37,6 +37,10 @@ to the `[Unreleased]` section. The repository's official language is English
   feed events, so no polling anywhere. A `working` report that goes
   silent for 30 minutes expires (no stale spinners); no chip means no
   signal, never a guess. Pixels are never read: sensors, not scraping.
+  Wiring is one click in Preferences → Terminal status: PiCode installs
+  the reporter and merges the Claude Code hooks (idempotent, disable
+  strips exactly our entries); Codex shows its state with the guide
+  link (config.toml has no stdlib TOML path — manual by design).
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on
