@@ -477,6 +477,17 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — L4 closed: the refused checklist card leads with its
+  refusal line** (`fix/checklist-refusal-detail`, merged + deployed).
+  `checklistRefusal()` handles both wire shapes (live: text in
+  `result.content[].text`, detail is JSON — never leaked; replay: text
+  flattened into `detail`), the card shows a red refusal line +
+  "Refused" in the head, healthy cards untouched. Row-by-row tests
+  (453 JS green). Visual review on a scratch daemon with a hand-built
+  session JSONL: refused card reads Refused + red line + attempted
+  list; healthy card unchanged (checklist-card-*.png; overlayAudit
+  ok; card 5/5). Scratch torn down by PID (environ match), per policy.
+
 - **2026-09-03 — dashboard counting scope clarified (read-only, no code).**
   Owner asked whether the dashboard counts only PiCode agent sessions or
   also terminal `pi` runs. Traced: `/api/sessions/stats` →
