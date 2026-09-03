@@ -197,12 +197,7 @@ func existingInstallPath(p Pkg, baseDir string) string {
 		}
 		cand = filepath.Join(baseDir, "npm", "node_modules", name)
 	case "path":
-		cand = p.Source
-		if strings.HasPrefix(cand, "~/") {
-			if home, err := os.UserHomeDir(); err == nil {
-				cand = filepath.Join(home, cand[2:])
-			}
-		}
+		cand = AbsPathSource(p.Source, baseDir)
 	default:
 		return ""
 	}
@@ -210,6 +205,28 @@ func existingInstallPath(p Pkg, baseDir string) string {
 		return cand
 	}
 	return ""
+}
+
+// AbsPathSource makes a path package source absolute. pi stores a path
+// install relative to the settings file's directory (`../../picode/pkg`
+// from ~/.pi/agent), and `pi remove <that>` from any other cwd answers
+// "No matching package found"; the absolute path matches from anywhere.
+// baseDir is the settings directory of the scope (~/.pi/agent or
+// <workspace>/.pi). Non-path sources and absolute paths pass through.
+func AbsPathSource(source, baseDir string) string {
+	if KindOf(source) != "path" {
+		return source
+	}
+	if strings.HasPrefix(source, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, source[2:])
+		}
+		return source
+	}
+	if filepath.IsAbs(source) || baseDir == "" {
+		return filepath.Clean(source)
+	}
+	return filepath.Clean(filepath.Join(baseDir, source))
 }
 
 // MutateOpts selects user vs project (`-l`) install/remove.

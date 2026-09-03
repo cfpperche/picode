@@ -125,3 +125,45 @@ func TestDetectWebSearch(t *testing.T) {
 		t.Fatal("brave-search")
 	}
 }
+
+func TestAbsPathSource(t *testing.T) {
+	base := "/home/u/.pi/agent"
+	cases := map[string]string{
+		"../../picode/packages/pi-checklist": "/home/u/picode/packages/pi-checklist",
+		"/abs/pkg":                           "/abs/pkg",
+		"./local/pkg":                        "/home/u/.pi/agent/local/pkg",
+		"npm:pi-web-search":                  "npm:pi-web-search",
+		"git:github.com/x/y":                 "git:github.com/x/y",
+	}
+	for in, want := range cases {
+		if got := AbsPathSource(in, base); got != want {
+			t.Errorf("AbsPathSource(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := AbsPathSource("../x", ""); got != "../x" {
+		t.Errorf("no base = %q", got)
+	}
+}
+
+func TestListResolvesRelativePathInstall(t *testing.T) {
+	root := t.TempDir()
+	pkg := filepath.Join(root, "picode", "packages", "pi-checklist")
+	if err := os.MkdirAll(pkg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	user := filepath.Join(root, ".pi", "agent")
+	if err := os.MkdirAll(user, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// pi writes the path relative to the settings directory.
+	if err := os.WriteFile(filepath.Join(user, "settings.json"), []byte(`{"packages":["../../picode/packages/pi-checklist"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := List(user, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Packages) != 1 || rep.Packages[0].InstalledPath != pkg {
+		t.Fatalf("packages = %+v, want InstalledPath %s", rep.Packages, pkg)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -146,7 +147,7 @@ func handleUpdatePackage(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
-		if err := pipkg.Update(ctx, deps.AgentCmd, req.Source, opts); err != nil {
+		if err := pipkg.Update(ctx, deps.AgentCmd, pipkg.AbsPathSource(req.Source, packageSettingsDir(req.Scope, dir)), opts); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -189,11 +190,12 @@ func handleRemovePackage(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, rep)
 			return
 		}
-		opts, _, err := packageMutate(deps, scope, wsID)
+		opts, dir, err := packageMutate(deps, scope, wsID)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		source = pipkg.AbsPathSource(source, packageSettingsDir(scope, dir))
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		if err := pipkg.Remove(ctx, deps.AgentCmd, source, opts); err != nil {
@@ -271,6 +273,15 @@ func packageMutate(deps Deps, scope, workspaceID string) (pipkg.MutateOpts, stri
 		return pipkg.MutateOpts{}, "", errNeedWorkspace
 	}
 	return pipkg.MutateOpts{Local: true, Cwd: dir}, dir, nil
+}
+
+// packageSettingsDir is where pi keeps the scope's settings.json — the
+// directory a stored relative path source is relative to.
+func packageSettingsDir(scope, projectDir string) string {
+	if scope == "project" && projectDir != "" {
+		return filepath.Join(projectDir, ".pi")
+	}
+	return pipkg.UserDir()
 }
 
 func statusForStore(err error) int {

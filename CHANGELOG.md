@@ -166,6 +166,13 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Removing a path package from the manager works.** pi stores a path
+  install relative to its settings directory (`../../picode/packages/x`
+  from `~/.pi/agent`) and `pi remove` run from anywhere else answered
+  "No matching package found". The manager now hands pi the absolute
+  path for remove and update, and the installed-path column resolves
+  the same way.
+
 - **Internal checklist (ADR-0055).** A new opt-in package,
   `packages/pi-checklist`: the agent writes its plan with a `checklist`
   tool before its first change (edit, write, bash are refused until it

@@ -326,6 +326,14 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — manager could not remove a path package**
+  (`fix/pkg-remove-relative`): owner installed `pi-checklist` for the
+  machine and Remove failed. Cause: pi stores path sources relative to
+  the settings dir; the daemon ran `pi remove <relative>` from its own
+  cwd. Fix: `pipkg.AbsPathSource(source, settingsDir)` before remove and
+  update (`packageSettingsDir` picks `~/.pi/agent` or `<ws>/.pi`), and
+  `existingInstallPath` resolves the same way. Verified against the
+  scratch home's real relative entry.
 - **2026-09-03 — the public Pages site is green again.** The red
   `pages.yml` runs since 09-02 16:30 died in `make docs`:
   `www/guide/remote-server.md` opened a code span at a line break
