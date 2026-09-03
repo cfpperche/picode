@@ -16,7 +16,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerSlashRes(mux *http.ServeMux, deps Deps) {
+func registerSlashRes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/slash", handleAgentSlash(deps))
 	mux.HandleFunc("GET /api/agents/{id}/export", handleAgentExport(deps))
 	mux.HandleFunc("POST /api/agents/{id}/import", handleAgentImport(deps))

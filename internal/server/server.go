@@ -81,6 +81,25 @@ func New(addr string, deps Deps) *http.Server {
 		}
 	}
 
+	registerAll(mux, deps)
+
+	var handler http.Handler = mux
+	if deps.Auth != nil {
+		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
+	}
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+}
+
+// registerAll wires every route the server serves onto any route
+// registrar. New passes a real *http.ServeMux; the OpenAPI generator
+// (cmd/picode-openapi) passes a recorder so the spec can never drift
+// from what the binary actually serves — there is exactly one
+// registration list.
+func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
 	mux.HandleFunc("GET /api/system", handleSystem(deps))
@@ -112,7 +131,6 @@ func New(addr string, deps Deps) *http.Server {
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux)
-	StartSessionSweep(deps)
 	registerSnippet(mux, deps)
 	registerPins(mux, deps)
 	registerPinFiles(mux, deps)
@@ -131,16 +149,6 @@ func New(addr string, deps Deps) *http.Server {
 	mux.Handle("/ws/agent", agentWS(deps))
 
 	mux.Handle("/", securityHeaders(cacheControl(uiHandler())))
-
-	var handler http.Handler = mux
-	if deps.Auth != nil {
-		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
-	}
-	return &http.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
 }
 
 // bootID identifies this server process. The UI compares it on

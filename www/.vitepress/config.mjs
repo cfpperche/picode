@@ -65,6 +65,7 @@ export default defineConfig({
         items: [
           { text: "Commands", link: "/commands" },
           { text: "Settings", link: "/guide/settings" },
+          { text: "HTTP API", link: "/api" },
           { text: "License", link: "/license" },
         ],
       },

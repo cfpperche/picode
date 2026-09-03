@@ -12,7 +12,7 @@ import (
 // so these routes confine to the workspace's registered folder the same way
 // the agent routes confine to the agent's cwd. The free workspace has no
 // folder — its path is a sentinel — so it is refused.
-func registerWorkspaceFileRoutes(mux *http.ServeMux, deps Deps) {
+func registerWorkspaceFileRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces/{id}/browse", handleWorkspaceBrowse(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/file", handleWorkspaceFile(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/text", handleWorkspaceText(deps))

@@ -13,7 +13,7 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
+func registerTerminalRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/terminals", handleListTerminals(deps))
 	mux.HandleFunc("POST /api/terminals", handleCreateTerminal(deps))
 	mux.HandleFunc("DELETE /api/terminals/{id}", handleDeleteTerminal(deps))

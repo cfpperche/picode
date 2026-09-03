@@ -62,7 +62,7 @@ type gitHeadView struct {
 // how often it runs — which is the whole point of the memo below.
 var gitKeyOf = gitgraph.Key
 
-func registerGitGraphRoutes(mux *http.ServeMux, deps Deps) {
+func registerGitGraphRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/git", handleAgentGraph(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git", handleTerminalGraph(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/commit", handleAgentCommit(deps))

@@ -19,7 +19,7 @@ import (
 // Automations routes (ADR-0045). Same localhost trust model as the rest
 // of the API (ADR-0007) — except /fire, which is meant to be called by
 // other tools and therefore carries its own per-automation secret.
-func registerAutomationRoutes(mux *http.ServeMux, deps Deps) {
+func registerAutomationRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/automations", handleListAutomations(deps))
 	mux.HandleFunc("GET /api/automations/templates", handleAutomationTemplates)
 	mux.HandleFunc("POST /api/automations", handleCreateAutomation(deps))

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>PiCode — HTTP API reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #0e0e11; }
+    </style>
+  </head>
+
+  <body>
+    <div id="app"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      Scalar.createApiReference('#app', {
+        // Same-origin spec, generated from the server's own route
+        // registration by cmd/picode-openapi (make openapi).
+        url: './openapi.json',
+        layout: 'modern',
+        darkMode: true,
+        metaData: { title: 'PiCode HTTP API' },
+      })
+    </script>
+  </body>
+</html>

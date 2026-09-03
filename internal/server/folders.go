@@ -25,7 +25,7 @@ type fsList struct {
 	Places []fsEntry `json:"places,omitempty"`
 }
 
-func registerFolderRoutes(mux *http.ServeMux) {
+func registerFolderRoutes(mux Registrar) {
 	mux.HandleFunc("GET /api/fs", handleFsList)
 	mux.HandleFunc("POST /api/fs/mkdir", handleFsMkdir)
 }

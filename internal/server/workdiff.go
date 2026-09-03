@@ -11,7 +11,7 @@ import (
 // The working-tree diff expands a change dot into its patch (ADR-0032),
 // and reveal opens the owner's folder in the host file manager. Both are
 // owner-scoped like gitstatus: the server resolves the folder, never the URL.
-func registerWorkDiffRoutes(mux *http.ServeMux, deps Deps) {
+func registerWorkDiffRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/gitdiff", handleAgentWorkDiff(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/gitdiff", handleTerminalWorkDiff(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/gitdiff", handleWorkspaceWorkDiff(deps))

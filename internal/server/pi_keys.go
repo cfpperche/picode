@@ -7,7 +7,7 @@ import (
 	"github.com/cfpperche/picode/internal/pikeys"
 )
 
-func registerPiKeysRoutes(mux *http.ServeMux) {
+func registerPiKeysRoutes(mux Registrar) {
 	mux.HandleFunc("GET /api/pi-keys", handleGetPiKeys)
 	mux.HandleFunc("PUT /api/pi-keys", handlePutPiKeys)
 }

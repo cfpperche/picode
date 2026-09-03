@@ -12,7 +12,7 @@ import (
 // Web Push (ADR-0047). The browser subscribes through its own push
 // service and hands us the endpoint + keys; we keep them and post
 // encrypted messages later. Nothing here talks to the phone directly.
-func registerPushRoutes(mux *http.ServeMux, deps Deps) {
+func registerPushRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/push/vapid", handlePushVapid(deps))
 	mux.HandleFunc("POST /api/push/subscriptions", handlePushSubscribe(deps))
 	mux.HandleFunc("PATCH /api/push/subscriptions", handlePushPrefs(deps))

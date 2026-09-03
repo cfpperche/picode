@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerPiSettingsRoutes(mux *http.ServeMux, deps Deps) {
+func registerPiSettingsRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/pi-settings", handleGetPiSettings(deps))
 	mux.HandleFunc("PUT /api/pi-settings", handlePutPiSettings(deps))
 }

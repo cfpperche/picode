@@ -11,7 +11,7 @@ import (
 // Internal checklists (ADR-0055). pi-checklist POSTs the agent's list on
 // every change (and an "absent" marker when a required plan is missing);
 // the shells read one list at boot and follow agent.checklist on the feed.
-func registerChecklistRoutes(mux *http.ServeMux, deps Deps) {
+func registerChecklistRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/checklist", handleSetChecklist(deps))
 	mux.HandleFunc("GET /api/agents/{id}/checklist", handleGetChecklist(deps))
 	mux.HandleFunc("GET /api/checklists", handleListChecklists(deps))

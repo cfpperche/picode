@@ -12,7 +12,7 @@ import (
 // in the owner's repository. Unlike /git, a missing repository is not an
 // error here: the tree works on any folder, and "no repo" just means no
 // decoration — 200 {"git": false}.
-func registerGitStatusRoutes(mux *http.ServeMux, deps Deps) {
+func registerGitStatusRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/gitstatus", handleAgentGitStatus(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/gitstatus", handleTerminalGitStatus(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/gitstatus", handleWorkspaceGitStatus(deps))

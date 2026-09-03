@@ -41,8 +41,15 @@ $(WWW_STAMP): www/package-lock.json
 	cd www && npm ci
 	@touch $(WWW_STAMP)
 
-docs: $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
+docs: openapi llms $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
 	cd www && npm run build
+
+openapi: ## Generate the OpenAPI spec from the server's route registration
+	mkdir -p www/public/api
+	go run ./cmd/picode-openapi > www/public/api/openapi.json
+
+llms: ## Generate llms.txt (machine-readable map of the docs site)
+	node scripts/docs-llms.mjs
 
 fixture: ## Run the docs fixture daemon (synthetic seeded UI, 127.0.0.1:18740)
 	go run ./cmd/picode-docs-fixture

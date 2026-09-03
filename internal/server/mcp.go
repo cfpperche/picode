@@ -11,7 +11,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerMCPRoutes(mux *http.ServeMux, deps Deps) {
+func registerMCPRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/mcp", handleMCPGet(deps))
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
 	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))

@@ -11,7 +11,7 @@ import (
 	"github.com/cfpperche/picode/internal/usage"
 )
 
-func registerSlashOps(mux *http.ServeMux, deps Deps) {
+func registerSlashOps(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))

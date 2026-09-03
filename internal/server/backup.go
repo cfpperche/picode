@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/osopen"
 )
 
-func registerBackupRoutes(mux *http.ServeMux, deps Deps) {
+func registerBackupRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/backup", handleBackupGet(deps))
 	mux.HandleFunc("PUT /api/backup", handleBackupPut(deps))
 	mux.HandleFunc("POST /api/backup/now", handleBackupNow(deps))

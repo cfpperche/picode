@@ -13,7 +13,7 @@ import (
 
 var pinIDOK = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$`)
 
-func registerPinFiles(mux *http.ServeMux, deps Deps) {
+func registerPinFiles(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/pins/{id}/files", handleUploadPinFile(deps))
 	mux.HandleFunc("POST /api/pins/{id}/sketches", handleSavePinSketch(deps))
 	mux.HandleFunc("GET /api/pins/{id}/files/{fid}", handleGetPinFileBytes(deps))

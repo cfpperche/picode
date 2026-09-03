@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Generated HTTP API reference (Scalar + OpenAPI).** Route
+  registration in `internal/server` now flows through one `Registrar`
+  interface (`registerAll`); `cmd/picode-openapi` walks that same list
+  to emit `www/public/api/openapi.json` (206 operations, 170 paths,
+  34 groups), and the docs site serves a Scalar viewer at
+  `/api/` plus an `HTTP API` reference page. `make docs-check`
+  byte-compares the committed spec against a fresh regeneration — a
+  route change without `make openapi` fails CI. llms.txt: the site now
+  ships a machine-readable map (`www/public/llms.txt`, generated from
+  the docs sources by `scripts/docs-llms.mjs`, same freshness gate).
 - **Tool live previews in the conversation (ADR-0057).** A tool can now
   surface what it is looking at while it runs: emit
   `details.preview = { image, url?, title? }` in a partial result and the

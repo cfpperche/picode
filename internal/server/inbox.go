@@ -13,7 +13,7 @@ import (
 // the mitigations are mandatory provenance on every item and bodies
 // rendered as markdown by the host, never HTML.
 
-func registerInboxRoutes(mux *http.ServeMux, deps Deps) {
+func registerInboxRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/inbox", handleCreateInboxItem(deps))
 	mux.HandleFunc("GET /api/inbox", handleListInbox(deps))
 	mux.HandleFunc("POST /api/inbox/{id}/respond", handleRespondInbox(deps))

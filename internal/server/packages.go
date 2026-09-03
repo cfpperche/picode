@@ -13,7 +13,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerPackageRoutes(mux *http.ServeMux, deps Deps) {
+func registerPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages", handleListPackages(deps))
 	mux.HandleFunc("GET /api/packages/gallery", handlePackageGallery)
 	mux.HandleFunc("GET /api/packages/updates", handlePackageUpdates(deps))

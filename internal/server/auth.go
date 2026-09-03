@@ -18,7 +18,7 @@ import (
 
 // Auth routes (ADR-0049). The middleware in server.New already gates
 // them; these only read or change principals.
-func registerAuthRoutes(mux *http.ServeMux, deps Deps) {
+func registerAuthRoutes(mux Registrar, deps Deps) {
 	if deps.Auth == nil {
 		return
 	}

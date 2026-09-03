@@ -14,7 +14,7 @@ import (
 // registerAgentBash wires the composer `!cmd` flow (roadmap A3):
 // RPC bash in the agent cwd. Not a task kind — the tasks table CHECK
 // stays prompt/steer/follow_up.
-func registerAgentBash(mux *http.ServeMux, deps Deps) {
+func registerAgentBash(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/bash", handleAgentBash(deps))
 	mux.HandleFunc("POST /api/agents/{id}/bash/abort", handleAgentBashAbort(deps))
 }

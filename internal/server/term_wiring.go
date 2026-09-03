@@ -250,7 +250,7 @@ func handleWiringDisable(deps Deps) http.HandlerFunc {
 	}
 }
 
-func registerTerminalWiringRoutes(mux *http.ServeMux, deps Deps) {
+func registerTerminalWiringRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/terminals/wiring", handleWiringStatus(deps))
 	mux.HandleFunc("POST /api/terminals/wiring/{cli}/enable", handleWiringEnable(deps))
 	mux.HandleFunc("POST /api/terminals/wiring/{cli}/disable", handleWiringDisable(deps))

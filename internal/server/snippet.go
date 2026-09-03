@@ -8,7 +8,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerSnippet(mux *http.ServeMux, deps Deps) {
+func registerSnippet(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/snippet", handleAgentSnippet(deps))
 }
 

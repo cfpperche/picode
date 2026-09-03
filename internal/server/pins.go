@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func registerPins(mux *http.ServeMux, deps Deps) {
+func registerPins(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/pins", handleListPins(deps))
 	mux.HandleFunc("GET /api/pins/{id}", handleGetPin(deps))
 	mux.HandleFunc("POST /api/pins", handleCreatePin(deps))

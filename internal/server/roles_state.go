@@ -19,7 +19,7 @@ import (
 // rolesStateRoot, when set, replaces ~/.pi/agent/roles-state (tests only).
 var rolesStateRoot string
 
-func registerRolesState(mux *http.ServeMux, deps Deps) {
+func registerRolesState(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/role-state", handleAgentRoleState(deps))
 }
 

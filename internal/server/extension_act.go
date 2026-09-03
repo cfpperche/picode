@@ -42,7 +42,7 @@ func watchingAct(agentID string) bool {
 	return actWatchers[agentID] > 0
 }
 
-func registerActRoutes(mux *http.ServeMux, deps Deps) {
+func registerActRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/extension/act/next", handleActNext(deps))
 	mux.HandleFunc("POST /api/extension/act/{id}/result", handleActResult(deps))
 }

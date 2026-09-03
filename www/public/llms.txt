@@ -1,0 +1,41 @@
+# PiCode
+
+> PiCode is a browser-based Agent Development Environment (ADE) for Pi coding
+> agents: one Go daemon serves a web UI to create, configure and orchestrate
+> agents across workspaces — designed for people who avoid terminals.
+
+## Start
+
+- [What is PiCode](https://cfpperche.github.io/picode/): Control your Pi coding agents from the browser — create them, watch them work, steer them when they drift. You stay in command from the moment of creation.
+- [Getting started](https://cfpperche.github.io/picode/guide/getting-started): Requires [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), tmux 3.5+.
+
+## Run it somewhere
+
+- [Security and pairing](https://cfpperche.github.io/picode/guide/security): PiCode gives whoever is signed in a shell on the machine that runs it,
+- [On a server](https://cfpperche.github.io/picode/guide/remote-server): One PiCode on a Linux box you own, reached from your PC and your phone
+- [Share one server](https://cfpperche.github.io/picode/guide/shared-server): Several people, one Linux box on your tailnet. Each person gets their own
+- [Open it to the internet](https://cfpperche.github.io/picode/guide/public-access): People on any network reach their PiCode at https://picode.example.com
+- [On your phone](https://cfpperche.github.io/picode/guide/mobile): Open the same address you use on the desktop (https://<host>:8445) on your
+
+## Guides
+
+- [Providers](https://cfpperche.github.io/picode/guide/providers): PiCode reads and writes the same ~/.pi/agent/auth.json as the pi TUI. Keys are never shown again after save.
+- [Packages](https://cfpperche.github.io/picode/guide/packages): Extras for Pi (search, tools, themes). They run with full access — only install what you review.
+- [Checklist](https://cfpperche.github.io/picode/guide/checklist): Make an agent write its plan before it changes anything, and follow that
+- [MCP](https://cfpperche.github.io/picode/guide/mcp): Pi does not speak MCP itself. PiCode writes the files the MCP adapter package reads.
+- [Terminal status for CLIs](https://cfpperche.github.io/picode/guide/terminal-status): A coding CLI running inside a PiCode terminal can report its own
+- [llama.cpp](https://cfpperche.github.io/picode/guide/llama): PiCode talks to a running [llama.cpp](https://github.com/ggml-org/llama.cpp) router. It does not install the binary or delete GGUF files.
+- [Chrome extension](https://cfpperche.github.io/picode/guide/browser-extension): Send the tab you are looking at to a PiCode agent — URL, title, selected
+- [Automations](https://cfpperche.github.io/picode/guide/automations): Run an agent on a schedule, or whenever another tool calls a URL. Every run
+
+## Reference
+
+- [Commands](https://cfpperche.github.io/picode/commands): Type / in the composer. PiCode opens its UI — it does not type into the terminal.
+- [Settings](https://cfpperche.github.io/picode/guide/settings): Composer /settings opens #/settings. Depth is like skills: workspace beats global, agent beats both.
+- [HTTP API](https://cfpperche.github.io/picode/api): Everything the PiCode UI does, it does over an HTTP JSON API served by the same daemon you can talk to yourself. The reference below is not hand-written documentation: it is generated from the server's route registration
+- [License](https://cfpperche.github.io/picode/license): PiCode is source-available, not OSI open source.
+
+## Machine-readable
+
+- [OpenAPI spec](https://cfpperche.github.io/picode/api/openapi.json): every HTTP route the daemon serves, generated from the server's route registration (206+ operations).
+- [API reference UI](https://cfpperche.github.io/picode/api/): the same spec in Scalar's browsable viewer.

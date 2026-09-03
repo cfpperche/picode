@@ -12,7 +12,7 @@ import (
 // Apps host routes (ADR-0036). The registry is nil-safe: a server built
 // without apps serves an empty list and 404s everything under an id.
 
-func registerAppsRoutes(mux *http.ServeMux, deps Deps) {
+func registerAppsRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/apps", handleListApps(deps))
 	mux.HandleFunc("GET /api/apps/{id}/view", handleAppView(deps))
 	mux.HandleFunc("POST /api/apps/{id}/action", handleAppAction(deps))

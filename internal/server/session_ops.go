@@ -15,7 +15,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerSessionOps(mux *http.ServeMux, deps Deps) {
+func registerSessionOps(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/tree", handleAgentTree(deps))
 	mux.HandleFunc("POST /api/agents/{id}/fork", handleAgentFork(deps))
 	mux.HandleFunc("POST /api/agents/{id}/clone", handleAgentClone(deps))

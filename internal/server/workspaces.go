@@ -55,7 +55,7 @@ func (deps Deps) liveState(agentID string) (streaming, waiting bool, dialog *rpc
 	return s.Streaming, s.Waiting, s.Dialog
 }
 
-func registerWorkspaceRoutes(mux *http.ServeMux, deps Deps) {
+func registerWorkspaceRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces", handleList(deps))
 	mux.HandleFunc("POST /api/workspaces", handleAdd(deps))
 	mux.HandleFunc("DELETE /api/workspaces/{id}", handleRemove(deps))

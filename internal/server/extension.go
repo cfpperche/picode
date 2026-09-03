@@ -14,7 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func registerExtensionRoutes(mux *http.ServeMux, deps Deps) {
+func registerExtensionRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/extension/agents", handleExtensionAgents(deps))
 	mux.HandleFunc("POST /api/extension/send", handleExtensionSend(deps))
 	registerActRoutes(mux, deps)

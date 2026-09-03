@@ -35,7 +35,7 @@ type ifaceInfo struct {
 	Kind string `json:"kind"` // lan | tailnet
 }
 
-func registerServerRoutes(mux *http.ServeMux, deps Deps) {
+func registerServerRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/server", handleServerInfo(deps))
 	mux.HandleFunc("PUT /api/server/port", handlePortChange(deps))
 	mux.HandleFunc("PUT /api/server/host", handleHostChange(deps))

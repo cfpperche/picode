@@ -1,0 +1,9 @@
+# PiCode terminal rc (not your login rc).
+# Sources the usual bashrc, then puts intercept first so a PATH reset
+# in ~/.bashrc cannot hide the wrappers.
+[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+if [ -n "$PICODE_INTERCEPT_BIN" ] && [ -d "$PICODE_INTERCEPT_BIN" ]; then
+  PATH="$PICODE_INTERCEPT_BIN:$PATH"
+  export PATH
+fi

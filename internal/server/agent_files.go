@@ -37,7 +37,7 @@ type fileHit struct {
 	Name string `json:"name"`
 }
 
-func registerAgentFileRoutes(mux *http.ServeMux, deps Deps) {
+func registerAgentFileRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/files", handleAgentFiles(deps))
 	mux.HandleFunc("GET /api/agents/{id}/browse", handleAgentBrowse(deps))
 	mux.HandleFunc("GET /api/agents/{id}/file", handleAgentFile(deps))

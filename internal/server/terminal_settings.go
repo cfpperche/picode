@@ -15,7 +15,7 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-func registerTerminalSettingsRoutes(mux *http.ServeMux, deps Deps) {
+func registerTerminalSettingsRoutes(mux Registrar, deps Deps) {
 	// The literal segment wins over {id} in Go's mux, so "settings" is not a
 	// terminal named "settings" — but a terminal *is* free to be called that,
 	// which is why the per-terminal panel lives one level deeper.

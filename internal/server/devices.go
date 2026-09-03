@@ -9,7 +9,7 @@ import (
 	"github.com/cfpperche/picode/internal/share"
 )
 
-func registerDeviceRoutes(mux *http.ServeMux, deps *Deps) {
+func registerDeviceRoutes(mux Registrar, deps *Deps) {
 	mux.HandleFunc("POST /api/devices/ping", handleDevicePing(deps))
 	mux.HandleFunc("GET /api/devices", handleDeviceList(deps))
 }

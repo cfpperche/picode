@@ -7,7 +7,7 @@ import (
 	"github.com/cfpperche/picode/internal/oauth"
 )
 
-func registerOAuthRoutes(mux *http.ServeMux) {
+func registerOAuthRoutes(mux Registrar) {
 	mux.HandleFunc("POST /api/oauth/start", handleOAuthStart)
 	mux.HandleFunc("GET /api/oauth/status", handleOAuthStatus)
 	mux.HandleFunc("POST /api/oauth/cancel", handleOAuthCancel)

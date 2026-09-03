@@ -13,6 +13,7 @@
 // proven on the runner; this gate is the always-on floor.
 
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +45,35 @@ if (!existsSync(manifestPath)) {
     }
   }
   if (!Object.keys(m.surfaces ?? {}).length) fails.push("manifest lists no surfaces");
+}
+
+// ── generated docs artifacts: openapi.json + llms.txt ──────────────────
+// Same parity rule as the screenshots: the committed artifact must be
+// byte-identical to what the generator produces from the CURRENT tree.
+const openapiPath = join(root, "www", "public", "api", "openapi.json");
+if (!existsSync(openapiPath)) {
+  fails.push("www/public/api/openapi.json missing — run `make openapi`");
+} else {
+  try {
+    const fresh = execFileSync("go", ["run", "./cmd/picode-openapi"], {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    if (fresh !== readFileSync(openapiPath, "utf8")) {
+      fails.push("openapi.json is stale (server routes changed) — run `make openapi`");
+    }
+  } catch (e) {
+    fails.push(`openapi regeneration failed: ${String(e.message).slice(0, 200)}`);
+  }
+}
+
+try {
+  execFileSync("node", [join(root, "scripts", "docs-llms.mjs"), "--check"], {
+    encoding: "utf8",
+  });
+} catch (e) {
+  fails.push(String(e.stderr || e.message).trim().slice(0, 300));
 }
 
 if (fails.length) {

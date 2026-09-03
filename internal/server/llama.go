@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/llama"
 )
 
-func registerLlama(mux *http.ServeMux) {
+func registerLlama(mux Registrar) {
 	mux.HandleFunc("GET /api/llama", handleLlamaList)
 	mux.HandleFunc("POST /api/llama/load", handleLlamaLoad)
 	mux.HandleFunc("POST /api/llama/unload", handleLlamaUnload)

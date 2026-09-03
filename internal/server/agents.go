@@ -20,7 +20,7 @@ import (
 // registerAgentRoutes wires managed-mode control (ADR-0006): one live pi
 // process per agent — starting managed mode stops the interactive session
 // and vice versa.
-func registerAgentRoutes(mux *http.ServeMux, deps Deps) {
+func registerAgentRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/managed/start", handleManagedStart(deps))
 	mux.HandleFunc("POST /api/agents/{id}/managed/stop", handleManagedStop(deps))
 	mux.HandleFunc("PATCH /api/agents/{id}", handlePatchAgent(deps))

@@ -24,7 +24,7 @@ var cloneFn = gitclone.Clone
 
 const cloneTimeout = 10 * time.Minute
 
-func registerWorkspaceCloneRoutes(mux *http.ServeMux, deps Deps) {
+func registerWorkspaceCloneRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/workspaces/clone", handleCloneWorkspace(deps))
 }
 
