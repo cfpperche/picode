@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
@@ -315,7 +316,23 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 		if u := loopbackURL(deps); u != "" {
 			env = append(env, "PICODE_TERM_URL="+u)
 		}
-		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, defaultShell()); err != nil {
+		// Wrappers live in <data>/bin and are only visible inside this
+		// session (ADR-0056 intercept). Empty when nothing is enabled.
+		if p := interceptSessionPath(deps.DataDir); p != "" {
+			env = append(env, p)
+		}
+		if b := interceptBinEnv(deps.DataDir); b != "" {
+			env = append(env, b)
+		}
+		cmd := defaultShell()
+		var args []string
+		base := filepath.Base(cmd)
+		if base == "bash" || base == "sh" {
+			if rc, err := ensureInterceptBashrc(deps.DataDir); err == nil {
+				args = append(args, "--rcfile", rc)
+			}
+		}
+		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, cmd, args...); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,286 @@
+package server
+
+// Guest CLI intercept (ADR-0056, owner 2026-09-03): never write the
+// user's ~/.claude / ~/.codex / ~/.grok. PiCode terminals prepend
+// <dataDir>/bin to PATH at tmux session creation; wrappers there exec
+// the real binary with launch-time injection (args or GROK_HOME overlay).
+// Outside those sessions the wrappers are not on PATH.
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func interceptBinDir(dataDir string) string { return filepath.Join(dataDir, "bin") }
+func interceptDir(dataDir string) string    { return filepath.Join(dataDir, "intercept") }
+
+func interceptEnabledPath(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "enabled.json")
+}
+
+func loadInterceptEnabled(dataDir string) map[string]bool {
+	out := map[string]bool{}
+	raw, err := os.ReadFile(interceptEnabledPath(dataDir))
+	if err != nil {
+		return out
+	}
+	_ = json.Unmarshal(raw, &out)
+	return out
+}
+
+func saveInterceptEnabled(dataDir string, m map[string]bool) error {
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(interceptEnabledPath(dataDir), append(raw, '\n'), 0o600)
+}
+
+func wrapperPath(dataDir, binName string) string {
+	return filepath.Join(interceptBinDir(dataDir), binName)
+}
+
+func interceptOn(dataDir, cliID string) bool {
+	return loadInterceptEnabled(dataDir)[cliID]
+}
+
+// interceptSessionPath is the PATH=… entry for new-session -e, or empty
+// when nothing is intercepting (so we don't shadow the user's PATH).
+func interceptBashrcPath(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "bashrc")
+}
+
+const interceptBashrc = `# PiCode terminal rc (not your login rc).
+# Sources the usual bashrc, then puts intercept first so a PATH reset
+# in ~/.bashrc cannot hide the wrappers.
+[ -f /etc/bash.bashrc ] && . /etc/bash.bashrc
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+if [ -n "$PICODE_INTERCEPT_BIN" ] && [ -d "$PICODE_INTERCEPT_BIN" ]; then
+  PATH="$PICODE_INTERCEPT_BIN:$PATH"
+  export PATH
+fi
+`
+
+func ensureInterceptBashrc(dataDir string) (string, error) {
+	return interceptBashrcPath(dataDir), writeExecutable(interceptBashrcPath(dataDir), interceptBashrc)
+}
+
+func interceptBinEnv(dataDir string) string {
+	bin := interceptBinDir(dataDir)
+	ents, err := os.ReadDir(bin)
+	if err != nil {
+		return ""
+	}
+	for _, e := range ents {
+		if !e.IsDir() {
+			return "PICODE_INTERCEPT_BIN=" + bin
+		}
+	}
+	return ""
+}
+
+func interceptSessionPath(dataDir string) string {
+	bin := interceptBinDir(dataDir)
+	ents, err := os.ReadDir(bin)
+	if err != nil || len(ents) == 0 {
+		return ""
+	}
+	has := false
+	for _, e := range ents {
+		if !e.IsDir() {
+			has = true
+			break
+		}
+	}
+	if !has {
+		return ""
+	}
+	return "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")
+}
+
+const wrapperFindReal = `here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+real=
+IFS=:
+for d in $PATH; do
+  [ "$d" = "$here" ] && continue
+  if [ -x "$d/$name" ]; then real="$d/$name"; break; fi
+done
+unset IFS
+if [ -z "$real" ]; then
+  printf '%s\n' "picode: $name is not installed outside this terminal." >&2
+  exit 127
+fi
+`
+
+func writeExecutable(path, body string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o755)
+}
+
+func claudeSettingsFile(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "claude-settings.json")
+}
+
+func writeClaudeIntercept(dataDir, hook string) error {
+	doc := map[string]any{"hooks": map[string]any{}}
+	hooks := doc["hooks"].(map[string]any)
+	for event, state := range claudeHookEvents {
+		hooks[event] = []any{map[string]any{
+			"hooks": []any{map[string]any{
+				"type":    "command",
+				"command": fmt.Sprintf("%s %s claude-code", hook, state),
+			}},
+		}}
+	}
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(claudeSettingsFile(dataDir), append(raw, '\n'), 0o600); err != nil {
+		return err
+	}
+	body := "#!/bin/sh\n# PiCode intercept — Claude Code. Session PATH only.\nname=claude\n" +
+		wrapperFindReal +
+		fmt.Sprintf("exec \"$real\" --settings %q \"$@\"\n", claudeSettingsFile(dataDir))
+	return writeExecutable(wrapperPath(dataDir, "claude"), body)
+}
+
+func writeCodexIntercept(dataDir, hook string) error {
+	// TOML array via -c; Codex appends its JSON payload after our args.
+	override := fmt.Sprintf("notify=[%q, %q, %q]", hook, "idle", "codex")
+	body := "#!/bin/sh\n# PiCode intercept — Codex. Session PATH only. End-of-turn only.\nname=codex\n" +
+		wrapperFindReal +
+		fmt.Sprintf("exec \"$real\" -c %q \"$@\"\n", override)
+	return writeExecutable(wrapperPath(dataDir, "codex"), body)
+}
+
+func grokHomeDir(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "grok-home")
+}
+
+func writeGrokIntercept(dataDir, hook string) error {
+	home := grokHomeDir(dataDir)
+	if err := os.MkdirAll(filepath.Join(home, "hooks"), 0o755); err != nil {
+		return err
+	}
+	doc := map[string]any{
+		"hooks": map[string]any{
+			"SessionStart": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " working grok"}},
+			}},
+			"UserPromptSubmit": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " working grok"}},
+			}},
+			"Notification": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " needs-you grok"}},
+			}},
+			"Stop": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " idle grok"}},
+			}},
+		},
+	}
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(home, "hooks", "picode.json"), append(raw, '\n'), 0o600); err != nil {
+		return err
+	}
+	refresh := `user_grok="${HOME}/.grok"
+mkdir -p "$GROK_HOME/hooks"
+if [ -e "$user_grok/auth.json" ]; then ln -sfn "$user_grok/auth.json" "$GROK_HOME/auth.json"; fi
+if [ -e "$user_grok/config.toml" ]; then ln -sfn "$user_grok/config.toml" "$GROK_HOME/config.toml"; fi
+if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/sessions"; fi
+`
+	body := "#!/bin/sh\n# PiCode intercept — Grok. Session PATH only. GROK_HOME overlay.\nname=grok\n" +
+		wrapperFindReal +
+		fmt.Sprintf("export GROK_HOME=%q\n", home) +
+		refresh +
+		"exec \"$real\" \"$@\"\n"
+	return writeExecutable(wrapperPath(dataDir, "grok"), body)
+}
+
+func removeWrapper(dataDir, binName string) {
+	_ = os.Remove(wrapperPath(dataDir, binName))
+}
+
+// stripLegacyUserClaudeHooks undoes the 2026-09-03 file-wiring if it
+// ever landed in the user's ~/.claude/settings.json. Best-effort: a
+// missing or foreign file is not an error.
+func stripLegacyUserClaudeHooks() {
+	p, err := claudeSettingsPath()
+	if err != nil {
+		return
+	}
+	_, _ = claudeSetWiring(p, "", false)
+}
+
+func installIntercept(dataDir, cliID string) error {
+	hook, err := ensureHookScript(dataDir)
+	if err != nil {
+		return err
+	}
+	switch cliID {
+	case "claude-code":
+		stripLegacyUserClaudeHooks()
+		if err := writeClaudeIntercept(dataDir, hook); err != nil {
+			return err
+		}
+	case "codex":
+		if err := writeCodexIntercept(dataDir, hook); err != nil {
+			return err
+		}
+	case "grok":
+		if err := writeGrokIntercept(dataDir, hook); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown CLI %q", cliID)
+	}
+	m := loadInterceptEnabled(dataDir)
+	m[cliID] = true
+	return saveInterceptEnabled(dataDir, m)
+}
+
+func uninstallIntercept(dataDir, cliID string) error {
+	switch cliID {
+	case "claude-code":
+		stripLegacyUserClaudeHooks()
+		removeWrapper(dataDir, "claude")
+	case "codex":
+		removeWrapper(dataDir, "codex")
+	case "grok":
+		removeWrapper(dataDir, "grok")
+	default:
+		return fmt.Errorf("unknown CLI %q", cliID)
+	}
+	m := loadInterceptEnabled(dataDir)
+	delete(m, cliID)
+	return saveInterceptEnabled(dataDir, m)
+}
+
+func interceptWired(dataDir, cliID, binName string) bool {
+	if !interceptOn(dataDir, cliID) {
+		return false
+	}
+	st, err := os.Stat(wrapperPath(dataDir, binName))
+	return err == nil && !st.IsDir()
+}
+
+func looksLikeInterceptPATH(path string) bool {
+	return strings.Contains(path, string(os.PathListSeparator)) || strings.HasPrefix(path, "PATH=")
+}

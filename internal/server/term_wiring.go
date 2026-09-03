@@ -1,16 +1,7 @@
 package server
 
-// Guest CLI wiring — the one-click half of ADR-0056 tier 1. The guide
-// (www/guide/terminal-status.md) documents the manual path; this turns it
-// into two buttons for the one CLI with a machine-readable config:
-//
-//	Claude Code → ~/.claude/settings.json (JSON, stdlib-mergeable).
-//	Codex       → config.toml, no stdlib TOML — manual, shown read-only.
-//
-// PiCode installs a tiny reporter at <dataDir>/picode-hook and merges
-// three hook entries into Claude's settings. A disable removes exactly
-// the entries carrying the "picode-hook" marker and nothing else — user
-// content survives byte-for-byte.
+// Guest CLI intercept HTTP (ADR-0056). Enable/disable writes wrappers
+// under <dataDir>/bin — never the user's ~/.claude, ~/.codex, ~/.grok.
 
 import (
 	"encoding/json"
@@ -25,22 +16,21 @@ import (
 
 const wiringMarker = "picode-hook"
 
-// claudeHookEvents are the three lifecycle points tier 1 needs:
-// a prompt starts a turn, Stop ends it, Notification asks for the human.
-var claudeHookEvents = map[string]string{ // event → reporter state
+// claudeHookEvents are the three lifecycle points: a prompt starts a
+// turn, Stop ends it, Notification asks for the human.
+var claudeHookEvents = map[string]string{
 	"UserPromptSubmit": "working",
 	"Stop":             "idle",
 	"Notification":     "needs-you",
 }
 
 type wiringRow struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Installed  bool   `json:"installed"`
-	Wired      bool   `json:"wired"`
-	ConfigPath string `json:"configPath,omitempty"`
-	Manual     bool   `json:"manual,omitempty"`
-	Note       string `json:"note,omitempty"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Bin       string `json:"bin"`
+	Installed bool   `json:"installed"`
+	Wired     bool   `json:"wired"`
+	Note      string `json:"note,omitempty"`
 }
 
 func homeFile(path ...string) (string, error) {
@@ -52,17 +42,13 @@ func homeFile(path ...string) (string, error) {
 }
 
 func claudeSettingsPath() (string, error) { return homeFile(".claude", "settings.json") }
-func codexConfigPath() (string, error)    { return homeFile(".codex", "config.toml") }
 
-// hookScriptPath lives in the data dir, not ~/.local/bin: no PATH
-// assumptions, and the token it reads sits in the same directory.
 func hookScriptPath(dataDir string) string { return filepath.Join(dataDir, wiringMarker) }
 
 const hookScriptTmpl = `#!/bin/sh
-# PiCode guest-CLI status hook (ADR-0056 tier 1) — installed by PiCode.
-# Usage: picode-hook <working|needs-you|idle> <cli>. Outside a PiCode
-# terminal ($PICODE_TERM_ID empty) it is a no-op, so global installs are
-# safe. A failed report is dropped: status is a courtesy, never an alert.
+# PiCode guest-CLI status hook (ADR-0056). Installed in the data dir.
+# Usage: picode-hook <working|needs-you|idle> <cli>.
+# Outside a PiCode terminal ($PICODE_TERM_ID empty) this is a no-op.
 [ -n "$PICODE_TERM_ID" ] || exit 0
 TOKEN=$(cat "%s/token" 2>/dev/null)
 curl -fsS -o /dev/null --max-time 3 \
@@ -72,8 +58,6 @@ curl -fsS -o /dev/null --max-time 3 \
   "$PICODE_TERM_URL/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
 `
 
-// ensureHookScript (re)writes the reporter. Refreshing on every enable
-// keeps the embedded token path and the report format current.
 func ensureHookScript(dataDir string) (string, error) {
 	if strings.TrimSpace(dataDir) == "" {
 		return "", errors.New("data directory unknown")
@@ -88,8 +72,6 @@ func ensureHookScript(dataDir string) (string, error) {
 	return path, nil
 }
 
-// groupHasMarker reports whether one hooks[] group carries a command
-// referencing the PiCode reporter.
 func groupHasMarker(group any) bool {
 	m, ok := group.(map[string]any)
 	if !ok {
@@ -111,90 +93,49 @@ func groupHasMarker(group any) bool {
 	return false
 }
 
-// claudeWired reports whether any hook entry references the reporter.
-func claudeWired(settingsPath string) bool {
+// claudeSetWiring only strips legacy marker entries from a settings
+// JSON (enable=false). Enable of intercept must never call this with
+// true — that was the user-home pollution we retired.
+func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error) {
+	if enable {
+		return false, errors.New("refusing to write user Claude settings")
+	}
 	raw, err := os.ReadFile(settingsPath)
 	if err != nil {
-		return false
+		return false, nil
 	}
 	var doc map[string]any
-	if json.Unmarshal(raw, &doc) != nil {
-		return false
-	}
-	hooks, _ := doc["hooks"].(map[string]any)
-	for _, groups := range hooks {
-		list, ok := groups.([]any)
-		if !ok {
-			continue
-		}
-		for _, g := range list {
-			if groupHasMarker(g) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// claudeSetWiring merges (enable) or strips (disable) PiCode's hook
-// entries, preserving every other byte of meaning in the document.
-func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error) {
-	var doc map[string]any
-	if raw, err := os.ReadFile(settingsPath); err == nil {
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			return false, fmt.Errorf("%s is not valid JSON — fix or remove it first", settingsPath)
-		}
-	}
-	if doc == nil {
-		doc = map[string]any{}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return false, nil // don't clobber a file we no longer own
 	}
 	hooks, _ := doc["hooks"].(map[string]any)
 	if hooks == nil {
-		hooks = map[string]any{}
+		return false, nil
 	}
 	changed := false
-	for event, state := range claudeHookEvents {
+	for event := range claudeHookEvents {
 		groups, _ := hooks[event].([]any)
 		kept := make([]any, 0, len(groups))
-		hadOurs := false
 		for _, g := range groups {
 			if groupHasMarker(g) {
-				hadOurs = true
+				changed = true
 				continue
 			}
 			kept = append(kept, g)
 		}
-		if enable {
-			kept = append(kept, map[string]any{
-				"hooks": []any{map[string]any{
-					"type":    "command",
-					"command": fmt.Sprintf("%s %s claude-code", scriptPath, state),
-				}},
-			})
+		if len(kept) > 0 {
 			hooks[event] = kept
-			changed = true
-			continue
+		} else {
+			delete(hooks, event)
 		}
-		// disable: strip ours; drop the event key when nothing is left.
-		if hadOurs {
-			changed = true
-			if len(kept) > 0 {
-				hooks[event] = kept
-			} else {
-				delete(hooks, event)
-			}
-		}
+	}
+	if !changed {
+		return false, nil
 	}
 	if len(hooks) > 0 {
 		doc["hooks"] = hooks
 	} else {
 		delete(doc, "hooks")
-	}
-	if !changed {
-		return false, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
-		return false, err
 	}
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
@@ -203,85 +144,67 @@ func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error)
 	return true, os.WriteFile(settingsPath, append(out, '\n'), 0o600)
 }
 
-// wiringRows answers GET /api/terminals/wiring: one row per supported
-// CLI, honestly marked when the wiring is manual.
 func installedOnPath(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
 }
 
-func wiringRows() []wiringRow {
-	rows := []wiringRow{}
-	if p, err := claudeSettingsPath(); err == nil {
-		rows = append(rows, wiringRow{
-			ID: "claude-code", Label: "Claude Code",
-			Installed:  installedOnPath("claude"),
-			Wired:      claudeWired(p),
-			ConfigPath: p,
-		})
+func wiringRows(dataDir string) []wiringRow {
+	return []wiringRow{
+		{
+			ID: "claude-code", Label: "Claude Code", Bin: "claude",
+			Installed: installedOnPath("claude"),
+			Wired:     interceptWired(dataDir, "claude-code", "claude"),
+			Note:      "Injects --settings in PiCode terminals only.",
+		},
+		{
+			ID: "codex", Label: "Codex", Bin: "codex",
+			Installed: installedOnPath("codex"),
+			Wired:     interceptWired(dataDir, "codex", "codex"),
+			Note:      "Injects notify via -c. End-of-turn only.",
+		},
+		{
+			ID: "grok", Label: "Grok", Bin: "grok",
+			Installed: installedOnPath("grok"),
+			Wired:     interceptWired(dataDir, "grok", "grok"),
+			Note:      "GROK_HOME overlay in PiCode's data dir. Auth stays yours.",
+		},
 	}
-	if p, err := codexConfigPath(); err == nil {
-		raw, _ := os.ReadFile(p)
-		rows = append(rows, wiringRow{
-			ID: "codex", Label: "Codex",
-			Installed:  installedOnPath("codex"),
-			Wired:      strings.Contains(string(raw), wiringMarker),
-			ConfigPath: p,
-			Manual:     true,
-			Note:       "One line in config.toml — see the guide.",
-		})
-	}
-	return rows
 }
 
 func handleWiringStatus(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows()})
+		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
 	}
 }
 
-// handleWiringEnable installs the reporter and merges the Claude hooks.
-// Unknown or manual CLIs refuse with the visible reason.
 func handleWiringEnable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("cli") != "claude-code" {
-			writeErr(w, http.StatusBadRequest, "One-click wiring covers Claude Code; for this CLI, follow the guide.")
-			return
-		}
-		script, err := ensureHookScript(deps.DataDir)
-		if err != nil {
+		cli := r.PathValue("cli")
+		if err := installIntercept(deps.DataDir, cli); err != nil {
+			if strings.Contains(err.Error(), "unknown CLI") {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		p, err := claudeSettingsPath()
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if _, err := claudeSetWiring(p, script, true); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows()})
+		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
 	}
 }
 
 func handleWiringDisable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("cli") != "claude-code" {
-			writeErr(w, http.StatusBadRequest, "One-click wiring covers Claude Code; for this CLI, follow the guide.")
-			return
-		}
-		p, err := claudeSettingsPath()
-		if err != nil {
+		cli := r.PathValue("cli")
+		if err := uninstallIntercept(deps.DataDir, cli); err != nil {
+			if strings.Contains(err.Error(), "unknown CLI") {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if _, err := claudeSetWiring(p, "", false); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows()})
+		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
 	}
 }
 

@@ -477,6 +477,20 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — Guest CLI intercept, no user-home writes**
+  (`feat/term-intercept`, ADR-0056 amendment). Owner rejected writing
+  `~/.claude/settings.json`. Preferences → Terminal status now drops
+  wrappers in `<data>/bin` and prepends that dir to PATH **only** on
+  the tmux session of a PiCode terminal. Claude: `--settings` JSON in
+  the data dir; Codex: `-c notify=…` (end-of-turn); Grok: `GROK_HOME`
+  overlay with hooks + symlink of `auth.json`. Enable refuses to write
+  user Claude settings (tested); a leftover marker from the retired
+  file-wiring is stripped on Claude enable/disable. Guide rewritten.
+  Bash `--rcfile` sources ~/.bashrc then prepends intercept (user rc
+  was resetting PATH). Live: `command -v claude` inside the pane is
+  `<data>/bin/claude`; tmux PATH starts with that dir; no ~/.claude
+  file created. visual-review: PASS (qa-intercept-prefs.png read;
+  overlayAudit ok; card 5/5).
 - **2026-09-03 — L4 closed: the refused checklist card leads with its
   refusal line** (`fix/checklist-refusal-detail`, merged + deployed).
   `checklistRefusal()` handles both wire shapes (live: text in

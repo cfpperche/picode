@@ -48,9 +48,18 @@ reports its own state through a small HTTP hook:
 `POST /api/terminals/{id}/state` with `{"state": "working" |
 "needs-you" | "idle", "cli": "…"}`. PiCode correlates the report to the
 terminal via `PICODE_TERM_ID` (and `PICODE_TERM_URL`), injected into
-the tmux session environment **at creation** (`new-session -e`), so
-every hook process inherits it — no configuration, and no guessing
-from pixels. Reports republish as ephemeral `terminal.state` events on
+the tmux session environment **at creation** (`new-session -e`).
+
+**Intercept, not user-file wiring (owner 2026-09-03).** PiCode never
+writes `~/.claude`, `~/.codex` or `~/.grok`. Turning a CLI on drops a
+wrapper in `<data>/bin` and prepends that directory to **PATH of that
+tmux session only**. The user types `claude` / `codex` / `grok` as
+usual; the wrapper `exec`s the real binary with launch-time injection:
+Claude `--settings` (JSON in the data dir), Codex `-c notify=…`, Grok
+`GROK_HOME` overlay (hooks in the data dir, `auth.json` symlinked).
+Outside PiCode terminals the wrappers are not on PATH. A leftover
+from the retired file-wiring is stripped from `~/.claude/settings.json`
+on Claude enable/disable (marker entries only). Reports republish as ephemeral `terminal.state` events on
 the ADR-0048 feed; views carry the same fields for reconciliation. A
 sweep expires `working` after 30 minutes of silence (hooks fire
 between tools, not inside one) — a silenced sensor degrades to "no
