@@ -64,7 +64,8 @@ What exists:
 ## In flight
 
 **`fix/checklist-staleness` — checklist row follows the current session
-(ADR-0055), built, gated, LIVE-DOGFOODED, ready to merge.** Adversarial review of
+(ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22
+(installed service runs 0.1.0+6256503, which includes it).** Adversarial review of
 `packages/pi-checklist` found the daemon row could show a dead session's
 plan as current (fresh start never cleared it) and that absence markers
 carried a previous task's steps (the gate only refuses unplanned tasks,
@@ -88,7 +89,10 @@ stale); the explicit + New minted a fresh session and the row reset to
 `docs/screenshots/checklist-sidebar-reset-silence.png` (no line after
 reset) and `checklist-sidebar-step-live.png` ("(2/2) Verify file
 content" under the agent name). visual-review: PASS (both PNGs read;
-overlayAudit ok; card below). Scratch instance torn down. Deferred from
+overlayAudit ok; card below). Scratch instance torn down — with a
+near-miss recorded below. The package is opt-in (ADR-0010) and not
+installed machine-wide right now; the repo copy carries the fix for the
+next `pi install`. Deferred from
 the review, recorded in debt below: chat card hides the refusal text
 when old items exist (L4, needs a visual-review cycle), client/server
 validation asymmetry (L1), reminder-loop guard depends on a pi
