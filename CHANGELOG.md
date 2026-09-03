@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Tool live previews in the conversation (ADR-0057).** A tool can now
+  surface what it is looking at while it runs: emit
+  `details.preview = { image, url?, title? }` in a partial result and the
+  tool pill renders the frame inline (click opens the lightbox), with the
+  persisted copy in the final result so history and reload render it too.
+  The contract is tool-agnostic — PiCode core never learns a tool name —
+  and rides the existing channels: `tool_execution_update` (now consumed
+  by both the desktop handler and the shared reducer, which previously
+  ignored it) and the session transcript, which already kept `details`.
+  First emitter planned: the `agent_browser` package (frames per step;
+  study: `docs/benchmarks/2026-09-02-live-browser-preview.md`).
+
 ### Fixed
 
 - **The sidebar checklist line follows the current session, not the last

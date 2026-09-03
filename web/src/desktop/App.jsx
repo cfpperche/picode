@@ -10,6 +10,7 @@ import { termWorkspaceId, workspaceForTerminal } from "../lib/termGroups.js";
 import { closeShellTerm } from "../components/ShellTerm.jsx";
 import { summarizeArgs } from "../components/Conversation.jsx";
 import { fileChangeFromTool } from "../lib/diff.js";
+import { previewFromDetails } from "../lib/toolPreview.js";
 import { eventsToItems } from "../lib/replay.js";
 import { readCompacting, writeCompacting } from "../lib/compact.js";
 import Sidebar from "../components/Sidebar.jsx";
@@ -1086,9 +1087,17 @@ export default function App() {
           detail: JSON.stringify(ev.args || {}, null, 2),
           expanded: false,
           change,
+          preview: null,
           ts: Date.now(),
         }]);
         queueMicrotask(scrollConv);
+        break;
+      }
+      case "tool_execution_update": {
+        // ADR-0057: latest preview frame wins; nothing else moves.
+        const preview = previewFromDetails(ev.partialResult && ev.partialResult.details);
+        if (!preview) break;
+        setItems((cur) => cur.map((it) => (it.kind === "tool" && it.id === ev.toolCallId ? { ...it, preview } : it)));
         break;
       }
       case "tool_execution_end":
@@ -1103,6 +1112,7 @@ export default function App() {
             result: ev.result,
             expanded: it.expanded || searchHits.length > 0,
             change,
+            preview: previewFromDetails(ev.result && ev.result.details) || it.preview,
           };
         }));
         break;

@@ -5,6 +5,7 @@ import { isSearchTool, hitsFromResult } from "./searchCards.js";
 import { alertFromPi } from "./piError.js";
 import { humanizeError } from "./api.js";
 import { summarizeArgs } from "./toolArgs.js";
+import { previewFromDetails } from "./toolPreview.js";
 
 // Pure reducer over the agent WebSocket stream (ADR-0044). The desktop's
 // inline handleEvent (desktop/App.jsx) is the reference for every case
@@ -78,9 +79,17 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
         kind: "tool", id: e.toolCallId, name: e.toolName || "tool",
         args: summarizeArgs(e.args), toolArgs: e.args || {}, status: "···",
         detail: JSON.stringify(e.args || {}, null, 2), expanded: false,
-        change: fileChangeFromTool(e.toolName, e.args, null), ts: now,
+        change: fileChangeFromTool(e.toolName, e.args, null), preview: null, ts: now,
       };
       return { state: { ...s, items: [...s.items, item] }, effects: [{ type: "scroll" }] };
+    }
+    case "tool_execution_update": {
+      // ADR-0057: a tool streaming partial results may carry a preview frame;
+      // latest wins, nothing else about the item moves.
+      const preview = previewFromDetails(e.partialResult && e.partialResult.details);
+      if (!preview) return { state: s, effects: [] };
+      const items = s.items.map((it) => (it.kind === "tool" && it.id === e.toolCallId ? { ...it, preview } : it));
+      return { state: { ...s, items }, effects: [] };
     }
     case "tool_execution_end": {
       const items = s.items.map((it) => {
@@ -91,6 +100,7 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
           ...it, status: e.isError ? "error" : "ok",
           detail: JSON.stringify(e.result || {}, null, 2), result: e.result,
           expanded: it.expanded || hits.length > 0, change,
+          preview: previewFromDetails(e.result && e.result.details) || it.preview,
         };
       });
       return { state: { ...s, items }, effects: [] };
