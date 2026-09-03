@@ -2,6 +2,7 @@
   "$schema": "https://pi.dev/schemas/settings.json",
   "packages": [
     "../packages/pi-inbox",
-    "../packages/pi-roles"
+    "../packages/pi-roles",
+    "../packages/pi-checklist"
   ]
 }
