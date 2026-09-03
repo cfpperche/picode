@@ -769,6 +769,11 @@ export default function App() {
             ? fileHash(file.kind, file.id, file.path)
             : workspaceHash(selectedId);
     if (location.hash === want) return;
+    // Only manage workspace-ish hashes. Route hashes (#/automations,
+    // #/settings, #/devices, …) are deep links: replacing them here bounced
+    // them to #/ once the fleet loaded — found by scripts/docs-shots.mjs,
+    // which navigates cold to #/automations and never saw the view.
+    if (parseRoute(location.hash) !== "workspace") return;
     if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && !appRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
       setHash(want);

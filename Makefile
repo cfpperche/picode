@@ -44,6 +44,21 @@ $(WWW_STAMP): www/package-lock.json
 docs: $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
 	cd www && npm run build
 
+fixture: ## Run the docs fixture daemon (synthetic seeded UI, 127.0.0.1:18740)
+	go run ./cmd/picode-docs-fixture
+
+# Parity principle (docs/benchmarks/2026-09-03-docs-harness.md): the site's
+# images are generated from the current UI, never hand-placed. UI change ⇒
+# re-run docs-shots, or docs-check fails.
+docs-shots: web ## Capture the current UI into www/public/img (needs agent-browser on PATH)
+	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
+	fuser -k 18740/tcp 2>/dev/null || true
+	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
+		sleep 3; node scripts/docs-shots.mjs
+
+docs-check: ## Parity gate: shipped images match the current UI tree
+	node scripts/docs-check.mjs
+
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 	./scripts/setup-cert.sh
 
@@ -93,7 +108,7 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: hooks-check fmt-check vet test test-js build docs ## Everything CI runs (includes UI + public docs)
+ci: hooks-check fmt-check vet test test-js build docs docs-check ## Everything CI runs (includes UI + public docs + image parity)
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist

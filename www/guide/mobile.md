@@ -34,6 +34,10 @@ asking), the composer with **prompt / steer / follow-up** and dictation, and
 **Stop** to abort the current turn. An agent living in a terminal shows a
 **Chat | Terminal** switch.
 
+![The Now tab: what needs you first — here a seeded demo question with Accept / Ignore](../img/app-mobile.png)
+
+![The Inbox tab: the same approvals, questions and results as the desktop](../img/app-mobile-inbox.png)
+
 Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
 left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
 terminal or a workspace opens its uncommitted changes, read-only.
