@@ -408,6 +408,22 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — docs-harness benchmark study (plan presented).**
+  Studied documentation benchmarks for a public-docs harness — Diátaxis
+  IA, Scalar (MIT API reference, Vue), Mintlify/Fern (llms.txt),
+  Vale (MIT prose linter, ships in Mintlify CI), Remotion license
+  (free ≤3 people only — default refused), HyperFrames (installed,
+  0.8.27) as the default video engine, D2/Mermaid for diagrams-as-code.
+  Study: docs/benchmarks/2026-09-03-docs-harness.md. Plan: theme with
+  app tokens, own-capture docs-shots pipeline over a seeded fixture
+  daemon, route-walking openapi.json + Scalar page, llms.txt, Vale gate
+  in make ci, 3 HyperFrames tutorials. Owner directive folded in:
+  **full parity** — the harness captures its own screenshots
+  (`docs/screenshots/` stays agent evidence, never user docs);
+  `make docs-check` re-captures and diffs in CI so UI drift without
+  regenerated images fails; video compositions declare their surfaces
+  and are flagged stale the same way. ADR pending owner approval.
+
 - **2026-09-03 — adversarial review of the feed migration + one fix**
   (`fix/git-watch-workspace-scope`): `gitDirs` attached the workspace id
   to an agent's own-workPath event, so the worktree's branch could
