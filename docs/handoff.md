@@ -64,7 +64,7 @@ What exists:
 ## In flight
 
 **`fix/checklist-staleness` — checklist row follows the current session
-(ADR-0055), built and gated, not merged.** Adversarial review of
+(ADR-0055), built, gated, LIVE-DOGFOODED, ready to merge.** Adversarial review of
 `packages/pi-checklist` found the daemon row could show a dead session's
 plan as current (fresh start never cleared it) and that absence markers
 carried a previous task's steps (the gate only refuses unplanned tasks,
@@ -76,12 +76,23 @@ are normalized server-side to carry no items; `PICODE_URL` now rejects
 userinfo; step truncation is code-point safe on both ends; direct store
 tests added and `SetChecklist`/`ClearChecklist` joined the ADR-0048
 mutation table (SetChecklist was missing from it). `make ci` green.
-Live dogfood (fresh restart → old line disappears; refusal → "No
-checklist") still owed before merge. Deferred from the review, recorded
-in debt below: chat card hides the refusal text when old items exist
-(L4, needs a visual-review cycle), client/server validation asymmetry
-(L1), reminder-loop guard depends on a pi invariant (comment added in
-the extension).
+**Live dogfood 2026-09-03** (scratch daemon on :18443, insecure mode,
+zai/glm-5.3-flash, worktree extension via agent `-e`): boot reset
+landed before any prompt; a normal prompt planned and ran 2/2; a
+"skip the plan" prompt hit the gate and the row flipped to
+`{items:[],absent:true}` ("No checklist"), then the model replanned and
+finished 1/1 (feed events 9→15 tell the sequence); a managed restart
+*resumed* the same session and correctly republished its plan (resume ≠
+stale); the explicit + New minted a fresh session and the row reset to
+`null` — the sidebar shows silence. Screenshots:
+`docs/screenshots/checklist-sidebar-reset-silence.png` (no line after
+reset) and `checklist-sidebar-step-live.png` ("(2/2) Verify file
+content" under the agent name). visual-review: PASS (both PNGs read;
+overlayAudit ok; card below). Scratch instance torn down. Deferred from
+the review, recorded in debt below: chat card hides the refusal text
+when old items exist (L4, needs a visual-review cycle), client/server
+validation asymmetry (L1), reminder-loop guard depends on a pi
+invariant (comment added in the extension).
 
 **Feed migration phase 4 — merged to `main` 2026-09-03, deployed.**
 `StartPackageUpdatesWatch` re-runs the npm update check every
@@ -441,14 +452,16 @@ Never exercised, because this machine was already past them:
 ## Recent activity
 
 - **2026-09-03 — adversarial review of `packages/pi-checklist` + the
-  staleness fixes** (`fix/checklist-staleness`): probed the gate, the
-  reminder loop (confirmed against pi 0.84.4 source that follow-up
-  turns do not re-emit `before_agent_start`, so the 3-reminder cap
-  holds), TLS loopback canonicalization (`0x7f000001` → `127.0.0.1` via
-  WHATWG — solid), agent-id traversal (blocked). Found and fixed the
-  two real ones (stale row on fresh session; stale items on
-  absent/blocked) — see *In flight*. visual-review: UNVERIFIED (no JSX
-  touched).
+  staleness fixes, live-dogfooded** (`fix/checklist-staleness`):
+  probed the gate, the reminder loop (confirmed against pi 0.84.4
+  source that follow-up turns do not re-emit `before_agent_start`, so
+  the 3-reminder cap holds), TLS loopback canonicalization
+  (`0x7f000001` → `127.0.0.1` via WHATWG — solid), agent-id traversal
+  (blocked). Found and fixed the two real ones (stale row on fresh
+  session; stale items on absent/blocked). Live dogfood on a scratch
+  daemon: gate refusal → "No checklist", + New → silence, resume →
+  republish. visual-review: PASS (checklist-sidebar-*.png read;
+  overlayAudit ok; card 5/5).
 
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis
