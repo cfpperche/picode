@@ -426,8 +426,9 @@ Never exercised, because this machine was already past them:
   killed the owner's installed service (8445) — restored in ~5 min
   (`systemctl --user start picode`, health OK); scratch cleanup must
   target PIDs, never name patterns. Next: the package-side emitter
-  (PR 2 — `pi-agent-browser-native` PR or a companion package), the
-  Browser panel surface on `#/agent/<id>`, and the upstream issue.
+  (PR 2 — upstream [pi-agent-browser-native#157](https://github.com/fitchmultz/pi-agent-browser-native/issues/157)
+  opened with the `details.preview` proposal; PR or companion package
+  pending their answer) and the Browser panel surface on `#/agent/<id>`.
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis
   IA, Scalar (MIT API reference, Vue), Mintlify/Fern (llms.txt),
