@@ -63,8 +63,8 @@ What exists:
 
 ## In flight
 
-**Feed migration phase 4 — `feat/feed-packages-updates` (gated, not
-merged).** `StartPackageUpdatesWatch` re-runs the npm update check every
+**Feed migration phase 4 — merged to `main` 2026-09-03, deployed.**
+`StartPackageUpdatesWatch` re-runs the npm update check every
 30 min for the user dir + every registered workspace (serial,
 network-bound, fingerprint per scope) and publishes ephemeral
 `packages.updates` only on change; the desktop badge/list apply the
