@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "../lib/api.js";
+import { feedConnected, subscribeFeed } from "../lib/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { mcpAddSchema, pairsToMap, parseForm } from "../lib/schemas.js";
 import { toast } from "../lib/toast.js";
@@ -50,8 +51,16 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }, [agentRunning]);
   useEffect(() => {
     if (hidden || !agentRunning) return;
-    const t = setInterval(() => { load(); }, 2500);
-    return () => clearInterval(t);
+    // Change feed (ADR-0048): pi's live MCP status streams as ephemeral
+    // mcp.updated events — one fleet-wide watcher instead of one poll per
+    // open panel. The interval below is only the feed-down fallback, and
+    // the panel reconciles once when the feed (re)opens.
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") load();
+      else if (ev.type === "mcp.updated" && ev.data && ev.data.agentId === agentId) load();
+    });
+    const t = setInterval(() => { if (!feedConnected()) load(); }, 2500);
+    return () => { unsub(); clearInterval(t); };
   }, [hidden, agentRunning, workspaceId, agentId]);
   useEffect(() => {
     if (!workspaceId && scope === "project") setScope("user");

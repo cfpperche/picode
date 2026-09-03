@@ -462,6 +462,11 @@ func serve() {
 	// fleet, published as agent.tui, instead of one per browser per 3 s.
 	go server.StartTuiWatch(backupCtx, deps, 3*time.Second)
 
+	// MCP live watcher (ADR-0048 follow-up): one snapshot read per tick for
+	// the whole fleet, published as mcp.updated, instead of one poll per
+	// open panel per 2.5 s.
+	go server.StartMcpWatch(backupCtx, deps, 3*time.Second)
+
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.
 	autoCtx, autoCancel := context.WithCancel(context.Background())

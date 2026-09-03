@@ -63,6 +63,18 @@ What exists:
 
 ## In flight
 
+**Feed migration phase 1 — `feat/feed-mcp-events` (open, gated, not
+merged).** `StartMcpWatch` (mirrors `tui_watch.go`) reads each running
+agent's live MCP snapshot once per 3 s tick for the whole fleet and
+publishes ephemeral `mcp.updated`; the Mcps panel subscribes, reconciles
+on `feed.open`/`feed.reset`, and its 2.5 s interval is now the
+feed-down fallback only. Verified live end to end: hand-written live
+file flips the badge with exactly one `/api/mcp` request (was ~1 per
+2.5 s). The same branch repairs main's red tests left by 07a12aa8
+(`TestLooksWorkingUnit` / `TestTuiWorking` still used the old
+"⋮ Working..." anchor). Phases 2–4 of the polling→feed migration plan
+(llama op overlay, git events, `packages.updates`) are not started.
+
 **ADR-0045 Automations — merged to `main` and shipping.** Scheduler,
 webhook, notify channel, gateway hook route, `/automate` + templates;
 editor/detail UI fixes and the message-run amendment landed 2026-09-02.
@@ -295,6 +307,15 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-02 — MCP live status rides the change feed**
+  (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
+  watcher publishes `mcp.updated`; the Mcps panel follows events and
+  polls only as the feed-down fallback. visual-review: PASS
+  (qa-mcps-empty.png + qa-mcps-live.png read; overlayAudit ok; e2e:
+  live-file flip → exactly 1 request, badge Idle→Live→Failed).
+  Same branch: repaired main's red LooksWorking tests (07a12aa8 left
+  them on the old "⋮" anchor).
 
 - **2026-09-02 — LooksWorking anchors to pi's spinner frames**
   (`fix/looks-working-spinner-frames`). The working check grepped the
