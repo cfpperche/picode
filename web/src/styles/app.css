@@ -2288,6 +2288,20 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
+/* The agent's checklist as one operator line (ADR-0055). */
+.ws-check { display: flex; align-items: baseline; gap: 5px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
+.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; color: var(--accent); }
+.ws-check-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-check.absent .ws-check-text { color: var(--warn, #d29922); font-style: italic; }
+/* The checklist card in the chat. */
+.tool-pill.checklist .tp-name { color: var(--accent); }
+.tp-checklist { padding: 6px 10px; font-family: inherit; font-size: 12.5px; }
+.check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.check-item { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.check-glyph { flex: none; font-family: var(--mono); color: var(--text-secondary); }
+.check-item.is-in-progress .check-glyph, .check-item.is-in-progress .check-text { color: var(--accent); font-weight: 600; }
+.check-item.is-completed .check-text { color: var(--text-secondary); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-secondary) 50%, transparent); }
+.set-note { font-size: 12.5px; color: var(--text-secondary); }
 #task-input {
   display: block; width: 100%; min-height: 52px; max-height: 160px;
   padding: 2px 4px 6px; border: none; outline: none; resize: none;

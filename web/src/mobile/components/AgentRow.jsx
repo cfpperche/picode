@@ -3,21 +3,28 @@ import { IconChevronRight, IconPlay, IconStop } from "../../components/Icons.jsx
 import { displayAgentName } from "../../lib/tree.js";
 import { shortModel } from "../../lib/chip.js";
 import StateChip, { agentState } from "./StateChip.jsx";
+import { checklistLine } from "../../lib/checklist.js";
 
 // One agent, 56px, whole row opens it; Start/Stop is the one action that
 // does not need the screen (44px target, right edge).
-export default function AgentRow({ agent, workspace, workingIds, onOpen, onStart, onStop, busy }) {
+export default function AgentRow({ agent, workspace, workingIds, checklist, onOpen, onStart, onStop, busy }) {
   const state = agentState(agent, workingIds);
   const name = displayAgentName(agent, workspace);
   const model = shortModel(agent.model || "");
   const stopped = state === "stopped";
+  // The sub line is what the agent is doing when it wrote a checklist
+  // (ADR-0055); model and folder otherwise.
+  const check = checklistLine(checklist);
+  const sub = check && check.kind === "step"
+    ? "(" + check.position + "/" + check.total + ") " + check.text
+    : check ? "No checklist" : [model, workspace ? workspace.name : "free agent"].filter(Boolean).join(" · ");
   return (
     <li className={"m-row m-agent-row is-" + state}>
       <button type="button" className="m-row-main" onClick={() => onOpen(agent)}>
         <span className="m-row-face"><ProviderFace agent={agent} /></span>
         <span className="m-row-text">
           <span className="m-row-title">{name}</span>
-          <span className="m-row-sub">{[model, workspace ? workspace.name : "free agent"].filter(Boolean).join(" · ")}</span>
+          <span className={"m-row-sub" + (check ? " is-check" + (check.kind === "absent" ? " absent" : "") : "")}>{sub}</span>
         </span>
         <StateChip state={state} />
         <IconChevronRight size={16} className="m-row-chev" />

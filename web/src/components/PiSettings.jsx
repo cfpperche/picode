@@ -3,6 +3,7 @@ import * as Switch from "@radix-ui/react-switch";
 import PageFrame from "./PageFrame.jsx";
 import ConfigFields from "./ConfigFields.jsx";
 import ModeChip from "./ModeChip.jsx";
+import ChecklistChip from "./ChecklistChip.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -96,6 +97,10 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
             <div className="set-row">
               <span>Tools</span>
               <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
+            </div>
+            <div className="set-row">
+              <span>Checklist</span>
+              <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
             </div>
           </div>
         </section>

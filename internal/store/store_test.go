@@ -344,8 +344,9 @@ func TestAgentSpawnEnv(t *testing.T) {
 	}
 	got := agent.SpawnEnv()
 	// Roles overlay (ADR-0033) plus the neutral identity pi-inbox reads (ADR-0037).
-	if len(got) != 2 || got[0] != RolesAgentEnv+"="+agent.ID || got[1] != AgentIDEnv+"="+agent.ID {
-		t.Fatalf("SpawnEnv = %v, want roles+agent-id envs", got)
+	// Plus the checklist obligation pi-checklist reads (ADR-0055).
+	if len(got) != 3 || got[0] != RolesAgentEnv+"="+agent.ID || got[1] != AgentIDEnv+"="+agent.ID || got[2] != ChecklistEnv+"="+ChecklistChanges {
+		t.Fatalf("SpawnEnv = %v, want roles+agent-id+checklist envs", got)
 	}
 	if (Agent{}).SpawnEnv() != nil {
 		t.Fatal("empty agent must not set env")

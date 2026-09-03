@@ -14,7 +14,7 @@ const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Termina
 // segmented control. Workspaces = one card per folder with its agents and
 // terminals; Agents = the free ones (no folder); Terminals = the free ones
 // too — a workspace's terminal is listed once, on its card.
-export default function Work({ section, onSection, loaded, workspaces, freeAgents, terminals, workingIds, busyId,
+export default function Work({ section, onSection, loaded, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
   onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges, onRefresh }) {
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
   return (
@@ -35,10 +35,10 @@ export default function Work({ section, onSection, loaded, workspaces, freeAgent
         )}
       </div>
       {!loaded ? null : sec === "workspaces" ? (
-        <Workspaces workspaces={workspaces} terminals={terminals} workingIds={workingIds} busyId={busyId}
+        <Workspaces workspaces={workspaces} terminals={terminals} workingIds={workingIds} busyId={busyId} checklists={checklists}
           onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onStart={onStart} onStop={onStop} onRemoveTerm={onRemoveTerm} onCreate={onCreate} onNewTerm={onNewTerm} onOpenChanges={onOpenChanges} />
       ) : sec === "agents" ? (
-        <FreeAgents freeAgents={freeAgents} workingIds={workingIds} busyId={busyId} onOpenAgent={onOpenAgent} onStart={onStart} onStop={onStop} onCreate={onCreate} />
+        <FreeAgents freeAgents={freeAgents} workingIds={workingIds} busyId={busyId} checklists={checklists} onOpenAgent={onOpenAgent} onStart={onStart} onStop={onStop} onCreate={onCreate} />
       ) : (
         <Terminals terminals={terminals} busyId={busyId} onOpenTerm={onOpenTerm} onRemoveTerm={onRemoveTerm} onNewTerm={onNewTerm} />
       )}
@@ -46,7 +46,7 @@ export default function Work({ section, onSection, loaded, workspaces, freeAgent
   );
 }
 
-function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges }) {
+function Workspaces({ workspaces, terminals, workingIds, busyId, checklists, onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges }) {
   if (!workspaces || workspaces.length === 0) {
     return (
       <div className="m-blank">
@@ -67,7 +67,7 @@ function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, on
         ) : (
           <ul className="m-list">
             {agents.map((a) => (
-              <AgentRow key={a.id} agent={a} workspace={ws} workingIds={workingIds} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
+              <AgentRow key={a.id} agent={a} workspace={ws} workingIds={workingIds} checklist={checklists && checklists[a.id]} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
             ))}
             {terms.map((t) => (
               <TermRow key={t.id} term={t} busy={busyId === t.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />
@@ -86,7 +86,7 @@ function Workspaces({ workspaces, terminals, workingIds, busyId, onOpenAgent, on
   });
 }
 
-function FreeAgents({ freeAgents, workingIds, busyId, onOpenAgent, onStart, onStop, onCreate }) {
+function FreeAgents({ freeAgents, workingIds, busyId, checklists, onOpenAgent, onStart, onStop, onCreate }) {
   if (!freeAgents || freeAgents.length === 0) {
     return (
       <div className="m-blank">
@@ -99,7 +99,7 @@ function FreeAgents({ freeAgents, workingIds, busyId, onOpenAgent, onStart, onSt
   return (
     <ul className="m-list">
       {freeAgents.map((a) => (
-        <AgentRow key={a.id} agent={a} workspace={null} workingIds={workingIds} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
+        <AgentRow key={a.id} agent={a} workspace={null} workingIds={workingIds} checklist={checklists && checklists[a.id]} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
       ))}
     </ul>
   );

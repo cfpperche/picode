@@ -326,6 +326,21 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — internal checklist, ADR-0055** (`feat/pi-checklist`):
+  researched Tachyon's checklist gate/reminder/sidebar line and pi
+  0.84's extension API; built `packages/pi-checklist` (tool + gate on the
+  first change per task + `always` reminder capped at 3 + POST to the
+  daemon + TUI render), `agents.checklist` level + `PICODE_CHECKLIST`
+  spawn env (read-only → never), `agent_checklists` + routes + feed
+  event, `lib/checklist.js` line projection, sidebar/mobile lines, chat
+  card, settings chip; guide `checklist.md`. Owner's decisions: level
+  per agent, opt-in package, sidebar + card, hold the contract.
+  Measured live on glm-5.3-flash: managed RPC path (plan → read → edit
+  → 2/2), the gate (edit refused → checklist → edit ok), the TUI in tmux.
+  Found: `pi -p` hangs on any blocked tool_call (pi's bug, minimal repro
+  in the ADR); PiCode never uses `-p` for agents. Providers were flaky
+  that morning (xai at capacity, anthropic out of usage, gemini 5/min).
+
 - **2026-09-02 — git pills and the file tree ride the change feed**
   (`feat/feed-git-events`, phase 3 of the polling→feed plan). Fleet git
   watcher publishes `git.updated`; sidebar patches in place, tree

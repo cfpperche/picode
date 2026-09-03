@@ -40,6 +40,7 @@ export default function Sidebar({
   workingId,
   workingIds,
   waitingId,
+  checklists,
   terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onSessions,
   onGitGraph,
   onFileTree,
@@ -121,7 +122,7 @@ export default function Sidebar({
         key={ag.id}
         agent={ag} ws={ws}
         selectedId={selectedId} onSelect={onSelect}
-        workingId={workingId} workingIds={workingIds} waitingId={waitingId}
+        workingId={workingId} workingIds={workingIds} waitingId={waitingId} checklists={checklists}
         onFileTree={onFileTree} onGitGraph={onGitGraph}
         onRenameAgent={onRenameAgent}
         onRun={onRun} onStop={onStop}

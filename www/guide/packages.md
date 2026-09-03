@@ -26,3 +26,5 @@ If a package on this machine or in this folder is behind, that row shows **Updat
 Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` into source cards. Needs a model that supports native search (Gemini / OpenAI / Anthropic).
 
 MCP servers: install `npm:pi-mcp-adapter`, then `#/mcps`. Guide: [MCP](/guide/mcp).
+
+Checklist: install `packages/pi-checklist` from the PiCode repository so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).

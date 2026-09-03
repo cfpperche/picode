@@ -42,6 +42,7 @@ import { startPresence } from "../lib/device.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "../lib/feed.js";
 import { applyFleet, applyTui, applyUsage, touches } from "../lib/feedReducers.js";
+import { applyChecklists, indexChecklists } from "../lib/checklist.js";
 import { workspaceStatusPath } from "../lib/statusbar.js";
 import Reconnect from "../components/Reconnect.jsx";
 import { setShell } from "../lib/shell.js";
@@ -114,6 +115,7 @@ export default function App() {
   const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
   const [tuiWorking, setTuiWorking] = useState([]);
+  const [checklists, setChecklists] = useState({});
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const draftAgentRef = useRef(null);
@@ -561,6 +563,22 @@ export default function App() {
     });
     return () => { stop = true; clearInterval(t); unsub(); };
   }, [workspaces, freeAgents, selectedId]);
+  useEffect(() => {
+    // Internal checklists (ADR-0055): one fetch per (re)open, then the feed.
+    let stop = false;
+    async function load() {
+      try {
+        const d = await api("/api/checklists");
+        if (!stop) setChecklists(indexChecklists(d.checklists));
+      } catch { /* the sidebar shows nothing until the next open */ }
+    }
+    load();
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") load();
+      else if (ev.type === "agent.checklist" || ev.type === "agent.deleted") setChecklists((cur) => applyChecklists(cur, ev));
+    });
+    return () => { stop = true; unsub(); };
+  }, []);
   useEffect(() => {
     // Badge refresh (ADR-0036). Gentler than the 3s tui-working loop; the
     // ADR accepts seconds of badge latency. Boot did the first fetch;
@@ -2029,6 +2047,7 @@ export default function App() {
         freeAgents={freeAgents}
         workingId={(streaming || waiting) ? selectedId : null}
         workingIds={tuiWorking}
+        checklists={checklists}
         waitingId={waiting ? selectedId : null}
         termView={termView}
         terminals={terminals}

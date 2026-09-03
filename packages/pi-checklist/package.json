@@ -1,0 +1,28 @@
+{
+  "name": "pi-checklist",
+  "version": "0.1.0",
+  "description": "Opt-in internal checklist for pi: the agent writes its plan with the checklist tool before its first change, keeps it updated, and PiCode shows the current step on the sidebar (ADR-0055).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/checklist.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-checklist"
+  }
+}

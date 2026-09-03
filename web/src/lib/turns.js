@@ -132,6 +132,7 @@ export function stepLabel(it) {
   if (n === "bash") return arg ? "Ran " + clip(arg) : "Ran a command";
   if (n === "grep" || n === "find") return arg ? "Searched " + clip(arg) : "Searched files";
   if (n === "ls") return arg ? "Listed " + clip(arg) : "Listed files";
+  if (n === "checklist") return arg ? "Checklist " + clip(arg) : "Wrote the checklist";
   return it.name + (arg ? " " + clip(arg) : "");
 }
 

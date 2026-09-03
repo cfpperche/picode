@@ -1,0 +1,40 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { checklistLine, applyChecklists, indexChecklists, checklistItems, currentStep } from "./checklist.js";
+import { summarizeArgs } from "./toolArgs.js";
+import { stepLabel } from "./turns.js";
+
+test("line: in-progress step, else first pending, else n/n, else absent, else nothing", () => {
+  assert.deepEqual(checklistLine({ items: [{ text: "a", status: "completed" }, { text: "b", status: "in-progress" }, { text: "c" }] }), { kind: "step", text: "b", position: 2, total: 3 });
+  assert.deepEqual(checklistLine({ items: [{ text: "a", status: "completed" }, { text: "c", status: "pending" }] }), { kind: "step", text: "c", position: 2, total: 2 });
+  assert.deepEqual(checklistLine({ items: [{ text: "a", status: "completed" }] }), { kind: "step", text: "a", position: 1, total: 1 });
+  assert.deepEqual(checklistLine({ items: [], absent: true }), { kind: "absent" });
+  assert.equal(checklistLine({ items: [] }), null);
+  assert.equal(checklistLine(null), null);
+  assert.equal(currentStep(undefined), null);
+});
+
+test("map: feed events replace, delete drops, others untouched", () => {
+  const m0 = indexChecklists([{ agentId: "a", items: [{ text: "x", status: "pending" }] }, { nope: true }]);
+  assert.deepEqual(Object.keys(m0), ["a"]);
+  const m1 = applyChecklists(m0, { type: "agent.checklist", data: { agentId: "b", items: [] , absent: true } });
+  assert.equal(Object.keys(m1).length, 2);
+  const m2 = applyChecklists(m1, { type: "agent.deleted", data: { id: "a" } });
+  assert.deepEqual(Object.keys(m2), ["b"]);
+  assert.equal(applyChecklists(m2, { type: "agent.status", data: { id: "b" } }), m2);
+  assert.deepEqual(applyChecklists(null, { type: "feed.open" }), {});
+});
+
+test("chat items: result details win over call args; bad rows dropped", () => {
+  assert.deepEqual(checklistItems({ toolArgs: { items: [{ text: "a" }, { nope: 1 }, { text: "b", status: "weird" }] } }), [{ text: "a", status: "pending" }, { text: "b", status: "pending" }]);
+  assert.deepEqual(checklistItems({ toolArgs: { items: [{ text: "a" }] }, result: { details: { items: [{ text: "z", status: "completed" }] } } }), [{ text: "z", status: "completed" }]);
+  assert.deepEqual(checklistItems({}), []);
+});
+
+test("a checklist call summarizes as progress and step, and the turn step reads Checklist", () => {
+  const args = { items: [{ text: "read", status: "completed" }, { text: "edit the file", status: "in-progress" }] };
+  assert.equal(summarizeArgs(args), "1/2 · edit the file");
+  assert.equal(summarizeArgs({ items: [] }), "");
+  assert.equal(stepLabel({ kind: "tool", name: "checklist", args: summarizeArgs(args) }), "Checklist 1/2 · edit the file");
+  assert.equal(stepLabel({ kind: "tool", name: "checklist", args: "" }), "Wrote the checklist");
+});

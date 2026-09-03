@@ -22,6 +22,7 @@ type Agent struct {
 	Model            *string  `json:"model"`
 	Thinking         *string  `json:"thinking"`
 	OpMode           *string  `json:"opMode"`
+	Checklist        string   `json:"checklist"` // obligation level (ADR-0055): changes | always | never
 	SessionPath      *string  `json:"sessionPath"`
 	ExtraPrompt      *string  `json:"extraPrompt"`
 	LastStartedAt    *string  `json:"lastStartedAt"`
@@ -32,13 +33,13 @@ type Agent struct {
 	PackagesIsolated bool     `json:"packagesIsolated"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	var pkgs string
 	var isolated int
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist)
 	if err != nil {
 		return err
 	}
@@ -182,6 +183,7 @@ type AgentPatch struct {
 	Model            *string
 	Thinking         *string
 	OpMode           *string
+	Checklist        *string
 	SessionPath      *string
 	ExtraPrompt      *string
 	PackagesIsolated *bool
@@ -216,6 +218,13 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 		}
 		a.OpMode = mode
 	}
+	if p.Checklist != nil {
+		lvl, err := NormalizeChecklist(*p.Checklist)
+		if err != nil {
+			return Agent{}, err
+		}
+		a.Checklist = lvl
+	}
 	if p.SessionPath != nil {
 		a.SessionPath = emptyToNil(*p.SessionPath)
 	}
@@ -229,8 +238,8 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if a.PackagesIsolated {
 		iso = 1
 	}
-	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=? WHERE id=?`,
-		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, id)
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=?, checklist=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, a.Checklist, id)
 	if err != nil {
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
@@ -317,7 +326,8 @@ func (a Agent) SpawnEnv() []string {
 	if id == "" {
 		return nil
 	}
-	return []string{RolesAgentEnv + "=" + id, AgentIDEnv + "=" + id}
+	// ADR-0055: the checklist obligation, read by pi-checklist when installed.
+	return []string{RolesAgentEnv + "=" + id, AgentIDEnv + "=" + id, ChecklistEnv + "=" + a.ChecklistLevel()}
 }
 
 // SetAgentPackages replaces the agent's extra packages (pi -e on every start).
@@ -462,6 +472,7 @@ func (s *Store) ListAllAgents() ([]Agent, error) {
 
 // DeleteAgent removes one agent. Workspace is kept.
 func (s *Store) DeleteAgent(id string) error {
+	_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, id)
 	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("store: delete agent: %w", err)

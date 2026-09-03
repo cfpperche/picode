@@ -11,6 +11,7 @@ import { IconCopy, IconFile } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
+import { checklistItems, currentStep, countDone, GLYPH as CHECK_GLYPH } from "../lib/checklist.js";
 import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
@@ -577,6 +578,7 @@ function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQ
 }
 
 function Tool({ it, onToggle, onOpenFile, agentId }) {
+  if (it.name === "checklist") return <ChecklistTool it={it} onToggle={onToggle} />;
   const ch = it.change;
   const search = isSearchTool(it.name);
   const hits = search ? hitsFromTool(it) : [];
@@ -596,6 +598,34 @@ function Tool({ it, onToggle, onOpenFile, agentId }) {
       </div>
       <div className={"tp-detail" + (ch ? " tp-diff" : "") + (hits.length ? " tp-search" : "")}>
         {ch ? <DiffHunks hunks={ch.hunks} path={ch.path} agentId={agentId} onOpenFile={onOpenFile} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
+      </div>
+    </div>
+  );
+}
+
+// The agent's checklist call as a card (ADR-0055): open by default, the
+// current step in the head, every step with its glyph in the body.
+function ChecklistTool({ it, onToggle }) {
+  const items = checklistItems(it);
+  const step = currentStep(items);
+  const done = countDone(items);
+  const open = !it.expanded; // tool rows start collapsed; this one starts open
+  return (
+    <div className={"tool-pill checklist" + (it.status === "ok" ? " ok" : "") + (it.status === "error" ? " err" : "") + (open ? " expanded" : "")}>
+      <div className="tool-pill-head" onClick={() => onToggle(it.id)}>
+        <span className="tp-chevron">›</span>
+        <span className="tp-name">checklist</span>
+        <span className="tp-args">{step ? "(" + step.position + "/" + step.total + ") " + step.text : it.args}</span>
+        <span className="tp-status">{items.length ? done + "/" + items.length : (it.status || "···")}</span>
+      </div>
+      <div className="tp-detail tp-checklist">
+        {items.length ? (
+          <ol className="check-list">
+            {items.map((x, i) => (
+              <li key={i} className={"check-item is-" + x.status}><span className="check-glyph" aria-hidden="true">{CHECK_GLYPH[x.status]}</span><span className="check-text">{x.text}</span></li>
+            ))}
+          </ol>
+        ) : it.detail}
       </div>
     </div>
   );

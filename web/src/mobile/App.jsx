@@ -4,6 +4,7 @@ import { applyTheme, persistTheme, readThemeMode } from "../lib/theme.js";
 import { startPresence } from "../lib/device.js";
 import { startFeed, subscribeFeed } from "../lib/feed.js";
 import { applyTui, touches } from "../lib/feedReducers.js";
+import { applyChecklists, indexChecklists } from "../lib/checklist.js";
 import { startReconnectWatch } from "../lib/reconnect.js";
 import { normalizeManifests } from "../lib/appPrimitives.js";
 import { needsYou } from "../lib/needsYou.js";
@@ -49,6 +50,7 @@ export default function MobileApp() {
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState(null);
   const [tuiWorking, setTuiWorking] = useState([]);
+  const [checklists, setChecklists] = useState({});
   const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   useEffect(() => {
@@ -126,6 +128,17 @@ export default function MobileApp() {
     setTuiWorking(d.working || []);
   }, 3000, interactiveIds.length > 0);
   useEffect(() => subscribeFeed((ev) => { if (ev.type === "agent.tui") setTuiWorking((cur) => applyTui(cur, ev)); }), []);
+  useEffect(() => {
+    // Internal checklists (ADR-0055): one fetch per (re)open, then the feed.
+    let stop = false;
+    const load = () => api("/api/checklists").then((d) => { if (!stop) setChecklists(indexChecklists(d.checklists)); }).catch(() => {});
+    load();
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset") load();
+      else if (ev.type === "agent.checklist" || ev.type === "agent.deleted") setChecklists((cur) => applyChecklists(cur, ev));
+    });
+    return () => { stop = true; unsub(); };
+  }, []);
 
   const entries = useMemo(() => needsYou({ workspaces, freeAgents, inbox }), [workspaces, freeAgents, inbox]);
   const running = useMemo(() => flatAgents(workspaces, freeAgents).filter((x) => agentState(x.agent, tuiWorking) !== "stopped"), [workspaces, freeAgents, tuiWorking]);
@@ -284,7 +297,7 @@ export default function MobileApp() {
   } else if (route.screen === "work") {
     body = (
       <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
-        workingIds={tuiWorking} busyId={busyId}
+        workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
         onOpenChanges={openChanges} onRefresh={refreshAll} />

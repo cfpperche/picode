@@ -5,6 +5,7 @@ import { repoLine, termLine } from "../lib/repoLine.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
+import { checklistLine } from "../lib/checklist.js";
 
 // One row shape for an agent, shared by the sidebar (dense, every action
 // live) and the home dashboard (click-to-open only, a last-active stamp
@@ -13,7 +14,7 @@ import PiSpinner from "./PiSpinner.jsx";
 export function AgentRow({
   agent: ag, ws,
   selectedId, onSelect,
-  workingId, workingIds, waitingId,
+  workingId, workingIds, waitingId, checklists,
   onFileTree, onGitGraph,
   actions = true, meta = false,
   onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
@@ -24,6 +25,7 @@ export function AgentRow({
   const title = model ? label + " - " + model : label;
   const repo = repoLine(ag, ws);
   const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
+  const check = checklistLine(checklists && checklists[ag.id]);
   return (
     <li
       className={"ws-item" + (ag.id === selectedId ? " active" : "")}
@@ -40,6 +42,7 @@ export function AgentRow({
         {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
         {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
       </div>
+      {check ? <ChecklistLine line={check} /> : null}
       <div className="ws-row2">
         <button
           type="button"
@@ -118,5 +121,22 @@ export function TermRow({
         </span>
       ) : null}
     </li>
+  );
+}
+
+// The agent's internal checklist as one operator line (ADR-0055): the
+// current step with its position, or a discrete "No checklist" when the
+// contract was not met. Nothing known → nothing shown.
+export function ChecklistLine({ line }) {
+  if (!line) return null;
+  if (line.kind === "absent") {
+    return <div className="ws-row2 ws-check absent" title="The task required a checklist and none was written"><span className="ws-check-text">No checklist</span></div>;
+  }
+  const pos = "(" + line.position + "/" + line.total + ")";
+  return (
+    <div className="ws-row2 ws-check" title={pos + " " + line.text}>
+      <span className="ws-check-pos">{pos}</span>
+      <span className="ws-check-text">{line.text}</span>
+    </div>
   );
 }

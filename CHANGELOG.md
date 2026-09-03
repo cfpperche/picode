@@ -159,6 +159,15 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Internal checklist (ADR-0055).** A new opt-in package,
+  `packages/pi-checklist`: the agent writes its plan with a `checklist`
+  tool before its first change (edit, write, bash are refused until it
+  does) and keeps it updated; a level per agent — before changes,
+  always, never — on the settings page; the sidebar and the phone show
+  the current step under each agent, the chat shows every call as a
+  card. New: `POST/GET /api/agents/{id}/checklist`, `GET /api/checklists`,
+  the `agent.checklist` feed event, migration 022.
+
 - **Phone tab screens share one head.** Work's head has the Inbox's
   separator line and geometry, and its segmented control stands 36px like
   the New button and the Inbox's tabs; More follows.
