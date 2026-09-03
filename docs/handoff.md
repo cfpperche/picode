@@ -269,6 +269,36 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **CI on `main` is red on macOS and Windows — environment-dependent
+  tests, pre-existing (every run since at least 2026-08-30 failed; each
+  era's first failing step masked the rest: dead links →
+  `remote-server.md` → the git-guard self-test, fixed in c503b9da).
+  Diagnosed 2026-09-03:** `internal/backup`'s `TestValidateDest` and
+  `TestSnapshotRestoreMatrix` fail because `canon()` `EvalSymlinks` the
+  destination — a **not-yet-existing** dest under a symlinked `TMPDIR`
+  (macOS `/var` → `/private/var`) stays unresolved while `dataDir`
+  resolves, so `filepath.Rel` misses the containment and a dest inside
+  data is accepted (fails on macos/windows runners, passes on linux and
+  locally). Also failing off-linux: `gitgraph`
+  `TestWorktreeSharesTheKey`, `install`
+  `TestDeployRefusesBeforeCopyingWhenThereIsNoSession`, `presence`
+  `TestExpireAnnouncesOnceAndPingRevives`, and several `internal/server`
+  tests (`TestAutomationStartRunEndToEnd`, `TestBackupAPI`,
+  `TestGraphCollapsesWorktreesAndNamesOccupants`,
+  `TestOccupantScanAsksGitOncePerDirectory`,
+  `TestNewSessionFreeAgentTUIRestart` — the last one new with the
+  ADR-0053 push). On **ubuntu** the self-test fix unmasked the next
+  layer: the job's `apt-get install tmux` gets **3.4** while PiCode
+  needs 3.5+ — `TestEnsureExtendedKeysXterm` dies on `invalid option:
+  extended-keys-format` and the option-catalog tests see different
+  kinds (`default-shell kind = ""`); `presence`'s
+  `TestExpireAnnouncesOnceAndPingRevives` also fails there (passes
+  locally on tmux 3.6; suspect timing, not root-caused). Candidate
+  cures: install tmux 3.5+ from source/PPA in CI, or make tmux-gated
+  tests skip with a loud reason when `tmux -V` < 3.5. Not yet
+  root-caused individually; needs a proper worktree session, reading
+  each failure against the runner environment.
+
 - `docs/handoff.md` is still ~2.8× the ~150-line cap after archiving
   the pre-09-02 activity — the *Current state* / *In flight* ADR
   paragraphs need a summarizing pass (owner's call on what to cut).
@@ -335,6 +365,16 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — CI's git-guard self-test unbroken (ubuntu).** The
+  self-test's throwaway repo relied on the invoking clone's
+  `init.defaultBranch`: CI runners have none, so `git init` started on
+  `master`, the pre-commit guard rightly refused the init commit, the
+  repo stayed unborn, and two assertions failed in cascade. One-line
+  fix (`git init -b main`, c503b9da), reproduced locally under null git
+  config — the old script under CI conditions fails exactly like run
+  33769826099, the fixed one passes. macOS/Windows redness is older,
+  separate debt (see Known debts).
 
 - **2026-09-03 — manager could not remove a path package**
   (`fix/pkg-remove-relative`): owner installed `pi-checklist` for the
