@@ -101,6 +101,24 @@ export function applyFleet(state, ev) {
       return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...t, ...d } : t)) } : null;
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
+    case "terminal.state": {
+      // Ephemeral (id 0): a guest CLI's hook reported lifecycle state
+      // (ADR-0056 tier 1) — same words as agent.state. Unknown terminals
+      // stay untouched; the durable terminal.updated events carry the
+      // state field for reconciliation after a refetch.
+      if (!d.termId) return state;
+      if (!terminals.some((t) => t.id === d.termId)) return state;
+      return {
+        ...state,
+        terminals: terminals.map((t) =>
+          t.id === d.termId
+            ? d.state
+              ? { ...t, state: d.state, cli: d.cli || undefined }
+              : { ...t, state: undefined, cli: undefined }
+            : t,
+        ),
+      };
+    }
     case "git.updated": {
       // Ephemeral (id 0): one fleet-wide watcher Inspect per directory,
       // fanned out here. The git shape mirrors gitinfo.Info; a missing

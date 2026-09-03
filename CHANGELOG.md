@@ -24,6 +24,19 @@ to the `[Unreleased]` section. The repository's official language is English
   ignored it) and the session transcript, which already kept `details`.
   First emitter planned: the `agent_browser` package (frames per step;
   study: `docs/benchmarks/2026-09-02-live-browser-preview.md`).
+- **Terminal status for guest coding CLIs (ADR-0056, tier 1).** A CLI
+  running inside a PiCode terminal can now report its lifecycle: a
+  small hook (Claude Code hooks, Codex `notify` — copy-paste snippets
+  in the new "Terminal status for CLIs" guide) POSTs `working`,
+  `needs-you` or `idle` to `POST /api/terminals/{id}/state`, and the
+  sidebar terminal row, the terminal tab and the phone's terminal list
+  show a spinner or an accent "Needs you" chip in step. PiCode
+  correlates reports to terminals automatically — every terminal it
+  opens carries `PICODE_TERM_ID` and `PICODE_TERM_URL` in its tmux
+  environment — and republishes changes as ephemeral `terminal.state`
+  feed events, so no polling anywhere. A `working` report that goes
+  silent for 30 minutes expires (no stale spinners); no chip means no
+  signal, never a guess. Pixels are never read: sensors, not scraping.
 
 ### Fixed
 

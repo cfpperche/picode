@@ -13,7 +13,9 @@ export default function TermRow({ term, onOpen, onRemove, busy }) {
           <span className="m-row-title">{term.name || "Terminal"}</span>
           <span className="m-row-sub">{line.text}</span>
         </span>
-        {term.running ? <span className="m-state is-working">Live</span> : null}
+        {term.state === "needs-you" ? <span className="m-state is-waiting">Needs you</span>
+          : term.state === "working" ? <span className="m-state is-working">Working</span>
+          : term.running ? <span className="m-state is-working">Live</span> : null}
         <IconChevronRight size={16} className="m-row-chev" />
       </button>
       <button type="button" className="m-row-act is-remove" title="Remove" aria-label={"Remove " + (term.name || "terminal")} disabled={busy} onClick={() => onRemove(term)}><IconTrash size={17} /></button>

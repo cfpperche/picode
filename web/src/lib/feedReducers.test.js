@@ -55,6 +55,22 @@ test("fleet: terminals", () => {
   assert.equal(s.terminals.length, 0);
 });
 
+test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
+  let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
+  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "claude-code" } });
+  assert.equal(s.terminals[0].state, "working");
+  assert.equal(s.terminals[0].cli, "claude-code");
+  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "needs-you", cli: "claude-code" } });
+  assert.equal(s.terminals[0].state, "needs-you");
+  // Clearing (stale sweep) removes the fields instead of keeping a lie.
+  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: null } });
+  assert.equal(s.terminals[0].state, undefined);
+  assert.equal(s.terminals[0].cli, undefined);
+  // Unknown terminals stay untouched — durable events reconcile the list.
+  assert.equal(applyFleet(s, { type: "terminal.state", data: { termId: "zz", state: "working" } }), s);
+  assert.equal(applyFleet(s, { type: "terminal.state", data: {} }), s);
+});
+
 test("inbox reducer", () => {
   let l = [{ id: "a", state: "unread" }];
   l = applyInbox(l, { type: "inbox.created", data: { id: "b", state: "unread" } });

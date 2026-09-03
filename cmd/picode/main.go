@@ -453,6 +453,9 @@ func serve() {
 			}
 		},
 		PortSnapshot: state.snapshot,
+		// Guest terminal state (ADR-0056 tier 1): live signal registry, also
+		// read by the sweep watcher below.
+		TermStates: server.NewTermStates(),
 		// Apps host (ADR-0036). PICODE_DEMO_APP=1 adds the hidden QA app;
 		// the env read lives here, never inside internal/apps.
 		Apps: apps.NewRegistry(apps.BuiltIns(os.Getenv("PICODE_DEMO_APP") == "1")...),
@@ -472,6 +475,10 @@ func serve() {
 	// branch pills and the file tree follow commits instead of waiting
 	// for a fleet refetch or a manual Refresh.
 	go server.StartGitWatch(backupCtx, deps, 3*time.Second)
+
+	// Guest terminal state sweep (ADR-0056 tier 1): expires stale
+	// "working" reports so a silenced sensor cannot spin forever.
+	go server.StartTermStateSweep(backupCtx, deps, time.Minute)
 
 	// Package updates watcher (ADR-0048 follow-up): one scan set per tick
 	// for the whole fleet, published as packages.updates only when a

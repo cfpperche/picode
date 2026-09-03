@@ -30,6 +30,7 @@ export default defineConfig({
           { text: "Packages", link: "/guide/packages" },
           { text: "Checklist", link: "/guide/checklist" },
           { text: "MCP", link: "/guide/mcp" },
+          { text: "Terminal status for CLIs", link: "/guide/terminal-status" },
           { text: "llama.cpp", link: "/guide/llama" },
           { text: "Chrome extension", link: "/guide/browser-extension" },
           { text: "Automations", link: "/guide/automations" },

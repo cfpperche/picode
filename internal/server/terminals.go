@@ -18,6 +18,7 @@ func registerTerminalRoutes(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("DELETE /api/terminals/{id}", handleDeleteTerminal(deps))
 	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
+	mux.HandleFunc("POST /api/terminals/{id}/state", handleSetTerminalState(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
@@ -55,6 +56,9 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	view := termView(t, session, live)
 	view["cwd"] = cwd
 	view["git"] = gitinfo.Inspect(cwd)
+	// Guest CLI lifecycle state (ADR-0056 tier 1), when a sensor has
+	// reported for this terminal. Absent field = no signal.
+	applyTermState(deps, view, t.ID)
 	return view
 }
 
@@ -109,7 +113,7 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		name := tmux.ShellSessionName(t.ID)
-		if err := ensureShell(deps, r, name, t.Cwd); err != nil {
+		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
 			_ = deps.Store.DeleteTerminal(t.ID)
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -134,7 +138,7 @@ func handleOpenTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		name := tmux.ShellSessionName(t.ID)
-		if err := ensureShell(deps, r, name, t.Cwd); err != nil {
+		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -185,6 +189,9 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 		}
 		if deps.Tmux != nil && deps.Tmux.Available() {
 			_ = deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(id))
+		}
+		if deps.TermStates != nil {
+			deps.TermStates.Drop(id)
 		}
 		if err := deps.Store.DeleteTerminal(id); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -290,7 +297,7 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 	}
 }
 
-func ensureShell(deps Deps, r *http.Request, name, cwd string) error {
+func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 	if !deps.Tmux.Available() {
 		return errors.New("Need tmux to open a terminal.")
 	}
@@ -299,7 +306,16 @@ func ensureShell(deps Deps, r *http.Request, name, cwd string) error {
 		return err
 	}
 	if !has {
-		if err := deps.Tmux.NewSession(r.Context(), name, cwd, defaultShell()); err != nil {
+		// Guest CLI sensors correlate to this terminal through the session
+		// environment (ADR-0056 tier 1): hooks inherit PICODE_TERM_ID from
+		// the shell, and PICODE_TERM_URL spares them configuration. The env
+		// must exist from the first pane, so it rides new-session (-e) — a
+		// set-environment afterwards would miss the shell already running.
+		env := []string{"PICODE_TERM_ID=" + termID}
+		if u := loopbackURL(deps); u != "" {
+			env = append(env, "PICODE_TERM_URL="+u)
+		}
+		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, defaultShell()); err != nil {
 			return err
 		}
 	}

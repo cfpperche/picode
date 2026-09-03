@@ -270,18 +270,24 @@ toggle it replaces. The recommendation given to the owner on 2026-08-30 was to
 build them once there are three or four flags, and the store shape is already
 ready for it (overrides are a map, not a column). Not refused, deferred.
 
-**Multi-runtime TUIs in terminals** (owner direction): the research
-landed 2026-09-03 — study
-`docs/benchmarks/2026-09-03-guest-tui-agent-state.md` + **ADR-0056
-(proposed, owner's call)**: guests keep their TUIs in terminal
-surfaces; sidebar working/needs-you arrives via per-tool sensors
-(Claude hooks → HTTP, Codex `notify`, opencode server events) on the
-ADR-0048 feed; screen-scraping refused as primary; ACP/control is the
-named future track (own ADR; re-measures ADR-0003's Pi-only clause).
-The unified TermSurface/ShellTerm path stays the substrate. Known
-landmine for that track: tmux's `extended-keys-format` is server-wide
-— we force `xterm` (modifyOtherKeys) so Shift+Enter survives, but
-some TUIs prefer csi-u/Kitty; per-session key format may be needed.
+**Multi-runtime TUIs in terminals** (owner direction): research +
+**ADR-0056 accepted (two tiers)** — tier 1 **shipped 2026-09-03**:
+guest CLIs in terminals report `working` / `needs-you` / `idle` via
+per-tool hooks (Claude hooks → HTTP, Codex `notify`) to
+`POST /api/terminals/{id}/state`; correlation is `PICODE_TERM_ID` +
+`PICODE_TERM_URL`, injected into the tmux session env at creation;
+state republishes as ephemeral `terminal.state` on the ADR-0048 feed;
+chips on the sidebar row, terminal tab and mobile terminal row; a
+silent `working` expires after 30 min (no stale spinners); no chip =
+no signal. Wiring is the copy-paste guide
+`www/guide/terminal-status.md` (dogfood first; the one-click wiring
+UI is owed). Tier 2 (deferred): promote wired terminals to
+observe-only guest agents — own ADR, re-measures ADR-0003's Pi-only
+clause; ACP/control stays the named further track. The unified
+TermSurface/ShellTerm path stays the substrate. Known landmine for
+that track: tmux's `extended-keys-format` is server-wide — we force
+`xterm` (modifyOtherKeys) so Shift+Enter survives, but some TUIs
+prefer csi-u/Kitty; per-session key format may be needed.
 
 **PiCode Desktop is installed and running on the owner's machine. What is
 left is validation — the list below is what has *not* been proved.**
@@ -489,6 +495,30 @@ Never exercised, because this machine was already past them:
   (PR 2 — upstream [pi-agent-browser-native#157](https://github.com/fitchmultz/pi-agent-browser-native/issues/157)
   opened with the `details.preview` proposal; PR or companion package
   pending their answer) and the Browser panel surface on `#/agent/<id>`.
+
+- **2026-09-03 — Guest terminal status, tier 1 of ADR-0056**
+  (`feat/guest-term-state`): a coding CLI inside a PiCode terminal can
+  now report its own lifecycle — `POST /api/terminals/{id}/state`
+  (`working` / `needs-you` / `idle`, auth-gated like every route),
+  republished as ephemeral `terminal.state` on the ADR-0048 feed and
+  carried by the terminal views for reconciliation. Correlation is
+  configuration-free: every terminal PiCode opens gets
+  `PICODE_TERM_ID` + `PICODE_TERM_URL` in its tmux session env at
+  creation (`new-session -e`), so hook processes inherit it. Chips:
+  sidebar row (spinner / accent "Needs you"), terminal tab (green /
+  accent dot), mobile TermRow; no chip = no signal, and a silent
+  `working` expires after 30 min (`StartTermStateSweep`) so a dead
+  sensor can never leave a spinner. Registry is in-memory by design —
+  a restart is honest "no signal" (verified live). ADR-0056 accepted
+  with the owner's two-tier split (agents deferred; scraping refused).
+  Guide: `www/guide/terminal-status.md` (Claude hooks + Codex notify
+  + the `picode-hook` helper). Verified live in the scratch instance:
+  env inheritance inside the pane shell, working→needs-you flip
+  patched the open browser via the feed without reload, desktop
+  chip + tab dot and mobile chip screenshots read; overlayAudit ok;
+  plain-shell terminal stays chipless. visual-review: PASS
+  (qa-term-working-clean / qa-term-needsyou / qa-term-final /
+  qa-term-mobile.png, card 5/5).
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis
   IA, Scalar (MIT API reference, Vue), Mintlify/Fern (llms.txt),

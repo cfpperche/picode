@@ -1256,6 +1256,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mtab.active.drag-over { box-shadow: inset 2px 0 0 var(--accent), inset 0 -2px 0 var(--accent); }
 .mtab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); flex: none; }
 .mtab-dot.running { background: var(--ok); }
+/* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
+.mtab-dot.attn { background: var(--accent); }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
