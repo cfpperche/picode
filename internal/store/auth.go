@@ -119,7 +119,11 @@ func (s *Store) LookupSession(secret string) (Session, error) {
 	return sess, nil
 }
 
-// ListSessions returns every session, newest first, revoked ones excluded.
+// ListSessions returns every live session, newest first — revoked ones
+// excluded, and expired ones too: a row past its expires_at cannot
+// authenticate, so it is not a device anymore. (The comparison happens in
+// Go on purpose: expires_at is RFC3339Nano text, whose optional fraction
+// does not order lexicographically.)
 func (s *Store) ListSessions() ([]Session, error) {
 	rows, err := s.db.Query(`SELECT ` + sessionCols + ` FROM auth_sessions WHERE revoked_at IS NULL ORDER BY created_at DESC`)
 	if err != nil {
@@ -132,9 +136,80 @@ func (s *Store) ListSessions() ([]Session, error) {
 		if err := scanSession(rows, &sess); err != nil {
 			return nil, err
 		}
+		if sess.ExpiresAt != nil {
+			if t, err := time.Parse(time.RFC3339Nano, *sess.ExpiresAt); err == nil && !time.Now().Before(t) {
+				continue
+			}
+		}
 		out = append(out, sess)
 	}
 	return out, rows.Err()
+}
+
+// NewestLiveBrowserSession returns the newest unexpired, unrevoked browser
+// session matching label and ip — the row a repeat loopback visit reuses
+// instead of minting a duplicate (ADR-0049 amendment). ErrNotFound when
+// there is nothing to reuse.
+func (s *Store) NewestLiveBrowserSession(label, ip string) (Session, error) {
+	var sess Session
+	err := scanSession(s.db.QueryRow(`SELECT `+sessionCols+` FROM auth_sessions
+		WHERE revoked_at IS NULL AND kind = ? AND label = ? AND ip = ?
+		ORDER BY rowid DESC LIMIT 1`, SessionBrowser, strings.TrimSpace(label), strings.TrimSpace(ip)), &sess)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, ErrNotFound
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("store: newest live browser session: %w", err)
+	}
+	if sess.ExpiresAt != nil {
+		if t, err := time.Parse(time.RFC3339Nano, *sess.ExpiresAt); err == nil && !time.Now().Before(t) {
+			return Session{}, ErrNotFound
+		}
+	}
+	return sess, nil
+}
+
+// RotateSessionSecret re-issues a session's secret in place: same row and
+// created_at, new secret hash, last_seen now, expiry pushed out by ttl.
+// The old secret stops resolving. Returns the new secret once.
+func (s *Store) RotateSessionSecret(id string, ttl time.Duration) (Session, string, error) {
+	secret, err := randomSecret()
+	if err != nil {
+		return Session{}, "", err
+	}
+	var exp any
+	if ttl > 0 {
+		exp = time.Now().UTC().Add(ttl).Format(time.RFC3339Nano)
+	}
+	now := nowUTC()
+	res, err := s.db.Exec(`UPDATE auth_sessions SET secret_hash = ?, last_seen_at = ?, expires_at = ?
+		WHERE id = ? AND revoked_at IS NULL`, HashSecret(secret), now, exp, id)
+	if err != nil {
+		return Session{}, "", fmt.Errorf("store: rotate session: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Session{}, "", ErrNotFound
+	}
+	sess, err := s.SessionByID(id)
+	if err != nil {
+		return Session{}, "", err
+	}
+	s.note("session.rotated", nil, nil, idData(id))
+	return sess, secret, nil
+}
+
+// SessionByID returns one session by id, revoked or not (the caller
+// decides what counts as live).
+func (s *Store) SessionByID(id string) (Session, error) {
+	var sess Session
+	err := scanSession(s.db.QueryRow(`SELECT `+sessionCols+` FROM auth_sessions WHERE id = ?`, id), &sess)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, ErrNotFound
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("store: session by id: %w", err)
+	}
+	return sess, nil
 }
 
 // RevokeSession ends a principal. Idempotent on an already revoked row.

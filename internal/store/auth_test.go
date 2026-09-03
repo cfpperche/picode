@@ -56,6 +56,68 @@ func TestSessionsLifecycle(t *testing.T) {
 	}
 }
 
+// The loopback-reuse path (ADR-0049 amendment): the newest live browser
+// session with a label+ip is reused, its secret rotated in place; expired
+// and revoked rows are never reused.
+func TestNewestLiveBrowserSessionAndRotation(t *testing.T) {
+	s := openTest(t)
+	if _, err := s.NewestLiveBrowserSession("This machine · Linux", "127.0.0.1"); err != ErrNotFound {
+		t.Fatalf("empty store = %v, want ErrNotFound", err)
+	}
+	first, secret, _ := s.CreateSession(SessionBrowser, "", "This machine · Linux", "127.0.0.1", 90*24*time.Hour)
+	other, _, _ := s.CreateSession(SessionBrowser, "", "This machine · Windows", "127.0.0.1", 90*24*time.Hour)
+	got, err := s.NewestLiveBrowserSession("This machine · Linux", "127.0.0.1")
+	if err != nil || got.ID != first.ID {
+		t.Fatalf("reuse = %+v %v, want %s", got, err, first.ID)
+	}
+	if _, err := s.NewestLiveBrowserSession("This machine · Linux", "10.1.1.1"); err != ErrNotFound {
+		t.Fatal("a different ip must not reuse")
+	}
+	_ = other
+
+	// Rotate: same row, new secret works, old one dies, expiry renewed.
+	rot, rotated, err := s.RotateSessionSecret(first.ID, 90*24*time.Hour)
+	if err != nil || rot.ID != first.ID || rotated == secret {
+		t.Fatalf("rotate: %+v %q %v", rot, rotated, err)
+	}
+	if _, err := s.LookupSession(secret); err != ErrSessionInvalid {
+		t.Fatal("old secret still valid after rotation")
+	}
+	if live, err := s.LookupSession(rotated); err != nil || live.ID != first.ID {
+		t.Fatalf("rotated secret: %+v %v", live, err)
+	}
+	if rot.CreatedAt != first.CreatedAt {
+		t.Fatal("rotation must keep created_at")
+	}
+	old, _ := time.Parse(time.RFC3339Nano, *first.ExpiresAt)
+	new, _ := time.Parse(time.RFC3339Nano, *rot.ExpiresAt)
+	if !new.After(old) {
+		t.Fatalf("expiry not renewed: %s -> %s", *first.ExpiresAt, *rot.ExpiresAt)
+	}
+
+	// A revoked row is not reusable, and rotating it fails.
+	_ = s.RevokeSession(first.ID)
+	if _, err := s.NewestLiveBrowserSession("This machine · Linux", "127.0.0.1"); err != ErrNotFound {
+		t.Fatal("revoked session reused")
+	}
+	if _, _, err := s.RotateSessionSecret(first.ID, time.Hour); err != ErrNotFound {
+		t.Fatalf("rotate revoked = %v", err)
+	}
+	if _, _, err := s.RotateSessionSecret("sess-missing", time.Hour); err != ErrNotFound {
+		t.Fatalf("rotate missing = %v", err)
+	}
+
+	// An expired row is not reusable.
+	_, deadSecret, _ := s.CreateSession(SessionBrowser, "", "This machine · Linux", "127.0.0.1", time.Nanosecond)
+	time.Sleep(2 * time.Millisecond)
+	if _, err := s.LookupSession(deadSecret); err != ErrSessionInvalid {
+		t.Fatal("setup: expired should be invalid")
+	}
+	if _, err := s.NewestLiveBrowserSession("This machine · Linux", "127.0.0.1"); err != ErrNotFound {
+		t.Fatal("expired session reused")
+	}
+}
+
 func TestPairingsAreOneShot(t *testing.T) {
 	s := openTest(t)
 	code, _, err := s.CreatePairing("sess-1", 10*time.Minute)

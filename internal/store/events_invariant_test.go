@@ -158,6 +158,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			sess, _, _ := s.CreateSession(SessionBrowser, "", "x", "", 0)
 			_ = s.RevokeSession(sess.ID)
 		}, []string{"session.created", "session.revoked"}},
+		{"RotateSessionSecret", func(s *Store) {
+			sess, _, _ := s.CreateSession(SessionBrowser, "", "x", "", 0)
+			s.OnEvent = recorder(s)
+			_, _, _ = s.RotateSessionSecret(sess.ID, time.Hour)
+		}, []string{"session.rotated"}},
 		{"CreatePairing + ConsumePairing", func(s *Store) {
 			code, _, _ := s.CreatePairing("", time.Minute)
 			_ = s.ConsumePairing(code)
