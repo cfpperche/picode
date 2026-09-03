@@ -21,7 +21,9 @@ var pipkgCheck = pipkg.CheckUpdates
 // publishes ephemeral packages.updates events (ADR-0048) only when a
 // scope's result changes. Scans are serial and network-bound, so the
 // cadence is the 30 minutes the browser used to poll — one scan set for
-// the whole fleet instead of one per open browser.
+// the whole fleet instead of one per open browser. Trade-off, stated:
+// total registry traffic now grows with the workspace count
+// ((1+W) scans per tick) rather than with the number of open browsers.
 func StartPackageUpdatesWatch(ctx context.Context, deps Deps, every time.Duration) {
 	if deps.Feed == nil || deps.Store == nil {
 		return

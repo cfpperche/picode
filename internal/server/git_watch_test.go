@@ -17,7 +17,7 @@ func TestGitDirs(t *testing.T) {
 	}
 	agents := []store.Agent{
 		{ID: "a-ws", WorkspaceID: "ws-main"},                                                   // rides the workspace path
-		{ID: "a-own", WorkspaceID: "ws-main", WorkPath: strptr("/repo/own")},                   // workPath wins
+		{ID: "a-own", WorkspaceID: "ws-main", WorkPath: strptr("/repo/own")},                   // workPath wins — and must NOT carry the workspace id
 		{ID: "a-free-own", WorkspaceID: store.FreeWorkspaceID, WorkPath: strptr("/repo/free")}, // free agents are watched on workPath only
 		{ID: "a-free-none", WorkspaceID: store.FreeWorkspaceID},                                // no workPath, no pill, not watched
 		{ID: "a-lost", WorkspaceID: "ws-gone"},                                                 // unknown workspace, skipped
@@ -33,7 +33,7 @@ func TestGitDirs(t *testing.T) {
 		{path: "/repo/free", agentID: "a-free-own"},
 		{path: "/repo/main", workspaceID: "ws-main"},
 		{path: "/repo/main", workspaceID: "ws-main", agentID: "a-ws"},
-		{path: "/repo/own", workspaceID: "ws-main", agentID: "a-own"},
+		{path: "/repo/own", agentID: "a-own"},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v want %+v", got, want)

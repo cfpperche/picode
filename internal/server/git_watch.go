@@ -138,7 +138,16 @@ func gitDirs(workspaces []store.Workspace, agents []store.Agent) []gitDir {
 		if !ok {
 			continue
 		}
-		out = append(out, gitDir{path: store.AgentCwd(w, a), workspaceID: w.ID, agentID: a.ID})
+		cwd := store.AgentCwd(w, a)
+		if cwd == w.Path {
+			// Same directory as the workspace: one event covers both.
+			out = append(out, gitDir{path: cwd, workspaceID: w.ID, agentID: a.ID})
+			continue
+		}
+		// A workPath of its own describes only that agent — the workspace
+		// id must not ride this event, or the workspace's fallback pills
+		// inherit the worktree's branch.
+		out = append(out, gitDir{path: cwd, agentID: a.ID})
 	}
 	return out
 }

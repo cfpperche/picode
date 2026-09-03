@@ -374,6 +374,12 @@ Never exercised, because this machine was already past them:
 - Two concurrent agents share whichever credential is **active** in `auth.json` (pi limitation; vault does not fork that).
 - Token auth: ADR-0007 personal-network trust; mandatory only if exposed beyond the tailnet.
 - `internal/proclock` leftover `picode.lock` after a Windows crash.
+- **Ephemeral feed events are lossy by design** (ADR-0048): a dropped
+  frame or a reconnecting client never replays them, and the change
+  watchers (mcp/git/packages) publish only on change — a missed event
+  leaves that surface stale until the next state change or a manual
+  refresh/reconcile. Tolerated for badges/trees; a periodic heartbeat
+  republish would be the cure if it ever bites.
 - Vendored xterm.js 5.5.0 — manual upgrade (ADR-0004).
 - Branch protection + CODEOWNERS — owner action on GitHub.
 - tmux-gated tests skip on windows/macos CI (accepted).
