@@ -30,6 +30,12 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: www/package-lock.json
+      # `make docs` regenerates the OpenAPI spec via `go run
+      # ./cmd/picode-openapi` — the runner needs the Go toolchain.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
       - run: make docs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
