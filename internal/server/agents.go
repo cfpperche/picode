@@ -131,6 +131,8 @@ func (deps Deps) watchBurstReopen(agentID string) {
 	defer cancel()
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
+	sawTurn := false
+	idleSince := time.Time{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -140,30 +142,42 @@ func (deps Deps) watchBurstReopen(agentID string) {
 		if deps.Tmux == nil || !deps.Tmux.Available() {
 			return
 		}
-		// The user already brought the TUI back — done.
+		// The TUI is back — the user reopened it themselves; their
+		// takeover wins over the automatic flip-back.
 		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
 			return
 		}
-		// Wait for the parked reply to be claimed (the managed run only
-		// starts processing after the queue drains).
-		if n, err := deps.Store.CountQueuedTasks(agentID); err != nil || n > 0 {
-			if err != nil {
-				return
-			}
-			continue
-		}
 		ma := deps.Runtime.Get(agentID)
 		if ma == nil {
-			// The managed runtime is gone and no TUI session exists:
-			// the user stopped the agent — respect that, reopen nothing.
+			// Stopped with no runtime — the user's call, reopen nothing.
 			return
 		}
-		if ma.Settled() {
-			deps.openAgentTUI(ctx, agentID)
-			deps.Feed.Ephemeral("burst.reopen", map[string]any{"agentId": agentID})
-			return
+		if !ma.Settled() {
+			// The reply is being processed: the turn started. A fresh
+			// managed pi is settled-BY-DEFAULT (no turn yet), so this is
+			// the only honest signal that work began.
+			sawTurn = true
+			continue
+		}
+		if sawTurn {
+			// The turn ran and ended — the TUI comes back with the
+			// answer in the transcript.
+			break
+		}
+		// Settled with no turn seen: the delivery is still retrying (or
+		// failed). Give it a bounded window, then reopen anyway so the
+		// user is not stranded in chat mode after a failed burst.
+		if idleSince.IsZero() {
+			idleSince = time.Now()
+		}
+		if time.Since(idleSince) > 90*time.Second {
+			break
 		}
 	}
+	if _, err := deps.openAgentTUI(ctx, agentID); err != nil {
+		return
+	}
+	deps.Feed.Ephemeral("burst.reopen", map[string]any{"agentId": agentID})
 }
 
 func handleManagedStart(deps Deps) http.HandlerFunc {
