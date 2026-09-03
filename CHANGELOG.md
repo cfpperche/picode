@@ -35,6 +35,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **An inbox reply refused because the agent runs in a TUI now offers
+  "Open terminal" instead of a dead end.** The refusal note said to
+  open the terminal and paste the reply, and left the hunt to the
+  reader. When the item is agent-sourced and its agent is interactive
+  (the same gate the reply uses), the item's view shows an Open
+  terminal action that starts the agent's TUI through the same path as
+  the HTTP open endpoint — server-side, so it works from the desktop
+  and the mobile inbox alike. The reply itself stays undelivered by
+  design (ADR-0037/0006); the terminal is where the agent can hear
+  you.
 - **A TUI agent whose conversation mentions "working" no longer shows
   as busy while idle.** The working check grepped the pane tail for the
   substring "working" — so an agent whose last reply merely contained

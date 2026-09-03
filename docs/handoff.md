@@ -316,6 +316,27 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — the inbox refusal to a TUI agent offers Open terminal**
+  (`fix/inbox-open-terminal`). Replying to an agent-sourced item whose
+  agent runs in a TUI is refused by design (ADR-0037/0006), but the
+  refusal was a dead end. The item's view now shows an Open terminal
+  action when the agent is interactive (same `h.AgentDeliverable` gate
+  the reply uses); firing it starts the TUI server-side via
+  `apps.Host.OpenAgentTerminal`, wired from `Deps.openAgentTUI`
+  (handleAgentOpen's body extracted, sentinel errors keep the HTTP
+  mapping identical). Works from the desktop and mobile inbox.
+  Deployed; verified live on the owner's item + a QA item:
+  action renders only when interactive, click starts/confirms the
+  tmux session (mode → interactive), detail closes by design after
+  acting. **Parked (owner's call, from the send-keys benchmark
+  research):** Degrau 2 — consented mode-switch delivery (queue the
+  reply + switch interactive→managed; ADR-0053 keeps the thread;
+  trigger: owner hits the refusal again in dogfood); Degrau 3 —
+  guarded send-keys delivery, parked with ADR-0002's rejection
+  (claude-squad precedent noted: SendPrompt = keys + 100ms + TapEnter,
+  autoyes experimental, per-CLI content sniffing).
+  visual-review: PASS (qa7-open-terminal-action.png, card 5/5).
+
 - **2026-09-02 — MCP live status rides the change feed**
   (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
   watcher publishes `mcp.updated`; the Mcps panel follows events and
