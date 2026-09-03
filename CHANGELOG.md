@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **The MCPs panel no longer polls for live server status.** While an
+  agent ran, the panel refetched `/api/mcp` every 2.5 s to keep the
+  per-server Idle / Live / Failed / Sign in badge fresh. The server now
+  watches pi's live snapshots once per tick for the whole fleet and
+  publishes `mcp.updated` on the change feed (ADR-0048, same pattern as
+  `agent.tui`); the panel refetches once per event and reconciles when
+  the feed (re)opens. The 2.5 s interval remains only as the feed-down
+  fallback. Verified live: a status flip reaches the panel with exactly
+  one request, no interval traffic.
+
 ### Fixed
 
 - **A TUI agent whose conversation mentions "working" no longer shows

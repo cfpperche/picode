@@ -63,6 +63,18 @@ What exists:
 
 ## In flight
 
+**Feed migration phase 1 — merged to `main` 2026-09-02, deployed.**
+`StartMcpWatch` (mirrors `tui_watch.go`) reads each running agent's
+live MCP snapshot once per 3 s tick for the whole fleet and publishes
+ephemeral `mcp.updated`; the Mcps panel subscribes, reconciles on
+`feed.open`/`feed.reset`, and its 2.5 s interval is now the feed-down
+fallback only. Verified live end to end: hand-written live file flips
+the badge with exactly one `/api/mcp` request (was ~1 per 2.5 s).
+(main had independently repaired the stale LooksWorking tests in
+485be488; the branch's duplicate fix was dropped in the merge.)
+Phases 2–4 of the polling→feed migration plan (llama op overlay, git
+events, `packages.updates`) are not started.
+
 **ADR-0045 Automations — merged to `main` and shipping.** Scheduler,
 webhook, notify channel, gateway hook route, `/automate` + templates;
 editor/detail UI fixes and the message-run amendment landed 2026-09-02.
@@ -296,11 +308,19 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — MCP live status rides the change feed**
+  (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
+  watcher publishes `mcp.updated`; the Mcps panel follows events and
+  polls only as the feed-down fallback. visual-review: PASS
+  (qa-mcps-empty.png + qa-mcps-live.png read; overlayAudit ok; e2e:
+  live-file flip → exactly 1 request, badge Idle→Live→Failed).
+
 - **2026-09-02 — Work head = Inbox head on the phone**
   (`fix/mobile-head-parity`): `.m-screen-head` takes the Inbox numbers
   (12/8 padding, hairline, margin 0); `.m-inbox .ft-head` matches and
   cancels the desktop 880px `margin-top: 6px`; the 32px segment rule is
   scoped to `.m-agent-state`. Both heads measure 57px, controls 36px.
+
 - **2026-09-02 — LooksWorking anchors to pi's spinner frames**
   (`fix/looks-working-spinner-frames`). The working check grepped the
   pane tail for the substring "working": an idle agent whose last
