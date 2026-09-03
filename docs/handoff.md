@@ -287,6 +287,24 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **Copilot and Google quota adapters are out of date (found by the
+  2026-09-03 providers study).** GitHub retired Copilot *premium requests*
+  on 2026-06-01 in favour of token-metered AI Credits with budgets, so
+  `internal/usage`'s `copilot_internal/user` reading of
+  `quotaSnapshots.premiumInteractions` needs re-measuring (it also never
+  had a reset date — the field does not exist; the reset is the 1st at
+  00:00 UTC and must be computed). Gemini CLI stopped serving Google AI
+  Pro/Ultra individuals on 2026-06-18; the consumer quota surface moved to
+  Antigravity's `cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`
+  (`buckets[].remainingFraction`/`resetTime`), which PiCode does not read.
+  Other endpoints that fit `usage.Report` unchanged: Anthropic
+  `oauth/profile` (email + plan), `overage_spend_limit`, `prepaid/credits`;
+  `openrouter.ai/api/v1/credits`; `api.deepseek.com/user/balance`;
+  `api.moonshot.ai/v1/users/me/balance`; Fireworks `billing/summary`; the
+  Qwen coding-plan endpoint ADR-0031 refused in V3 for lack of an API-key
+  path. Groq, Mistral and Cursor stay cookie-scoped — honest `unavailable`,
+  not scraping.
+
 - **CI on `main` is red on macOS and Windows — environment-dependent
   tests, pre-existing (every run since at least 2026-08-30 failed; each
   era's first failing step masked the rest: dead links →
@@ -389,6 +407,30 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — Providers view v2: benchmark study, no code**
+  ([`docs/benchmarks/2026-09-03-providers-view-v2.md`](benchmarks/2026-09-03-providers-view-v2.md)).
+  Three web sweeps: agent IDEs/CLIs (Kilo four-section IA + source badges,
+  Zed `ApiKeySource` origin display, Roo profiles + lock-across-modes,
+  Cursor Verify, Raycast Verify + console link + key icon at point of use),
+  multi-account switchers and quota monitors (cc-switch v3.13 renders quota
+  **inline on the card**, claude-swap's proactive 90 % auto-switch with
+  cooldown/hysteresis and per-terminal account scoping, ccusage burn-rate
+  projection, CCUM's official-limit trust layer, CodexBar, oh-my-pi's
+  round-robin credentials), and credential dashboards (OpenRouter
+  Prioritized/Fallback BYOK, Cloudflare `cf-aig-byok-alias` over a
+  `default`, Vercel Test Key with a raw-response badge, Anthropic graduated
+  expiry mail, Stripe roll-with-grace, Zapier dependent count + blast
+  radius). Confirmed against pi v0.84.4 that `auth.json` is still
+  `Record<string, Credential>` — **native multi-account has not landed**,
+  and `pi auth check --provider X --json --no-refresh` is the Verify
+  primitive we never wired. Proposal is three tabs (Accounts / Models /
+  Activity) with quota inline in three honest states (live / stale / —),
+  identity from `oauth/profile`, credential-source badge, dependent count
+  before Sign out, Pause vs Sign out, and 7-day spend from
+  `stats.byProvider[]`. **Owner's call before any ADR:** per-agent
+  credential pinning vs proactive auto-switch, both of which move
+  ADR-0013's single-active-slot line. No code changed.
 
 - **2026-09-03 — Degrau 2 shipped: inbox replies switch a TUI agent to
   chat mode** (`feat/inbox-reply-switch` + `fix/form-interactive-
