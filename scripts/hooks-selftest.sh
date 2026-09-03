@@ -31,7 +31,11 @@ if [ "$(printf '%s\n2.28.0\n' "$gitver" | sort -V | head -1)" != "2.28.0" ]; the
 fi
 
 repo="$tmp/repo"
-git init -q "$repo"
+# -b main: CI runners have no init.defaultBranch, so a fresh repo starts on
+# master — and the pre-commit guard rightly refuses the init commit there,
+# which left the repo unborn and broke the two assertions below in cascade
+# (seen on ubuntu-24.04 CI 2026-09-03). The script already requires git 2.28.
+git init -q -b main "$repo"
 cd "$repo" || exit 1
 git config user.email selftest@picode.local
 git config user.name "hooks selftest"
