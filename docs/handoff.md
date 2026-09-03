@@ -63,6 +63,19 @@ What exists:
 
 ## In flight
 
+**Feed migration phase 4 — `feat/feed-packages-updates` (gated, not
+merged).** `StartPackageUpdatesWatch` re-runs the npm update check every
+30 min for the user dir + every registered workspace (serial,
+network-bound, fingerprint per scope) and publishes ephemeral
+`packages.updates` only on change; the desktop badge/list apply the
+event directly (the scan is the data) and the 30-min client interval is
+now the feed-down fallback. Publish/diff/fingerprint table-tested with
+a stubbed scan; the boot publish seeds the diff state and is by design
+unobservable to clients (ephemeral, fires before any listener can
+attach). The live client-apply path is exercised only when a result
+changes mid-connection — covered by the unit test, not by a browser
+e2e (would need a real npm package flip). **Migration complete.**
+
 **Feed migration phase 3 — merged to `main` 2026-09-02, deployed.**
 `StartGitWatch` inspects each workspace path and agent
 cwd once per 3 s tick and publishes ephemeral `git.updated` (fleet-wide,
@@ -325,6 +338,11 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — package update checks ride the change feed**
+  (`feat/feed-packages-updates`, phase 4 — polling→feed migration
+  complete). Fleet-wide scan ticker publishes `packages.updates` on
+  change; the browser applies events and polls only as fallback.
 
 - **2026-09-03 — internal checklist, ADR-0055** (`feat/pi-checklist`):
   researched Tachyon's checklist gate/reminder/sidebar line and pi

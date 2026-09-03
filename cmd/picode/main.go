@@ -473,6 +473,11 @@ func serve() {
 	// for a fleet refetch or a manual Refresh.
 	go server.StartGitWatch(backupCtx, deps, 3*time.Second)
 
+	// Package updates watcher (ADR-0048 follow-up): one scan set per tick
+	// for the whole fleet, published as packages.updates only when a
+	// scope's result changes, instead of one 30 min poll per browser.
+	go server.StartPackageUpdatesWatch(backupCtx, deps, 30*time.Minute)
+
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.
 	autoCtx, autoCancel := context.WithCancel(context.Background())

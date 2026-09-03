@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Package update checks are a fleet-wide feed scan, not a per-browser
+  poll.** Every open browser refetched `/api/packages/updates` every
+  30 minutes to keep the update dots honest. The server now re-runs the
+  check on a slow ticker for the user dir and every registered workspace
+  (one serial scan set for the whole fleet) and publishes
+  `packages.updates` on the change feed (ADR-0048) only when a scope's
+  result changes; the browser applies the list straight from the event
+  and its 30-minute interval remains only as the feed-down fallback.
+
 - **The sidebar's git pills and the file tree now follow commits live.**
   A commit in the terminal used to leave the branch pill and dirty badge
   stale, and the file tree's Changes list needed a manual Refresh, until
