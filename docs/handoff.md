@@ -518,6 +518,29 @@ Never exercised, because this machine was already past them:
   pkill), so no harm landed, but the lesson is now policy for this
   agent too: cleanup targets PIDs, never name patterns.
 
+=======
+- **2026-09-03 — Devices list no longer accumulates "This machine"
+  duplicates (ADR-0049 amendment, `feat/devices-hygiene`).** Owner report:
+  the Devices view piled up "This machine · Linux" rows, worst after
+  release deploys. Root cause: every browser-like loopback visit without
+  a cookie minted a fresh 90-day browser session (`internal/auth` Wrap),
+  and every headless agent-browser QA profile is such a visit (12 rows in
+  one afternoon on the owner's DB); `PruneSessions` had no caller and
+  `ListSessions` did not even filter expired rows. Fix: the mint reuses
+  the newest live session with the same label by rotating its secret
+  (presence asked first so an active browser keeps its cookie; a 30 s
+  burst window lets a first-visit request race reuse instead of mint —
+  the race was caught live in QA as two "Windows" rows 50 ms apart);
+  headless UAs label "Headless browser"; expired rows stop listing;
+  a daily sweep prunes revoked/expired after 7 days; Devices gains a
+  batch **Forget offline (N)** that skips token sessions. Verified live
+  on a scratch instance: first visit = exactly one row, cookie survives
+  a server restart (deploy = zero new rows), batch forget cleans 8 seeds
+  in one click. visual-review: PASS (qa-devices-before/confirm/after/final
+  screenshots read; overlayAudit ok; blocked Reconnecting state also
+  captured). Concurrency trade-off recorded in the ADR. Gates: make ci
+  green (Go + 564 JS tests). Branch ready to merge + `make deploy`.
+
 - **2026-09-03 — Tool live previews in the conversation (ADR-0057,
   `feat/browser-preview-core`).** Owner approved the browser-preview plan.
   Shipped the core half of the ADR: a tool-agnostic `details.preview`
