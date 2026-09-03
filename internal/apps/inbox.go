@@ -320,6 +320,19 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 		for _, verb := range it.Allowed {
 			allowed[verb] = true
 		}
+		// An agent-sourced question/approval whose agent runs in a TUI
+		// cannot receive the reply (h.AgentDeliverable answers false —
+		// ADR-0037): offer the terminal first, so the refusal is a
+		// one-click detour instead of a failed submit.
+		if it.SourceKind == store.InboxFromAgent &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) &&
+			allowed[store.VerbRespond] &&
+			h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
+			h.OpenAgentTerminal != nil {
+			detail = append(detail, Block{Type: "actions", Pane: "detail", Actions: []Action{{
+				ID: "open-terminal", Label: "Open terminal", Args: map[string]string{"item": it.ID},
+			}}})
+		}
 		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
 				ID:     "respond",
@@ -410,6 +423,22 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		return a.backTo(h, returnPath, "Item deleted")
+	case "open-terminal":
+		it, err := h.Store.GetInboxItem(id)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		if it.SourceKind != store.InboxFromAgent || strings.TrimSpace(it.SourceID) == "" {
+			return ActionResult{}, fmt.Errorf("This item has no agent terminal to open.")
+		}
+		if h.OpenAgentTerminal == nil {
+			return ActionResult{}, fmt.Errorf("Opening a terminal is not supported here.")
+		}
+		if err := h.OpenAgentTerminal(it.SourceID); err != nil {
+			// Sentence case: surfaces verbatim as a toast.
+			return ActionResult{}, fmt.Errorf("Could not open the terminal: %v", err)
+		}
+		return a.backTo(h, returnPath, "Terminal started — it lives on the agent's tab.")
 	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
 		text := req.Args["reply"]

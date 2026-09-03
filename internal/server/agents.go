@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -617,46 +618,69 @@ func handleDeleteAgent(deps Deps) http.HandlerFunc {
 
 func handleAgentOpen(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		agent, err := deps.Store.GetAgent(id)
-		if errors.Is(err, store.ErrNotFound) {
-			writeErr(w, http.StatusNotFound, "agent not found")
-			return
-		}
+		running, err := deps.openAgentTUI(r.Context(), r.PathValue("id"))
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			switch {
+			case errors.Is(err, store.ErrNotFound):
+				writeErr(w, http.StatusNotFound, "agent not found")
+			case errors.Is(err, errAgentTUIInFlight):
+				writeErr(w, http.StatusConflict, runInFlightMsg)
+			case errors.Is(err, errAgentCmdMissing):
+				writeErr(w, http.StatusServiceUnavailable, errAgentCmdMissing.Error())
+			default:
+				writeErr(w, http.StatusInternalServerError, err.Error())
+			}
 			return
 		}
-		wk, cwd, err := deps.agentHome(agent)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		name := tmux.SessionName(agent.ID)
-		if deps.automationRunOn(agent.ID) {
-			writeErr(w, http.StatusConflict, runInFlightMsg)
-			return
-		}
-		deps.Runtime.Stop(agent.ID)
-		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
-			_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
+		name := tmux.SessionName(r.PathValue("id"))
+		if running {
 			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})
 			return
 		}
-		if _, err := exec.LookPath(deps.AgentCmd); err != nil {
-			writeErr(w, http.StatusServiceUnavailable,
-				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
-			return
-		}
-		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
-			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
-			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
-			return
-		}
-		_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
-		_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
 		writeJSON(w, http.StatusCreated, map[string]any{"running": true, "session": name})
 	}
+}
+
+var errAgentTUIInFlight = errors.New(runInFlightMsg)
+
+var errAgentCmdMissing = errors.New("pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
+
+// openAgentTUI starts (or confirms) the agent's interactive pi TUI in
+// tmux. Shared by the HTTP handler above and the inbox app's
+// open-terminal action (ADR-0037): the terminal is the escape hatch
+// offered when a reply cannot be delivered to a TUI agent. Reports
+// alreadyRunning=true when the session existed.
+func (deps Deps) openAgentTUI(ctx context.Context, agentID string) (alreadyRunning bool, err error) {
+	agent, err := deps.Store.GetAgent(agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, fmt.Errorf("%w: agent not found", store.ErrNotFound)
+	}
+	if err != nil {
+		return false, err
+	}
+	wk, cwd, err := deps.agentHome(agent)
+	if err != nil {
+		return false, err
+	}
+	name := tmux.SessionName(agent.ID)
+	if deps.automationRunOn(agent.ID) {
+		return false, errAgentTUIInFlight
+	}
+	deps.Runtime.Stop(agent.ID)
+	if has, err := deps.Tmux.HasSession(ctx, name); err == nil && has {
+		_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
+		return true, nil
+	}
+	if _, err := exec.LookPath(deps.AgentCmd); err != nil {
+		return false, errAgentCmdMissing
+	}
+	if err := deps.Tmux.NewSessionEnv(ctx, name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
+		return false, fmt.Errorf("start agent: %w", err)
+	}
+	_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
+	_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
+	return false, nil
 }
 
 func handleAgentClose(deps Deps) http.HandlerFunc {

@@ -215,6 +215,56 @@ func TestInboxActions(t *testing.T) {
 	if tasks, _ := h.Store.ListTasks(ag.ID, 10); len(tasks) != 1 { // still just the earlier successful one
 		t.Fatalf("interactive agent got a queued task: %+v", tasks)
 	}
+
+	// The interactive refusal is not a dead end: the item's view offers
+	// Open terminal, and firing it hands the agent to the host's opener.
+	var openCalled []string
+	h.OpenAgentTerminal = func(agentID string) error {
+		openCalled = append(openCalled, agentID)
+		return nil
+	}
+	detail, err := app.View(ctx, h, "item/"+q3.ID)
+	if err != nil {
+		t.Fatalf("interactive detail: %v", err)
+	}
+	foundOpen := false
+	for _, b := range detail.Blocks {
+		if b.Type != "actions" {
+			continue
+		}
+		for _, act := range b.Actions {
+			if act.ID == "open-terminal" {
+				foundOpen = true
+			}
+		}
+	}
+	if !foundOpen {
+		t.Fatalf("interactive item view has no Open terminal action: %+v", detail.Blocks)
+	}
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "open-terminal", Path: "item/" + q3.ID, Args: map[string]string{"item": q3.ID}}); err != nil {
+		t.Fatalf("open-terminal: %v", err)
+	}
+	if len(openCalled) != 1 || openCalled[0] != ag.ID {
+		t.Fatalf("OpenAgentTerminal calls = %v, want [%s]", openCalled, ag.ID)
+	}
+
+	// A deliverable agent does not need the escape hatch: no action.
+	h.AgentDeliverable = nil
+	h.OpenAgentTerminal = nil
+	detail, err = app.View(ctx, h, "item/"+q.ID)
+	if err != nil {
+		t.Fatalf("deliverable detail: %v", err)
+	}
+	for _, b := range detail.Blocks {
+		if b.Type != "actions" {
+			continue
+		}
+		for _, act := range b.Actions {
+			if act.ID == "open-terminal" {
+				t.Fatalf("deliverable item offers Open terminal: %+v", detail.Blocks)
+			}
+		}
+	}
 }
 
 func TestInboxDoneView(t *testing.T) {
