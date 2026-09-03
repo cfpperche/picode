@@ -56,6 +56,30 @@ export default function Devices({ hidden }) {
     } catch (e) { toastError(e); }
   }
 
+  // One click for the pile of stale rows (offline, not this one): QA
+  // browsers and old phones that no longer connect. Nothing online,
+  // nothing current and no token session is ever touched (the install
+  // token keeps its own explicit Forget), and the confirm names them first.
+  const offline = (rows || []).filter((r) => !r.online && !r.current && r.kind !== "token");
+  async function forgetOffline() {
+    if (!offline.length) return;
+    const names = offline.map((r) => r.label || r.id);
+    const listed = names.slice(0, 6).join(", ") + (names.length > 6 ? " + " + (names.length - 6) + " more" : "");
+    const ok = await askConfirm({
+      title: "Forget " + names.length + " offline devices?",
+      message: listed + ". Each will need a new pairing link to get back in.",
+      confirmLabel: "Forget all", danger: true,
+    });
+    if (!ok) return;
+    const results = await Promise.allSettled(
+      offline.map((r) => api("/api/auth/sessions/" + encodeURIComponent(r.id), { method: "DELETE" })),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed) toastError(new Error(failed + " of " + names.length + " could not be forgotten"));
+    else toast.ok(names.length + (names.length === 1 ? " device forgotten." : " devices forgotten."));
+    load();
+  }
+
   const unpaired = live.filter((d) => !d.session && d.online);
   const extOnline = live.some((d) => d.kind === "extension" && d.online);
 
@@ -90,6 +114,9 @@ export default function Devices({ hidden }) {
             <div className="devs-actions" data-align-row>
               <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
               <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
+              {offline.length ? (
+                <button type="button" className="btn btn-ghost" onClick={forgetOffline}>Forget offline ({offline.length})</button>
+              ) : null}
             </div>
             {extOnline ? null : (
               <p className="settings-desc dev-ext-note">Chrome extension: not connected. <a href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a></p>
