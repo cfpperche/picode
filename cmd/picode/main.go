@@ -467,6 +467,12 @@ func serve() {
 	// open panel per 2.5 s.
 	go server.StartMcpWatch(backupCtx, deps, 3*time.Second)
 
+	// Git watcher (ADR-0048 follow-up): one Inspect per directory per tick
+	// for the whole fleet, published as git.updated, so the sidebar's
+	// branch pills and the file tree follow commits instead of waiting
+	// for a fleet refetch or a manual Refresh.
+	go server.StartGitWatch(backupCtx, deps, 3*time.Second)
+
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.
 	autoCtx, autoCancel := context.WithCancel(context.Background())

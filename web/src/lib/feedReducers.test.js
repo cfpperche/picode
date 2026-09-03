@@ -111,3 +111,27 @@ test("tui and usage reducers", () => {
   const noCtx = applyUsage({ cost: 0 }, { cost: 0.1, input: 1 });
   assert.equal(noCtx.contextTokens, undefined);
 });
+
+test("fleet: git.updated patches the pills in place", () => {
+  const state = {
+    workspaces: [{ id: "w1", path: "/repo", git: { branch: "main", dirty: 2 }, agents: [{ id: "a1", git: { branch: "main", dirty: 2 } }, { id: "a2" }] }],
+    freeAgents: [{ id: "f1", workPath: "/repo", git: { branch: "main", dirty: 2 } }],
+    terminals: [],
+  };
+  // Branch flip + dirty cleared: workspace, its agent and the free agent
+  // on the same path all move together.
+  const next = applyFleet(state, { type: "git.updated", data: { path: "/repo", branch: "feat", workspaceIds: ["w1"], agentIds: ["a1", "f1"] } });
+  assert.deepEqual(next.workspaces[0].git, { branch: "feat", dirty: 0, worktree: undefined });
+  assert.deepEqual(next.workspaces[0].agents[0].git, { branch: "feat", dirty: 0, worktree: undefined });
+  assert.equal(next.workspaces[0].agents[1].git, undefined); // untouched agent keeps its shape
+  assert.deepEqual(next.freeAgents[0].git, { branch: "feat", dirty: 0, worktree: undefined });
+  // A dirty count arrives only when non-zero (omitempty on the server).
+  const dirty = applyFleet(state, { type: "git.updated", data: { path: "/repo", branch: "main", dirty: 5, workspaceIds: ["w1"] } });
+  assert.equal(dirty.workspaces[0].git.dirty, 5);
+  // Not a repo any more (no branch in the event): the pills clear.
+  const cleared = applyFleet(state, { type: "git.updated", data: { path: "/repo", workspaceIds: ["w1"] } });
+  assert.equal(cleared.workspaces[0].git, null);
+  // Unknown path: untouched, not a refetch signal.
+  const miss = applyFleet(state, { type: "git.updated", data: { path: "/elsewhere", branch: "x" } });
+  assert.equal(miss, state);
+});

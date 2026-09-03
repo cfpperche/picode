@@ -592,7 +592,7 @@ export default function App() {
       if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
       return;
     }
-    if (!touches(ev, ["workspace", "agent", "terminal"])) return;
+    if (!touches(ev, ["workspace", "agent", "terminal", "git"])) return;
     const next = applyFleet(fleetRef.current, ev);
     if (next === null) { loadWorkspaces().catch(() => {}); return; }
     if (next === fleetRef.current) return;

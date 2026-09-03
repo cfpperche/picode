@@ -101,6 +101,41 @@ export function applyFleet(state, ev) {
       return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...t, ...d } : t)) } : null;
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
+    case "git.updated": {
+      // Ephemeral (id 0): one fleet-wide watcher Inspect per directory,
+      // fanned out here. The git shape mirrors gitinfo.Info; a missing
+      // branch (not a repo / gone directory) clears the pills. Unknown
+      // paths return the state untouched — the durable events reconcile
+      // the lists themselves.
+      if (!d.path) return state;
+      const wIDs = d.workspaceIds || [];
+      const aIDs = d.agentIds || [];
+      const git = d.branch || d.dirty ? { branch: d.branch || "", dirty: d.dirty || 0, worktree: d.worktree || undefined } : null;
+      let found = false;
+      const wsNext = workspaces.map((w) => {
+        let changed = false;
+        let ws = w;
+        if (wIDs.includes(w.id) || w.path === d.path) {
+          ws = { ...w, git };
+          changed = true;
+          found = true;
+        }
+        const agents = (ws.agents || []).map((a) => {
+          if (!aIDs.includes(a.id)) return a;
+          found = true;
+          changed = true;
+          return { ...a, git };
+        });
+        if (!changed) return w;
+        return { ...ws, agents };
+      });
+      const freeNext = freeAgents.map((a) => {
+        if (!aIDs.includes(a.id)) return a;
+        found = true;
+        return { ...a, git };
+      });
+      return found ? { ...state, workspaces: wsNext, freeAgents: freeNext } : state;
+    }
     default:
       return state;
   }

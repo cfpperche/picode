@@ -31,7 +31,7 @@ export function useFleet(ms) {
   const ref = useRef({ workspaces, freeAgents, terminals });
   ref.current = { workspaces, freeAgents, terminals };
   useEffect(() => subscribeFeed((ev) => {
-    if (!touches(ev, ["workspace", "agent", "terminal"])) return;
+    if (!touches(ev, ["workspace", "agent", "terminal", "git"])) return;
     const next = applyFleet(ref.current, ev);
     if (next === null) { reload().catch(() => {}); return; }
     if (next === ref.current) return;
