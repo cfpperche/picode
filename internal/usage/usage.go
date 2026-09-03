@@ -43,6 +43,7 @@ type Report struct {
 	AccountLabel string        `json:"accountLabel,omitempty"`
 	AuthType     string        `json:"authType,omitempty"`
 	Plan         string        `json:"plan,omitempty"`
+	Email        string        `json:"email,omitempty"`
 	FetchedAt    string        `json:"fetchedAt"`
 	Status       string        `json:"status"`
 	Error        string        `json:"error,omitempty"`
@@ -130,8 +131,33 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 }
 
 // FetchAccount reads one vault row (or the active slot when accountID is empty)
-// without swapping auth.json.
+// without swapping auth.json. Every result — including a failure — lands in
+// the cache the roster reads, and any identity the vendor volunteered
+// (email, plan) is written back to the vault so the row can name itself
+// without a network call on the next page load.
 func (c *Client) FetchAccount(ctx context.Context, provider, accountID string) Report {
+	rep := c.fetchAccount(ctx, provider, accountID)
+	Remember(provider, accountID, rep, c.now())
+	if rep.Status == StatusOK && (rep.Email != "" || rep.Plan != "") {
+		_ = catalog.SetAccountIdentity(provider, resolveAccountID(provider, accountID), rep.Email, rep.Plan)
+	}
+	return rep
+}
+
+// resolveAccountID turns the "active slot" shorthand into the vault row id.
+func resolveAccountID(provider, accountID string) string {
+	if strings.TrimSpace(accountID) != "" {
+		return accountID
+	}
+	for _, a := range catalog.AccountsFor(provider) {
+		if a.Active {
+			return a.ID
+		}
+	}
+	return ""
+}
+
+func (c *Client) fetchAccount(ctx context.Context, provider, accountID string) Report {
 	if c == nil {
 		c = Default
 	}

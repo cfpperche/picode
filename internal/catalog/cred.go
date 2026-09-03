@@ -39,12 +39,16 @@ func QuotaKind(id, authType string) string {
 func ActiveAuthType(provider string) string {
 	raw := peekCred(provider)
 	if len(raw) == 0 {
+		if _, _, ok := EnvKeyName(provider); ok {
+			return LoginAPIKey
+		}
 		return ""
 	}
 	return credType(raw)
 }
 
-// ActiveLabel is the vault display name for the active slot.
+// ActiveLabel is the vault display name for the active slot. An env-supplied
+// provider has no vault row, so it is labelled by the variable that supplies it.
 func ActiveLabel(provider string) string {
 	for _, a := range accountsOf(provider) {
 		if a.Active {
@@ -52,6 +56,11 @@ func ActiveLabel(provider string) string {
 				return a.Label
 			}
 			break
+		}
+	}
+	if len(peekCred(provider)) == 0 {
+		if name, _, ok := EnvKeyName(provider); ok {
+			return name
 		}
 	}
 	return "Default"
@@ -113,7 +122,13 @@ func ActiveOAuth(provider string) (OAuthCred, bool) {
 
 // ActiveAPIKey is the live auth.json key. false if missing or oauth.
 func ActiveAPIKey(provider string) (string, bool) {
-	return parseAPIKey(peekCred(provider))
+	if k, ok := parseAPIKey(peekCred(provider)); ok {
+		return k, true
+	}
+	// No auth.json entry: pi falls back to the env var, so Usage must too,
+	// or an env-supplied OpenRouter key would show "sign in again" while
+	// every agent on this machine is happily using it.
+	return EnvAPIKey(provider)
 }
 
 // VaultOAuth is the saved oauth cred for one vault row. Does not swap auth.json.

@@ -22,6 +22,9 @@ func (c *Client) anthropic(ctx context.Context, cred catalog.OAuthCred, rep *Rep
 		if plan := planFromProfile(pbody); plan != "" {
 			rep.Plan = plan
 		}
+		if email := emailFromProfile(pbody); email != "" {
+			rep.Email = email
+		}
 	}
 	return status, nil
 }
@@ -77,6 +80,30 @@ func parseAnthropicUsage(raw []byte, rep *Report) {
 	} else if n, ok := num(m["extra_usage"]); ok {
 		rep.Windows = append(rep.Windows, moneyWindow("extra", "Extra usage", n, "usd"))
 	}
+}
+
+// emailFromProfile reads the signed-in address so a vault row can say which
+// account it is. The address is the vendor's answer, never the typed label.
+func emailFromProfile(raw []byte) string {
+	var m map[string]any
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	for _, k := range []string{"email", "email_address"} {
+		if s := str(m[k]); s != "" {
+			return s
+		}
+	}
+	for _, nest := range []string{"account", "user", "organization"} {
+		if sub := mapOf(m[nest]); sub != nil {
+			for _, k := range []string{"email", "email_address"} {
+				if s := str(sub[k]); s != "" {
+					return s
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func planFromProfile(raw []byte) string {

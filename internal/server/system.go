@@ -142,6 +142,7 @@ func handleCatalog(deps Deps) http.HandlerFunc {
 			return
 		}
 		attachLlamaModels(&rep)
+		attachProviderRefs(deps, &rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
@@ -167,5 +168,24 @@ func handlePiSelfUpdate(deps Deps) http.HandlerFunc {
 			out = out[len(out)-4000:]
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": version, "output": strings.TrimSpace(out)})
+	}
+}
+
+// attachProviderRefs fills how many agents and automations name each
+// provider, so Sign out can say what it breaks (Zapier names the blast
+// radius on its connections page). A store error leaves the counts at zero
+// rather than failing the catalog every consumer depends on.
+func attachProviderRefs(deps Deps, rep *catalog.Report) {
+	if deps.Store == nil {
+		return
+	}
+	refs, err := deps.Store.CountProviderRefs()
+	if err != nil || len(refs) == 0 {
+		return
+	}
+	for i := range rep.Providers {
+		r := refs[rep.Providers[i].ID]
+		rep.Providers[i].Agents = r.Agents
+		rep.Providers[i].Automations = r.Automations
 	}
 }

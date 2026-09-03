@@ -18,6 +18,9 @@ func registerSlashOps(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
 	mux.HandleFunc("PATCH /api/providers/{id}/accounts/{aid}", handleAccountRename)
 	mux.HandleFunc("DELETE /api/providers/{id}/accounts/{aid}", handleAccountDelete)
+	mux.HandleFunc("GET /api/providers/usage", handleUsageSummary(deps))
+	mux.HandleFunc("POST /api/providers/{id}/verify", handleProviderVerify(deps))
+	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/pause", handleAccountPause)
 	mux.HandleFunc("GET /api/providers/{id}/usage", handleProviderUsage)
 	mux.HandleFunc("POST /api/providers/{id}/usage/reset", handleProviderUsageReset)
 	mux.HandleFunc("GET /api/providers/{id}/accounts/{aid}/usage", handleAccountUsage)
@@ -134,6 +137,7 @@ func handleAccountDelete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	usage.Forget(id, aid)
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "removed": aid})
 }
 
@@ -144,6 +148,7 @@ func handleProviderLogout(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		usage.ForgetProvider(id)
 		writeJSON(w, http.StatusOK, map[string]any{"id": id, "signedIn": false})
 	}
 }
