@@ -11,6 +11,25 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Providers view v2 — every account says what is left of it, who it is,
+  and whether pi can actually use it** (ADR-0057, study
+  `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on
+  `#/providers` now carries its plan windows inline instead of hiding them
+  behind Usage, in three honest states: a live bar, the same bar labelled
+  with its age and a control to re-check, or a word saying which kind of
+  nothing it is (`not checked`, `sign in again`, `no plan windows`, or the
+  vendor's own error). Nothing is ever drawn from a guess. A balance with no
+  ceiling, such as OpenRouter credits, reads as an amount rather than a
+  gauge. Also on the row: the account's email and plan as the vendor reports
+  them, the last 7 days of your own spend on that provider, **Verify** (which
+  asks `pi auth check`, spending no tokens), **Pause** next to Sign out for a
+  credential you want to keep but stop using, and a search box once the
+  roster is long. Sign out now names the agents and automations that break.
+  A provider supplied by an environment variable — which pi has always read
+  and this page never showed — appears signed in, named by its variable.
+
 ### Fixed
 
 - **Inbox replies to a TUI agent now work: the reply switches the agent

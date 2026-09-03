@@ -94,3 +94,20 @@ func TestForgetDropsOneRow(t *testing.T) {
 		t.Fatal("ForgetProvider left a row behind")
 	}
 }
+
+func TestPrettyPlanNamesTheTierAndDropsBillingJargon(t *testing.T) {
+	cases := map[string]string{
+		"default_claude_max_5x": "Max 5x",
+		"claude_max":            "Max",
+		"pro":                   "Pro",
+		"free":                  "Free",
+		"SuperGrok Plus":        "SuperGrok Plus",
+		"stripe_subscription":   "",
+		"":                      "",
+	}
+	for in, want := range cases {
+		if got := prettyPlan(in); got != want {
+			t.Fatalf("prettyPlan(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

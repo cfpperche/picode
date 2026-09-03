@@ -137,6 +137,7 @@ func (c *Client) Fetch(ctx context.Context, provider string) Report {
 // without a network call on the next page load.
 func (c *Client) FetchAccount(ctx context.Context, provider, accountID string) Report {
 	rep := c.fetchAccount(ctx, provider, accountID)
+	rep.Plan = prettyPlan(rep.Plan)
 	Remember(provider, accountID, rep, c.now())
 	if rep.Status == StatusOK && (rep.Email != "" || rep.Plan != "") {
 		_ = catalog.SetAccountIdentity(provider, resolveAccountID(provider, accountID), rep.Email, rep.Plan)

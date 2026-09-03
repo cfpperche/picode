@@ -287,6 +287,22 @@ Never exercised, because this machine was already past them:
 
 ## Known debts / open questions
 
+- **Providers v2: the two questions that need the owner, not more code.**
+  ADR-0013's single active slot is untouched by v2, and it is the line the
+  field has moved past (OpenRouter's ordered Prioritized/Fallback lists,
+  Cloudflare's alias over a `default`, oh-my-pi's round-robin with session
+  affinity, claude-swap's per-terminal account). Two candidates, both
+  unmeasured: **(1) per-agent credential pinning** — `--api-key` covers key
+  rows, but an OAuth row needs an isolated pi home per agent, and what that
+  costs in `models-store` duplication and refresh races is a spike, not a
+  design; **(2) proactive auto-switch** — claude-swap's rule (at 90 % of the
+  active window move to the account with the most quota left, cooldown plus
+  hysteresis), applied only between agent starts, never mid-session, since
+  every switcher studied warns that swapping a credential file under a
+  running agent corrupts it. (2) would be the first time PiCode changes a
+  credential the user did not click; the proposal is off by default with a
+  visible line in the feed. Neither ships without a decision.
+
 - **Copilot and Google quota adapters are out of date (found by the
   2026-09-03 providers study).** GitHub retired Copilot *premium requests*
   on 2026-06-01 in favour of token-metered AI Credits with budgets, so
@@ -407,6 +423,31 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — Providers view v2 shipped** (`feat/providers-v2`,
+  ADR-0057, study `docs/benchmarks/2026-09-03-providers-view-v2.md`).
+  Quota moved onto the roster in three honest states (live / age-labelled /
+  a word saying which kind of nothing), served from a process cache so a
+  page load makes zero vendor calls; `StartUsageRefresh` warms only the
+  active, non-paused slot of each meterable provider, sequentially, every
+  5 min. Identity (email + normalised plan) is read from the vendor and
+  written back to the vault row — `default_claude_max_5x` renders "Max 5x"
+  and `billing_type` is no longer shown at all. **Verify** runs
+  `pi auth check --provider X --json --no-refresh` (pi ships the primitive;
+  no test completion, no token). **Pause** keeps a credential but leaves
+  play. Sign out names its blast radius from `agents.provider` /
+  `automations.provider`. A provider supplied only by an env var is now
+  signed in, named by the variable, with no Sign out — measured on pi
+  v0.84.4 that `GROQ_API_KEY` alone answers `ready/api_key`, so those rows
+  were invisible while every agent could use them. Dogfooded on a scratch
+  instance with the real vault: 6 meterable accounts, anthropic 5h/7d bars,
+  kimi's "Rate limited." shown as state, OpenRouter credits as an amount.
+  overlayAudit ok, no clipping, dark and 390px checked, Verify/Check/search
+  clicked for real. **Not built, and next:** the Models tab (price and
+  context from `models-store.json`, which `pi --list-models` omits, plus a
+  picker writing `enabledModels`) and the Activity tab (per-provider spend
+  and burn-rate projection from our own session JSONL). Both are scoped in
+  the study.
 
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis
