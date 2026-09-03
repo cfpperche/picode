@@ -605,7 +605,12 @@ Never exercised, because this machine was already past them:
   refusal again in dogfood); Degrau 3 — guarded send-keys delivery,
   parked with ADR-0002's rejection (claude-squad precedent noted:
   SendPrompt = keys + 100ms + TapEnter, autoyes experimental, per-CLI
-  content sniffing).
+  content sniffing). Follow-up (same day): the sidebar spinner meant
+  "streaming OR waiting" — after the reply switch the agent sits in
+  managed+waiting while the ask_human waits in the inbox, and the row
+  spun "working" for what was really a needs-you state. The spinner
+  now means streaming only; the inbox badge carries needs-you (a
+  needs-you pill on the agent row is parked as polish).
 
 - **2026-09-02 — MCP live status rides the change feed**
   (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
