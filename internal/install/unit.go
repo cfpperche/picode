@@ -86,6 +86,14 @@ func UnitFile(execPath, pathEnv, home string) string {
 	b.WriteString(fmt.Sprintf("ExecStart=%s\n", execPath))
 	b.WriteString("Restart=on-failure\n")
 	b.WriteString("RestartSec=3\n")
+	// The tmux server lives inside this cgroup on purpose (ADR-0002): the
+	// user's terminals and agent TUIs must survive daemon restarts — a
+	// deploy restarts the service while agents are mid-turn, and the
+	// graceful stop can hold past the stop timeout. The default
+	// KillMode=control-group SIGKILLs the whole cgroup in that case,
+	// taking the tmux server (and every session) with it.
+	b.WriteString("KillMode=process\n")
+	b.WriteString("TimeoutStopSec=30\n")
 	if home != "" {
 		b.WriteString(fmt.Sprintf("Environment=HOME=%s\n", home))
 	}
