@@ -62,6 +62,22 @@ export function checklistLevelLabel(level) {
   return level === "always" ? "Always" : level === "never" ? "Never" : "Before changes";
 }
 
+// checklistRefusal(it) -> the refusal line of a failed checklist call, ""
+// when the call did not fail. The live stream keeps the full RPC result on
+// it.result (the text sits in content[].text); a replayed transcript
+// flattens that same text into it.detail — cover both shapes.
+export function checklistRefusal(it) {
+  if (!it || it.status !== "error") return "";
+  const res = it.result;
+  const parts = res && Array.isArray(res.content) ? res.content : [];
+  const text = parts.map((p) => (p && typeof p.text === "string" ? p.text : "")).join(" ").trim();
+  if (text) return text;
+  // A replayed transcript's detail is the plain text; a live item's detail
+  // is the whole result JSON-stringified — only fall back when it is not JSON.
+  const detail = typeof it.detail === "string" ? it.detail.trim() : "";
+  return detail.startsWith("{") ? "" : detail;
+}
+
 export function checklistChoices() {
   return [
     { id: "changes", label: "Before changes", hint: "A plan before the first edit, write or bash" },

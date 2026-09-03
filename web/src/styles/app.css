@@ -2421,6 +2421,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 /* The checklist card in the chat. */
 .tool-pill.checklist .tp-name { color: var(--accent); }
 .tp-checklist { padding: 6px 10px; font-family: inherit; font-size: 12.5px; }
+.check-err { margin: 0 0 6px; color: var(--danger); overflow-wrap: anywhere; }
+.check-err:last-child { margin: 0; }
 .check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .check-item { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
 .check-glyph { flex: none; font-family: var(--mono); color: var(--text-secondary); }
