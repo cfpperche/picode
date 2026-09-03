@@ -477,6 +477,19 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — docs harness phase 1+2 shipped: themed docs + parity-
+  gated screenshots.** Site rethemed with the app's tokens (dark-first,
+  Diátaxis sidebar, hero); `cmd/picode-docs-fixture` + `scripts/docs-
+  shots.mjs` capture named surfaces into `www/img/` with a manifest;
+  `make docs-check` (in `make ci`) fails when `web/src`/server changes
+  land without re-capture. One app bug found and fixed en route
+  (deep links bounced to #/ once the fleet loaded — App.jsx tab-sync
+  effect); one app bug catalogued (cold deep link #/automations mounts
+  the dashboard — automations surface parked until fixed). Plan:
+  docs/benchmarks/2026-09-03-docs-harness.md. Next phases: API
+  reference (route-walking openapi.json + Scalar), llms.txt, Vale,
+  HyperFrames tutorials.
+
 - **2026-09-03 — Guest CLI intercept, no user-home writes**
   (`feat/term-intercept`, ADR-0056 amendment). Owner rejected writing
   `~/.claude/settings.json`. Preferences → Terminal status now drops
