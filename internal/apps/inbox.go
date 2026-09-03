@@ -441,7 +441,7 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		return ActionResult{
 			Toast: "Terminal started — it lives on the agent's tab.",
 			Goto:  "agent:" + it.SourceID,
-		}
+		}, nil
 	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
 		text := req.Args["reply"]
