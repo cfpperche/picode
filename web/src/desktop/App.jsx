@@ -2054,7 +2054,7 @@ export default function App() {
         onRemoveAgent={removeAgent}
         onRenameAgent={renameAgent}
         freeAgents={freeAgents}
-        workingId={(streaming || waiting) ? selectedId : null}
+        workingId={streaming ? selectedId : null}
         workingIds={tuiWorking}
         checklists={checklists}
         waitingId={waiting ? selectedId : null}
