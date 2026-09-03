@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checklistLine, applyChecklists, indexChecklists, checklistItems, currentStep } from "./checklist.js";
+import { checklistLine, applyChecklists, indexChecklists, checklistItems, checklistRefusal, currentStep } from "./checklist.js";
 import { summarizeArgs } from "./toolArgs.js";
 import { stepLabel } from "./turns.js";
 
@@ -40,6 +40,24 @@ test("chat items: result details win over call args; bad rows dropped", () => {
   assert.deepEqual(checklistItems({ toolArgs: { items: [{ text: "a" }, { nope: 1 }, { text: "b", status: "weird" }] } }), [{ text: "a", status: "pending" }, { text: "b", status: "pending" }]);
   assert.deepEqual(checklistItems({ toolArgs: { items: [{ text: "a" }] }, result: { details: { items: [{ text: "z", status: "completed" }] } } }), [{ text: "z", status: "completed" }]);
   assert.deepEqual(checklistItems({}), []);
+});
+
+test("refusal: the failed call's line is visible in both live and replay shapes", () => {
+  const line = "[pi-checklist] A checklist is required before the first change of this task.";
+  // Live stream: the whole RPC result rides it.result; detail is JSON.
+  const live = {
+    status: "error",
+    detail: JSON.stringify({ content: [{ type: "text", text: line }], isError: true }),
+    result: { content: [{ type: "text", text: line }], details: { items: [] }, isError: true },
+  };
+  assert.equal(checklistRefusal(live), line);
+  // Replayed transcript: the text is flattened into detail; result is details only.
+  const replay = { status: "error", detail: line, result: { items: [{ text: "old", status: "completed" }] } };
+  assert.equal(checklistRefusal(replay), line);
+  // Healthy calls have no refusal, and a JSON detail never leaks as one.
+  assert.equal(checklistRefusal({ status: "ok", detail: line }), "");
+  assert.equal(checklistRefusal({ status: "error", detail: '{"content":[]}' }), "");
+  assert.equal(checklistRefusal({}), "");
 });
 
 test("a checklist call summarizes as progress and step, and the turn step reads Checklist", () => {

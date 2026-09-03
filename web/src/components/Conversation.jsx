@@ -11,7 +11,7 @@ import { IconCopy, IconFile } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { isSearchTool, hitsFromTool, searchQuery } from "../lib/searchCards.js";
-import { checklistItems, currentStep, countDone, GLYPH as CHECK_GLYPH } from "../lib/checklist.js";
+import { checklistItems, checklistRefusal, currentStep, countDone, GLYPH as CHECK_GLYPH } from "../lib/checklist.js";
 import { mdComponents } from "./SourceBlock.jsx";
 import { api } from "../lib/api.js";
 import ImageLightbox from "./ImageLightbox.jsx";
@@ -617,9 +617,12 @@ function Tool({ it, onToggle, onOpenFile, agentId, onPreview }) {
 }
 
 // The agent's checklist call as a card (ADR-0055): open by default, the
-// current step in the head, every step with its glyph in the body.
+// current step in the head, every step with its glyph in the body. A
+// refused call keeps its list for context but leads with the refusal line
+// — the one thing the operator needs to see (L4).
 function ChecklistTool({ it, onToggle }) {
   const items = checklistItems(it);
+  const refusal = checklistRefusal(it);
   const step = currentStep(items);
   const done = countDone(items);
   const open = !it.expanded; // tool rows start collapsed; this one starts open
@@ -629,16 +632,17 @@ function ChecklistTool({ it, onToggle }) {
         <span className="tp-chevron">›</span>
         <span className="tp-name">checklist</span>
         <span className="tp-args">{step ? "(" + step.position + "/" + step.total + ") " + step.text : it.args}</span>
-        <span className="tp-status">{items.length ? done + "/" + items.length : (it.status || "···")}</span>
+        <span className="tp-status">{refusal ? "Refused" : items.length ? done + "/" + items.length : (it.status || "···")}</span>
       </div>
       <div className="tp-detail tp-checklist">
+        {refusal ? <p className="check-err">{refusal}</p> : null}
         {items.length ? (
           <ol className="check-list">
             {items.map((x, i) => (
               <li key={i} className={"check-item is-" + x.status}><span className="check-glyph" aria-hidden="true">{CHECK_GLYPH[x.status]}</span><span className="check-text">{x.text}</span></li>
             ))}
           </ol>
-        ) : it.detail}
+        ) : !refusal ? it.detail : null}
       </div>
     </div>
   );
