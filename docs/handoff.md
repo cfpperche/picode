@@ -63,7 +63,7 @@ What exists:
 
 ## In flight
 
-**Feed migration phase 2 — `feat/llama-op-overlay` (gated, not merged).**
+**Feed migration phase 2 — merged to `main` 2026-09-02, deployed.**
 The llama.cpp panel's `runOp` no longer polls `/api/llama` at 1 s while
 an operation runs: the endpoints block until done and the busy row is
 the motion, so one refresh on completion is the only refetch. Verified
