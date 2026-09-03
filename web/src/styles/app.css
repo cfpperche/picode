@@ -1849,6 +1849,25 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   background: var(--bg-base);
 }
 .tool-pill.expanded .tp-detail { display: block; }
+/* ADR-0057: tool live preview — always visible below the head, frame replaces frame */
+.tp-preview { border-top: 1px solid var(--border); background: var(--bg-base); padding: 8px 10px; }
+.tp-preview-pic { display: block; width: 100%; padding: 0; border: none; background: none; cursor: zoom-in; }
+.tp-preview-pic img {
+  display: block; width: 100%; max-height: 200px; object-fit: cover; object-position: top;
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.tp-preview-cap {
+  display: flex; align-items: baseline; gap: 8px; margin-top: 6px; min-width: 0;
+}
+.tp-preview-title {
+  font-size: 12px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tp-preview-url {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+  text-align: right;
+}
 .tp-detail.tp-search { white-space: normal; font-family: inherit; padding: 0; max-height: 360px; }
 .search-hits { list-style: none; margin: 0; padding: 0; }
 .search-hits li { border-bottom: 1px solid var(--border); }

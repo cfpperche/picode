@@ -408,6 +408,26 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — Tool live previews in the conversation (ADR-0057,
+  `feat/browser-preview-core`).** Owner approved the browser-preview plan.
+  Shipped the core half of the ADR: a tool-agnostic `details.preview`
+  contract (`lib/toolPreview.js`) rendered inline in the tool pill
+  (frame + title/URL caption, click → lightbox); the reducer and the
+  desktop `handleEvent` now consume `tool_execution_update` (previously
+  dropped on the floor), the final result carries the persisted frame so
+  replay renders it, and `replay.js` constructs the same item shape.
+  Decision table tested (434 JS tests green: valid/invalid frames, unknown
+  ids, replace-don't-accumulate, end-with/end-without preview, replay).
+  Visual-review PASS on a scratch instance (WS init-script fixture + a
+  hand-built session JSONL): live mid-stream frame in the pill
+  (`qa-live-mid.png`), replayed frames + captions
+  (`qa-replay-frames.png`), lightbox (`qa-lightbox.png`, overlayAudit
+  ok). **Incident:** my `pkill -f picode` during scratch cleanup also
+  killed the owner's installed service (8445) — restored in ~5 min
+  (`systemctl --user start picode`, health OK); scratch cleanup must
+  target PIDs, never name patterns. Next: the package-side emitter
+  (PR 2 — `pi-agent-browser-native` PR or a companion package), the
+  Browser panel surface on `#/agent/<id>`, and the upstream issue.
 - **2026-09-03 — docs-harness benchmark study (plan presented).**
   Studied documentation benchmarks for a public-docs harness — Diátaxis
   IA, Scalar (MIT API reference, Vue), Mintlify/Fern (llms.txt),

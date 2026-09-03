@@ -493,7 +493,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
               {turn.work.map((it, j) => (
                 <li key={it.id || j} className={"work-step" + (live && j === turn.work.length - 1 ? " current" : "")}>
                   <span className="work-step-lab">{stepLabel(it)}</span>
-                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={open} agentId={agentId} /> : null}
+                  {it.kind === "tool" ? <Tool it={it} onToggle={onToggleTool} onOpenFile={open} agentId={agentId} onPreview={onPreview} /> : null}
                 </li>
               ))}
             </ol>
@@ -577,7 +577,7 @@ function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQ
   );
 }
 
-function Tool({ it, onToggle, onOpenFile, agentId }) {
+function Tool({ it, onToggle, onOpenFile, agentId, onPreview }) {
   if (it.name === "checklist") return <ChecklistTool it={it} onToggle={onToggle} />;
   const ch = it.change;
   const search = isSearchTool(it.name);
@@ -596,6 +596,19 @@ function Tool({ it, onToggle, onOpenFile, agentId }) {
         {ch ? <span className="tp-stat"><span className="add">{ch.add ? "+" + ch.add : ""}</span>{ch.add && ch.del ? " " : ""}<span className="del">{ch.del ? "−" + ch.del : ""}</span></span> : null}
         <span className="tp-status">{hits.length ? hits.length : (it.status || "···")}</span>
       </div>
+      {it.preview ? (
+        <div className="tp-preview">
+          <button type="button" className="tp-preview-pic" onClick={() => onPreview && onPreview(it.preview.image)} title="View image">
+            <img src={it.preview.image} alt={it.preview.title || "Live preview"} />
+          </button>
+          {it.preview.title || it.preview.url ? (
+            <div className="tp-preview-cap">
+              {it.preview.title ? <span className="tp-preview-title">{it.preview.title}</span> : null}
+              {it.preview.url ? <span className="tp-preview-url">{it.preview.url}</span> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className={"tp-detail" + (ch ? " tp-diff" : "") + (hits.length ? " tp-search" : "")}>
         {ch ? <DiffHunks hunks={ch.hunks} path={ch.path} agentId={agentId} onOpenFile={onOpenFile} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
       </div>

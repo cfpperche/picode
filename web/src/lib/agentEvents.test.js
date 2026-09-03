@@ -50,6 +50,58 @@ describe("reduceAgentEvent", () => {
     assert.equal(tool.status, "ok");
     assert.equal(tool.name, "bash");
   });
+
+  // ADR-0057 decision table: tool_execution_update carries preview frames
+  describe("tool live preview", () => {
+    const frame = { image: "data:image/jpeg;base64,AAA", url: "https://example.com", title: "Example" };
+    const frame2 = { image: "data:image/jpeg;base64,BBB" };
+    const start = [
+      { type: "agent_start" },
+      { type: "tool_execution_start", toolCallId: "b1", toolName: "agent_browser", args: { args: ["open", "https://example.com"] } },
+    ];
+    const item = (state, id = "b1") => state.items.find((it) => it.kind === "tool" && it.id === id);
+
+    it("a partial result with details.preview sets the live frame", () => {
+      const { state } = run([...start, { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } }]);
+      assert.deepEqual(item(state).preview, { image: frame.image, url: frame.url, title: frame.title });
+      assert.equal(item(state).status, "···");
+    });
+    it("a second frame replaces the first — never accumulates", () => {
+      const { state } = run([...start,
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame2 } } },
+      ]);
+      assert.equal(item(state).preview.image, frame2.image);
+    });
+    it("an update without a valid preview leaves the item untouched", () => {
+      const { state } = run([...start,
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { other: 1 } } },
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: null },
+      ]);
+      assert.equal(item(state).preview.image, frame.image);
+    });
+    it("an update for an unknown or non-tool id is ignored", () => {
+      const { state } = run([...start,
+        { type: "tool_execution_update", toolCallId: "ghost", partialResult: { details: { preview: frame } } },
+      ]);
+      assert.equal(item(state).preview, null);
+    });
+    it("the final result details keep the last frame; no end preview keeps the live one", () => {
+      const { state } = run([...start,
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
+        { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: { details: { preview: frame2 } }, isError: false },
+      ]);
+      assert.equal(item(state).status, "ok");
+      assert.equal(item(state).preview.image, frame2.image);
+      const again = run([
+        ...start,
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
+        { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: {}, isError: false },
+      ]).state;
+      assert.equal(item(again).preview.image, frame.image);
+    });
+  });
   it("a dialog request flips to waiting and opens a card; the answer path is the hook's", () => {
     const { state, effects } = run([{ type: "agent_start" }, ask]);
     assert.equal(state.waiting, true);

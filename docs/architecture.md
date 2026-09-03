@@ -480,6 +480,13 @@ Timeout on the request dismisses the card (pi auto-resolves).
 Auto-approve policy stays undecided. Track C:
 [conversation-control-roadmap.md](design/conversation-control-roadmap.md).
 
+**Tool live previews (ADR-0057):** a tool may emit
+`details.preview = { image, url?, title? }` in partial results (live) and
+the final result (persisted — the transcript already keeps `details`); the
+conversation's tool pill renders the frame inline with the lightbox one
+click away. The contract is tool-agnostic: PiCode core knows the shape,
+never the tool name (first emitter: the `agent_browser` package).
+
 ### Broker (M4)
 A Pi extension (`picode-extension`, TypeScript, installed per workspace)
 registers tools `send_message` / `read_inbox` that call PiCode's local HTTP
