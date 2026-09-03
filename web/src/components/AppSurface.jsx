@@ -587,7 +587,21 @@ function AppForm({ form, onAction, extraActions }) {
     return v;
   });
   const set = (name, val) => setValues((cur) => ({ ...cur, [name]: val }));
-  const submit = () => onAction({ id: form.id, label: form.submit || "Submit", args: {} }, values);
+  const submit = async () => {
+    // An interactive reply switches the agent from its TUI to chat mode
+    // (the terminal session ends) — the user confirms that trade once,
+    // in the dialog, not after the fact.
+    if (form.interactive) {
+      const ok = await askConfirm({
+        title: "Switch to chat mode?",
+        message: "The agent runs in a terminal — its terminal session ends and the thread continues in this chat.",
+        confirmLabel: "Switch and send",
+      });
+      if (!ok) return;
+      return onAction({ id: form.id, label: form.submit || "Submit", args: { _switch: "1" } }, values);
+    }
+    return onAction({ id: form.id, label: form.submit || "Submit", args: {} }, values);
+  };
   const hasEditor = form.fields.some((f) => f.method === "editor");
   const extraPrimary = (extraActions || []).some((a) => a.primary);
   return (

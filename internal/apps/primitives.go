@@ -65,6 +65,9 @@ type Form struct {
 	ID     string  `json:"id"`               // action id fired on submit
 	Submit string  `json:"submit,omitempty"` // submit button label
 	Fields []Field `json:"fields"`
+	// Interactive marks that replying requires switching the agent from
+	// its TUI to chat mode — the shell confirms before firing.
+	Interactive bool `json:"interactive,omitempty"`
 }
 
 // Field mirrors rpc.UIDialog.

@@ -519,6 +519,48 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 	return s.RespondInboxItem(id, verb, text)
 }
 
+// RespondAndPark records the human's reply and queues it for the agent
+// WITHOUT the deliverable gate — the consented switch (the caller stops
+// the TUI and starts managed right after; the queue drains on start,
+// ADR-0037's park-and-wake). The agent must exist and the item must
+// forward to one. Not used for FYI items: there is nothing to switch.
+func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, error) {
+	it, err := s.GetInboxItem(id)
+	if err != nil {
+		return InboxItem{}, err
+	}
+	if it.State == InboxDone {
+		return InboxItem{}, fmt.Errorf("item is already done")
+	}
+	allowed := false
+	for _, v := range it.Allowed {
+		if v == verb {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return InboxItem{}, fmt.Errorf("response %q is not allowed on this item", verb)
+	}
+	if it.SourceKind != InboxFromAgent || strings.TrimSpace(it.SourceID) == "" {
+		return InboxItem{}, fmt.Errorf("this item has no agent to switch")
+	}
+	if it.Kind != InboxQuestion && it.Kind != InboxApproval {
+		return InboxItem{}, fmt.Errorf("this item does not forward to the agent")
+	}
+	payload := fmt.Sprintf("Human reply to your question %q: %s", it.Title, text)
+	if verb == VerbAccept && strings.TrimSpace(text) == "" {
+		payload = fmt.Sprintf("The human accepted: %q", it.Title)
+	}
+	if _, err := s.EnqueueTask(it.SourceID, TaskFollowUp, payload, "inbox"); err != nil {
+		if err == ErrNotFound {
+			_ = s.AnnotateInboxItem(id, "Reply could not be delivered: agent no longer exists.")
+			return InboxItem{}, fmt.Errorf("agent no longer exists: %w", ErrNotFound)
+		}
+		return InboxItem{}, err
+	}
+	return s.RespondInboxItem(id, verb, text)
+}
+
 func boolInt(b bool) int {
 	if b {
 		return 1

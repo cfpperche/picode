@@ -79,6 +79,45 @@ func (deps Deps) agentInteractive(ctx context.Context, agentID string) bool {
 	return err == nil && has
 }
 
+// switchAgentToManaged moves an agent from interactive (TUI) to managed
+// (chat): the TUI session dies first (ADR-0006 exclusivity — the caller
+// must hold the user's consent, e.g. the inbox reply switch), then
+// managed starts on the same cwd, adopting the current session
+// (ADR-0053) and draining the follow_up queue into it. Reports
+// alreadyRunning when a managed runtime existed.
+func (deps Deps) switchAgentToManaged(ctx context.Context, agentID string) (alreadyRunning bool, err error) {
+	if _, err := deps.Store.GetAgent(agentID); err != nil {
+		return false, err
+	}
+	if deps.Tmux.Available() {
+		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
+			if err := deps.Tmux.KillSession(ctx, tmux.SessionName(agentID)); err != nil {
+				return false, fmt.Errorf("stop interactive: %w", err)
+			}
+		}
+	}
+	if deps.Runtime.Get(agentID) != nil {
+		return true, nil
+	}
+	if _, err := exec.LookPath(deps.AgentCmd); err != nil {
+		return false, errAgentCmdMissing
+	}
+	agent, err := deps.Store.GetAgent(agentID)
+	if err != nil {
+		return false, err
+	}
+	wk, cwd, err := deps.agentHome(agent)
+	if err != nil {
+		return false, err
+	}
+	if err := deps.Runtime.Start(agentID, cwd); err != nil {
+		return false, fmt.Errorf("start managed: %w", err)
+	}
+	_ = deps.Store.SetAgentRuntimeMode(agentID, store.StatusRunning, "managed")
+	_ = deps.Store.AppendEvent("agent_managed_started", &agentID, &wk.ID, nil)
+	return false, nil
+}
+
 func handleManagedStart(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agentID := r.PathValue("id")

@@ -335,8 +335,9 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 		}
 		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
-				ID:     "respond",
-				Submit: "Send reply",
+				ID:          "respond",
+				Submit:      "Send reply",
+				Interactive: h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID),
 				Fields: []Field{{
 					Name: "reply", Method: "editor", Title: "Your reply",
 					Placeholder: "Type your answer…",
@@ -458,6 +459,37 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		}
 		if verb == store.VerbRespond && strings.TrimSpace(text) == "" {
 			return ActionResult{}, fmt.Errorf("write a reply first")
+		}
+		// The consented switch (the shell confirms before sending _switch):
+		// the reply parks in the agent's queue and the TUI hands over to
+		// chat mode — the delivery loop drains on start, into the same
+		// session (ADR-0053). Without _switch the plain gate applies, so an
+		// old client still gets the honest refusal.
+		it, err := h.Store.GetInboxItem(id)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		interactive := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
+			it.SourceKind == store.InboxFromAgent
+		if interactive && it.State != store.InboxDone &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) &&
+			strings.TrimSpace(req.Args["_switch"]) == "1" {
+			if _, err := h.Store.RespondAndPark(id, verb, text); err != nil {
+				if strings.Contains(err.Error(), "agent no longer exists") {
+					return ActionResult{}, fmt.Errorf("Reply not delivered — the agent no longer exists; the item stays open")
+				}
+				return ActionResult{}, err
+			}
+			if h.SwitchToManaged == nil {
+				res, err := a.backTo(h, returnPath, "Reply queued — it delivers when the agent starts in chat mode.")
+				return res, err
+			}
+			if err := h.SwitchToManaged(it.SourceID); err != nil {
+				// The reply stays parked; it delivers on the next managed start.
+				res, err := a.backTo(h, returnPath, "Reply queued — the terminal could not be switched. It delivers when the agent starts in chat mode.")
+				return res, err
+			}
+			return ActionResult{Toast: "Reply sent — the agent switched to chat mode.", Goto: "agentchat:" + it.SourceID}, nil
 		}
 		if _, err := h.Store.RespondAndForward(id, verb, text, h.AgentDeliverable); err != nil {
 			// These surface verbatim as a toast (handleAppAction writes
