@@ -76,6 +76,16 @@ try {
   fails.push(String(e.stderr || e.message).trim().slice(0, 300));
 }
 
+// ── tutorial videos: compositions + stills + MP4s parity ───────────────
+try {
+  execFileSync("node", [join(root, "scripts", "docs-video-manifest.mjs"), "--check"], {
+    encoding: "utf8",
+  });
+  console.log("videos manifest ok");
+} catch (e) {
+  fails.push(String(e.stderr || e.message).trim().slice(0, 400));
+}
+
 if (fails.length) {
   console.error("docs-check FAILED:");
   for (const f of fails) console.error("  - " + f);

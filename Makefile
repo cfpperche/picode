@@ -81,6 +81,15 @@ $(VALE): ## Pinned Vale binary (prose linter), downloaded once into bin/
 
 vale: $(VALE) ## Prose lint on the public docs (spelling + repetition; error gate)
 	$(VALE) --config=.vale.ini --minAlertLevel=error www/*.md www/guide/*.md
+docs-videos: ## Capture stills + render the three docs tutorial videos into www/public/video (needs agent-browser)
+	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
+	fuser -k 18740/tcp 2>/dev/null || true
+	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
+		sleep 3; node scripts/docs-video-stills.mjs
+	cd docs-videos && npx hyperframes@0.8.27 render --composition index.html --quality high --output renders/create-agent.mp4 --quiet
+	cd docs-videos && npx hyperframes@0.8.27 render --composition compositions/automate-it.html --quality high --output renders/automate-it.mp4 --quiet
+	cd docs-videos && npx hyperframes@0.8.27 render --composition compositions/take-it-anywhere.html --quality high --output renders/take-it-anywhere.mp4 --quiet
+	node scripts/docs-video-manifest.mjs
 docs-check: ## Parity gate: shipped images match the current UI tree
 	node scripts/docs-check.mjs
 

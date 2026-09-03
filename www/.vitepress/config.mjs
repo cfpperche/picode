@@ -16,6 +16,10 @@ export default defineConfig({
   // https://localhost:8445 in prose is a crawlable link and fails the
   // build — that froze GitHub Pages from 2026-08-29 until this config.
   ignoreDeadLinks: [/^https?:\/\/localhost/, /^https?:\/\/127\.0\.0\.1/],
+  // Raw <video> tags in markdown carry their own asset URLs (the tutorial
+  // MP4s live in public/, copied verbatim); Vite must not try to resolve
+  // them as module imports.
+  vue: { template: { transformAssetUrls: false } },
   head: [
     ["link", { rel: "icon", href: "/picode/favicon.svg", type: "image/svg+xml" }],
     ["link", { rel: "apple-touch-icon", href: "/picode/apple-touch-icon.png" }],

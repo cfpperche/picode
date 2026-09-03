@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Three tutorial videos on the docs** (`make docs-videos`): create an
+  agent, automate it, take it anywhere. Each ~16s, silent, captioned,
+  1280x720 — embedded in Getting started, Automations and On your
+  phone. Parity-gated like the screenshots: `scripts/docs-video-
+  stills.mjs` captures every UI image live from the seeded fixture,
+  HyperFrames renders `docs-videos/compositions/*` into MP4s, and
+  `docs-check` verifies composition/still hashes against the committed
+  manifest — a UI change without `make docs-videos` fails CI.
 - **Prose gate (Vale).** The public docs are now linted for typos and
   repeated words (`make vale`, part of `make ci` and the CI workflow):
   in-repo Vale style + committed hunspell dictionary (no network

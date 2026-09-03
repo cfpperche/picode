@@ -6,6 +6,10 @@ counts its cost, and its result lands in the Inbox.
 
 Open it from the user menu → **Automations**, or `Ctrl+K` → Automations.
 
+<video controls muted preload="metadata" poster="/picode/video/automate-it-poster.jpg" src="/picode/video/automate-it.mp4" style="width:100%;border-radius:12px"></video>
+
+*Video: schedules, webhooks, and the inbox — the screens are the real app.*
+
 ## Create one
 
 1. **Create automation**.

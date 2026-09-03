@@ -1,0 +1,38 @@
+{
+  "uiTreeHash": "c74fcd1acf211946ced218f73d1757c1a8eab3a924cfed52b19e12c766744004",
+  "videos": {
+    "create-agent": {
+      "file": "create-agent.mp4",
+      "composition": "index.html",
+      "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
+      "stills": {
+        "v1-1b-agents-tab": "00b49e14f15c8848aaa3aeba2e62ea7f4c3a8539a36c3d63a7c1f645b61fd578",
+        "v1-2-form": "2d7e932bebd572a88c95d28188bb1ca08335ae9116f8948ff10873b8615fa8f6",
+        "v1-3-running": "daf51d4209b95ce67a84b968e44b3b95583316468cb690a4a8c5b3a72b2a108e"
+      },
+      "mp4": "bed8f21a7df16b11b547010f75f08ff31eb73e3ed4cad2209a737d5de41ca4ec"
+    },
+    "automate-it": {
+      "file": "automate-it.mp4",
+      "composition": "compositions/automate-it.html",
+      "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
+      "stills": {
+        "v2-1-list": "68d645c166a42e2f98a9610185e8c51b401fc723faa037377cecb66a0b7efd8f",
+        "v2-2-detail": "2305ebacd8aaf46065686b51a6e144cd1e9a3aaba9373c2ce53a2175ac4afd66",
+        "v2-3-inbox": "2d014eafca1767bee2cb97212c3deccdbbefdd7dd86a9ef6198a1ab5de812f4d"
+      },
+      "mp4": "c397ae09d7bd1ff29e6ef69b025a6e4778bd5a4d6b11fd9f93c087373cc835ba"
+    },
+    "take-it-anywhere": {
+      "file": "take-it-anywhere.mp4",
+      "composition": "compositions/take-it-anywhere.html",
+      "compositionHash": "da7f53361180409907e9f01afd1aa952775c453d9d53abdf7250c9c4a28d83a0",
+      "stills": {
+        "v3-1-fleet": "b2d7b5a5f0300452bdff7c16cb310ad31c24c46b83916fa3cf80648e5c36be49",
+        "v3-2-agent": "15a29ebdc2cdb56a5c7e86c036d99ceb72e065aba5cd13c3250494240f76044d",
+        "v3-3-inbox": "80f8d9466d0e36bddd5bcb34b5ad5b111687d0d92614fd00125f98adfef0bcb4"
+      },
+      "mp4": "1a0a5d40966b51cc66984472c95d313e3afaf51e4c5bfc450368d250de132391"
+    }
+  }
+}

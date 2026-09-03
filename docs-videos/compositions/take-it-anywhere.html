@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, height=720" />
+    <title>PiCode in your pocket — PiCode docs tutorial</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+        font-weight: 700;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1280px; height: 720px; overflow: hidden; background: #0e0e11; }
+      #root {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: #0e0e11;
+        color: #e6e6f0;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+      .clip { position: absolute; inset: 0; }
+      .scene {
+        position: absolute; inset: 0;
+        overflow: hidden;
+        background: #0e0e11;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+      }
+      .phone-slot {
+        display: grid; place-items: start center;
+        height: 100%;
+        padding-top: 86px;
+      }
+      .phone {
+        width: 430px; height: 880px; /* base intentionally crops below the frame */
+        border: 12px solid #26262e;
+        border-radius: 46px;
+        overflow: hidden;
+        background: #16161c;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+      }
+      .screen { width: 100%; height: 100%; will-change: transform; }
+      .screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .side { padding-right: 90px; }
+      .side h2 { font-size: 37px; font-weight: 700; line-height: 1.22; }
+      .side h2 b { color: #7c8cf8; }
+      .side p { font-size: 21px; color: #9b9ba7; margin-top: 18px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="take-it-anywhere"
+      data-start="0"
+      data-duration="15.5"
+      data-width="1280"
+      data-height="720"
+      data-fps="30"
+    >
+      <!-- S1 · title -->
+      <section id="s1" class="clip" data-start="0" data-duration="3">
+        <div class="scene" style="display: grid; place-items: center;">
+          <div style="text-align: center;">
+            <p style="font-size: 20px; color: #9b9ba7; letter-spacing: 0.22em; margin-bottom: 22px;">PICODE DOCS</p>
+            <h1 style="font-size: 74px; font-weight: 700; line-height: 1.08;">PiCode in your pocket</h1>
+            <div id="s1-bar" style="width: 128px; height: 5px; background: #7c8cf8; border-radius: 3px; margin: 30px auto 0; transform-origin: 50% 50%; display: block;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- S2 · work list -->
+      <section id="s2" class="clip" data-start="3" data-duration="3.8">
+        <div class="scene">
+          <div class="phone-slot"><div class="phone" data-layout-allow-overflow><div class="screen" id="s2-screen" style="transform-origin: 50% 18%;"><img src="assets/stills/v3-1-fleet.png" alt="" /></div></div></div>
+          <div class="side">
+            <h2>Same agents,<br /><b>same sessions</b></h2>
+            <p>The phone view reads the same daemon — nothing syncs, nothing copies.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- S3 · agent -->
+      <section id="s3" class="clip" data-start="6.8" data-duration="3.4">
+        <div class="scene">
+          <div class="phone-slot"><div class="phone" data-layout-allow-overflow><div class="screen" id="s3-screen" style="transform-origin: 42% 10%;"><img src="assets/stills/v3-2-agent.png" alt="" /></div></div></div>
+          <div class="side">
+            <h2>Message it and <b>it starts</b></h2>
+            <p>Read the session and send the next instruction.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- S4 · inbox -->
+      <section id="s4" class="clip" data-start="10.2" data-duration="2.8">
+        <div class="scene">
+          <div class="phone-slot"><div class="phone" data-layout-allow-overflow><div class="screen" id="s4-screen" style="transform-origin: 42% 8%;"><img src="assets/stills/v3-3-inbox.png" alt="" /></div></div></div>
+          <div class="side">
+            <h2>Approve runs <b>on the go</b></h2>
+            <p>Questions from your automations arrive as inbox cards.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- S5 · outro -->
+      <section id="s5" class="clip" data-start="13" data-duration="2.5">
+        <div class="scene" style="display: grid; place-items: center;">
+          <div style="text-align: center;">
+            <h1 style="font-size: 52px; font-weight: 700;">Same server. <span style="color: #7c8cf8;">Same agents.</span></h1>
+            <p style="font-size: 22px; color: #9b9ba7; margin-top: 26px;">cfpperche.github.io/picode · Guide → On your phone</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const build = () => {
+        const tl = gsap.timeline({ paused: true });
+
+        tl.fromTo("#s1 h1", { y: 26, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.55, ease: "power3.out" }, 0.15);
+        tl.fromTo("#s1-bar", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, 0.75);
+
+        // Each phone scene: frame rises in, copy follows, slow zoom onto the
+        // focal region (transform-origin set per scene above).
+        const phoneScene = (id, screenId, at, dur) => {
+          tl.fromTo(`#${id} .phone`, { y: 34, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.55, ease: "power3.out" }, at + 0.1);
+          tl.fromTo(`#${id} .side`, { x: 26, autoAlpha: 0 }, { x: 0, autoAlpha: 1, duration: 0.5, ease: "power3.out" }, at + 0.3);
+          tl.fromTo(`#${screenId}`, { scale: 1.55 }, { scale: 1.5, duration: dur, ease: "sine.inOut" }, at + 0.6);
+        };
+        phoneScene("s2", "s2-screen", 3, 2.6);
+        phoneScene("s3", "s3-screen", 6.8, 2.2);
+        // s4's zoom must land before its clip ends (10.2 + 2.8)
+        tl.fromTo("#s4 .phone", { y: 34, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.55, ease: "power3.out" }, 10.3);
+        tl.fromTo("#s4 .side", { x: 26, autoAlpha: 0 }, { x: 0, autoAlpha: 1, duration: 0.5, ease: "power3.out" }, 10.5);
+        tl.fromTo("#s4-screen", { scale: 1.4 }, { scale: 1.55, duration: 1.9, ease: "sine.inOut" }, 10.7);
+
+        tl.fromTo("#s5 h1", { y: 22, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, ease: "power3.out" }, 13.25);
+        tl.fromTo("#s5 p", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 13.7);
+
+        return tl;
+      };
+
+      const ready = document.fonts ? document.fonts.ready : Promise.resolve();
+      ready.then(() => {
+        const tl = build();
+        window.__timelines["take-it-anywhere"] = tl;
+        if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+      });
+    </script>
+  </body>
+</html>

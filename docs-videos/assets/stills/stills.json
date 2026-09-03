@@ -1,0 +1,55 @@
+{
+  "session": "video-stills-3124213-v3-3-inbox",
+  "results": [
+    {
+      "name": "v1-1-dashboard",
+      "ok": true,
+      "kb": 74
+    },
+    {
+      "name": "v1-1b-agents-tab",
+      "ok": true,
+      "kb": 63
+    },
+    {
+      "name": "v1-2-form",
+      "ok": true,
+      "kb": 73
+    },
+    {
+      "name": "v1-3-running",
+      "ok": true,
+      "kb": 55
+    },
+    {
+      "name": "v2-1-list",
+      "ok": true,
+      "kb": 49
+    },
+    {
+      "name": "v2-2-detail",
+      "ok": true,
+      "kb": 59
+    },
+    {
+      "name": "v2-3-inbox",
+      "ok": true,
+      "kb": 39
+    },
+    {
+      "name": "v3-1-fleet",
+      "ok": true,
+      "kb": 36
+    },
+    {
+      "name": "v3-2-agent",
+      "ok": true,
+      "kb": 24
+    },
+    {
+      "name": "v3-3-inbox",
+      "ok": true,
+      "kb": 23
+    }
+  ]
+}

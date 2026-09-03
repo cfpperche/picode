@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, height=720" />
+    <title>Automate anything — PiCode docs tutorial</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+        font-weight: 700;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1280px; height: 720px; overflow: hidden; background: #0e0e11; }
+      #root {
+        position: relative;
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+        background: #0e0e11;
+        color: #e6e6f0;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+      .clip { position: absolute; inset: 0; }
+      .scene {
+        position: absolute; inset: 0;
+        overflow: hidden;
+        background: #0e0e11;
+      }
+      .world {
+        position: absolute; inset: 0;
+        display: grid; place-items: center;
+        transform-origin: 50% 50%;
+        will-change: transform;
+      }
+      .world img { width: 1280px; height: 720px; display: block; }
+      .cap {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        padding: 96px 40px 40px;
+        text-align: center;
+        font-size: 27px; font-weight: 500; color: #e6e6f0;
+        letter-spacing: 0.01em;
+        background: linear-gradient(to top, rgba(14,14,17,0.96) 30%, rgba(14,14,17,0));
+      }
+      .cap b { color: #7c8cf8; font-weight: 700; }
+      .focus-ring {
+        position: absolute;
+        border: 3px solid #7c8cf8;
+        border-radius: 10px;
+        box-shadow: 0 0 0 6px rgba(124,140,248,0.18);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="automate-it"
+      data-start="0"
+      data-duration="17"
+      data-width="1280"
+      data-height="720"
+      data-fps="30"
+    >
+      <!-- S1 · title -->
+      <section id="s1" class="clip" data-start="0" data-duration="3">
+        <div class="scene" style="display: grid; place-items: center;">
+          <div style="text-align: center;">
+            <p style="font-size: 20px; color: #9b9ba7; letter-spacing: 0.22em; margin-bottom: 22px;">PICODE DOCS</p>
+            <h1 style="font-size: 74px; font-weight: 700; line-height: 1.08;">Automate anything</h1>
+            <div id="s1-bar" style="width: 128px; height: 5px; background: #7c8cf8; border-radius: 3px; margin: 30px auto 26px; transform-origin: 50% 50%; display: block;"></div>
+            <p style="font-size: 25px; color: #9b9ba7;">On a schedule, or on a webhook.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- S2 · automations list -->
+      <section id="s2" class="clip" data-start="3" data-duration="3.6">
+        <div class="scene">
+          <div class="world" id="s2-world">
+            <img src="assets/stills/v2-1-list.png" alt="" />
+            <div id="s2-ring" class="focus-ring" style="left: 218px; top: 196px; width: 838px; height: 74px; opacity: 0;"></div>
+          </div>
+          <div id="s2-cap" class="cap">Schedules and <b>webhooks</b>, on one screen</div>
+        </div>
+      </section>
+
+      <!-- S3 · detail -->
+      <section id="s3" class="clip" data-start="6.6" data-duration="3.8">
+        <div class="scene">
+          <div class="world" id="s3-world">
+            <img src="assets/stills/v2-2-detail.png" alt="" />
+          </div>
+          <div id="s3-cap" class="cap">Anything that <b>POSTs</b> can fire a run</div>
+        </div>
+      </section>
+
+      <!-- S4 · inbox -->
+      <section id="s4" class="clip" data-start="10.4" data-duration="3.6">
+        <div class="scene">
+          <div class="world" id="s4-world">
+            <img src="assets/stills/v2-3-inbox.png" alt="" />
+          </div>
+          <div id="s4-cap" class="cap">Every run lands in <b>your inbox</b></div>
+        </div>
+      </section>
+
+      <!-- S5 · outro -->
+      <section id="s5" class="clip" data-start="14" data-duration="3">
+        <div class="scene" style="display: grid; place-items: center;">
+          <div style="text-align: center;">
+            <h1 style="font-size: 52px; font-weight: 700;">Runs while you <span style="color: #7c8cf8;">sleep</span>.</h1>
+            <p style="font-size: 22px; color: #9b9ba7; margin-top: 26px;">cfpperche.github.io/picode · Guide → Automations</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const FRAME_W = 1280, FRAME_H = 720;
+      const camTween = (tl, worldId, startAt, { tx, ty, scale, dur }) => {
+        const ox = tx - FRAME_W / 2, oy = ty - FRAME_H / 2;
+        tl.fromTo(
+          "#" + worldId,
+          { x: 0, y: 0, scale: 1 },
+          { x: -ox * scale, y: -oy * scale, scale, duration: dur, ease: "power2.inOut" },
+          startAt,
+        );
+      };
+
+      const build = () => {
+        const tl = gsap.timeline({ paused: true });
+
+        tl.fromTo("#s1 h1", { y: 26, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.55, ease: "power3.out" }, 0.15);
+        tl.fromTo("#s1 p", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 0.5);
+        tl.fromTo("#s1-bar", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, 0.75);
+
+        // S2 — pull back to show the whole list, ring the first row
+        tl.fromTo("#s2 .cap", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: "power3.out" }, 3.25);
+        camTween(tl, "s2-world", 3.5, { tx: 640, ty: 300, scale: 1.25, dur: 2.2 });
+        tl.fromTo("#s2-ring", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 4.4);
+        tl.to("#s2-ring", { opacity: 0.35, duration: 0.4, yoyo: true, repeat: 3, ease: "sine.inOut" }, 4.7);
+
+        // S3 — slow push on the detail view
+        tl.fromTo("#s3 .cap", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: "power3.out" }, 6.85);
+        camTween(tl, "s3-world", 7.1, { tx: 640, ty: 320, scale: 1.2, dur: 2.6 });
+
+        // S4 — inbox
+        tl.fromTo("#s4 .cap", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: "power3.out" }, 10.65);
+        camTween(tl, "s4-world", 10.9, { tx: 640, ty: 340, scale: 1.18, dur: 2.4 });
+
+        // S5 — outro
+        tl.fromTo("#s5 h1", { y: 22, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.5, ease: "power3.out" }, 14.25);
+        tl.fromTo("#s5 p", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 14.7);
+
+        return tl;
+      };
+
+      const ready = document.fonts ? document.fonts.ready : Promise.resolve();
+      ready.then(() => {
+        const tl = build();
+        window.__timelines["automate-it"] = tl;
+        if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+      });
+    </script>
+  </body>
+</html>

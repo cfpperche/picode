@@ -38,6 +38,10 @@ asking), the composer with **prompt / steer / follow-up** and dictation, and
 
 ![The Inbox tab: the same approvals, questions and results as the desktop](../img/app-mobile-inbox.png)
 
+<video controls muted preload="metadata" poster="/picode/video/take-it-anywhere-poster.jpg" src="/picode/video/take-it-anywhere.mp4" style="width:100%;border-radius:12px"></video>
+
+*Video: the phone views — same server, same agents.*
+
 Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
 left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
 terminal or a workspace opens its uncommitted changes, read-only.

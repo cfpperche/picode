@@ -13,6 +13,10 @@ Open `https://localhost:8445`. The sidebar has a tab per kind: **Agents** (agent
 
 ![The desktop shell: workspaces and agents in the sidebar, what needs you first, and today's numbers on the right](../img/app-fleet.png)
 
+<video controls muted preload="metadata" poster="/picode/video/create-agent-poster.jpg" src="/picode/video/create-agent.mp4" style="width:100%;border-radius:12px"></video>
+
+*Video: creating an agent from the browser — the screens above are the real app.*
+
 `make deploy` rebuilds this repo and restarts the service. `picode update` checks GitHub for a newer release. `picode uninstall` removes the service. `--purge` also deletes `~/.picode`.
 
 ```bash
