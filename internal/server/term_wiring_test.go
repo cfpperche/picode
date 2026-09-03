@@ -166,6 +166,15 @@ func TestStripLegacyUserClaudeHooks(t *testing.T) {
 	}
 }
 
+func TestHookScriptTalksToLocalhostInsecure(t *testing.T) {
+	if !strings.Contains(hookScriptTmpl, "curl -fsSk") {
+		t.Fatal("reporter must curl -k: mkcert is localhost, WSL has no CA")
+	}
+	if !strings.Contains(hookScriptTmpl, "https://localhost:") {
+		t.Fatal("reporter must rewrite 127.0.0.1 → localhost for the cert SAN")
+	}
+}
+
 func TestClaudeSetWiringRefusesEnable(t *testing.T) {
 	_, err := claudeSetWiring("/nope", "", true)
 	if err == nil || !strings.Contains(err.Error(), "refusing") {

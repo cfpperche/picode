@@ -51,11 +51,17 @@ const hookScriptTmpl = `#!/bin/sh
 # Outside a PiCode terminal ($PICODE_TERM_ID empty) this is a no-op.
 [ -n "$PICODE_TERM_ID" ] || exit 0
 TOKEN=$(cat "%s/token" 2>/dev/null)
-curl -fsS -o /dev/null --max-time 3 \
+# Local daemon cert is mkcert for localhost; curl to 127.0.0.1 fails SAN,
+# and WSL often lacks the CA. -k is the local reporter talking to itself.
+case "$PICODE_TERM_URL" in
+  https://127.0.0.1:*) url="https://localhost:${PICODE_TERM_URL##*:}" ;;
+  *) url=$PICODE_TERM_URL ;;
+esac
+curl -fsSk -o /dev/null --max-time 3 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"state\":\"$1\",\"cli\":\"$2\"}" \
-  "$PICODE_TERM_URL/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
+  "$url/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
 `
 
 func ensureHookScript(dataDir string) (string, error) {

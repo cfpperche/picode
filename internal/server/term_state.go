@@ -138,11 +138,15 @@ func loopbackURL(deps Deps) string {
 	if snap.Current == 0 {
 		return ""
 	}
+	// HTTPS certs are issued for localhost (mkcert), not 127.0.0.1 — using
+	// the IP made the reporter's curl fail SAN check (2026-09-03 dogfood).
+	host := "localhost"
 	scheme := "https"
 	if deps.Insecure {
 		scheme = "http"
+		host = "127.0.0.1"
 	}
-	return scheme + "://127.0.0.1:" + strconv.Itoa(snap.Current)
+	return scheme + "://" + host + ":" + strconv.Itoa(snap.Current)
 }
 
 // handleSetTerminalState records a guest CLI's report for one terminal:

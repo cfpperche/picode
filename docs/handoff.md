@@ -477,6 +477,12 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — intercept hook actually reaches HTTPS** (`feat/hook-curl-insecure`).
+  Dogfood: wrapper path was correct, Claude ran `/doctor`, sidebar idle.
+  Cause: reporter curled `https://127.0.0.1:8445` without `-k` (SAN +
+  missing WSL CA); error swallowed. Fix: rewrite to localhost + `curl -k`;
+  `ensureHookScript` on server start so deploy refreshes the live script.
+  Manual POST with `-k` returned 200 for terminal-9-b5547d.
 - **2026-09-03 — docs harness phase 1+2 shipped: themed docs + parity-
   gated screenshots.** Site rethemed with the app's tokens (dark-first,
   Diátaxis sidebar, hero); `cmd/picode-docs-fixture` + `scripts/docs-

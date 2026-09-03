@@ -61,6 +61,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Guest CLI status reporter can reach the HTTPS daemon.** The hook
+  curled `https://127.0.0.1` without `-k`; mkcert is issued for
+  `localhost` and WSL has no CA, so reports vanished. The reporter now
+  rewrites 127.0.0.1 → localhost and uses `curl -k`; a deploy refreshes
+  the script without toggling intercept.
 - **The sidebar checklist line follows the current session, not the last
   POST (ADR-0055).** A fresh agent session used to leave the daemon row
   from the dead session in place, so the sidebar kept showing the old

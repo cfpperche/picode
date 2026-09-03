@@ -70,6 +70,11 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.TermStates == nil {
 		deps.TermStates = NewTermStates()
 	}
+	// Refresh the local reporter so a deploy picks up curl flags without
+	// requiring the user to toggle intercept off/on.
+	if deps.DataDir != "" {
+		_, _ = ensureHookScript(deps.DataDir)
+	}
 
 	mux.HandleFunc("GET /api/health", handleHealth)
 	mux.HandleFunc("GET /api/version", handleVersion)
