@@ -273,8 +273,38 @@ func (m *Manager) CaptureTail(ctx context.Context, name string, n int) (string, 
 }
 
 // LooksWorking reports whether a captured TUI tail shows pi's busy state.
+//
+// pi renders its working indicator as its own pane line —
+// "⠹ Working...", cycling the braille frames below (~10x/s) — and
+// disposes it when the turn ends. Nothing else in the TUI uses braille,
+// so a tail line whose first non-space rune is a frame means working,
+// whatever the conversation text says: a bare substring "working" match
+// lit up on replies that merely mentioned the word (an agent writing
+// about this very feature flagged itself as busy while idle,
+// 2026-09-02). Frames mirror pi 0.84.4
+// (dist/bundle/chunks/chunk-OMWWHBTG.js: DEFAULT_FRAMES) — re-check them
+// when upgrading pi. Not matching the "Working..." message keeps the
+// detection immune to a renamed working message; a custom indicator
+// without braille degrades to false-negative (benign: the badge stays
+// idle, it never inflames).
+var piSpinnerFrames = map[rune]bool{
+	'⠋': true, '⠙': true, '⠹': true, '⠸': true, '⠼': true,
+	'⠴': true, '⠦': true, '⠧': true, '⠇': true, '⠏': true,
+}
+
 func LooksWorking(captured string) bool {
-	return strings.Contains(strings.ToLower(captured), "working")
+	for _, line := range strings.Split(captured, "\n") {
+		for _, r := range line {
+			if r == ' ' || r == '\t' {
+				continue
+			}
+			if piSpinnerFrames[r] {
+				return true
+			}
+			break // first non-space rune is not a frame — next line
+		}
+	}
+	return false
 }
 
 // ExtendedKeysFormat returns the server's `extended-keys-format` option

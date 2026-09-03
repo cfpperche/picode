@@ -210,3 +210,61 @@ func TestNewSessionNoStatusBar(t *testing.T) {
 		t.Errorf("session status = %q, want off", got)
 	}
 }
+
+// Real pane tails captured on the owner's machine (agente-auto, pi
+// 0.84.4, zai/glm-5.3-flash), trimmed to the shape that matters. The
+// borders are pi's input-box drawing; the last two lines are the footer.
+const (
+	tailWorking = " ⠹ Working...\n" +
+		"\n" +
+		"────────\n" +
+		"\n" +
+		"────────\n" +
+		"~/.picode/work/agente-auto\n" +
+		"↑17k ↓799 R57k CH0.0% $0.002 0.9%/1.0M (auto)   (zai) glm-5.3-flash · high\n" +
+		"🔌 MCP: 1 server enabled\n"
+
+	tailIdle = "────────\n" +
+		"\n" +
+		"────────\n" +
+		"~/.picode/work/agente-auto\n" +
+		"↑8.0k ↓780 R57k CH99.1% $0.002 0.9%/1.0M (auto)   (zai) glm-5.3-flash · high\n" +
+		"🔌 MCP: 1 server enabled\n"
+
+	// The 2026-09-02 false positive: an idle agent whose last pane lines
+	// were its own reply about this very feature — the old substring
+	// match flagged it busy for as long as the prose stayed on screen.
+	tailProseMentioningWorking = "the composer now shows a \"Working in the terminal\" row with\n" +
+		"an Open button that docks the TUI; no fake streaming, no Stop. UI\n" +
+		"only; the server pieces shipped with ADR-0048 (watch tick 3s).\n" +
+		"Deployed and verified live on agente-auto: send-keys → row appears\n" +
+		"within one tick with the spinner, Open docks the TUI mid-work, row\n" +
+		"clears when the pane's working line ends; overlayAudit ok.\n" +
+		"visual-review: PASS (qa4-row-live.png + qa4-open-docked.png,\n" +
+		"card 5/5).\n"
+)
+
+// Decision table for LooksWorking: the pane's working indicator is the
+// spinner line and nothing else. Prose that merely contains the word
+// "working" — the 2026-09-02 false positive — must never count.
+func TestLooksWorkingDecisionTable(t *testing.T) {
+	cases := []struct {
+		name string
+		tail string
+		want bool
+	}{
+		{"real working tail", tailWorking, true},
+		{"spinner frame without leading space", "⠸ Working...\n" + tailIdle, true},
+		{"renamed message still matches (frames anchor)", " ⠸ Thinking hard...\n" + tailIdle, true},
+		{"idle footer only", tailIdle, false},
+		{"idle tail ending with prose about working", tailIdle + tailProseMentioningWorking, false},
+		{"prose-only tail (the reported false positive)", tailProseMentioningWorking, false},
+		{"braille mid-line is not the indicator", "run: pi --frames ⠹ now\n" + tailIdle, false},
+		{"empty capture", "", false},
+	}
+	for _, tc := range cases {
+		if got := LooksWorking(tc.tail); got != tc.want {
+			t.Errorf("%s: LooksWorking = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
