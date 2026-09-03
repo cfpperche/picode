@@ -477,6 +477,35 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — docs harness phase 4 shipped: Vale prose gate.**
+  `make vale` (in `make ci` + the ubuntu CI job) lints `www/*.md` and
+  `www/guide/*.md` for typos and repeated words. Fully in-repo: style
+  rules in `styles/PiCode/`, committed hunspell en_US dictionary, a
+  PiCode vocab for product terms; the only download is the pinned
+  binary (`bin/vale`, v3.12.0, fetched on first use). Gate proven both
+  ways (typo+repetition → red; clean tree → green). First run caught
+  2 real prose fixes. Note: the target scans explicit paths so
+  `www/node_modules` is never linted (block-based exclusion didn't
+  hold). Vale step green on the CI ubuntu runner; the CI `Test` step
+  is red on main across the last three pushes with a wider set of
+  integration tests (presence expire/revive, automation start-run
+  e2e, package-updates watch, bridge resize/attach, tmux flake) that
+  also failed before the docs-harness merges — pass locally, fail
+  with -race on the runner: NEXT-UP debt to triage (runner-stability
+  suspect), not introduced by these diffs.
+
+- **2026-09-03 — docs harness phase 3 shipped: generated API reference +
+  llms.txt.** Route registration now flows through a `Registrar`
+  interface; `cmd/picode-openapi` emits the OpenAPI spec from that same
+  list (drift-proof by construction), the docs site gained a Scalar
+  viewer at `/api/`, an `HTTP API` page in Reference, and a generated
+  `llms.txt`. `make docs-check` now byte-compares both artifacts
+  against fresh regeneration. Gate notes: the parity gate correctly
+  flags server-side changes, so route edits require `make openapi` +
+  `make docs-shots` (both verified). Known debts unchanged: tmux flake
+  (TestPaneCwdFollowsProcess) re-confirmed environment-dependent
+  (3× green on re-run); macos/windows CI catalogue as recorded.
+
 - **2026-09-03 — spinner on the terminal icon; interrupt → idle**
   (`feat/term-state-ux`). Dogfood: spinner was after the name; Escape
   left it spinning; Codex never spun. UI matches AgentRow (icon slot).
