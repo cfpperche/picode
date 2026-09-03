@@ -28,7 +28,9 @@ func TestTuiWorking(t *testing.T) {
 	t.Cleanup(func() { _ = m.KillSession(ctx, idle) })
 
 	busy := tmux.SessionName(busyID)
-	if err := m.NewSession(ctx, busy, dir, "sh", "-c", "echo 'Working...'; sleep 30"); err != nil {
+	// pi renders its working indicator as "<braille frame> Working...";
+	// LooksWorking anchors on the frame since 07a12aa8.
+	if err := m.NewSession(ctx, busy, dir, "sh", "-c", "echo '⠋ Working...'; sleep 30"); err != nil {
 		t.Fatalf("busy session: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(ctx, busy) })
@@ -56,8 +58,13 @@ func TestTuiWorking(t *testing.T) {
 }
 
 func TestLooksWorkingUnit(t *testing.T) {
-	if !tmux.LooksWorking("⋮ Working...") {
-		t.Fatal("spinner line not detected")
+	if !tmux.LooksWorking("⠋ Working...") {
+		t.Fatal("spinner frame not detected")
+	}
+	// ⋮ is not one of pi's braille frames — the word alone must not lit
+	// the badge (that false positive is why 07a12aa8 moved the anchor).
+	if tmux.LooksWorking("⋮ Working...") {
+		t.Fatal("non-frame indicator detected")
 	}
 	if tmux.LooksWorking("$ echo done\nno code here") {
 		t.Fatal("false positive")
