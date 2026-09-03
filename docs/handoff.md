@@ -63,6 +63,14 @@ What exists:
 
 ## In flight
 
+**Feed migration phase 2 — `feat/llama-op-overlay` (gated, not merged).**
+The llama.cpp panel's `runOp` no longer polls `/api/llama` at 1 s while
+an operation runs: the endpoints block until done and the busy row is
+the motion, so one refresh on completion is the only refetch. Verified
+live against a fake router (blocked Load + Unload → exactly one GET).
+Phases 3–4 of the polling→feed migration plan (git events,
+`packages.updates`) are not started.
+
 **Feed migration phase 1 — merged to `main` 2026-09-02, deployed.**
 `StartMcpWatch` (mirrors `tui_watch.go`) reads each running agent's
 live MCP snapshot once per 3 s tick for the whole fleet and publishes

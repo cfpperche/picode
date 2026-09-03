@@ -56,14 +56,13 @@ export default function LlamaPanel({ onRefresh, hideTitle }) {
 
 
   async function runOp(fn) {
-    const tick = setInterval(refresh, 1000);
-    try {
-      await fn();
-      await refresh();
-      if (onRefresh) await onRefresh();
-    } finally {
-      clearInterval(tick);
-    }
+    // The op endpoints block until done (load 5 min, unload 2 min,
+    // download 10 min) and the busy row is the motion; one refresh on
+    // completion is the authority. No 1 s poll while the op runs —
+    // ADR-0048 follow-up.
+    await fn();
+    await refresh();
+    if (onRefresh) await onRefresh();
   }
 
   async function load(id) {

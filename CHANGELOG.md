@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The llama.cpp panel no longer polls while an operation runs.**
+  Load / Unload / Download refetched `/api/llama` every second until the
+  op finished. The op endpoints already block until the operation is
+  done (load 5 min, unload 2 min, download 10 min) and the busy row —
+  "working" on the model, other buttons disabled — is the motion, so
+  the tick was pure redundancy: one refresh when the op returns is now
+  the only refetch. Verified live against a fake llama.cpp router:
+  a whole blocked Load or Unload produces exactly one `GET /api/llama`
+  and no interval traffic.
+
 - **The MCPs panel no longer polls for live server status.** While an
   agent ran, the panel refetched `/api/mcp` every 2.5 s to keep the
   per-server Idle / Live / Failed / Sign in badge fresh. The server now
