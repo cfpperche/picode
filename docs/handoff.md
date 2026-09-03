@@ -477,6 +477,13 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — spinner on the terminal icon; interrupt → idle**
+  (`feat/term-state-ux`). Dogfood: spinner was after the name; Escape
+  left it spinning; Codex never spun. UI matches AgentRow (icon slot).
+  Reporter `auto` maps Claude Stop/TaskCompleted/SessionEnd → idle and
+  Codex agent-turn-complete → idle. Deploy rewrites intercept JSON so
+  a running install picks this up. Codex has no turn-start hook — no
+  spinner there until the CLI grows one.
 - **2026-09-03 — intercept hook actually reaches HTTPS** (`feat/hook-curl-insecure`).
   Dogfood: wrapper path was correct, Claude ran `/doctor`, sidebar idle.
   Cause: reporter curled `https://127.0.0.1:8445` without `-k` (SAN +

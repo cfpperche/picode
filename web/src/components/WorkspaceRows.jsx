@@ -96,13 +96,10 @@ export function TermRow({
       onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
     >
       <div className="ws-row1">
-        <span className="tree-icon"><IconTerminal size={14} /></span>
+        {t.state === "working" ? <PiSpinner title="Working" /> : <span className="tree-icon"><IconTerminal size={14} /></span>}
         {actions ? (
           <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
         ) : <span className="ws-name">{t.name}</span>}
-        {/* Guest CLI state (ADR-0056 tier 1): working spins, needs-you is
-            the user's move and takes the accent. No chip = no signal. */}
-        {t.state === "working" ? <PiSpinner title="Working" /> : null}
         {t.state === "needs-you" ? <span className="ws-wait">Needs you</span> : null}
         {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
       </div>

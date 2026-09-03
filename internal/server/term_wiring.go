@@ -16,12 +16,11 @@ import (
 
 const wiringMarker = "picode-hook"
 
-// claudeHookEvents are the three lifecycle points: a prompt starts a
-// turn, Stop ends it, Notification asks for the human.
-var claudeHookEvents = map[string]string{
-	"UserPromptSubmit": "working",
-	"Stop":             "idle",
-	"Notification":     "needs-you",
+// claudeHookEvents are mapped by picode-hook auto (stdin / extra argv JSON).
+var claudeHookEvents = []string{
+	"UserPromptSubmit", "SessionStart",
+	"Stop", "TaskCompleted", "SessionEnd", "SubagentStop",
+	"Notification",
 }
 
 type wiringRow struct {
@@ -45,14 +44,47 @@ func claudeSettingsPath() (string, error) { return homeFile(".claude", "settings
 
 func hookScriptPath(dataDir string) string { return filepath.Join(dataDir, wiringMarker) }
 
+const hookMapPy = `import json, sys
+raw = sys.stdin.read()
+if not raw.strip() and len(sys.argv) > 1:
+    raw = sys.argv[1]
+try:
+    d = json.loads(raw) if raw.strip() else {}
+except Exception:
+    sys.exit(0)
+ev = str(d.get("hook_event_name") or d.get("event") or "")
+nt = str(d.get("notification_type") or "")
+typ = str(d.get("type") or "")
+if typ == "agent-turn-complete":
+    print("idle")
+    sys.exit(0)
+working = {"UserPromptSubmit", "SessionStart", "user_prompt_submit", "session_start"}
+idle = {"Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "stop", "session_end", "StopCancelled"}
+if ev in working:
+    print("working")
+elif ev in idle:
+    print("idle")
+elif ev in ("Notification", "notification"):
+    print("idle" if nt in ("agent_completed", "idle_prompt") else "needs-you")
+`
+
 const hookScriptTmpl = `#!/bin/sh
-# PiCode guest-CLI status hook (ADR-0056). Installed in the data dir.
-# Usage: picode-hook <working|needs-you|idle> <cli>.
-# Outside a PiCode terminal ($PICODE_TERM_ID empty) this is a no-op.
+# PiCode guest-CLI status hook (ADR-0056).
+# Usage: picode-hook <working|needs-you|idle|auto> <cli> [json]
+# auto maps Claude/Grok/Codex JSON (stdin or $3) to a state word.
 [ -n "$PICODE_TERM_ID" ] || exit 0
+state=$1
+cli=$2
+if [ "$state" = auto ]; then
+  MAP="%s/picode-hook-map.py"
+  if [ -n "$3" ]; then
+    state=$(printf "%%s\n" "$3" | python3 "$MAP" 2>/dev/null)
+  else
+    state=$(python3 "$MAP" 2>/dev/null)
+  fi
+  [ -n "$state" ] || exit 0
+fi
 TOKEN=$(cat "%s/token" 2>/dev/null)
-# Local daemon cert is mkcert for localhost; curl to 127.0.0.1 fails SAN,
-# and WSL often lacks the CA. -k is the local reporter talking to itself.
 case "$PICODE_TERM_URL" in
   https://127.0.0.1:*) url="https://localhost:${PICODE_TERM_URL##*:}" ;;
   *) url=$PICODE_TERM_URL ;;
@@ -60,7 +92,7 @@ esac
 curl -fsSk -o /dev/null --max-time 3 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"state\":\"$1\",\"cli\":\"$2\"}" \
+  -d "{\"state\":\"$state\",\"cli\":\"$cli\"}" \
   "$url/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
 `
 
@@ -68,8 +100,12 @@ func ensureHookScript(dataDir string) (string, error) {
 	if strings.TrimSpace(dataDir) == "" {
 		return "", errors.New("data directory unknown")
 	}
+	if err := os.WriteFile(filepath.Join(dataDir, "picode-hook-map.py"), []byte(hookMapPy), 0o644); err != nil {
+		return "", err
+	}
 	path := hookScriptPath(dataDir)
-	if err := os.WriteFile(path, []byte(fmt.Sprintf(hookScriptTmpl, dataDir)), 0o755); err != nil {
+	body := fmt.Sprintf(hookScriptTmpl, dataDir, dataDir)
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		return "", err
 	}
 	if err := os.Chmod(path, 0o755); err != nil {
@@ -119,7 +155,7 @@ func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error)
 		return false, nil
 	}
 	changed := false
-	for event := range claudeHookEvents {
+	for _, event := range claudeHookEvents {
 		groups, _ := hooks[event].([]any)
 		kept := make([]any, 0, len(groups))
 		for _, g := range groups {

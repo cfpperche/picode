@@ -61,6 +61,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Guest CLI spinner sits on the terminal icon** (same slot as Pi
+  agents), not after the name. Interrupt maps Claude `Stop` /
+  `TaskCompleted` / `SessionEnd` to idle via the reporter's `auto`
+  JSON map (Codex `agent-turn-complete` too). Codex still has no
+  start-of-turn hook, so it will not spin until OpenAI adds one.
 - **Guest CLI status reporter can reach the HTTPS daemon.** The hook
   curled `https://127.0.0.1` without `-k`; mkcert is issued for
   `localhost` and WSL has no CA, so reports vanished. The reporter now

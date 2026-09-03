@@ -135,11 +135,11 @@ func claudeSettingsFile(dataDir string) string {
 func writeClaudeIntercept(dataDir, hook string) error {
 	doc := map[string]any{"hooks": map[string]any{}}
 	hooks := doc["hooks"].(map[string]any)
-	for event, state := range claudeHookEvents {
+	for _, event := range claudeHookEvents {
 		hooks[event] = []any{map[string]any{
 			"hooks": []any{map[string]any{
 				"type":    "command",
-				"command": fmt.Sprintf("%s %s claude-code", hook, state),
+				"command": hook + " auto claude-code",
 			}},
 		}}
 	}
@@ -161,7 +161,7 @@ func writeClaudeIntercept(dataDir, hook string) error {
 
 func writeCodexIntercept(dataDir, hook string) error {
 	// TOML array via -c; Codex appends its JSON payload after our args.
-	override := fmt.Sprintf("notify=[%q, %q, %q]", hook, "idle", "codex")
+	override := fmt.Sprintf("notify=[%q, %q, %q]", hook, "auto", "codex")
 	body := "#!/bin/sh\n# PiCode intercept — Codex. Session PATH only. End-of-turn only.\nname=codex\n" +
 		wrapperFindReal +
 		fmt.Sprintf("exec \"$real\" -c %q \"$@\"\n", override)
@@ -180,16 +180,19 @@ func writeGrokIntercept(dataDir, hook string) error {
 	doc := map[string]any{
 		"hooks": map[string]any{
 			"SessionStart": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " working grok"}},
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
 			}},
 			"UserPromptSubmit": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " working grok"}},
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
 			}},
 			"Notification": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " needs-you grok"}},
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
 			}},
 			"Stop": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " idle grok"}},
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
+			}},
+			"SessionEnd": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
 			}},
 		},
 	}

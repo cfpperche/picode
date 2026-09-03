@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -55,8 +56,12 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if !strings.Contains(string(body), claudeSettingsFile(dataDir)) {
 		t.Fatal("wrapper must point at the data-dir settings file")
 	}
-	if _, err := os.Stat(claudeSettingsFile(dataDir)); err != nil {
+	rawSettings, err := os.ReadFile(claudeSettingsFile(dataDir))
+	if err != nil {
 		t.Fatalf("intercept settings missing: %v", err)
+	}
+	if !strings.Contains(string(rawSettings), "TaskCompleted") || !strings.Contains(string(rawSettings), " auto claude-code") {
+		t.Fatalf("settings should map Stop/TaskCompleted via auto:\n%s", rawSettings)
 	}
 	pathEnv := interceptSessionPath(dataDir)
 	if !strings.HasPrefix(pathEnv, "PATH="+interceptBinDir(dataDir)) {
@@ -163,6 +168,41 @@ func TestStripLegacyUserClaudeHooks(t *testing.T) {
 	stop := after["hooks"].(map[string]any)["Stop"].([]any)
 	if len(stop) != 1 {
 		t.Fatalf("Stop groups = %d, want only the user group", len(stop))
+	}
+}
+
+func TestHookMapPy(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not on PATH")
+	}
+	dir := t.TempDir()
+	if _, err := ensureHookScript(dir); err != nil {
+		t.Fatal(err)
+	}
+	run := func(in string) string {
+		t.Helper()
+		cmd := exec.Command("python3", filepath.Join(dir, "picode-hook-map.py"))
+		cmd.Stdin = strings.NewReader(in)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("map %q: %v", in, err)
+		}
+		return string(out)
+	}
+	if got := run(`{"hook_event_name":"UserPromptSubmit"}`); got != "working\n" {
+		t.Fatalf("prompt = %q", got)
+	}
+	if got := run(`{"hook_event_name":"Stop"}`); got != "idle\n" {
+		t.Fatalf("stop = %q", got)
+	}
+	if got := run(`{"hook_event_name":"TaskCompleted"}`); got != "idle\n" {
+		t.Fatalf("task = %q", got)
+	}
+	if got := run(`{"type":"agent-turn-complete"}`); got != "idle\n" {
+		t.Fatalf("codex = %q", got)
+	}
+	if got := run(`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`); got != "needs-you\n" {
+		t.Fatalf("perm = %q", got)
 	}
 }
 

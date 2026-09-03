@@ -1,4 +1,5 @@
 import { IconTerminal, IconChevronRight, IconTrash } from "../../components/Icons.jsx";
+import PiSpinner from "../../components/PiSpinner.jsx";
 import { termLine } from "../../lib/repoLine.js";
 
 // One terminal, same 56px row as an agent: name, where it is (live cwd
@@ -8,13 +9,13 @@ export default function TermRow({ term, onOpen, onRemove, busy }) {
   return (
     <li className={"m-row m-term-row" + (term.running ? " is-live" : "")}>
       <button type="button" className="m-row-main" onClick={() => onOpen(term)}>
-        <span className="m-row-face"><IconTerminal size={18} /></span>
+        <span className="m-row-face">{term.state === "working" ? <PiSpinner title="Working" /> : <IconTerminal size={18} />}</span>
         <span className="m-row-text">
           <span className="m-row-title">{term.name || "Terminal"}</span>
           <span className="m-row-sub">{line.text}</span>
         </span>
         {term.state === "needs-you" ? <span className="m-state is-waiting">Needs you</span>
-          : term.state === "working" ? <span className="m-state is-working">Working</span>
+          : term.state === "working" ? null
           : term.running ? <span className="m-state is-working">Live</span> : null}
         <IconChevronRight size={16} className="m-row-chev" />
       </button>
