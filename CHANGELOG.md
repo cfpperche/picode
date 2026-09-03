@@ -40,11 +40,14 @@ to the `[Unreleased]` section. The repository's official language is English
   open the terminal and paste the reply, and left the hunt to the
   reader. When the item is agent-sourced and its agent is interactive
   (the same gate the reply uses), the item's view shows an Open
-  terminal action that starts the agent's TUI through the same path as
-  the HTTP open endpoint — server-side, so it works from the desktop
-  and the mobile inbox alike. The reply itself stays undelivered by
-  design (ADR-0037/0006); the terminal is where the agent can hear
-  you.
+  terminal action that starts the agent's TUI and **takes you to it**:
+  the action returns a goto directive (`ActionResult.Goto`), and the
+  shell leaves the inbox for the agent's tab with the TUI docked
+  (owner decision: acting from the inbox must not dead-end there).
+  Server-side, so it works from the desktop and the mobile inbox
+  alike (mobile has no terminal surface and ignores the goto). The
+  reply itself stays undelivered by design (ADR-0037/0006); the
+  terminal is where the agent can hear you.
 - **A TUI agent whose conversation mentions "working" no longer shows
   as busy while idle.** The working check grepped the pane tail for the
   substring "working" — so an agent whose last reply merely contained

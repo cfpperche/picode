@@ -328,14 +328,21 @@ Never exercised, because this machine was already past them:
   Deployed; verified live on the owner's item + a QA item:
   action renders only when interactive, click starts/confirms the
   tmux session (mode → interactive), detail closes by design after
-  acting. **Parked (owner's call, from the send-keys benchmark
+  acting. Follow-through (same day): the action now returns
+  `ActionResult.Goto` ("agent:<id>") and the shell's AppSurface hands
+  it to the host via `onGoto` → **leaves the inbox** and lands on the
+  agent's tab with the TUI docked (owner decision: acting from the
+  inbox must not dead-end there; mobile has no terminal surface and
+  ignores the goto). visual-review: PASS (qa7 + qa8-landed.png,
+  card 5/5). **Parked (owner's call, from the send-keys benchmark
   research):** Degrau 2 — consented mode-switch delivery (queue the
-  reply + switch interactive→managed; ADR-0053 keeps the thread;
-  trigger: owner hits the refusal again in dogfood); Degrau 3 —
-  guarded send-keys delivery, parked with ADR-0002's rejection
-  (claude-squad precedent noted: SendPrompt = keys + 100ms + TapEnter,
-  autoyes experimental, per-CLI content sniffing).
-  visual-review: PASS (qa7-open-terminal-action.png, card 5/5).
+  reply + switch interactive→managed; ADR-0053 keeps the thread; on
+  switch, the agent tab undocks the terminal and flips to chat; the
+  TUI reopens later on the same session; trigger: owner hits the
+  refusal again in dogfood); Degrau 3 — guarded send-keys delivery,
+  parked with ADR-0002's rejection (claude-squad precedent noted:
+  SendPrompt = keys + 100ms + TapEnter, autoyes experimental, per-CLI
+  content sniffing).
 
 - **2026-09-02 — MCP live status rides the change feed**
   (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
