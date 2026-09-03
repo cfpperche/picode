@@ -473,6 +473,20 @@ so `termKeys.js` encodes modified Enter itself (VS Code's terminal gets
 the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
+Guest CLI state (ADR-0056) is ephemeral: scoped wrappers inject Claude,
+Codex, or Grok hooks; reports become `terminal.state` feed events. Codex
+hooks are invocation-only `-c` values whose exact SHA-256 fingerprints
+are trusted in the same session flags — PiCode never bypasses trust and
+never writes `~/.codex`. PTY input closes the gap left by a CLI that omits
+its interruption callback:
+
+| Input | Current terminal state | Session | Lifecycle action |
+|---|---|---|---|
+| Ctrl+C or one bare Escape frame | `working` / `needs-you` | matching project shell | publish `idle`, then forward input |
+| Ctrl+C or bare Escape | `idle` / no signal | matching project shell | no event; forward input |
+| Ctrl+C or bare Escape | any | agent or another shell | no event; forward input |
+| Arrow, Alt, or function-key escape sequence | any | any | no event; forward input |
+
 ### RPCBridge ✅ (M2 core)
 `internal/rpc`: JSONL client for `pi --mode rpc` (strict `\n` framing via
 bufio.Scanner, command/response correlation by id, event fan-out, exit

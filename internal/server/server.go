@@ -145,7 +145,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPushRoutes(mux, deps)
 	registerAuthRoutes(mux, deps)
 
-	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps)))
+	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps), terminalInterruptObserver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
 
 	mux.Handle("/", securityHeaders(cacheControl(uiHandler())))

@@ -17,6 +17,7 @@
 package term
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log"
@@ -51,8 +52,10 @@ var upgrader = websocket.Upgrader{
 // attach, so a setting changed while nobody was looking takes hold the next
 // time the terminal is opened, and a session that predates the setting heals
 // itself rather than staying odd forever. A nil resolve means PiCode manages
-// no options.
-func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue) http.Handler {
+// no options. onInterrupt observes a bare Escape or Ctrl+C before that byte is
+// forwarded, allowing terminal lifecycle state to stop immediately when a TUI
+// omits its own interruption hook; nil keeps the bridge transport-only.
+func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue, onInterrupt func(session string)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("session")
 		if !tmux.OwnedSessionName(name) {
@@ -122,6 +125,9 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue) h
 				case websocket.TextMessage:
 					handleControl(ptyFile, data)
 				case websocket.BinaryMessage:
+					if onInterrupt != nil && isInterruptInput(data) {
+						onInterrupt(name)
+					}
 					if _, werr := ptyFile.Write(data); werr != nil {
 						return
 					}
@@ -171,6 +177,13 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue) h
 		<-ptyDone
 		<-wsDone
 	})
+}
+
+// isInterruptInput intentionally accepts only a bare Escape frame. Arrow,
+// Alt and function keys are escape-prefixed sequences and must not cancel a
+// working state. Ctrl+C is ETX and can be coalesced with adjacent input.
+func isInterruptInput(data []byte) bool {
+	return bytes.IndexByte(data, 0x03) >= 0 || (len(data) == 1 && data[0] == 0x1b)
 }
 
 type controlMessage struct {

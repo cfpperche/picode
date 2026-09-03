@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,76 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
+
+func TestTerminalInterruptObserver(t *testing.T) {
+	// Decision table: only a matching terminal shell with an active state
+	// transitions to idle. Raw-byte filtering (bare Escape/Ctrl+C, but not
+	// escape sequences) is covered in internal/term.
+	cases := []struct {
+		name      string
+		start     string
+		session   string // "shell", "agent", or "other"
+		want      string
+		wantEvent bool
+	}{
+		{name: "working shell", start: TermWorking, session: "shell", want: TermIdle, wantEvent: true},
+		{name: "needs-you shell", start: TermNeedsYou, session: "shell", want: TermIdle, wantEvent: true},
+		{name: "idle shell", start: TermIdle, session: "shell", want: TermIdle},
+		{name: "no signal shell", session: "shell"},
+		{name: "agent session", start: TermWorking, session: "agent", want: TermWorking},
+		{name: "another terminal", start: TermWorking, session: "other", want: TermWorking},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			st, err := store.Open(filepath.Join(root, "picode.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close()
+			terminal, err := st.CreateTerminal("Shell", root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			states := NewTermStates()
+			if tc.start != "" {
+				states.Set(terminal.ID, tc.start, "claude-code", time.Now())
+			}
+			events := make(chan store.Event, 1)
+			f := &feed.Feed{}
+			f.Listen(func(ev store.Event) { events <- ev })
+			deps := Deps{Store: st, TermStates: states, Feed: f}
+
+			session := tmux.ShellSessionName(terminal.ID)
+			switch tc.session {
+			case "agent":
+				session = tmux.SessionName(terminal.ID)
+			case "other":
+				session = tmux.ShellSessionName("terminal-other")
+			}
+			terminalInterruptObserver(deps)(session)
+
+			got, ok := states.Get(terminal.ID)
+			if tc.want == "" {
+				if ok {
+					t.Fatalf("state = %+v, want no signal", got)
+				}
+			} else if !ok || got.State != tc.want || got.CLI != "claude-code" {
+				t.Fatalf("state = %+v ok=%v, want %s with CLI preserved", got, ok, tc.want)
+			}
+			select {
+			case ev := <-events:
+				if !tc.wantEvent || ev.Type != "terminal.state" || !strings.Contains(string(ev.Data), `"state":"idle"`) {
+					t.Fatalf("unexpected event: %+v", ev)
+				}
+			default:
+				if tc.wantEvent {
+					t.Fatal("idle transition did not publish terminal.state")
+				}
+			}
+		})
+	}
+}
 
 func TestTermStateRegistrySweep(t *testing.T) {
 	now := time.Now()

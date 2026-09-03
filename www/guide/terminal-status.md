@@ -22,18 +22,21 @@ recreated.
 | `needs-you` | the CLI is waiting on you (permission prompt, question) | accent "Needs you" chip |
 | `idle` | the CLI finished its turn | nothing — quiet means idle |
 
-A `working` report expires after 30 minutes of silence. No chip means
-"no signal" — never a guess.
+A `working` report expires after 30 minutes of silence. Escape or
+Ctrl+C also clears an active state immediately; arrow and Alt-key escape
+sequences do not. No chip means "no signal" — never a guess.
 
 ## What each CLI gets
 
 | CLI | How PiCode injects (session only) | Coverage |
 |---|---|---|
 | Claude Code | `claude --settings <picode json>` | working / needs-you / idle |
-| Codex | `codex -c notify=[reporter, idle, …]` | end of turn only |
+| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | prompt, needs-you, idle, interrupt |
 | Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | session start, prompt, needs-you, idle |
 
-Outside PiCode, `which claude` is still your real binary.
+Outside PiCode, `which claude` is still your real binary. Codex hooks
+are passed with `-c` for that invocation and trusted one by one; PiCode
+never enables Codex's blanket `--dangerously-bypass-hook-trust` switch.
 
 ## If a CLI has no launch injection
 

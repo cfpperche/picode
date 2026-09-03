@@ -42,8 +42,7 @@ to the `[Unreleased]` section. The repository's official language is English
   study: `docs/benchmarks/2026-09-02-live-browser-preview.md`).
 - **Terminal status for guest coding CLIs (ADR-0056, tier 1).** A CLI
   running inside a PiCode terminal can now report its lifecycle: a
-  small hook (Claude Code hooks, Codex `notify` — copy-paste snippets
-  in the new "Terminal status for CLIs" guide) POSTs `working`,
+  small hook (Claude Code, Codex and Grok lifecycle events) POSTs `working`,
   `needs-you` or `idle` to `POST /api/terminals/{id}/state`, and the
   sidebar terminal row, the terminal tab and the phone's terminal list
   show a spinner or an accent "Needs you" chip in step. PiCode
@@ -55,8 +54,10 @@ to the `[Unreleased]` section. The repository's official language is English
   signal, never a guess. Pixels are never read: sensors, not scraping.
   Intercept is one click in Preferences → Terminal status: wrappers in
   PiCode's data dir, PATH only inside PiCode terminals. Claude gets
-  `--settings`, Codex `-c notify`, Grok a `GROK_HOME` overlay (auth
-  stays yours). Nothing is written to `~/.claude` / `~/.codex` / `~/.grok`.
+  `--settings`; Codex gets invocation-only `-c hooks.…` plus exact hook
+  trust hashes (never the blanket trust bypass); Grok gets a `GROK_HOME`
+  overlay (auth stays yours). Nothing is written to `~/.claude` /
+  `~/.codex` / `~/.grok`.
   (Retired: merging hooks into the user's Claude settings.json.)
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
@@ -77,11 +78,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
-- **Guest CLI spinner sits on the terminal icon** (same slot as Pi
-  agents), not after the name. Interrupt maps Claude `Stop` /
-  `TaskCompleted` / `SessionEnd` to idle via the reporter's `auto`
-  JSON map (Codex `agent-turn-complete` too). Codex still has no
-  start-of-turn hook, so it will not spin until OpenAI adds one.
+- **Guest CLI spinners start and stop with the real turn.** Codex does
+  expose full lifecycle hooks: PiCode now injects `UserPromptSubmit`,
+  `PermissionRequest`, `Stop`, `Interrupt`, and `SessionEnd`, so Codex
+  gains start-of-turn and explicit interruption state instead of its old
+  end-only `notify`. Claude omits `Stop` when Escape/Ctrl+C aborts a turn;
+  the terminal bridge now clears active state on those exact input bytes
+  before forwarding them (arrow/Alt escape sequences are excluded).
+  `SessionStart` now reports idle rather than spinning at an empty prompt.
+  The spinner remains in the terminal-icon slot, matching Pi agents.
 - **Guest CLI status reporter can reach the HTTPS daemon.** The hook
   curled `https://127.0.0.1` without `-k`; mkcert is issued for
   `localhost` and WSL has no CA, so reports vanished. The reporter now

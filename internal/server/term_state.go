@@ -2,7 +2,7 @@ package server
 
 // Guest CLI lifecycle state for terminals (ADR-0056, tier 1). A coding
 // CLI running inside a PiCode terminal reports its own state through a
-// small HTTP hook (Claude Code hooks, Codex notify); PiCode correlates
+// small HTTP hook (Claude Code, Codex and Grok lifecycle hooks); PiCode correlates
 // the report to the terminal via PICODE_TERM_ID — injected into the tmux
 // session environment at creation, so every hook process inherits it —
 // and republishes changes as ephemeral terminal.state events (ADR-0048,
@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // Terminal state vocabulary — the same words agent.state uses, so tier 2
@@ -149,6 +151,44 @@ func loopbackURL(deps Deps) string {
 	return scheme + "://" + host + ":" + strconv.Itoa(snap.Current)
 }
 
+func reportTermState(deps Deps, id, state, cli string, now time.Time) TermState {
+	st, changed := deps.TermStates.Set(id, state, cli, now)
+	if changed && deps.Feed != nil {
+		deps.Feed.Ephemeral("terminal.state", map[string]any{
+			"termId": id, "state": st.State, "cli": st.CLI,
+		})
+	}
+	return st
+}
+
+// terminalInterruptObserver is the PTY-input fallback for Escape/Ctrl+C.
+// Claude Code does not run Stop when a user aborts a turn, so waiting for its
+// hook leaves a stale spinner. The bridge recognizes only an actual interrupt
+// byte (not arrow/Alt escape sequences); this observer then clears an active
+// state immediately and the CLI hook reconciles any state that follows.
+func terminalInterruptObserver(deps Deps) func(session string) {
+	return func(session string) {
+		if deps.Store == nil || deps.TermStates == nil || !tmux.IsShellSession(session) {
+			return
+		}
+		terminals, err := deps.Store.ListTerminals()
+		if err != nil {
+			return
+		}
+		for _, terminal := range terminals {
+			if tmux.ShellSessionName(terminal.ID) != session {
+				continue
+			}
+			current, ok := deps.TermStates.Get(terminal.ID)
+			if !ok || current.State == TermIdle {
+				return
+			}
+			reportTermState(deps, terminal.ID, TermIdle, current.CLI, time.Now())
+			return
+		}
+	}
+}
+
 // handleSetTerminalState records a guest CLI's report for one terminal:
 // POST /api/terminals/{id}/state {"state":"working","cli":"claude-code"}.
 // The route sits behind the ordinary auth gate (ADR-0049) — hook scripts
@@ -176,12 +216,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "state must be working, needs-you or idle")
 			return
 		}
-		st, changed := deps.TermStates.Set(id, req.State, strings.TrimSpace(req.CLI), time.Now())
-		if changed && deps.Feed != nil {
-			deps.Feed.Ephemeral("terminal.state", map[string]any{
-				"termId": id, "state": st.State, "cli": st.CLI,
-			})
-		}
+		st := reportTermState(deps, id, req.State, strings.TrimSpace(req.CLI), time.Now())
 		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "at": st.At})
 	}
 }

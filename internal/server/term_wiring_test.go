@@ -103,8 +103,13 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 		t.Fatalf("codex enable = %d", res.StatusCode)
 	}
 	body, _ := os.ReadFile(wrapperPath(dataDir, "codex"))
-	if !strings.Contains(string(body), "-c") || !strings.Contains(string(body), "notify=") {
-		t.Fatalf("codex wrapper:\n%s", body)
+	for _, want := range []string{"hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.Interrupt", "hooks.state=", "notify="} {
+		if !strings.Contains(string(body), want) {
+			t.Fatalf("codex wrapper missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(string(body), "exec \"$real\" --dangerously-bypass-hook-trust") {
+		t.Fatalf("codex wrapper must trust only PiCode hooks, not bypass all hook trust:\n%s", body)
 	}
 	if res := postJSON(t, ts, "/api/terminals/wiring/grok/enable", map[string]any{}); res.StatusCode != http.StatusOK {
 		t.Fatalf("grok enable = %d", res.StatusCode)
@@ -120,6 +125,12 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), "UserPromptSubmit") {
 		t.Fatalf("grok hooks: %s", raw)
+	}
+}
+
+func TestInterceptBashrcRefusesUnknownDataDir(t *testing.T) {
+	if path, err := ensureInterceptBashrc(""); err == nil || path != "" {
+		t.Fatalf("empty data dir = %q, %v; want refusal", path, err)
 	}
 }
 
@@ -192,6 +203,9 @@ func TestHookMapPy(t *testing.T) {
 	if got := run(`{"hook_event_name":"UserPromptSubmit"}`); got != "working\n" {
 		t.Fatalf("prompt = %q", got)
 	}
+	if got := run(`{"hook_event_name":"SessionStart"}`); got != "idle\n" {
+		t.Fatalf("session start = %q", got)
+	}
 	if got := run(`{"hook_event_name":"Stop"}`); got != "idle\n" {
 		t.Fatalf("stop = %q", got)
 	}
@@ -201,8 +215,34 @@ func TestHookMapPy(t *testing.T) {
 	if got := run(`{"type":"agent-turn-complete"}`); got != "idle\n" {
 		t.Fatalf("codex = %q", got)
 	}
+	if got := run(`{"hook_event_name":"Interrupt"}`); got != "idle\n" {
+		t.Fatalf("interrupt = %q", got)
+	}
+	if got := run(`{"hook_event_name":"PermissionRequest"}`); got != "needs-you\n" {
+		t.Fatalf("permission = %q", got)
+	}
 	if got := run(`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`); got != "needs-you\n" {
-		t.Fatalf("perm = %q", got)
+		t.Fatalf("notification = %q", got)
+	}
+}
+
+func TestCodexHookHashMatchesCodexFingerprint(t *testing.T) {
+	// Captured from Codex 0.153.0 hooks/list for this exact normalized hook.
+	spec := codexHookSpec{key: "user_prompt_submit", timeoutSec: 600}
+	got := codexHookHash(spec, "/tmp/codex-hook-test.sh UserPromptSubmit")
+	want := "sha256:d195511c28b02bd5cb782e8f7e489c9316ac02f7d42e2b64130eff27afe5f1cb"
+	if got != want {
+		t.Fatalf("hash = %q, want Codex fingerprint %q", got, want)
+	}
+
+	// Go's encoding/json escapes HTML by default; serde_json (which Codex
+	// fingerprints) does not. A legal data-dir containing these characters
+	// must still produce the command hash Codex trusts.
+	spec = codexHookSpec{key: "user_prompt_submit", timeoutSec: 5}
+	got = codexHookHash(spec, "/tmp/<picode>& hook")
+	want = "sha256:5328cb425a3aeb63b4eb7c137e1cb84d42f52f12165fe7a4b5f03d7e76731a35"
+	if got != want {
+		t.Fatalf("HTML-character hash = %q, want %q", got, want)
 	}
 }
 

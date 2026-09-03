@@ -24,9 +24,13 @@ func startTestSession(t *testing.T, tm *tmux.Manager, name string) {
 
 // dial connects a test client to the bridge over an httptest server. resolve
 // is the session's managed tmux options; nil means PiCode manages none.
-func dial(t *testing.T, target string, resolve func(string) []tmux.ScopedValue) *websocket.Conn {
+func dial(t *testing.T, target string, resolve func(string) []tmux.ScopedValue, observers ...func(string)) *websocket.Conn {
 	t.Helper()
-	ts := httptest.NewServer(Bridge(tmux.New(), resolve))
+	var observe func(string)
+	if len(observers) > 0 {
+		observe = observers[0]
+	}
+	ts := httptest.NewServer(Bridge(tmux.New(), resolve, observe))
 	t.Cleanup(ts.Close)
 	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/ws/term?session=" + target
 	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
@@ -45,6 +49,52 @@ func readUntil(t *testing.T, ws *websocket.Conn, timeout time.Duration) []byte {
 		t.Fatalf("read: %v", err)
 	}
 	return data
+}
+
+func TestInterruptInput(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		data []byte
+		want bool
+	}{
+		{name: "escape", data: []byte{0x1b}, want: true},
+		{name: "ctrl-c", data: []byte{0x03}, want: true},
+		{name: "coalesced ctrl-c", data: []byte{'x', 0x03}, want: true},
+		{name: "up arrow", data: []byte("\x1b[A")},
+		{name: "alt key", data: []byte("\x1bx")},
+		{name: "text", data: []byte("hello")},
+		{name: "empty"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isInterruptInput(tc.data); got != tc.want {
+				t.Fatalf("isInterruptInput(%q) = %v, want %v", tc.data, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBridgeObservesInterrupt(t *testing.T) {
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	name := tmux.SessionName("bridge-interrupt")
+	startTestSession(t, tm, name)
+
+	observed := make(chan string, 1)
+	ws := dial(t, name, nil, func(session string) { observed <- session })
+	_ = readUntil(t, ws, 2*time.Second) // initial pane draw
+	if err := ws.WriteMessage(websocket.BinaryMessage, []byte{0x1b}); err != nil {
+		t.Fatalf("write Escape: %v", err)
+	}
+	select {
+	case got := <-observed:
+		if got != name {
+			t.Fatalf("observed session = %q, want %q", got, name)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("interrupt observer was not called")
+	}
 }
 
 func TestBridgeEchoThroughTmux(t *testing.T) {

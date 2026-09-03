@@ -1,7 +1,8 @@
 # ADR-0056: Guest CLI state — tier 1 on terminals, tier 2 as guest agents
 
 - **Status**: accepted (2026-09-03, owner session — decision split into
-  two tiers during review; tier 1 built now, tier 2 deferred)
+  two tiers during review; tier 1 built now, tier 2 deferred; amended
+  2026-09-03 with Codex lifecycle hooks and PTY interrupt fallback)
 - **Date**: 2026-09-03 (proposed); 2026-09-03 (accepted, amended in review)
 - **Evidence**: [benchmarks study 2026-09-03 — guest TUI agent state](../benchmarks/2026-09-03-guest-tui-agent-state.md)
 
@@ -23,9 +24,10 @@ credible orchestrator does as its primary source:
   (`Notification` types include `permission_prompt`,
   `agent_needs_input`, `agent_completed`; plus `Stop`,
   `TaskCompleted`), a JSON statusline, and a terminal-bell fallback.
-- Codex ships `notify` ("receives a JSON payload from Codex") and an
-  official **app-server** embed protocol (JSON-RPC 2.0, used by its
-  VS Code extension).
+- Codex ships Claude-compatible lifecycle hooks (`UserPromptSubmit`,
+  `PermissionRequest`, `Stop`, `Interrupt`, `SessionEnd`), legacy
+  `notify`, and an official **app-server** embed protocol (JSON-RPC 2.0,
+  used by its VS Code extension).
 - opencode ships a headless HTTP server (`opencode serve`) whose TUI
   is itself just a client, plus `opencode acp`.
 - Grok CLI has headless NDJSON events; Gemini/Kimi/Qwen/Droid/Cursor
@@ -55,13 +57,19 @@ writes `~/.claude`, `~/.codex` or `~/.grok`. Turning a CLI on drops a
 wrapper in `<data>/bin` and prepends that directory to **PATH of that
 tmux session only**. The user types `claude` / `codex` / `grok` as
 usual; the wrapper `exec`s the real binary with launch-time injection:
-Claude `--settings` (JSON in the data dir), Codex `-c notify=…`, Grok
-`GROK_HOME` overlay (hooks in the data dir, `auth.json` symlinked).
+Claude `--settings` (JSON in the data dir), Codex invocation-only
+`-c hooks.…` plus per-command trust hashes (legacy `notify` remains a
+fallback), and a Grok `GROK_HOME` overlay (hooks in the data dir,
+`auth.json` symlinked). Codex's blanket hook-trust bypass is never used.
 Outside PiCode terminals the wrappers are not on PATH. A leftover
 from the retired file-wiring is stripped from `~/.claude/settings.json`
 on Claude enable/disable (marker entries only). Reports republish as ephemeral `terminal.state` events on
-the ADR-0048 feed; views carry the same fields for reconciliation. A
-sweep expires `working` after 30 minutes of silence (hooks fire
+the ADR-0048 feed; views carry the same fields for reconciliation.
+Claude does not fire `Stop` for every user abort, so the terminal bridge
+also treats the exact Ctrl+C byte and a *bare* Escape frame as an
+optimistic idle transition before forwarding the input. Escape-prefixed
+arrow/Alt/function sequences are excluded; the next CLI event reconciles
+state. A sweep expires `working` after 30 minutes of silence (hooks fire
 between tools, not inside one) — a silenced sensor degrades to "no
 signal", never a stale spinner. `needs-you` and `idle` do not decay.
 The UI shows two chips only — working (spinner) and needs-you

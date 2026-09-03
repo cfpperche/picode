@@ -7,6 +7,8 @@ package server
 // Outside those sessions the wrappers are not on PATH.
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -68,6 +70,9 @@ fi
 `
 
 func ensureInterceptBashrc(dataDir string) (string, error) {
+	if strings.TrimSpace(dataDir) == "" {
+		return "", fmt.Errorf("data directory unknown")
+	}
 	return interceptBashrcPath(dataDir), writeExecutable(interceptBashrcPath(dataDir), interceptBashrc)
 }
 
@@ -159,12 +164,84 @@ func writeClaudeIntercept(dataDir, hook string) error {
 	return writeExecutable(wrapperPath(dataDir, "claude"), body)
 }
 
+type codexHookSpec struct {
+	event      string
+	key        string
+	timeoutSec int
+}
+
+var codexHookSpecs = []codexHookSpec{
+	{event: "UserPromptSubmit", key: "user_prompt_submit", timeoutSec: 5},
+	{event: "PermissionRequest", key: "permission_request", timeoutSec: 5},
+	{event: "Stop", key: "stop", timeoutSec: 5},
+	// Codex caps Interrupt and SessionEnd hooks at three seconds.
+	{event: "Interrupt", key: "interrupt", timeoutSec: 3},
+	{event: "SessionEnd", key: "session_end", timeoutSec: 3},
+}
+
+func tomlString(s string) string {
+	raw, _ := json.Marshal(s)
+	return string(raw)
+}
+
+// codexHookHash mirrors Codex's public hook trust fingerprint: canonical
+// JSON (sorted by encoding/json) of the normalized event/group/handler,
+// SHA-256 prefixed with "sha256:". This lets the wrapper trust only the
+// PiCode-owned session hooks, never every hook in the current repository.
+func codexHookHash(spec codexHookSpec, command string) string {
+	identity := map[string]any{
+		"event_name": spec.key,
+		"hooks": []any{map[string]any{
+			"async":   false,
+			"command": command,
+			"timeout": spec.timeoutSec,
+			"type":    "command",
+		}},
+	}
+	var canonical bytes.Buffer
+	enc := json.NewEncoder(&canonical)
+	enc.SetEscapeHTML(false) // match serde_json: '<', '>' and '&' stay literal
+	_ = enc.Encode(identity)
+	raw := bytes.TrimSuffix(canonical.Bytes(), []byte{'\n'})
+	sum := sha256.Sum256(raw)
+	return fmt.Sprintf("sha256:%x", sum)
+}
+
+func codexHookOverrides(hook string) []string {
+	command := hook + " auto codex"
+	out := make([]string, 0, len(codexHookSpecs)+2)
+	state := make([]string, 0, len(codexHookSpecs))
+	for _, spec := range codexHookSpecs {
+		out = append(out, fmt.Sprintf(
+			"hooks.%s=[{hooks=[{type=\"command\",command=%s,timeout=%d}]}]",
+			spec.event, tomlString(command), spec.timeoutSec,
+		))
+		key := "/<session-flags>/config.toml:" + spec.key + ":0:0"
+		state = append(state, fmt.Sprintf("%s={trusted_hash=%s}",
+			tomlString(key), tomlString(codexHookHash(spec, command))))
+	}
+	out = append(out, "hooks.state={"+strings.Join(state, ",")+"}")
+	// Legacy notify remains an idle fallback for Codex builds predating hooks.
+	out = append(out, fmt.Sprintf("notify=[%s,%s,%s]",
+		tomlString(hook), tomlString("auto"), tomlString("codex")))
+	return out
+}
+
 func writeCodexIntercept(dataDir, hook string) error {
-	// TOML array via -c; Codex appends its JSON payload after our args.
-	override := fmt.Sprintf("notify=[%q, %q, %q]", hook, "auto", "codex")
-	body := "#!/bin/sh\n# PiCode intercept — Codex. Session PATH only. End-of-turn only.\nname=codex\n" +
+	overrides := codexHookOverrides(hook)
+	var hookArgs strings.Builder
+	for _, override := range overrides {
+		fmt.Fprintf(&hookArgs, " -c %q", override)
+	}
+	// --dangerously-bypass-hook-trust is only a capability marker. PiCode
+	// deliberately does not pass it: the injected hook hashes above trust
+	// these exact commands while repository hooks keep their own trust rules.
+	body := "#!/bin/sh\n# PiCode intercept — Codex. Session PATH only.\nname=codex\n" +
 		wrapperFindReal +
-		fmt.Sprintf("exec \"$real\" -c %q \"$@\"\n", override)
+		"if \"$real\" --help 2>&1 | grep -q -- '--dangerously-bypass-hook-trust'; then\n" +
+		fmt.Sprintf("  exec \"$real\"%s \"$@\"\n", hookArgs.String()) +
+		"fi\n" +
+		fmt.Sprintf("exec \"$real\" -c %q \"$@\"\n", overrides[len(overrides)-1])
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
 }
 

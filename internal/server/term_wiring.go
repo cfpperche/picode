@@ -58,12 +58,15 @@ typ = str(d.get("type") or "")
 if typ == "agent-turn-complete":
     print("idle")
     sys.exit(0)
-working = {"UserPromptSubmit", "SessionStart", "user_prompt_submit", "session_start"}
-idle = {"Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "stop", "session_end", "StopCancelled"}
+working = {"UserPromptSubmit", "user_prompt_submit"}
+idle = {"SessionStart", "session_start", "Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled"}
+needs_you = {"PermissionRequest", "permission_request"}
 if ev in working:
     print("working")
 elif ev in idle:
     print("idle")
+elif ev in needs_you:
+    print("needs-you")
 elif ev in ("Notification", "notification"):
     print("idle" if nt in ("agent_completed", "idle_prompt") else "needs-you")
 `

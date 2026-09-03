@@ -277,15 +277,17 @@ ready for it (overrides are a map, not a column). Not refused, deferred.
 **Multi-runtime TUIs in terminals** (owner direction): research +
 **ADR-0056 accepted (two tiers)** — tier 1 **shipped 2026-09-03**:
 guest CLIs in terminals report `working` / `needs-you` / `idle` via
-per-tool hooks (Claude hooks → HTTP, Codex `notify`) to
+per-tool hooks (Claude/Codex/Grok lifecycle events) to
 `POST /api/terminals/{id}/state`; correlation is `PICODE_TERM_ID` +
 `PICODE_TERM_URL`, injected into the tmux session env at creation;
 state republishes as ephemeral `terminal.state` on the ADR-0048 feed;
-chips on the sidebar row, terminal tab and mobile terminal row; a
-silent `working` expires after 30 min (no stale spinners); no chip =
-no signal. Wiring is the copy-paste guide
-`www/guide/terminal-status.md` (dogfood first; the one-click wiring
-UI is owed). Tier 2 (deferred): promote wired terminals to
+chips on the sidebar row, terminal tab and mobile terminal row. Codex
+gets trusted invocation-only hooks (not its blanket trust bypass).
+Ctrl+C / bare Escape clears active state at PTY input before forwarding,
+covering Claude's missing Stop-on-abort; escape sequences are excluded.
+A silent `working` expires after 30 min (no stale spinners); no chip =
+no signal. Wiring is one click in Preferences; guide:
+`www/guide/terminal-status.md`. Tier 2 (deferred): promote wired terminals to
 observe-only guest agents — own ADR, re-measures ADR-0003's Pi-only
 clause; ACP/control stays the named further track. The unified
 TermSurface/ShellTerm path stays the substrate. Known landmine for
@@ -506,13 +508,28 @@ Never exercised, because this machine was already past them:
   (TestPaneCwdFollowsProcess) re-confirmed environment-dependent
   (3× green on re-run); macos/windows CI catalogue as recorded.
 
+- **2026-09-03 — Codex start hooks; PTY interrupt fallback**
+  (`feat/codex-hooks-interrupt`). Screenshot `/hooks` proved the prior
+  "Codex has no start hook" claim false: 0.153 exposes
+  UserPromptSubmit, PermissionRequest, Stop, Interrupt and SessionEnd.
+  Wrapper injects them with `-c` and exact SHA-256 trust entries in
+  session flags; it does not write `~/.codex` or pass the blanket trust
+  bypass. Live `codex exec` proved UserPromptSubmit → Stop and SIGINT →
+  Interrupt. Claude still omits Stop on Escape/Ctrl+C, so Bridge clears
+  active terminal state on ETX/bare Escape before forwarding; arrow/Alt
+  sequences are ignored. SessionStart maps to idle (dogfood caught the
+  otherwise-immediate spinner on an empty Claude prompt). Disposable live
+  terminals proved Codex and Claude `working` → Escape → `idle`; working
+  and interrupted screenshots were read, overlay audit returned ok, and
+  the visual card passed 5/5. QA terminals were removed. Decision table is
+  in `docs/architecture.md`; `make ci` is green on the rebased branch.
 - **2026-09-03 — spinner on the terminal icon; interrupt → idle**
   (`feat/term-state-ux`). Dogfood: spinner was after the name; Escape
   left it spinning; Codex never spun. UI matches AgentRow (icon slot).
   Reporter `auto` maps Claude Stop/TaskCompleted/SessionEnd → idle and
   Codex agent-turn-complete → idle. Deploy rewrites intercept JSON so
-  a running install picks this up. Codex has no turn-start hook — no
-  spinner there until the CLI grows one.
+  a running install picks this up. The Codex no-start-hook conclusion
+  was corrected by the next activity entry.
 - **2026-09-03 — intercept hook actually reaches HTTPS** (`feat/hook-curl-insecure`).
   Dogfood: wrapper path was correct, Claude ran `/doctor`, sidebar idle.
   Cause: reporter curled `https://127.0.0.1:8445` without `-k` (SAN +
@@ -537,8 +554,9 @@ Never exercised, because this machine was already past them:
   `~/.claude/settings.json`. Preferences → Terminal status now drops
   wrappers in `<data>/bin` and prepends that dir to PATH **only** on
   the tmux session of a PiCode terminal. Claude: `--settings` JSON in
-  the data dir; Codex: `-c notify=…` (end-of-turn); Grok: `GROK_HOME`
-  overlay with hooks + symlink of `auth.json`. Enable refuses to write
+  the data dir; Codex initially used `-c notify=…` (later superseded by
+  full lifecycle hooks); Grok: `GROK_HOME` overlay with hooks + symlink
+  of `auth.json`. Enable refuses to write
   user Claude settings (tested); a leftover marker from the retired
   file-wiring is stripped on Claude enable/disable. Guide rewritten.
   Bash `--rcfile` sources ~/.bashrc then prepends intercept (user rc
@@ -647,7 +665,7 @@ Never exercised, because this machine was already past them:
   sensor can never leave a spinner. Registry is in-memory by design —
   a restart is honest "no signal" (verified live). ADR-0056 accepted
   with the owner's two-tier split (agents deferred; scraping refused).
-  Guide: `www/guide/terminal-status.md` (Claude hooks + Codex notify
+  Guide: `www/guide/terminal-status.md` (Claude/Codex lifecycle hooks
   + the `picode-hook` helper). **Wiring is now one click**
   (`feat/term-wiring`): Preferences → Terminal status installs the
   reporter at `<data>/picode-hook` and merges/strips exactly the
@@ -793,7 +811,7 @@ Never exercised, because this machine was already past them:
   Grok CLI, Vibe Kanban, Crystal, Conductor): four integration levels;
   nobody credible scrapes pixels as the primary source; Claude hooks
   can POST to HTTP (`Notification` types include `agent_needs_input`),
-  Codex has `notify` + an official app-server, opencode has a server
+  Codex has lifecycle hooks + `notify` + an official app-server, opencode has a server
   API — and the ACP registry already lists **pi (pi-acp)**.
   Deliverable: **ADR-0056 (proposed)** — per-tool sensors → ADR-0048
   feed with pi's state vocabulary + honest `unknown`; scraping refused
