@@ -71,6 +71,20 @@ to the `[Unreleased]` section. The repository's official language is English
   with direct store tests for `ValidateChecklistItems`,
   `ChecklistLevel`, and the new `ClearChecklist` (which now sits in the
   ADR-0048 mutation table alongside `SetChecklist`, previously missing).
+- **The Devices list no longer accumulates "This machine" duplicates
+  (ADR-0049 amendment).** Every browser-like visit from loopback without
+  a session used to mint a fresh 90-day browser session — so every
+  headless QA profile (and any forgotten cookie) added a "This machine ·
+  Linux" row that stayed listed forever. Now a loopback visit reuses the
+  newest live session with its label by rotating its secret in place,
+  unless a browser is actively using that session right now (presence
+  is asked first, so an active browser never loses its cookie);
+  headless browsers are labelled "Headless browser" instead of borrowing
+  the OS name; `ListSessions` hides expired rows (they used to be listed
+  even after their 90 days); `PruneSessions` finally has a caller — a
+  daily sweep deletes revoked/expired rows after 7 days; and the Devices
+  view gains a **Forget offline (N)** button that revokes the stale rows
+  in one confirmed click.
 
 - **Inbox replies to a TUI agent now work: the reply switches the agent
   to chat mode.** Replying used to bounce with "the agent is running in

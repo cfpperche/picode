@@ -37,9 +37,19 @@ shell, the mechanism has to be as strong as the ones that guard SSH.
    (default) — a browser on loopback with no session is minted one
    silently, so the local experience does not change; every other client
    must present a session or token, or gets 401 `pairing required`.
-   `all` — loopback pairs too (shared / public servers). `off` — no
-   principal required (dev, or behind a proxy the operator trusts); the
-   Host/Origin gate still applies.
+   *Amended 2026-09-03:* the mint is no longer unconditional — a visit
+   whose label ("This machine · " + user-agent family) matches the newest
+   live browser session **reuses that row**, rotating its secret in place
+   (old cookie dies, expiry renewed, `session.rotated` event), unless a
+   browser is actively using the session right now (`Config.SessionLive`,
+   backed by the presence ping — an active browser never has its cookie
+   rotated out from under it). Reason: every headless QA profile on the
+   machine minted its own 90-day row and Devices filled with "This
+   machine · Linux" duplicates (12 in one afternoon). Same trust domain —
+   loopback is the machine, which already holds the token file and the
+   database. `all` — loopback pairs too (shared / public servers). `off`
+   — no principal required (dev, or behind a proxy the operator trusts);
+   the Host/Origin gate still applies.
 3. **Pairing** turns a visit into a browser session: a paired device (or
    `picode pair` on the daemon's machine, with the install token) mints
    a one-time code valid ten minutes; `GET /pair?code=` spends it, records
@@ -77,7 +87,8 @@ Decision table (each row is a test in `internal/auth`):
 | mutating / upgrade / `/api/events` with foreign Origin or cross-site | 403 |
 | valid cookie or bearer | pass with principal |
 | mode off, no principal | pass, anonymous |
-| mode remote, loopback (no proxy header), no principal | session minted, cookie set |
+| mode remote, loopback (no proxy header), no principal, browser-like | session minted, cookie set; reused (secret rotated) when a live session with the same label exists and no browser is using it (amended 2026-09-03) |
+| mode remote, loopback, no principal, not browser-like (curl, scripts) | anonymous loopback principal, no row |
 | mode remote, non-loopback, no principal | 401 (stale cookie cleared) |
 | mode all, loopback, no principal | 401 |
 | revoked or expired session | 401 |
@@ -101,6 +112,18 @@ Decision table (each row is a test in `internal/auth`):
   header for the loopback shortcut.
 - **Session listing shows IPs and user-agent labels**, nothing else; the
   secret exists only in the cookie or the file.
+- **Amended 2026-09-03 (Devices hygiene):** expired sessions no longer
+  list (`ListSessions` filters `expires_at`; a row that cannot
+  authenticate is not a device), `PruneSessions` runs daily with 7-day
+  retention (it existed with no caller), headless browsers label as
+  "Headless browser" (not the bare OS), and the Devices view offers a
+  batch **Forget offline** behind a confirm. Consequence: one long-lived
+  row per (machine, browser family) instead of one per browser launch;
+  the churn cost is a `session.rotated` event per reuse. Known trade-off:
+  browsers of the same family that genuinely overlap (two QA runs at
+  once, the older still pinging past the 30 s burst window) each get
+  their own row; they age out offline and the batch Forget cleans them —
+  growth is bounded by concurrency, not by run count.
 
 ## Alternatives considered
 
