@@ -479,6 +479,20 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — docs harness phase 5 shipped: three tutorial videos.**
+  `make docs-videos` captures stills from the seeded fixture through
+  each tutorial's real steps (10 named stills, exact viewports), renders
+  three silent captioned MP4s (~16s, 1280x720) from HyperFrames
+  compositions in `docs-videos/`, and copies them + a parity manifest
+  into `www/public/video`. Embedded in Getting started, Automations and
+  On your phone. docs-check byte-compares composition/still hashes
+  against the manifest. Pipeline lessons baked into the tooling: fresh
+  browser session + exact viewport per still (1280x720 / 390x844 — the
+  default viewport is 1280x633 and silently breaks phone framing);
+  caption scrims; zoom targets chosen from the still itself. CI ubuntu
+  Test step still red with the pre-existing integration-test set
+  (see the phase-4 note); Pages green.
+
 - **2026-09-03 — docs harness phase 4 shipped: Vale prose gate.**
   `make vale` (in `make ci` + the ubuntu CI job) lints `www/*.md` and
   `www/guide/*.md` for typos and repeated words. Fully in-repo: style
