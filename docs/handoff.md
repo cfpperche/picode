@@ -198,11 +198,11 @@ render megabytes.
    missing. Decision for the owner: propose the contract upstream to pi
    first vs. PiCode-side convention.
 1. **Remote modes — acceptance runs owed** (owner's sudo): Track C on a real second account (`sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`); Track D.2 (`sudo apt install systemd-container debootstrap`, `sudo picode provision --user demo --shared --container`); Track D.1 with a real GitHub OAuth app behind Caddy on a public name. Then decide on Track E (SaaS: signup, quotas, billing, VM per client) — the roadmap sketches it.
-2. **Feed follow-ups (ADR-0048)** — git changes as events for the file
-   tree and the sidebar's branch line (would retire the last refetches:
-   workspace create / clone, config PATCH); outbound webhooks fed by the
-   log; a fake pi fixture that emits `usage.totalTokens` so the context
-   bar can be tested end to end.
+2. **Feed follow-ups (ADR-0048)** — git events shipped 2026-09-03
+   (phase 3; the create / clone / config-PATCH refetches it would retire
+   were already feed-first via `refreshFleetFallback`). Still open:
+   outbound webhooks fed by the log; a fake pi fixture that emits
+   `usage.totalTokens` so the context bar can be tested end to end.
 2. **ADR-0053 leftovers** — a live managed-spawn test for
    `Runtime.Start`'s adoption branch (needs a fake pi RPC fixture; the
    spawnFlags twin is table-tested); decide whether a chat send that
@@ -407,6 +407,14 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-03 — adversarial review of the feed migration + one fix**
+  (`fix/git-watch-workspace-scope`): `gitDirs` attached the workspace id
+  to an agent's own-workPath event, so the worktree's branch could
+  poison `ws.git` (the fallback pills source) until the workspace path
+  changed again; the id now rides only the directory it describes.
+  Accepted trade-offs documented: ephemeral events are lossy by design
+  (debt), package scans grow with workspace count (code comment).
 
 - **2026-09-03 — Providers view v2: benchmark study, no code**
   ([`docs/benchmarks/2026-09-03-providers-view-v2.md`](benchmarks/2026-09-03-providers-view-v2.md)).
