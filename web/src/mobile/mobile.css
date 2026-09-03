@@ -35,12 +35,15 @@
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 24px;
   display: flex; flex-direction: column; gap: 18px;
 }
+/* One head for the tab screens (Work, More — and the Inbox's .ft-head
+   below copies these numbers): 12px over 36px controls, 8px under, a
+   hairline. The screen's gap sets the distance to the first card. */
 .m-screen-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px;
-  position: sticky; top: 0; z-index: 4;
-  margin: 0 calc(-1 * var(--m-pad)) 12px;
-  padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 10px;
-  background: var(--bg-base);
+  position: sticky; top: 0; z-index: 4; box-sizing: content-box; /* min-height is the controls' 36px */
+  margin: 0 calc(-1 * var(--m-pad)) 0;
+  padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 8px;
+  background: var(--bg-base); border-bottom: 1px solid var(--border);
 }
 .m-screen-title { font-size: 20px; font-weight: 650; margin: 0; }
 .m-add { display: inline-flex; gap: 4px; }
@@ -178,7 +181,9 @@
 /* ---- work: workspace cards, segmented rail ---- */
 .m-work-seg { flex: 1; min-width: 0; }
 .m-work-seg .dash-range-opt { flex: 1; }
-.m-work-seg .dash-range-face { width: 100%; justify-content: center; padding: 0 8px; }
+/* Face = ctl-h minus the container's 1px borders, the .app-tabs idiom,
+   so the whole control stands 36px, level with New and the Inbox tabs. */
+.m-work-seg .dash-range-face { width: 100%; justify-content: center; padding: 0 8px; height: calc(var(--ctl-h) - 2px); }
 .m-ws-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 12px 12px 10px; gap: 10px; }
 .m-ws-card .m-row { background: var(--bg-base); }
 .m-ws-actions { display: flex; gap: 8px; }
@@ -216,7 +221,7 @@
 /* ---- agent screen ---- */
 .m-agent { padding-bottom: 0; gap: 0; overflow: hidden; }
 .m-agent-state { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
-.m-seg .dash-range-face { height: 32px; padding: 0 12px; }
+.m-agent-state .m-seg .dash-range-face { height: 32px; padding: 0 12px; } /* Work's segment keeps --ctl-h, level with New */
 .m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
 .m-chat .chat-main { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
 .m-chat .conversation { padding: 0 var(--m-pad) 120px; }
@@ -232,13 +237,16 @@
    the host surface just flows inside it. */
 .m-inbox { gap: 0; }
 .m-inbox .app-surface, .m-inbox-item .app-surface { flex: none; overflow: visible; min-height: 0; background: transparent; }
-.m-inbox .app-body, .m-inbox-item .app-body { overflow: visible; padding: 8px 0 0; }
+.m-inbox .app-body, .m-inbox-item .app-body { overflow: visible; padding: 18px 0 0; }
+/* Same geometry as .m-screen-head, so Inbox and Work heads match to the pixel. */
 .m-inbox .ft-head {
   position: sticky; top: 0; z-index: 4;
-  margin: 0 calc(-1 * var(--m-pad)) 8px;
+  margin: 0 calc(-1 * var(--m-pad)) 0;
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 8px;
   background: var(--bg-base); border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }
+#m-app .m-inbox .ft-head .app-head-left { margin-top: 0; } /* the desktop 880px rule adds 6px */
+.m-inbox .ft-head .ft-spacer { display: none; }             /* would wrap into a 10px-gap empty row */
 /* The four main tabs share one chrome — the tab bar — so the Inbox
    shows no title of its own (the section keeps its aria-label); the
    sticky head is the filters. */

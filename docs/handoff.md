@@ -296,6 +296,11 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-02 — Work head = Inbox head on the phone**
+  (`fix/mobile-head-parity`): `.m-screen-head` takes the Inbox numbers
+  (12/8 padding, hairline, margin 0); `.m-inbox .ft-head` matches and
+  cancels the desktop 880px `margin-top: 6px`; the 32px segment rule is
+  scoped to `.m-agent-state`. Both heads measure 57px, controls 36px.
 - **2026-09-02 — LooksWorking anchors to pi's spinner frames**
   (`fix/looks-working-spinner-frames`). The working check grepped the
   pane tail for the substring "working": an idle agent whose last

@@ -112,6 +112,10 @@ to the `[Unreleased]` section. The repository's official language is English
   devices, nobody else's. No password: the tailnet already knows who she
   is. Guide: `www/guide/shared-server.md`.
 
+- **Phone tab screens share one head.** Work's head has the Inbox's
+  separator line and geometry, and its segmented control stands 36px like
+  the New button and the Inbox's tabs; More follows.
+
 - **No more black strip under a terminal.** xterm 6 left its stylesheet's
   black on the viewport while the theme colour went to the inner scroller,
   so the slack below the last row showed as a strip in every terminal. The
