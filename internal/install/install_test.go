@@ -12,6 +12,8 @@ func TestUnitFile(t *testing.T) {
 	for _, want := range []string{
 		"ExecStart=/home/x/.local/bin/picode",
 		"Restart=on-failure",
+		"KillMode=process",
+		"TimeoutStopSec=30",
 		"WantedBy=default.target",
 		"Environment=HOME=/home/x",
 		"Environment=PATH=/home/x/.nvm/bin:/usr/bin",
