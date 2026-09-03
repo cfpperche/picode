@@ -63,8 +63,8 @@ What exists:
 
 ## In flight
 
-**Feed migration phase 3 — `feat/feed-git-events` (gated, e2e-verified,
-not merged).** `StartGitWatch` inspects each workspace path and agent
+**Feed migration phase 3 — merged to `main` 2026-09-02, deployed.**
+`StartGitWatch` inspects each workspace path and agent
 cwd once per 3 s tick and publishes ephemeral `git.updated` (fleet-wide,
 one Inspect per changed dir); `applyFleet` patches the sidebar pills in
 place (desktop + mobile — both `touches` lists now include "git"), and
