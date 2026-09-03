@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cfpperche/picode/internal/mcp"
@@ -77,6 +78,7 @@ type ManagedAgent struct {
 	lastErr       error
 	settledCh     chan struct{} // closed+replaced when agent_settled arrives
 	waiting       *UIDialog     // blocking extension_ui_request, if any
+	lastEventAt   atomic.Int64  // unix ms of the last RPC event — liveness signal
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
 	observer      *RunObserver  // automations engine watching this run (ADR-0045)
@@ -352,6 +354,25 @@ func (ma *ManagedAgent) markSettled() {
 	_ = ch
 }
 
+// Settled reports whether no turn is in flight (the broadcast channel
+// is closed again). The reply-switch burst watcher waits on this before
+// reopening the TUI.
+func (ma *ManagedAgent) Settled() bool {
+	select {
+	case <-ma.settledCh:
+		return true
+	default:
+		return false
+	}
+}
+
+// noteEvent marks RPC liveness — any event proves pi is up and moving,
+// which the delivery verifier uses to tell a processed reply from a
+// prompt lost during pi's init window.
+func (ma *ManagedAgent) noteEvent() {
+	ma.lastEventAt.Store(time.Now().UnixMilli())
+}
+
 // settledChannel returns the current wait-for-settled channel.
 func (ma *ManagedAgent) settledChannel() <-chan struct{} {
 	ma.mu.Lock()
@@ -362,6 +383,7 @@ func (ma *ManagedAgent) settledChannel() <-chan struct{} {
 // pumpEvents forwards rpc events to the hub and tracks streaming state.
 func (ma *ManagedAgent) pumpEvents() {
 	unsub := ma.client.Subscribe(func(ev Event) {
+		ma.noteEvent()
 		switch ev.EventType() {
 		case "agent_start":
 			ma.mu.Lock()
@@ -535,6 +557,18 @@ func (ma *ManagedAgent) deliverLoop() {
 		}
 
 		if err := ma.deliver(task); err != nil {
+			// A lost delivery (pi killed during its init window) goes back
+			// to the queue for a bounded retry instead of vanishing; three
+			// silent attempts become an honest failure.
+			if errors.Is(err, errTurnNotStarted) && task.Attempts < 3 {
+				_ = ma.store.FinishTask(task.ID, store.TaskQueued, err.Error())
+				select {
+				case <-time.After(2 * time.Second):
+				case <-ma.done:
+					return
+				}
+				continue
+			}
 			_ = ma.store.FinishTask(task.ID, store.TaskFailed, err.Error())
 			_ = ma.store.AppendEvent("task.failed", &ma.AgentID, nil,
 				map[string]string{"taskId": task.ID, "error": err.Error()})
@@ -575,6 +609,7 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 
+	before := ma.lastEventAt.Load()
 	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) && ma.isWaitingUI() {
 		// An extension command (/roles …) answers its prompt only when the
@@ -582,7 +617,27 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 		// alive and waiting on the user — that is delivery, not failure.
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	// An RPC accept is not proof: pi holds early prompts in memory and a
+	// kill during its init window loses them without a trace (the reply
+	// switch lost a live reply exactly this way). A live-queue delivery
+	// counts only once pi shows a sign of life after the send.
+	if kind == store.TaskFollowUp && !turnAlive(ma.isBusy(), ma.lastEventAt.Load(), before) {
+		return errTurnNotStarted
+	}
 	return err
+}
+
+// errTurnNotStarted marks a delivery pi accepted but never showed life
+// for — the task goes back to the queue for a bounded retry.
+var errTurnNotStarted = errors.New("pi did not start processing the delivery")
+
+// turnAlive: pi is mid-turn, or it emitted any event after the send
+// (liveness). The idle TUI emits nothing, so silence means lost.
+func turnAlive(busy bool, lastEventAt, sentBefore int64) bool {
+	return busy || lastEventAt > sentBefore
 }
 
 func (ma *ManagedAgent) isWaitingUI() bool {

@@ -133,6 +133,15 @@ func (s *Store) ClaimNextTask(agentID string) (Task, error) {
 	return t, nil
 }
 
+// CountQueuedTasks is the burst watcher's drain signal: the reply-burst
+// is only "running" while the queue still holds the parked reply; zero
+// means the delivery loop claimed it and pi is on it.
+func (s *Store) CountQueuedTasks(agentID string) (int, error) {
+	n := 0
+	err := s.db.QueryRow(`SELECT count(*) FROM tasks WHERE agent_id = ? AND status = ?`, agentID, TaskQueued).Scan(&n)
+	return n, err
+}
+
 // FinishTask marks a claimed task delivered or failed.
 func (s *Store) FinishTask(id, status string, taskErr string) error {
 	var deliveredAt any

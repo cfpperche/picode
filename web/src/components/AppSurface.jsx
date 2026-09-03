@@ -593,9 +593,9 @@ function AppForm({ form, onAction, extraActions }) {
     // in the dialog, not after the fact.
     if (form.interactive) {
       const ok = await askConfirm({
-        title: "Switch to chat mode?",
-        message: "The agent runs in a terminal — its terminal session ends and the thread continues in this chat.",
-        confirmLabel: "Switch and send",
+        title: "Pause the TUI and reply from chat?",
+        message: "The agent runs in a terminal. Sending pauses the TUI, runs your reply in chat mode, and reopens the terminal when the reply finishes.",
+        confirmLabel: "Pause TUI & send",
       });
       if (!ok) return;
       return onAction({ id: form.id, label: form.submit || "Submit", args: { _switch: "1" } }, values);
