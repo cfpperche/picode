@@ -28,7 +28,8 @@ func TestTuiWorking(t *testing.T) {
 	t.Cleanup(func() { _ = m.KillSession(ctx, idle) })
 
 	busy := tmux.SessionName(busyID)
-	if err := m.NewSession(ctx, busy, dir, "sh", "-c", "echo 'Working...'; sleep 30"); err != nil {
+	// pi's spinner frame, not the word: LooksWorking anchors to the frame.
+	if err := m.NewSession(ctx, busy, dir, "sh", "-c", "printf '\\342\\240\\213 Working...\\n'; sleep 30"); err != nil {
 		t.Fatalf("busy session: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(ctx, busy) })
@@ -56,10 +57,13 @@ func TestTuiWorking(t *testing.T) {
 }
 
 func TestLooksWorkingUnit(t *testing.T) {
-	if !tmux.LooksWorking("⋮ Working...") {
+	if !tmux.LooksWorking("  ⠋ Thinking… (esc to interrupt)") {
 		t.Fatal("spinner line not detected")
 	}
 	if tmux.LooksWorking("$ echo done\nno code here") {
 		t.Fatal("false positive")
+	}
+	if tmux.LooksWorking("Working... on the word alone") {
+		t.Fatal("the word is not the spinner")
 	}
 }
