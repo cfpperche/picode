@@ -47,6 +47,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The public docs site deploys again.** Every Pages deploy since
+  2026-09-02 16:30 failed the VitePress build: `www/guide/remote-server.md`
+  opened a code span at a line break and the dangling backtick let
+  `<your login> <your user>` reach the Vue template as raw HTML with no
+  end tag. Each code span with angle brackets now sits on one line.
+  Verified `make docs` green locally and the deployed page live.
+
 - **An inbox reply refused because the agent runs in a TUI now offers
   "Open terminal" instead of a dead end.** The refusal note said to
   open the terminal and paste the reply, and left the hunt to the

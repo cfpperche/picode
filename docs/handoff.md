@@ -326,6 +326,21 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — the public Pages site is green again.** The red
+  `pages.yml` runs since 09-02 16:30 died in `make docs`:
+  `www/guide/remote-server.md` opened a code span at a line break
+  (`` `sudo picode users add ``), VitePress left it unclosed, and the
+  dangling backtick let `<your login> <your user>` into the Vue
+  template as raw HTML — "Element is missing end tag" (18:103),
+  reproduced byte-for-byte locally. The cure was already on local
+  `main` (a85ff516 + ec3a515c: one code span per line) but **55
+  commits sat unpushed** since 09-02, so the site was frozen at the
+  09-02 15:04 deploy. Pushed `7ffe8a9f..fe421595`; run 33769826235
+  green end to end; live page verified serving the fixed guide.
+  Earlier red runs (08-29 → 09-02) were the dead-link gate, fixed by
+  PR #1. Lesson: run `make docs` before pushing `www/**` — docs that
+  land straight on `main` have no PR gate for the Pages build.
+
 - **2026-09-03 — internal checklist, ADR-0055** (`feat/pi-checklist`):
   researched Tachyon's checklist gate/reminder/sidebar line and pi
   0.84's extension API; built `packages/pi-checklist` (tool + gate on the
