@@ -28,6 +28,10 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 			_, err := deps.openAgentTUI(r.Context(), agentID)
 			return err
 		},
+		SwitchToManaged: func(agentID string) error {
+			_, err := deps.switchAgentToManaged(r.Context(), agentID)
+			return err
+		},
 	}
 }
 

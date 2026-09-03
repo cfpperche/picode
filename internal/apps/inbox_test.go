@@ -2,6 +2,7 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -580,5 +581,93 @@ func TestInboxClearDoneAction(t *testing.T) {
 	// Stays on the Done tab (now empty) rather than jumping to Active.
 	if res.View == nil || !strings.Contains(res.View.Empty, "No answered items") {
 		t.Fatalf("clear-done did not stay on Done: %+v", res.View)
+	}
+}
+
+// The consented switch (Degrau 2): replying with _switch on an
+// interactive agent parks the reply in its queue and hands the agent to
+// the host's switcher (TUI ends, managed starts, the queue drains into
+// the same thread). Without _switch the plain refusal still applies,
+// and a deliverable agent ignores _switch entirely.
+func TestInboxReplySwitch(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
+	ag, _ := h.Store.AddAgent(ws.ID, "tui", "")
+	h.AgentDeliverable = func(string) bool { return false }
+	var switched []string
+	h.SwitchToManaged = func(agentID string) error {
+		switched = append(switched, agentID)
+		return nil
+	}
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+
+	// The shell learns the reply switches modes from the form itself.
+	v, err := app.View(ctx, h, "item/"+q.ID)
+	if err != nil {
+		t.Fatalf("view: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("view invalid: %v", err)
+	}
+	interactive := false
+	for _, b := range v.Blocks {
+		if b.Type == "form" && b.Form != nil && b.Form.Interactive {
+			interactive = true
+		}
+	}
+	if !interactive {
+		t.Fatalf("respond form not marked interactive")
+	}
+
+	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "go", "_switch": "1"}})
+	if err != nil {
+		t.Fatalf("respond-switch: %v", err)
+	}
+	if !strings.Contains(res.Toast, "switched to chat") {
+		t.Fatalf("toast = %v", res.Toast)
+	}
+	if len(switched) != 1 || switched[0] != ag.ID {
+		t.Fatalf("switch calls = %v, want [%s]", switched, ag.ID)
+	}
+	if got, _ := h.Store.GetInboxItem(q.ID); got.State != store.InboxDone {
+		t.Fatalf("item not done after switch")
+	}
+	tasks, _ := h.Store.ListTasks(ag.ID, 5)
+	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "inbox" {
+		t.Fatalf("parked task = %+v", tasks)
+	}
+
+	// Switch failure keeps the reply parked and says where it waits.
+	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q2", Body: "?"})
+	h.SwitchToManaged = func(string) error { return errors.New("boom") }
+	res, err = app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "go", "_switch": "1"}})
+	if err != nil {
+		t.Fatalf("switch failure must not error the action: %v", err)
+	}
+	if !strings.Contains(res.Toast, "could not be switched") {
+		t.Fatalf("switch-failure toast = %v", res.Toast)
+	}
+	if got, _ := h.Store.GetInboxItem(q2.ID); got.State != store.InboxDone {
+		t.Fatalf("q2 item not done")
+	}
+
+	// A deliverable agent ignores _switch: plain forward, no switch call.
+	h.AgentDeliverable = func(string) bool { return true }
+	before := len(switched)
+	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q3", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "go", "_switch": "1"}}); err != nil {
+		t.Fatalf("deliverable respond-switch: %v", err)
+	}
+	if len(switched) != before {
+		t.Fatalf("deliverable agent triggered the switcher")
+	}
+
+	// Without _switch the refusal stands for an interactive agent.
+	h.AgentDeliverable = func(string) bool { return false }
+	q4 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q4", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q4.ID, Args: map[string]string{"reply": "again"}}); err == nil || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("plain respond on interactive agent = %v, want the interactive refusal", err)
 	}
 }

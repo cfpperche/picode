@@ -2161,8 +2161,23 @@ export default function App() {
               manifest={apps.find((a) => a.id === tabAppId(id)) || null}
               onClose={() => closeTab(id)}
               onGoto={(g) => {
-                // Apps act as launchers too: "agent:<id>" opens the
-                // agent's tab with its TUI docked (Open terminal).
+                // Apps act as launchers too. "agent:<id>" opens the
+                // agent's tab with its TUI docked (Open terminal);
+                // "agentchat:<id>" opens it in chat mode — the reply
+                // switch undocks the terminal, the thread is the same.
+                if (g.startsWith("agentchat:")) {
+                  const id = g.slice("agentchat:".length);
+                  (async () => {
+                    const list = await refreshFleetFallback().catch(() => []);
+                    openTab(id, list);
+                    setTermWanted((s) => {
+                      const n = new Set(s);
+                      n.delete(id);
+                      return n;
+                    });
+                  })();
+                  return;
+                }
                 if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
               }}
             />
