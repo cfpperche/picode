@@ -68,7 +68,28 @@ to the `[Unreleased]` section. The repository's official language is English
   fallback. Verified live: a status flip reaches the panel with exactly
   one request, no interval traffic.
 
+### Changed
+
+- **The public docs wear the product now, and ship real screenshots.**
+  The site was stock VitePress with zero images: the theme now uses the
+  app's own tokens (dark-first #0e0e11/#16161c, accent, JetBrains Mono),
+  the sidebar is grouped Diátaxis-style (Start / Guides / Run it
+  somewhere / Reference), and the home gained six feature cards. Guides
+  embed generated app screenshots produced by the new docs harness
+  (`make docs-shots`): a seeded fixture daemon + agent-browser capture
+  with a content gate, and `make docs-check` (in `make ci`) fails when a
+  UI change lands without re-capturing — images stay in parity with the
+  codebase by construction, never hand-placed.
+
 ### Fixed
+
+- **Deep links no longer bounce to the fleet view.** Opening
+  `#/automations`, `#/settings`, `#/devices` and friends directly worked
+  until the fleet finished loading — then a tab-sync effect replaced the
+  hash with `#/` and the view vanished. The effect now only manages
+  workspace-ish hashes; route deep links stay put. Found by the docs
+  capture pipeline (the automations screenshot kept photographing the
+  dashboard instead of the view).
 
 - **The public docs site deploys again.** Every Pages deploy since
   2026-09-02 16:30 failed the VitePress build: `www/guide/remote-server.md`
