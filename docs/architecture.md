@@ -854,12 +854,15 @@ Inbox keeps its specialized route. Public instructions live in the
 Docker inventory groups containers by their exact Compose project label
 (ADR-0066); unlabeled containers appear last under Standalone containers.
 Named list blocks opt into native disclosure with stable `id` and
-`collapsible` fields. Counts summarize running/stopped and other actual
-states. The host stores each app/endpoint/project fold in browser preferences;
-new groups start closed. Search reveals matching groups and clearing it
+`collapsible` fields. Group cards fill the available app canvas width,
+respecting its padding on desktop and phone. Counts summarize running/stopped
+and other actual states. The host stores each app/endpoint/project fold in
+browser preferences; new groups start closed. Search reveals matching groups and clearing it
 restores the saved folds. Presentation changes do not mutate the store or
 Docker. Project actions and Compose deployment remain proposed in the
 [Docker v2 plan](plans/docker-v2.md).
+The [Docker v3 proposal](plans/docker-v3.md) builds on v2 with resource
+inventory, health monitoring and supervised maintenance; it is not implemented.
 
 ## Explicit non-goals
 

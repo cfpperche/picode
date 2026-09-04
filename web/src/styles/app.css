@@ -3882,7 +3882,7 @@ img.ws-face.term-cli-face {
 .app-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
 /* Native disclosure groups remain in the app canvas (ADR-0066). */
-.app-body > .app-group { max-width: 960px; }
+.app-body > .app-group { max-width: none; }
 .app-group { display: block; flex: none; border: 1px solid var(--border); border-radius: var(--radius-ctl); }
 .app-group-summary { display: grid; grid-template-columns: 14px 16px minmax(0, 1fr) auto; column-gap: 8px; row-gap: 3px; padding: 10px 12px; list-style: none; cursor: pointer; border-radius: inherit; background: var(--bg-panel); transition: background 160ms; }
 .app-group-summary::-webkit-details-marker { display: none; }

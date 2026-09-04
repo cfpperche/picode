@@ -215,6 +215,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Docker project cards fill the available app width.** The fixed 960px
+  limit no longer leaves unused space beside groups on wide screens.
 - **`pi-compact`'s wizard is reachable again: `/compact-edit`,
   `/compact-model`, `/compact-on`, `/compact-off`.** Pi's TUI handles
   `/compact …` with its own built-in command before any extension command

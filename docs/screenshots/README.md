@@ -48,3 +48,8 @@ identities. `docker-groups-empty.png`, `docker-groups-blocked.png`,
 `docker-groups-error.png` and `docker-groups-mobile-confirm.png` cover the
 non-happy states. All use synthetic Docker data; real inventory grouping,
 keyboard navigation, search and fold persistence were also exercised.
+
+Docker width correction: `docker-width-desktop.png` (1920px) and
+`docker-width-mobile.png` (390px) show cards filling the app canvas up to
+its padding. Both use synthetic data. Empty/blocked/error and confirmation
+states were also recaptured and read in `/tmp/picode-docker-width-*.png`.

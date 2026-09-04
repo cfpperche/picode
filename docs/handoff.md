@@ -6,24 +6,22 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes Docker project grouping (ADR-0066,
-`900ac985`) on top of the terminal-favicon fix. Commits remain local and
-unpushed. Tracked files are clean; preserve the unrelated `.pi/compact.json`.
-V2 project operations/Compose are proposed in `docs/plans/docker-v2.md`.
+**Repository:** the Docker card-width fix is in `fix/docker-full-width`,
+based on local `main` `08a9bd5e`. Group cards fill the app canvas. V2 project
+operations/Compose and the new v3 resources/health/maintenance plan remain
+proposed (`docs/plans/docker-v2.md`, `docs/plans/docker-v3.md`). Local commits
+are unpushed; preserve the unrelated `.pi/compact.json`.
 
-**Deployment:** the installed service runs `0.1.0+900ac98` (`release: false`).
-Health is `ok`, boot `e809e6e94920f965`. Served assets and installed binary
-hash match the tested build; all 123 pre-deploy tmux sessions remain present.
-Live grouping: bidwar 12, cognixse 11, hull 9, pgtenant 2. The deployed view
-was clicked, reloaded, captured and read (`/tmp/picode-docker-groups-deployed.png`);
-fold persistence and the overlay audit passed.
+**Deployment:** the installed service still runs `0.1.0+900ac98`. The new
+layout is validated on an isolated daemon; deployment follows the gates.
 
 **Quality:** `make ci` passed (Go, 477 frontend tests, packages, build,
-docs parity and Vale). Browser QA covered real project labels, mouse/Enter/Space, refresh/reload/Back,
-search and saved folds. Empty/blocked/error, standalone groups, both themes,
-phone confirmations and long names were captured and read. A narrow-screen
-metadata truncation was fixed and re-captured. visual-review: PASS; overlay
-geometry is `ok`. Curated evidence: `docs/screenshots/docker-groups-*.png`.
+docs parity and Vale). Browser checks proved
+cards reach the padded app edge at 1920px, 1280px and 390px. Expanded/closed
+states, reload persistence, both themes, empty/blocked/error and confirmation
+screenshots were captured and read. visual-review: PASS; overlay audit `ok`.
+Curated width evidence: `docs/screenshots/docker-width-*.png`. No new unit
+test/decision table was added for this width-only correction.
 
 ### Product and platform
 
@@ -81,6 +79,9 @@ were not evaluated in this session:
 
 ## In flight
 
+- Full-width Docker cards passed CI and await local deployment. V3 is a proposal
+  for resources, health and supervised maintenance after v2; no v2/v3
+  capability was implemented by this layout correction.
 - V2 project operations, Compose registration/deployment and shared tools
   are proposed in `docs/plans/docker-v2.md`; no project-level action is
   implemented yet. Grouped inventory is merged and deployed.
@@ -107,6 +108,7 @@ were not evaluated in this session:
 1. Implement Docker v2 project actions from `docs/plans/docker-v2.md`: exact
    target preview, shared locks, parent/child results and partial failure QA.
    Compose deployment follows in a separate ADR extending ADR-0065.
+   Then sequence v3 using `docs/plans/docker-v3.md`.
 2. Review current local `main` and decide when to push/promote it.
 3. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
@@ -138,12 +140,10 @@ were not evaluated in this session:
 
 ## Recent activity
 
-- **2026-09-04 — Docker groups deployed as `0.1.0+900ac98` (ADR-0066).** Native
-  disclosures stay in the app; exact Compose labels, standalone fallback,
-  state summaries, saved folds and search work together. Long phone rows
-  wrap. V2 separates detected groups from registered Compose deployments.
+- **2026-09-04 — Docker cards use the full app width; v3 proposed.** Removed
+  the fixed 960px limit and checked wide/narrow/mobile viewports. The v3 plan
+  sequences resources, health and assisted maintenance after v2.
   `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
-  Isolated test servers, browsers and the feature worktree were cleaned up.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

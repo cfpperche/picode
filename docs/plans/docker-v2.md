@@ -121,6 +121,9 @@ engines need separate scope and decisions; they are not prerequisites for
 this v2. Ordinary deployment preserves volumes and never adds `down -v` or
 global prune as an implicit step.
 
+The proposed next stage is [Docker v3: visibility and supervised maintenance](docker-v3.md).
+V2 remains the prerequisite for project operations and deployment.
+
 ## Sources
 
 - [Compose project identity](https://docs.docker.com/compose/how-tos/project-name/)

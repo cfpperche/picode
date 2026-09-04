@@ -3,6 +3,15 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 during Docker width correction)
+
+- **2026-09-04 — Docker groups deployed as `0.1.0+900ac98` (ADR-0066).** Native
+  disclosures stay in the app; exact Compose labels, standalone fallback,
+  state summaries, saved folds and search work together. Long phone rows
+  wrap. V2 separates detected groups from registered Compose deployments.
+  `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
+  Isolated test servers, browsers and the feature worktree were cleaned up.
+
 ## Recent activity (archived 2026-09-04 during Docker grouping)
 
 - **2026-09-04 — terminal favicons merged and deployed as `0.1.0+cf9aafc`.**
