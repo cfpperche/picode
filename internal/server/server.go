@@ -53,11 +53,12 @@ type Deps struct {
 	Insecure     bool
 	Presence     *presence.Registry
 	Backup       *backup.Engine
-	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
-	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
-	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
-	TermStates   *TermStates    // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
-	Auth         *auth.Service  // request gate (ADR-0049); nil = ungated (tests, dev)
+	Apps         *apps.Registry    // apps host (ADR-0036); nil-safe = no apps
+	Push         *push.Notifier    // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
+	Feed         *feed.Feed        // change feed (ADR-0048); nil-safe = 503 on /api/events
+	Bursts       *BurstCoordinator // transient TUI reply state (ADR-0059); lazy-init in New
+	TermStates   *TermStates       // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
+	Auth         *auth.Service     // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -79,6 +80,9 @@ func New(addr string, deps Deps) *http.Server {
 				_ = installIntercept(deps.DataDir, id)
 			}
 		}
+	}
+	if deps.Bursts == nil {
+		deps.Bursts = NewBurstCoordinator()
 	}
 
 	registerAll(mux, deps)

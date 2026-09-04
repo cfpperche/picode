@@ -1,7 +1,10 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +36,29 @@ func TestCreateInboxItemDefaults(t *testing.T) {
 		if strings.Join(it.Allowed, ",") != strings.Join(tc.verbs, ",") {
 			t.Fatalf("%s: verbs %v, want %v", tc.kind, it.Allowed, tc.verbs)
 		}
+	}
+}
+
+func TestInboxSessionPathRoundTrip(t *testing.T) {
+	s := openTest(t)
+	path := "/tmp/exact-session.jsonl"
+	it, err := s.CreateInboxItem(InboxItemParams{
+		Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: "agent-a",
+		Reason: "agent needs input", Title: "question", Body: "?", SessionPath: path,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if it.SessionPath != path {
+		t.Fatalf("created sessionPath = %q", it.SessionPath)
+	}
+	got, err := s.GetInboxItem(it.ID)
+	if err != nil || got.SessionPath != path {
+		t.Fatalf("loaded item = %+v, %v", got, err)
+	}
+	list, err := s.ListInboxItems(InboxFilter{IncludeSnoozed: true})
+	if err != nil || len(list) != 1 || list[0].SessionPath != path {
+		t.Fatalf("listed items = %+v, %v", list, err)
 	}
 }
 
@@ -251,6 +277,231 @@ func TestRespondAndForwardInteractiveAgent(t *testing.T) {
 	}
 	if tasks, _ := s.ListTasks(ag.ID, 10); len(tasks) != 1 {
 		t.Fatalf("reachable agent did not get its task: %+v", tasks)
+	}
+}
+
+func TestRespondAndParkReturnsAndClaimsOnlyExactTask(t *testing.T) {
+	s := openTest(t)
+	ag, _ := s.AddAgent(FreeWorkspaceID, "helper", t.TempDir())
+	unrelated, _ := s.EnqueueTask(ag.ID, TaskPrompt, "older work", "user")
+	q, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+	item, parked, err := s.RespondAndPark(q.ID, VerbRespond, "exact reply")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.State != InboxDone || parked.ID == "" || parked.Kind != TaskFollowUp || parked.AgentID != ag.ID {
+		t.Fatalf("respond-and-park = item %+v task %+v", item, parked)
+	}
+	claimed, err := s.ClaimTask(ag.ID, parked.ID)
+	if err != nil || claimed.ID != parked.ID || claimed.Status != TaskDelivering || claimed.Attempts != 1 {
+		t.Fatalf("exact claim = %+v, %v", claimed, err)
+	}
+	tasks, _ := s.ListTasks(ag.ID, 10)
+	for _, task := range tasks {
+		if task.ID == unrelated.ID && task.Status != TaskQueued {
+			t.Fatalf("unrelated task was drained: %+v", task)
+		}
+	}
+	if err := s.FinishTask(claimed.ID, TaskQueued, "retry"); err != nil {
+		t.Fatal(err)
+	}
+	retry, err := s.ClaimTask(ag.ID, parked.ID)
+	if err != nil || retry.Attempts != 2 {
+		t.Fatalf("retry claim = %+v, %v", retry, err)
+	}
+	if err := s.FinishTask(retry.ID, TaskFailed, "test cleanup"); err != nil {
+		t.Fatal(err)
+	}
+	approval, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxApproval, SourceKind: InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "ship this", Body: "?"})
+	_, declined, err := s.RespondAndPark(approval.ID, VerbRespond, "Declined.")
+	if err != nil || declined.Payload != `Human reply to your question "ship this": Declined.` {
+		t.Fatalf("decline payload = %q, %v", declined.Payload, err)
+	}
+}
+
+func TestInterruptedBurstRecoveryReopensExactInboxItem(t *testing.T) {
+	for _, claim := range []bool{false, true} {
+		name := "queued"
+		if claim {
+			name = "delivering"
+		}
+		t.Run(name, func(t *testing.T) {
+			path := t.TempDir() + "/picode.db"
+			s, err := Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ag, _ := s.AddAgent(FreeWorkspaceID, "helper", t.TempDir())
+			q, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+			_, task, err := s.RespondAndPark(q.ID, VerbRespond, "please continue")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if claim {
+				if _, err := s.ClaimTask(ag.ID, task.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+			s, err = Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			item, _ := s.GetInboxItem(q.ID)
+			if item.State != InboxUnread || item.Response == nil || !strings.Contains(*item.Response, "please continue") || !strings.Contains(item.Body, "interrupted") {
+				t.Fatalf("recovered item = %+v", item)
+			}
+			tasks, _ := s.ListTasks(ag.ID, 10)
+			if len(tasks) != 1 || tasks[0].Status != TaskFailed || tasks[0].LastError == nil || !strings.Contains(*tasks[0].LastError, "interrupted") {
+				t.Fatalf("recovered task = %+v", tasks)
+			}
+		})
+	}
+}
+
+func TestInterruptedBurstRecoveryRecognizesMaterializedDeliveringReply(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "picode.db")
+	sessionPath := filepath.Join(dir, "session.jsonl")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ag, _ := s.AddAgent(FreeWorkspaceID, "helper", t.TempDir())
+	q, _ := s.CreateInboxItem(InboxItemParams{
+		Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: ag.ID,
+		Reason: "r", Title: "q", Body: "?", SessionPath: sessionPath,
+	})
+	_, task, err := s.RespondAndPark(q.ID, VerbRespond, "materialized before crash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimTask(ag.ID, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, _ := time.Parse(time.RFC3339Nano, claimed.CreatedAt)
+	row, _ := json.Marshal(map[string]any{
+		"type": "message", "timestamp": created.Add(time.Millisecond).Format(time.RFC3339Nano),
+		"message": map[string]any{"role": "user", "content": []map[string]string{{"type": "text", "text": claimed.Payload}}},
+	})
+	if err := os.WriteFile(sessionPath, append(row, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	item, _ := s.GetInboxItem(q.ID)
+	if item.State != InboxDone || strings.Contains(item.Body, "interrupted") {
+		t.Fatalf("materialized reply was reopened: %+v", item)
+	}
+	tasks, _ := s.ListTasks(ag.ID, 10)
+	if len(tasks) != 1 || tasks[0].Status != TaskDelivered {
+		t.Fatalf("materialized task was not recovered as delivered: %+v", tasks)
+	}
+}
+
+func TestBurstTaskMaterializedRejectsMatchingRowOlderThanTask(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	created := time.Now().UTC()
+	payload := "Human reply to your question: repeated"
+	row, _ := json.Marshal(map[string]any{
+		"type": "message", "timestamp": created.Truncate(time.Millisecond).Add(-time.Millisecond).Format(time.RFC3339Nano),
+		"message": map[string]any{"role": "user", "content": []map[string]string{{"type": "text", "text": payload}}},
+	})
+	if err := os.WriteFile(path, append(row, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+		t.Fatal("an older identical reply proved crash-time delivery")
+	}
+	newerLonger, _ := json.Marshal(map[string]any{
+		"type": "message", "timestamp": created.Add(time.Second).Format(time.RFC3339Nano),
+		"message": map[string]any{"role": "user", "content": []map[string]string{{"type": "text", "text": payload + " with unrelated suffix"}}},
+	})
+	if err := os.WriteFile(path, append(append(row, '\n'), append(newerLonger, '\n')...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+		t.Fatal("a longer user message was mistaken for the exact reply")
+	}
+}
+
+func TestBurstTaskMaterializedContinuesPastLargeJSONLRow(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.jsonl")
+	created := time.Now().UTC()
+	payload := "exact reply after a large tool result"
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`{"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(strings.Repeat("x", 17*1024*1024)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`"}]}}` + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	row, _ := json.Marshal(map[string]any{
+		"type": "message", "timestamp": created.Add(time.Millisecond).Format(time.RFC3339Nano),
+		"message": map[string]any{"role": "user", "content": []map[string]string{{"type": "text", "text": payload}}},
+	})
+	if _, err := f.Write(append(row, '\n')); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+		t.Fatal("large preceding JSONL row hid the durable reply")
+	}
+}
+
+func TestInterruptedBurstRecoveryDoesNotReopenDeliveredReply(t *testing.T) {
+	path := t.TempDir() + "/picode.db"
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ag, _ := s.AddAgent(FreeWorkspaceID, "helper", t.TempDir())
+	q, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
+	_, task, err := s.RespondAndPark(q.ID, VerbRespond, "already materialized")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ClaimTask(ag.ID, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.FinishTask(task.ID, TaskDelivered, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	item, _ := s.GetInboxItem(q.ID)
+	if item.State != InboxDone || strings.Contains(item.Body, "interrupted") {
+		t.Fatalf("delivered reply was reopened after restart: %+v", item)
+	}
+	tasks, _ := s.ListTasks(ag.ID, 10)
+	if len(tasks) != 1 || tasks[0].Status != TaskDelivered {
+		t.Fatalf("delivered task changed during recovery: %+v", tasks)
 	}
 }
 

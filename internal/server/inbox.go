@@ -27,6 +27,7 @@ type inboxCreateReq struct {
 	SourceKind  string   `json:"sourceKind"`
 	SourceID    string   `json:"sourceId"`
 	WorkspaceID string   `json:"workspaceId"`
+	SessionPath string   `json:"sessionPath"`
 	Reason      string   `json:"reason"`
 	Title       string   `json:"title"`
 	Body        string   `json:"body"`
@@ -43,7 +44,7 @@ func handleCreateInboxItem(deps Deps) http.HandlerFunc {
 		}
 		it, err := deps.Store.CreateInboxItem(store.InboxItemParams{
 			Kind: req.Kind, SourceKind: req.SourceKind, SourceID: req.SourceID,
-			WorkspaceID: req.WorkspaceID, Reason: req.Reason, Title: req.Title,
+			WorkspaceID: req.WorkspaceID, SessionPath: req.SessionPath, Reason: req.Reason, Title: req.Title,
 			Body: req.Body, Blocking: req.Blocking, Allowed: req.Allowed,
 		})
 		if err != nil {

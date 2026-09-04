@@ -366,6 +366,15 @@ func serve() {
 		})
 	}
 
+	// Stop any leased writer before opening the store. On a same-PID re-exec
+	// the child can survive Pdeathsig; recovery must inspect task/session truth
+	// only after the holder has ended that final write window.
+	if err := server.ReleaseInterruptedBurstMarkers(dataDir); err != nil {
+		if server.BurstRecoveryPending(dataDir) {
+			log.Fatalf("reply bursts: unsafe writer lease remains: %v", err)
+		}
+		log.Printf("reply bursts: startup recovery: %v", err)
+	}
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {
 		log.Fatalf("store: %v", err)
@@ -460,11 +469,24 @@ func serve() {
 		log.Fatalf("auth: %v", err)
 	}
 
+	bursts := server.NewBurstCoordinator()
+	defer func() {
+		// Holder wait and direct-respawn fallback each have a 15 s budget.
+		// Keep the store open beyond both so graceful shutdown never races the
+		// coordinator's final task/inbox transaction.
+		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+		defer cancel()
+		if err := bursts.CancelAllAndWait(ctx); err != nil {
+			log.Printf("reply bursts: shutdown recovery continues in tmux: %v", err)
+		}
+	}()
+
 	deps := server.Deps{
 		Store:    st,
 		Auth:     gate,
 		Tmux:     tmux.New(),
 		Runtime:  runtime,
+		Bursts:   bursts,
 		AgentCmd: "pi", // ADR-0003: user-installed pi
 		DataDir:  dataDir,
 		Backup:   bak,

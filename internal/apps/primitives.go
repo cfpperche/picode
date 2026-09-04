@@ -65,9 +65,9 @@ type Form struct {
 	ID     string  `json:"id"`               // action id fired on submit
 	Submit string  `json:"submit,omitempty"` // submit button label
 	Fields []Field `json:"fields"`
-	// Interactive marks that replying requires switching the agent from
-	// its TUI to chat mode — the shell confirms before firing.
-	Interactive bool `json:"interactive,omitempty"`
+	// Burst marks a TUI reply that runs through ADR-0059's temporary
+	// control channel while the shell keeps the terminal tab in place.
+	Burst bool `json:"burst,omitempty"`
 }
 
 // Field mirrors rpc.UIDialog.
@@ -108,11 +108,9 @@ type ActionResult struct {
 	View  *View  `json:"view,omitempty"`
 	Path  string `json:"path,omitempty"`
 	// Goto asks the shell to leave the app and navigate somewhere it
-	// owns — "agent:<id>" opens the agent's tab with its TUI docked
-	// (the inbox Open-terminal action: acting from the inbox should
-	// take you to the terminal, not leave you where the reply failed).
-	// The shell decides what it can do with it; mobile has no terminal
-	// surface and ignores it.
+	// owns. "agent:<id>" opens the docked TUI; "agentburst:<id>:<gen>"
+	// opens the same tab under its transient reply state — never chat.
+	// Each shell resolves the directive to its own terminal surface.
 	Goto string `json:"goto,omitempty"`
 }
 

@@ -183,6 +183,15 @@ func (deps Deps) applyCleanup(p cleanupPreview, purgeSessions, purgeWork bool) {
 }
 
 func (deps Deps) stopAgent(ctx context.Context, id string) {
+	// Destructive removal still honours the one-writer handoff: cancel the
+	// burst before killing its holder pane. Best-effort cleanup continues if
+	// the request context expires; Runtime.Stop below still kills the writer.
+	guard := deps.Bursts.BeginControl(id)
+	defer guard()
+	release, _ := deps.cancelBurstAndWait(ctx, id)
+	if release != nil {
+		defer release()
+	}
 	if deps.Runtime != nil {
 		deps.Runtime.Stop(id)
 	}

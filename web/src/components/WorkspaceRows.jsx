@@ -26,13 +26,14 @@ export function AgentRow({
   const repo = repoLine(ag, ws);
   const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
   const check = checklistLine(checklists && checklists[ag.id]);
+  const bursting = ag.burst && !["done", "failed", "idle"].includes(ag.burst.phase);
   return (
     <li
       className={"ws-item" + (ag.id === selectedId ? " active" : "")}
       onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
     >
       <div className="ws-row1">
-        {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
+        {bursting || ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
         <span className="ws-name" title={title}>
           {actions ? (
             <button type="button" className="ws-name-btn" title="Rename" onClick={() => onRenameAgent && onRenameAgent(ag, label)}>{label}</button>
@@ -71,7 +72,7 @@ export function AgentRow({
             ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
             : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
           <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
-          <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
+          {!ag.burst ? <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button> : null}
           <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
         </span>
       ) : null}

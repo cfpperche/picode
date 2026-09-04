@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/mcp"
+	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -79,7 +80,9 @@ type ManagedAgent struct {
 	waiting       *UIDialog     // blocking extension_ui_request, if any
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
-	observer      *RunObserver  // automations engine watching this run (ADR-0045)
+	transient     bool          // ADR-0059 burst: logical TUI mode survives this process
+	observer      *RunObserver  // automations/burst owner watching this run
+	deliveryPaths []string      // exact selected JSONL plus private dir for fresh sessions
 	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
 	onUsage       func(agentID string, u Usage)
 	cost          float64 // sum of usage.cost.total over assistant message_end events
@@ -90,6 +93,8 @@ type ManagedAgent struct {
 // unobserved-result and unexpected-exit items are suppressed — one item
 // per state change (ADR-0037), written by whoever owns the run.
 type RunObserver struct {
+	OnSpawn   func(pid int) error // process exists; owner records its crash lease before sending work
+	OnStarted func()              // first agent_start for the owned run
 	OnSettled func(final string)  // turn finished; final is the agent's last text ("" if none)
 	OnExit    func(expected bool) // process ended; expected = Runtime.Stop asked for it
 	OnCost    func(total float64) // after each assistant message: cost so far in this process
@@ -166,15 +171,21 @@ func (ma *ManagedAgent) runObserver() *RunObserver {
 	return ma.observer
 }
 
+type runtimeStart struct {
+	done      chan struct{}
+	cancelled bool
+}
+
 // Runtime owns all managed agents.
 type Runtime struct {
 	AgentCmd string // "pi" (ADR-0003)
 	DataDir  string // ~/.picode — MCP live snapshots when set
 
-	mu     sync.Mutex
-	agents map[string]*ManagedAgent
-	store  *store.Store
-	onExit func(agentID string)
+	mu       sync.Mutex
+	agents   map[string]*ManagedAgent
+	starting map[string]*runtimeStart
+	store    *store.Store
+	onExit   func(agentID string)
 
 	// OnUsage fires after every assistant message with that message's
 	// token accounting, so the status bar can add it up instead of
@@ -201,28 +212,66 @@ func NewRuntime(agentCmd string, st *store.Store, onExit func(string)) *Runtime 
 	return &Runtime{
 		AgentCmd: agentCmd,
 		agents:   map[string]*ManagedAgent{},
+		starting: map[string]*runtimeStart{},
 		store:    st,
 		onExit:   onExit,
 		authJobs: map[string]*mcpAuthJob{},
 	}
 }
 
-// Start launches the managed agent: spawns `pi --mode rpc` in path and
-// begins consuming the task queue (delivery engine).
+// Start launches the ordinary managed agent and begins consuming its task
+// queue (delivery engine).
 func (r *Runtime) Start(agentID, path string) error {
+	_, err := r.start(agentID, path, true, false, "", nil)
+	return err
+}
+
+// StartBurst launches the transient RPC writer used by ADR-0059. Runtime
+// lifecycle and state callbacks own it, but Get hides it from ordinary chat
+// and control endpoints. It does not drain the general queue: the burst
+// coordinator claims and prompts one exact task. exactSession overrides any
+// concurrently stale selected-session pointer, and the observer is installed
+// before the coordinator can send a prompt, so agent_start cannot race it.
+func (r *Runtime) StartBurst(agentID, path, exactSession string, observer *RunObserver) (*ManagedAgent, error) {
+	return r.start(agentID, path, false, true, exactSession, observer)
+}
+
+func (r *Runtime) start(agentID, path string, drain, transient bool, exactSession string, observer *RunObserver) (*ManagedAgent, error) {
 	r.mu.Lock()
-	if _, exists := r.agents[agentID]; exists {
+	_, running := r.agents[agentID]
+	_, starting := r.starting[agentID]
+	if running || starting {
 		r.mu.Unlock()
-		return fmt.Errorf("rpc: agent %s already managed", agentID)
+		return nil, fmt.Errorf("rpc: agent %s already managed", agentID)
 	}
+	ticket := &runtimeStart{done: make(chan struct{})}
+	r.starting[agentID] = ticket
 	r.mu.Unlock()
+	finishedStart := false
+	defer func() {
+		if finishedStart {
+			return
+		}
+		r.mu.Lock()
+		if r.starting[agentID] == ticket {
+			delete(r.starting, agentID)
+			close(ticket.done)
+		}
+		r.mu.Unlock()
+	}()
 
 	args := []string{"--mode", "rpc"}
+	deliveryPaths := []string{session.AgentDir(agentID)}
 	var extraEnv []string
 	if r.store != nil {
 		if a, err := r.store.GetAgent(agentID); err == nil {
 			sid := ""
-			if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
+			if transient && strings.TrimSpace(exactSession) != "" {
+				// The Inbox item, not a subsequently stale selected pointer,
+				// owns this burst. The coordinator persists the same exact path
+				// before it installs the crash-safe pane holder.
+				a.SessionPath = &exactSession
+			} else if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
 				// No current pointer — but an earlier run's pending
 				// --session-id (ADR-0039) may already have a file on
 				// disk: adopt it so the chat continues where the agent's
@@ -237,6 +286,9 @@ func (r *Runtime) Start(agentID, path string) error {
 				}
 			}
 			args = append(args, a.CLIFlagsForSpawn(sid)...)
+			if a.SessionPath != nil && strings.TrimSpace(*a.SessionPath) != "" {
+				deliveryPaths = append(deliveryPaths, *a.SessionPath)
+			}
 			extraEnv = append(extraEnv, a.SpawnEnv()...)
 		}
 	}
@@ -248,43 +300,88 @@ func (r *Runtime) Start(agentID, path string) error {
 		args = append(args, liveArgs...)
 		extraEnv = append(extraEnv, liveEnv...)
 	}
-	client, err := Start(r.AgentCmd, args, path, extraEnv...)
+	startProcess := Start
+	if transient {
+		startProcess = StartParentBound
+	}
+	client, err := startProcess(r.AgentCmd, args, path, extraEnv...)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if observer != nil && observer.OnSpawn != nil {
+		if err := observer.OnSpawn(client.PID()); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("rpc: record subprocess lease: %w", err)
+		}
 	}
 
 	_, cancel := context.WithCancel(context.Background())
 	ma := &ManagedAgent{
-		AgentID:   agentID,
-		Path:      path,
-		client:    client,
-		hub:       NewHub(),
-		store:     r.store,
-		onWaiting: r.OnWaiting,
-		onState:   r.OnState,
-		onUsage:   r.OnUsage,
-		cancel:    cancel,
-		done:      make(chan struct{}),
-		settledCh: closedChan(), // settled until a prompt is accepted
+		AgentID:       agentID,
+		Path:          path,
+		client:        client,
+		hub:           NewHub(),
+		store:         r.store,
+		onWaiting:     r.OnWaiting,
+		onState:       r.OnState,
+		onUsage:       r.OnUsage,
+		cancel:        cancel,
+		done:          make(chan struct{}),
+		settledCh:     closedChan(), // settled until a prompt is accepted
+		transient:     transient,
+		observer:      observer,
+		deliveryPaths: deliveryPaths,
 	}
 
 	r.mu.Lock()
+	if ticket.cancelled {
+		r.mu.Unlock()
+		client.Close()
+		r.mu.Lock()
+		if r.starting[agentID] == ticket {
+			delete(r.starting, agentID)
+			close(ticket.done)
+		}
+		finishedStart = true
+		r.mu.Unlock()
+		return nil, fmt.Errorf("rpc: start for agent %s was cancelled", agentID)
+	}
+	delete(r.starting, agentID)
 	r.agents[agentID] = ma
+	close(ticket.done)
+	finishedStart = true
 	r.mu.Unlock()
 
-	go ma.pumpEvents()
-	go ma.deliverLoop()
-	return nil
+	pumpReady := make(chan struct{})
+	go ma.pumpEvents(pumpReady)
+	// Do not let the owner send the first prompt until the event subscription
+	// is live; otherwise a fast agent_start can disappear between process
+	// spawn and observer setup.
+	<-pumpReady
+	if drain {
+		go ma.deliverLoop()
+	}
+	return ma, nil
 }
 
 // Stop terminates a managed agent (idempotent).
 func (r *Runtime) Stop(agentID string) bool {
 	r.mu.Lock()
 	ma := r.agents[agentID]
-	delete(r.agents, agentID)
+	// Keep a registered process in the map until Close has joined it. Start
+	// treats that entry as an exclusive lease, so a concurrent restart cannot
+	// overlap the old writer during its shutdown window.
+	starting := r.starting[agentID]
+	if ma == nil && starting != nil {
+		starting.cancelled = true
+	}
 	r.mu.Unlock()
 	if ma == nil {
-		return false
+		if starting == nil {
+			return false
+		}
+		<-starting.done
+		return true
 	}
 	ma.mu.Lock()
 	ma.stopRequested = true // expected exit: pumpEvents files no fyi
@@ -293,6 +390,11 @@ func (r *Runtime) Stop(agentID string) bool {
 	ma.cancel()
 	ma.client.Close()
 	<-ma.done
+	r.mu.Lock()
+	if r.agents[agentID] == ma {
+		delete(r.agents, agentID)
+	}
+	r.mu.Unlock()
 	return true
 }
 
@@ -303,16 +405,43 @@ func (r *Runtime) Get(agentID string) *ManagedAgent {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.agents[agentID]
+	ma := r.agents[agentID]
+	if ma != nil && ma.transient {
+		// The burst writer is not an ordinary chat/control endpoint. Its owner
+		// already holds the returned pointer from StartBurst.
+		return nil
+	}
+	return ma
+}
+
+// Active reports a registered or still-starting RPC writer. Lifecycle gates
+// use it to preserve the one-writer invariant across process-start races.
+func (r *Runtime) Active(agentID string) bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.agents[agentID] != nil {
+		return true
+	}
+	return r.starting[agentID] != nil
 }
 
 // StopAll terminates every managed agent (server shutdown).
 func (r *Runtime) StopAll() {
 	r.CloseMCPAuth()
 	r.mu.Lock()
-	ids := make([]string, 0, len(r.agents))
+	seen := make(map[string]bool, len(r.agents)+len(r.starting))
+	ids := make([]string, 0, len(r.agents)+len(r.starting))
 	for id := range r.agents {
+		seen[id] = true
 		ids = append(ids, id)
+	}
+	for id := range r.starting {
+		if !seen[id] {
+			ids = append(ids, id)
+		}
 	}
 	r.mu.Unlock()
 	for _, id := range ids {
@@ -353,8 +482,8 @@ func (ma *ManagedAgent) markSettled() {
 }
 
 // Settled reports whether no turn is in flight (the broadcast channel
-// is closed again). The reply-switch burst watcher waits on this before
-// reopening the TUI.
+// is closed again). Ordinary clients use it for back-pressure; burst
+// completion follows its generation-scoped observer instead.
 func (ma *ManagedAgent) Settled() bool {
 	select {
 	case <-ma.settledCh:
@@ -372,7 +501,7 @@ func (ma *ManagedAgent) settledChannel() <-chan struct{} {
 }
 
 // pumpEvents forwards rpc events to the hub and tracks streaming state.
-func (ma *ManagedAgent) pumpEvents() {
+func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 	unsub := ma.client.Subscribe(func(ev Event) {
 		switch ev.EventType() {
 		case "agent_start":
@@ -380,8 +509,12 @@ func (ma *ManagedAgent) pumpEvents() {
 			ma.streaming = true
 			// fresh wait channel: not settled anymore
 			ma.settledCh = make(chan struct{})
+			o := ma.observer
 			ma.mu.Unlock()
 			ma.announceState()
+			if o != nil && o.OnStarted != nil {
+				o.OnStarted()
+			}
 		case "agent_end":
 			// Stash the agent's actual final message: ADR-0037 result items
 			// carry the real answer, never a generated wrapper.
@@ -425,6 +558,7 @@ func (ma *ManagedAgent) pumpEvents() {
 		env, _ := json.Marshal(map[string]any{"agentId": ma.AgentID, "event": json.RawMessage(ev)})
 		ma.hub.Broadcast(env)
 	})
+	close(ready)
 	<-ma.client.Done()
 	unsub()
 
@@ -433,17 +567,21 @@ func (ma *ManagedAgent) pumpEvents() {
 	ma.waiting = nil
 	ma.lastErr = fmt.Errorf("process exited")
 	ma.mu.Unlock()
+	ma.announceState()
 
 	ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{"type": "exit"}))
 	ma.cancel()
-	if r := ma.store; r != nil {
-		_ = r.SetAgentRuntime(ma.AgentID, store.StatusStopped)
-		_ = r.AppendEvent("agent_process_exit", &ma.AgentID, nil, nil)
-	}
 	ma.mu.Lock()
 	expected := ma.stopRequested
 	observer := ma.observer
+	transient := ma.transient
 	ma.mu.Unlock()
+	// A burst process is only borrowing the TUI's writer lease. Its exit
+	// must not announce that the logical interactive agent stopped.
+	if r := ma.store; r != nil && !transient {
+		_ = r.SetAgentRuntime(ma.AgentID, store.StatusStopped)
+		_ = r.AppendEvent("agent_process_exit", &ma.AgentID, nil, nil)
+	}
 	if observer != nil {
 		if observer.OnExit != nil {
 			observer.OnExit(expected)
@@ -596,6 +734,7 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	}
 
 	body := map[string]any{"message": task.Payload}
+	baseline := CaptureDeliveryBaseline(ma.deliveryPaths...)
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 
@@ -610,13 +749,13 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 		return err
 	}
 	// An RPC accept is not proof. pi holds early prompts in an in-memory
-	// follow-up queue that does not survive its init/resume window — the
-	// reply switch lost a live reply exactly there while the task read
+	// follow-up queue that does not survive its init/resume window — an
+	// earlier handoff lost a live reply there while its task already read
 	// "delivered". The only honest proof is the reply materializing as a
 	// user message in the agent's session files.
 	if kind == store.TaskFollowUp {
-		if !ma.awaitReplyInSession(replyNeedle(task.Payload), 30*time.Second) {
-			return fmt.Errorf("%w: the reply never reached the session files", errTurnNotStarted)
+		if !ma.awaitReplyInSession(baseline, task.Payload, 30*time.Second) {
+			return fmt.Errorf("%w: the reply never reached newly appended session bytes", errTurnNotStarted)
 		}
 	}
 	return err

@@ -3,7 +3,7 @@
  *
  * notify_human files an FYI into PiCode's inbox; ask_human files a
  * blocking question and ends the turn (terminate: true) — the human's
- * reply arrives later as a follow-up message through PiCode's queue.
+ * reply arrives later through PiCode's durable delivery path.
  * With no reachable PiCode the tools fail softly: the model gets an
  * explanatory text result, never a thrown error to retry against.
  */
@@ -18,6 +18,7 @@ import { Type } from "typebox";
 import {
 	buildAskPayload,
 	buildNotifyPayload,
+	type InboxPayload,
 	rejectUnauthorizedFor,
 	resolveDataDir,
 	resolveServerUrl,
@@ -152,10 +153,13 @@ const askTool = defineTool({
 		question: Type.String({ description: "The question, one sentence if possible" }),
 		context: Type.Optional(Type.String({ description: "What the human needs to answer well, markdown" })),
 	}),
-	async execute(_toolCallId, params) {
+	async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 		let payload: InboxPayload;
 		try {
-			payload = buildAskPayload(params, process.env);
+			// ADR-0059: the reply must resume the exact branch that asked,
+			// not whichever session file happens to be newest later.
+			const sessionPath = ctx?.sessionManager.getSessionFile() || "";
+			payload = buildAskPayload(params, process.env, sessionPath);
 		} catch (err) {
 			throw new Error((err as Error).message);
 		}

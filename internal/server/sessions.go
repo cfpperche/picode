@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -154,6 +155,12 @@ func handleNewSession(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
+			return
+		}
+		defer release()
 		empty := ""
 		if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &empty}); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -191,6 +198,12 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
+		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
+			return
+		}
+		defer release()
 		if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &req.Path}); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -227,6 +240,12 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
+		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
+			return
+		}
+		defer release()
 		if err := session.SetName(path, req.Name); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -295,6 +314,11 @@ func safeSessionPath(path string, dirs ...string) bool {
 }
 
 func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID string, mode agentRunMode) error {
+	release, err := deps.cancelBurstAndWait(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("stop terminal reply: %w", err)
+	}
+	defer release()
 	// The agent's own cwd, never the workspace's: a free agent's
 	// workspace is the ws_free sentinel (no real path), and a WorkPath
 	// override must win for workspace agents too. This is the same

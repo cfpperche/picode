@@ -11,7 +11,7 @@ export default function StateChip({ state }) {
 export function agentState(a, workingIds) {
   if (!a || !a.mode || a.mode === "stopped") return "stopped";
   if (a.waiting) return "waiting";
-  if (a.streaming || (workingIds || []).includes(a.id)) return "working";
+  if ((a.burst && !["done", "failed", "idle"].includes(a.burst.phase)) || a.streaming || (workingIds || []).includes(a.id)) return "working";
   if (a.mode === "interactive") return "interactive";
   return "idle";
 }

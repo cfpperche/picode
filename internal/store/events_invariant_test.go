@@ -114,11 +114,36 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.DeleteDoneInboxItems()
 		}, []string{"inbox.cleared"}},
+		{"RespondAndPark", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			it, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: a.ID, Reason: "r", Title: "t", Body: "?"})
+			s.OnEvent = recorder(s)
+			_, _, _ = s.RespondAndPark(it.ID, VerbRespond, "reply")
+		}, []string{"task.enqueued", "inbox.updated"}},
+		{"recoverInterruptedBursts", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			it, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: a.ID, Reason: "r", Title: "t", Body: "?"})
+			_, _, _ = s.RespondAndPark(it.ID, VerbRespond, "reply")
+			s.OnEvent = recorder(s)
+			_, _ = s.recoverInterruptedBursts()
+		}, []string{"task.finished", "inbox.updated"}},
 		{"EnqueueTask", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			s.OnEvent = recorder(s)
 			_, _ = s.EnqueueTask(a.ID, TaskPrompt, "p", "user")
 		}, []string{"task.enqueued"}},
+		{"ClaimNextTask", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			_, _ = s.EnqueueTask(a.ID, TaskPrompt, "p", "user")
+			s.OnEvent = recorder(s)
+			_, _ = s.ClaimNextTask(a.ID)
+		}, []string{"task.claimed"}},
+		{"ClaimTask", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			tk, _ := s.EnqueueTask(a.ID, TaskPrompt, "p", "user")
+			s.OnEvent = recorder(s)
+			_, _ = s.ClaimTask(a.ID, tk.ID)
+		}, []string{"task.claimed"}},
 		{"FinishTask", func(s *Store) {
 			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
 			_, _ = s.EnqueueTask(a.ID, TaskPrompt, "p", "user")
@@ -126,6 +151,13 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.FinishTask(tk.ID, TaskDelivered, "")
 		}, []string{"task.finished"}},
+		{"EndReplyBurst", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "a", "")
+			it, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromAgent, SourceID: a.ID, Reason: "r", Title: "t", Body: "?"})
+			_, tk, _ := s.RespondAndPark(it.ID, VerbRespond, "reply")
+			s.OnEvent = recorder(s)
+			_ = s.EndReplyBurst(tk.ID, TaskFailed, "failed", "Send again.")
+		}, []string{"task.finished", "inbox.updated"}},
 		{"CreateAutomation", func(s *Store) {
 			_, _, _ = s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
 		}, []string{"automation.created"}},

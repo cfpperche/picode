@@ -1,5 +1,5 @@
 {
-  "uiTreeHash": "fefe70472a6d305ba9438ad0a63aa2258a3a5b4f2b9b84c2eb34713b7bf8f4c1",
+  "uiTreeHash": "2a322d9a4b87e6ed68c3d1f840f7f53439ff19d130a74003408e31b4ba9a7691",
   "videos": {
     "create-agent": {
       "file": "create-agent.mp4",
@@ -7,10 +7,10 @@
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
         "v1-1b-agents-tab": "a12a7c4aaa7f1ef9bc7c6503835bce44b104f8da197326971a1da04d5608dc90",
-        "v1-2-form": "2d7e932bebd572a88c95d28188bb1ca08335ae9116f8948ff10873b8615fa8f6",
+        "v1-2-form": "60456eb3238bfebb1554a9ecbe40864fdd716fc9a81c41edec215419c09b5a28",
         "v1-3-running": "daf51d4209b95ce67a84b968e44b3b95583316468cb690a4a8c5b3a72b2a108e"
       },
-      "mp4": "16a88482dc882874daa94909b9f6d325fc31003b2a7e6e890c9a7098aa4ce411"
+      "mp4": "0b2e28b37b48ded76ad40165117b4b8a50feda10ef37972ac65fec9ee7c6db8e"
     },
     "automate-it": {
       "file": "automate-it.mp4",
@@ -18,10 +18,10 @@
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
         "v2-1-list": "b85c985e432c23e107d14395fa3fa58bb3e955c2da8ea152229311165e706546",
-        "v2-2-detail": "80d266777bf2600ca6f3bca7fb7386c45adeae5b6ba6c6bdfc65b8c1c7909fb8",
+        "v2-2-detail": "15566431aa49119f16d856a4455e8810a3bf87251b052e9159cca5c91708b307",
         "v2-3-inbox": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6"
       },
-      "mp4": "d91bb388a93cb4ae8edcffebc3c3a7da0eb871a6cf85a98ba2ad4511f7a20d0b"
+      "mp4": "67a71012df2233bb1eee3e46fe054d64174bd6eb2e13ede1ba21aeb652dbc281"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",

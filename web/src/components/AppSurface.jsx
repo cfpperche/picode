@@ -35,8 +35,8 @@ const LIST_KEY = "picode-app-split-w";
 // selecting) and "detail" (one item's panes under the shell's own Back
 // header; an action that returns to the root calls onClose). Undefined
 // keeps the desktop's split. onGoto receives an action's goto directive
-// ("agent:<id>") — the shell navigates there (agent tab + docked TUI);
-// mobile has no terminal surface and passes nothing.
+// ("agent:<id>" or "agentburst:<id>:<generation>"); each shell opens its
+// own agent terminal surface.
 export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey, paneMode, onOpenItem, onGoto }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
@@ -453,7 +453,7 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }
     return (
       <div className="app-block">
         <BlockHead block={block} />
-        <AppForm form={block.form} onAction={onAction} extraActions={extraActions} />
+        <AppForm key={(selected || "") + ":" + block.form.id} form={block.form} onAction={onAction} extraActions={extraActions} />
       </div>
     );
   }
@@ -588,25 +588,39 @@ function AppForm({ form, onAction, extraActions }) {
   });
   const set = (name, val) => setValues((cur) => ({ ...cur, [name]: val }));
   const submit = async () => {
-    // An interactive reply switches the agent from its TUI to chat mode
-    // (the terminal session ends) — the user confirms that trade once,
-    // in the dialog, not after the fact.
-    if (form.interactive) {
+    // A TUI reply borrows the same session through ADR-0059's temporary
+    // control channel. The shell stays on the terminal tab throughout.
+    if (form.burst) {
       const ok = await askConfirm({
-        title: "Pause the TUI and reply from chat?",
-        message: "The agent runs in a terminal. Sending pauses the TUI, runs your reply in chat mode, and reopens the terminal when the reply finishes.",
-        confirmLabel: "Pause TUI & send",
+        title: "Reply in this terminal?",
+        message: "PiCode will briefly pause the terminal, process this reply in the same session, then return you to the TUI.",
+        confirmLabel: "Reply here",
       });
       if (!ok) return;
-      return onAction({ id: form.id, label: form.submit || "Submit", args: { _switch: "1" } }, values);
+      return onAction({ id: form.id, label: form.submit || "Submit", args: { _burst: "1" } }, values);
     }
     return onAction({ id: form.id, label: form.submit || "Submit", args: {} }, values);
+  };
+  const fireExtra = async (action) => {
+    // Approval buttons share the reply form's TUI handoff. Ignore remains a
+    // pure Inbox action and must never start an agent turn.
+    if (form.burst && (action.id === "accept" || action.id === "decline")) {
+      const ok = await askConfirm({
+        title: "Reply in this terminal?",
+        message: "PiCode will briefly pause the terminal, process this reply in the same session, then return you to the TUI.",
+        confirmLabel: action.label,
+      });
+      if (!ok) return;
+      return onAction({ ...action, args: { ...(action.args || {}), _burst: "1" } });
+    }
+    return onAction(action);
   };
   const hasEditor = form.fields.some((f) => f.method === "editor");
   const extraPrimary = (extraActions || []).some((a) => a.primary);
   return (
     <form
       className="app-form"
+      noValidate
       onSubmit={(e) => { e.preventDefault(); submit(); }}
     >
       {form.fields.map((f) => (
@@ -646,7 +660,7 @@ function AppForm({ form, onAction, extraActions }) {
           {form.submit || "Submit"}
         </button>
         {(extraActions || []).map((a) => (
-          <ActionButton key={a.id} action={a} onAction={onAction} />
+          <ActionButton key={a.id} action={a} onAction={fireExtra} />
         ))}
         {hasEditor ? (
           <span className="app-field-hint"><span className="app-key">Ctrl</span>+<span className="app-key">Enter</span> to send</span>

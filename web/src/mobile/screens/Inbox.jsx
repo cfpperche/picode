@@ -17,11 +17,11 @@ export default function Inbox({ manifest, onOpenItem }) {
   );
 }
 
-export function InboxItem({ manifest, itemId, onBack }) {
+export function InboxItem({ manifest, itemId, onBack, onGoto }) {
   return (
     <div className="m-screen m-inbox-item">
       <ScreenHeader title="Inbox" onBack={onBack} />
-      <AppSurface appId="inbox" manifest={manifest || MANIFEST} hidden={false} initialPath={"item/" + itemId} paneMode="detail" onClose={onBack} />
+      <AppSurface appId="inbox" manifest={manifest || MANIFEST} hidden={false} initialPath={"item/" + itemId} paneMode="detail" onClose={onBack} onGoto={onGoto} />
     </div>
   );
 }

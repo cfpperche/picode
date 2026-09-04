@@ -19,6 +19,7 @@ import DashboardView from "../components/DashboardView.jsx";
 import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
+import BurstSurface from "../components/BurstSurface.jsx";
 import FileSurface from "../components/FileSurface.jsx";
 import GitGraphSurface from "../components/GitGraphSurface.jsx";
 import FileTreeSurface from "../components/FileTreeSurface.jsx";
@@ -115,6 +116,7 @@ export default function App() {
   const [formBusy, setFormBusy] = useState(false);
   const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
+  const [termEpochs, setTermEpochs] = useState({});
   const [tuiWorking, setTuiWorking] = useState([]);
   const [checklists, setChecklists] = useState({});
   const [draft, setDraft] = useState("");
@@ -208,7 +210,10 @@ export default function App() {
   // the chat says so instead of reading as idle.
   const tuiBusy = !!(agent && agent.mode === "interactive" && tuiWorking.includes(agent.id));
   const interactive = !!(agent && agent.mode === "interactive");
-  const termView = !!(selectedId && termWanted.has(selectedId));
+  // A burst owns the selected agent surface regardless of the viewer's
+  // previous Chat/Terminal preference. There is no route into ordinary chat
+  // until the temporary writer has restored the TUI.
+  const termView = !!(selectedId && (termWanted.has(selectedId) || (agent && agent.burst)));
   const atAgents = useMemo(
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
@@ -570,12 +575,6 @@ export default function App() {
     const unsub = subscribeFeed((ev) => {
       if (ev.type === "feed.open" || ev.type === "feed.reset") poll();
       else if (ev.type === "agent.tui") setTuiWorking((cur) => applyTui(cur, ev));
-      // Reply-switch flip-back: the burst finished and the server
-      // reopened the agent's TUI — dock it so the user lands in the
-      // terminal with the answer in the transcript.
-      else if (ev.type === "burst.reopen" && ev.data && ev.data.agentId) {
-        setTermWanted((s) => new Set(s).add(ev.data.agentId));
-      }
     });
     return () => { stop = true; clearInterval(t); unsub(); };
   }, [workspaces, freeAgents, selectedId]);
@@ -1419,7 +1418,13 @@ export default function App() {
     const loc = locate(workspaces, freeAgents, id);
     if (!loc || !loc.agent) return;
     try {
-      await api(`/api/agents/${loc.agent.id}/open`, { method: "POST" });
+      const forceRestart = !!(opts && opts.restart);
+      const restart = forceRestart ? "?restart=1" : "";
+      if (forceRestart) closeShellTerm(loc.agent.id);
+      await api(`/api/agents/${loc.agent.id}/open${restart}`, { method: "POST" });
+      if (forceRestart) {
+        setTermEpochs((cur) => ({ ...cur, [loc.agent.id]: (cur[loc.agent.id] || 0) + 1 }));
+      }
       const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
       if (!opts || opts.dock !== false) {
@@ -2092,8 +2097,14 @@ export default function App() {
         apps={apps}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
         onChat={(id) => {
+          const target = locate(workspaces, freeAgents, id);
           revealAgent(id);
-          setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
+          setTermWanted((s) => {
+            const n = new Set(s);
+            if (target && target.agent && target.agent.burst) n.add(id);
+            else n.delete(id);
+            return n;
+          });
         }}
         onTerm={(id) => {
           revealAgent(id);
@@ -2210,20 +2221,18 @@ export default function App() {
               manifest={apps.find((a) => a.id === tabAppId(id)) || null}
               onClose={() => closeTab(id)}
               onGoto={(g) => {
-                // Apps act as launchers too. "agent:<id>" opens the
-                // agent's tab with its TUI docked (Open terminal);
-                // "agentchat:<id>" opens it in chat mode — the reply
-                // switch undocks the terminal, the thread is the same.
-                if (g.startsWith("agentchat:")) {
-                  const id = g.slice("agentchat:".length);
+                // Apps can focus an agent's existing tab. A burst keeps the
+                // terminal requested and merely replaces its pixels with the
+                // dedicated lifecycle surface — it never opens chat.
+                if (g.startsWith("agentburst:")) {
+                  const payload = g.slice("agentburst:".length);
+                  const cut = payload.indexOf(":");
+                  const id = cut < 0 ? payload : payload.slice(0, cut);
+                  if (!id) return;
                   (async () => {
                     const list = await refreshFleetFallback().catch(() => []);
                     openTab(id, list);
-                    setTermWanted((s) => {
-                      const n = new Set(s);
-                      n.delete(id);
-                      return n;
-                    });
+                    setTermWanted((s) => new Set(s).add(id));
                   })();
                   return;
                 }
@@ -2431,12 +2440,31 @@ export default function App() {
 
           {termView && !onPane && agent ? (
             agent.mode === "interactive" ? (
-              <TermSurface
-                key={"agterm-" + agent.id}
-                term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
-                cwdKind="agent"
-                onOpenFile={(p) => openFileTab("agent", agent.id, p)}
-              />
+              <>
+                <TermSurface
+                  key={"agterm-" + agent.id + "-" + (termEpochs[agent.id] || 0)}
+                  hidden={!!agent.burst}
+                  term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
+                  cwdKind="agent"
+                  onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+                />
+                {agent.burst ? (
+                  <BurstSurface
+                    burst={agent.burst}
+                    agentName={agent.name}
+                    onCancel={async () => {
+                      try {
+                        await api("/api/agents/" + agent.id + "/burst/cancel", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ generation: agent.burst.generation }),
+                        });
+                        if (agent.burst.terminalUnavailable) await openInteractive(agent.id, { restart: true });
+                      } catch (e) { toastError(e); }
+                    }}
+                  />
+                ) : null}
+              </>
             ) : (
               <section className="term-surface" aria-label="Agent terminal">
                 <p className="file-pane-msg">

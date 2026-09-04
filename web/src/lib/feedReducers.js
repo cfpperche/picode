@@ -18,6 +18,24 @@ function byName(list) {
   return [...list].sort((x, y) => String(x.name || "").localeCompare(String(y.name || "")));
 }
 
+function compareBase36(a, b) {
+  if (!/^[0-9a-z]+$/.test(a) || !/^[0-9a-z]+$/.test(b)) return null;
+  if (a.length !== b.length) return a.length > b.length ? 1 : -1;
+  return a === b ? 0 : a > b ? 1 : -1;
+}
+
+// Burst generations are "<unix-ns-base36>-<process-sequence-base36>". An
+// HTTP fleet reconciliation can overtake an already-buffered SSE notice, so
+// the browser must reject an older generation too—not only the coordinator.
+function compareBurstGeneration(a, b) {
+  const left = String(a || "").split("-");
+  const right = String(b || "").split("-");
+  if (left.length !== 2 || right.length !== 2) return null;
+  const stamp = compareBase36(left[0], right[0]);
+  if (stamp == null || stamp !== 0) return stamp;
+  return compareBase36(left[1], right[1]);
+}
+
 // applyFleet({workspaces, freeAgents, terminals}, ev) -> next | null | same
 export function applyFleet(state, ev) {
   const { workspaces = [], freeAgents = [], terminals = [] } = state || {};
@@ -65,6 +83,31 @@ export function applyFleet(state, ev) {
         workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).filter((a) => a.id !== d.id) })),
         freeAgents: freeAgents.filter((a) => a.id !== d.id),
       };
+    case "agent.burst": {
+      if (!d.agentId) return state;
+      let found = false;
+      const patch = (a) => {
+        if (a.id !== d.agentId) return a;
+        found = true;
+        if (a.burst && a.burst.generation && d.generation && a.burst.generation !== d.generation) {
+          const order = compareBurstGeneration(d.generation, a.burst.generation);
+          if (order == null || order <= 0) return a;
+        }
+        if (d.phase === "idle") {
+          const rest = { ...a };
+          delete rest.burst;
+          if (d.terminalUnavailable) {
+            return { ...rest, running: false, mode: "stopped", streaming: false, waiting: false, dialog: undefined };
+          }
+          return rest;
+        }
+        // The control process is an implementation detail. Preserve the
+        // logical TUI mode even while agent.state streams underneath it.
+        return { ...a, running: true, mode: "interactive", burst: d };
+      };
+      const next = { ...state, workspaces: workspaces.map((w) => ({ ...w, agents: (w.agents || []).map(patch) })), freeAgents: freeAgents.map(patch) };
+      return found ? next : state;
+    }
     case "agent.status": {
       // A start carries the mode the server started it in (managed |
       // interactive); a start without one cannot be applied faithfully.

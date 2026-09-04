@@ -101,6 +101,7 @@ export type InboxPayload = {
 	title: string;
 	body: string;
 	blocking: boolean;
+	sessionPath?: string;
 };
 
 export function buildNotifyPayload(args: NotifyArgs, env: Record<string, string | undefined>): InboxPayload {
@@ -118,7 +119,7 @@ export function buildNotifyPayload(args: NotifyArgs, env: Record<string, string 
 	};
 }
 
-export function buildAskPayload(args: AskArgs, env: Record<string, string | undefined>): InboxPayload {
+export function buildAskPayload(args: AskArgs, env: Record<string, string | undefined>, sessionPath = ""): InboxPayload {
 	const question = (args.question || "").trim();
 	if (!question) throw new Error("ask_human needs a question");
 	const who = agentIdentity(env);
@@ -133,5 +134,6 @@ export function buildAskPayload(args: AskArgs, env: Record<string, string | unde
 		title: clip(question, MAX_TITLE),
 		body: clip(body, MAX_BODY),
 		blocking: true,
+		...(sessionPath.trim() ? { sessionPath: sessionPath.trim() } : {}),
 	};
 }

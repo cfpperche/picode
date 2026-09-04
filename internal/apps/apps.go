@@ -49,12 +49,11 @@ type Host struct {
 	// cannot open terminals (tests, the demo app) and the action is not
 	// offered.
 	OpenAgentTerminal func(agentID string) error
-	// SwitchToManaged moves the agent from its interactive TUI to chat
-	// mode (the TUI session ends; the thread continues) — the consented
-	// switch behind an inbox reply (Degrau 2). Optional — nil means the
-	// reply just parks in the queue and delivers on the next managed
-	// start.
-	SwitchToManaged func(agentID string) error
+	// StartReplyBurst owns the coupled Inbox reply + temporary control
+	// channel handoff (ADR-0059). It returns the source agent and one
+	// generation token for the shell's dedicated terminal state. Optional
+	// means this host cannot safely deliver a reply to a TUI agent.
+	StartReplyBurst func(itemID, verb, text string) (agentID, generation string, err error)
 }
 
 // App is one first-party app. Implementations must be safe for

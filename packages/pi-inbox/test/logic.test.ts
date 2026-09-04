@@ -60,6 +60,9 @@ test("buildAskPayload files a blocking question with context", () => {
 	const bare = buildAskPayload({ question: "Go?" }, {});
 	assert.equal(bare.body, "Go?");
 	assert.equal(bare.sourceKind, "system");
+	assert.equal(bare.sessionPath, undefined);
+	const exact = buildAskPayload({ question: "Go?" }, { PICODE_AGENT_ID: "a1" }, " /tmp/a1/session.jsonl ");
+	assert.equal(exact.sessionPath, "/tmp/a1/session.jsonl");
 });
 
 test("parseToken accepts hex tokens only", () => {

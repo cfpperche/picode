@@ -121,7 +121,7 @@ function normalizeBlock(b) {
         placeholder: typeof x.placeholder === "string" ? x.placeholder : "",
         prefill: typeof x.prefill === "string" ? x.prefill : "",
       }));
-    return { type: "form", ...head, form: { id: f.id, submit: str(f.submit), interactive: !!f.interactive, fields } };
+    return { type: "form", ...head, form: { id: f.id, submit: str(f.submit), burst: !!f.burst, fields } };
   }
   // actions
   const actions = normalizeActions(b.actions);

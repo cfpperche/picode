@@ -44,6 +44,33 @@ test("fleet: status and live state", () => {
   assert.equal(applyFleet(s, { type: "agent.state", data: { agentId: "ghost", streaming: true } }), s);
 });
 
+test("fleet: transient reply stays interactive and clears without chat mode", () => {
+  const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "interactive" })])], freeAgents: [], terminals: [] };
+  const receiving = applyFleet(s, { type: "agent.burst", data: { agentId: "x", generation: "g1", phase: "receiving" } });
+  assert.equal(receiving.workspaces[0].agents[0].mode, "interactive");
+  assert.equal(receiving.workspaces[0].agents[0].burst.phase, "receiving");
+  const processing = applyFleet(receiving, { type: "agent.burst", data: { agentId: "x", generation: "g1", phase: "processing", output: "Hi" } });
+  assert.equal(processing.workspaces[0].agents[0].burst.output, "Hi");
+  const live = applyFleet(processing, { type: "agent.state", data: { agentId: "x", streaming: true } });
+  assert.equal(live.workspaces[0].agents[0].mode, "interactive", "hidden RPC must not leak managed mode");
+  const idle = applyFleet(live, { type: "agent.burst", data: { agentId: "x", generation: "g1", phase: "idle" } });
+  assert.equal(idle.workspaces[0].agents[0].burst, undefined);
+  const unavailable = applyFleet(processing, { type: "agent.burst", data: { agentId: "x", generation: "g1", phase: "idle", terminalUnavailable: true } });
+  assert.equal(unavailable.workspaces[0].agents[0].mode, "stopped");
+  assert.equal(unavailable.workspaces[0].agents[0].running, false);
+  assert.equal(applyFleet(s, { type: "agent.burst", data: { agentId: "ghost", phase: "receiving" } }), s);
+
+  const older = "dl6400000000-1";
+  const newer = "dl6400000000-2";
+  const reconciled = applyFleet(s, { type: "agent.burst", data: { agentId: "x", generation: newer, phase: "processing", output: "new" } });
+  const staleUpdate = applyFleet(reconciled, { type: "agent.burst", data: { agentId: "x", generation: older, phase: "processing", output: "old" } });
+  assert.equal(staleUpdate.workspaces[0].agents[0].burst.output, "new");
+  const staleIdle = applyFleet(staleUpdate, { type: "agent.burst", data: { agentId: "x", generation: older, phase: "idle" } });
+  assert.equal(staleIdle.workspaces[0].agents[0].burst.generation, newer);
+  const newest = applyFleet(staleIdle, { type: "agent.burst", data: { agentId: "x", generation: "dl6400000001-1", phase: "receiving" } });
+  assert.equal(newest.workspaces[0].agents[0].burst.generation, "dl6400000001-1");
+});
+
 test("fleet: terminals", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [] };
   s = applyFleet(s, { type: "terminal.created", data: { id: "t1", name: "T", workspaceId: "ws_free" } });

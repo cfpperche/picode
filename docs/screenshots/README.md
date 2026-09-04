@@ -31,3 +31,7 @@ bar), `mobile-more.png`.
 Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
 first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
 reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).
+Transient TUI replies (ADR-0059): `adr-0059-burst-receiving.png`,
+`adr-0059-burst-processing.png`, `adr-0059-burst-failed.png`,
+`adr-0059-burst-terminal-unavailable.png` (explicit TUI restart), and
+`adr-0059-burst-mobile-receiving.png` (390×844).

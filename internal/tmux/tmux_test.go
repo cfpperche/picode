@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -79,6 +80,48 @@ func TestNewHasListKillSession(t *testing.T) {
 	if err := m.KillSession(ctx, name); err != nil {
 		t.Errorf("KillSession on missing session: want nil, got %v", err)
 	}
+}
+
+func TestRespawnPanePreservesSessionAndQuotesArgs(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("respawn-" + time.Now().Format("150405-000000000"))
+	cwd := t.TempDir()
+	if err := m.NewSession(ctx, name, cwd, "sleep", "30"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	before, err := m.run(ctx, "display-message", "-p", "-t", name+":0.0", "#{session_id}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(cwd, "quoted.txt")
+	value := "space and ' quote"
+	if err := m.RespawnPaneEnv(ctx, name, cwd, []string{"BURST_VALUE=" + value}, "/bin/sh", "-c", `printf '%s' "$BURST_VALUE" > "$1"; sleep 30`, "holder", out); err != nil {
+		t.Fatalf("RespawnPaneEnv: %v", err)
+	}
+	after, err := m.run(ctx, "display-message", "-p", "-t", name+":0.0", "#{session_id}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(before) != strings.TrimSpace(after) {
+		t.Fatalf("session changed across respawn: %q -> %q", before, after)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		body, err := os.ReadFile(out)
+		if err == nil {
+			if string(body) != value {
+				t.Fatalf("quoted env = %q, want %q", body, value)
+			}
+			if command, err := m.PaneCommand(ctx, name); err != nil || command != "sh" {
+				t.Fatalf("PaneCommand = %q, %v", command, err)
+			}
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatal("respawned command did not write its output")
 }
 
 func TestHasSessionMissing(t *testing.T) {

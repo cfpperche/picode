@@ -161,6 +161,37 @@ func (m *Manager) NewSessionEnv(ctx context.Context, name, cwd string, extraEnv 
 	return nil
 }
 
+// RespawnPaneEnv replaces the process in an existing session's active pane
+// without destroying the tmux session or detaching its browser client. tmux's
+// respawn-pane accepts one shell-command string, so every argv element is
+// POSIX-shell quoted before it crosses that boundary.
+func (m *Manager) RespawnPaneEnv(ctx context.Context, name, cwd string, extraEnv []string, command string, args ...string) error {
+	if exists, err := m.HasSession(ctx, name); err != nil {
+		return err
+	} else if !exists {
+		return fmt.Errorf("tmux session %q does not exist", name)
+	}
+	full := []string{"respawn-pane", "-k", "-t", name + ":", "-c", cwd}
+	for _, e := range extraEnv {
+		if e == "" || !strings.Contains(e, "=") || strings.ContainsAny(e, "\n\x00") {
+			continue
+		}
+		full = append(full, "-e", e)
+	}
+	argv := append([]string{command}, args...)
+	quoted := make([]string, 0, len(argv))
+	for _, arg := range argv {
+		quoted = append(quoted, shellQuote(arg))
+	}
+	full = append(full, "--", strings.Join(quoted, " "))
+	_, err := m.run(ctx, full...)
+	return err
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
+}
+
 // EnsureExtendedKeys turns on tmux extended keys so Shift+Enter survives
 // attach. Format is **xterm** (modifyOtherKeys), not csi-u: probed live —
 // tmux 3.6 answers only DA1 to a pane's Kitty query (`CSI ? u`), so pi
@@ -243,6 +274,27 @@ func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) err
 	args := append([]string{"send-keys", "-t", name + ":"}, keys...)
 	_, err := m.run(ctx, args...)
 	return err
+}
+
+// PaneCommand returns tmux's current command name for the active pane.
+func (m *Manager) PaneCommand(ctx context.Context, name string) (string, error) {
+	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_command}")
+	if err != nil {
+		return "", err
+	}
+	command := strings.TrimSpace(out)
+	if command == "" {
+		return "", fmt.Errorf("tmux pane command empty")
+	}
+	return command, nil
+}
+
+// PaneSessionID returns tmux's immutable session identity (for example $12).
+// Unlike the name, it proves a pane respawn did not kill and recreate the
+// terminal container.
+func (m *Manager) PaneSessionID(ctx context.Context, name string) (string, error) {
+	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{session_id}")
+	return strings.TrimSpace(out), err
 }
 
 // PaneCwd returns the current pane's working directory (#{pane_current_path}).

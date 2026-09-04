@@ -3,6 +3,608 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after ADR-0059)
+
+- **2026-09-03 — tmux cwd test no longer depends on scheduler timing.** The
+  test polls both initial cwd and a later shell `cd`; it passed ten consecutive
+  package runs and the full gate.
+- **2026-09-03 — main advanced to `6609ac9e`.** Docs harness/OpenAPI/Vale,
+  guest-terminal interception and HTTPS fixes, terminal icon state, and Codex
+  lifecycle/interrupt hooks landed while ADR-0059 remained isolated.
+
+## Recent activity (archived 2026-09-03 before ADR-0059)
+
+- **2026-09-03 — L4 closed: the refused checklist card leads with its
+  refusal line** (`fix/checklist-refusal-detail`, merged + deployed).
+  `checklistRefusal()` handles both wire shapes (live: text in
+  `result.content[].text`, detail is JSON — never leaked; replay: text
+  flattened into `detail`), the card shows a red refusal line +
+  "Refused" in the head, healthy cards untouched. Row-by-row tests
+  (453 JS green). Visual review on a scratch daemon with a hand-built
+  session JSONL: refused card reads Refused + red line + attempted
+  list; healthy card unchanged (checklist-card-*.png; overlayAudit
+  ok; card 5/5). Scratch torn down by PID (environ match), per policy.
+
+- **2026-09-03 — dashboard counting scope clarified (read-only, no code).**
+  Owner asked whether the dashboard counts only PiCode agent sessions or
+  also terminal `pi` runs. Traced: `/api/sessions/stats` →
+  `session.StatsRoot(session.Root())` scans **every** JSONL under the
+  shared `~/.pi/agent/sessions` (`internal/session/stats.go`,
+  `internal/server/session_stats.go`), so terminal/tmux pi sessions count
+  in Spend/Activity/Sessions/Daily/models/workspaces/Tokens/Tools/
+  Reliability/Top Sessions — the only escape is a pi run pointed at a
+  non-default sessions dir. The FLEET tile is separate: `fleetStats`
+  counts only store-registered agents (workspaces + free agents); an
+  unmanaged terminal pi never appears there. Recorded as a scope note on
+  the ADR-0042 line in *Current state*.
+
+- **2026-09-03 — adversarial review of `packages/pi-checklist` + the
+  staleness fixes, live-dogfooded** (`fix/checklist-staleness`):
+  probed the gate, the reminder loop (confirmed against pi 0.84.4
+  source that follow-up turns do not re-emit `before_agent_start`, so
+  the 3-reminder cap holds), TLS loopback canonicalization
+  (`0x7f000001` → `127.0.0.1` via WHATWG — solid), agent-id traversal
+  (blocked). Found and fixed the two real ones (stale row on fresh
+  session; stale items on absent/blocked). Live dogfood on a scratch
+  daemon: gate refusal → "No checklist", + New → silence, resume →
+  republish. visual-review: PASS (checklist-sidebar-*.png read;
+  overlayAudit ok; card 5/5). **Near-miss, owned:** the scratch cleanup
+  ran the exact banned pattern (`pkill -f picode`) that the ADR-0057
+  incident below warns about — it coincided with the service already
+  down (restored by that session at 14:11:46, three minutes after my
+  pkill), so no harm landed, but the lesson is now policy for this
+  agent too: cleanup targets PIDs, never name patterns.
+
+- **2026-09-03 — Devices list no longer accumulates "This machine"
+  duplicates (ADR-0049 amendment, `feat/devices-hygiene`).** Owner report:
+  the Devices view piled up "This machine · Linux" rows, worst after
+  release deploys. Root cause: every browser-like loopback visit without
+  a cookie minted a fresh 90-day browser session (`internal/auth` Wrap),
+  and every headless agent-browser QA profile is such a visit (12 rows in
+  one afternoon on the owner's DB); `PruneSessions` had no caller and
+  `ListSessions` did not even filter expired rows. Fix: the mint reuses
+  the newest live session with the same label by rotating its secret
+  (presence asked first so an active browser keeps its cookie; a 30 s
+  burst window lets a first-visit request race reuse instead of mint —
+  the race was caught live in QA as two "Windows" rows 50 ms apart);
+  headless UAs label "Headless browser"; expired rows stop listing;
+  a daily sweep prunes revoked/expired after 7 days; Devices gains a
+  batch **Forget offline (N)** that skips token sessions. Verified live
+  on a scratch instance: first visit = exactly one row, cookie survives
+  a server restart (deploy = zero new rows), batch forget cleans 8 seeds
+  in one click. visual-review: PASS (qa-devices-before/confirm/after/final
+  screenshots read; overlayAudit ok; blocked Reconnecting state also
+  captured). Concurrency trade-off recorded in the ADR. Gates: make ci
+  green (Go + 564 JS tests). Branch ready to merge + `make deploy`.
+
+- **2026-09-03 — Tool live previews in the conversation (ADR-0057,
+  `feat/browser-preview-core`).** Owner approved the browser-preview plan.
+  Shipped the core half of the ADR: a tool-agnostic `details.preview`
+  contract (`lib/toolPreview.js`) rendered inline in the tool pill
+  (frame + title/URL caption, click → lightbox); the reducer and the
+  desktop `handleEvent` now consume `tool_execution_update` (previously
+  dropped on the floor), the final result carries the persisted frame so
+  replay renders it, and `replay.js` constructs the same item shape.
+  Decision table tested (434 JS tests green: valid/invalid frames, unknown
+  ids, replace-don't-accumulate, end-with/end-without preview, replay).
+  Visual-review PASS on a scratch instance (WS init-script fixture + a
+  hand-built session JSONL): live mid-stream frame in the pill
+  (`qa-live-mid.png`), replayed frames + captions
+  (`qa-replay-frames.png`), lightbox (`qa-lightbox.png`, overlayAudit
+  ok). **Incident:** my `pkill -f picode` during scratch cleanup also
+  killed the owner's installed service (8445) — restored in ~5 min
+  (`systemctl --user start picode`, health OK); scratch cleanup must
+  target PIDs, never name patterns. Next: the package-side emitter
+  (PR 2 — upstream [pi-agent-browser-native#157](https://github.com/fitchmultz/pi-agent-browser-native/issues/157)
+  opened with the `details.preview` proposal; PR or companion package
+  pending their answer) and the Browser panel surface on `#/agent/<id>`.
+
+- **2026-09-03 — Guest terminal status, tier 1 of ADR-0056**
+  (`feat/guest-term-state`): a coding CLI inside a PiCode terminal can
+  now report its own lifecycle — `POST /api/terminals/{id}/state`
+  (`working` / `needs-you` / `idle`, auth-gated like every route),
+  republished as ephemeral `terminal.state` on the ADR-0048 feed and
+  carried by the terminal views for reconciliation. Correlation is
+  configuration-free: every terminal PiCode opens gets
+  `PICODE_TERM_ID` + `PICODE_TERM_URL` in its tmux session env at
+  creation (`new-session -e`), so hook processes inherit it. Chips:
+  sidebar row (spinner / accent "Needs you"), terminal tab (green /
+  accent dot), mobile TermRow; no chip = no signal, and a silent
+  `working` expires after 30 min (`StartTermStateSweep`) so a dead
+  sensor can never leave a spinner. Registry is in-memory by design —
+  a restart is honest "no signal" (verified live). ADR-0056 accepted
+  with the owner's two-tier split (agents deferred; scraping refused).
+  Guide: `www/guide/terminal-status.md` (Claude hooks + Codex notify
+  + the `picode-hook` helper). **Wiring is now one click**
+  (`feat/term-wiring`): Preferences → Terminal status installs the
+  reporter at `<data>/picode-hook` and merges/strips exactly the
+  marked hook entries in `~/.claude/settings.json` (idempotent, user
+  content preserved, corrupt JSON refused with a visible reason);
+  Codex stays manual by design (no stdlib TOML) and shows its state
+  with the guide link. Verified live: enable → hooks + executable
+  reporter → the real script reported a terminal's `working` through
+  the API; disable → only our entries removed; overlayAudit ok after
+  aligning the rows (stretch, not center — two-line labels).
+  Windows gap: the reporter is POSIX sh + curl — fine where the daemon
+  runs (WSL/Linux), unresolved for Windows-hosted daemons.
+  visual-review: PASS (qa-wiring-before2 / qa-wiring-on /
+  qa-wiring-final.png read, card 5/5). Verified earlier in the
+  scratch instance: env inheritance inside the pane shell,
+  working→needs-you flip patched the open browser via the feed
+  without reload, desktop chip + tab dot and mobile chip screenshots
+  read; overlayAudit ok; plain-shell terminal stays chipless.
+  visual-review: PASS (qa-term-working-clean / qa-term-needsyou /
+  qa-term-final / qa-term-mobile.png, card 5/5).
+
+- **2026-09-03 — Providers view v2 shipped** (`feat/providers-v2`,
+  ADR-0058, study `docs/benchmarks/2026-09-03-providers-view-v2.md`).
+  Quota moved onto the roster in three honest states (live / age-labelled /
+  a word saying which kind of nothing), served from a process cache so a
+  page load makes zero vendor calls; `StartUsageRefresh` warms only the
+  active, non-paused slot of each meterable provider, sequentially, every
+  5 min. Identity (email + normalised plan) is read from the vendor and
+  written back to the vault row — `default_claude_max_5x` renders "Max 5x"
+  and `billing_type` is no longer shown at all. **Verify** runs
+  `pi auth check --provider X --json --no-refresh` (pi ships the primitive;
+  no test completion, no token). **Pause** keeps a credential but leaves
+  play. Sign out names its blast radius from `agents.provider` /
+  `automations.provider`. A provider supplied only by an env var is now
+  signed in, named by the variable, with no Sign out — measured on pi
+  v0.84.4 that `GROQ_API_KEY` alone answers `ready/api_key`, so those rows
+  were invisible while every agent could use them. Dogfooded on a scratch
+  instance with the real vault: 6 meterable accounts, anthropic 5h/7d bars,
+  kimi's "Rate limited." shown as state, OpenRouter credits as an amount.
+  overlayAudit ok, no clipping, dark and 390px checked, Verify/Check/search
+  clicked for real. **Not built, and next:** the Models tab (price and
+  context from `models-store.json`, which `pi --list-models` omits, plus a
+  picker writing `enabledModels`) and the Activity tab (per-provider spend
+  and burn-rate projection from our own session JSONL). Both are scoped in
+  the study.
+- **2026-09-03 — docs-harness benchmark study (plan presented).**
+  Studied documentation benchmarks for a public-docs harness — Diátaxis
+  IA, Scalar (MIT API reference, Vue), Mintlify/Fern (llms.txt),
+  Vale (MIT prose linter, ships in Mintlify CI), Remotion license
+  (free ≤3 people only — default refused), HyperFrames (installed,
+  0.8.27) as the default video engine, D2/Mermaid for diagrams-as-code.
+  Study: docs/benchmarks/2026-09-03-docs-harness.md. Plan: theme with
+  app tokens, own-capture docs-shots pipeline over a seeded fixture
+  daemon, route-walking openapi.json + Scalar page, llms.txt, Vale gate
+  in make ci, 3 HyperFrames tutorials. Owner directive folded in:
+  **full parity** — the harness captures its own screenshots
+  (`docs/screenshots/` stays agent evidence, never user docs);
+  `make docs-check` re-captures and diffs in CI so UI drift without
+  regenerated images fails; video compositions declare their surfaces
+  and are flagged stale the same way. ADR pending owner approval.
+
+- **2026-09-03 — adversarial review of the feed migration + one fix**
+  (`fix/git-watch-workspace-scope`): `gitDirs` attached the workspace id
+  to an agent's own-workPath event, so the worktree's branch could
+  poison `ws.git` (the fallback pills source) until the workspace path
+  changed again; the id now rides only the directory it describes.
+  Accepted trade-offs documented: ephemeral events are lossy by design
+  (debt), package scans grow with workspace count (code comment).
+
+- **2026-09-03 — Providers view v2: benchmark study, no code**
+  ([`docs/benchmarks/2026-09-03-providers-view-v2.md`](benchmarks/2026-09-03-providers-view-v2.md)).
+  Three web sweeps: agent IDEs/CLIs (Kilo four-section IA + source badges,
+  Zed `ApiKeySource` origin display, Roo profiles + lock-across-modes,
+  Cursor Verify, Raycast Verify + console link + key icon at point of use),
+  multi-account switchers and quota monitors (cc-switch v3.13 renders quota
+  **inline on the card**, claude-swap's proactive 90 % auto-switch with
+  cooldown/hysteresis and per-terminal account scoping, ccusage burn-rate
+  projection, CCUM's official-limit trust layer, CodexBar, oh-my-pi's
+  round-robin credentials), and credential dashboards (OpenRouter
+  Prioritized/Fallback BYOK, Cloudflare `cf-aig-byok-alias` over a
+  `default`, Vercel Test Key with a raw-response badge, Anthropic graduated
+  expiry mail, Stripe roll-with-grace, Zapier dependent count + blast
+  radius). Confirmed against pi v0.84.4 that `auth.json` is still
+  `Record<string, Credential>` — **native multi-account has not landed**,
+  and `pi auth check --provider X --json --no-refresh` is the Verify
+  primitive we never wired. Proposal is three tabs (Accounts / Models /
+  Activity) with quota inline in three honest states (live / stale / —),
+  identity from `oauth/profile`, credential-source badge, dependent count
+  before Sign out, Pause vs Sign out, and 7-day spend from
+  `stats.byProvider[]`. **Owner's call before any ADR:** per-agent
+  credential pinning vs proactive auto-switch, both of which move
+  ADR-0013's single-active-slot line. No code changed.
+
+- **2026-09-03 — Degrau 2 shipped: inbox replies switch a TUI agent to
+  chat mode** (`feat/inbox-reply-switch` + `fix/form-interactive-
+  normalize` + `fix/open-terminal-goto`). The respond form on an
+  interactive agent confirms the trade, parks the reply
+  (`RespondAndPark`), switches the agent to managed (TUI ends — user
+  consented), and the delivery loop drains into the same thread
+  (ADR-0053). The action returns `ActionResult.Goto` ("agentchat:<id>")
+  and the shell undocks the terminal, landing on the chat watching the
+  answer. Open terminal (Degrau 1) navigates out of the inbox the same
+  way (`Goto: "agent:<id>"` → docked TUI). Verified live end to end
+  (qa-switch free agent): confirm dialog, mode → managed, task
+  `delivered`, item responded. ADR-0037 amendment records the decision
+  + the send-keys benchmark research (claude-squad uses guarded
+  send-keys, marked experimental; PiCode keeps it parked). A gate
+  regression (normalizeView dropped the form's interactive flag) was
+  caught in QA and fixed forward.
+
+- **2026-09-03 — workspace install refused + Packages tabs**
+  (`fix/packages-local-trust-tabs`): `pi install -l … --no-approve`
+  answered "Project is not trusted. Use --approve"; measured on 0.84.4:
+  `--no-approve` distrusts the project for the run and blocks local
+  config writes even with trust.json trusting the folder; `install -l`
+  works with no flag, `remove -l` in an untrusted folder needs
+  `--approve`, and `--approve` never writes trust.json. `MutateArgs` /
+  `UpdateArgs` pass `--approve` for the project scope (the click is the
+  approval). UI: Installed |
+  Marketplace tabs, installed packages as the same cards (`pkgName`).
+- **2026-09-03 — package update checks ride the change feed**
+  (`feat/feed-packages-updates`, phase 4 — polling→feed migration
+  complete). Fleet-wide scan ticker publishes `packages.updates` on
+  change; the browser applies events and polls only as fallback.
+
+- **2026-09-03 — CI's git-guard self-test unbroken (ubuntu).** The
+  self-test's throwaway repo relied on the invoking clone's
+  `init.defaultBranch`: CI runners have none, so `git init` started on
+  `master`, the pre-commit guard rightly refused the init commit, the
+  repo stayed unborn, and two assertions failed in cascade. One-line
+  fix (`git init -b main`, c503b9da), reproduced locally under null git
+  config — the old script under CI conditions fails exactly like run
+  33769826099, the fixed one passes. macOS/Windows redness is older,
+  separate debt (see Known debts).
+
+- **2026-09-03 — Guest TUI agent state, benchmarked** (docs-only,
+  `feat/guest-agent-state`): the owner runs Claude Code, Codex, Grok,
+  Antigravity, opencode in PiCode terminals and wants the sidebar's
+  spinner + "needs you" for them. Study
+  `docs/benchmarks/2026-09-03-guest-tui-agent-state.md` (fetched live
+  from ACP docs/registry, Claude Code hooks/statusline/terminal-config,
+  Codex config/app-server/non-interactive docs, opencode server/ACP,
+  Grok CLI, Vibe Kanban, Crystal, Conductor): four integration levels;
+  nobody credible scrapes pixels as the primary source; Claude hooks
+  can POST to HTTP (`Notification` types include `agent_needs_input`),
+  Codex has `notify` + an official app-server, opencode has a server
+  API — and the ACP registry already lists **pi (pi-acp)**.
+  Deliverable: **ADR-0056 (proposed)** — per-tool sensors → ADR-0048
+  feed with pi's state vocabulary + honest `unknown`; scraping refused
+  as primary; ACP/control deferred to a future ADR; ADR-0003's letter
+  (no vendored SDKs) untouched. Awaiting the owner's decision on the
+  ADR.
+- **2026-09-03 — manager could not remove a path package**
+  (`fix/pkg-remove-relative`): owner installed `pi-checklist` for the
+  machine and Remove failed. Cause: pi stores path sources relative to
+  the settings dir; the daemon ran `pi remove <relative>` from its own
+  cwd. Fix: `pipkg.AbsPathSource(source, settingsDir)` before remove and
+  update (`packageSettingsDir` picks `~/.pi/agent` or `<ws>/.pi`), and
+  `existingInstallPath` resolves the same way. Verified against the
+  scratch home's real relative entry.
+- **2026-09-03 — the public Pages site is green again.** The red
+  `pages.yml` runs since 09-02 16:30 died in `make docs`:
+  `www/guide/remote-server.md` opened a code span at a line break
+  (`` `sudo picode users add ``), VitePress left it unclosed, and the
+  dangling backtick let `<your login> <your user>` into the Vue
+  template as raw HTML — "Element is missing end tag" (18:103),
+  reproduced byte-for-byte locally. The cure was already on local
+  `main` (a85ff516 + ec3a515c: one code span per line) but **55
+  commits sat unpushed** since 09-02, so the site was frozen at the
+  09-02 15:04 deploy. Pushed `7ffe8a9f..fe421595`; run 33769826235
+  green end to end; live page verified serving the fixed guide.
+  Earlier red runs (08-29 → 09-02) were the dead-link gate, fixed by
+  PR #1. Lesson: run `make docs` before pushing `www/**` — docs that
+  land straight on `main` have no PR gate for the Pages build.
+
+- **2026-09-03 — internal checklist, ADR-0055** (`feat/pi-checklist`):
+  researched Tachyon's checklist gate/reminder/sidebar line and pi
+  0.84's extension API; built `packages/pi-checklist` (tool + gate on the
+  first change per task + `always` reminder capped at 3 + POST to the
+  daemon + TUI render), `agents.checklist` level + `PICODE_CHECKLIST`
+  spawn env (read-only → never), `agent_checklists` + routes + feed
+  event, `lib/checklist.js` line projection, sidebar/mobile lines, chat
+  card, settings chip; guide `checklist.md`. Owner's decisions: level
+  per agent, opt-in package, sidebar + card, hold the contract.
+  Measured live on glm-5.3-flash: managed RPC path (plan → read → edit
+  → 2/2), the gate (edit refused → checklist → edit ok), the TUI in tmux.
+  Found: `pi -p` hangs on any blocked tool_call (pi's bug, minimal repro
+  in the ADR); PiCode never uses `-p` for agents. Providers were flaky
+  that morning (xai at capacity, anthropic out of usage, gemini 5/min).
+
+- **2026-09-02 — git pills and the file tree ride the change feed**
+  (`feat/feed-git-events`, phase 3 of the polling→feed plan). Fleet git
+  watcher publishes `git.updated`; sidebar patches in place, tree
+  reloads itself. visual-review: PASS (qa-git-live.png read;
+  overlayAudit ok; e2e: commit cleared the badge, new file re-raised it
+  — zero fleet refetches, one tree reload per event).
+
+- **2026-09-02 — Benchmark study: live browser preview in chat / side
+  panel** (`docs/study-browser-preview`). The owner asked to render
+  `agent_browser` work live in the conversation or a side panel, and
+  whether that needs a PiCode package system or a pi package. Researched
+  how Cursor ("screenshots and actions in the chat, as well as the
+  browser window itself either in a separate window or an inline pane"),
+  Devin (session Browser tab + Progress unified log + take-over), Manus
+  (Cloud Browser real-time view + Take Over), Operator (*inference*),
+  Antigravity (browser subagent + action-video artifacts + allow/denylist),
+  Browserbase + browser-use (embeddable live-view iframes, "URL is a
+  credential"), OpenHands (rrweb recordings) and the local `agent-browser`
+  (`stream enable` WebSocket, `record`, `artifactVerification`) solve it.
+  Convergence: activity cards in chat + live surface with take-over.
+  Key gap found: PiCode's web reducer never consumes
+  `tool_execution_update` and tool pills render raw JSON — no image path.
+  Answer: no new package system; add a generic `details.preview`
+  rendering contract to core (never the string `agent_browser`) + a
+  Browser panel fed by it; v2 = auth-gated WS proxy for `stream enable`.
+  ADR is the next step (see *Next up* 0).
+- **2026-09-02 — the inbox refusal to a TUI agent offers Open terminal**
+  (`fix/inbox-open-terminal`). Replying to an agent-sourced item whose
+  agent runs in a TUI is refused by design (ADR-0037/0006), but the
+  refusal was a dead end. The item's view now shows an Open terminal
+  action when the agent is interactive (same `h.AgentDeliverable` gate
+  the reply uses); firing it starts the TUI server-side via
+  `apps.Host.OpenAgentTerminal`, wired from `Deps.openAgentTUI`
+  (handleAgentOpen's body extracted, sentinel errors keep the HTTP
+  mapping identical). Works from the desktop and mobile inbox.
+  Deployed; verified live on the owner's item + a QA item:
+  action renders only when interactive, click starts/confirms the
+  tmux session (mode → interactive), detail closes by design after
+  acting. Follow-through (same day): the action now returns
+  `ActionResult.Goto` ("agent:<id>") and the shell's AppSurface hands
+  it to the host via `onGoto` → **leaves the inbox** and lands on the
+  agent's tab with the TUI docked (owner decision: acting from the
+  inbox must not dead-end there; mobile has no terminal surface and
+  ignores the goto). visual-review: PASS (qa7 + qa8-landed.png,
+  card 5/5). **Parked (owner's call, from the send-keys benchmark
+  research):** Degrau 2 — consented mode-switch delivery (queue the
+  reply + switch interactive→managed; ADR-0053 keeps the thread; on
+  switch, the agent tab undocks the terminal and flips to chat; the
+  TUI reopens later on the same session; trigger: owner hits the
+  refusal again in dogfood); Degrau 3 — guarded send-keys delivery,
+  parked with ADR-0002's rejection (claude-squad precedent noted:
+  SendPrompt = keys + 100ms + TapEnter, autoyes experimental, per-CLI
+  content sniffing). Follow-up (same day): the sidebar spinner meant
+  "streaming OR waiting" — after the reply switch the agent sits in
+  managed+waiting while the ask_human waits in the inbox, and the row
+  spun "working" for what was really a needs-you state. The spinner
+  now means streaming only; the inbox badge carries needs-you (a
+  needs-you pill on the agent row is parked as polish).
+
+- **2026-09-02 — MCP live status rides the change feed**
+  (`feat/feed-mcp-events`, phase 1 of the polling→feed plan). Fleet-wide
+  watcher publishes `mcp.updated`; the Mcps panel follows events and
+  polls only as the feed-down fallback. visual-review: PASS
+  (qa-mcps-empty.png + qa-mcps-live.png read; overlayAudit ok; e2e:
+  live-file flip → exactly 1 request, badge Idle→Live→Failed).
+
+- **2026-09-02 — Work head = Inbox head on the phone**
+  (`fix/mobile-head-parity`): `.m-screen-head` takes the Inbox numbers
+  (12/8 padding, hairline, margin 0); `.m-inbox .ft-head` matches and
+  cancels the desktop 880px `margin-top: 6px`; the 32px segment rule is
+  scoped to `.m-agent-state`. Both heads measure 57px, controls 36px.
+
+- **2026-09-02 — LooksWorking anchors to pi's spinner frames**
+  (`fix/looks-working-spinner-frames`). The working check grepped the
+  pane tail for the substring "working": an idle agent whose last
+  reply mentioned the word (this project's own docs/logs do, constantly)
+  spun in the sidebar and showed "Working in the terminal" in the
+  composer — the owner caught mobile doing it at 20:38 while pi sat at
+  its prompt. The indicator is now what pi actually renders: a pane
+  line whose first non-space rune is one of the braille spinner frames
+  (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ — pi 0.84.4 DEFAULT_FRAMES; re-check on pi upgrades).
+  Immune to prose and to a renamed working message; a custom indicator
+  without braille degrades to a benign false-negative. Decision table
+  with real captured tails (working / idle / the false-positive prose)
+  pins it. Deployed (PID 412915); verified live: mobile working →
+  detected via ⠏ while its pane is full of the word, agente-auto idle →
+  not listed. Probes one open design question (unfixed): inbox replies
+  to interactive agents are refused by design (ADR-0037/0006 — the TUI
+  picks up no follow-ups); options range from an "Open terminal" action
+  on the refusal note to send-keys delivery — owner to decide if/when
+  it itches.
+
+- **2026-09-02 — black strip under terminals** (`fix/term-viewport-strip`):
+  owner spotted a near-black band at the bottom of every terminal. Cause:
+  xterm 6 sets the theme background on `.xterm-scrollable-element`, not
+  `.xterm-viewport`, which keeps xterm.css's `#000`; the row-remainder
+  showed it. Fix: `.xterm .xterm-viewport { background-color: transparent }`
+  in `app.css` (surface carries the theme colour). Pixel-verified in the
+  scratch shell.
+- **2026-09-02 — Termux layout for the mobile keys** (`feat/mobile-keys-termux`):
+  owner sent Termux screenshots — "vamos fazer o nosso igual". `KeyBar`
+  is Termux's 2×7 grid (`ROWS`), flat cells on `--bg-base`,
+  `grid-template-columns: repeat(7, minmax(0, 1fr))`; ⌨/× dropped
+  (tap the terminal for the keyboard; header icon toggles). Sticky
+  modifiers, viewport lift and hardware heuristic unchanged.
+- **2026-09-02 — the chat shows when a TUI agent is working**
+  (`fix/tui-working-in-chat`). The chat's event socket exists only for
+  managed agents, so an interactive agent read as idle there no matter
+  what pi was doing (owner: sent a message in the TUI, switched to the
+  chat, no working sign). The server already scraped panes and
+  published `agent.tui` (ADR-0048) — sidebar/dashboard spun on it, the
+  chat didn't. When the selected agent is interactive and its pane is
+  working, the composer now shows a "Working in the terminal" row with
+  an Open button that docks the TUI; no fake streaming, no Stop. UI
+  only; the server pieces shipped with ADR-0048 (watch tick 3s).
+  Deployed and verified live on agente-auto: send-keys → row appears
+  within one tick with the spinner, Open docks the TUI mid-work, row
+  clears when the pane's working line ends; overlayAudit ok.
+  visual-review: PASS (qa4-row-live.png + qa4-open-docked.png,
+  card 5/5).
+
+- **2026-09-02 — Mobile terminal keys to the benchmark (ADR-0044
+  amendment)** (`feat/mobile-terminal-keys`): library search found
+  nothing terminal-aware (simple-keyboard & co. are full QWERTYs), so
+  the bar matches Termux/Blink/terminal-web: `lib/termSticky.js`
+  (createSticky: arm/apply/applyKey/subscribe, control bytes, modified
+  arrows, 5 s expiry; tested), wired on the ShellTerm entry
+  (`entry.sticky`, filters `term.onData`); `KeyBar` is one scrollable
+  row (`KEYS`), Ctrl/Alt light up (`aria-pressed`); `Terminal.jsx` sizes
+  the screen to `visualViewport` (lift above the iOS keyboard, refit)
+  and hides the row when focus comes with no viewport shrink (hardware
+  keyboard). iPhone verification is the owner's: keys never open the
+  keyboard, ⌨ does, Ctrl then c interrupts, bar above the keyboard.
+- **2026-09-02 — Mobile key bar** (`fix/mobile-keybar-focus`): owner:
+  every key opened the iPhone keyboard. `sendKey` refocused xterm
+  unconditionally; now it refocuses only if the terminal host already
+  held the focus, and a ⌨ key (`onType`) is the deliberate way to open
+  the keyboard. `KeyBar` regrouped (escapes/chords · arrows/symbols),
+  44px keys, close at the end of row two. Not browser-verified here
+  (owner tests on the phone).
+- **2026-09-02 — the composer's "+ New" starts a fresh session for real**
+  (`fix/new-session-fresh-start`). The button cleared the pointer and
+  then lost it three ways: the restart spawned in `wk.Path` (free
+  agents: the `ws_free` sentinel → "That folder doesn't exist" — the
+  toast the owner screenshotted), ADR-0053 adoption re-adopted the
+  abandoned thread, and the list's newest-fallback re-selected it.
+  Fixes: `restartSameMode` resolves `store.AgentCwd` (+MkdirAll);
+  `store.SealPendingAgentSessions` closes the adoption window — and
+  moves attribution to the path row, because a plain UPDATE collided
+  with the sibling path row on UNIQUE (agent_id, session_path)
+  (probed live on agente-auto's DB); the list fallback now surfaces
+  only a pointer the loop itself healed; the web pane clears
+  optimistically. Decision table pinned (resume→list, New stopped→
+  fresh, next spawn mints fresh ≠ abandoned id, free agent + TUI open,
+  free agent + chat running). Deployed and verified live on
+  agente-auto: chat clears, no toast, old sessions still listed,
+  tmux respawned in the agent's own folder; overlayAudit ok.
+  visual-review: PASS (qa2-before/qa2-after-stable.png, card 5/5).
+
+- **2026-09-02 — Mobile Inbox without a title** (`fix/mobile-inbox-no-title`):
+  owner: the Inbox was the only main tab with a header. CSS hides the
+  AppSurface icon + `.ft-title` under `.m-inbox`; the filters stay as
+  the sticky head; the section keeps its aria-label.
+- **2026-09-02 — Mobile shell in Safari's own tab** (`fix/mobile-safari-headers`):
+  owner's iPhone screenshots — heads clipped under the status bar,
+  keys button over the TUI. Sticky heads lose the negative margin and
+  the negative `top`; the screen hands its top padding to the head via
+  `:has()` (`mobile.css`); the terminal's keys toggle is a header
+  button (`.m-keys-btn`), `.m-fab` removed. Measured in Chromium at
+  390×480: head border box at 0 at rest and when scrolled.
+- **2026-09-02 — Content-Security-Policy (ADR-0052 amendment)**
+  (`feat/csp`): `internal/server/csp.go` — the app shell's inline theme
+  bootstrap is allowed by sha256 hash computed from the served
+  index.html (no nonce); `script-src 'self' 'wasm-unsafe-eval' <hash>`,
+  inline styles allowed (React), `img-src https:` (unpkg icons),
+  `connect-src` names the request host's ws/wss; assets carry no policy
+  (excalidraw's worker uses `new Function`). `/pair` and gateway pages:
+  `PageCSP` (no scripts, no framing). `securityHeaders` wraps the UI
+  handler. Test skips without a built UI; run after `make build`.
+- **2026-09-02 — `make desktop-restart` guardrail after the tray/VM outage.**
+  Swapping the Windows exes, this session killed the tray and relaunched it
+  with `picode-desktop --tray &` from a WSL tool shell; the process died with
+  the shell, the keepalive died with it, and the 60s WSL idle timeout
+  reclaimed the VM — server down, open tmux sessions lost. Fix: the swap is
+  now one audited command, `scripts/desktop-swap.sh` (kill → copy → re-register
+  host → `schtasks /run /tn PiCodeDesktop` → verify tasklist), wired as
+  `make desktop-restart` and listed in AGENTS.md's commands table. The script
+  header and the make help state the rule: never background a Windows exe
+  from WSL. Ran once for real after the fix: exes swapped, tray up, bootId
+  unchanged (no VM bounce).
+- **2026-09-02 — Chrome extension Track C, the actuator (ADR-0054)**
+  (`feat/ext-track-c`). Send with "Let the agent act on this page" →
+  `[browser-act]` prompt intro → settle watcher parses the last
+  ```picode-act block → `act_batches` (migration 021) → panel polls
+  `GET /api/extension/act/next` through the native host (origin-gated
+  claim, blocked stays pending) → per-origin grant → visible
+  step-by-step execution (`chrome.scripting`, one action per injection,
+  highlight + native setters) → outcomes POST back as one more watched
+  turn; 3-round cap, Stop, 10-min expiry. Parser/lifecycle/routes
+  table-tested; panel states captured (`ext-act-grant/-acting/-actdone`).
+  (Actuator ADR numbered 0054 — 0053 went to session isolation.)
+
+- **2026-09-02 — Session isolation follow-through** (`fix/session-followthrough`):
+  owner filed one bug with three faces on a freshly created agent: the bar
+  opened with another agent's context/spend/cache, the picker said "No
+  sessions yet" after it had chatted, and opening its TUI started a new
+  session (then a chat send killed the TUI's work). Root causes: the picker
+  never saw ADR-0040's private dir (so the lazy `session_path` backfill
+  never fired), every run-mode switch minted a competing `--session-id`,
+  and the desktop `/status` fetch omitted `?agent=` (server falls back to
+  the workspace's first agent). Fix = ADR-0053: adopt-at-spawn + picker
+  union + agent-scoped bar, table-tested; verified in the browser against a
+  scratch instance with a two-agent fixture (mobile's bar bare, alpha's bar
+  showing its own $23.88). Also fixed here: a pre-existing cross-line code
+  span in `www/guide/remote-server.md` broke the Pages build on `main`
+  (`make docs` failed before and after my changes until that span was
+  closed — reproduced on main first, fix committed in this branch).
+
+- **2026-09-02 — Chat follows an automation's turn** (`fix/chat-follows-automation-run`):
+  owner: run "Running" but the chat showed nothing. Three causes in the
+  desktop: the panel effect gated on `selected` (the *workspace*), so a
+  free agent never got its socket; a closed panel for the same agent
+  blocked reconnecting (onclose now nulls `panelRef`, the effect checks
+  `readyState`); and a turn nobody typed here (automation, another tab)
+  had no prompt bubble — `foreignTurnRef` reloads the session file on
+  snapshot(streaming) and on settle so the thread mirrors the file, in
+  order. Diagnosed on the scratch with a raw WebSocket and a patched
+  `window.WebSocket` (the app opened no socket at all).
+- **2026-09-02 — Terminal open vs a run in flight** (`fix/automation-run-guard`):
+  the owner clicked the agent's terminal icon during a message run; the
+  open path's `Runtime.Stop` killed the managed process and the run
+  hung. `deps.automationRunOn` (ManagedAgent.Observed) → 409 on the four
+  interactive-open paths; `runWatch.exited(expected)` fails the run as
+  `reasonStopped` unless the run itself asked (`letGo`). Unit test.
+- **2026-09-02 — Message runs deliver (ADR-0045 amendment)**
+  (`fix/automation-message-delivers`): owner ran a message automation,
+  got "Done" and an untouched agent. `messageRun` starts an idle agent
+  (`startManaged`, its own session), sends a prompt (SendTurn makes it a
+  follow-up when busy), observes with `runWatch` and stops it on settle;
+  `keepAlive` for an already-running agent (cost cap aborts the turn
+  only); decision table: pi needed unless the agent runs, busy when
+  another run observes the agent; `ManagedAgent.Observed()`. E2E
+  `TestAutomationMessageRunEndToEnd` against the fake pi.
+- **2026-09-02 — Automation detail facts** (`fix/automation-detail-facts`):
+  owner: a notify URL saved but nothing on the detail. Facts list gained
+  Messages/Runs in (agent + workspace via `workspaceOfAgent`), Model (or
+  "pi's default"), Notifies (host + copy), limits; `whenLine(a, agents)`
+  names the agent (List needed the `agents` prop — a blank root until it
+  had it); the secret box's Done is a primary button.
+- **2026-09-02 — Automation editor layout** (`fix/automation-editor-layout`):
+  owner: "componentes se amontoando, péssima UI/UX". The what-it-does
+  block is a labeled `.auto-grid` (Workspace → Agent, or Workspace →
+  Provider/Model/Thinking); message mode lists the chosen workspace's
+  agents via `agentsOf` (free agents under "No workspace") with their
+  model, and an existing automation's workspace is derived from its
+  target agent; `lib/providers.js usableProviders` filters to signed-in
+  providers (keeping a selected one, marked) and `ConfigFields` uses it
+  too, so New agent matches.
+- **2026-09-02 — Automations notify a channel (ADR-0045 amendment)**
+  (`feat/automation-notify`): `notify_url` on automations (migration
+  020, validated http(s) in the store), `automate.BuildNotify` (Slack
+  shape, clipped summary), `runner.notifyOut` in
+  `internal/server/automations_notify.go` (background, one retry on
+  network/5xx, `automation.notify` event), hooked into `settled` and the
+  failure path of `finish`; editor field + "Notifies" tag; guide section.
+- **2026-09-02 — Automation webhooks through the gateway (ADR-0045
+  amendment)** (`feat/gateway-webhook`): `POST /-/hook/<user>/<id>` on the
+  gateway (no identity, per-peer limit, member check, Authorization
+  passed through, cookies dropped); the automation view carries
+  `webhookUrl` computed from the daemon's situation (origin / public URL
+  / gateway form, via `os/user.Current`); the detail page shows it; guide
+  recipes for GitHub Actions, Sentry and cron.
+- **2026-09-02 — Track D, public access (ADR-0052)** (`feat/public-access`):
+  gateway identity chain (tailnet whois → signed cookie → login page),
+  `plainListen` + `trustedProxies` (last XFF hop from a trusted CIDR
+  only), Google OIDC (discovery, PKCE, nonce, JWKS RS256) and GitHub
+  OAuth (`<login>@github`) in `internal/gateway/oidc.go`, signed session
+  cookie (`session.go`), per-peer limiters on `/-/auth/*` and `POST
+  /pair`, `/-/` routes and a login page, extra security headers;
+  `picode gateway oidc set|unset`, `--plain` (alias `--insecure-listen`),
+  secrets in `gateway.secret.json`; the SPA shows **Sign in** on a 401
+  that carries `login`. D.2: `ContainerSteps` + `install.ContainerUnitFile`
+  (nspawn, private users, limits, host networking), `--container`/`--remove`.
+  Tests: full login round trip against a fake OIDC provider, claim
+  checks (aud/exp/nonce/iss/verified/unknown login), forged cookie,
+  untrusted XFF, logout, limiter, GitHub spelling, unit text, steps.
+- **2026-09-02 — ADR-0053 deployed to the owner's service; the "not
+  fixed" report was a stale binary.** The installed
+  `~/.local/bin/picode` predated the 17:13–17:14 fixes (16:49 build, 0
+  hits for `ResolvePendingAgentSession`) while the on-disk UI was
+  fresh — so the chat still read "No sessions yet" for an agent whose
+  sessions were visible in the TUI, and the status bar fell back to
+  the workspace's first agent (grok's $23.88 / 100% cached shown on
+  the brand-new `mobile` agent). `make deploy`; no code changes.
+  Verified live on `mobile-6bf740`: the picker returns the agent's two
+  private-dir sessions and adopts the TUI's pending `6903ca7b…` as
+  current; `GET /status?agent=` returns that agent's own bar ($0.02,
+  4.3% of 1M) instead of grok's. visual-review: UNVERIFIED (API-level
+  checks only).
+
 ## Recent activity (archived 2026-09-02)
 
 - **2026-09-02 — Devices footer spacing + centering.** List rows

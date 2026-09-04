@@ -160,7 +160,7 @@ test("normalizeView preserves tabs, drops junk ones, caps the count", () => {
   assert.equal(many.tabs.length, 8);
 });
 
-test("normalizeView keeps a form's interactive flag (the reply-switch confirm depends on it)", () => {
+test("normalizeView keeps a form's burst flag (the same-tab confirm depends on it)", () => {
   const view = {
     apiVersion: SUPPORTED_API,
     title: "t",
@@ -172,7 +172,7 @@ test("normalizeView keeps a form's interactive flag (the reply-switch confirm de
         form: {
           id: "respond",
           submit: "Send reply",
-          interactive: true,
+          burst: true,
           fields: [{ name: "reply", method: "editor", title: "Your reply" }],
         },
       },
@@ -189,6 +189,6 @@ test("normalizeView keeps a form's interactive flag (the reply-switch confirm de
   };
   const out = normalizeView(view);
   const forms = out.blocks.filter((b) => b.type === "form").map((b) => b.form);
-  assert.equal(forms[0].interactive, true, "interactive must survive normalization");
-  assert.equal(Boolean(forms[1].interactive), false, "plain form stays plain");
+  assert.equal(forms[0].burst, true, "burst must survive normalization");
+  assert.equal(Boolean(forms[1].burst), false, "plain form stays plain");
 });

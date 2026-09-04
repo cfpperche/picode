@@ -38,6 +38,7 @@ type agentView struct {
 	Streaming bool          `json:"streaming"`
 	Waiting   bool          `json:"waiting"`
 	Dialog    *rpc.UIDialog `json:"dialog,omitempty"`
+	Burst     *BurstState   `json:"burst,omitempty"`
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
@@ -95,7 +96,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// sidebar line is about the agent, not its container.
 		st, wt, dl := deps.liveState(a.ID)
 		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
-			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl})
+			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Burst: deps.Bursts.Snapshot(a.ID)})
 	}
 	var first *agentView
 	if len(views) > 0 {
@@ -270,7 +271,19 @@ func handleOpen(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusConflict, runInFlightMsg)
 			return
 		}
-		// ADR-0006: exclusive run mode — stop managed first.
+		// ADR-0006: exclusive run mode — stop managed first. A burst returns
+		// its borrowed pane before this legacy workspace-level open continues.
+		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
+			return
+		}
+		defer release()
+		agent, err = deps.Store.GetAgent(agent.ID)
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
 		deps.Runtime.Stop(agent.ID)
 		if has, err := deps.Tmux.HasSession(r.Context(), name); err == nil && has {
 			_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
@@ -284,7 +297,9 @@ func handleOpen(deps Deps) http.HandlerFunc {
 				"pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 			return
 		}
-		if err := deps.Tmux.NewSessionEnv(r.Context(), name, wk.Path, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+		cwd := store.AgentCwd(wk, agent)
+		_ = os.MkdirAll(cwd, 0o755)
+		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return
@@ -316,6 +331,12 @@ func handleClose(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
+			return
+		}
+		defer release()
 		if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(agent.ID)); err != nil {
 			writeErr(w, http.StatusInternalServerError, "stop agent: "+err.Error())
 			return

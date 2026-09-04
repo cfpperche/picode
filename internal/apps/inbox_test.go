@@ -2,7 +2,7 @@ package apps
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -584,26 +584,51 @@ func TestInboxClearDoneAction(t *testing.T) {
 	}
 }
 
-// The consented switch (Degrau 2): replying with _switch on an
-// interactive agent parks the reply in its queue and hands the agent to
-// the host's switcher (TUI ends, managed starts, the queue drains into
-// the same thread). Without _switch the plain refusal still applies,
-// and a deliverable agent ignores _switch entirely.
-func TestInboxReplySwitch(t *testing.T) {
+func TestInboxRecoveredReplyIsPrefilled(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, Reason: "r", Title: "q", Body: "?"})
+	if _, err := h.Store.RespondInboxItem(q.ID, store.VerbRespond, "keep this answer"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.Store.SetInboxItemState(q.ID, store.InboxUnread, nil); err != nil {
+		t.Fatal(err)
+	}
+	view, err := app.View(context.Background(), h, "item/"+q.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, block := range view.Blocks {
+		if block.Form != nil && len(block.Form.Fields) > 0 {
+			if got := block.Form.Fields[0].Prefill; got != "keep this answer" {
+				t.Fatalf("recovered prefill = %q", got)
+			}
+			return
+		}
+	}
+	t.Fatal("recovered item has no reply form")
+}
+
+// A consented _burst delegates the coupled reply + temporary writer handoff
+// to the host and navigates to the same terminal tab. Without _burst the plain
+// refusal still applies, and a managed agent ignores the marker entirely.
+func TestInboxReplyBurst(t *testing.T) {
 	h := inboxHost(t)
 	app := inboxApp{}
 	ctx := context.Background()
 	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
 	ag, _ := h.Store.AddAgent(ws.ID, "tui", "")
 	h.AgentDeliverable = func(string) bool { return false }
-	var switched []string
-	h.SwitchToManaged = func(agentID string) error {
-		switched = append(switched, agentID)
-		return nil
+	var bursts []string
+	h.StartReplyBurst = func(itemID, verb, text string) (string, string, error) {
+		bursts = append(bursts, itemID+":"+verb+":"+text)
+		if _, _, err := h.Store.RespondAndPark(itemID, verb, text); err != nil {
+			return "", "", err
+		}
+		return ag.ID, "gen-1", nil
 	}
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
 
-	// The shell learns the reply switches modes from the form itself.
 	v, err := app.View(ctx, h, "item/"+q.ID)
 	if err != nil {
 		t.Fatalf("view: %v", err)
@@ -611,60 +636,68 @@ func TestInboxReplySwitch(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("view invalid: %v", err)
 	}
-	interactive := false
+	marked := false
 	for _, b := range v.Blocks {
-		if b.Type == "form" && b.Form != nil && b.Form.Interactive {
-			interactive = true
+		if b.Type == "form" && b.Form != nil && b.Form.Burst {
+			marked = true
 		}
 	}
-	if !interactive {
-		t.Fatalf("respond form not marked interactive")
+	if !marked {
+		t.Fatalf("respond form not marked for a burst")
 	}
 
-	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "go", "_switch": "1"}})
+	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "go", "_burst": "1"}})
 	if err != nil {
-		t.Fatalf("respond-switch: %v", err)
+		t.Fatalf("respond-burst: %v", err)
 	}
-	if !strings.Contains(res.Toast, "switched to chat") {
-		t.Fatalf("toast = %v", res.Toast)
+	if res.Goto != "agentburst:"+ag.ID+":gen-1" || strings.Contains(res.Goto, "chat") {
+		t.Fatalf("goto = %q, want same-tab burst", res.Goto)
 	}
-	if len(switched) != 1 || switched[0] != ag.ID {
-		t.Fatalf("switch calls = %v, want [%s]", switched, ag.ID)
+	if len(bursts) != 1 || bursts[0] != q.ID+":respond:go" {
+		t.Fatalf("burst calls = %v", bursts)
 	}
 	if got, _ := h.Store.GetInboxItem(q.ID); got.State != store.InboxDone {
-		t.Fatalf("item not done after switch")
+		t.Fatalf("item not done after burst")
 	}
 	tasks, _ := h.Store.ListTasks(ag.ID, 5)
-	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "inbox" {
+	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "inbox-burst:"+q.ID {
 		t.Fatalf("parked task = %+v", tasks)
 	}
 
-	// Switch failure keeps the reply parked and says where it waits.
+	// An approval's primary Accept button uses the same temporary handoff.
+	approval := mustItem(t, h, store.InboxItemParams{Kind: store.InboxApproval, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "approve", Body: "?"})
+	res, err = app.Action(ctx, h, ActionRequest{Action: "accept", Path: "item/" + approval.ID, Args: map[string]string{"_burst": "1"}})
+	if err != nil || res.Goto != "agentburst:"+ag.ID+":gen-1" {
+		t.Fatalf("approval burst = %+v, %v", res, err)
+	}
+	if got := bursts[len(bursts)-1]; got != approval.ID+":accept:" {
+		t.Fatalf("approval burst call = %q", got)
+	}
+
+	// A preflight failure happens before the host mutates the item.
 	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q2", Body: "?"})
-	h.SwitchToManaged = func(string) error { return errors.New("boom") }
-	res, err = app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "go", "_switch": "1"}})
-	if err != nil {
-		t.Fatalf("switch failure must not error the action: %v", err)
+	h.StartReplyBurst = func(string, string, string) (string, string, error) {
+		return "", "", fmt.Errorf("terminal is still working")
 	}
-	if !strings.Contains(res.Toast, "could not be switched") {
-		t.Fatalf("switch-failure toast = %v", res.Toast)
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "go", "_burst": "1"}}); err == nil {
+		t.Fatalf("burst preflight failure must reach the form")
 	}
-	if got, _ := h.Store.GetInboxItem(q2.ID); got.State != store.InboxDone {
-		t.Fatalf("q2 item not done")
+	if got, _ := h.Store.GetInboxItem(q2.ID); got.State != store.InboxUnread {
+		t.Fatalf("q2 changed despite preflight failure: %s", got.State)
 	}
 
-	// A deliverable agent ignores _switch: plain forward, no switch call.
+	// A managed/deliverable agent uses the ordinary forward path.
 	h.AgentDeliverable = func(string) bool { return true }
-	before := len(switched)
+	before := len(bursts)
 	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q3", Body: "?"})
-	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "go", "_switch": "1"}}); err != nil {
-		t.Fatalf("deliverable respond-switch: %v", err)
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "go", "_burst": "1"}}); err != nil {
+		t.Fatalf("deliverable respond: %v", err)
 	}
-	if len(switched) != before {
-		t.Fatalf("deliverable agent triggered the switcher")
+	if len(bursts) != before {
+		t.Fatalf("deliverable agent triggered a burst")
 	}
 
-	// Without _switch the refusal stands for an interactive agent.
+	// Without _burst the refusal stands for an interactive agent.
 	h.AgentDeliverable = func(string) bool { return false }
 	q4 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q4", Body: "?"})
 	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q4.ID, Args: map[string]string{"reply": "again"}}); err == nil || !strings.Contains(err.Error(), "interactive terminal") {

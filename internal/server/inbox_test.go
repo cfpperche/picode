@@ -45,7 +45,7 @@ func TestInboxCreateAndList(t *testing.T) {
 	for _, body := range []string{
 		`{"kind":"fyi","sourceKind":"system","reason":"qa","title":"note"}`,
 		`{"kind":"result","sourceKind":"agent","sourceId":"a1","reason":"run finished","title":"done","body":"all good"}`,
-		`{"kind":"question","sourceKind":"agent","sourceId":"a1","reason":"needs input","title":"which db?","body":"sqlite or pg?"}`,
+		`{"kind":"question","sourceKind":"agent","sourceId":"a1","reason":"needs input","title":"which db?","body":"sqlite or pg?","sessionPath":"/tmp/exact.jsonl"}`,
 	} {
 		res, out := inboxPost(t, ts, "/api/inbox", body)
 		if res.StatusCode != http.StatusCreated {
@@ -69,6 +69,15 @@ func TestInboxCreateAndList(t *testing.T) {
 	get.Body.Close()
 	if len(list.Items) != 3 {
 		t.Fatalf("list = %d items", len(list.Items))
+	}
+	foundSession := false
+	for _, item := range list.Items {
+		if item.Title == "which db?" && item.SessionPath == "/tmp/exact.jsonl" {
+			foundSession = true
+		}
+	}
+	if !foundSession {
+		t.Fatalf("sessionPath did not round-trip through the API: %+v", list.Items)
 	}
 	blocking, err0 := http.Get(ts.URL + "/api/inbox?blocking=1")
 	if err0 != nil {

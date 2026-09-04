@@ -160,17 +160,30 @@ to the `[Unreleased]` section. The repository's official language is English
   view gains a **Forget offline (N)** button that revokes the stale rows
   in one confirmed click.
 
-- **Inbox replies to a TUI agent now work: the reply switches the agent
-  to chat mode.** Replying used to bounce with "the agent is running in
-  an interactive terminal" — a dead end. Now the respond form warns
-  first ("the terminal session ends and the thread continues in this
-  chat"), and on confirm the reply parks in the agent's queue
-  (`RespondAndPark`), the TUI hands over to managed mode, and the
-  delivery loop drains the queue into the same session thread
-  (ADR-0053 keeps it one thread). The action lands on the agent's chat
-  tab watching it work; the TUI reopens later on the same session.
-  Send-keys injection stays rejected (ADR-0002; ADR-0037 amendment
-  records the benchmark research).
+- **Inbox replies to TUI agents stay in the same terminal tab and exact
+  session (ADR-0059).** PiCode temporarily replaces only the pane's Pi child
+  with a crash-safe holder, runs one correlated `pi --mode rpc` turn against
+  the session that filed `ask_human`, verifies the new user row on disk, and
+  restores the TUI without changing the tmux session or the agent's saved
+  interactive mode. Desktop and mobile show a dedicated **Receiving →
+  Processing → Returning** card with streamed answer and cancellation — no
+  ordinary chat, composer, or model picker. Only the correlated task is
+  claimed; unrelated work remains queued. Delivery retries three times;
+  failure or restart before verified delivery reopens the exact Inbox item
+  with the reply prefilled. A crash after the user row reaches disk finalizes
+  the task as delivered instead of inviting a duplicate retry. Daemon death or
+  same-PID self-update ends the leased RPC writer before recovery opens the
+  store; process-start/stop leases prevent a replacement writer from racing
+  shutdown. Manual terminal/session controls block new reply reservations while
+  they await restoration and mutate the pane or session. Restoration follows
+  the holder lease plus the live pane, so npm's `node`-backed `pi` is not
+  mistaken for a failed return; if both holder and direct recovery fail, Return
+  force-restarts that agent's TUI instead of exposing a dead pane, and keeps its
+  retry card if that explicit restart also fails. Completion remains readable
+  before a short exit; reduced-motion users get no exit animation, and stale
+  feed generations cannot resurrect an older card. Mobile Stop targets the
+  selected agent rather than its workspace default. Direct send-keys injection
+  remains an explicit fallback, not the primary path.
 
 ### Changed
 
@@ -245,19 +258,11 @@ to the `[Unreleased]` section. The repository's official language is English
   end tag. Each code span with angle brackets now sits on one line.
   Verified `make docs` green locally and the deployed page live.
 
-- **An inbox reply refused because the agent runs in a TUI now offers
-  "Open terminal" instead of a dead end.** The refusal note said to
-  open the terminal and paste the reply, and left the hunt to the
-  reader. When the item is agent-sourced and its agent is interactive
-  (the same gate the reply uses), the item's view shows an Open
-  terminal action that starts the agent's TUI and **takes you to it**:
-  the action returns a goto directive (`ActionResult.Goto`), and the
-  shell leaves the inbox for the agent's tab with the TUI docked
-  (owner decision: acting from the inbox must not dead-end there).
-  Server-side, so it works from the desktop and the mobile inbox
-  alike (mobile has no terminal surface and ignores the goto). The
-  reply itself stays undelivered by design (ADR-0037/0006); the
-  terminal is where the agent can hear you.
+- **An Inbox item for a TUI agent offers “Open terminal” instead of a
+  dead end.** The action starts or reveals that agent's TUI and takes both
+  desktop and mobile directly to its terminal screen. It remains the one-click
+  escape hatch when a transient reply is refused before sending — for example,
+  because the exact asking session is missing or the TUI is already working.
 - **A TUI agent whose conversation mentions "working" no longer shows
   as busy while idle.** The working check grepped the pane tail for the
   substring "working" — so an agent whose last reply merely contained

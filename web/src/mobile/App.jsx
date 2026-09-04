@@ -171,6 +171,20 @@ export default function MobileApp() {
   function openTerm(id) {
     if (id) push(mobileHash("term", id));
   }
+  async function onAppGoto(goto) {
+    const value = String(goto || "");
+    if (value.startsWith("agentburst:")) {
+      const payload = value.slice("agentburst:".length);
+      const cut = payload.indexOf(":");
+      const id = cut < 0 ? payload : payload.slice(0, cut);
+      // The action response and SSE notice travel independently. Reconcile
+      // before navigation so a fast phone never flashes the parked TUI.
+      await reload().catch(() => {});
+      openAgent(id);
+    } else if (value.startsWith("agent:")) {
+      openAgent(value.slice("agent:".length));
+    }
+  }
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));
   }
@@ -225,8 +239,9 @@ export default function MobileApp() {
   function stopAgent(agent, workspace) {
     return withBusy(agent, async () => {
       if (agent.mode === "interactive") {
-        if (workspace) await api("/api/workspaces/" + workspace.id + "/close", { method: "POST" });
-        else await api("/api/agents/" + agent.id + "/close", { method: "POST" });
+        // Agent-scoped control matters in multi-agent workspaces (and during
+        // an Inbox burst); the workspace endpoint only targets its default.
+        await api("/api/agents/" + agent.id + "/close", { method: "POST" });
         closeTerm(agent.id);
       } else {
         await api("/api/agents/" + agent.id + "/managed/stop", { method: "POST" });
@@ -291,7 +306,7 @@ export default function MobileApp() {
       />
     );
   } else if (route.screen === "inbox" && route.id) {
-    body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} />;
+    body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {
     body = <Inbox manifest={inboxApp} onOpenItem={(id) => push(mobileHash("inbox", id))} />;
   } else if (route.screen === "work") {

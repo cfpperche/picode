@@ -34,6 +34,13 @@ asking), the composer with **prompt / steer / follow-up** and dictation, and
 **Stop** to abort the current turn. An agent living in a terminal shows a
 **Chat | Terminal** switch.
 
+Replying to that terminal agent from the Inbox keeps you on its Terminal
+screen. A small card moves through **Receiving → Processing → Returning** and
+shows the answer as it arrives; **Cancel and return** stops the temporary turn
+and restores the TUI. If automatic return fails, **Return to terminal** restarts
+that TUI and remains available if you need to retry. PiCode does not open a
+chat or change the agent's saved run mode.
+
 ![The Now tab: what needs you first — here a seeded demo question with Accept / Ignore](../img/app-mobile.png)
 
 ![The Inbox tab: the same approvals, questions and results as the desktop](../img/app-mobile-inbox.png)

@@ -30,6 +30,119 @@ func addWorkspaceWithAgent(st *store.Store, name, path string) (store.Workspace,
 	return w, a, err
 }
 
+func TestTransientRuntimeIsReservedButHiddenFromOrdinaryControl(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "Burst", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := startRuntime(t, st)
+	ma, err := rt.StartBurst(agent.ID, w.Path, "", &RunObserver{})
+	if err != nil || ma == nil {
+		t.Fatalf("StartBurst = %v, %v", ma, err)
+	}
+	if !rt.Active(agent.ID) {
+		t.Fatal("transient writer did not reserve the agent")
+	}
+	if got := rt.Get(agent.ID); got != nil {
+		t.Fatal("ordinary control discovered the transient writer")
+	}
+	if err := rt.Start(agent.ID, w.Path); err == nil {
+		t.Fatal("ordinary writer started over a transient lease")
+	}
+	if !rt.Stop(agent.ID) || rt.Active(agent.ID) {
+		t.Fatal("transient writer was not stopped")
+	}
+}
+
+func TestStopWaitsForStartingBurst(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "Starting burst", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := startRuntime(t, st)
+	spawned := make(chan struct{})
+	release := make(chan struct{})
+	startErr := make(chan error, 1)
+	go func() {
+		_, err := rt.StartBurst(agent.ID, w.Path, "", &RunObserver{OnSpawn: func(int) error {
+			close(spawned)
+			<-release
+			return nil
+		}})
+		startErr <- err
+	}()
+	select {
+	case <-spawned:
+	case <-time.After(2 * time.Second):
+		t.Fatal("burst process did not reach the start observer")
+	}
+	stopped := make(chan bool, 1)
+	go func() { stopped <- rt.Stop(agent.ID) }()
+	select {
+	case <-stopped:
+		t.Fatal("Stop returned before the starting process released its lease")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if !rt.Active(agent.ID) {
+		t.Fatal("starting process lost its runtime reservation")
+	}
+	close(release)
+	if err := <-startErr; err == nil {
+		t.Fatal("cancelled StartBurst returned success")
+	}
+	if !<-stopped || rt.Active(agent.ID) {
+		t.Fatal("Stop did not wait for and clear the starting process")
+	}
+}
+
+func TestStopKeepsWriterLeaseUntilProcessJoin(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, agent, err := addWorkspaceWithAgent(st, "Stopping burst", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := startRuntime(t, st)
+	exitEntered := make(chan struct{})
+	releaseExit := make(chan struct{})
+	if _, err := rt.StartBurst(agent.ID, w.Path, "", &RunObserver{OnExit: func(bool) {
+		close(exitEntered)
+		<-releaseExit
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	stopped := make(chan bool, 1)
+	go func() { stopped <- rt.Stop(agent.ID) }()
+	select {
+	case <-exitEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("writer did not enter its shutdown observer")
+	}
+	if !rt.Active(agent.ID) {
+		t.Fatal("writer lease disappeared before process join")
+	}
+	if err := rt.Start(agent.ID, w.Path); err == nil {
+		t.Fatal("a replacement writer started before the old process joined")
+	}
+	close(releaseExit)
+	if !<-stopped || rt.Active(agent.ID) {
+		t.Fatal("stop did not release the writer after process join")
+	}
+}
+
 func TestManagedDeliveryEngine(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {

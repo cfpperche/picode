@@ -73,6 +73,7 @@ type InboxItem struct {
 	SourceKind  string   `json:"sourceKind"`
 	SourceID    string   `json:"sourceId,omitempty"`
 	WorkspaceID string   `json:"workspaceId,omitempty"`
+	SessionPath string   `json:"sessionPath,omitempty"`
 	Reason      string   `json:"reason"`
 	Title       string   `json:"title"`
 	Body        string   `json:"body,omitempty"`
@@ -92,6 +93,7 @@ type InboxItemParams struct {
 	SourceKind  string
 	SourceID    string
 	WorkspaceID string
+	SessionPath string
 	Reason      string
 	Title       string
 	Body        string
@@ -108,14 +110,14 @@ type InboxFilter struct {
 }
 
 const inboxCols = `id, kind, source_kind, source_id, workspace_id, reason, title, body,
-	blocking, allowed_responses, state, snoozed_until, response, responded_at, created_at, updated_at`
+	blocking, allowed_responses, state, snoozed_until, response, responded_at, created_at, updated_at, session_path`
 
 func scanInboxItem(row interface{ Scan(...any) error }, it *InboxItem) error {
 	var blocking int
 	var allowed string
 	if err := row.Scan(&it.ID, &it.Kind, &it.SourceKind, &it.SourceID, &it.WorkspaceID,
 		&it.Reason, &it.Title, &it.Body, &blocking, &allowed, &it.State,
-		&it.Snoozed, &it.Response, &it.RespondedAt, &it.CreatedAt, &it.UpdatedAt); err != nil {
+		&it.Snoozed, &it.Response, &it.RespondedAt, &it.CreatedAt, &it.UpdatedAt, &it.SessionPath); err != nil {
 		return err
 	}
 	it.Blocking = blocking != 0
@@ -208,15 +210,15 @@ func (s *Store) CreateInboxItem(p InboxItemParams) (InboxItem, error) {
 	allowed, _ := json.Marshal(p.Allowed)
 	it := InboxItem{
 		ID: newID(p.Title, "inb"), Kind: p.Kind, SourceKind: p.SourceKind,
-		SourceID: p.SourceID, WorkspaceID: p.WorkspaceID, Reason: p.Reason,
+		SourceID: p.SourceID, WorkspaceID: p.WorkspaceID, SessionPath: strings.TrimSpace(p.SessionPath), Reason: p.Reason,
 		Title: p.Title, Body: p.Body, Blocking: p.Blocking, Allowed: p.Allowed,
 		State: InboxUnread, CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := s.db.Exec(`INSERT INTO inbox_items
-		(id, kind, source_kind, source_id, workspace_id, reason, title, body, blocking, allowed_responses, state, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(id, kind, source_kind, source_id, workspace_id, reason, title, body, blocking, allowed_responses, state, created_at, updated_at, session_path)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		it.ID, it.Kind, it.SourceKind, it.SourceID, it.WorkspaceID, it.Reason,
-		it.Title, it.Body, boolInt(it.Blocking), string(allowed), it.State, it.CreatedAt, it.UpdatedAt); err != nil {
+		it.Title, it.Body, boolInt(it.Blocking), string(allowed), it.State, it.CreatedAt, it.UpdatedAt, it.SessionPath); err != nil {
 		return InboxItem{}, fmt.Errorf("store: create inbox item: %w", err)
 	}
 	s.note("inbox.created", nil, nil, it) // source may be an automation or terminal: not an agents FK
@@ -504,10 +506,7 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 				"or stop the agent and start it managed so replies deliver on their own.")
 			return InboxItem{}, ErrAgentInteractive
 		}
-		payload := fmt.Sprintf("Human reply to your question %q: %s", it.Title, text)
-		if verb == VerbAccept && strings.TrimSpace(text) == "" {
-			payload = fmt.Sprintf("The human accepted: %q", it.Title)
-		}
+		payload := inboxForwardPayload(it, verb, text)
 		if _, err := s.EnqueueTask(it.SourceID, TaskFollowUp, payload, "inbox"); err != nil {
 			if err == ErrNotFound {
 				_ = s.AnnotateInboxItem(id, "Reply could not be delivered: agent no longer exists.")
@@ -519,18 +518,16 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 	return s.RespondInboxItem(id, verb, text)
 }
 
-// RespondAndPark records the human's reply and queues it for the agent
-// WITHOUT the deliverable gate — the consented switch (the caller stops
-// the TUI and starts managed right after; the queue drains on start,
-// ADR-0037's park-and-wake). The agent must exist and the item must
-// forward to one. Not used for FYI items: there is nothing to switch.
-func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, error) {
+// RespondAndPark atomically records the human reply and its one correlated
+// burst task. The temporary coordinator claims the returned task id; it never
+// drains unrelated queued work (ADR-0059).
+func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, Task, error) {
 	it, err := s.GetInboxItem(id)
 	if err != nil {
-		return InboxItem{}, err
+		return InboxItem{}, Task{}, err
 	}
 	if it.State == InboxDone {
-		return InboxItem{}, fmt.Errorf("item is already done")
+		return InboxItem{}, Task{}, fmt.Errorf("item is already done")
 	}
 	allowed := false
 	for _, v := range it.Allowed {
@@ -539,26 +536,71 @@ func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, error) {
 		}
 	}
 	if !allowed {
-		return InboxItem{}, fmt.Errorf("response %q is not allowed on this item", verb)
+		return InboxItem{}, Task{}, fmt.Errorf("response %q is not allowed on this item", verb)
 	}
 	if it.SourceKind != InboxFromAgent || strings.TrimSpace(it.SourceID) == "" {
-		return InboxItem{}, fmt.Errorf("this item has no agent to switch")
+		return InboxItem{}, Task{}, fmt.Errorf("this item has no agent terminal")
 	}
 	if it.Kind != InboxQuestion && it.Kind != InboxApproval {
-		return InboxItem{}, fmt.Errorf("this item does not forward to the agent")
+		return InboxItem{}, Task{}, fmt.Errorf("this item does not forward to the agent")
 	}
-	payload := fmt.Sprintf("Human reply to your question %q: %s", it.Title, text)
-	if verb == VerbAccept && strings.TrimSpace(text) == "" {
-		payload = fmt.Sprintf("The human accepted: %q", it.Title)
-	}
-	if _, err := s.EnqueueTask(it.SourceID, TaskFollowUp, payload, "inbox"); err != nil {
+	if _, err := s.GetAgent(it.SourceID); err != nil {
 		if err == ErrNotFound {
 			_ = s.AnnotateInboxItem(id, "Reply could not be delivered: agent no longer exists.")
-			return InboxItem{}, fmt.Errorf("agent no longer exists: %w", ErrNotFound)
+			return InboxItem{}, Task{}, fmt.Errorf("agent no longer exists: %w", ErrNotFound)
 		}
-		return InboxItem{}, err
+		return InboxItem{}, Task{}, err
 	}
-	return s.RespondInboxItem(id, verb, text)
+
+	payload := inboxForwardPayload(it, verb, text)
+	task := Task{
+		ID: newID("task", "task"), AgentID: it.SourceID, Kind: TaskFollowUp,
+		Payload: payload, Source: "inbox-burst:" + id, Status: TaskQueued, CreatedAt: nowUTC(),
+	}
+	now := nowUTC()
+	resp := verb
+	if strings.TrimSpace(text) != "" {
+		resp = verb + ": " + text
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return InboxItem{}, Task{}, err
+	}
+	defer func() { s.rollback(tx) }()
+	if _, err := tx.Exec(`INSERT INTO tasks (id, agent_id, kind, payload, source, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, task.ID, task.AgentID, task.Kind, task.Payload, task.Source, task.Status, task.CreatedAt); err != nil {
+		return InboxItem{}, Task{}, fmt.Errorf("store: park reply task: %w", err)
+	}
+	res, err := tx.Exec(`UPDATE inbox_items SET state = ?, response = ?, responded_at = ?, updated_at = ?
+		WHERE id = ? AND state != ?`, InboxDone, resp, now, now, id, InboxDone)
+	if err != nil {
+		return InboxItem{}, Task{}, fmt.Errorf("store: park inbox reply: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return InboxItem{}, Task{}, ErrNotFound
+	}
+	it.State = InboxDone
+	it.Response = &resp
+	it.RespondedAt = &now
+	it.UpdatedAt = now
+	if err := s.AppendEventTx(tx, "task.enqueued", &it.SourceID, nil, task); err != nil {
+		return InboxItem{}, Task{}, err
+	}
+	if err := s.AppendEventTx(tx, "inbox.updated", nil, nil, it); err != nil {
+		return InboxItem{}, Task{}, err
+	}
+	if err := s.commit(tx); err != nil {
+		return InboxItem{}, Task{}, err
+	}
+	return it, task, nil
+}
+
+func inboxForwardPayload(it InboxItem, verb, text string) string {
+	if verb == VerbAccept && strings.TrimSpace(text) == "" {
+		return fmt.Sprintf("The human accepted: %q", it.Title)
+	}
+	return fmt.Sprintf("Human reply to your question %q: %s", it.Title, text)
 }
 
 func boolInt(b bool) int {
