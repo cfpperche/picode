@@ -69,24 +69,6 @@ What exists:
 
 ## In flight
 
-**`fix/ci-cross-platform` — second hosted matrix pending.** Baseline run
-[33817122907](https://github.com/cfpperche/picode/actions/runs/33817122907)
-exposed independent failures that earlier red steps had masked. PR
-[#2](https://github.com/cfpperche/picode/pull/2)'s first run
-[33823541626](https://github.com/cfpperche/picode/actions/runs/33823541626)
-proved Ubuntu and macOS green, then exposed a Windows coverage error: CI was
-executing the Linux/WSL daemon suite as a native Windows server, a topology
-ADR-0020 does not ship. Windows now compiles every package and test with the
-race toolchain, then executes the native tray/browser-host boundary; live WSL
-checks require a registered distro rather than only `wsl.exe`. The branch also
-canonicalizes missing backup destinations and Git worktree identities through
-filesystem aliases; orders presence callbacks; removes races and scheduler
-assumptions from package-watch, automation and pane-cwd tests; scopes
-Linux-only integrations; and builds checksum-pinned tmux 3.5a on Ubuntu. Local
-`make ci`, `go test -race ./...`, cross-platform compile preflights, and the
-native Windows boundary tests all pass; prior race cases pass 20×/100× stress
-runs. Acceptance remains one green PR matrix on all three hosts.
-
 **`fix/checklist-staleness` — checklist row follows the current session
 (ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22
 (installed service runs 0.1.0+6256503, which includes it).** Adversarial review of
@@ -391,13 +373,6 @@ Never exercised, because this machine was already past them:
   path. Groq, Mistral and Cursor stay cookie-scoped — honest `unavailable`,
   not scraping.
 
-- **CI on `main` remains red until the in-flight cross-platform repair is
-  proved and merged.** Baseline run 33817122907 failed independently on all
-  three runners (filesystem aliases, callback/test races, platform-only
-  integrations, Windows path separators, tmux 3.4). Root causes and local
-  fixes are recorded under *In flight*; a green hosted Ubuntu/macOS/Windows
-  matrix is the acceptance gate, not the local result.
-
 - `docs/handoff.md` is still ~2.8× the ~150-line cap after archiving
   the pre-09-02 activity — the *Current state* / *In flight* ADR
   paragraphs need a summarizing pass (owner's call on what to cut).
@@ -470,6 +445,23 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-04 — Hosted CI restored across Ubuntu, macOS and Windows.** PR
+  [#2](https://github.com/cfpperche/picode/pull/2) run
+  [33824697394](https://github.com/cfpperche/picode/actions/runs/33824697394)
+  is green on all three hosts. Backup and Git identity checks now survive
+  symlinked path aliases; presence notifications stay ordered; package-watch,
+  automation and tmux tests no longer depend on races or scheduler timing;
+  Ubuntu builds checksum-pinned tmux 3.5a. The first PR run proved Linux and
+  macOS, then exposed that Windows was running the Linux/WSL daemon suite in
+  an unsupported native topology. Per ADR-0020, Windows now compiles every
+  package and test with race instrumentation and executes the native
+  tray/browser-host boundary; live WSL checks require a registered distro.
+  Local `make ci`, `go test -race ./...`, cross-platform compile preflights,
+  native Windows execution through WSL interop, and the prior flaky paths
+  under 20×/100× stress all pass. Parity screenshots/videos were regenerated;
+  their stills and three representative video contact sheets were read with no
+  visual defect.
 
 - **2026-09-03 — Manual Pi TUI terminal status completed (ADR-0056).**
   The opt-in scoped `pi` wrapper injects a generated native extension for
