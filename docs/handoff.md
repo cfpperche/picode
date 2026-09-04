@@ -67,8 +67,12 @@ directive: **no defaults, ever**):
 
 - **Dormant until configured.** Without `.pi/compact.json` (or a per-agent
   overlay) Pi's stock compaction and summarizer run untouched; the status
-  line reads `compact: not configured · /compact edit`; bare `/compact` and
-  `/compact on|off` report "not configured". Any config file is the opt-in.
+  line reads `compact: not configured · /compact-edit`. Any config file is
+  the opt-in.
+- **Commands are `/compact-edit|model|on|off` (second amendment).** Pi's
+  TUI dispatches `/compact …` to its built-in command before extension
+  commands run, so `/compact edit` compacted instead of opening the wizard.
+  Bare `/compact` stays native; the summarizer hook still applies to it.
 - **Trigger on `agent_settled`, never `turn_end`.** `ctx.compact()` starts
   with `abort()`, so the old mid-run trigger killed active runs ("This
   operation was aborted"); `agent_settled` is Pi's own post-run compaction

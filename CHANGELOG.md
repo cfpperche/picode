@@ -161,6 +161,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **`pi-compact`'s wizard is reachable again: `/compact-edit`,
+  `/compact-model`, `/compact-on`, `/compact-off`.** Pi's TUI handles
+  `/compact …` with its own built-in command before any extension command
+  runs, so typing `/compact edit` compacted the session with "edit" as
+  instructions instead of opening the wizard. The package no longer
+  registers a colliding `compact` command; bare `/compact` keeps Pi's
+  native pipeline (the cheap summarizer chain still applies via the
+  `session_before_compact` hook when configured). Status line and
+  notifications point at `/compact-edit`. ADR-0061 amended a second time.
 - **The terminal WebSocket bridge serializes output and keepalive writes.**
   A busy terminal could make Gorilla WebSocket observe two concurrent writers
   and crash the daemon; terminal frames and ping frames now share one writer.
