@@ -3,6 +3,27 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after ADR-0059 deployment)
+
+- **2026-09-04 — Hosted CI restored across Ubuntu, macOS, and Windows.** PR #2
+  merged as `b7c63d34`; the follow-up handoff commit is `dd98084c`. Linux and
+  macOS run the daemon suite; native Windows compiles every package/test with
+  race instrumentation and exercises the tray/browser-host boundary. The
+  service was deployed at `0.1.0+b7c63d3` before ADR-0059 superseded it.
+- **2026-09-03 — ADR-0059 transient RPC burst implemented and gated.** Inbox
+  replies borrow the exact asking session for one private RPC turn, prove
+  durable JSONL delivery, stream a terminal-only lifecycle, restore the same
+  tmux pane, and recover/cancel without exposing chat mode. `make ci`, focused
+  race tests, generated docs/media parity, and the desktop/mobile visual card
+  passed on the final feature commit.
+- **2026-09-03 — Manual Pi TUI terminal status completed (ADR-0056).** The
+  opt-in scoped wrapper reports idle, working, needs-you, prompt return,
+  completion, and interruption without touching the user's Pi configuration;
+  owner acceptance and live desktop/mobile dogfood passed.
+- **2026-09-03 — Three tutorial videos shipped.** The docs harness captures
+  deterministic desktop/mobile stills, renders the HyperFrames compositions,
+  and parity-checks the published videos in CI.
+
 ## Recent activity (archived after ADR-0059)
 
 - **2026-09-03 — tmux cwd test no longer depends on scheduler timing.** The

@@ -10,11 +10,11 @@
 `visual-review`. Empty/blocked/error states and screenshots are required;
 `window.__picodeOverlayAudit()` must be `ok`.
 
-**Repository:** local `main` and `origin/main` are at `dd98084c`. The
-installed service is at `b7c63d34` (`0.1.0+b7c63d3`) from the cross-platform
-CI deployment. ADR-0059 is rebased onto `dd98084c`; the owner authorized merge
-and deployment. Focused integration/race suites, docs parity, and final
-visual review pass; the exact amended commit still needs its full `make ci`.
+**Repository:** local `main` contains ADR-0059 feature commit `81ac872b` plus
+this deployment handoff; `origin/main` remains `dd98084c` (no push requested).
+`make ci` passed at the exact feature commit. `make deploy` installed
+`0.1.0+81ac872`; health, embedded assets, migration, browser load, and session
+preservation were verified.
 
 ### Product and platform
 
@@ -37,8 +37,8 @@ visual review pass; the exact amended commit still needs its full `make ci`.
 
 ### ADR-0059 transient Inbox reply bursts
 
-The isolated feature branch replaces the consented TUI-to-chat switch with one
-private RPC turn on the Inbox item's exact captured session:
+The shipped feature replaces the consented TUI-to-chat switch with one private
+RPC turn on the Inbox item's exact captured session:
 
 - `ask_human` persists `sessionPath`; Reply, Accept, or Decline atomically park
   the item and create one correlated `inbox-burst:<itemID>` task. Missing or
@@ -64,27 +64,30 @@ private RPC turn on the Inbox item's exact captured session:
   fail, a retryable card explicitly replaces the stale session and remounts the
   terminal client. Direct `send-keys` remains an explicit fallback only.
 
-Evidence in this branch:
+Integration evidence:
 
-- Fake-Pi/tmux, runtime, store, server, and frontend tests cover exact older
-  sessions, one writer, task isolation, control races, rollback, retries,
-  cancellation, large/escaped payloads, daemon death/re-exec, crash recovery,
-  stale feed generations, restoration deadlines, and failed-restart retry.
-- Focused Go/frontend/package suites and race tests for runtime shutdown and
-  server burst/control paths pass after the final rebase. Docs screenshots and
-  all three HyperFrames tutorials were regenerated; manifests and media probes
-  pass. The exact amended commit still needs its full `make ci`.
-- Desktop and 390×844 mobile screenshots were read after the final rebase for
-  receiving, completion, restarting, retry-after-failed-restart, and reduced
-  motion. Return reached exact-agent `open?restart=1`; retry cards survived
-  failure, page errors were empty, reduced motion reported no animation, and
-  desktop/mobile overlay audits returned `{"ok":true,"hits":[],"rows":[]}`.
+- Fake-Pi/tmux, runtime, store, server, and frontend coverage includes exact
+  older sessions, one writer, task isolation, control races, delivery/recovery,
+  daemon death/re-exec, restoration deadlines, and failed-restart retry.
+  Full `make ci`, focused package suites, and race tests passed on `81ac872b`.
+- The deployed service is healthy at `0.1.0+81ac872`; its installed binary
+  matches `bin/picode`, migration 023 exposes `inbox_items.session_path`, and
+  no burst holder marker survived startup. The embedded app serves
+  `/assets/index-CNWNR34c.js` with the burst and restart paths present.
+- All 54 immediate pre-deploy tmux name/session-ID pairs are unchanged,
+  including the original 50. Both interactive agents kept their exact selected
+  JSONLs; all 12 terminals and both agents remain running with identical API
+  projections.
+- The deployed desktop loaded in Chromium with first-party requests succeeding,
+  no page errors, and `overlayAudit` ok. The earlier desktop/390×844 visual
+  review covered receiving, completion, restarting, failed restart, reduced
+  motion, and the real `open?restart=1` path. visual-review: PASS.
 
 ## In flight
 
-- **ADR-0059 is rebased and awaiting its exact-commit `make ci`.** Merge and
-  deployment are owner-authorized. A real-Pi Inbox reply remains deliberately
-  separate dogfood and has not been authorized or performed.
+- **No ADR-0059 implementation, merge, or deployment work remains.** A real-Pi
+  Inbox reply/cancel remains deliberately separate dogfood and has not been
+  authorized or performed.
 - **Historical Inbox QA state needs reconciliation before dogfood.** A prior
   failed reply is absent from the captured `mobile-6bf740` JSONL. Earlier
   cleanup targeted `qa-switch-058577` while the pending task belonged to
@@ -99,8 +102,9 @@ Evidence in this branch:
 
 ## Next up
 
-1. Run `make ci` on the amended ADR-0059 commit, fast-forward `main`, deploy
-   once, and prove service health, served assets, and unchanged tmux identities.
+1. Diagnose why the service process regularly survives SIGTERM until systemd's
+   30-second stop timeout, and prove the bounded shutdown path before the next
+   deployment.
 2. Inspect the live store's historical Inbox item and correlated tasks; close
    or repair only the exact stale rows. Do not create another live test first.
 3. With separate authorization, run one controlled real-Pi Inbox reply and a
@@ -113,6 +117,10 @@ Evidence in this branch:
 
 ## Known debts / open questions
 
+- This deployment again hit the pre-existing `picode.service` stop timeout: the
+  old daemon survived SIGTERM until systemd SIGKILLed only its main process at
+  30 seconds. `KillMode=process` preserved every tmux session and the new daemon
+  started healthy with no burst lease, but the graceful-stop hang is unresolved.
 - Terminal detail still makes two swallowed agent-only requests (`role-state`
   and `slash`); this predates the manual Pi sensor and does not affect state.
 - ADR-0059 hard parent-death enforcement is Linux-specific; non-Linux builds
@@ -145,31 +153,14 @@ Evidence in this branch:
 
 ## Recent activity
 
-- **2026-09-04 — Hosted CI restored across Ubuntu, macOS, and Windows.** PR #2
-  merged as `b7c63d34`; the follow-up handoff commit is `dd98084c`. Linux and
-  macOS run the daemon suite; native Windows compiles every package/test with
-  race instrumentation and exercises the tray/browser-host boundary. The
-  active service was deployed at `0.1.0+b7c63d3`.
-- **2026-09-03 — ADR-0059 transient RPC burst implemented and gated**
-  (`feat/transient-rpc-burst`). Inbox replies to an interactive Pi agent now
-  borrow the exact asking session for one private RPC turn, prove durable
-  JSONL delivery, stream a terminal-only lifecycle, restore the same tmux
-  pane, and recover/cancel without exposing chat mode. Final audit added
-  agent-scoped mobile takeover, process-join writer leases, pre-store marker
-  release, timestamp-correlated delivered-on-crash recovery, selected-session
-  rollback, exact delivery matching, large-row recovery, fresh fallback
-  deadlines, and force-restart/reconnect coverage. `make ci` and focused race
-  tests are green. visual-review: PASS (desktop/mobile done exit, restart,
-  retry, and reduced-motion captures read; both `open?restart=1` actions
-  clicked; overlayAudit ok; visual card 5/5).
-  Not merged or deployed.
-- **2026-09-03 — Manual Pi TUI terminal status completed (ADR-0056).** The
-  opt-in scoped wrapper reports idle, working, needs-you, prompt return,
-  completion, and interruption without touching the user's Pi configuration;
-  owner acceptance and live desktop/mobile dogfood passed.
-- **2026-09-03 — Three tutorial videos shipped.** The docs harness now captures
-  deterministic desktop/mobile stills, renders the HyperFrames compositions,
-  and parity-checks the published videos in CI.
+- **2026-09-04 — ADR-0059 integrated and deployed.** Local `main` fast-forwarded
+  to gated feature commit `81ac872b`; `make deploy` now serves
+  `0.1.0+81ac872`. The original 50 and immediate 54 tmux identities, both exact
+  agent session paths, and all 12 terminals survived unchanged. Health,
+  migration, embedded assets, and a live Chromium smoke passed. The recurring
+  systemd stop timeout is recorded as debt; real-Pi Inbox dogfood was not run.
+  visual-review: PASS (pre-merge edge-state screenshots read; post-deploy app
+  read, no page errors, first-party requests healthy, overlayAudit ok).
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
