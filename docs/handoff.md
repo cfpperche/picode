@@ -42,6 +42,12 @@ What exists:
 - Track **D5** behind npm packages show **Update**. User menu dots Packages. Nothing updates until you click. Git / path / pinned skipped.
 - **ADR-0015** + Track **E**: E1–E4 shipped (open, Save, Keep/Undo, turn file names).
 - **ADR-0017** first-class terminals (sidebar + `#/term/<id>`). ADR-0016 editor-tab UI superseded. Pi TUI dock unchanged.
+- **ADR-0056** terminal status: opt-in, session-scoped wrappers let Claude
+  Code, Codex, Grok, and a manually launched Pi TUI publish truthful
+  `working` / `needs-you` / `idle` state without screen scraping or writes to
+  the CLIs' home configuration. Manual Pi uses a generated native extension
+  guarded by `PICODE_TERM_ID` + TUI mode; it is a terminal process, not a
+  managed agent.
 - **ADR-0020** PiCode Desktop: a Windows tray binary provisions the distro; `picode provision` does the Linux half. ADR-0018 superseded (it had ruled out both a logon task and linger). **M2–M5 shipped** (the ADR-0020 plan is complete): `picode provision` (6 steps, `--dry-run` / `--json`) and `picode-desktop.exe` (tray, logon task, keepalive, CA trust, clean-machine bootstrap). Neither has been **run for real** — dry-run only, by the owner's decision.
 - Preferences → **Terminal** (colors, font, size, line height, spacing, cursor, blink, scrollback, padding, **Keys**: newline + copy-if-selected). Ligatures omitted: xterm canvas in the browser cannot join glyphs (`@xterm/addon-ligatures` needs Node font-finder).
 - **ADR-0028** `packages/pi-roles/`: opt-in MIT pi package (carve-out from PolyForm). Not installed by default. `/roles edit|add|remove` writes `.pi/roles.json`. Composer lists those commands while the agent is running (ADR-0029).
@@ -274,26 +280,13 @@ toggle it replaces. The recommendation given to the owner on 2026-08-30 was to
 build them once there are three or four flags, and the store shape is already
 ready for it (overrides are a map, not a column). Not refused, deferred.
 
-**Multi-runtime TUIs in terminals** (owner direction): research +
-**ADR-0056 accepted (two tiers)** — tier 1 **shipped 2026-09-03**:
-guest CLIs in terminals report `working` / `needs-you` / `idle` via
-per-tool hooks (Claude/Codex/Grok lifecycle events) to
-`POST /api/terminals/{id}/state`; correlation is `PICODE_TERM_ID` +
-`PICODE_TERM_URL`, injected into the tmux session env at creation;
-state republishes as ephemeral `terminal.state` on the ADR-0048 feed;
-chips on the sidebar row, terminal tab and mobile terminal row. Codex
-gets trusted invocation-only hooks (not its blanket trust bypass).
-Ctrl+C / bare Escape clears active state at PTY input before forwarding,
-covering Claude's missing Stop-on-abort; escape sequences are excluded.
-A silent `working` expires after 30 min (no stale spinners); no chip =
-no signal. Wiring is one click in Preferences; guide:
-`www/guide/terminal-status.md`. Tier 2 (deferred): promote wired terminals to
-observe-only guest agents — own ADR, re-measures ADR-0003's Pi-only
-clause; ACP/control stays the named further track. The unified
-TermSurface/ShellTerm path stays the substrate. Known landmine for
-that track: tmux's `extended-keys-format` is server-wide — we force
-`xterm` (modifyOtherKeys) so Shift+Enter survives, but some TUIs
-prefer csi-u/Kitty; per-session key format may be needed.
+**Multi-runtime TUIs in terminals, tier 2 (deferred):** promote a wired
+terminal to an observe-only guest agent. This needs its own ADR and must
+re-measure ADR-0003's Pi-only clause; ACP/control remains a later track. The
+unified TermSurface/ShellTerm path is the substrate. Known landmine: tmux's
+`extended-keys-format` is server-wide — PiCode forces `xterm`
+(modifyOtherKeys) so Shift+Enter survives, while some TUIs prefer csi-u/Kitty;
+a per-session key format may be needed.
 
 **PiCode Desktop is installed and running on the owner's machine. What is
 left is validation — the list below is what has *not* been proved.**
@@ -329,6 +322,13 @@ Never exercised, because this machine was already past them:
 - Worktrees / parallel isolated agents (Orca + Herdr) — after Track E.
 
 ## Known debts / open questions
+
+- **Terminal detail makes two agent-only requests.** Opening `#/term/<id>`
+  currently asks `/api/agents/t:<id>/role-state` and `/slash`; both return 404
+  and are swallowed by the existing UI effects. This predates the manual Pi
+  sensor and does not affect terminal status, but surfaced in its network
+  sweep. The changed Preferences surface has clean console, page-error and
+  network diagnostics.
 
 - **pi-checklist review leftovers (2026-09-03, from
   `fix/checklist-staleness`):** (L4) the chat card hides the refusal
@@ -479,6 +479,26 @@ Never exercised, because this machine was already past them:
 
 ## Recent activity
 
+- **2026-09-03 — Manual Pi TUI terminal status completed (ADR-0056).**
+  The opt-in scoped `pi` wrapper injects a generated native extension for
+  agent runs while leaving auth/maintenance/help/version dispatch at argv[1].
+  It serializes lifecycle reports and maps session start, agent start,
+  blocking prompts, prompt return, settled completion and shutdown; reports
+  require `PICODE_TERM_ID` plus `ctx.mode === "tui"`. Existing `-e`
+  extensions and arguments keep their order, and `~/.pi` stays untouched.
+  Live dogfood proved idle, working, needs-you, prompt return, settled and
+  immediate Escape interruption; RPC, print, JSON and child-agent runs stayed
+  absent, and a user extension loaded alongside PiCode's extension. All QA
+  terminals and fixtures were removed. `make ci` is green; the installed
+  service has the sensor enabled. visual-review: **PASS** — desktop and real
+  mobile Preferences, idle/working/needs-you/settled/interrupted terminal
+  states and sidebar icon-slot motion were captured and read; overlay audit
+  returned ok. Visual card: (1) hierarchy is clear; (2) all four preference
+  rows align; (3) supported desktop/mobile shells have no clipping; (4) the
+  fixed roster needs no empty state, while a missing CLI keeps its one-line
+  PATH guidance plus toggle action; (5) no visual ship-stopper remains. A
+  diagnostic-only pre-existing debt was recorded below.
+
 - **2026-09-03 — docs harness phase 5 shipped: three tutorial videos.**
   `make docs-videos` captures stills from the seeded fixture through
   each tutorial's real steps (10 named stills, exact viewports), renders
@@ -489,8 +509,10 @@ Never exercised, because this machine was already past them:
   against the manifest. Pipeline lessons baked into the tooling: fresh
   browser session + exact viewport per still (1280x720 / 390x844 — the
   default viewport is 1280x633 and silently breaks phone framing);
-  caption scrims; zoom targets chosen from the still itself. CI ubuntu
-  Test step still red with the pre-existing integration-test set
+  caption scrims; zoom targets chosen from the still itself. Follow-up:
+  `docs-videos` is now phony — the identically named directory had made the
+  documented regeneration command a silent no-op. CI ubuntu Test step still
+  red with the pre-existing integration-test set
   (see the phase-4 note); Pages green.
 
 - **2026-09-03 — docs harness phase 4 shipped: Vale prose gate.**

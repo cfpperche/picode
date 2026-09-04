@@ -473,12 +473,30 @@ so `termKeys.js` encodes modified Enter itself (VS Code's terminal gets
 the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
-Guest CLI state (ADR-0056) is ephemeral: scoped wrappers inject Claude,
-Codex, or Grok hooks; reports become `terminal.state` feed events. Codex
-hooks are invocation-only `-c` values whose exact SHA-256 fingerprints
-are trusted in the same session flags — PiCode never bypasses trust and
-never writes `~/.codex`. PTY input closes the gap left by a CLI that omits
-its interruption callback:
+Terminal CLI state (ADR-0056) is ephemeral: scoped wrappers inject Claude,
+Codex, Grok, or manual Pi TUI hooks; reports become `terminal.state` feed
+events. Codex hooks are invocation-only `-c` values whose exact SHA-256
+fingerprints are trusted in the same session flags — PiCode never bypasses
+trust and never writes `~/.codex`. For agent invocations, the Pi wrapper
+prepends one generated `-e <data>/intercept/pi-terminal-state.ts` extension
+without replacing user extensions or arguments. Pi's maintenance/auth
+subcommands and help/version flags bypass injection so their argv[1] dispatch
+stays intact; the wrapper never writes `~/.pi`. Its native-event decision table
+is executable in `TestPiTerminalStateExtensionDecisionTable`:
+
+| `PICODE_TERM_ID` | Pi mode | Native event / condition | Lifecycle action |
+|---|---|---|---|
+| missing | any | any | no report |
+| present | RPC, print, or JSON | any | no report |
+| present | TUI | `session_start`, `agent_settled`, `session_shutdown` | publish `idle` |
+| present | TUI | `agent_start` | publish `working` |
+| present | TUI | `ui_prompt_start` | publish `needs-you` |
+| present | TUI | `ui_prompt_end`, `ctx.isIdle() == false` | publish `working` |
+| present | TUI | `ui_prompt_end`, `ctx.isIdle() == true` | publish `idle` |
+
+The two guards keep managed RPC agents, `pi -p`, JSON streams, and inherited
+sub-processes out of terminal state. PTY input closes the gap left by a CLI
+that omits its interruption callback:
 
 | Input | Current terminal state | Session | Lifecycle action |
 |---|---|---|---|

@@ -21,7 +21,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
               <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab (terminal keeps running)">
                 <span className="mtab-term"><IconTerminal size={13} /></span>
                 <span>{term.name}</span>
-                {/* Guest CLI state on the tab (ADR-0056 tier 1): needs-you is
+                {/* Terminal CLI state on the tab (ADR-0056 tier 1): needs-you is
                     the user's move, so it gets the accent dot; working gets
                     the same green dot a running agent wears. */}
                 {term.state === "needs-you" ? <span className="mtab-dot attn" title="Needs you" /> : null}

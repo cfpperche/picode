@@ -57,7 +57,7 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	view := termView(t, session, live)
 	view["cwd"] = cwd
 	view["git"] = gitinfo.Inspect(cwd)
-	// Guest CLI lifecycle state (ADR-0056 tier 1), when a sensor has
+	// Terminal CLI lifecycle state (ADR-0056 tier 1), when a sensor has
 	// reported for this terminal. Absent field = no signal.
 	applyTermState(deps, view, t.ID)
 	return view
@@ -307,7 +307,7 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 		return err
 	}
 	if !has {
-		// Guest CLI sensors correlate to this terminal through the session
+		// CLI lifecycle sensors correlate to this terminal through the session
 		// environment (ADR-0056 tier 1): hooks inherit PICODE_TERM_ID from
 		// the shell, and PICODE_TERM_URL spares them configuration. The env
 		// must exist from the first pane, so it rides new-session (-e) — a

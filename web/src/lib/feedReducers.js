@@ -102,7 +102,7 @@ export function applyFleet(state, ev) {
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
     case "terminal.state": {
-      // Ephemeral (id 0): a guest CLI's hook reported lifecycle state
+      // Ephemeral (id 0): a terminal CLI hook reported lifecycle state
       // (ADR-0056 tier 1) — same words as agent.state. Unknown terminals
       // stay untouched; the durable terminal.updated events carry the
       // state field for reconciliation after a refetch.

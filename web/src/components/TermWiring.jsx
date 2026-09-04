@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { toast, toastError } from "../lib/toast.js";
 
-// Guest CLI intercept (ADR-0056): one row per CLI. Turn on drops a
+// Terminal CLI intercept (ADR-0056): one row per CLI. Turn on drops a
 // wrapper in PiCode's data dir and prepends it to PATH *inside PiCode
-// terminals only*. Nothing is written to ~/.claude, ~/.codex, ~/.grok.
+// terminals only*. Nothing is written to ~/.claude, ~/.codex, ~/.grok, or ~/.pi.
 export default function TermWiring({ hidden }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState("");
