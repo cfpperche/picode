@@ -13,9 +13,10 @@ Skip = quality-gate FAIL.
 
 **Hosted CI:** PR #3 merged as `144cce06` without publishing local main's
 unrelated ADR-0059 commits. Full-path PR run `33878224835` and post-merge main
-run `33878695007` are green in 3m54s and 3m52s. Frontend now builds once,
-docs and the three-OS Go boundary run in parallel, and this handoff-only commit
-is the metadata-path acceptance probe. No application deployment is needed.
+run `33878695007` are green in 3m54s and 3m52s. Metadata-only run
+`33879212363` ran just Classify changes + CI gate and passed in 32s. Frontend
+builds once; docs and the three-OS Go boundary run in parallel. No application
+deployment was needed.
 
 **Phase:** ADE past M3. Composer **A** + MCP **B** + Track **C** (waiting, queue, draft) shipped. Slash TUI **24 ui · 0 missing**. Providers + vault.
 Public docs on Pages. llama.cpp manager is **docs + dialog**, not an installer.
@@ -74,12 +75,6 @@ What exists:
 - **ADR-0045 v2** `/automate` + templates: `lib/automateDraft.js` (prompt, fence/object parser, command detection), `lib/automationDraft.js` (read-once `sessionStorage` handoff), `automate.Templates()` + `GET /api/automations/templates`, Suggested cards with category chips, *Start from template…* in the editor, "Drafted by / From template" origin line. Turn correlation is client-side (`automateRef` + `agent_settled` + `lastAssistantText`); no server change for `/automate`.
 
 ## In flight
-
-**CI pipeline speed — merged; metadata-path probe in progress.** The full
-PR/main graph is green. The decision table covers full, public-docs-only,
-internal-docs-only, mixed, empty/unknown, and Windows-separator inputs. Verify
-that this handoff-only push runs just Classify changes + CI gate, then close the
-track and clean its branches/worktrees.
 
 **`fix/checklist-staleness` — checklist row follows the current session
 (ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22
@@ -464,8 +459,8 @@ Never exercised, because this machine was already past them:
   once on Ubuntu and hands a 14 MB artifact to the embedded build; docs and
   the three-OS Go boundary run in parallel, superseded refs cancel, and
   internal metadata takes the lightweight path. Full-path PR run
-  `33878224835` and post-merge main run `33878695007` passed in 3m54s/3m52s;
-  this handoff push is the final metadata-path probe.
+  `33878224835` and post-merge main run `33878695007` passed in 3m54s/3m52s.
+  Metadata-only run `33879212363` skipped every heavy job and passed in 32s.
 
 - **2026-09-04 — Hosted CI restored across Ubuntu, macOS and Windows.** PR
   [#2](https://github.com/cfpperche/picode/pull/2) merged as `b7c63d34`; final
