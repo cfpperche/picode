@@ -10,13 +10,11 @@
 `visual-review`. Empty/blocked/error states and screenshots are required;
 `window.__picodeOverlayAudit()` must be `ok`.
 
-**Repository:** local `main` keeps the unpushed ADR-0059 commits
-`81ac872b`/`83ed7a9c` and passive-extension follow-up `259eb50a`, then merges
-`origin/main` through CI handoff `43c99186`; those local product commits remain
-unpublished by owner choice. PR #3's optimized hosted CI is green on its full
-and metadata-only paths; final local `make ci` passed in 195s on the merged
-tree. The active installed service reports `0.1.0+6cf705d` (systemd stop bound;
-binaries match). Local product commits remain unpublished by owner choice.
+**Repository:** local `main` is at the ADR-0060 refactor (`a9c814a`, build
+`0.1.0+a9c814a`, deployed and verified) plus this handoff; product commits
+remain unpublished by owner choice. The ADR-0059 burst machinery is removed:
+Inbox replies now land directly in the running TUI. The owner's systemd stop
+bound keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
 
 ### Product and platform
 
@@ -37,67 +35,42 @@ binaries match). Local product commits remain unpublished by owner choice.
 - Browser tool previews (ADR-0057) render generic `details.preview` frames; a
   package-side emitter and dedicated Browser surface remain open.
 
-### ADR-0059 transient Inbox reply bursts
+### ADR-0060 Inbox replies land in the running TUI
 
-The shipped feature replaces the consented TUI-to-chat switch with one private
-RPC turn on the Inbox item's exact captured session:
+ADR-0059's transient burst is superseded and removed (net −1,868 lines). The
+reply never leaves the terminal:
 
-- `ask_human` persists `sessionPath`; Reply, Accept, or Decline atomically park
-  the item and create one correlated `inbox-burst:<itemID>` task. Missing or
-  unsafe exact sessions are refused, and unrelated queue rows are never
-  claimed.
-- A per-agent control guard serializes replies with pane/session mutations.
-  `respawn-pane -k` leaves tmux and browser attachment intact while a holder
-  swaps the TUI for one parent-bound RPC writer; logical mode stays interactive.
-- Delivery uses one explicit `prompt` and requires an exact normalized user row
-  in newly appended JSONL bytes. Replacement-aware, payload-sized verification
-  and timestamp-correlated recovery prevent acknowledgements, stale rows,
-  cancellation races, or crash ambiguity from duplicating a reply.
-- Three bounded attempts reopen the exact item prefilled on pre-delivery
-  failure. Generation ownership prevents stale callbacks, feed events, or
-  cancellation from touching a newer burst; output is UTF-8-safe and capped.
-- Desktop/mobile remain on the terminal surface for
-  `receiving → processing → returning → done|failed`; thoughts, chat,
-  composer, model picker, and managed mode stay hidden.
-- Startup settles holder leases before SQLite opens and fails closed on a
-  potentially live writer. The runtime retains its lease through process join;
-  Linux adds `Pdeathsig` and holder PID/re-exec checks.
-- Holder and direct-respawn restoration get independent deadlines. If both
-  fail, a retryable card explicitly replaces the stale session and remounts the
-  terminal client. Direct `send-keys` remains an explicit fallback only.
-- Passive extension UI updates (status, widget, title, notify, editor text) no
-  longer abort a reply burst; only blocking select/confirm/input/editor dialogs
-  stop it. This follow-up is committed locally as `259eb50a` and is active in
-  the installed service, but remains unpublished.
+- Every spawned agent TUI carries PiCode's generated receiver extension
+  (`~/.picode/intercept/pi-inbox-reply.ts`, `-e` at spawn, refreshed at boot).
+  It hellos `POST /api/agents/{id}/tui-hello` (5-minute lease) and consumes
+  one-shot files under `~/.picode/tui-inbox/<agentID>/`, submitting each reply
+  via `pi.sendUserMessage` (queued natively mid-turn — owner decision) and
+  acking `POST /api/agents/{id}/tui-ack`.
+- Without a fresh hello (legacy TUI), the daemon types the reply into the pane:
+  tmux named buffer + `paste-buffer -p` + Enter (owner accepted the
+  draft-race tradeoff).
+- Durable proof is unchanged: the captured session JSONL must gain the
+  full-payload user row; otherwise the task fails and the Inbox item reopens
+  with the response prefilled. Boot reconciliation (`ReconcilePendingReplies`)
+  settles pending replies with a 2s grace — no holders, leases, Pdeathsig, or
+  fail-closed startup remain. A per-agent `AgentControls` guard serializes
+  replies with pane/session mutations; `open?restart=1` survives for dead
+  panes; migration 023 and the exact-session rule are retained.
 
-Integration evidence:
-
-- Fake-Pi/tmux, runtime, store, server, and frontend coverage includes exact
-  older sessions, one writer, task isolation, control races, delivery/recovery,
-  daemon death/re-exec, restoration deadlines, and failed-restart retry.
-  Full `make ci`, focused package suites, and race tests passed on `81ac872b`.
-- The deployed service is healthy at `0.1.0+81ac872`; its installed binary
-  matches `bin/picode`, migration 023 exposes `inbox_items.session_path`, and
-  no burst holder marker survived startup. The embedded app serves
-  `/assets/index-CNWNR34c.js` with the burst and restart paths present.
-- All 54 immediate pre-deploy tmux name/session-ID pairs are unchanged,
-  including the original 50. Both interactive agents kept their exact selected
-  JSONLs; all 12 terminals and both agents remain running with identical API
-  projections.
-- The deployed desktop loaded in Chromium with first-party requests succeeding,
-  no page errors, and `overlayAudit` ok. The earlier desktop/390×844 visual
-  review covered receiving, completion, restarting, failed restart, reduced
-  motion, and the real `open?restart=1` path. visual-review: PASS.
+Integration evidence: `tui_reply_test.go` covers receiver ack/nack/no-ack,
+paste fallback against a real tmux pane, refusals, boot reconciliation, and
+receiver injection; store/apps/rpc suites updated. `make ci` green on the
+exact deployed commit; installed binary matches `bin/picode`; the receiver
+file exists under `~/.picode/intercept/`; burst routes 404; no tmux session
+lost across the deploy (additions only, 68 sessions). The passive-UI burst fix
+never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
-- **The ADR-0059 passive-extension follow-up remains unpushed.** Commit
-  `259eb50a` includes server/race decision-table coverage and refreshed docs
-  media. Publishing it remains separate from the now-complete CI optimization
-  and from the deployed stop fix.
-- **No original ADR-0059 implementation, merge, or deployment work remains.** A real-Pi
-  Inbox reply/cancel remains deliberately separate dogfood and has not been
-  authorized or performed.
+- **ADR-0060 is deployed; the live validation reply is the owner's next move.**
+  This TUI (`mobile-6bf740`) predates the receiver, so its first live reply
+  exercises the tmux paste fallback; respawning a TUI (`open?restart=1` or a
+  fresh Start) switches that agent to the receiver channel.
 - **Historical Inbox QA state needs reconciliation before dogfood.** A prior
   failed reply is absent from the captured `mobile-6bf740` JSONL. Earlier
   cleanup targeted `qa-switch-058577` while the pending task belonged to
@@ -112,10 +85,10 @@ Integration evidence:
 
 ## Next up
 
-1. Inspect the live store's historical Inbox item and correlated tasks; close
-   or repair only the exact stale rows. Do not create another live test first.
-2. With separate authorization, run one controlled real-Pi Inbox reply and a
-   second Cancel turn against the exact captured session.
+1. Owner validates one live Inbox reply on this TUI (paste fallback), then
+   respawns a TUI to prove the receiver channel end to end.
+2. Inspect the live store's historical Inbox rows; close or repair only the
+   exact stale rows before any new live test.
 3. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
 4. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
@@ -130,25 +103,18 @@ Integration evidence:
   stays as the tmux safety net. Long-lived feeds still occupy that drain.
 - Terminal detail still makes two swallowed agent-only requests (`role-state`
   and `slash`); this predates the manual Pi sensor and does not affect state.
-- ADR-0059 hard parent-death enforcement is Linux-specific; non-Linux builds
-  rely on graceful shutdown and the holder's daemon-PID polling. Cross-platform
-  hard-crash behavior has not been live-proved.
-- The explicit last-resort restart intentionally replaces tmux identity only
-  after both identity-preserving restoration paths have failed.
-- A crash after user-row materialization but before `agent_settled` leaves the
-  response potentially incomplete. Startup correlates the full payload and row
-  timestamp, marks the task delivered, restores the TUI, and never replays the
-  same user message automatically.
-- The burst follows the session captured when `ask_human` filed the item. That
-  is deliberate even if the operator later browses another TUI session.
-- Direct `send-keys` delivery is available only as a deliberate fallback; no
-  automatic fallback bypasses exact-session verification or consent.
+- The ADR-0060 tmux paste fallback can land in a draft the operator had open,
+  and cannot verify which session a legacy pane is showing — the JSONL row
+  proof still gates whether the item stays done (owner-accepted tradeoffs).
+- A receiver ack means the TUI owns the queued reply; if that TUI dies before
+  pi processes it, boot/timeout reconciliation reopens the item (small honest
+  window).
 - Hosted CI is green on Ubuntu, macOS, and Windows after PR #3. Full-path PR
   run `33878224835` and post-merge main run `33878695007` passed in
   3m54s/3m52s; metadata-only run `33879212363` passed in 32s with every heavy
   job skipped; follow-up run `33879325513` repeated that row in 27s.
-  Hard-crash burst behavior outside Linux still lacks a live
-  platform acceptance run.
+  Cross-platform acceptance of the ADR-0060 reply path (non-Linux paste
+  encoding) has not been live-proved.
 - Pi still exposes one active credential slot; concurrent agents share it.
   Per-agent OAuth isolation and proactive quota switching require an owner
   decision and measurement.
@@ -164,6 +130,14 @@ Integration evidence:
 
 ## Recent activity
 
+- **2026-09-04 — ADR-0060: replies land in the running TUI (`a9c814a`,
+  `0.1.0+a9c814a`).** The ADR-0059 burst machinery (coordinator, holder swap,
+  transient RPC writer, cancel route, burst card, feed events) is deleted;
+  a receiver extension inside every spawned TUI submits Inbox replies through
+  `pi.sendUserMessage`, with tmux bracketed paste as the legacy fallback and
+  the session-JSONL row as the only delivery proof. Boot reconciliation
+  replaced holder/lease startup. `make ci` green; deploy stopped cleanly with
+  no tmux loss. Worktree and branch removed after merge.
 - **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**
   Fast-forwarded `feat/fix-systemd-stop` onto local `main`. First `make deploy`
   still SIGKILLed at 30s because the *outgoing* daemon re-exec'd the new
