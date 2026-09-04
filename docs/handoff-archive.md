@@ -3,6 +3,16 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after README refactor)
+
+- **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**
+  Fast-forwarded `feat/fix-systemd-stop` onto local `main`. First `make deploy`
+  still SIGKILLed at 30s because the *outgoing* daemon re-exec'd the new
+  binary. The next restart of that new process: SIGTERM at 11:07:14 →
+  `shutting down` → `Stopped` at 11:07:19, no `newer on disk — reloading`,
+  no `stop-sigterm`, no SIGKILL. All 57 tmux sessions unchanged. Health 200,
+  installed binary matches `bin/picode`. Worktree removed.
+
 ## Recent activity (archived after systemd stop diagnosis)
 
 - **2026-09-04 — Hosted CI split by workload and merged (PR #3).** Frontend is

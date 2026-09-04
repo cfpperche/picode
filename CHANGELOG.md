@@ -212,6 +212,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The repository README now starts with the product, proof and a current
+  path to a first agent.** Shipped capabilities, Pi ownership boundaries,
+  source installation, everyday commands and the runtime shape are separated
+  into scan-friendly sections; a generated product screenshot replaces the
+  stale milestone roadmap. Source requirements now match the repository and
+  CI (Go 1.26 and Node.js 22), and first-run instructions include creating
+  the agent that a new empty workspace needs.
 - **Hosted CI no longer installs and builds the same frontend on three
   operating systems.** One Ubuntu job builds/tests the UI and passes its 14 MB
   output to the embedded-binary check; the Linux/macOS/Windows Go matrix runs

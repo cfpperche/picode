@@ -1,126 +1,169 @@
 <p align="center">
-  <strong>PiCode</strong>
-</p>
-<p align="center">
-  A browser-based <strong>Agent Development Environment (ADE)</strong> for <a href="https://pi.dev">Pi</a> coding agents.<br/>
-  Create, configure and orchestrate agents across multiple workspaces — <em>no terminal fear required</em>.
-</p>
-<p align="center">
-  <img alt="CI" src="https://github.com/cfpperche/picode/actions/workflows/ci.yml/badge.svg">
-  <img alt="License" src="https://img.shields.io/badge/license-PolyForm--Noncommercial-blue">
-  <img alt="Status" src="https://img.shields.io/badge/status-pre--alpha-orange">
+  <img src="www/public/favicon.svg" width="80" alt="PiCode logo">
 </p>
 
----
+<h1 align="center">PiCode</h1>
+
+<p align="center">
+  <strong>Run and supervise real Pi coding agents from your browser.</strong><br>
+  Create agents, connect them to projects, watch their work and step in when
+  they need you — from a desktop or a phone.
+</p>
+
+<p align="center">
+  <a href="https://github.com/cfpperche/picode/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/cfpperche/picode/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://cfpperche.github.io/picode/"><img alt="Documentation" src="https://img.shields.io/badge/docs-online-777ff0"></a>
+  <a href="LICENSE"><img alt="PolyForm Noncommercial license" src="https://img.shields.io/badge/license-PolyForm--Noncommercial-blue"></a>
+  <img alt="Pre-alpha status" src="https://img.shields.io/badge/status-pre--alpha-orange">
+</p>
+
+<p align="center">
+  <a href="https://cfpperche.github.io/picode/guide/getting-started">Get started</a>
+  ·
+  <a href="https://cfpperche.github.io/picode/">Documentation</a>
+  ·
+  <a href="docs/architecture.md">Architecture</a>
+</p>
+
+> [!IMPORTANT]
+> PiCode is pre-alpha. The core workflow is usable, but interfaces, storage
+> migrations and installation paths may still change between releases.
+
+![PiCode desktop showing a multi-workspace agent fleet and its activity dashboard](www/img/app-fleet.png)
 
 ## Why PiCode
 
-Pi is a brilliant minimal coding harness — for people who live in the terminal.
-But agents are becoming team members: they are **created**, **configured**,
-**given tasks**, and need to **work in parallel** across projects. Managing that
-with raw terminal sessions does not scale, and it actively excludes people who
-never made peace with a shell.
+Pi is a focused coding harness with a great terminal experience. A terminal is
+also a hard place to supervise several long-running agents across projects,
+especially when the person directing them does not live in a shell.
 
-**PiCode's moat: Pi users control their agents from the moment of creation.**
+PiCode adds the orchestration layer: one browser workspace for creating,
+configuring and steering a fleet of Pi agents. It does not replace Pi. Every
+agent is a real `pi` process, and the genuine Pi TUI remains one tab away.
 
-From the first "New Agent" click to orchestrating a fleet across workspaces,
-PiCode owns the agent lifecycle — while remaining a thin, honest layer over
-the real `pi` running underneath. Nothing is hidden: you can always drop into
-the genuine Pi TUI, one tab away.
+**The browser is a door, not a cage.**
 
-## For whom
+## What you can do today
 
-- **Pi power users** juggling multiple agents, models and workspaces.
-- **Humans with terminal aversion** who still want superhuman coding help.
-- **Teams** that want agents on a server, accessible from any browser.
-
-## Design philosophy
-
-PiCode inherits Pi's own values — **simplicity and modularity** — and adds a
-third: **the browser is a door, not a cage**.
-
-| Principle | Meaning |
+| Capability | What it gives you |
 |---|---|
-| Simplicity | One Go binary. Zero install ceremony. `picode` → browser → working. |
-| Modularity | Every capability is a Pi extension/skill/config — the same primitives Pi users already know. |
-| Door, not cage | The full Pi TUI is embedded 1:1 (xterm.js over tmux). The GUI never becomes a bottleneck. |
-| Agents first | PiCode is developed *by* Pi agents as much as *for* them. The repo is a Pi-native workspace. |
+| Agent fleet | Create free agents or attach several agents to a workspace, each with its own model, provider and working directory. |
+| Chat and terminal | Use a structured conversation view or switch to the real Pi TUI running in a tmux-backed browser terminal. |
+| Project tools | Browse and edit files, inspect diffs and Git history, manage sessions, and open persistent project terminals. |
+| Human inbox | Collect questions, approvals and finished work in one place; reply without hunting for the right agent tab. |
+| Automations | Start fresh agent runs on a schedule or webhook, with templates, limits and run history. |
+| Desktop and phone | Supervise the same fleet through the desktop UI or the installable mobile PWA, with pairing and push notifications. |
+| Pi ecosystem | Manage providers, packages, MCP adapters and settings while keeping Pi's native files authoritative. |
 
-## How it works
+PiCode is designed for solo developers running a few agents, terminal-averse
+users who still want direct control, and teams hosting agents on a machine they
+manage.
 
-```
-Browser (xterm.js + rich UI)
-   ↕ HTTP + WebSocket
-picode — single Go binary (UI embedded at release build)
-   ├─ Agent manager     spawn / stop / restart pi per workspace
-   ├─ Terminal bridge   tmux-backed PTY → the real Pi TUI in your tab
-   ├─ RPC bridge        pi --mode rpc → structured events, tasks, diffs
-   ├─ Task queue        steer / follow_up per agent
-   └─ Broker            inter-agent messaging (via a Pi extension)
-```
+## What stays yours
 
-See [docs/architecture.md](docs/architecture.md) for details and
-[docs/decisions/](docs/decisions/) for the reasoning behind each choice.
+PiCode is deliberately a thin layer over the tools and files you already own.
+
+| Concern | Source of truth |
+|---|---|
+| Agent runtime | Your installed `pi` binary |
+| Conversations | Pi session JSONL files under `~/.pi/agent/sessions/` |
+| Credentials and configuration | Pi's own auth, settings, package and extension files |
+| Interactive processes | tmux sessions that survive browser and daemon restarts |
+| Orchestration | PiCode's local SQLite database under `~/.picode/` |
+
+If PiCode is not running, your Pi sessions and configuration are still regular
+Pi data. See the [architecture](docs/architecture.md) for the full trust and
+persistence model.
 
 ## Quick start
 
-Requires: [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), tmux 3.5+.
+The supported service install runs on Linux or WSL with systemd user services.
+Building from source requires:
+
+- [Go 1.26+](https://go.dev)
+- [Node.js 22](https://nodejs.org) (the version used by CI)
+- [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
+- tmux 3.5+
 
 ```bash
+npm install -g @earendil-works/pi-coding-agent
 git clone https://github.com/cfpperche/picode.git
 cd picode
 make build
-./bin/picode install    # systemd --user; starts with this Linux session
+./bin/picode install
 ```
 
-`make deploy` rebuilds from this repo and restarts the service. `picode update` is for a normal install (GitHub release). `make dev` runs without installing (it reads the UI from disk, so run `make web` once on a fresh clone — ADR-0023). `picode uninstall` removes the service (`--purge` also deletes `~/.picode`).
+Open `https://localhost:8445`, then:
 
-First run: add a workspace (your project folder), click **Run** — a real Pi
-agent starts in the workspace and streams into the conversation panel. Close
-the tab; the agent keeps running.
+1. Add a workspace for a project folder.
+2. Create an agent inside it and choose its provider, model and run mode.
+3. Select **Run agent** and follow the work in Chat or Terminal.
 
-**Green padlock (recommended, once):** `make cert` issues a certificate from
-a local mkcert CA trusted on Linux and Windows (WSL) — the browser stops
-warning. Without it, a self-signed cert is generated automatically. Phone
-access works over your tailnet with the same certificate.
+Closing the browser does not stop the agent. PiCode generates a self-signed
+certificate on first run; `make cert` installs a locally trusted mkcert
+certificate when you want the browser warning to disappear.
 
-## Documentation
+For release binaries and remote or shared servers, continue with the
+[installation guides](https://cfpperche.github.io/picode/guide/remote-server).
+The docs also cover [phone pairing](https://cfpperche.github.io/picode/guide/mobile)
+and the [Chrome extension](https://cfpperche.github.io/picode/guide/browser-extension).
 
-Docs are a **living system** — they evolve with the code, by contract (see
-[AGENTS.md](AGENTS.md)). Docs style follows the benchmark set in
-[docs/benchmarks.md](docs/benchmarks.md).
+### Useful commands
 
-- [Architecture](docs/architecture.md) — components, data flow, protocols
-- [Philosophy](docs/philosophy.md) — why PiCode is a door, not a cage
-- [Benchmarks](docs/benchmarks.md) — engineering + UI/UX bars we hold ourselves to
-- [Handoff](docs/handoff.md) — current state of the project (start here)
-- [Decision records (ADRs)](docs/decisions/) — every architectural choice, documented
+| Command | Purpose |
+|---|---|
+| `make dev` | Run from the repository; run `make web` once on a fresh clone. |
+| `make deploy` | Rebuild this checkout and restart the installed service. |
+| `picode pair` | Print a one-time link for another browser or phone. |
+| `picode update` | Download and verify a newer GitHub release. |
+| `picode uninstall` | Remove the service; add `--purge` to delete `~/.picode`. |
 
-## Roadmap
+## How it works
 
-- [x] **M0 — Bootstrap**: repo, docs system, Pi harness, Go skeleton (v0.1.0)
-- [x] **M1 — Terminal grid**: multi-tab tmux sessions running real `pi`, per workspace
-- [x] **M2 — Agent panel**: RPC bridge, live status, tasks (steer/follow-up), diffs *(core shipped: managed mode, delivery engine, panel; diff view + palette in progress)*
-- [ ] **M3 — Lifecycle**: agent creation wizard, provider auth (`/login` flows), profiles
-- [ ] **M4 — Fleet**: inter-agent broker, plugin/skill manager, session tree browser
-- [ ] **Localization**: UI localization (PT-BR first) — the project was born
-      from Portuguese-speaking users, and that audience matters
+```text
+Desktop browser / mobile PWA
+            │ HTTPS + WebSocket + server-sent events
+            ▼
+┌─────────────────────────────────────────────────────┐
+│ picode · one Go server                              │
+│                                                     │
+│ lifecycle · inbox · automations · files · event feed│
+│             │                         │             │
+│       tmux-backed PTY          JSONL RPC bridge     │
+└─────────────┼─────────────────────────┼─────────────┘
+              ▼                         ▼
+        real Pi TUI                pi --mode rpc
+              └──────── Pi sessions and config ───────┘
+```
+
+An agent uses one live channel at a time, so the TUI and RPC view never write
+the same session concurrently. The browser can disconnect without owning the
+agent process. Details and trade-offs live in
+[docs/architecture.md](docs/architecture.md) and the
+[architecture decision records](docs/decisions/).
+
+## Project documentation
+
+- [Public documentation](https://cfpperche.github.io/picode/) — tutorials,
+  guides, command reference and HTTP API
+- [Current project state](docs/handoff.md) — what is shipped, in flight and
+  still owed
+- [Architecture](docs/architecture.md) — components, protocols and security
+- [Decision records](docs/decisions/) — the reasoning behind architectural
+  choices
+- [Engineering benchmarks](docs/benchmarks.md) — the product and quality bars
+  used in review
 
 ## Contributing
 
-Humans and Pi agents contribute under the same contract — read
-[CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) first.
-Every session that changes state must end with an updated
-[docs/handoff.md](docs/handoff.md) and [CHANGELOG.md](CHANGELOG.md) entry.
-
----
-
-*The project's vision was born from Portuguese-speaking users with terminal
-aversion — UI localization is on the roadmap, but the repository itself
-speaks English (see [AGENTS.md](AGENTS.md)). 🇧🇷→🌐*
+Humans and Pi agents work under the same repository contract. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before making a
+change. Pull requests keep code, tests, documentation, changelog and handoff in
+sync.
 
 ## License
 
-Source-available. **Personal / noncommercial:** [PolyForm Noncommercial 1.0.0](LICENSE).
-**Enterprise / commercial:** paid license — [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
-See [LICENSING.md](LICENSING.md). © 2026 cfpperche
+PiCode is source-available. Personal and noncommercial use is covered by the
+[PolyForm Noncommercial License](LICENSE). Enterprise and other commercial use
+requires a paid license; see [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) and
+[LICENSING.md](LICENSING.md).

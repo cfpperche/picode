@@ -10,11 +10,12 @@
 `visual-review`. Empty/blocked/error states and screenshots are required;
 `window.__picodeOverlayAudit()` must be `ok`.
 
-**Repository:** local `main` is at the ADR-0060 refactor (`a9c814a`, build
-`0.1.0+a9c814a`, deployed and verified) plus this handoff; product commits
-remain unpublished by owner choice. The ADR-0059 burst machinery is removed:
-Inbox replies now land directly in the running TUI. The owner's systemd stop
-bound keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
+**Repository:** this integrated `main` contains the ADR-0060 refactor
+(`a9c814a`, build `0.1.0+a9c814a`, deployed and verified), its handoff and the
+README refactor. The owner approved publishing the accumulated local commits
+with this merge. The ADR-0059 burst machinery is removed: Inbox replies now
+land directly in the running TUI. The owner's systemd stop bound keeps deploys
+stopping cleanly (verified: no SIGKILL, no timeout).
 
 ### Product and platform
 
@@ -32,6 +33,10 @@ bound keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
   status. Public
   docs use VitePress/OpenAPI/Vale. Architecture and remaining track status live
   in their ADRs rather than this handoff.
+- The root README now leads with a generated product view, shipped capabilities,
+  Pi ownership boundaries and a verified first-agent path. Source setup matches
+  `go.mod` and hosted CI (Go 1.26, Node.js 22); the public getting-started page
+  and generated `llms.txt` carry the same requirements.
 - Browser tool previews (ADR-0057) render generic `details.preview` frames; a
   package-side emitter and dedicated Browser surface remain open.
 
@@ -130,6 +135,13 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — root README refactored around the reader's journey.** Product
+  value and proof now lead into shipped capabilities, native Pi boundaries,
+  current setup, daily commands and a compact runtime diagram; the stale
+  milestone roadmap is gone. Public setup metadata and `llms.txt` were kept in
+  sync. Markdown render/local references, docs build/parity, Vale and full
+  `make ci` passed. visual-review: N/A (docs-only; generated screenshot read,
+  no app pixels changed).
 - **2026-09-04 — ADR-0060: replies land in the running TUI (`a9c814a`,
   `0.1.0+a9c814a`).** The ADR-0059 burst machinery (coordinator, holder swap,
   transient RPC writer, cancel route, burst card, feed events) is deleted;
@@ -138,13 +150,6 @@ never shipped separately — the burst it fixed no longer exists.
   the session-JSONL row as the only delivery proof. Boot reconciliation
   replaced holder/lease startup. `make ci` green; deploy stopped cleanly with
   no tmux loss. Worktree and branch removed after merge.
-- **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**
-  Fast-forwarded `feat/fix-systemd-stop` onto local `main`. First `make deploy`
-  still SIGKILLed at 30s because the *outgoing* daemon re-exec'd the new
-  binary. The next restart of that new process: SIGTERM at 11:07:14 →
-  `shutting down` → `Stopped` at 11:07:19, no `newer on disk — reloading`,
-  no `stop-sigterm`, no SIGKILL. All 57 tmux sessions unchanged. Health 200,
-  installed binary matches `bin/picode`. Worktree removed.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
