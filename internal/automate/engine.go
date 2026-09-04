@@ -56,7 +56,7 @@ func (e *Engine) Loop(ctx context.Context) {
 }
 
 // Reconcile closes runs the previous process left running: nothing is
-// watching them any more (binwatch re-execs on deploy), so the honest
+// watching them any more (a deploy restarts the daemon), so the honest
 // status is failed with the reason on the row.
 func (e *Engine) Reconcile() {
 	if e.Store == nil {

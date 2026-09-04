@@ -356,11 +356,16 @@ func serve() {
 	safeUnlock := func() { unlockOnce.Do(unlock) }
 	defer safeUnlock()
 
+	watchCtx, stopWatch := context.WithCancel(context.Background())
+	defer stopWatch()
 	if stamp, err := binwatch.Capture(); err != nil {
 		log.Printf("picode: cannot watch binary: %v", err)
 	} else {
 		log.Printf("picode: binary %s", stamp.Path)
-		binwatch.Watch(stamp, func() {
+		binwatch.Watch(watchCtx, stamp, func() {
+			if watchCtx.Err() != nil {
+				return
+			}
 			safeUnlock()
 			binwatch.Reexec(stamp.Path)
 		})
@@ -629,6 +634,7 @@ func serve() {
 			logStartup(cfg, dataDir, newPort)
 
 		case sig := <-sigs:
+			stopWatch()
 			log.Printf("server: %v — shutting down", sig)
 			gracefulShutdown(srv)
 			return
@@ -648,12 +654,6 @@ func logStartup(cfg config.Config, dataDir string, port int) {
 	}
 	log.Printf("  data dir             %s", dataDir)
 	log.Printf("")
-}
-
-func gracefulShutdown(srv *http.Server) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	_ = srv.Shutdown(ctx)
-	cancel()
 }
 
 // keepsLoopback: a bind to one specific outside address (the tailnet, a

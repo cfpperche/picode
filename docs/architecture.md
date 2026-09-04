@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-03.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04.
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -19,8 +19,12 @@ tool-calling protocol.
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
 terminals alive across daemon restarts; transient RPC children are separately
 parent-bound and pane holders restore the TUI. `picode deploy` / `make deploy`
-copies a repo build and restarts that unit. `picode update` checks GitHub for
-a newer release.
+copies a repo build and restarts that unit. The supervised daemon does not
+re-exec when the binary on disk changes — that same-PID `Exec` used to
+swallow systemd's SIGTERM and sit in `stop-sigterm` until `TimeoutStopSec=30`.
+SIGTERM now cancels the binary watcher, drains HTTP for at most 8s, and
+returns so the process exits below the stop timeout. Foreground `go build`
+still hot-reloads. `picode update` checks GitHub for a newer release.
 
 `picode provision` (ADR-0020) converges a machine on all of that at once:
 `[boot] systemd=true` in `/etc/wsl.conf`, lingering so the unit starts

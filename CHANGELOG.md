@@ -96,6 +96,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **`systemctl --user restart picode` no longer waits 30s for SIGKILL.**
+  Deploy copies the new binary then signals the running daemon; the daemon
+  used to notice the newer file during that SIGTERM and `exec` itself in the
+  same PID, so systemd's stop never completed. A systemd-supervised process
+  no longer auto-reloads, SIGTERM cancels the watcher first, and HTTP
+  drain is bounded at 8s (below `TimeoutStopSec=30`) even if `Shutdown`
+  hangs on a listener.
 - **Inbox replies no longer fail on passive extension UI (ADR-0059 follow-up).**
   A reply burst to a TUI agent whose extensions render widgets, status lines,
   titles, notify toasts, or editor text (`setWidget`, `setStatus`, `setTitle`,

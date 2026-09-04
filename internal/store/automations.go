@@ -636,8 +636,8 @@ func (s *Store) RunCountsByDay(automationID string, days int, now time.Time) ([]
 }
 
 // FailStaleRuns closes every running row — called once at boot, since a
-// run cannot survive the process that was watching it (binwatch re-execs
-// on deploy). costOf (optional) prices a run from its session file so the
+// run cannot survive the process that was watching it (a deploy restarts
+// the daemon). costOf (optional) prices a run from its session file so the
 // row keeps the real number. Returns the closed runs so the caller can notify.
 func (s *Store) FailStaleRuns(reason string, costOf func(sessionPath string) float64) ([]Run, error) {
 	rows, err := s.db.Query(`SELECT `+runCols+` FROM automation_runs WHERE status = ?`, RunRunning)

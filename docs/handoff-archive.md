@@ -3,6 +3,31 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after systemd stop diagnosis)
+
+- **2026-09-04 — Hosted CI split by workload and merged (PR #3).** Frontend is
+  built/tested once on Ubuntu and its 14 MB output feeds the embedded build;
+  public docs and the Linux/macOS/Windows Go boundary run in parallel without
+  repeated Node installs. The fail-safe path classifier and final gate are
+  decision-table tested, superseded runs cancel, and parity now checks the
+  committed OpenAPI/llms.txt before regeneration. Full PR/main runs
+  `33878224835`/`33878695007` passed in 3m54s/3m52s; metadata-only runs
+  `33879212363`/`33879325513` ran only classifier + final gate and passed in
+  32s/27s. No product deployment was needed.
+- **2026-09-04 — Passive extension UI no longer kills Inbox replies.** Local,
+  unpushed `259eb50a` ignores fire-and-forget status/widget/title/notify/editor
+  updates during a reply burst while retaining fail-closed behavior for real
+  select/confirm/input/editor dialogs. Tests and docs media are in the commit;
+  the installed service reports that version, but it remains unpushed.
+- **2026-09-04 — ADR-0059 integrated and deployed.** Local `main` fast-forwarded
+  to gated feature commit `81ac872b`; `make deploy` now serves
+  `0.1.0+81ac872`. The original 50 and immediate 54 tmux identities, both exact
+  agent session paths, and all 12 terminals survived unchanged. Health,
+  migration, embedded assets, and a live Chromium smoke passed. The recurring
+  systemd stop timeout is recorded as debt; real-Pi Inbox dogfood was not run.
+  visual-review: PASS (pre-merge edge-state screenshots read; post-deploy app
+  read, no page errors, first-party requests healthy, overlayAudit ok).
+
 ## Recent activity (archived after ADR-0059 deployment)
 
 - **2026-09-04 — Hosted CI restored across Ubuntu, macOS, and Windows.** PR #2
