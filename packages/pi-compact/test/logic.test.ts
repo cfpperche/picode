@@ -274,6 +274,29 @@ describe("agent key", () => {
 	});
 });
 
+describe("sparse wizard save", () => {
+	it("writes only touched keys and preserves the layer's other keys", () => {
+		const out = serializeLayer({ model: "google/gemini-2.5-flash", fallback: ["anthropic/claude-haiku-4-5"], thinking: "off" }, { atTokens: 80_000, note: "kept" });
+		assert.equal(out.atTokens, 80_000);
+		assert.equal(out.note, "kept");
+		assert.equal(out.model, "google/gemini-2.5-flash");
+		assert.equal("enabled" in out, false);
+		assert.equal("floorTokens" in out, false);
+	});
+	it("a sparse overlay still inherits unset knobs from the workspace", () => {
+		const ws = parseConfig({ atTokens: 80_000, floorTokens: 10_000 });
+		assert.equal(ws.ok, true);
+		if (!ws.ok) return;
+		const ov = parseConfig({ model: "google/gemini-2.5-flash" });
+		assert.equal(ov.ok, true);
+		if (!ov.ok) return;
+		const got = effectiveConfig(ws.layer, ov.layer);
+		assert.equal(got.atTokens, 80_000);
+		assert.equal(got.floorTokens, 10_000);
+		assert.equal(got.model, "google/gemini-2.5-flash");
+	});
+});
+
 describe("applyLayer", () => {
 	it("does not treat missing overlay keys as defaults", () => {
 		const got = applyLayer(DEFAULT_CONFIG, { enabled: false });

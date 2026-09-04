@@ -81,6 +81,7 @@ export default function piCompact(pi: ExtensionAPI) {
 	let turnsSinceCompact = DEFAULT_CONFIG.cooldownTurns;
 	let compacting = false;
 	let warnedInvalid = false;
+	let lastStateJson = "";
 
 	function readFileAt(abs: string, rel: string): FileRead {
 		let text: string;
@@ -227,9 +228,12 @@ export default function piCompact(pi: ExtensionAPI) {
 			threshold: thresholdTokens(cfg, window),
 			model: currentSummarizer(ctx),
 		};
+		const json = JSON.stringify(body) + "\n";
+		if (json === lastStateJson) return;
 		try {
 			mkdirSync(dirname(path), { recursive: true });
-			writeFileSync(path, JSON.stringify(body) + "\n", "utf8");
+			writeFileSync(path, json, "utf8");
+			lastStateJson = json;
 		} catch {
 			/* best-effort */
 		}
@@ -304,16 +308,17 @@ export default function piCompact(pi: ExtensionAPI) {
 		}
 		const providers = providersOf(models);
 		if (providers.length === 0) return null;
-		const providerOpts = hasPrior ? [BACK, ...providers] : providers;
-		const provider = await ctx.ui.select(`${title} — provider`, providerOpts);
-		if (!provider) return null;
-		if (provider === BACK) return "back";
-		const ids = idsForProvider(models, provider);
-		const idOpts = [BACK, ...ids];
-		const id = await ctx.ui.select(`${title} — model`, idOpts);
-		if (!id) return null;
-		if (id === BACK) return pickModel(ctx, title, hasPrior);
-		return `${provider}/${id}`;
+		while (true) {
+			const providerOpts = hasPrior ? [BACK, ...providers] : providers;
+			const provider = await ctx.ui.select(`${title} — provider`, providerOpts);
+			if (!provider) return null;
+			if (provider === BACK) return "back";
+			const ids = idsForProvider(models, provider);
+			const id = await ctx.ui.select(`${title} — model`, [BACK, ...ids]);
+			if (!id) return null;
+			if (id === BACK) continue;
+			return `${provider}/${id}`;
+		}
 	}
 
 	async function pickThinking(ctx: ExtensionContext, current: ThinkingLevel): Promise<ThinkingLevel | "back" | null> {
@@ -342,6 +347,10 @@ export default function piCompact(pi: ExtensionAPI) {
 		const cur = writable(ctx);
 		if (!cur) return;
 		let draft: CompactConfig = { ...cur.config };
+		// Sparse patch: only keys the wizard touched are written, so an
+		// agent overlay never freezes workspace values into itself
+		// (ADR-0033 rejected exactly that).
+		let patch: Partial<CompactConfig> = {};
 
 		while (true) {
 			const presetOpts = [
@@ -369,31 +378,37 @@ export default function piCompact(pi: ExtensionAPI) {
 					continue;
 				}
 				draft = { ...draft, atTokens: parsedTok.value, atPercent: parsedPct.value };
+				patch = { ...patch, atTokens: parsedTok.value, atPercent: parsedPct.value };
 			} else {
 				draft = applyWhenPreset(draft, preset.id);
+				patch = { ...patch, atTokens: draft.atTokens, atPercent: draft.atPercent };
 			}
 
 			const model = await pickModel(ctx, "Summarizer", true);
 			if (model === "back") continue;
 			if (!model) return;
 			draft = { ...draft, model };
+			patch = { ...patch, model };
 
 			const fbChoice = await ctx.ui.select("Fallback summarizer", [BACK, SKIP_FALLBACK, "pick a model"]);
 			if (!fbChoice) return;
 			if (fbChoice === BACK) continue;
 			if (fbChoice === SKIP_FALLBACK) {
 				draft = { ...draft, fallback: [] };
+				patch = { ...patch, fallback: [] };
 			} else {
 				const fb = await pickModel(ctx, "Fallback", true);
 				if (fb === "back") continue;
 				if (!fb) return;
 				draft = { ...draft, fallback: fb === model ? [] : [fb] };
+				patch = { ...patch, fallback: draft.fallback };
 			}
 
 			const thinking = await pickThinking(ctx, draft.thinking);
 			if (thinking === "back") continue;
 			if (!thinking) return;
 			draft = { ...draft, thinking };
+			patch = { ...patch, thinking };
 
 			const scope = await maybeScope(ctx, cur.overlay);
 			if (scope === "back") continue;
@@ -401,8 +416,8 @@ export default function piCompact(pi: ExtensionAPI) {
 
 			const target = layerFor(ctx, cur, scope);
 			if (!target) return;
-			if (!save(ctx, draft, target.raw, target.rel)) return;
-			sessionEnabled = draft.enabled;
+			if (!save(ctx, patch, target.raw, target.rel)) return;
+			// edit changes when/how; the on/off session lock stays as it is.
 			ctx.ui.notify(
 				`Saved compact policy → ${draft.model ?? "auto"}${savedNote(cur.overlay, scope)}`,
 				"info",
@@ -416,27 +431,32 @@ export default function piCompact(pi: ExtensionAPI) {
 		const cur = writable(ctx);
 		if (!cur) return;
 		let draft: CompactConfig = { ...cur.config };
+		let patch: Partial<CompactConfig> = {};
 		while (true) {
 			const model = await pickModel(ctx, "Summarizer", false);
 			if (model === "back") return;
 			if (!model) return;
 			draft = { ...draft, model };
+			patch = { ...patch, model };
 			const fbChoice = await ctx.ui.select("Fallback summarizer", [BACK, SKIP_FALLBACK, "pick a model"]);
 			if (!fbChoice) return;
 			if (fbChoice === BACK) continue;
-			if (fbChoice === SKIP_FALLBACK) draft = { ...draft, fallback: [] };
-			else {
+			if (fbChoice === SKIP_FALLBACK) {
+				draft = { ...draft, fallback: [] };
+				patch = { ...patch, fallback: [] };
+			} else {
 				const fb = await pickModel(ctx, "Fallback", true);
 				if (fb === "back") continue;
 				if (!fb) return;
 				draft = { ...draft, fallback: fb === model ? [] : [fb] };
+				patch = { ...patch, fallback: draft.fallback };
 			}
 			const scope = await maybeScope(ctx, cur.overlay);
 			if (scope === "back") continue;
 			if (!scope) return;
 			const target = layerFor(ctx, cur, scope);
 			if (!target) return;
-			if (!save(ctx, draft, target.raw, target.rel)) return;
+			if (!save(ctx, patch, target.raw, target.rel)) return;
 			ctx.ui.notify(
 				`Summarizer ${draft.model}${draft.fallback[0] ? ` → ${draft.fallback[0]}` : ""}${savedNote(cur.overlay, scope)}`,
 				"info",
@@ -558,6 +578,15 @@ ${conversationText}
 				},
 			);
 			if (signal.aborted) return;
+			// A length stop holds partial text that must not become the
+			// session checkpoint — same rule as Pi's own summarizer
+			// (getSummarizationFailure is not exported publicly).
+			if (response.stopReason === "length") {
+				if (ctx.hasUI) {
+					ctx.ui.notify(`pi-compact (${chosen}): summary hit the token cap; using Pi default`, "warning");
+				}
+				return;
+			}
 			const summary = response.content
 				.filter((c): c is { type: "text"; text: string } => c.type === "text")
 				.map((c) => c.text)
