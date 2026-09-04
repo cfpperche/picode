@@ -6,33 +6,31 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is clean, with the sidebar merge
-`9bfd1f01` in its history. While this session was completing the merge, the
-workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
-on local main. The resulting tree preserves the Inbox-to-TUI receiver
-(ADR-0060), pi-compact (ADR-0061), compact supervision rows, authoritative
-terminal CLI presence (ADR-0062), and the favicon fix. Local commits have not
-been pushed to the remote.
+**Repository:** isolated worktree branch `fix/runtime-favicon-alignment` is
+based on local `main` at `29183241` and carries the compact supervision-row
+polish. Runtime identity icons now use official Claude, OpenAI/Codex, Grok,
+and Pi favicons, with the existing text mark as an asset-load fallback; row
+identity marks align with the first text line on desktop and mobile. The
+change is committed on this branch but has not been merged or pushed.
 
-**Deployment:** this session's `make deploy` completed successfully at the
-sidebar merge. The installed service was subsequently rebuilt/restarted with
-the newer local main and now serves `0.1.0+66bee74`; `GET /api/health`
-returned status `ok`, and `GET /api/version` returned that build. There are
-currently 96 PiCode-owned tmux sessions after the restarts; no session loss
-was observed.
+**Deployment:** production was intentionally not restarted for this UI-only
+branch. The installed service remains the previously validated
+`0.1.0+66bee74`; this session only ran the newly built embedded binary in an
+isolated local data directory on port `18445` and verified `/api/health`.
 
-**Quality:** `make ci` passed after conflict resolution, including Go tests,
-457 frontend tests, package tests, docs/OpenAPI/llms parity, Vale, and the
-embedded build. `make docs-shots` captured 10/10 stills and `make docs-videos`
-regenerated all three tutorial videos; `make docs-check` passed.
+**Quality:** `make ci` passed: Go tests, 458 frontend tests, package tests,
+docs/OpenAPI/llms parity, Vale, and the embedded build. `make docs-shots`
+updated the current 3-surface image manifest, `make docs-videos` regenerated
+all three tutorial videos, and `make docs-check` passed.
 
-**UI evidence:** post-deploy desktop and mobile screenshots were read:
-`/tmp/picode-postdeploy-desktop.png`, `/tmp/picode-postdeploy-menu-open.png`,
-`/tmp/picode-postdeploy-mobile-work.png`, and
-`/tmp/picode-postdeploy-mobile-menu2.png`. The populated rows, empty workspace,
-CLI labels, menus, reload state, and mobile navigation are legible. Open menus
-were inside the viewport and `window.__picodeOverlayAudit()` returned `ok: true`;
-Escape closed them. No new browser console/page/network error was observed.
+**UI evidence:** read screenshots `/tmp/runtime-favicon-desktop-rows.png`,
+`/tmp/runtime-favicon-desktop-menu.png`, `/tmp/runtime-favicon-mobile-final2.png`,
+`/tmp/runtime-favicon-mobile-menu.png`, and the embedded empty state. Desktop
+geometry reports the identity mark and title at the same top coordinate;
+mobile shows the same first-line alignment. The menu stayed inside the viewport,
+`window.__picodeOverlayAudit()` returned `ok: true` before and after Escape,
+and attached console/error/network QA passed. Existing blocked and reconnecting
+state screenshots were also read; no state-specific defect was introduced.
 visual-review: PASS.
 
 ### Product and platform
@@ -56,6 +54,8 @@ visual-review: PASS.
 
 ## In flight
 
+- Runtime-favicon alignment is complete and committed on this feature branch;
+  merge and production deploy are intentionally pending owner review.
 - No implementation or deployment step from the sidebar merge remains.
 - Real CLI dogfood was intentionally not run. The historical Inbox `[Teste 3]`
   and `mobile-6bf740` rows still need deliberate reconciliation before a new
@@ -67,8 +67,8 @@ visual-review: PASS.
 
 ## Next up
 
-1. Review the merged local main and decide when to push/promote it; merge and
-   deploy are complete locally.
+1. Review and merge `fix/runtime-favicon-alignment` when the owner accepts the
+   visual evidence; deploy only after that decision.
 2. Inspect the exact historical Inbox rows before any real TUI reply test.
 3. Run the owner-controlled remote-mode acceptance matrix.
 4. Continue the Browser preview panel and ADR-0054 dogfood.

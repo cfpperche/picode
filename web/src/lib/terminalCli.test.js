@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliLabel, terminalCliMark, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
+import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrl, terminalCliLabel, terminalCliMark, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
 
 test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
@@ -9,6 +9,14 @@ test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("unknown"), "");
   assert.equal(terminalCliLabel("pi"), "Pi");
   assert.equal(terminalCliMark("codex"), "Cx");
+});
+
+test("supported runtimes use their official favicon", () => {
+  assert.equal(terminalCliFaviconUrl("claude"), "https://claude.ai/favicon.ico");
+  assert.equal(terminalCliFaviconUrl("codex"), "https://openai.com/favicon.ico");
+  assert.equal(terminalCliFaviconUrl("grok"), "https://grok.com/images/favicon.svg");
+  assert.equal(terminalCliFaviconUrl("pi"), "https://pi.dev/favicon.svg");
+  assert.equal(terminalCliFaviconUrl("shell"), "");
 });
 
 test("authoritative tui presence wins over legacy projection", () => {

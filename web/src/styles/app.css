@@ -942,7 +942,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .ws-identity-mark {
   position: relative; width: 24px; height: 24px; display: grid; place-items: center;
-  flex: none; color: var(--text-secondary);
+  align-self: flex-start; flex: none; color: var(--text-secondary);
 }
 .ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
 .ws-activity-dot {
@@ -1025,6 +1025,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .term-cli-badge.cli-grok { color: var(--text-primary); border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border)); }
 .term-cli-badge.cli-pi { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
+.term-cli-favicon { width: 15px; height: 15px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
 /* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
