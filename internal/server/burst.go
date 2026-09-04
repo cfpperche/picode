@@ -888,6 +888,7 @@ func (deps Deps) projectBurstEvent(agentID, generation string, ev rpc.Event, blo
 	var raw struct {
 		Type                  string `json:"type"`
 		ToolName              string `json:"toolName"`
+		Method                string `json:"method"`
 		AssistantMessageEvent struct {
 			Type  string `json:"type"`
 			Delta string `json:"delta"`
@@ -933,9 +934,15 @@ func (deps Deps) projectBurstEvent(agentID, generation string, ev rpc.Event, blo
 	case "auto_retry_start":
 		deps.updateBurst(agentID, generation, func(s *BurstState) { s.Activity = "Retrying the response" })
 	case "extension_ui_request":
-		select {
-		case blocked <- struct{}{}:
-		default:
+		// Only dialogs that wait on a human answer can block a transient
+		// reply. Passive decoration (status lines, widgets, titles, notify
+		// toasts, editor text) is fire-and-forget: sessions whose extensions
+		// render those at startup must still receive replies.
+		if rpc.IsDialogMethod(raw.Method) {
+			select {
+			case blocked <- struct{}{}:
+			default:
+			}
 		}
 	}
 }

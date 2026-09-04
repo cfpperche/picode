@@ -589,8 +589,10 @@ writer without starting the general queue drain. The client event subscription
 is ready before `StartBurst` returns, and Runtime keeps its per-agent lease
 until a stopping process has joined; `agent_start`, exact post-baseline JSONL
 materialization, and `agent_settled` form the transient lifecycle. Thinking
-text is never projected to the status surface, and extension UI requests fail
-the burst rather than opening chat.
+text is never projected to the status surface, and blocking extension dialogs
+(`select`/`confirm`/`input`/`editor`) fail the burst rather than opening chat;
+passive `extension_ui_request` updates (status, widget, title, notify, editor
+text) are ignored so decorating extensions cannot kill a reply.
 Extension dialogs (`select`/`confirm`/`input`/`editor`) surface as RPC
 `extension_ui_request`. Managed snapshot includes `waiting` + `dialog`.
 The GUI shows one compact stepper per turn: labeled pills for answers (click

@@ -935,7 +935,10 @@ type UIDialog struct {
 	Timeout     int      `json:"timeout,omitempty"`
 }
 
-func isDialogMethod(m string) bool {
+// IsDialogMethod reports whether an extension_ui_request method blocks on a
+// human answer. Passive updates (notify/setStatus/setWidget/setTitle/
+// set_editor_text) are fire-and-forget decoration and never wait.
+func IsDialogMethod(m string) bool {
 	switch m {
 	case "select", "confirm", "input", "editor":
 		return true
@@ -954,7 +957,7 @@ func (ma *ManagedAgent) noteUIRequest(ev Event) {
 		Timeout     int             `json:"timeout"`
 		Options     json.RawMessage `json:"options"`
 	}
-	if err := json.Unmarshal(ev, &raw); err != nil || raw.ID == "" || !isDialogMethod(raw.Method) {
+	if err := json.Unmarshal(ev, &raw); err != nil || raw.ID == "" || !IsDialogMethod(raw.Method) {
 		return
 	}
 	d := &UIDialog{

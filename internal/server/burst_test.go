@@ -80,6 +80,18 @@ func runFakeBurstPi() {
 			if behavior == "exit-before-start" {
 				os.Exit(7)
 			}
+			if behavior == "passive-widget" {
+				// Real sessions decorate themselves at startup: the checklist
+				// widget and status lines ride extension_ui_request without
+				// ever waiting for an answer.
+				_ = enc.Encode(map[string]any{"type": "extension_ui_request", "id": "widget-1", "method": "setWidget", "widgetKey": "checklist", "widgetLines": []string{"checklist 1/2"}})
+				_ = enc.Encode(map[string]any{"type": "extension_ui_request", "id": "status-1", "method": "setStatus", "statusKey": "branch", "statusText": "main"})
+			}
+			if behavior == "blocking-dialog" {
+				_ = enc.Encode(map[string]any{"type": "extension_ui_request", "id": "ask-1", "method": "confirm", "title": "Proceed?"})
+				time.Sleep(30 * time.Second)
+				return
+			}
 			_ = enc.Encode(map[string]any{"type": "agent_start"})
 			appendFakeSession(sessionPath, "user", cmd.Message)
 			_ = enc.Encode(map[string]any{"type": "message_update", "assistantMessageEvent": map[string]any{"type": "text_delta", "delta": "Burst complete"}})
@@ -353,11 +365,27 @@ func TestProjectBurstEventShowsOutputButNotThoughts(t *testing.T) {
 	if got == nil || got.Output != "Visible answer" || strings.Contains(got.Output, "private") {
 		t.Fatalf("projected state = %+v", got)
 	}
-	deps.projectBurstEvent("a", st.Generation, rpc.Event(`{"type":"extension_ui_request"}`), blocked)
-	select {
-	case <-blocked:
-	default:
-		t.Fatal("blocking UI request was not signalled")
+	// Passive extension UI is decoration: it must never stop a reply.
+	for _, method := range []string{"", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text"} {
+		deps.projectBurstEvent("a", st.Generation, rpc.Event(`{"type":"extension_ui_request","id":"ui-1","method":"`+method+`"}`), blocked)
+		select {
+		case <-blocked:
+			t.Fatalf("passive extension UI method %q stopped the reply", method)
+		default:
+		}
+	}
+	for _, method := range []string{"select", "confirm", "input", "editor"} {
+		deps.projectBurstEvent("a", st.Generation, rpc.Event(`{"type":"extension_ui_request","id":"ui-2","method":"`+method+`"}`), blocked)
+		select {
+		case <-blocked:
+		default:
+			t.Fatalf("blocking extension UI method %q was not signalled", method)
+		}
+		select {
+		case <-blocked:
+			t.Fatalf("blocked channel did not drain for method %q", method)
+		default:
+		}
 	}
 }
 
@@ -753,6 +781,173 @@ func TestReplyBurstEndToEndKeepsTmuxAndSession(t *testing.T) {
 	}
 	if mode := deps.runMode(httptest.NewRequest("GET", "/", nil), agent.ID); mode != modeInteractive {
 		t.Fatalf("logical mode = %s", mode)
+	}
+}
+
+func TestReplyBurstIgnoresPassiveExtensionUI(t *testing.T) {
+	manager := tmux.New()
+	if !manager.Available() {
+		t.Skip("tmux not installed")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PICODE_FAKE_BEHAVIOR", "passive-widget")
+	dataDir := filepath.Join(home, ".picode")
+	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	cwd := t.TempDir()
+	ws, _ := st.AddWorkspace("burst widget workspace", cwd)
+	agent, _ := st.AddAgent(ws.ID, "burst-e2e-widget", cwd)
+	sessionPath := filepath.Join(session.Dir(cwd), "exact.jsonl")
+	if err := os.MkdirAll(filepath.Dir(sessionPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sessionPath, []byte("{\"type\":\"session\"}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	agent, err = st.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &sessionPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
+	question, _ := st.CreateInboxItem(store.InboxItemParams{
+		Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: agent.ID,
+		Reason: "test", Title: "Continue?", Body: "Please answer", SessionPath: sessionPath,
+	})
+	name := tmux.SessionName(agent.ID)
+	if err := manager.NewSessionEnv(context.Background(), name, cwd, append(agent.SpawnEnv(), "GO_WANT_FAKE_PI=1"), os.Args[0], agent.CLIFlagsForSpawn("")...); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.KillSession(context.Background(), name) })
+	before, err := manager.PaneSessionID(context.Background(), name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := rpc.NewRuntime(os.Args[0], st, nil)
+	runtime.DataDir = dataDir
+	deps := Deps{Store: st, Runtime: runtime, Tmux: manager, AgentCmd: os.Args[0], DataDir: dataDir, Bursts: NewBurstCoordinator()}
+	if _, _, err := deps.startReplyBurst(context.Background(), question.ID, store.VerbRespond, "widget-safe answer"); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(12 * time.Second)
+	for time.Now().Before(deadline) {
+		if deps.Bursts.Snapshot(agent.ID) == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if state := deps.Bursts.Snapshot(agent.ID); state != nil {
+		t.Fatalf("burst did not restore: %+v", state)
+	}
+	tasks, _ := st.ListTasks(agent.ID, 10)
+	var burstTask store.Task
+	for _, task := range tasks {
+		if strings.HasPrefix(task.Source, "inbox-burst:") {
+			burstTask = task
+		}
+	}
+	if burstTask.Status != store.TaskDelivered || burstTask.Attempts != 1 {
+		t.Fatalf("widget-decorated burst task = %+v", burstTask)
+	}
+	item, _ := st.GetInboxItem(question.ID)
+	if item.State != store.InboxDone {
+		t.Fatalf("question state = %s", item.State)
+	}
+	body, err := os.ReadFile(sessionPath)
+	if err != nil || !strings.Contains(string(body), "widget-safe answer") {
+		t.Fatalf("session continuity missing: %v", err)
+	}
+	after, err := manager.PaneSessionID(context.Background(), name)
+	if err != nil || before != after {
+		t.Fatalf("tmux session changed: %q -> %q (%v)", before, after, err)
+	}
+}
+
+func TestReplyBurstFailsOnBlockingExtensionDialog(t *testing.T) {
+	manager := tmux.New()
+	if !manager.Available() {
+		t.Skip("tmux not installed")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PICODE_FAKE_BEHAVIOR", "blocking-dialog")
+	dataDir := filepath.Join(home, ".picode")
+	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	cwd := t.TempDir()
+	ws, _ := st.AddWorkspace("burst dialog workspace", cwd)
+	agent, _ := st.AddAgent(ws.ID, "burst-e2e-dialog", cwd)
+	sessionPath := filepath.Join(session.Dir(cwd), "exact.jsonl")
+	if err := os.MkdirAll(filepath.Dir(sessionPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sessionPath, []byte("{\"type\":\"session\"}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	agent, err = st.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &sessionPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
+	question, _ := st.CreateInboxItem(store.InboxItemParams{
+		Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: agent.ID,
+		Reason: "test", Title: "Continue?", Body: "Please answer", SessionPath: sessionPath,
+	})
+	name := tmux.SessionName(agent.ID)
+	if err := manager.NewSessionEnv(context.Background(), name, cwd, append(agent.SpawnEnv(), "GO_WANT_FAKE_PI=1"), os.Args[0], agent.CLIFlagsForSpawn("")...); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.KillSession(context.Background(), name) })
+	before, _ := manager.PaneSessionID(context.Background(), name)
+	runtime := rpc.NewRuntime(os.Args[0], st, nil)
+	runtime.DataDir = dataDir
+	deps := Deps{Store: st, Runtime: runtime, Tmux: manager, AgentCmd: os.Args[0], DataDir: dataDir, Bursts: NewBurstCoordinator()}
+	if _, _, err := deps.startReplyBurst(context.Background(), question.ID, store.VerbRespond, "answer behind a dialog"); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	var failed *BurstState
+	for time.Now().Before(deadline) {
+		state := deps.Bursts.Snapshot(agent.ID)
+		if state != nil && state.Phase == burstFailed {
+			failed = state
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if failed == nil || failed.Error == "" {
+		t.Fatalf("failure state = %+v", failed)
+	}
+	tasks, _ := st.ListTasks(agent.ID, 10)
+	var burstTask store.Task
+	for _, task := range tasks {
+		if strings.HasPrefix(task.Source, "inbox-burst:") {
+			burstTask = task
+		}
+	}
+	if burstTask.Status != store.TaskFailed || burstTask.Attempts != 3 {
+		t.Fatalf("dialog-blocked task = %+v", burstTask)
+	}
+	item, _ := st.GetInboxItem(question.ID)
+	if item.State != store.InboxUnread || item.Response == nil || !strings.Contains(*item.Response, "answer behind a dialog") {
+		t.Fatalf("reopened inbox item = %+v", item)
+	}
+	body, _ := os.ReadFile(sessionPath)
+	if strings.Contains(string(body), "answer behind a dialog") {
+		t.Fatalf("dialog-blocked fake materialized the message: %s", body)
+	}
+	after, err := manager.PaneSessionID(context.Background(), name)
+	if err != nil || before != after {
+		t.Fatalf("tmux session changed on dialog failure: %q -> %q (%v)", before, after, err)
+	}
+	if runtime.Get(agent.ID) != nil {
+		t.Fatal("dialog-blocked transient runtime survived")
 	}
 }
 

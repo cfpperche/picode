@@ -96,6 +96,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Inbox replies no longer fail on passive extension UI (ADR-0059 follow-up).**
+  A reply burst to a TUI agent whose extensions render widgets, status lines,
+  titles, notify toasts, or editor text (`setWidget`, `setStatus`, `setTitle`,
+  `notify`, `set_editor_text` — all fire-and-forget `extension_ui_request`
+  methods) treated those decoration updates as a blocking dialog and aborted
+  every attempt within milliseconds, reopening the item with "the reply needs
+  an interactive answer". Only real dialogs that wait on a human answer
+  (`select`/`confirm`/`input`/`editor`) stop a burst now, matching the
+  runtime's own dialog classification; the live checklist widget can no longer
+  make an agent unreachable for replies.
 - **Cross-platform path aliases can no longer bypass backup safety or split
   one Git repository into multiple graphs.** Backup destination validation
   resolves the longest existing ancestor before testing containment, so a

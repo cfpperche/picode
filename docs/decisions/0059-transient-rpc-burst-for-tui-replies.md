@@ -93,12 +93,14 @@ create a duplicate turn.
 | TUI exists, is idle, exact session is safe, no burst active | Reserve generation, park exact task, start burst | Same tab: receiving → processing → TUI |
 | TUI reports a turn in flight | Refuse before parking | Item stays open; retry after it stops |
 | Another generation is active | Refuse before parking | Item stays open; current burst is untouched |
+| A passive extension UI update (status/widget/title/notify/editor text) arrives | Ignore it; the turn continues | Extensions that decorate the session cannot kill the reply |
 | A previous holder lease still exists | Refuse before parking | Item stays open until exclusive-writer recovery finishes |
 | Session path is absent, outside the agent session roots, or gone | Refuse before parking | Item stays open; open the TUI and retry |
 | RPC starts and prompt materializes after the captured baseline | Mark exact task delivered, wait for settle | Stream answer, then restore TUI |
 | RPC accepts but no `agent_start`/new user message appears | Retry the exact task, at most three attempts | Receiving state keeps moving; no false delivered |
 | Cancel races a newly appended user row | Stop the writer, probe once more, let durable JSONL win | Delivered reply is never reopened for a duplicate |
 | All attempts fail before materialization | Mark exact task failed, restore TUI | One-line error + Return to terminal |
+| A blocking extension dialog (select/confirm/input/editor) opens | Stop and fail like any interactive need | Item reopens with the reply prefilled; consent stays with the human |
 | Holder and bounded direct respawn cannot restore Pi | Mark the terminal unavailable; Return force-replaces the stale tmux session and starts the exact agent TUI | No dead terminal is presented as interactive |
 | Explicit Return restart fails | Keep the terminal-unavailable card and its retry action; refuse duplicate restart clicks while one is running | A failed recovery never reveals a dead terminal with no way forward |
 | Pane-holder install fails after selecting the exact session | Restore the prior selected-session pointer before surfacing failure | Item reopens; unchanged TUI remains authoritative |
