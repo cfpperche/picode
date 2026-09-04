@@ -69,6 +69,25 @@ session scenarios directly on Windows would test an unsupported topology.
 Live WSL tests additionally require a registered distro: `wsl.exe` alone is
 not evidence that one exists on a hosted runner.
 
+The hosted workflow classifies the complete Git diff before allocating its
+expensive runners. Unknown paths fail closed to the full matrix. Frontend build
+and package tests run once on Ubuntu, then the 14 MB Vite output—not the 526 MB
+`node_modules` tree—crosses the artifact boundary for an embedded-build check.
+The three-OS Go matrix never installs Node. Public docs build in parallel and
+check committed screenshot/OpenAPI/llms.txt parity *before* their generators
+can rewrite those files. A stable final gate accepts only successful or
+intentionally skipped jobs; a newer run on the same ref cancels its predecessor.
+
+| Changed paths | Frontend + artifact | Public docs | Three-OS Go | Embedded build |
+|---|---:|---:|---:|---:|
+| Unknown, empty, product/toolchain, or mixed | Run | Run | Run | Run |
+| `www/`, `docs-videos/`, Vale styles, or docs tooling only | Skip | Run | Skip | Skip |
+| `docs/` and root Markdown only | Skip | Skip | Skip | Skip |
+
+`scripts/ci-scope.test.mjs` is the executable decision table. The lightweight
+classifier and final gate still run in every row, so path routing cannot turn a
+change into a workflow with no status.
+
 Both binaries ship in one GitHub release, tag-triggered
 (`.github/workflows/release.yml`), with the version stamped through
 `-X internal/version.Version` — `Version` is a var for exactly that. Asset

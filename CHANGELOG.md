@@ -113,6 +113,10 @@ to the `[Unreleased]` section. The repository's official language is English
   than unsupported Linux/WSL daemon scenarios. Filesystem-separator,
   absent-tmux/systemd/WSL, asynchronous automation-result, package-watcher
   race, and pane-startup assumptions no longer cause runner-only failures.
+- **CI checks committed docs parity before regenerating it.** The local and
+  hosted gates previously built docs first, overwriting stale OpenAPI and
+  `llms.txt` files before the parity comparison could inspect the committed
+  versions. Parity now runs first and fails on the stale artifact.
 - **Docs tutorial regeneration runs when requested.** The `docs-videos`
   Make target is now phony; the identically named source directory no longer
   makes `make docs-videos` incorrectly report that everything is up to date.
@@ -174,6 +178,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Hosted CI no longer installs and builds the same frontend on three
+  operating systems.** One Ubuntu job builds/tests the UI and passes its 14 MB
+  output to the embedded-binary check; the Linux/macOS/Windows Go matrix runs
+  without Node while docs build in parallel. A tested path classifier keeps
+  the full fail-safe matrix for product, toolchain, workflow, unknown, or mixed
+  changes; public-docs-only changes run their own gate, internal-docs-only
+  changes run the lightweight scope/final gates, and superseded runs cancel.
+  npm omits audit/funding network calls, and CI's official Actions use their
+  current Node runtime.
 - **Package update checks are a fleet-wide feed scan, not a per-browser
   poll.** Every open browser refetched `/api/packages/updates` every
   30 minutes to keep the update dots honest. The server now re-runs the
