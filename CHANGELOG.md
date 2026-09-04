@@ -148,6 +148,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The terminal WebSocket bridge serializes output and keepalive writes.**
+  A busy terminal could make Gorilla WebSocket observe two concurrent writers
+  and crash the daemon; terminal frames and ping frames now share one writer.
 - **Workspace cards pick up a Next.js App Router `icon.svg`**, including
   turborepo apps under `apps/<name>/app/`. A project whose mark lives at
   `apps/web/app/icon.svg` no longer shows a plain folder next to workspaces

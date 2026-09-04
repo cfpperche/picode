@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/creack/pty"
@@ -37,6 +38,26 @@ const (
 	pongWait   = 60 * time.Second
 	pingPeriod = 50 * time.Second
 )
+
+type wsWriteConn interface {
+	SetWriteDeadline(time.Time) error
+	WriteMessage(int, []byte) error
+}
+
+// wsWriter is the single writer for a WebSocket connection. Gorilla
+// WebSocket permits one concurrent reader and one concurrent writer, but not
+// two writers; terminal output and keepalive pings can otherwise overlap.
+type wsWriter struct {
+	conn wsWriteConn
+	mu   sync.Mutex
+}
+
+func (w *wsWriter) write(messageType int, data []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	return w.conn.WriteMessage(messageType, data)
+}
 
 var upgrader = websocket.Upgrader{
 	// Localhost-first tool (see architecture.md security model); the UI
@@ -77,6 +98,7 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue, o
 			return // Upgrade already wrote the HTTP error.
 		}
 		defer ws.Close()
+		out := &wsWriter{conn: ws}
 
 		// Everything PiCode manages on the session — mouse, status bar,
 		// passthrough, extended keys — comes through the resolver now
@@ -144,8 +166,7 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue, o
 			for {
 				n, rerr := ptyFile.Read(buf)
 				if n > 0 {
-					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-					if werr := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); werr != nil {
+					if werr := out.write(websocket.BinaryMessage, buf[:n]); werr != nil {
 						return
 					}
 				}
@@ -166,8 +187,7 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue, o
 				case <-ptyDone:
 					return
 				case <-ticker.C:
-					_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-					if perr := ws.WriteMessage(websocket.PingMessage, nil); perr != nil {
+					if perr := out.write(websocket.PingMessage, nil); perr != nil {
 						return
 					}
 				}
@@ -206,8 +226,8 @@ func handleControl(ptyFile *os.File, data []byte) {
 }
 
 func writeError(ws *websocket.Conn, msg string) {
-	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-	_ = ws.WriteMessage(websocket.TextMessage,
+	out := &wsWriter{conn: ws}
+	_ = out.write(websocket.TextMessage,
 		mustJSON(map[string]string{"type": "error", "message": msg}))
 }
 

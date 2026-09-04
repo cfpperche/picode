@@ -51,6 +51,63 @@ func readUntil(t *testing.T, ws *websocket.Conn, timeout time.Duration) []byte {
 	return data
 }
 
+type blockingWSConn struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (c *blockingWSConn) SetWriteDeadline(time.Time) error { return nil }
+
+func (c *blockingWSConn) WriteMessage(int, []byte) error {
+	c.entered <- struct{}{}
+	<-c.release
+	return nil
+}
+
+func TestWSWriterSerializesConcurrentWrites(t *testing.T) {
+	conn := &blockingWSConn{
+		entered: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	out := &wsWriter{conn: conn}
+
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- out.write(websocket.BinaryMessage, []byte("first")) }()
+	select {
+	case <-conn.entered:
+	case <-time.After(time.Second):
+		t.Fatal("first write did not reach the connection")
+	}
+
+	secondReady := make(chan struct{})
+	secondDone := make(chan error, 1)
+	go func() {
+		close(secondReady)
+		secondDone <- out.write(websocket.PingMessage, nil)
+	}()
+	<-secondReady
+	select {
+	case <-conn.entered:
+		t.Fatal("second write entered while the first write was blocked")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(conn.release)
+	for name, done := range map[string]chan error{
+		"first":  firstDone,
+		"second": secondDone,
+	} {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("%s write: %v", name, err)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("%s write did not finish", name)
+		}
+	}
+}
+
 func TestInterruptInput(t *testing.T) {
 	for _, tc := range []struct {
 		name string

@@ -569,6 +569,8 @@ lookups). Project shells use `picode-sh-<id>` (same prefix, different name).
 `internal/term` bridges WebSocket ↔ PTY (`tmux attach`):
 binary frames = terminal bytes, text frames = `resize` control JSON;
 closing the tab ends only the attach — the agent or shell keeps running in tmux.
+Terminal output and keepalive ping frames are serialized per connection because
+Gorilla WebSocket allows only one concurrent writer.
 `RespawnPaneEnv` changes a pane's child without changing its immutable tmux
 session id (used by restart-same-mode and the explicit dead-pane recovery).
 `PasteText` types text into a pane as a bracketed paste plus Enter — the
