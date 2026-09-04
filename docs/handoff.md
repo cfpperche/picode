@@ -13,12 +13,12 @@ routing merge (`0098081c`). The tree preserves ADRs 0060–0063 and the
 maintainer runbook; no official release cadence or date is set. Local commits
 have not been pushed to the remote.
 
-**Deployment:** the installed service is active on the final product build
-`0.1.0+0098081` (`release: false`); later local commits are documentation
-only. `GET /api/health` returned `status: ok` with boot id
-`7480cf5b3f8c4eae`, and 109 PiCode-owned tmux sessions are present. The
-WebSocket writer fix has remained stable with no further panic in the observed
-uptime.
+**Deployment:** the installed service is active on `0.1.0+65be297`
+(`release: false`), which carries the runtime badge favicon refinement.
+`GET /api/health` returned `status: ok` with boot id `a89dacd8f72395e3`, and
+113 PiCode-owned tmux sessions are present (additions only across the
+restart). The WebSocket writer fix has remained stable with no further panic
+in the observed uptime.
 
 **Quality:** post-integration `make ci` passes, including 468 frontend tests,
 54 pi-compact tests, Go/package tests, docs/OpenAPI/llms parity, Vale, and the
@@ -135,16 +135,17 @@ configuration is created:
 
 ## Recent activity
 
-- **2026-09-04 — runtime badge favicons refined (owner report).** The owner's
-  screenshot showed Claude Code still on its boxed text mark: `claude.ai`'s
-  favicon hangs/403s as a browser subresource. CLI favicons now load from a
-  preference-ordered list of official assets (Claude: Anthropic's own icon
-  first; Codex: `openai.com` then OpenAI's CDN touch icon) and a loaded
-  favicon renders bare — the box is reserved for the text-mark fallback.
-  Verified on a scratch daemon with seeded wrapper runtimes: all four CLI
-  badges show real favicons on desktop rows, the tab strip and mobile rows;
-  the shell fallback stays boxed; 468 frontend tests pass; menu contained
-  and closes on Escape; overlay audit ok. visual-review: PASS.
+- **2026-09-04 — runtime badge favicons refined (owner report), deployed as
+  `0.1.0+65be297`.** The owner's screenshot showed Claude Code still on its
+  boxed text mark: `claude.ai`'s favicon hangs/403s as a browser subresource.
+  CLI favicons now load from a preference-ordered list of official assets
+  (Claude: Anthropic's own icon first; Codex: `openai.com` then OpenAI's CDN
+  touch icon) and a loaded favicon renders bare — the box is reserved for the
+  text-mark fallback. Verified on a scratch daemon with seeded wrapper
+  runtimes: all four CLI badges show real favicons on desktop rows, the tab
+  strip and mobile rows; the shell fallback stays boxed; 468 frontend tests
+  pass; menu contained and closes on Escape; overlay audit ok; deploy kept
+  every tmux session. visual-review: PASS.
 - **2026-09-04 — final handoff reconciled after integration.** The local
   checkout has no uncommitted product configuration, so `pi-compact` remains
   dormant by the accepted ADR-0061 policy; its schema and source comment now
