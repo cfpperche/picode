@@ -231,6 +231,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The sidebar scrollbar stays invisible until the sidebar is hovered
+  or focused** (workspace, agent, terminal, apps and pins tabs all
+  scroll in one `.side-section`). The thumb fades in over 180ms via
+  `scrollbar-color` (with a `::-webkit-scrollbar-thumb` fallback) and
+  fades out on leave; `scrollbar-width: thin` keeps the gutter
+  reserved, so the reveal is a pure fade with no layout shift.
+
 - **Generated docs now fingerprint each captured surface independently.**
   Screenshot CI still blocks when a visual input changes, but tests and
   unrelated server handlers no longer force a recapture. Tutorial stills map

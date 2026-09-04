@@ -66,6 +66,27 @@ html, body {
   background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
 }
 *::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
+/* Sidebar scrollbar hides until the sidebar is hovered or focused —
+   the rail stays invisible at rest (Linear/VS Code). `scrollbar-width:
+   thin` (inherited above) keeps reserving its gutter, so the reveal is
+   a pure thumb fade with no reflow. The ::-webkit-scrollbar-thumb
+   fallback covers engines where the standard property is ignored. */
+.side-section {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color .18s ease;
+}
+#sidebar:hover .side-section,
+#sidebar:focus-within .side-section {
+  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+}
+.side-section::-webkit-scrollbar-thumb {
+  background: transparent;
+  transition: background .18s ease;
+}
+#sidebar:hover .side-section::-webkit-scrollbar-thumb,
+#sidebar:focus-within .side-section::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
+}
 /* Author `display:` beats the UA [hidden] rule. One global override so
    hideDock / empty / form / tabs actually disappear. */
 [hidden] { display: none !important; }

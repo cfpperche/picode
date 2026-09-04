@@ -156,6 +156,21 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — sidebar scrollbar hides until hover/focus.** The
+  sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
+  rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
+  (all five tabs share the one scroll container); `::-webkit-scrollbar`
+  fallback covers engines that ignore the standard property. The gutter
+  stays reserved (`scrollbar-width: thin`), so reveal is a pure fade
+  with no layout shift. Verified live on a seeded dev instance:
+  computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45% /
+  focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
+  every state, overlay audit ok. visual-review: UNVERIFIED for the
+  thumb pixels — a forced-red control proved Chromium CDP screenshots
+  never paint scrollbars in any state, so the pixel check is
+  mechanically impossible in this harness; surface screenshots (read)
+  confirm no layout shift, no clipping and unchanged chrome.
+
 - **2026-09-04 — docs captures gained per-surface fingerprints.** Public
   screenshots and tutorial stills now map to named desktop/mobile profiles;
   local screen imports, shared shell/style/fixture inputs and selected data
