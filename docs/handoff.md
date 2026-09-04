@@ -6,14 +6,17 @@
 
 ## Current state (read this first)
 
-**Repository:** the Docker project grouping refinement (ADR-0066) is in
-`feat/docker-project-groups`, based on local `main` `1ed6708f`. Grouping,
-search and saved folds are implemented; v2 project operations/Compose are
-specified in `docs/plans/docker-v2.md` and are not implemented. Existing
-local commits remain unpushed. Preserve the unrelated `.pi/compact.json`.
+**Repository:** local `main` includes Docker project grouping (ADR-0066,
+`900ac985`) on top of the terminal-favicon fix. Commits remain local and
+unpushed. Tracked files are clean; preserve the unrelated `.pi/compact.json`.
+V2 project operations/Compose are proposed in `docs/plans/docker-v2.md`.
 
-**Deployment:** the installed service still runs `0.1.0+cf9aafc`. The
-refinement is verified on an isolated daemon; deployment follows the gates.
+**Deployment:** the installed service runs `0.1.0+900ac98` (`release: false`).
+Health is `ok`, boot `e809e6e94920f965`. Served assets and installed binary
+hash match the tested build; all 123 pre-deploy tmux sessions remain present.
+Live grouping: bidwar 12, cognixse 11, hull 9, pgtenant 2. The deployed view
+was clicked, reloaded, captured and read (`/tmp/picode-docker-groups-deployed.png`);
+fold persistence and the overlay audit passed.
 
 **Quality:** `make ci` passed (Go, 477 frontend tests, packages, build,
 docs parity and Vale). Browser QA covered real project labels, mouse/Enter/Space, refresh/reload/Back,
@@ -78,9 +81,9 @@ were not evaluated in this session:
 
 ## In flight
 
-- Docker groups passed the gates and await local deployment. V2 project
-  operations, Compose registration/deployment and shared tools are proposed
-  in `docs/plans/docker-v2.md`; no project-level action is shipped yet.
+- V2 project operations, Compose registration/deployment and shared tools
+  are proposed in `docs/plans/docker-v2.md`; no project-level action is
+  implemented yet. Grouped inventory is merged and deployed.
 - Docker v1 is merged and deployed. The real Pi 0.85.0 runtime loaded all
   four tools and executed inventory/detail against the shared API without a
   model turn. Autonomous model-driven dogfood and Docker Desktop/rootless
@@ -135,17 +138,12 @@ were not evaluated in this session:
 
 ## Recent activity
 
-- **2026-09-04 — Docker project groups and v2 proposal (ADR-0066).** Native
+- **2026-09-04 — Docker groups deployed as `0.1.0+900ac98` (ADR-0066).** Native
   disclosures stay in the app; exact Compose labels, standalone fallback,
   state summaries, saved folds and search work together. Long phone rows
   wrap. V2 separates detected groups from registered Compose deployments.
   `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
-- **2026-09-04 — terminal favicons merged and deployed as `0.1.0+cf9aafc`.**
-  The owner's `v0.1.0+a2e377e` screenshot still had the leftover chip because
-  the first worktree preview was overwritten by the Docker deploy and the
-  branch had not been merged. Rebased onto Docker `main`, merged, deployed.
-  Live sidebar: Claude/Codex/Grok/Pi fill the 22px slot with no plate.
-  visual-review: PASS (`/tmp/picode-term-favicon-deployed.png` read).
+  Isolated test servers, browsers and the feature worktree were cleaned up.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

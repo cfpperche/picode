@@ -5,6 +5,13 @@ state is always `docs/handoff.md`. Do not treat this file as current.
 
 ## Recent activity (archived 2026-09-04 during Docker grouping)
 
+- **2026-09-04 — terminal favicons merged and deployed as `0.1.0+cf9aafc`.**
+  The owner's `v0.1.0+a2e377e` screenshot still had the leftover chip because
+  the first worktree preview was overwritten by the Docker deploy and the
+  branch had not been merged. Rebased onto Docker `main`, merged, deployed.
+  Live sidebar: Claude/Codex/Grok/Pi fill the 22px slot with no plate.
+  visual-review: PASS (`/tmp/picode-term-favicon-deployed.png` read).
+
 - **2026-09-04 — Docker App deployed; pi-sysadmin package ready (ADR-0065).**
   Extended existing Apps primitives and mobile navigation; added bounded
   Engine API operations, idempotent background jobs, verified outcomes and
