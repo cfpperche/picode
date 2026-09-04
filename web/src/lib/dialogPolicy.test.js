@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ADR-0046: every modal goes through components/ResponsiveDialog.jsx, so it
@@ -29,7 +29,7 @@ describe("dialog policy", () => {
   it("only ResponsiveDialog (and the two desktop-only surfaces) import a raw dialog or drawer", () => {
     const offenders = walk(SRC)
       .filter((p) => RAW.test(readFileSync(p, "utf8")))
-      .map((p) => relative(SRC, p))
+      .map((p) => relative(SRC, p).split(sep).join("/"))
       .filter((rel) => !ALLOW.has(rel));
     assert.deepEqual(offenders, [], "use components/ResponsiveDialog.jsx: " + offenders.join(", "));
   });

@@ -46,6 +46,17 @@ func TestWorktreeSharesTheKey(t *testing.T) {
 	}
 }
 
+func TestKeyCanonicalizesASymlinkedCheckout(t *testing.T) {
+	dir := repo(t)
+	alias := filepath.Join(t.TempDir(), "repo-alias")
+	if err := os.Symlink(dir, alias); err != nil {
+		t.Skipf("directory symlinks unavailable: %v", err)
+	}
+	if real, linked := Key(dir), Key(alias); real == "" || linked != real {
+		t.Fatalf("one checkout through two path aliases must share a key: real=%q alias=%q", real, linked)
+	}
+}
+
 func TestLoadCommitsAndParents(t *testing.T) {
 	dir := repo(t)
 	run(t, dir, "git", "checkout", "-b", "feature")

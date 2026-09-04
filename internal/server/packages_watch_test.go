@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -65,12 +66,11 @@ func TestStartPackageUpdatesWatchPublishesOnChange(t *testing.T) {
 		{Updates: []pipkg.Available{{Source: "pi-roles", Current: "1.0.0", Latest: "1.1.0"}}}, // same rows
 		{Updates: []pipkg.Available{{Source: "pi-roles", Current: "1.0.0", Latest: "1.2.0"}}}, // changed
 	}
-	calls := 0
+	var calls atomic.Int32
 	old := pipkgCheck
 	pipkgCheck = func(ctx context.Context, userDir, projectDir string) (pipkg.UpdateReport, error) {
-		rep := reports[min(calls, len(reports)-1)]
-		calls++
-		return rep, nil
+		n := int(calls.Add(1) - 1)
+		return reports[min(n, len(reports)-1)], nil
 	}
 	defer func() { pipkgCheck = old }()
 
@@ -81,7 +81,7 @@ func TestStartPackageUpdatesWatchPublishesOnChange(t *testing.T) {
 	// Three passes over two scopes = six scans; pass two changed both
 	// scopes, pass three changed nothing.
 	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) && calls < 6 {
+	for time.Now().Before(deadline) && calls.Load() < 6 {
 		time.Sleep(10 * time.Millisecond)
 	}
 	cancel()

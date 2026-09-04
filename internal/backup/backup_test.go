@@ -51,6 +51,29 @@ func TestValidateDest(t *testing.T) {
 	}
 }
 
+func TestValidateDestResolvesAnExistingSymlinkedAncestor(t *testing.T) {
+	realRoot := t.TempDir()
+	data := filepath.Join(realRoot, "data")
+	pi := filepath.Join(realRoot, "pi")
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(pi, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(realRoot, alias); err != nil {
+		t.Skipf("directory symlinks unavailable: %v", err)
+	}
+
+	// The leaf does not exist yet. Resolving only the complete path misses
+	// that alias and could put a backup recursively inside its live source.
+	dest := filepath.Join(alias, "data", "future", "backup")
+	if err := ValidateDest(dest, data, pi); err == nil {
+		t.Fatal("destination inside data through a symlinked ancestor accepted")
+	}
+}
+
 func TestDue(t *testing.T) {
 	now := time.Date(2026, 8, 26, 15, 0, 0, 0, time.UTC)
 	if Due(Settings{}, now) {

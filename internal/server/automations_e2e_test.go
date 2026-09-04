@@ -27,6 +27,26 @@ func waitRun(t *testing.T, url string, want func(map[string]any) bool, d time.Du
 	return nil
 }
 
+func waitInboxItem(t *testing.T, url string, want func(map[string]any) bool, d time.Duration) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	var last map[string]any
+	for time.Now().Before(deadline) {
+		_, out := doJSON(t, "GET", url, "", nil)
+		items, _ := out["items"].([]any)
+		for _, raw := range items {
+			item, _ := raw.(map[string]any)
+			last = item
+			if want(item) {
+				return item
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("inbox never received the wanted item; last = %v", last)
+	return nil
+}
+
 // A real `start` run against the fake pi: the automation's agent is
 // created, the turn settles, the run is done with the fake's cost, the
 // Inbox carries the agent's final text, and the agent is stopped again.
@@ -54,19 +74,13 @@ func TestAutomationStartRunEndToEnd(t *testing.T) {
 		t.Fatalf("done run lost the cost: %v", done)
 	}
 
-	// Inbox: one result with the agent's real final text.
-	_, inbox := doJSON(t, "GET", ts.URL+"/api/inbox", "", nil)
-	items, _ := inbox["items"].([]any)
-	found := false
-	for _, it := range items {
-		m := it.(map[string]any)
-		if m["kind"] == "result" && m["sourceKind"] == "automation" && strings.Contains(m["body"].(string), "hello from fake") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("no automation result in inbox: %v", inbox)
-	}
+	// FinishRun and the Inbox write are separate store mutations. Seeing the
+	// completed run does not promise that the immediately following result
+	// write has committed yet, so wait for the observable contract itself.
+	waitInboxItem(t, ts.URL+"/api/inbox", func(m map[string]any) bool {
+		body, _ := m["body"].(string)
+		return m["kind"] == "result" && m["sourceKind"] == "automation" && strings.Contains(body, "hello from fake")
+	}, 5*time.Second)
 
 	// The automation's agent exists, is named after it, and is stopped.
 	_, view := doJSON(t, "GET", ts.URL+"/api/automations/"+id, "", nil)

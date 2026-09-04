@@ -255,6 +255,17 @@ MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
 `settings`. Embedded sequential migrations; the M1 JSON registry is imported
 once and retired (`workspaces.json.migrated`).
 
+Local backup destinations are checked against both live data trees before any
+snapshot write. The check canonicalizes the longest existing path prefix and
+then restores a not-yet-created suffix; resolving only the complete destination
+would miss OS aliases such as macOS `/var` → `/private/var`.
+
+| Destination | Path shape | Action |
+|---|---|---|
+| empty | any | refuse |
+| either live data root, or any descendant | existing, missing, direct, or reached through a symlinked ancestor | refuse |
+| outside both live trees | canonical roots differ | allow |
+
 ### AgentManager (M1 core shipped)
 Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
 workspaces start empty (ADR-0027) and own zero or more agents; tmux
@@ -425,8 +436,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
   the agents living in each worktree (`?limit=`, default 250). One graph per
-  repository: the identity is `git rev-parse --git-common-dir`, so every
-  worktree answers with the same key and collapses onto one tab. The route
+  repository: the identity is `git rev-parse --git-common-dir`, canonicalized
+  through filesystem symlinks, so every worktree (including macOS
+  `/var`/`/private/var` aliases) answers with the same key and collapses onto
+  one tab. The route
   carries the *owner* because the owner is what authorises the read — the
   server never resolves a repository from a path in the URL (ADR-0022).
 - `GET /api/agents/{id}/git/commit?hash=` · `GET /api/terminals/{id}/git/commit?hash=`
@@ -608,7 +621,9 @@ lists with `lib/feedReducers.js` and refetch when a reducer returns
 also publishes `agent.tui` (tmux watcher, `StartTuiWatch`),
 `agent.usage` (per assistant message, `Runtime.OnUsage`) and
 `device.offline` (`presence.Watch`); `agent.status` carries the run mode
-at every start. Rule: a state
+at every start. Presence invokes its transition callback after releasing the
+registry lock but before the heartbeat returns, so a sequential expiry cannot
+overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
 

@@ -4,17 +4,27 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestOptionCatalogCoversAllThreeScopes(t *testing.T) {
-	m := New()
-	if !m.Available() {
-		t.Skip("tmux not installed")
+func testOptionCatalog(t *testing.T) []CatalogEntry {
+	t.Helper()
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("catalog-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(ctx, name, t.TempDir(), "sleep", "30"); err != nil {
+		t.Fatalf("session: %v", err)
 	}
-	cat, err := m.OptionCatalog(context.Background())
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	cat, err := m.OptionCatalog(ctx)
 	if err != nil {
 		t.Fatalf("catalog: %v", err)
 	}
+	return cat
+}
+
+func TestOptionCatalogCoversAllThreeScopes(t *testing.T) {
+	cat := testOptionCatalog(t)
 	byScope := map[string]int{}
 	byName := map[string]CatalogEntry{}
 	for _, e := range cat {
@@ -40,11 +50,7 @@ func TestOptionCatalogCoversAllThreeScopes(t *testing.T) {
 }
 
 func TestOptionCatalogFoldsArraysAndInfersKinds(t *testing.T) {
-	m := New()
-	if !m.Available() {
-		t.Skip("tmux not installed")
-	}
-	cat, _ := m.OptionCatalog(context.Background())
+	cat := testOptionCatalog(t)
 	byName := map[string]CatalogEntry{}
 	for _, e := range cat {
 		byName[e.Scope+"/"+e.Name] = e

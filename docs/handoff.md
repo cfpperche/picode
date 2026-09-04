@@ -69,6 +69,21 @@ What exists:
 
 ## In flight
 
+**`fix/ci-cross-platform` — hosted CI repair candidate complete locally;
+three-OS matrix pending.** Baseline run
+[33817122907](https://github.com/cfpperche/picode/actions/runs/33817122907)
+exposed independent failures that earlier red steps had masked. The branch
+canonicalizes missing backup destinations and Git worktree identities through
+filesystem aliases; orders presence callbacks; removes races and scheduler
+assumptions from package-watch, automation and pane-cwd tests; normalizes the
+JS dialog-policy path separator; scopes Linux-only systemd and tmux integration
+rows to their supported platforms; starts a tmux server before catalog reads; and makes
+Ubuntu build checksum-pinned tmux 3.5a, PiCode's declared minimum, instead of
+apt's unsupported 3.4. Local `make ci` and `go test -race ./...` are green;
+Windows amd64 and macOS arm64 all-package compile preflights pass, and the two
+prior race cases pass 20×/100× stress runs. Acceptance is one green PR matrix
+on Ubuntu, macOS and Windows; do not call main green before that run finishes.
+
 **`fix/checklist-staleness` — checklist row follows the current session
 (ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22
 (installed service runs 0.1.0+6256503, which includes it).** Adversarial review of
@@ -228,16 +243,13 @@ render megabytes.
 
 ## Next up
 
-0. **Live browser preview (agent_browser) — ADR owed** from the 2026-09-02
-   benchmark study (`docs/benchmarks/2026-09-02-live-browser-preview.md`):
-   proposal is a tool-agnostic `details.preview` contract emitted by the
-   package (or a thin `pi-agent-browser-view` companion) + generic rendering
-   in the conversation (reducer consumes `tool_execution_update`; tool pills
-   render preview images) + a Browser surface on `#/agent/<id>`; v2 proxies
-   `agent-browser stream enable` behind `internal/auth`. No new package
-   system — pi's exists (ADR-0010); only the tool→GUI rendering contract is
-   missing. Decision for the owner: propose the contract upstream to pi
-   first vs. PiCode-side convention.
+0. **Live browser preview follow-through (ADR-0057).** The generic
+   `details.preview` contract and inline conversation rendering have shipped.
+   Next: add the package-side `agent_browser` emitter (upstream proposal:
+   [pi-agent-browser-native#157](https://github.com/fitchmultz/pi-agent-browser-native/issues/157),
+   or a thin companion if upstream declines), then add the Browser surface on
+   `#/agent/<id>`. V2 may proxy `agent-browser stream enable` behind
+   `internal/auth`; no new package system.
 1. **Remote modes — acceptance runs owed** (owner's sudo): Track C on a real second account (`sudo picode gateway install`, `sudo picode provision --user demo --shared`, `sudo picode users add <login> demo`); Track D.2 (`sudo apt install systemd-container debootstrap`, `sudo picode provision --user demo --shared --container`); Track D.1 with a real GitHub OAuth app behind Caddy on a public name. Then decide on Track E (SaaS: signup, quotas, billing, VM per client) — the roadmap sketches it.
 2. **Feed follow-ups (ADR-0048)** — git events shipped 2026-09-03
    (phase 3; the create / clone / config-PATCH refetches it would retire
@@ -376,35 +388,12 @@ Never exercised, because this machine was already past them:
   path. Groq, Mistral and Cursor stay cookie-scoped — honest `unavailable`,
   not scraping.
 
-- **CI on `main` is red on macOS and Windows — environment-dependent
-  tests, pre-existing (every run since at least 2026-08-30 failed; each
-  era's first failing step masked the rest: dead links →
-  `remote-server.md` → the git-guard self-test, fixed in c503b9da).
-  Diagnosed 2026-09-03:** `internal/backup`'s `TestValidateDest` and
-  `TestSnapshotRestoreMatrix` fail because `canon()` `EvalSymlinks` the
-  destination — a **not-yet-existing** dest under a symlinked `TMPDIR`
-  (macOS `/var` → `/private/var`) stays unresolved while `dataDir`
-  resolves, so `filepath.Rel` misses the containment and a dest inside
-  data is accepted (fails on macos/windows runners, passes on linux and
-  locally). Also failing off-linux: `gitgraph`
-  `TestWorktreeSharesTheKey`, `install`
-  `TestDeployRefusesBeforeCopyingWhenThereIsNoSession`, `presence`
-  `TestExpireAnnouncesOnceAndPingRevives`, and several `internal/server`
-  tests (`TestAutomationStartRunEndToEnd`, `TestBackupAPI`,
-  `TestGraphCollapsesWorktreesAndNamesOccupants`,
-  `TestOccupantScanAsksGitOncePerDirectory`,
-  `TestNewSessionFreeAgentTUIRestart` — the last one new with the
-  ADR-0053 push). On **ubuntu** the self-test fix unmasked the next
-  layer: the job's `apt-get install tmux` gets **3.4** while PiCode
-  needs 3.5+ — `TestEnsureExtendedKeysXterm` dies on `invalid option:
-  extended-keys-format` and the option-catalog tests see different
-  kinds (`default-shell kind = ""`); `presence`'s
-  `TestExpireAnnouncesOnceAndPingRevives` also fails there (passes
-  locally on tmux 3.6; suspect timing, not root-caused). Candidate
-  cures: install tmux 3.5+ from source/PPA in CI, or make tmux-gated
-  tests skip with a loud reason when `tmux -V` < 3.5. Not yet
-  root-caused individually; needs a proper worktree session, reading
-  each failure against the runner environment.
+- **CI on `main` remains red until the in-flight cross-platform repair is
+  proved and merged.** Baseline run 33817122907 failed independently on all
+  three runners (filesystem aliases, callback/test races, platform-only
+  integrations, Windows path separators, tmux 3.4). Root causes and local
+  fixes are recorded under *In flight*; a green hosted Ubuntu/macOS/Windows
+  matrix is the acceptance gate, not the local result.
 
 - `docs/handoff.md` is still ~2.8× the ~150-line cap after archiving
   the pre-09-02 activity — the *Current state* / *In flight* ADR

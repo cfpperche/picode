@@ -1,27 +1,27 @@
 {
-  "uiTreeHash": "3fb432675aeb7b60a8393c7bd45e8ecae6bfd974d0d6ebbf330e239a37fd8e0d",
+  "uiTreeHash": "fefe70472a6d305ba9438ad0a63aa2258a3a5b4f2b9b84c2eb34713b7bf8f4c1",
   "videos": {
     "create-agent": {
       "file": "create-agent.mp4",
       "composition": "index.html",
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
-        "v1-1b-agents-tab": "dd9d457e2b29e665dc163c4e3d5c492af48751f716a04d68ba2595385db29431",
+        "v1-1b-agents-tab": "a12a7c4aaa7f1ef9bc7c6503835bce44b104f8da197326971a1da04d5608dc90",
         "v1-2-form": "2d7e932bebd572a88c95d28188bb1ca08335ae9116f8948ff10873b8615fa8f6",
         "v1-3-running": "daf51d4209b95ce67a84b968e44b3b95583316468cb690a4a8c5b3a72b2a108e"
       },
-      "mp4": "322eb15ff4e1e7c66235bfda99bd87d359db9731dfe355501af1a9e8b4ef6803"
+      "mp4": "16a88482dc882874daa94909b9f6d325fc31003b2a7e6e890c9a7098aa4ce411"
     },
     "automate-it": {
       "file": "automate-it.mp4",
       "composition": "compositions/automate-it.html",
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
-        "v2-1-list": "0f7f63b09f9c0cb34f09bf55ae087b793eb79b239e990b41c6cb676145662335",
-        "v2-2-detail": "69166fa033f3335d2c6b8e02bd885d8e50bbbdff6f0bdeea96cde5a7265c46a3",
-        "v2-3-inbox": "6eba4cca5360e80889b1479bac06bdfdfa910def56d55025db8326e70f8bb758"
+        "v2-1-list": "b85c985e432c23e107d14395fa3fa58bb3e955c2da8ea152229311165e706546",
+        "v2-2-detail": "80d266777bf2600ca6f3bca7fb7386c45adeae5b6ba6c6bdfc65b8c1c7909fb8",
+        "v2-3-inbox": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6"
       },
-      "mp4": "54d93b51016a954a67d2c543d0bac6f01f6d61a1ac38b888a890c5b3db51f86f"
+      "mp4": "d91bb388a93cb4ae8edcffebc3c3a7da0eb871a6cf85a98ba2ad4511f7a20d0b"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",
