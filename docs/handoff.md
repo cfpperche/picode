@@ -6,16 +6,20 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is at merge commit `9bfd1f01`, which integrates
-`feat/sidebar-tui` on top of the current local main (`a6842109`). The merge
-preserves the Inbox-to-TUI receiver (ADR-0060) and pi-compact (ADR-0061), and
-adds compact supervision rows plus authoritative terminal CLI presence
-(ADR-0062). The local commits have not been pushed to the remote.
+**Repository:** local `main` is at `ebf79257`, with the sidebar merge
+`9bfd1f01` in its history. While this session was completing the merge, the
+workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
+on local main. The resulting tree preserves the Inbox-to-TUI receiver
+(ADR-0060), pi-compact (ADR-0061), compact supervision rows, authoritative
+terminal CLI presence (ADR-0062), and the favicon fix. Local commits have not
+been pushed to the remote.
 
-**Deployment:** `make deploy` completed successfully. The installed service is
-active/running and serves `0.1.0+9bfd1f0`; `GET /api/health` returned status
-`ok`, and `GET /api/version` returned the same build. There are currently 95
-PiCode-owned tmux sessions after the restart. No session loss was observed.
+**Deployment:** this session's `make deploy` completed successfully at the
+sidebar merge. The installed service was subsequently rebuilt/restarted with
+the newer local main and now serves `0.1.0+66bee74`; `GET /api/health`
+returned status `ok`, and `GET /api/version` returned that build. There are
+currently 96 PiCode-owned tmux sessions after the restarts; no session loss
+was observed.
 
 **Quality:** `make ci` passed after conflict resolution, including Go tests,
 457 frontend tests, package tests, docs/OpenAPI/llms parity, Vale, and the
@@ -93,12 +97,13 @@ visual-review: PASS.
 ## Recent activity
 
 - **2026-09-04 — merged and deployed compact supervision rows and CLI
-  presence (`9bfd1f01`, `0.1.0+9bfd1f0`).** Resolved the overlap with the
-  Inbox/TUI and compaction work, added ADR-0062 to the decision index, ran the
-  complete CI/docs gates, restarted the installed service, and verified health,
-  version, current tmux fleet, desktop/mobile UI, menu containment, reload,
-  and Escape close. visual-review: PASS (screenshots read; overlay audit ok;
-  no clipping, unreadable controls, double scroll or dead hover).
+  presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
+  `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
+  work, added ADR-0062 to the decision index, ran the complete CI/docs gates,
+  restarted the installed service, and verified health, version, current tmux
+  fleet, desktop/mobile UI, menu containment, reload, and Escape close.
+  visual-review: PASS (screenshots read; overlay audit ok; no clipping,
+  unreadable controls, double scroll or dead hover).
 - **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
   workspace list now advertises favicon availability and generated screenshot/
   tutorial inputs use named surface fingerprints. Full CI and docs parity
