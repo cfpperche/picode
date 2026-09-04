@@ -7,7 +7,7 @@
 ## Start
 
 - [What is PiCode](https://cfpperche.github.io/picode/): Control your Pi coding agents from the browser — create them, watch them work, steer them when they drift. You stay in command from the moment of creation.
-- [Getting started](https://cfpperche.github.io/picode/guide/getting-started): Requires [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), tmux 3.5+.
+- [Getting started](https://cfpperche.github.io/picode/guide/getting-started): Build and install PiCode on Linux or WSL, then create your first agent.
 
 ## Run it somewhere
 

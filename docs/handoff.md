@@ -34,6 +34,10 @@ binaries match). Local product commits remain unpublished by owner choice.
   status. Public
   docs use VitePress/OpenAPI/Vale. Architecture and remaining track status live
   in their ADRs rather than this handoff.
+- The root README now leads with a generated product view, shipped capabilities,
+  Pi ownership boundaries and a verified first-agent path. Source setup matches
+  `go.mod` and hosted CI (Go 1.26, Node.js 22); the public getting-started page
+  and generated `llms.txt` carry the same requirements.
 - Browser tool previews (ADR-0057) render generic `details.preview` frames; a
   package-side emitter and dedicated Browser surface remain open.
 
@@ -164,13 +168,13 @@ Integration evidence:
 
 ## Recent activity
 
-- **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**
-  Fast-forwarded `feat/fix-systemd-stop` onto local `main`. First `make deploy`
-  still SIGKILLed at 30s because the *outgoing* daemon re-exec'd the new
-  binary. The next restart of that new process: SIGTERM at 11:07:14 →
-  `shutting down` → `Stopped` at 11:07:19, no `newer on disk — reloading`,
-  no `stop-sigterm`, no SIGKILL. All 57 tmux sessions unchanged. Health 200,
-  installed binary matches `bin/picode`. Worktree removed.
+- **2026-09-04 — root README refactored around the reader's journey.** Product
+  value and proof now lead into shipped capabilities, native Pi boundaries,
+  current setup, daily commands and a compact runtime diagram; the stale
+  milestone roadmap is gone. Public setup metadata and `llms.txt` were kept in
+  sync. Markdown render/local references, docs build/parity, Vale and full
+  `make ci` passed. visual-review: N/A (docs-only; generated screenshot read,
+  no app pixels changed).
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

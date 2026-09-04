@@ -1,6 +1,13 @@
+---
+description: Build and install PiCode on Linux or WSL, then create your first agent.
+---
+
 # Getting started
 
-Requires [Go 1.22+](https://go.dev), [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), tmux 3.5+.
+Building from source requires [Go 1.26+](https://go.dev),
+[Node.js 22](https://nodejs.org) (the version used by CI),
+[Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), and
+tmux 3.5+. The service install uses Linux or WSL with systemd user services.
 
 ```bash
 git clone https://github.com/cfpperche/picode.git
