@@ -22,7 +22,8 @@ export function pathScope(rawPath) {
     path.startsWith("styles/") ||
     path === ".vale.ini" ||
     /^scripts\/docs-[^/]+\.mjs$/.test(path) ||
-    path === "scripts/lib/uitree.mjs"
+    path === "scripts/lib/uitree.mjs" ||
+    path === "scripts/lib/docs-surfaces.mjs"
   ) {
     return "docs";
   }

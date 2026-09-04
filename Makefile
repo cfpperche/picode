@@ -61,7 +61,7 @@ fixture: ## Run the docs fixture daemon (synthetic seeded UI, 127.0.0.1:18740)
 # Parity principle (docs/benchmarks/2026-09-03-docs-harness.md): the site's
 # images are generated from the current UI, never hand-placed. UI change ⇒
 # re-run docs-shots, or docs-check fails.
-docs-shots: web ## Capture the current UI into www/public/img (needs agent-browser on PATH)
+docs-shots: web ## Capture the current UI into www/img (needs agent-browser on PATH)
 	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
 	fuser -k 18740/tcp 2>/dev/null || true
 	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
@@ -96,7 +96,7 @@ docs-videos: ## Capture stills + render the three docs tutorial videos into www/
 	node scripts/docs-video-manifest.mjs
 docs-videos-check: ## Fast integrity check for committed video inputs and MP4s (no capture/render)
 	node scripts/docs-video-manifest.mjs --check
-docs-videos-fresh: ## Strict manual audit: report videos captured before the current UI tree
+docs-videos-fresh: ## Strict manual audit: report tutorials whose captured UI surfaces changed
 	node scripts/docs-video-manifest.mjs --fresh
 docs-check: ## CI parity: current images/generated docs plus video integrity (no capture/render)
 	node scripts/docs-check.mjs

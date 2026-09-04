@@ -44,7 +44,7 @@ by hand today; the harness should make the *right* artifact the cheap artifact.
 | **D2 / Mermaid** | Diagrams-as-code with themed CLI render (D2: dark/light themes, elk layout); Mermaid renders in VitePress natively via plugin | Architecture/flow diagrams as committed source with a render target; dark-theme matches site | Hand-drawn PNGs, Figma exports that drift |
 | **Remotion** | React-in-video, programmatic rendering | Nothing by default — license: free only ≤3 people, Company License above; a harness distributing rendered videos to users is exactly its paid tier | Adopting it silently; if the owner explicitly chooses it, fine (user-invoked, their license) |
 | **HyperFrames** (installed here, CLI 0.8.27) | HTML→video composition with seek-safe timeline, workflows for product tours/explainers, TTS voiceover + captions (media-use skill), registry blocks | Tutorial videos authored as committed HTML compositions, rendered by the user/agent on demand to `www/public/video/` | Bundling the renderer in the binary (ADR-0003: user-installed tools, detect on PATH) |
-| **Playwright / agent-browser** (installed here) | Scriptable browser: screenshots, recordings | `make docs-shots`: drives a **fixture daemon** into framed, themed PNGs under `www/public/img/` — never reuses `docs/screenshots/` (agent work evidence, not user docs) | Manual screenshots that rot |
+| **Playwright / agent-browser** (installed here) | Scriptable browser: screenshots, recordings | `make docs-shots`: drives a **fixture daemon** into framed, themed PNGs under `www/img/` — never reuses `docs/screenshots/` (agent work evidence, not user docs) | Manual screenshots that rot |
 | **VitePress default theme** | Hero + features home layout, custom theme entry, CSS variables, local search, dark mode | Brand the site with the app's own tokens (`web/src/styles/app.css`), hero page, section landing pages | A bespoke theme engine (bar #1: one generator, not ours) |
 
 ## The harness, concretely
@@ -54,29 +54,31 @@ videos and animations are generated from the codebase, never hand-placed and
 never reused from `docs/screenshots/` (that directory is agent work evidence,
 not user docs). Current screenshot parity stays blocking. Tutorial video
 freshness is temporarily an explicit maintenance audit: CI proves the
-committed compositions, referenced stills and MP4s agree, but unrelated UI
-tree changes no longer force three renders through the delivery path. The
-harness owns its capture pipeline end to end:
+committed compositions, referenced stills and MP4s agree, but it never captures
+or renders them. Screenshots and video stills declare named surface profiles.
+Each fingerprint combines the shared shell, styles and fixture with selected
+API/store producers and recursively imported screen code; tests and unrelated
+handlers are excluded. The harness owns its capture pipeline end to end:
 
 ```
-make docs-shots      # deterministic capture → www/public/img/
+make docs-shots      # deterministic capture → www/img/
   # 1. boots a fixture daemon: seeded store (synthetic agent names, fixed
   #    states, fixed spend numbers), known workspace, dark theme, pinned
   #    viewport, fonts pinned by the runner
   # 2. drives agent-browser/Playwright over a named surface list
   #    (surface name → route + action script), settles animations,
   #    captures framed PNGs
-  # 3. writes www/public/img/manifest.json: git SHA, per-surface source
-  #    inputs (routes + components hashed), asset hashes, capture stamp
-make docs-check      # parity gate (in make ci): recaptures headless and
-  #    byte/pixel-compares against the committed set; drift = FAIL with
-  #    "run make docs-shots". A UI change without regenerated images is
-  #    exactly what this catches.
+  # 3. writes www/img/manifest.json: git SHA, named profile + input hash,
+  #    asset hash and capture stamp for every surface
+make docs-check      # parity gate (in make ci): compare every profile's
+  #    current input hash and every committed asset hash. A visual input
+  #    change without `make docs-shots` fails; test-only and unrelated
+  #    handler changes do not trigger a capture.
 make docs-videos-check  # fast CI floor: compositions, referenced stills,
   #    render copies and shipped MP4s must match their committed hashes;
   #    neither agent-browser nor HyperFrames runs.
-make docs-videos-fresh  # strict manual audit: additionally compare the UI
-  #    tree hash captured at render time (refresh: make docs-videos).
+make docs-videos-fresh  # strict manual audit: compare each tutorial's mapped
+  #    surface profiles and name only those that drifted.
 ```
 
 Determinism notes: pixel-perfect cross-OS rendering is not a goal — the
@@ -89,14 +91,14 @@ New files (all in-repo, make-driven, zero new runtimes):
 ```
 scripts/
   docs-fixture.go     # fixture daemon: seeded store (synthetic names/states), fixed workspace
-  docs-shots.mjs      # deterministic capture: named surfaces → framed PNGs → www/public/img/ + manifest.json
+  docs-shots.mjs      # deterministic capture: named surfaces → framed PNGs → www/img/ + manifest.json
   gen-openapi.go      # cmd: walks the mux registrations → www/public/openapi.json (+ coverage report)
   docs-llms.mjs       # builds llms.txt from www/ markdown (agent-ready index)
   docs-coverage.sh    # routes vs /api page, slash commands vs commands.md — report, not gate (v1)
 www/
   .vitepress/theme/   # custom theme: app tokens, dark-first, section landing pages, home hero
   guide/api.md        # Scalar embed of openapi.json
-  public/img/         # committed screenshots + rendered diagrams + manifest.json (parity source of truth)
+  img/                # committed screenshots + manifest.json (parity source of truth)
   public/video/       # rendered tutorials (committed MP4s, rendered on demand)
   llms.txt            # generated agent index
 .vale.ini             # house prose style (English, short, jargon needs a plain-word line)
@@ -119,11 +121,12 @@ Make targets: `make docs-shots`, `make docs-api` (CI fails if `openapi.json` is 
 3. **API reference + llms.txt**: route-walking `openapi.json` generator + Scalar page; `llms.txt`;
    `make docs-api` staleness gate in CI.
 4. **Prose gate**: `.vale.ini` + `make docs-lint` in `make ci`; fix findings as they surface.
-5. **Tutorial videos**: 3 HyperFrames compositions (getting started, pairing/devices, automations),
+5. **Tutorial videos**: 3 HyperFrames compositions (create an agent, automations, mobile),
    storyboard committed next to the composition, rendered to `www/public/video/`, embedded in
    the matching guides; compositions declare the surfaces they use. CI checks their committed
-   input/output integrity, while `make docs-videos-fresh` flags global UI drift on demand until
-   an incremental freshness design replaces that coarse signal.
+   input/output integrity, while `make docs-videos-fresh` compares the named surface profiles on
+   demand. Selective capture/render, cache boundaries and a manual or scheduled trigger remain
+   the next maintenance optimization; none belongs on the delivery critical path.
 6. **(later, owner's call) agent maintenance loop**: an Automations template that runs
    docs-lint + coverage + staleness on a schedule and files inbox items with diffs — the OpenWiki
    pattern applied to public docs, humans still merge.

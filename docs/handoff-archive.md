@@ -3,6 +3,38 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after docs surface fingerprints)
+
+- **2026-09-04 — tutorial video rendering left the delivery critical path.**
+  Default docs CI now checks composition, referenced-still, render and shipped
+  MP4 integrity without treating every global UI-tree change as a mandatory
+  three-video refresh. The strict comparison moved to
+  `make docs-videos-fresh`; capture/render remains explicit in
+  `make docs-videos`. A four-row decision table covers exact parity, unrelated
+  UI drift, changed rendered inputs and missing/tampered MP4s. Current app
+  screenshots were regenerated and read; the interrupted video render was not
+  retained. The first hosted run also exposed an inherited trailing blank line
+  in a frontend test; the whitespace gate is corrected. Because the current
+  screenshot fingerprint includes test files, that no-pixel change forced a
+  second screenshot capture and confirms the need for per-surface inputs.
+  Full `make ci` passed. visual-review: PASS (generated desktop and mobile docs
+  screenshots read; no layout defect, overlay change or new state).
+- **2026-09-04 — root README refactored around the reader's journey.** Product
+  value and proof now lead into shipped capabilities, native Pi boundaries,
+  current setup, daily commands and a compact runtime diagram; the stale
+  milestone roadmap is gone. Public setup metadata and `llms.txt` were kept in
+  sync. Markdown render/local references, docs build/parity, Vale and full
+  `make ci` passed. visual-review: N/A (docs-only; generated screenshot read,
+  no app pixels changed).
+- **2026-09-04 — ADR-0060: replies land in the running TUI (`a9c814a`,
+  `0.1.0+a9c814a`).** The ADR-0059 burst machinery (coordinator, holder swap,
+  transient RPC writer, cancel route, burst card, feed events) is deleted;
+  a receiver extension inside every spawned TUI submits Inbox replies through
+  `pi.sendUserMessage`, with tmux bracketed paste as the legacy fallback and
+  the session-JSONL row as the only delivery proof. Boot reconciliation
+  replaced holder/lease startup. `make ci` green; deploy stopped cleanly with
+  no tmux loss. Worktree and branch removed after merge.
+
 ## Recent activity (archived after README refactor)
 
 - **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**

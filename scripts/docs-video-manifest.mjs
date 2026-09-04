@@ -3,16 +3,21 @@
 // and write the parity manifest.
 //
 // The manifest records, per video: sha256 of the composition source, every
-// still it uses, the rendered MP4, and the UI tree hash captured at render
-// time. `--check` is the fast CI floor: committed inputs and both MP4 copies
-// must match, but unrelated UI-tree drift does not block delivery. `--fresh`
-// adds that strict tree comparison for an explicit maintenance audit.
+// still it uses, the rendered MP4, and the input fingerprint for that still's
+// named UI surface. `--check` is the fast CI floor: committed inputs and both
+// MP4 copies must match. `--fresh` additionally reports only the tutorials
+// whose actual UI surfaces drifted since capture.
 
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { uiTreeHash } from "./lib/uitree.mjs";
+import {
+  FINGERPRINT_VERSION,
+  TUTORIAL_VIDEOS,
+  VIDEO_STILL_SURFACES,
+  surfaceFingerprint,
+} from "./lib/docs-surfaces.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const root = join(dirname(scriptPath), "..");
@@ -21,39 +26,23 @@ const requireFresh = process.argv.includes("--fresh");
 
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 
-const VIDEOS = [
-  {
-    id: "create-agent",
-    file: "index.html",
-    mp4: "create-agent.mp4",
-    stills: ["v1-1b-agents-tab", "v1-2-form", "v1-3-running"],
-  },
-  {
-    id: "automate-it",
-    file: "compositions/automate-it.html",
-    mp4: "automate-it.mp4",
-    stills: ["v2-1-list", "v2-2-detail", "v2-3-inbox"],
-  },
-  {
-    id: "take-it-anywhere",
-    file: "compositions/take-it-anywhere.html",
-    mp4: "take-it-anywhere.mp4",
-    stills: ["v3-1-fleet", "v3-2-agent", "v3-3-inbox"],
-  },
-];
-
 export function buildManifest(rootDir = root) {
   const project = join(rootDir, "docs-videos");
   const stillsDir = join(project, "assets", "stills");
-  const tree = uiTreeHash(rootDir);
   const videos = {};
-  for (const v of VIDEOS) {
+  for (const v of TUTORIAL_VIDEOS) {
     const mp4Path = join(project, "renders", v.mp4);
     const compPath = join(project, v.file);
     const stills = {};
     for (const st of v.stills) {
       const p = join(stillsDir, `${st}.png`);
-      stills[st] = existsSync(p) ? sha(p) : "MISSING";
+      const surface = VIDEO_STILL_SURFACES[st];
+      if (!surface) throw new Error(`${v.id}: still ${st} has no UI surface profile`);
+      stills[st] = {
+        sha256: existsSync(p) ? sha(p) : "MISSING",
+        surface,
+        inputHash: surfaceFingerprint(rootDir, surface, { pipeline: "video" }),
+      };
     }
     videos[v.id] = {
       file: v.mp4,
@@ -63,9 +52,7 @@ export function buildManifest(rootDir = root) {
       mp4: existsSync(mp4Path) ? sha(mp4Path) : "MISSING",
     };
   }
-  // uiTreeHash covers web/src + server + fixture + pipeline; the videos'
-  // own inputs live in the per-video hashes above.
-  return { uiTreeHash: tree, videos };
+  return { fingerprintVersion: FINGERPRINT_VERSION, videos };
 }
 
 export function manifestFailures(
@@ -74,8 +61,8 @@ export function manifestFailures(
   { strict = false, publishedHash = () => null } = {},
 ) {
   const fails = [];
-  if (strict && committed.uiTreeHash !== fresh.uiTreeHash) {
-    fails.push("video manifest is stale (UI tree changed) — run `make docs-videos`");
+  if (committed.fingerprintVersion !== fresh.fingerprintVersion) {
+    fails.push("video fingerprint schema changed — run `make docs-videos`");
   }
   for (const [id, v] of Object.entries(fresh.videos)) {
     const c = committed.videos?.[id];
@@ -86,10 +73,23 @@ export function manifestFailures(
     if (c.compositionHash !== v.compositionHash) {
       fails.push(`${id}: composition changed since render — run \`make docs-videos\``);
     }
-    for (const [st, h] of Object.entries(v.stills)) {
-      if (c.stills?.[st] !== h) {
+    const staleSurfaces = new Set();
+    for (const [st, captured] of Object.entries(v.stills)) {
+      const prior = c.stills?.[st];
+      if (captured.sha256 === "MISSING") {
+        fails.push(`${id}: still ${st} missing — run \`make docs-videos\``);
+      } else if (!prior || prior.sha256 !== captured.sha256) {
         fails.push(`${id}: still ${st} changed since render — run \`make docs-videos\``);
       }
+      if (
+        strict &&
+        (!prior || prior.surface !== captured.surface || prior.inputHash !== captured.inputHash)
+      ) {
+        staleSurfaces.add(captured.surface);
+      }
+    }
+    for (const surface of staleSurfaces) {
+      fails.push(`${id}: ${surface} inputs changed since capture — run \`make docs-videos\``);
     }
     const shipped = publishedHash(v.file);
     if (!shipped) {
@@ -107,7 +107,7 @@ function main() {
   const fresh = buildManifest();
   if (!checkOnly) {
     mkdirSync(outDir, { recursive: true });
-    for (const v of VIDEOS) {
+    for (const v of TUTORIAL_VIDEOS) {
       copyFileSync(join(project, "renders", v.mp4), join(outDir, v.mp4));
     }
     writeFileSync(join(outDir, "manifest.json"), JSON.stringify(fresh, null, 2) + "\n");
@@ -136,7 +136,7 @@ function main() {
   }
   console.log(
     requireFresh
-      ? "videos-fresh ok: tutorial videos match the current UI tree"
+      ? "videos-fresh ok: tutorial videos match their current UI surfaces"
       : "videos-check ok: tutorial video inputs and shipped files match the manifest",
   );
 }

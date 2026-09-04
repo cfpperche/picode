@@ -19,8 +19,9 @@ to the `[Unreleased]` section. The repository's official language is English
   phone. Parity-gated like the screenshots: `scripts/docs-video-
   stills.mjs` captures every UI image live from the seeded fixture,
   HyperFrames renders `docs-videos/compositions/*` into MP4s, and
-  `docs-check` verifies composition/still hashes against the committed
-  manifest — a UI change without `make docs-videos` fails CI.
+  `docs-check` verifies composition/still/MP4 integrity against the committed
+  manifest. The explicit `make docs-videos-fresh` maintenance audit maps
+  changed UI surfaces back to the affected tutorials.
 - **Prose gate (Vale).** The public docs are now linted for typos and
   repeated words (`make vale`, part of `make ci` and the CI workflow):
   in-repo Vale style + committed hunspell dictionary (no network
@@ -214,13 +215,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Generated docs now fingerprint each captured surface independently.**
+  Screenshot CI still blocks when a visual input changes, but tests and
+  unrelated server handlers no longer force a recapture. Tutorial stills map
+  to the same profiles, so `make docs-videos-fresh` names only the affected
+  tutorial and surface; capture and HyperFrames rendering remain outside CI.
 - **Tutorial video rendering is off the delivery critical path.** The public
   docs gate still rejects missing or altered MP4s and changes to a video's
   composition or referenced still, but an unrelated UI-tree change no longer
   forces all three HyperFrames tutorials to be captured and rendered before
-  CI can pass. `make docs-videos-fresh` keeps the strict tree-wide audit as an
-  explicit maintenance command; `make docs-videos` remains the on-demand
-  refresh path.
+  CI can pass. `make docs-videos-fresh` is the strict per-surface maintenance
+  command; `make docs-videos` remains the on-demand refresh path.
 - **The repository README now starts with the product, proof and a current
   path to a first agent.** Shipped capabilities, Pi ownership boundaries,
   source installation, everyday commands and the runtime shape are separated

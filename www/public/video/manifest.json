@@ -1,14 +1,26 @@
 {
-  "uiTreeHash": "31a43308d7b0ff99603e97f9b96c85e1343e1ddfbea1b408dd15c91b9b51d5c5",
+  "fingerprintVersion": 1,
   "videos": {
     "create-agent": {
       "file": "create-agent.mp4",
       "composition": "index.html",
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
-        "v1-1b-agents-tab": "a12a7c4aaa7f1ef9bc7c6503835bce44b104f8da197326971a1da04d5608dc90",
-        "v1-2-form": "a905a0394d0bb48ddde839e38864bd2305bb19adc03ca82db67f988a70b0ed2e",
-        "v1-3-running": "d46b138a61f01aec5e3acee2ed33b7b03b33ceb99a19579848e9f52f9862e8c1"
+        "v1-1b-agents-tab": {
+          "sha256": "a12a7c4aaa7f1ef9bc7c6503835bce44b104f8da197326971a1da04d5608dc90",
+          "surface": "desktop-agents",
+          "inputHash": "6f028819655eeae1d7192ec2727041e5feaaed2b9f75e1658b56d931aa2fdec0"
+        },
+        "v1-2-form": {
+          "sha256": "a905a0394d0bb48ddde839e38864bd2305bb19adc03ca82db67f988a70b0ed2e",
+          "surface": "desktop-create-agent",
+          "inputHash": "01abfb025f833c5ab991ef9d67a753a5c0fc52905045fc25292bf17bf8e63c56"
+        },
+        "v1-3-running": {
+          "sha256": "d46b138a61f01aec5e3acee2ed33b7b03b33ceb99a19579848e9f52f9862e8c1",
+          "surface": "desktop-agent",
+          "inputHash": "fb7034b470debb7a8990af58756e8f453869245abb25122d3106e7320080c235"
+        }
       },
       "mp4": "e23e8d586bc57aeeab6bb6b02835fbd979b4afe13bbcc9744fead94b0ca46552"
     },
@@ -17,9 +29,21 @@
       "composition": "compositions/automate-it.html",
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
-        "v2-1-list": "133127190c05de6d18962ab337109b49e1659ec82e96a2c3c2e4adde4e4d4b6e",
-        "v2-2-detail": "4a223b3ac08e90754a2d7b25dadcd6fd227171228baac891f8f977795306254e",
-        "v2-3-inbox": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6"
+        "v2-1-list": {
+          "sha256": "133127190c05de6d18962ab337109b49e1659ec82e96a2c3c2e4adde4e4d4b6e",
+          "surface": "desktop-automations",
+          "inputHash": "3884a21ce5f6605964b552fb847b8dc04da084b5e8284a668c78f061248369b1"
+        },
+        "v2-2-detail": {
+          "sha256": "4a223b3ac08e90754a2d7b25dadcd6fd227171228baac891f8f977795306254e",
+          "surface": "desktop-automations",
+          "inputHash": "3884a21ce5f6605964b552fb847b8dc04da084b5e8284a668c78f061248369b1"
+        },
+        "v2-3-inbox": {
+          "sha256": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6",
+          "surface": "desktop-inbox",
+          "inputHash": "c876d7dbb74dc8f356cb4dcdbec1b3146e5badf5d88606b0ad6c9c213d31b12d"
+        }
       },
       "mp4": "984b8c4fa2fd3721f59fd235645e1e3a7cbb7d588049f79fc646822914261a26"
     },
@@ -28,9 +52,21 @@
       "composition": "compositions/take-it-anywhere.html",
       "compositionHash": "da7f53361180409907e9f01afd1aa952775c453d9d53abdf7250c9c4a28d83a0",
       "stills": {
-        "v3-1-fleet": "b2d7b5a5f0300452bdff7c16cb310ad31c24c46b83916fa3cf80648e5c36be49",
-        "v3-2-agent": "15a29ebdc2cdb56a5c7e86c036d99ceb72e065aba5cd13c3250494240f76044d",
-        "v3-3-inbox": "38ea77ba8e883bed47803600936dfdba2ec7824ded76ac16d0fd2ede3deaebe0"
+        "v3-1-fleet": {
+          "sha256": "b2d7b5a5f0300452bdff7c16cb310ad31c24c46b83916fa3cf80648e5c36be49",
+          "surface": "mobile-work",
+          "inputHash": "dd1f16c515ed20437a1a7718610828d2183e2812e011f2b6bf44fe7b86d84a76"
+        },
+        "v3-2-agent": {
+          "sha256": "15a29ebdc2cdb56a5c7e86c036d99ceb72e065aba5cd13c3250494240f76044d",
+          "surface": "mobile-agent",
+          "inputHash": "e2ecd3254330e718f601d4f0dd471d485f42ae5d43767f356a83d22f83a51b0b"
+        },
+        "v3-3-inbox": {
+          "sha256": "38ea77ba8e883bed47803600936dfdba2ec7824ded76ac16d0fd2ede3deaebe0",
+          "surface": "mobile-inbox",
+          "inputHash": "bedbf5854d6320991c971ad7fd2a74ed22f05fcd145356c50775e941800e87c6"
+        }
       },
       "mp4": "1a0a5d40966b51cc66984472c95d313e3afaf51e4c5bfc450368d250de132391"
     }

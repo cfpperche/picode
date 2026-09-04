@@ -79,6 +79,7 @@ test("CI path decision table", async (t) => {
 test("path scopes are explicit and fail safe", () => {
   assert.equal(pathScope("scripts/docs-check.mjs"), "docs");
   assert.equal(pathScope("scripts/lib/uitree.mjs"), "docs");
+  assert.equal(pathScope("scripts/lib/docs-surfaces.mjs"), "docs");
   assert.equal(pathScope("scripts/ci-scope.mjs"), "full");
   assert.equal(pathScope("LICENSE"), "full");
 });
