@@ -322,6 +322,21 @@ func (m *Manager) PaneCommand(ctx context.Context, name string) (string, error) 
 	return command, nil
 }
 
+// PanePID returns the PID of the first process in the active pane. It is a
+// reconciliation hint only; a runtime wrapper supplies the stronger process
+// start token used to reject PID reuse.
+func (m *Manager) PanePID(ctx context.Context, name string) (int, error) {
+	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_pid}")
+	if err != nil {
+		return 0, err
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil || pid <= 0 {
+		return 0, fmt.Errorf("tmux pane pid invalid: %q", strings.TrimSpace(out))
+	}
+	return pid, nil
+}
+
 // PaneSessionID returns tmux's immutable session identity (for example $12).
 // Unlike the name, it proves a pane respawn did not kill and recreate the
 // terminal container.

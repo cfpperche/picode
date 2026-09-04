@@ -407,7 +407,7 @@ export default function App() {
 
   const fetchRoleState = useCallback(async () => {
     const id = selectedRef.current;
-    if (!id) { setRoleState(null); return; }
+    if (!id || isTermTab(id)) { setRoleState(null); return; }
     try {
       const d = await api("/api/agents/" + id + "/role-state");
       if (selectedRef.current === id) setRoleState((d && d.state) || null);
@@ -415,12 +415,12 @@ export default function App() {
   }, []);
   useEffect(() => {
     setRoleState(null);
-    if (selectedId) fetchRoleState();
+    if (selectedId && !isTermTab(selectedId)) fetchRoleState();
   }, [selectedId, fetchRoleState]);
 
   useEffect(() => { loadSessions(); }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
-    if (!selectedId) { setSlashExtra([]); return; }
+    if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
       .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));

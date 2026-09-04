@@ -4,6 +4,9 @@ package server
 // user's ~/.claude / ~/.codex / ~/.grok / ~/.pi. PiCode terminals prepend
 // <dataDir>/bin to PATH at tmux session creation; wrappers there exec
 // the real binary with launch-time injection (args, extension, or overlay).
+// Lifecycle-aware wrappers remain a small shell parent so they can announce
+// the process's end after the real CLI exits; maintenance bypasses still exec
+// directly to preserve the CLI's dispatch semantics.
 // Outside those sessions the wrappers are not on PATH.
 
 import (
@@ -124,6 +127,36 @@ if [ -z "$real" ]; then
 fi
 `
 
+const wrapperLifecycleTmpl = `# Runtime presence is separate from hook activity (ADR-0062).
+picode_tui=1
+case "$name:${1-}:${2-}" in
+  codex:exec:*|codex:app-server:*|codex:mcp-server:*) picode_tui=0 ;;
+  pi:--mode:rpc|pi:--mode:json) picode_tui=0 ;;
+esac
+for picode_arg in "$@"; do
+  case "$picode_arg" in
+    -p|--print|--json|--headless|--non-interactive|--version|-V|--help|-h) picode_tui=0 ;;
+  esac
+done
+picode_run_id="${PICODE_TERM_ID}-$$-$(date +%%s%%N 2>/dev/null || date +%%s)"
+picode_hook=%q
+if [ "$picode_tui" = 1 ] && [ -n "$PICODE_TERM_ID" ]; then
+  export PICODE_TUI_RUN_ID="$picode_run_id"
+  "$picode_hook" runtime-start "$name" "$picode_run_id" "$$" >/dev/null 2>&1 || true
+fi
+`
+
+func wrapperLifecycle(hook string) string {
+	return fmt.Sprintf(wrapperLifecycleTmpl, hook)
+}
+
+const wrapperLifecycleEnd = `rc=$?
+if [ "$picode_tui" = 1 ] && [ -n "${PICODE_TUI_RUN_ID-}" ]; then
+  "$picode_hook" runtime-end "$name" "$PICODE_TUI_RUN_ID" "$$" >/dev/null 2>&1 || true
+fi
+exit $rc
+`
+
 func writeExecutable(path, body string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -161,7 +194,9 @@ func writeClaudeIntercept(dataDir, hook string) error {
 	}
 	body := "#!/bin/sh\n# PiCode intercept — Claude Code. Session PATH only.\nname=claude\n" +
 		wrapperFindReal +
-		fmt.Sprintf("exec \"$real\" --settings %q \"$@\"\n", claudeSettingsFile(dataDir))
+		wrapperLifecycle(hook) +
+		fmt.Sprintf("\"$real\" --settings %q \"$@\"\n", claudeSettingsFile(dataDir)) +
+		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "claude"), body)
 }
 
@@ -239,10 +274,13 @@ func writeCodexIntercept(dataDir, hook string) error {
 	// these exact commands while repository hooks keep their own trust rules.
 	body := "#!/bin/sh\n# PiCode intercept — Codex. Session PATH only.\nname=codex\n" +
 		wrapperFindReal +
+		wrapperLifecycle(hook) +
 		"if \"$real\" --help 2>&1 | grep -q -- '--dangerously-bypass-hook-trust'; then\n" +
-		fmt.Sprintf("  exec \"$real\"%s \"$@\"\n", hookArgs.String()) +
+		fmt.Sprintf("  \"$real\"%s \"$@\"\n", hookArgs.String()) +
+		wrapperLifecycleEnd +
 		"fi\n" +
-		fmt.Sprintf("exec \"$real\" -c %q \"$@\"\n", overrides[len(overrides)-1])
+		fmt.Sprintf("\"$real\" -c %q \"$@\"\n", overrides[len(overrides)-1]) +
+		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
 }
 
@@ -319,7 +357,9 @@ func writePiIntercept(dataDir, hook string) error {
 		"case \"${1-}\" in\n" +
 		"  auth|config|install|list|remove|uninstall|update|--help|-h|--version|-v) exec \"$real\" \"$@\" ;;\n" +
 		"esac\n" +
-		fmt.Sprintf("exec \"$real\" -e %q \"$@\"\n", extension)
+		wrapperLifecycle(hook) +
+		fmt.Sprintf("\"$real\" -e %q \"$@\"\n", extension) +
+		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
 }
 
@@ -368,7 +408,9 @@ if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/
 		wrapperFindReal +
 		fmt.Sprintf("export GROK_HOME=%q\n", home) +
 		refresh +
-		"exec \"$real\" \"$@\"\n"
+		wrapperLifecycle(hook) +
+		"\"$real\" \"$@\"\n" +
+		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "grok"), body)
 }
 

@@ -58,6 +58,7 @@ type Deps struct {
 	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
 	Replies      *TuiReplies    // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates    // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
+	TermRuntimes *TermRuntimes  // authoritative CLI presence (ADR-0062); lazy-init in New
 	Auth         *auth.Service  // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
@@ -66,10 +67,14 @@ type Deps struct {
 func New(addr string, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 
-	// Coding-CLI terminal state (ADR-0056 tier 1): tests and minimal embeddings
-	// construct Deps without a registry — the endpoint still has to work.
+	// Coding-CLI state and presence (ADRs 0056/0062): tests and minimal
+	// embeddings construct Deps without registries — both endpoints still
+	// have to work.
 	if deps.TermStates == nil {
 		deps.TermStates = NewTermStates()
+	}
+	if deps.TermRuntimes == nil {
+		deps.TermRuntimes = NewTermRuntimes()
 	}
 	// Refresh the local reporter so a deploy picks up curl flags without
 	// requiring the user to toggle intercept off/on.

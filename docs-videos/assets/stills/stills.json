@@ -1,35 +1,35 @@
 {
-  "session": "video-stills-714021-v3-3-inbox",
+  "session": "video-stills-1275445-v3-3-inbox",
   "results": [
     {
       "name": "v1-1-dashboard",
       "ok": true,
-      "kb": 74
+      "kb": 76
     },
     {
       "name": "v1-1b-agents-tab",
       "ok": true,
-      "kb": 63
+      "kb": 66
     },
     {
       "name": "v1-2-form",
       "ok": true,
-      "kb": 73
+      "kb": 76
     },
     {
       "name": "v1-3-running",
       "ok": true,
-      "kb": 55
+      "kb": 58
     },
     {
       "name": "v2-1-list",
       "ok": true,
-      "kb": 49
+      "kb": 50
     },
     {
       "name": "v2-2-detail",
       "ok": true,
-      "kb": 58
+      "kb": 61
     },
     {
       "name": "v2-3-inbox",
@@ -39,7 +39,7 @@
     {
       "name": "v3-1-fleet",
       "ok": true,
-      "kb": 36
+      "kb": 38
     },
     {
       "name": "v3-2-agent",

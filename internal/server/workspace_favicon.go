@@ -109,6 +109,11 @@ var faviconMIME = map[string]string{
 	".svg": "image/svg+xml",
 }
 
+func workspaceHasFavicon(root string) bool {
+	_, ok := findWorkspaceFavicon(root)
+	return ok
+}
+
 // handleWorkspaceFavicon serves the project's favicon so the workspace card
 // can wear it (ADR-0027). Read-only, confined to the workspace folder.
 func handleWorkspaceFavicon(deps Deps) http.HandlerFunc {

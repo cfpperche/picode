@@ -15,6 +15,9 @@ func TestWorkspaceFavicon(t *testing.T) {
 	wk := addWorkspaceWithAgent(t, ts, "App", proj)
 	url := ts.URL + "/api/workspaces/" + wk.ID + "/favicon"
 
+	if workspaceHasFavicon(proj) {
+		t.Fatal("empty workspace should not advertise a favicon")
+	}
 	get := func() *http.Response { return do(t, ts.Client(), mustGet(t, url)) }
 
 	if res := get(); res.StatusCode != http.StatusNotFound {
@@ -27,6 +30,9 @@ func TestWorkspaceFavicon(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(proj, "public", "favicon.svg"), []byte("<svg/>"), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if !workspaceHasFavicon(proj) {
+		t.Fatal("workspace should advertise a usable favicon")
 	}
 	res := get()
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
@@ -128,6 +134,9 @@ func TestWorkspaceFaviconAppsWebMonorepo(t *testing.T) {
 	proj := t.TempDir()
 	wk := addWorkspaceWithAgent(t, ts, "Turbo", proj)
 	writeFavicon(t, proj, "apps/web/app/icon.svg", []byte("<svg id='web'/>"))
+	if !workspaceHasFavicon(proj) {
+		t.Fatal("list must advertise apps/web/app/icon.svg so the card requests it")
+	}
 	res := getFavicon(t, ts, wk.ID)
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
 		t.Fatalf("apps/web/app/icon.svg = %d %q", res.StatusCode, res.Header.Get("Content-Type"))

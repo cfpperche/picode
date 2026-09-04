@@ -94,6 +94,18 @@ to the `[Unreleased]` section. The repository's official language is English
   injection so their first-argument dispatch stays intact. `~/.pi` is untouched.
   The Codex preference note now correctly describes its full lifecycle hooks
   instead of the retired end-of-turn-only fallback.
+- **Compact supervision rows for agents and terminals.** Sidebar and mobile
+  rows now lead with identity and truthful state, keep path/branch as subdued
+  context, and place secondary actions behind a menu. Terminal status uses
+  separate presence and activity language: `Terminal open`, `<CLI> · Open`,
+  `<CLI> · Working`, `Needs you`, `<CLI> · Ready`, and `Stopped`.
+- **Authoritative terminal CLI presence (ADR-0062).** Claude Code, Codex,
+  Grok, and Pi wrappers now announce a run id and PID before launching and
+  close that lease on lifecycle end or failed launch. The server revalidates
+  leases, ignores stale run events, publishes ephemeral `terminal.runtime`
+  changes, and uses exact tmux command/PID data only as a presence fallback for
+  legacy sessions. No terminal pixels are scraped and no guest Agent is
+  created.
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on
@@ -117,7 +129,10 @@ to the `[Unreleased]` section. The repository's official language is English
   turborepo apps under `apps/<name>/app/`. A project whose mark lives at
   `apps/web/app/icon.svg` no longer shows a plain folder next to workspaces
   that ship `favicon.svg`.
-
+- **Sidebar error feedback no longer hides mobile controls.** Top-positioned
+  toasts move above the fixed bottom navigation on small screens, and the
+  workspace list advertises favicon availability so ordinary folders do not
+  generate an expected 404 request.
 - **`systemctl --user restart picode` no longer waits 30s for SIGKILL.**
   Deploy copies the new binary then signals the running daemon; the daemon
   used to notice the newer file during that SIGTERM and `exec` itself in the
