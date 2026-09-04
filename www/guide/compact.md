@@ -43,7 +43,7 @@ Early compact happens on its own.
 
 PiCode sets `PI_COMPACT_AGENT` on every agent. `/compact edit` then asks
 **Save to**: this agent, or the whole folder. A `pi` you start yourself
-in a terminal has no overlay unless you export that env.
+in a terminal has no overlay unless you export that environment variable.
 
 A config file is optional. `/compact edit` writes `.pi/compact.json` (or
 `.pi/compact/<agent>.json`).

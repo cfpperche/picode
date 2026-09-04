@@ -73,3 +73,5 @@ glm
 qwen
 groq
 zai
+subcommand
+summarizer
