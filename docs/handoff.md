@@ -69,20 +69,23 @@ What exists:
 
 ## In flight
 
-**`fix/ci-cross-platform` — hosted CI repair candidate complete locally;
-three-OS matrix pending.** Baseline run
+**`fix/ci-cross-platform` — second hosted matrix pending.** Baseline run
 [33817122907](https://github.com/cfpperche/picode/actions/runs/33817122907)
-exposed independent failures that earlier red steps had masked. The branch
+exposed independent failures that earlier red steps had masked. PR
+[#2](https://github.com/cfpperche/picode/pull/2)'s first run
+[33823541626](https://github.com/cfpperche/picode/actions/runs/33823541626)
+proved Ubuntu and macOS green, then exposed a Windows coverage error: CI was
+executing the Linux/WSL daemon suite as a native Windows server, a topology
+ADR-0020 does not ship. Windows now compiles every package and test with the
+race toolchain, then executes the native tray/browser-host boundary; live WSL
+checks require a registered distro rather than only `wsl.exe`. The branch also
 canonicalizes missing backup destinations and Git worktree identities through
 filesystem aliases; orders presence callbacks; removes races and scheduler
-assumptions from package-watch, automation and pane-cwd tests; normalizes the
-JS dialog-policy path separator; scopes Linux-only systemd and tmux integration
-rows to their supported platforms; starts a tmux server before catalog reads; and makes
-Ubuntu build checksum-pinned tmux 3.5a, PiCode's declared minimum, instead of
-apt's unsupported 3.4. Local `make ci` and `go test -race ./...` are green;
-Windows amd64 and macOS arm64 all-package compile preflights pass, and the two
-prior race cases pass 20×/100× stress runs. Acceptance is one green PR matrix
-on Ubuntu, macOS and Windows; do not call main green before that run finishes.
+assumptions from package-watch, automation and pane-cwd tests; scopes
+Linux-only integrations; and builds checksum-pinned tmux 3.5a on Ubuntu. Local
+`make ci`, `go test -race ./...`, cross-platform compile preflights, and the
+native Windows boundary tests all pass; prior race cases pass 20×/100× stress
+runs. Acceptance remains one green PR matrix on all three hosts.
 
 **`fix/checklist-staleness` — checklist row follows the current session
 (ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22

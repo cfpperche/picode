@@ -82,8 +82,22 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Test
+      # The daemon runs on Linux/macOS (inside WSL on Windows). Windows still
+      # compiles every package and test with the race toolchain, then executes
+      # the native tray/native-host boundary. Running the Linux daemon suite
+      # against Windows path and permission semantics tests an unsupported
+      # topology rather than the shipped Windows product (ADR-0020).
+      - name: Test daemon
+        if: matrix.os != 'windows-latest'
         run: go test -race ./...
+
+      - name: Compile Windows packages and tests
+        if: matrix.os == 'windows-latest'
+        run: go test -race -run '^$' ./...
+
+      - name: Test Windows host boundary
+        if: matrix.os == 'windows-latest'
+        run: go test -race ./cmd/picode ./cmd/picode-desktop ./internal/binwatch ./internal/browserhost ./internal/desktop ./internal/osopen ./internal/version
 
       - name: Build
         run: go build -tags embedui -o bin/picode ./cmd/picode

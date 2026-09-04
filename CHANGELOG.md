@@ -106,11 +106,13 @@ to the `[Unreleased]` section. The repository's official language is English
   `online` callback now completes outside the registry lock but before the
   heartbeat returns; a following expiry can no longer overtake a detached
   callback and publish `online` after `offline`.
-- **The CI matrix now tests the supported tmux floor and runner-independent
-  behavior.** Ubuntu builds checksum-pinned tmux 3.5a instead of testing with
-  its unsupported 3.4 package; filesystem-separator, absent-tmux/systemd,
-  asynchronous automation-result, package-watcher race, and pane-startup
-  assumptions no longer make Windows, macOS, or race runs fail spuriously.
+- **The CI matrix now tests the supported runtime on every host.** Ubuntu
+  builds checksum-pinned tmux 3.5a instead of its unsupported 3.4 package;
+  macOS runs the complete daemon suite; Windows compiles every package and
+  test with the race toolchain, then runs the native tray/host boundary rather
+  than unsupported Linux/WSL daemon scenarios. Filesystem-separator,
+  absent-tmux/systemd/WSL, asynchronous automation-result, package-watcher
+  race, and pane-startup assumptions no longer cause runner-only failures.
 - **Docs tutorial regeneration runs when requested.** The `docs-videos`
   Make target is now phony; the identically named source directory no longer
   makes `make docs-videos` incorrectly report that everything is up to date.

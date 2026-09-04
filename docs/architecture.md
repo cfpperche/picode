@@ -61,6 +61,14 @@ password is left **locked** — provisioning reaches root through `wsl -u root`
 and never needs sudo, so setting a password or granting passwordless sudo
 would be a security decision the installer has no standing to make.
 
+CI follows that runtime boundary. Linux and macOS execute the complete daemon
+suite. Windows compiles every package and test with race instrumentation, then
+executes the native `picode-desktop`/browser-host boundary; the daemon still
+runs inside WSL, so pretending to run its POSIX path, permission, tmux and Pi
+session scenarios directly on Windows would test an unsupported topology.
+Live WSL tests additionally require a registered distro: `wsl.exe` alone is
+not evidence that one exists on a hosted runner.
+
 Both binaries ship in one GitHub release, tag-triggered
 (`.github/workflows/release.yml`), with the version stamped through
 `-X internal/version.Version` — `Version` is a var for exactly that. Asset
