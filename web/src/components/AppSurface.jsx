@@ -12,6 +12,7 @@ import AppIcon from "./AppIcon.jsx";
 import { IconChevronLeft, IconCheck, IconClock, IconInbox, IconTrash } from "./Icons.jsx";
 import { subscribeFeed } from "../lib/feed.js";
 import { touches } from "../lib/feedReducers.js";
+import { createRefreshQueue } from "../lib/appRefreshQueue.js";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -50,6 +51,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState("");
+  const actionRef = useRef(false);
   const [query, setQuery] = useState("");
   const [listW, setListW] = useState(() => {
     const n = parseInt(localStorage.getItem(LIST_KEY) || "", 10);
@@ -111,10 +114,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   useEffect(() => {
     // Change feed (ADR-0048): the app's own entity changed → reload now,
     // even on a hidden tab (cheap, and the reveal then shows the truth).
-    return subscribeFeed((ev) => {
-      if (ev.type === "feed.reset" || ev.type === "feed.open" || touches(ev, [appId])) load(path);
+    const queue = createRefreshQueue(() => loadRef.current(pathRef.current));
+    const unsubscribe = subscribeFeed((ev) => {
+      if (ev.type === "feed.reset" || ev.type === "feed.open" || touches(ev, [appId])) queue.request();
     });
-  }, [load, path, appId]);
+    return () => { unsubscribe(); queue.stop(); };
+  }, [appId]);
   useEffect(() => {
     // Like the file tree: refresh when the page comes back, no polling. Apps on
     // hidden tabs sit this out — every open tab would re-ask. Their reveal is
@@ -155,15 +160,19 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   }
 
   async function fire(action, args) {
+    if (actionRef.current) return;
     if (action.confirm) {
       const ok = await askConfirm({ title: action.label, message: action.confirm, confirmLabel: action.label, danger: !!action.danger });
       if (!ok) return;
     }
+    if (actionRef.current) return;
+    actionRef.current = true;
+    setPending(action.label + " in progress…");
     try {
       const res = await api("/api/apps/" + encodeURIComponent(appId) + "/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action.id, path, args: { ...(action.args || {}), ...(args || {}) } }),
+        body: JSON.stringify({ action: action.id, path, args: { requestKey: crypto.randomUUID(), ...(action.args || {}), ...(args || {}) } }),
       });
       if (res && res.toast) toast(res.toast, "ok");
       // A goto directive outranks every in-app outcome: the action asks
@@ -185,9 +194,14 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         else setUnsupported(true);
       } else if (res && typeof res.path === "string" && res.path !== path) {
         setPath(res.path);
+      } else if (res && typeof res.path === "string") {
+        await load(res.path);
       }
     } catch (e) {
       toastError(e);
+    } finally {
+      actionRef.current = false;
+      setPending("");
     }
   }
 
@@ -200,7 +214,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     if (paneMode === "list" && onOpenItem && typeof p === "string" && p.startsWith("item/")) { onOpenItem(p); return; }
     setPath(p);
   };
-  const ctx = { onNavigate: navigate, onAction: fire, selected: path };
+  const ctx = { onNavigate: navigate, onAction: fire, selected: path, pending: !!pending };
   // The detail header repeats the selected row's kind lozenge so the two
   // panes agree — read off the list the app already sent, no new field.
   // A list-pane block isn't always a list block (e.g. a bulk-action row
@@ -223,6 +237,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   if (paneMode === "detail") {
     return (
       <section className="app-surface app-surface-detail" aria-label={title} hidden={!!hidden} ref={rootRef}>
+        <PendingNotice text={pending} />
         {unsupported || badVersion ? (
           <p className="ft-msg">This app needs a newer PiCode.</p>
         ) : error ? (
@@ -280,6 +295,8 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
           ) : null}
         </div>
       </header>
+
+      <PendingNotice text={pending} />
 
       {unsupported || badVersion ? (
         <p className="ft-msg">
@@ -365,6 +382,14 @@ function TabStrip({ tabs, path, onNavigate, name }) {
   );
 }
 
+function PendingNotice({ text }) {
+  const last = useRef("");
+  if (text) last.current = text;
+  return <div className={"app-operation-wrap" + (text ? " is-active" : "")} aria-hidden={!text}>
+    <div><p className="app-operation" role={text ? "status" : undefined}>{last.current}</p></div>
+  </div>;
+}
+
 function Skeleton() {
   return (
     <div className="app-body" aria-busy="true">
@@ -412,7 +437,7 @@ function BlockHead({ block, count, badge }) {
   return (
     <div className={heading ? "app-detail-head" : "app-sect"}>
       {block.title ? <span className={heading ? "app-detail-title" : "app-sect-title"}>{block.title}</span> : null}
-      {!heading && typeof count === "number" ? <span className="app-sect-count">{count}</span> : null}
+      {!heading && typeof count === "number" && count > 0 ? <span className="app-sect-count">{count}</span> : null}
       {block.meta.length || block.at || badge ? (
         <span className="app-meta">
           {badge && badge.badge ? (
@@ -426,14 +451,14 @@ function BlockHead({ block, count, badge }) {
   );
 }
 
-function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }) {
+function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge, pending }) {
   if (block.type === "detail") {
     return (
-      <div className="app-block">
+      <div className={"app-block" + (block.busy ? " app-block-busy" : "")} aria-busy={block.busy || undefined}>
         <BlockHead block={block} badge={badge} />
-        <div className="app-detail md">
+        {typeof block.text === "string" ? <pre className="app-output">{block.text || "No output yet."}</pre> : <div className="app-detail md">
           <Markdown remarkPlugins={[remarkGfm]}>{block.markdown}</Markdown>
-        </div>
+        </div>}
       </div>
     );
   }
@@ -441,9 +466,10 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }
     return (
       <div className="app-block">
         <BlockHead block={block} count={block.items.length} />
+        {block.items.length === 0 ? <p className="app-list-empty">{block.empty || "No items yet."}</p> : null}
         <ul className="app-list">
           {block.items.map((it) => (
-            <Row key={it.id} item={it} onNavigate={onNavigate} onAction={onAction} active={!!it.path && it.path === selected} />
+            <Row key={it.id} item={it} onNavigate={onNavigate} onAction={onAction} pending={pending} active={!!it.path && it.path === selected} />
           ))}
         </ul>
       </div>
@@ -453,7 +479,7 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }
     return (
       <div className="app-block">
         <BlockHead block={block} />
-        <AppForm key={(selected || "") + ":" + block.form.id} form={block.form} onAction={onAction} extraActions={extraActions} />
+        <AppForm key={(selected || "") + ":" + block.form.id} form={block.form} onAction={onAction} extraActions={extraActions} pending={pending} />
       </div>
     );
   }
@@ -463,7 +489,7 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }
       <BlockHead block={block} />
       <div className="app-actions">
         {block.actions.map((a) => (
-          <ActionButton key={a.id} action={a} onAction={onAction} />
+          <ActionButton key={a.id} action={a} onAction={onAction} pending={pending} />
         ))}
       </div>
     </div>
@@ -472,12 +498,13 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge }
 
 // Emphasis is the app's call (Action.primary), not a guess from position:
 // on an approval the decision deserves the fill, on a result nothing does.
-function ActionButton({ action, onAction }) {
+function ActionButton({ action, onAction, pending }) {
   return (
     <button
       type="button"
       className={"btn btn-sm" + (action.danger ? " btn-danger" : action.primary ? " btn-primary" : "")}
       onClick={() => onAction(action)}
+      disabled={pending}
     >
       {action.label}
     </button>
@@ -489,7 +516,7 @@ const ROW_ICONS = { check: IconCheck, clock: IconClock, trash: IconTrash };
 // One dense row: unread dot, title, relative time, then a meta strip.
 // Row actions stay hidden until hover or keyboard focus, so they cost no
 // width and never set the row's height.
-function Row({ item, onNavigate, onAction, active }) {
+function Row({ item, onNavigate, onAction, active, pending }) {
   const has = item.path && onNavigate;
   // Touch has no hover: a left swipe reveals the row's actions (Done,
   // Snooze, Delete), a tap anywhere else puts them away. The row follows
@@ -531,7 +558,7 @@ function Row({ item, onNavigate, onAction, active }) {
   };
   return (
     <li
-      className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "")}
+      className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "") + (item.busy ? " app-row-busy" : "")}
       style={item.actions.length ? { "--swipe-w": reveal + "px" } : undefined}
       onTouchStart={item.actions.length ? onTouchStart : undefined}
       onTouchMove={item.actions.length ? onTouchMove : undefined}
@@ -569,6 +596,7 @@ function Row({ item, onNavigate, onAction, active }) {
                 title={a.label}
                 aria-label={a.label}
                 onClick={() => onAction(a)}
+                disabled={pending}
               >
                 {Glyph ? <Glyph size={13} /> : a.label}
               </button>
@@ -580,7 +608,7 @@ function Row({ item, onNavigate, onAction, active }) {
   );
 }
 
-function AppForm({ form, onAction, extraActions }) {
+function AppForm({ form, onAction, extraActions, pending }) {
   const [values, setValues] = useState(() => {
     const v = {};
     for (const f of form.fields) v[f.name] = f.method === "confirm" ? "no" : (f.prefill || (f.method === "select" ? f.options[0] || "" : ""));
@@ -634,11 +662,11 @@ function AppForm({ form, onAction, extraActions }) {
       <div className="app-actions">
         {/* Only one filled button per row: if the app marked a decision as
             primary, submitting the reply is the side channel. */}
-        <button type="submit" className={"btn btn-sm" + (extraPrimary ? "" : " btn-primary")}>
+        <button type="submit" disabled={pending} className={"btn btn-sm" + (extraPrimary ? "" : " btn-primary")}>
           {form.submit || "Submit"}
         </button>
         {(extraActions || []).map((a) => (
-          <ActionButton key={a.id} action={a} onAction={fireExtra} />
+          <ActionButton key={a.id} action={a} onAction={fireExtra} pending={pending} />
         ))}
         {hasEditor ? (
           <span className="app-field-hint"><span className="app-key">Ctrl</span>+<span className="app-key">Enter</span> to send</span>

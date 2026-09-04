@@ -8,6 +8,20 @@ import {
   aggregateBadge,
 } from "./appPrimitives.js";
 
+test("runtime output remains literal and empty lists retain their state text", () => {
+  const v = normalizeView({ apiVersion: 1, blocks: [
+    { type: "detail", text: "<script>bad()</script> **not Markdown**", busy: true },
+    { type: "detail", text: "" },
+    { type: "list", empty: "No containers.", items: [{ id: "a", title: "A", busy: true }] },
+  ] });
+  assert.equal(v.blocks[0].text, "<script>bad()</script> **not Markdown**");
+  assert.equal(v.blocks[0].markdown, undefined);
+  assert.equal(v.blocks[0].busy, true);
+  assert.equal(v.blocks[1].text, "");
+  assert.equal(v.blocks[2].empty, "No containers.");
+  assert.equal(v.blocks[2].items[0].busy, true);
+});
+
 test("normalizeManifests keeps valid rows, drops junk", () => {
   const out = normalizeManifests({
     apps: [

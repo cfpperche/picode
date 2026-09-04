@@ -2077,6 +2077,116 @@
         ]
       }
     },
+    "/api/docker/containers": {
+      "get": {
+        "operationId": "getApiDockerContainers",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/containers/{id}": {
+      "get": {
+        "operationId": "getApiDockerContainers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/operations": {
+      "get": {
+        "operationId": "getApiDockerOperations",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      },
+      "post": {
+        "operationId": "postApiDockerOperations",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/operations/{id}": {
+      "get": {
+        "operationId": "getApiDockerOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
     "/api/events": {
       "get": {
         "operationId": "getApiEvents",
@@ -5796,6 +5906,9 @@
     },
     {
       "name": "devices"
+    },
+    {
+      "name": "docker"
     },
     {
       "name": "events"

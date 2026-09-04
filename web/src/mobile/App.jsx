@@ -28,6 +28,7 @@ import Agent from "./screens/Agent.jsx";
 import TerminalScreen from "./screens/Terminal.jsx";
 import Changes from "./screens/Changes.jsx";
 import More from "./screens/More.jsx";
+import AppSurface from "../components/AppSurface.jsx";
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
 import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
@@ -125,7 +126,7 @@ export default function MobileApp() {
     if (appList) setApps(normalizeManifests(appList));
   }, []);
   usePoll(loadInbox, 15000);
-  useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["inbox"])) loadInbox().catch(() => {}); }), [loadInbox]);
+  useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["inbox", "docker"])) loadInbox().catch(() => {}); }), [loadInbox]);
 
   // Today's headline for the Now screen.
   usePoll(async () => { setStats(await api("/api/sessions/stats?range=today")); }, 60000, route.screen === "now");
@@ -301,9 +302,11 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   let body = null;
-  if (route.screen === "changes") {
+  if (route.screen === "app") {
+    body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} /></div>;
+  } else if (route.screen === "changes") {
     const owner = route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
       : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
       : { workspace: workspaces.find((w) => w.id === route.id) };
@@ -340,7 +343,7 @@ export default function MobileApp() {
     );
   } else if (route.screen === "more") {
     body = (
-      <More section={route.section} catalog={catalog} system={system} version={version} themeMode={themeMode}
+      <More section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />
     );

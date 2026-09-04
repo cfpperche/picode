@@ -6,10 +6,10 @@ import { agentRoute, workspaceHash, termRoute, termHash } from "./routes.js";
 // the same thing; every other desktop hash maps to the closest mobile
 // section instead of a dead end. Work mirrors the desktop sidebar's rail:
 // workspaces (agents + terminals per folder), free agents, terminals.
-//   route := { screen: now|inbox|work|agent|term|changes|more, id, section }
+//   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
 //   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
 //   read-only (ADR-0044 phase 3); section carries the owner kind.
-export const MORE_SECTIONS = ["devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications"];
+export const MORE_SECTIONS = ["devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
 
@@ -65,6 +65,7 @@ export function mobileRoute(hash) {
     return { screen: "more", id: "", section: MORE_SECTIONS.includes(sec) ? sec : "" };
   }
   if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: "", section: "" };
+  if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "" };
   if (head === "sessions" || head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };
   }
@@ -80,6 +81,7 @@ export function mobileHash(screen, id, section) {
     case "term": return termHash(id);
     case "changes": return "#/changes/" + ({ agent: "a", term: "t", workspace: "w" }[section] || "a") + "/" + encodeURIComponent(id);
     case "more": return id ? "#/more/" + encodeURIComponent(id) : "#/more";
+    case "app": return "#/app/" + encodeURIComponent(id);
     default: return "#/";
   }
 }
@@ -90,7 +92,7 @@ export function tabOf(route) {
   if (!route) return "now";
   if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || route.screen === "changes") return "work";
   if (route.screen === "inbox") return "inbox";
-  if (route.screen === "more") return "more";
+  if (route.screen === "more" || route.screen === "app") return "more";
   return "now";
 }
 
@@ -98,6 +100,7 @@ export function tabOf(route) {
 // the tab a pushed screen belongs to, or the More menu for a section.
 export function parentHash(route) {
   if (!route) return "#/";
+  if (route.screen === "app") return "#/more/apps";
   if (route.screen === "agent") return "#/work";
   if (route.screen === "term") return "#/work/terminals";
   if (route.screen === "changes") {

@@ -821,6 +821,36 @@ token. Isolated Chromium
 (`agent_browser`) stays the automation engine. v1 is Chrome-only and
 sensor-only; actuating the page is a later track.
 
+### Docker App and sysadmin tools (ADR-0065)
+
+The first-party Docker App and optional `packages/pi-sysadmin` tools call the
+same `internal/docker.Service`. The service uses the Docker Engine API v1.44
+over a local Unix socket through Go's HTTP client. Endpoint resolution follows
+`PICODE_DOCKER_HOST`, then `DOCKER_CONTEXT`, `DOCKER_HOST`, and the selected
+Docker context. Without the CLI, the default is `/var/run/docker.sock`.
+No Docker credentials, daemon settings, or OS privileges are changed.
+
+`GET /api/docker/containers`, `GET /api/docker/containers/{id}`, and
+`GET /api/docker/operations[/{id}]` expose inventory, a resource/log sample,
+and history. `POST /api/docker/operations` accepts start/stop/restart, a full
+container ID, and an idempotency key. App actions call the same service.
+The existing authentication gate applies. Reported agent identity provides
+provenance only; agents keep the existing user's permissions, not a new sandbox.
+
+The store owns `docker_operations` and appends `docker.operation` events in
+the same transaction. One job per endpoint/container can run at a time. Jobs
+have a 45-second bound, survive browser disconnects, verify their postcondition,
+and record `succeeded`, `failed`, or `unknown`. Startup marks interrupted jobs
+unknown without replay. Docker container events flow into the existing SSE
+feed as ephemeral `docker.changed`; samples refresh on demand, not on a timer.
+
+The Apps vocabulary retains its four block types. Optional `Block.Text`
+renders plain text, `Block.Empty` names an empty list, and busy metadata adds
+motion to pending jobs. The host prevents repeated clicks while submitting.
+The phone's More → Apps grid opens the shared AppSurface at `#/app/<id>`;
+Inbox keeps its specialized route. Public instructions live in the
+[Docker guide](../www/guide/docker.md).
+
 ## Explicit non-goals
 
 - Re-implementing the Pi TUI (we embed it instead).

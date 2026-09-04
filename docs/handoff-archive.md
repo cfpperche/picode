@@ -3,6 +3,58 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 during Docker delivery)
+
+- **2026-09-04 — terminal identity survives restarts; favicon cards fixed
+  (owner report); deployed as `0.1.0+9ffaa39`.** The owner's reload showed
+  every wrapped terminal back at "Shell session" and Codex still boxed:
+  wrapper presence was memory-only, and the loaded OpenAI `.ico` paints its
+  own opaque white card. Reconciliation now revives CLI presence from the
+  pane's process tree (exact command, or a `/proc` walk through wrapper
+  shells and interpreters, PID + start-token validated, dropped when the CLI
+  exits), and CLI badges lead with the same transparent SVG marks the
+  provider faces use. End-to-end proof on a scratch daemon (revive after
+  restart, drop on CLI exit), then live: every wrapped terminal regained its
+  identity after the deploy and stayed stable across polls; badges render
+  bare with no white card. visual-review: PASS (live sidebar screenshot
+  read; overlay audit ok).
+- **2026-09-04 — public guides for pi-roles and pi-inbox.** Both missing
+  guides landed in `www/guide/` using the compact template: extension-not-core
+  positioning up front, where-it-runs and config-scope tables (no machine
+  layer in either), commands/routing tables, canonical schema link (roles),
+  loopback POST mechanics (inbox), and a "how you know it worked" check.
+  Sidebar gains "Model roles" and "Inbox tools for pi"; the Packages guide
+  now lists all four packages. Docs-only; no deploy. Follow-up: the
+  Checklist guide was aligned to the same template with an honest core row
+  (tool and rule in the package; sidebar, cards and Level in PiCode).
+
+- **2026-09-04 — pi-compact documented as an extension, not core.** The
+  public guide leads with the positioning (optional package, dormant until
+  configured, removable without a trace) and gains where-it-runs and
+  config-scope tables, a minimal config example with the canonical schema
+  link, and a "how you know it worked" JSONL check.
+  `docs/architecture.md`'s Compaction policy section — stale since the two
+  ADR-0061 amendments — now matches HEAD and names the Go server's only
+  involvement: exporting `PI_COMPACT_AGENT`. Package README and the
+  Packages guide entry carry the same framing. Docs-only; no deploy.
+
+- **2026-09-04 — runtime badge favicons refined (owner report), deployed as
+  `0.1.0+65be297`.** The owner's screenshot showed Claude Code still on its
+  boxed text mark: `claude.ai`'s favicon hangs/403s as a browser subresource.
+  CLI favicons now load from a preference-ordered list of official assets
+  (Claude: Anthropic's own icon first; Codex: `openai.com` then OpenAI's CDN
+  touch icon) and a loaded favicon renders bare — the box is reserved for the
+  text-mark fallback. Verified on a scratch daemon with seeded wrapper
+  runtimes: all four CLI badges show real favicons on desktop rows, the tab
+  strip and mobile rows; the shell fallback stays boxed; 468 frontend tests
+  pass; menu contained and closes on Escape; overlay audit ok; deploy kept
+  every tmux session. visual-review: PASS.
+- **2026-09-04 — final handoff reconciled after integration.** The local
+  checkout has no uncommitted product configuration, so `pi-compact` remains
+  dormant by the accepted ADR-0061 policy; its schema and source comment now
+  state that behavior consistently. Deployment and release-cadence status
+  remain unchanged and local commits are still unpushed.
+
 ## Recent activity (archived after the final local integration)
 
 - **2026-09-04 — pi-compact command routing was corrected.** The second

@@ -39,6 +39,7 @@ import (
 	"github.com/cfpperche/picode/internal/binwatch"
 	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/config"
+	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/presence"
@@ -470,6 +471,14 @@ func serve() {
 	// reopen for retry (ADR-0060).
 	server.ReconcilePendingReplies(st, dataDir)
 
+	dockerService, err := docker.NewService(backupCtx, st, nil, func() {
+		changes.Ephemeral("docker.changed", map[string]any{})
+	})
+	if err != nil {
+		log.Fatalf("docker operations: %v", err)
+	}
+	defer dockerService.Close()
+
 	deps := server.Deps{
 		Store:    st,
 		Auth:     gate,
@@ -481,6 +490,7 @@ func serve() {
 		Presence: devices,
 		Push:     notifier,
 		Feed:     changes,
+		Docker:   dockerService,
 		Rebind: func() {
 			select {
 			case rebindCh <- struct{}{}:

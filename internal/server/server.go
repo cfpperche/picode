@@ -25,6 +25,7 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
@@ -53,13 +54,14 @@ type Deps struct {
 	Insecure     bool
 	Presence     *presence.Registry
 	Backup       *backup.Engine
-	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
-	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
-	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
-	Replies      *TuiReplies    // Inbox replies into the running TUI (ADR-0060); lazy-init in New
-	TermStates   *TermStates    // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
-	TermRuntimes *TermRuntimes  // authoritative CLI presence (ADR-0062); lazy-init in New
-	Auth         *auth.Service  // request gate (ADR-0049); nil = ungated (tests, dev)
+	Apps         *apps.Registry  // apps host (ADR-0036); nil-safe = no apps
+	Docker       *docker.Service // shared operations for the Docker App and Pi tools
+	Push         *push.Notifier  // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
+	Feed         *feed.Feed      // change feed (ADR-0048); nil-safe = 503 on /api/events
+	Replies      *TuiReplies     // Inbox replies into the running TUI (ADR-0060); lazy-init in New
+	TermStates   *TermStates     // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
+	TermRuntimes *TermRuntimes   // authoritative CLI presence (ADR-0062); lazy-init in New
+	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -118,6 +120,7 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/share", handleShare(deps))
 	registerMCPRoutes(mux, deps)
 	registerPackageRoutes(mux, deps)
+	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 
 	registerWorkspaceRoutes(mux, deps)

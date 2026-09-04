@@ -79,6 +79,7 @@ function blockHead(b) {
     meta: strList(b.meta),
     at: str(b.at),
     pane: PANES.has(b.pane) ? str(b.pane) : "",
+    busy: !!b.busy,
   };
 }
 
@@ -98,12 +99,14 @@ function normalizeBlock(b) {
         badge: str(it.badge),
         tone: TONES.has(it.tone) ? str(it.tone) : "",
         unread: !!it.unread,
+        busy: !!it.busy,
         path: str(it.path),
         actions: normalizeActions(it.actions),
       }));
-    return { type: "list", ...head, items };
+    return { type: "list", ...head, items, empty: str(b.empty) };
   }
   if (b.type === "detail") {
+    if (typeof b.text === "string") return { type: "detail", ...head, text: b.text };
     if (typeof b.markdown !== "string" || !b.markdown) return null;
     return { type: "detail", ...head, markdown: b.markdown };
   }

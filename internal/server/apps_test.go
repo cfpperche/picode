@@ -61,7 +61,7 @@ func TestListAppsWithBadge(t *testing.T) {
 	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
 		t.Fatalf("GET /api/apps = %d", code)
 	}
-	if body.APIVersion != apps.APIVersion || len(body.Apps) != 2 {
+	if body.APIVersion != apps.APIVersion || len(body.Apps) != 3 {
 		t.Fatalf("list = %+v", body)
 	}
 	byID := map[string]int{}

@@ -8,10 +8,12 @@ import Mcps from "../../components/Mcps.jsx";
 import Packages from "../../components/Packages.jsx";
 import InstallButton from "../../components/InstallButton.jsx";
 import PushPrefs from "../../components/PushPrefs.jsx";
+import AppsGrid from "../../components/AppsGrid.jsx";
 import { IconChevronRight, IconMonitor, IconQR, IconSparkles } from "../../components/Icons.jsx";
 import { setShell } from "../../lib/shell.js";
 
 const SECTIONS = [
+  ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["settings", "Settings", "Pi: model, thinking, prompt"],
@@ -27,7 +29,7 @@ const TITLES = Object.fromEntries(SECTIONS.map(([id, t]) => [id, t]));
 // The rest of the product, one tap deep. Sections mount the same page
 // components the desktop routes do — with real props — under a mobile
 // header; their own desktop "Back" link is hidden by mobile.css.
-export default function More({ section, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack }) {
+export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack }) {
   if (!section) {
     return (
       <div className="m-screen">
@@ -75,6 +77,7 @@ export default function More({ section, catalog, system, version, themeMode, onT
   return (
     <div className="m-screen m-more-page">
       <ScreenHeader title={TITLES[section] || "More"} onBack={onBack} />
+      {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} /> : null}

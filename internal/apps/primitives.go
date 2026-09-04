@@ -36,9 +36,12 @@ type Block struct {
 	Title    string     `json:"title,omitempty"`    // section label above the block
 	Meta     []string   `json:"meta,omitempty"`     // header meta strip, beside Title
 	At       string     `json:"at,omitempty"`       // RFC3339, formatted by the host
-	Pane     string     `json:"pane,omitempty"`     // "" | "list" | "detail" — split layout only
+	Pane     string     `json:"pane,omitempty"`     // split pane hint; "detail" also gives a stacked title
 	Items    []ListItem `json:"items,omitempty"`    // list
 	Markdown string     `json:"markdown,omitempty"` // detail
+	Text     *string    `json:"text,omitempty"`     // detail: literal output, never Markdown
+	Empty    string     `json:"empty,omitempty"`    // list's zero-item state
+	Busy     bool       `json:"busy,omitempty"`     // work is still in progress
 	Form     *Form      `json:"form,omitempty"`     // form
 	Actions  []Action   `json:"actions,omitempty"`  // actions
 }
@@ -56,6 +59,7 @@ type ListItem struct {
 	Badge    string   `json:"badge,omitempty"` // short pill text on the row
 	Tone     string   `json:"tone,omitempty"`  // "" | "info" | "ok" | "warn" | "danger"
 	Unread   bool     `json:"unread,omitempty"`
+	Busy     bool     `json:"busy,omitempty"`
 	Path     string   `json:"path,omitempty"`
 	Actions  []Action `json:"actions,omitempty"`
 }
@@ -170,7 +174,7 @@ func (v View) Validate() error {
 				}
 			}
 		case "detail":
-			if b.Markdown == "" {
+			if b.Markdown == "" && b.Text == nil {
 				return fmt.Errorf("view: block %d detail needs markdown", i)
 			}
 		case "form":

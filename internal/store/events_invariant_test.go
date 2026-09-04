@@ -200,6 +200,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.ConsumePairing(code)
 		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
+		{"BeginDockerOperation", func(s *Store) {
+			_, _, _ = s.BeginDockerOperation(DockerOperation{RequestKey: "request-123", Endpoint: "unix:///tmp/a", ContainerID: "a", Action: "start"})
+		}, []string{"docker.operation"}},
+		{"FinishDockerOperation", func(s *Store) {
+			op, _, _ := s.BeginDockerOperation(DockerOperation{RequestKey: "request-123", Endpoint: "unix:///tmp/a", ContainerID: "a", Action: "start"})
+			s.OnEvent = recorder(s)
+			_ = s.FinishDockerOperation(op.ID, "succeeded", "verified")
+		}, []string{"docker.operation"}},
+		{"RecoverDockerOperations", func(s *Store) {
+			_, _, _ = s.BeginDockerOperation(DockerOperation{RequestKey: "request-123", Endpoint: "unix:///tmp/a", ContainerID: "a", Action: "start"})
+			s.OnEvent = recorder(s)
+			_ = s.RecoverDockerOperations()
+		}, []string{"docker.operation"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

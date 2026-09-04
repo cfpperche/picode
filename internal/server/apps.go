@@ -21,6 +21,7 @@ func registerAppsRoutes(mux Registrar, deps Deps) {
 func appsHost(deps Deps, r *http.Request) apps.Host {
 	return apps.Host{
 		Store: deps.Store, DataDir: deps.DataDir,
+		Docker: deps.Docker, Actor: dockerActor(r),
 		// Negate once, right here, matching handleRespondInbox's own
 		// wiring (internal/server/inbox.go) — deliverable, not interactive.
 		AgentDeliverable: func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) },

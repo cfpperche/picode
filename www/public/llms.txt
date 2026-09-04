@@ -21,6 +21,7 @@
 
 - [Providers](https://cfpperche.github.io/picode/guide/providers): PiCode reads and writes the same ~/.pi/agent/auth.json as the pi TUI. Keys are never shown again after save.
 - [Packages](https://cfpperche.github.io/picode/guide/packages): Extras for Pi (search, tools, themes). They run with full access — only install what you review.
+- [Docker and sysadmin tools](https://cfpperche.github.io/picode/guide/docker): Open Apps → Docker on desktop or More → Apps → Docker on a phone.
 - [Checklist](https://cfpperche.github.io/picode/guide/checklist): Make an agent write its plan before it changes anything, and follow that
 - [Compact earlier](https://cfpperche.github.io/picode/guide/compact): Pi waits until the session is almost out of room before it summarizes.
 - [MCP](https://cfpperche.github.io/picode/guide/mcp): Pi does not speak MCP itself. PiCode writes the files the MCP adapter package reads.

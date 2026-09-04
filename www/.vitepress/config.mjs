@@ -46,6 +46,7 @@ export default defineConfig({
         items: [
           { text: "Providers", link: "/guide/providers" },
           { text: "Packages", link: "/guide/packages" },
+          { text: "Docker and sysadmin", link: "/guide/docker" },
           { text: "Checklist", link: "/guide/checklist" },
           { text: "Compact earlier", link: "/guide/compact" },
           { text: "Model roles", link: "/guide/roles" },

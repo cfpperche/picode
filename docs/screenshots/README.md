@@ -35,3 +35,8 @@ Transient TUI replies (ADR-0059): `adr-0059-burst-receiving.png`,
 `adr-0059-burst-processing.png`, `adr-0059-burst-failed.png`,
 `adr-0059-burst-terminal-unavailable.png` (explicit TUI restart), and
 `adr-0059-burst-mobile-receiving.png` (390×844).
+
+Docker (ADR-0065): `docker-desktop-empty.png`, `docker-desktop-blocked.png`,
+`docker-desktop-error.png`, `docker-desktop-dark.png`, and
+`docker-mobile-confirm.png` cover the shared App host with synthetic data
+and one disposable QA container.

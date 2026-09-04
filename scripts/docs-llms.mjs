@@ -40,6 +40,7 @@ const CURATED = [
   ["Run it somewhere", "guide/mobile.md", "On your phone"],
   ["Guides", "guide/providers.md", "Providers"],
   ["Guides", "guide/packages.md", "Packages"],
+  ["Guides", "guide/docker.md", "Docker and sysadmin tools"],
   ["Guides", "guide/checklist.md", "Checklist"],
   ["Guides", "guide/compact.md", "Compact earlier"],
   ["Guides", "guide/mcp.md", "MCP"],

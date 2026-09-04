@@ -6,36 +6,26 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is clean and contains the runtime-favicon merge
-(`dd70c8d0`), WebSocket writer fix (`98d6bcad`), git asset preview merge
-(`72f9e395`), proposed release-cadence ADR-0064, and the pi-compact command
-routing merge (`0098081c`). The tree preserves ADRs 0060–0063 and the
-maintainer runbook; no official release cadence or date is set. Local commits
-have not been pushed to the remote.
+**Repository:** `feat/docker-sysadmin` includes current local `main`
+(`c117fa46`) and the Docker delivery in ADR-0065. Local integration/deploy
+remain to be completed; the full gate passed. The primary checkout's untracked
+`.pi/compact.json` belongs to ongoing local work and was left untouched.
+Local commits remain unpushed; ADR-0064 is still proposed.
 
-**Deployment:** the installed service is active on `0.1.0+9ffaa39`
-(`release: false`), carrying the runtime badge refinement and terminal
-presence revival. `GET /api/health` returned `status: ok` with boot id
-`89ebcc898588d5dd`; tmux sessions were preserved across the restart. The
-WebSocket writer fix has remained stable with no further panic in the
-observed uptime.
+**Deployment:** the installed service is now on `0.1.0+c117fa4` until this
+session's final deployment. Docker QA runs on separate data directories and
+ports, with one disposable container; existing applications are untouched.
 
-**Quality:** post-integration `make ci` passes, including 468 frontend tests,
-54 pi-compact tests, Go/package tests, docs/OpenAPI/llms parity, Vale, and the
-embedded build. Generated captures were refreshed and `make docs-check` passed.
+**Quality:** post-integration `make ci` passes: Go tests, 472 frontend tests,
+all Pi package suites (including sysadmin confirmation/connection coverage),
+embedded build, docs/OpenAPI/llms parity and Vale. Targeted Docker/store race
+tests passed. The ADR-0065 decision table links each outcome to coverage.
 
-**UI evidence:** final deployed desktop, mobile, and menu screenshots were
-read: `/tmp/picode-final-deployed-desktop.png`,
-`/tmp/picode-final-deployed-mobile.png`, and
-`/tmp/picode-final-deployed-menu.png`. Runtime rows and official favicon
-badges are legible; the menu stayed inside the viewport and
-`window.__picodeOverlayAudit()` returned `ok: true`; Escape closed it. The
-attached browser QA passed with no new console/page/network error.
-visual-review: PASS.
-
-The What’s New dialog was also read in desktop light/dark, mobile-sheet and
-empty-note states; the overlay audit returned `ok`, and the primary Got it
-action stayed closed after reload.
+**UI evidence:** reviewed desktop light/dark, mobile, empty, blocked, failed
+operation and confirmation states. Curated evidence is in
+`docs/screenshots/docker-*.png`. The mobile title/state/ID fit the viewport;
+confirmation overlays return `window.__picodeOverlayAudit().ok: true`.
+visual-review: PASS. Generated docs captures were refreshed and read.
 
 ### Product and platform
 
@@ -55,6 +45,10 @@ action stayed closed after reload.
   CLI is never promoted to an Agent. CLI badges wear the runtime's official
   favicon (first working link wins), rendered bare like workspace favicons;
   the compact text mark is only an asset-load fallback.
+- Apps now provide literal output, progress, empty lists and generic mobile
+  navigation. Docker exposes inventory, details, sampled resources/logs,
+  start/stop/restart and durable history. Optional `pi-sysadmin` tools share
+  the same service, existing authentication and local Unix socket access.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
 - Public release mechanics are tag-driven. The cadence study, proposed
@@ -64,9 +58,9 @@ action stayed closed after reload.
 ### ADR-0061 compaction policy package (`pi-compact`)
 
 Shipped, deployed, then amended after the first real compaction (owner
-directive: **no defaults, ever**). The checkout currently has no
-`.pi/compact.json`, so the package remains dormant until an explicit dogfood
-configuration is created:
+directive: **no defaults, ever**). The primary checkout now has an untracked
+`.pi/compact.json` from other local work; its configuration and live dogfood
+were not evaluated in this Docker session:
 
 - **Dormant until configured.** Without `.pi/compact.json` (or a per-agent
   overlay) Pi's stock compaction and summarizer run untouched; the status
@@ -87,6 +81,10 @@ configuration is created:
 
 ## In flight
 
+- Docker: local merge and deployment are pending; the full gate passed. The real Pi
+  0.85.0 runtime loaded all four tools and executed inventory/detail against
+  the shared API without a model turn. Autonomous model-driven dogfood and
+  Docker Desktop/rootless acceptance were not run.
 - **ADR-0061's amendment is deployed in the current service.** A configured
   real-compaction re-dogfood remains pending; without a config it stays dormant
   as designed, and the run must record `fromHook: true` plus gemini-3.6-flash
@@ -107,11 +105,13 @@ configuration is created:
    deploy are complete locally.
 2. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-3. Configure and re-dogfood `pi-compact`, or explicitly leave it dormant.
+3. Verify the local `pi-compact` configuration and re-dogfood its policy.
 4. Inspect the exact historical Inbox rows before any real TUI reply test.
 5. Run the owner-controlled remote-mode acceptance matrix.
 6. Continue the Browser preview panel and ADR-0054 dogfood.
-7. Decide whether selective docs-video capture/render should be scheduled;
+7. Extend Docker with Compose deployment after defining target ownership,
+   secret handling and recovery semantics in an ADR; v1 operations are covered.
+8. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -135,55 +135,14 @@ configuration is created:
 
 ## Recent activity
 
-- **2026-09-04 — terminal identity survives restarts; favicon cards fixed
-  (owner report); deployed as `0.1.0+9ffaa39`.** The owner's reload showed
-  every wrapped terminal back at "Shell session" and Codex still boxed:
-  wrapper presence was memory-only, and the loaded OpenAI `.ico` paints its
-  own opaque white card. Reconciliation now revives CLI presence from the
-  pane's process tree (exact command, or a `/proc` walk through wrapper
-  shells and interpreters, PID + start-token validated, dropped when the CLI
-  exits), and CLI badges lead with the same transparent SVG marks the
-  provider faces use. End-to-end proof on a scratch daemon (revive after
-  restart, drop on CLI exit), then live: every wrapped terminal regained its
-  identity after the deploy and stayed stable across polls; badges render
-  bare with no white card. visual-review: PASS (live sidebar screenshot
-  read; overlay audit ok).
-- **2026-09-04 — public guides for pi-roles and pi-inbox.** Both missing
-  guides landed in `www/guide/` using the compact template: extension-not-core
-  positioning up front, where-it-runs and config-scope tables (no machine
-  layer in either), commands/routing tables, canonical schema link (roles),
-  loopback POST mechanics (inbox), and a "how you know it worked" check.
-  Sidebar gains "Model roles" and "Inbox tools for pi"; the Packages guide
-  now lists all four packages. Docs-only; no deploy. Follow-up: the
-  Checklist guide was aligned to the same template with an honest core row
-  (tool and rule in the package; sidebar, cards and Level in PiCode).
-
-- **2026-09-04 — pi-compact documented as an extension, not core.** The
-  public guide leads with the positioning (optional package, dormant until
-  configured, removable without a trace) and gains where-it-runs and
-  config-scope tables, a minimal config example with the canonical schema
-  link, and a "how you know it worked" JSONL check.
-  `docs/architecture.md`'s Compaction policy section — stale since the two
-  ADR-0061 amendments — now matches HEAD and names the Go server's only
-  involvement: exporting `PI_COMPACT_AGENT`. Package README and the
-  Packages guide entry carry the same framing. Docs-only; no deploy.
-
-- **2026-09-04 — runtime badge favicons refined (owner report), deployed as
-  `0.1.0+65be297`.** The owner's screenshot showed Claude Code still on its
-  boxed text mark: `claude.ai`'s favicon hangs/403s as a browser subresource.
-  CLI favicons now load from a preference-ordered list of official assets
-  (Claude: Anthropic's own icon first; Codex: `openai.com` then OpenAI's CDN
-  touch icon) and a loaded favicon renders bare — the box is reserved for the
-  text-mark fallback. Verified on a scratch daemon with seeded wrapper
-  runtimes: all four CLI badges show real favicons on desktop rows, the tab
-  strip and mobile rows; the shell fallback stays boxed; 468 frontend tests
-  pass; menu contained and closes on Escape; overlay audit ok; deploy kept
-  every tmux session. visual-review: PASS.
-- **2026-09-04 — final handoff reconciled after integration.** The local
-  checkout has no uncommitted product configuration, so `pi-compact` remains
-  dormant by the accepted ADR-0061 policy; its schema and source comment now
-  state that behavior consistently. Deployment and release-cadence status
-  remain unchanged and local commits are still unpushed.
+- **2026-09-04 — Docker App and optional pi-sysadmin package (ADR-0065).**
+  Extended existing Apps primitives and mobile navigation; added bounded
+  Engine API operations, idempotent background jobs, verified outcomes and
+  durable history. Real disposable-container start/stop/restart passed.
+  Event bursts initially starved detail reads; container-state event filters
+  and a serialized refresh queue fixed the observed failure, with regression
+  coverage. Plain-text logs, empty/blocked/error and mobile confirmations
+  passed screenshot review. visual-review: PASS.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

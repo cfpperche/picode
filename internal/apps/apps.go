@@ -6,6 +6,7 @@ package apps
 import (
 	"context"
 
+	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -35,6 +36,8 @@ type Manifest struct {
 type Host struct {
 	Store   *store.Store
 	DataDir string
+	Docker  *docker.Service
+	Actor   string
 	// AgentDeliverable answers whether a reply queued for this agent will
 	// be drained automatically — false only when the agent is currently
 	// running in a TUI/tmux session, which nothing watches for follow_up
@@ -93,7 +96,7 @@ func (r *Registry) Find(id string) (App, bool) {
 // BuiltIns assembles the first-party apps. demo adds the hidden QA app
 // (the caller reads PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
-	list := []App{inboxApp{}} // ADR-0037: the Inbox is the first production app
+	list := []App{inboxApp{}, dockerApp{}}
 	if demo {
 		list = append(list, demoApp{})
 	}

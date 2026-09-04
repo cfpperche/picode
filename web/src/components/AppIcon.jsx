@@ -1,4 +1,4 @@
-import { IconFlask, IconInbox, IconGrid } from "./Icons.jsx";
+import { IconFlask, IconInbox, IconGrid, IconPackage } from "./Icons.jsx";
 
 // Manifest icon names → components (ADR-0036). Icons are host-owned: an
 // app names one from this map and an unknown name falls back to a letter
@@ -7,6 +7,7 @@ const APP_ICONS = {
   flask: IconFlask,
   inbox: IconInbox,
   grid: IconGrid,
+  box: IconPackage,
 };
 
 export default function AppIcon({ name, label, size = 16 }) {

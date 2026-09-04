@@ -641,7 +641,7 @@ export default function App() {
     const t = setInterval(() => poll(false), 15000);
     // Change feed (ADR-0048): badges follow inbox changes at once.
     const unsub = subscribeFeed((ev) => {
-      if (ev.type === "feed.open" || ev.type === "feed.reset" || touches(ev, ["inbox"])) poll(true);
+      if (ev.type === "feed.open" || ev.type === "feed.reset" || touches(ev, ["inbox", "docker"])) poll(true);
     });
     return () => { stop = true; clearInterval(t); unsub(); };
   }, []);

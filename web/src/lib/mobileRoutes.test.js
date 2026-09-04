@@ -3,6 +3,15 @@ import assert from "node:assert/strict";
 import { mobileRoute, mobileHash, tabOf, parentHash } from "./mobileRoutes.js";
 
 describe("mobileRoute", () => {
+  it("opens Apps on the phone and keeps the Inbox route", () => {
+    const route = mobileRoute("#/app/docker");
+    assert.deepEqual(route, { screen: "app", id: "docker", section: "" });
+    assert.equal(tabOf(route), "more");
+    assert.equal(parentHash(route), "#/more/apps");
+    assert.equal(mobileHash("app", "docker"), "#/app/docker");
+    assert.equal(mobileRoute("#/more/apps").section, "apps");
+    assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
+  });
   it("parses the four tabs and the two pushed screens", () => {
     assert.deepEqual(mobileRoute("#/"), { screen: "now", id: "", section: "" });
     assert.deepEqual(mobileRoute(""), { screen: "now", id: "", section: "" });

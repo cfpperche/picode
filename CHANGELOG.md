@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Docker App and optional `pi-sysadmin` tools** (ADR-0065). Inspect local
+  containers, resource samples and recent logs; start, stop and restart through
+  one backend with operation history, duplicate-request protection and
+  explicit uncertain outcomes. Apps gains literal output and pending-action
+  feedback. Mobile users can open Apps from More.
+
 - **Public guides for the two remaining packages: Model roles
   (`pi-roles`) and Inbox tools for pi (`pi-inbox`).** Both lead with the
   extension-not-core positioning (optional package, dormant until

@@ -1,0 +1,13 @@
+{
+  "name": "pi-sysadmin",
+  "version": "0.1.0",
+  "description": "Docker inspection and operations through PiCode's shared sysadmin backend.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "docker"],
+  "files": ["extensions", "src", "skills", "README.md", "LICENSE"],
+  "scripts": { "test": "node --test test/*.test.ts" },
+  "pi": { "extensions": ["./extensions/sysadmin.ts"], "skills": ["./skills"] },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
+  "repository": { "type": "git", "url": "git+https://github.com/cfpperche/picode.git", "directory": "packages/pi-sysadmin" }
+}
