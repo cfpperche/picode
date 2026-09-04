@@ -15,9 +15,8 @@
 `origin/main` through CI handoff `43c99186`; those local product commits remain
 unpublished by owner choice. PR #3's optimized hosted CI is green on its full
 and metadata-only paths; final local `make ci` passed in 195s on the merged
-tree. The active installed service reports `0.1.0+259eb50`; the CI-only merge
-needs no deployment. `feat/fix-systemd-stop` fixes the SIGTERM hang but is
-not merged or deployed yet.
+tree. The active installed service reports `0.1.0+6cf705d` (systemd stop bound;
+binaries match). Local product commits remain unpublished by owner choice.
 
 ### Product and platform
 
@@ -92,18 +91,10 @@ Integration evidence:
 
 ## In flight
 
-- **`feat/fix-systemd-stop` is ready, not deployed.** Journal of every recent
-  `systemctl restart` showed SIGTERM → `server: terminated — shutting down` →
-  `newer on disk — reloading` (same-PID `exec`) → 30s `stop-sigterm` → SIGKILL.
-  A systemd-supervised daemon no longer auto-reloads; SIGTERM cancels the
-  watcher and HTTP drain is bounded at 8s. Decision-table tests cover
-  supervised/cancelled/newer-binary and Shutdown hang-vs-return. An isolated
-  process with `INVOCATION_ID` set exited SIGTERM in 8ms with no re-exec.
-  The installed unit still has the hang until this branch deploys.
 - **The ADR-0059 passive-extension follow-up remains unpushed.** Commit
   `259eb50a` includes server/race decision-table coverage and refreshed docs
-  media. The installed service is running that commit; publishing it remains
-  separate from the now-complete CI optimization.
+  media. Publishing it remains separate from the now-complete CI optimization
+  and from the deployed stop fix.
 - **No original ADR-0059 implementation, merge, or deployment work remains.** A real-Pi
   Inbox reply/cancel remains deliberately separate dogfood and has not been
   authorized or performed.
@@ -121,24 +112,22 @@ Integration evidence:
 
 ## Next up
 
-1. Merge `feat/fix-systemd-stop` and deploy; confirm the journal no longer
-   records `stop-sigterm` timed out / SIGKILL, and that tmux sessions survive.
-2. Inspect the live store's historical Inbox item and correlated tasks; close
+1. Inspect the live store's historical Inbox item and correlated tasks; close
    or repair only the exact stale rows. Do not create another live test first.
-3. With separate authorization, run one controlled real-Pi Inbox reply and a
+2. With separate authorization, run one controlled real-Pi Inbox reply and a
    second Cancel turn against the exact captured session.
-4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
-5. Run the owner-controlled remote-mode acceptance matrix, then decide the
+3. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
+4. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
-6. Build Providers Models/Activity only after confirming their current study
+5. Build Providers Models/Activity only after confirming their current study
    still matches Pi's provider data.
 
 ## Known debts / open questions
 
-- The `picode.service` stop timeout is diagnosed and fixed on
-  `feat/fix-systemd-stop` (binwatch same-PID exec swallowed SIGTERM). The
-  installed daemon still hangs until that branch deploys. `KillMode=process`
-  stays as the tmux safety net.
+- A deploy onto a daemon that still has the old binwatch will SIGKILL once
+  (the outgoing process re-execs). The next restart of `0.1.0+6cf705d` stops
+  in the 5s HTTP drain with no re-exec and no SIGKILL. `KillMode=process`
+  stays as the tmux safety net. Long-lived feeds still occupy that drain.
 - Terminal detail still makes two swallowed agent-only requests (`role-state`
   and `slash`); this predates the manual Pi sensor and does not affect state.
 - ADR-0059 hard parent-death enforcement is Linux-specific; non-Linux builds
@@ -175,13 +164,13 @@ Integration evidence:
 
 ## Recent activity
 
-- **2026-09-04 — systemd SIGTERM hang diagnosed and fixed (`feat/fix-systemd-stop`).**
-  Root cause: `binwatch` re-exec'd the copied deploy binary in the same PID
-  after SIGTERM, so systemd waited `TimeoutStopSec=30` then SIGKILLed.
-  Supervised processes skip auto-reload; drain is bounded at 8s even if
-  `http.Server.Shutdown` blocks on `listenerGroup.Wait`. Isolated proof:
-  SIGTERM exit 0 in 8ms, log line `systemd owns this process — not auto-reloading`.
-  `make fmt-check vet test` passed. Not merged, not deployed.
+- **2026-09-04 — systemd stop hang merged and deployed (`6cf705dd`, `0.1.0+6cf705d`).**
+  Fast-forwarded `feat/fix-systemd-stop` onto local `main`. First `make deploy`
+  still SIGKILLed at 30s because the *outgoing* daemon re-exec'd the new
+  binary. The next restart of that new process: SIGTERM at 11:07:14 →
+  `shutting down` → `Stopped` at 11:07:19, no `newer on disk — reloading`,
+  no `stop-sigterm`, no SIGKILL. All 57 tmux sessions unchanged. Health 200,
+  installed binary matches `bin/picode`. Worktree removed.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
