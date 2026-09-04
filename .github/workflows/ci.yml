@@ -92,6 +92,8 @@ jobs:
           cache-dependency-path: www/package-lock.json
 
       # Check committed parity before `make docs` regenerates OpenAPI/llms.txt.
+      # Tutorial videos get a hash-only integrity check here; capture/render and
+      # the strict UI-tree freshness audit are explicit maintenance commands.
       - name: Docs parity
         run: make docs-check
       - name: Build public docs

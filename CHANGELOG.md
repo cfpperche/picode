@@ -116,7 +116,9 @@ to the `[Unreleased]` section. The repository's official language is English
   restart settles pending replies against the session file instead of juggling
   holder leases. The burst surface, coordinator, holder swap, transient RPC
   writer, cancel endpoint, and `agent.burst` feed events are removed —
-  no `receiving/processing/returning` card, no pause of your terminal.
+  no `receiving/processing/returning` card, no pause of your terminal. The
+  obsolete card-level **Open terminal** escape hatch and its host wiring are
+  removed as well; the reply form is now the direct path.
 - **Cross-platform path aliases can no longer bypass backup safety or split
   one Git repository into multiple graphs.** Backup destination validation
   resolves the longest existing ancestor before testing containment, so a
@@ -212,6 +214,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Tutorial video rendering is off the delivery critical path.** The public
+  docs gate still rejects missing or altered MP4s and changes to a video's
+  composition or referenced still, but an unrelated UI-tree change no longer
+  forces all three HyperFrames tutorials to be captured and rendered before
+  CI can pass. `make docs-videos-fresh` keeps the strict tree-wide audit as an
+  explicit maintenance command; `make docs-videos` remains the on-demand
+  refresh path.
 - **The repository README now starts with the product, proof and a current
   path to a first agent.** Shipped capabilities, Pi ownership boundaries,
   source installation, everyday commands and the runtime shape are separated

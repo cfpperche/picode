@@ -11,11 +11,14 @@
 `window.__picodeOverlayAudit()` must be `ok`.
 
 **Repository:** this integrated `main` contains the ADR-0060 refactor
-(`a9c814a`, build `0.1.0+a9c814a`, deployed and verified), its handoff and the
-README refactor. The owner approved publishing the accumulated local commits
-with this merge. The ADR-0059 burst machinery is removed: Inbox replies now
-land directly in the running TUI. The owner's systemd stop bound keeps deploys
-stopping cleanly (verified: no SIGKILL, no timeout).
+(`a9c814a`, build `0.1.0+a9c814a`, deployed and verified), its handoff, the
+README refactor and current generated screenshots. Tutorial video integrity
+still gates CI, but strict freshness against the global UI tree is now an
+explicit maintenance audit rather than a delivery blocker. The owner approved
+publishing the accumulated local commits with this merge. The ADR-0059 burst
+machinery is removed: Inbox replies now land directly in the running TUI. The
+owner's systemd stop bound keeps deploys stopping cleanly (verified: no
+SIGKILL, no timeout).
 
 ### Product and platform
 
@@ -39,6 +42,9 @@ stopping cleanly (verified: no SIGKILL, no timeout).
   and generated `llms.txt` carry the same requirements.
 - Browser tool previews (ADR-0057) render generic `details.preview` frames; a
   package-side emitter and dedicated Browser surface remain open.
+- Public docs keep blocking parity for screenshots, OpenAPI and `llms.txt`.
+  Video CI is hash-only integrity; `make docs-videos-fresh` is the strict
+  manual audit and `make docs-videos` performs the expensive refresh.
 
 ### ADR-0060 Inbox replies land in the running TUI
 
@@ -85,6 +91,11 @@ never shipped separately — the burst it fixed no longer exists.
   real model-emitted `picode-act` dogfood before integration.
 - **Browser preview follow-through:** upstream proposal/package emitter and a
   Browser panel remain open; the generic conversation renderer is shipped.
+- **Tutorial video maintenance needs an incremental design.** The temporary
+  policy removes global UI-tree freshness from CI while retaining composition,
+  referenced-still and MP4 integrity. Decide how to map changed surfaces to
+  only the affected tutorial, cache its capture/render, and run the strict
+  audit manually or on a schedule without blocking ordinary delivery.
 - **Remote modes:** real second-account, container, and public OIDC acceptance
   runs require owner-controlled sudo/infrastructure.
 
@@ -94,10 +105,13 @@ never shipped separately — the burst it fixed no longer exists.
    respawns a TUI to prove the receiver channel end to end.
 2. Inspect the live store's historical Inbox rows; close or repair only the
    exact stale rows before any new live test.
-3. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
-4. Run the owner-controlled remote-mode acceptance matrix, then decide the
+3. Design the incremental docs-video maintenance path: per-tutorial input
+   fingerprints, selective capture/render, cache boundaries and the trigger
+   policy (manual, scheduled or both).
+4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
+5. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
-5. Build Providers Models/Activity only after confirming their current study
+6. Build Providers Models/Activity only after confirming their current study
    still matches Pi's provider data.
 
 ## Known debts / open questions
@@ -120,6 +134,10 @@ never shipped separately — the burst it fixed no longer exists.
   job skipped; follow-up run `33879325513` repeated that row in 27s.
   Cross-platform acceptance of the ADR-0060 reply path (non-Linux paste
   encoding) has not been live-proved.
+- Tutorial videos can now be visually stale after an unrelated UI-tree change
+  without failing CI. Missing/tampered MP4s and changed compositions or
+  referenced stills still fail. Until the incremental design above ships, run
+  `make docs-videos-fresh` during deliberate docs maintenance.
 - Pi still exposes one active credential slot; concurrent agents share it.
   Per-agent OAuth isolation and proactive quota switching require an owner
   decision and measurement.
@@ -135,6 +153,16 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — tutorial video rendering left the delivery critical path.**
+  Default docs CI now checks composition, referenced-still, render and shipped
+  MP4 integrity without treating every global UI-tree change as a mandatory
+  three-video refresh. The strict comparison moved to
+  `make docs-videos-fresh`; capture/render remains explicit in
+  `make docs-videos`. A four-row decision table covers exact parity, unrelated
+  UI drift, changed rendered inputs and missing/tampered MP4s. Current app
+  screenshots were regenerated and read; the interrupted video render was not
+  retained. Full `make ci` passed. visual-review: PASS (generated desktop and
+  mobile docs screenshots read; no layout defect, overlay change or new state).
 - **2026-09-04 — root README refactored around the reader's journey.** Product
   value and proof now lead into shipped capabilities, native Pi boundaries,
   current setup, daily commands and a compact runtime diagram; the stale

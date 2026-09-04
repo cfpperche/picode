@@ -76,12 +76,16 @@ try {
   fails.push(String(e.stderr || e.message).trim().slice(0, 300));
 }
 
-// ── tutorial videos: compositions + stills + MP4s parity ───────────────
+// ── tutorial videos: fast integrity floor, never capture or render ─────
+// UI-tree freshness is an explicit maintenance audit (`make
+// docs-videos-fresh`), because the global tree hash cannot tell whether a
+// changed surface appears in a tutorial. CI still refuses missing/tampered
+// MP4s and changes to a composition or still that was actually rendered.
 try {
   execFileSync("node", [join(root, "scripts", "docs-video-manifest.mjs"), "--check"], {
     encoding: "utf8",
   });
-  console.log("videos manifest ok");
+  console.log("videos integrity ok");
 } catch (e) {
   fails.push(String(e.stderr || e.message).trim().slice(0, 400));
 }
@@ -91,4 +95,4 @@ if (fails.length) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log("docs-check ok: images match the current UI tree");
+console.log("docs-check ok: current images/generated docs and video integrity verified");

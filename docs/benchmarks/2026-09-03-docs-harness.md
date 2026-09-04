@@ -43,17 +43,20 @@ by hand today; the harness should make the *right* artifact the cheap artifact.
 | **Vale** | MIT prose linter, offline, config in repo; Mintlify ships it as a CI check | `make docs-lint` in `make ci`: house style (short sentences, no unexplained jargon, English) | Second linter; MDX-style bespoke rules |
 | **D2 / Mermaid** | Diagrams-as-code with themed CLI render (D2: dark/light themes, elk layout); Mermaid renders in VitePress natively via plugin | Architecture/flow diagrams as committed source with a render target; dark-theme matches site | Hand-drawn PNGs, Figma exports that drift |
 | **Remotion** | React-in-video, programmatic rendering | Nothing by default — license: free only ≤3 people, Company License above; a harness distributing rendered videos to users is exactly its paid tier | Adopting it silently; if the owner explicitly chooses it, fine (user-invoked, their license) |
-| **HyperFrames** (installed here, CLI 0.8.27) | HTML→video composition with seek-safe timeline, workflows for product tours/explainers, TTS voiceover + captions (media-use skill), registry blocks | Tutorial videos authored as committed HTML compositions, rendered by the user/agent on demand to `www/public/videos/` | Bundling the renderer in the binary (ADR-0003: user-installed tools, detect on PATH) |
+| **HyperFrames** (installed here, CLI 0.8.27) | HTML→video composition with seek-safe timeline, workflows for product tours/explainers, TTS voiceover + captions (media-use skill), registry blocks | Tutorial videos authored as committed HTML compositions, rendered by the user/agent on demand to `www/public/video/` | Bundling the renderer in the binary (ADR-0003: user-installed tools, detect on PATH) |
 | **Playwright / agent-browser** (installed here) | Scriptable browser: screenshots, recordings | `make docs-shots`: drives a **fixture daemon** into framed, themed PNGs under `www/public/img/` — never reuses `docs/screenshots/` (agent work evidence, not user docs) | Manual screenshots that rot |
 | **VitePress default theme** | Hero + features home layout, custom theme entry, CSS variables, local search, dark mode | Brand the site with the app's own tokens (`web/src/styles/app.css`), hero page, section landing pages | A bespoke theme engine (bar #1: one generator, not ours) |
 
 ## The harness, concretely
 
-**Parity principle (owner directive, 2026-09-03):** every image, video and
-animation on the site is *generated from the current codebase*, never
-hand-placed and never reused from `docs/screenshots/` (that directory is
-agent work evidence — visual-review receipts, handoff proof — not user
-docs). The harness owns its capture pipeline end to end:
+**Parity principle (owner directives, 2026-09-03 and 2026-09-04):** images,
+videos and animations are generated from the codebase, never hand-placed and
+never reused from `docs/screenshots/` (that directory is agent work evidence,
+not user docs). Current screenshot parity stays blocking. Tutorial video
+freshness is temporarily an explicit maintenance audit: CI proves the
+committed compositions, referenced stills and MP4s agree, but unrelated UI
+tree changes no longer force three renders through the delivery path. The
+harness owns its capture pipeline end to end:
 
 ```
 make docs-shots      # deterministic capture → www/public/img/
@@ -69,10 +72,11 @@ make docs-check      # parity gate (in make ci): recaptures headless and
   #    byte/pixel-compares against the committed set; drift = FAIL with
   #    "run make docs-shots". A UI change without regenerated images is
   #    exactly what this catches.
-make docs-videos --check  # compositions embed www/public/img assets; the
-  #    manifest maps composition → asset hashes + source hash, so a video
-  #    whose surfaces or sources changed since its last render is listed
-  #    as stale (re-render: make docs-videos).
+make docs-videos-check  # fast CI floor: compositions, referenced stills,
+  #    render copies and shipped MP4s must match their committed hashes;
+  #    neither agent-browser nor HyperFrames runs.
+make docs-videos-fresh  # strict manual audit: additionally compare the UI
+  #    tree hash captured at render time (refresh: make docs-videos).
 ```
 
 Determinism notes: pixel-perfect cross-OS rendering is not a goal — the
@@ -93,14 +97,16 @@ www/
   .vitepress/theme/   # custom theme: app tokens, dark-first, section landing pages, home hero
   guide/api.md        # Scalar embed of openapi.json
   public/img/         # committed screenshots + rendered diagrams + manifest.json (parity source of truth)
-  public/videos/      # rendered tutorials (committed MP4s, rendered on demand)
+  public/video/       # rendered tutorials (committed MP4s, rendered on demand)
   llms.txt            # generated agent index
 .vale.ini             # house prose style (English, short, jargon needs a plain-word line)
 videos/               # HyperFrames compositions, one .md storyboard + one HTML per tutorial
 ```
 
 Make targets: `make docs-shots`, `make docs-api` (CI fails if `openapi.json` is stale),
-`make docs-lint` (vale + anchors + link check, joins `make ci`), `make docs-videos` (on demand).
+`make docs-lint` (vale + anchors + link check, joins `make ci`), `make docs-videos-check`
+(fast CI integrity), `make docs-videos-fresh` (strict manual audit), and
+`make docs-videos` (capture + render on demand).
 
 ## Phases
 
@@ -114,9 +120,10 @@ Make targets: `make docs-shots`, `make docs-api` (CI fails if `openapi.json` is 
    `make docs-api` staleness gate in CI.
 4. **Prose gate**: `.vale.ini` + `make docs-lint` in `make ci`; fix findings as they surface.
 5. **Tutorial videos**: 3 HyperFrames compositions (getting started, pairing/devices, automations),
-   storyboard committed next to the composition, rendered to `www/public/videos/`, embedded in
-   the matching guides; compositions declare the surfaces they use, `make docs-videos --check`
-   flags stale renders in CI.
+   storyboard committed next to the composition, rendered to `www/public/video/`, embedded in
+   the matching guides; compositions declare the surfaces they use. CI checks their committed
+   input/output integrity, while `make docs-videos-fresh` flags global UI drift on demand until
+   an incremental freshness design replaces that coarse signal.
 6. **(later, owner's call) agent maintenance loop**: an Automations template that runs
    docs-lint + coverage + staleness on a schedule and files inbox items with diffs — the OpenWiki
    pattern applied to public docs, humans still merge.

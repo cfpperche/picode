@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos build restart deploy install test test-js fmt fmt-check vet ci-docs ci clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy install test test-js fmt fmt-check vet ci-docs ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -94,7 +94,11 @@ docs-videos: ## Capture stills + render the three docs tutorial videos into www/
 	cd docs-videos && npx hyperframes@0.8.27 render --composition compositions/automate-it.html --quality high --output renders/automate-it.mp4 --quiet
 	cd docs-videos && npx hyperframes@0.8.27 render --composition compositions/take-it-anywhere.html --quality high --output renders/take-it-anywhere.mp4 --quiet
 	node scripts/docs-video-manifest.mjs
-docs-check: ## Parity gate: shipped images match the current UI tree
+docs-videos-check: ## Fast integrity check for committed video inputs and MP4s (no capture/render)
+	node scripts/docs-video-manifest.mjs --check
+docs-videos-fresh: ## Strict manual audit: report videos captured before the current UI tree
+	node scripts/docs-video-manifest.mjs --fresh
+docs-check: ## CI parity: current images/generated docs plus video integrity (no capture/render)
 	node scripts/docs-check.mjs
 
 cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)

@@ -668,9 +668,9 @@ var errAgentTUIInFlight = errors.New(runInFlightMsg)
 var errAgentCmdMissing = errors.New("pi is not installed or not on PATH — install it with: npm install -g @earendil-works/pi-coding-agent")
 
 // openAgentTUI starts (or confirms) the agent's interactive pi TUI in
-// tmux. Shared by the HTTP handler and the inbox app's open action
-// action (ADR-0037). restart deliberately replaces an existing pane whose
-// terminal is gone; otherwise an existing session is preserved.
+// tmux. Used by the HTTP handler above. restart deliberately replaces an
+// existing pane whose terminal is gone; otherwise an existing session is
+// preserved.
 func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool) (alreadyRunning bool, err error) {
 	agent, err := deps.Store.GetAgent(agentID)
 	if errors.Is(err, store.ErrNotFound) {

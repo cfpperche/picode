@@ -84,8 +84,11 @@ and package tests run once on Ubuntu, then the 14 MB Vite output—not the 526 M
 `node_modules` tree—crosses the artifact boundary for an embedded-build check.
 The three-OS Go matrix never installs Node. Public docs build in parallel and
 check committed screenshot/OpenAPI/llms.txt parity *before* their generators
-can rewrite those files. A stable final gate accepts only successful or
-intentionally skipped jobs; a newer run on the same ref cancels its predecessor.
+can rewrite those files. That job also verifies tutorial composition, still,
+render and shipped-MP4 hashes without launching capture or rendering; strict
+video freshness against the global UI tree is a manual maintenance audit. A
+stable final gate accepts only successful or intentionally skipped jobs; a
+newer run on the same ref cancels its predecessor.
 
 | Changed paths | Frontend + artifact | Public docs | Three-OS Go | Embedded build |
 |---|---:|---:|---:|---:|
