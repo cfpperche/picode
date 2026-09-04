@@ -490,7 +490,9 @@ Never exercised, because this machine was already past them:
   immediate Escape interruption; RPC, print, JSON and child-agent runs stayed
   absent, and a user extension loaded alongside PiCode's extension. All QA
   terminals and fixtures were removed. `make ci` is green; the installed
-  service has the sensor enabled. visual-review: **PASS** — desktop and real
+  service has the sensor enabled. **Owner acceptance:** `needs-you` is
+  approved for ADR-0056 tier 1; no separate Claude/Codex/Grok prompt matrix
+  remains owed. visual-review: **PASS** — desktop and real
   mobile Preferences, idle/working/needs-you/settled/interrupted terminal
   states and sidebar icon-slot motion were captured and read; overlay audit
   returned ok. Visual card: (1) hierarchy is clear; (2) all four preference
