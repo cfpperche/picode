@@ -11,20 +11,19 @@
 workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
 on local main. The resulting tree preserves the Inbox-to-TUI receiver
 (ADR-0060), pi-compact (ADR-0061), compact supervision rows, authoritative
-terminal CLI presence (ADR-0062), and the favicon fix. Local commits have not
-been pushed to the remote.
+terminal CLI presence (ADR-0062), the favicon fix, and the What’s New release
+surface (ADR-0063). Local commits have not been pushed to the remote.
 
-**Deployment:** this session's `make deploy` completed successfully at the
-sidebar merge. The installed service was subsequently rebuilt/restarted with
-the newer local main and now serves `0.1.0+66bee74`; `GET /api/health`
-returned status `ok`, and `GET /api/version` returned that build. There are
-currently 96 PiCode-owned tmux sessions after the restarts; no session loss
-was observed.
+**Deployment:** this session's `make deploy` completed successfully after the
+What’s New merge. The installed service is active and serves semver `0.1.0`;
+`GET /api/health` returned status `ok`, and `GET /api/version` confirmed the
+source build identity (`release: false`). There are currently 99 PiCode-owned
+tmux sessions after the restarts.
 
-**Quality:** `make ci` passed after conflict resolution, including Go tests,
-457 frontend tests, package tests, docs/OpenAPI/llms parity, Vale, and the
-embedded build. `make docs-shots` captured 10/10 stills and `make docs-videos`
-regenerated all three tutorial videos; `make docs-check` passed.
+**Quality:** post-merge `make ci` passes, including Go tests, 464 frontend
+tests, package tests, docs/OpenAPI/llms parity, Vale, and the embedded build.
+`make docs-shots` captured all three public app surfaces and `make docs-check`
+passed.
 
 **UI evidence:** post-deploy desktop and mobile screenshots were read:
 `/tmp/picode-postdeploy-desktop.png`, `/tmp/picode-postdeploy-menu-open.png`,
@@ -34,6 +33,10 @@ CLI labels, menus, reload state, and mobile navigation are legible. Open menus
 were inside the viewport and `window.__picodeOverlayAudit()` returned `ok: true`;
 Escape closed them. No new browser console/page/network error was observed.
 visual-review: PASS.
+
+The What’s New dialog was also read in desktop light/dark, mobile-sheet and
+empty-note states; the overlay audit returned `ok`, and the primary Got it
+action stayed closed after reload.
 
 ### Product and platform
 
@@ -67,8 +70,8 @@ visual-review: PASS.
 
 ## Next up
 
-1. Review the merged local main and decide when to push/promote it; merge and
-   deploy are complete locally.
+1. Review the current local main and decide when to push/promote it; the
+   What’s New merge and deploy are complete locally.
 2. Inspect the exact historical Inbox rows before any real TUI reply test.
 3. Run the owner-controlled remote-mode acceptance matrix.
 4. Continue the Browser preview panel and ADR-0054 dogfood.
@@ -95,6 +98,13 @@ visual-review: PASS.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
+  Resolved the ADR-number collision with the already accepted terminal CLI
+  presence ADR-0062, merged the responsive desktop/mobile surface, regenerated
+  the public app screenshots, rebuilt/restarted the installed service, and
+  verified `/api/health` plus `/api/version` on `0.1.0`. Post-merge `make ci`
+  passed; visual review of the dialog states remained green.
 
 - **2026-09-04 — merged and deployed compact supervision rows and CLI
   presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
