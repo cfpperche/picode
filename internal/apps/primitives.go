@@ -65,9 +65,9 @@ type Form struct {
 	ID     string  `json:"id"`               // action id fired on submit
 	Submit string  `json:"submit,omitempty"` // submit button label
 	Fields []Field `json:"fields"`
-	// Burst marks a TUI reply that runs through ADR-0059's temporary
-	// control channel while the shell keeps the terminal tab in place.
-	Burst bool `json:"burst,omitempty"`
+	// Terminal marks a reply delivered straight into the agent's TUI
+	// (ADR-0060): informational for clients that render delivery hints.
+	Terminal bool `json:"terminal,omitempty"`
 }
 
 // Field mirrors rpc.UIDialog.

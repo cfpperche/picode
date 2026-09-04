@@ -9,6 +9,7 @@ package server
 import (
 	"bytes"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -247,6 +248,31 @@ func writeCodexIntercept(dataDir, hook string) error {
 
 func piTerminalStateExtensionFile(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "pi-terminal-state.ts")
+}
+
+// PiCode's Inbox reply receiver (ADR-0060): consumes one-shot reply files and
+// submits them through the TUI's own message path. Injected into every agent
+// TUI PiCode spawns, independent of the opt-in terminal-status roster.
+//
+//go:embed intercept/pi-inbox-reply.ts
+var piInboxReplyExtensionTS string
+
+func piReplyExtensionFile(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "pi-inbox-reply.ts")
+}
+
+func ensurePiReplyExtension(dataDir string) (string, error) {
+	if strings.TrimSpace(dataDir) == "" {
+		return "", fmt.Errorf("data directory unknown")
+	}
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return "", err
+	}
+	path := piReplyExtensionFile(dataDir)
+	if err := os.WriteFile(path, []byte(piInboxReplyExtensionTS), 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 const piTerminalStateExtensionTmpl = `import { spawn } from "node:child_process";

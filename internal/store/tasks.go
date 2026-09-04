@@ -173,6 +173,66 @@ func (s *Store) ClaimTask(agentID, taskID string) (Task, error) {
 	return t, nil
 }
 
+// PendingReplyTasks lists reply-correlated tasks that never reached a final
+// state, for boot reconciliation (ADR-0060). Legacy inbox-burst sources from
+// ADR-0059 are included.
+func (s *Store) PendingReplyTasks() ([]Task, error) {
+	rows, err := s.db.Query(`SELECT `+taskCols+` FROM tasks
+		WHERE (source LIKE 'inbox-tui:%' OR source LIKE 'inbox-burst:%') AND status IN (?, ?)
+		ORDER BY created_at`, TaskQueued, TaskDelivering)
+	if err != nil {
+		return nil, fmt.Errorf("store: pending reply tasks: %w", err)
+	}
+	defer rows.Close()
+	var out []Task
+	for rows.Next() {
+		var t Task
+		if err := rows.Scan(&t.ID, &t.AgentID, &t.Kind, &t.Payload, &t.Source, &t.Status, &t.Attempts, &t.LastError, &t.CreatedAt, &t.DeliveredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ReplyRowPresent reports whether the session JSONL already contains the full
+// payload as a user row created at/after createdAt. It is the boot-time truth
+// for pending replies: durable bytes beat an unconfirmed send.
+func ReplyRowPresent(sessionPath, payload, createdAt string) bool {
+	return replyTaskMaterialized(sessionPath, payload, createdAt)
+}
+
+// SettleReplyTask finalizes a pending reply as delivered from either pending
+// state, with the audit events. The reply sender and boot reconciliation call
+// it once the durable JSONL row exists.
+func (s *Store) SettleReplyTask(id string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { s.rollback(tx) }()
+	var agentID, kind string
+	if err := tx.QueryRow(`SELECT agent_id, kind FROM tasks WHERE id = ? AND status IN (?, ?)`,
+		id, TaskQueued, TaskDelivering).Scan(&agentID, &kind); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	now := nowUTC()
+	if _, err := tx.Exec(`UPDATE tasks SET status = ?, delivered_at = ?, last_error = NULL WHERE id = ?`,
+		TaskDelivered, now, id); err != nil {
+		return fmt.Errorf("store: settle reply task: %w", err)
+	}
+	if err := s.AppendEventTx(tx, "task.finished", &agentID, nil, map[string]string{"id": id, "status": TaskDelivered}); err != nil {
+		return err
+	}
+	if err := s.AppendEventTx(tx, "task.delivered", &agentID, nil, map[string]string{"taskId": id, "kind": kind}); err != nil {
+		return err
+	}
+	return s.commit(tx)
+}
+
 // CountQueuedTasks reports parked work for diagnostics and tests.
 func (s *Store) CountQueuedTasks(agentID string) (int, error) {
 	n := 0
@@ -209,11 +269,12 @@ func (s *Store) FinishTask(id, status string, taskErr string) error {
 	return s.commit(tx)
 }
 
-// EndReplyBurst closes one correlated task and optionally reopens its source
-// Inbox item with the previous human response preserved. Failure/cancellation
-// before durable materialization must offer a truthful retry, not leave a
-// green "done" item whose reply never reached the session.
-func (s *Store) EndReplyBurst(id, status, taskErr, reopenNote string) error {
+// EndInboxReply closes one correlated reply task and optionally reopens its
+// source Inbox item with the previous human response preserved. Failure before
+// durable materialization must offer a truthful retry, not leave a green
+// "done" item whose reply never reached the session. Legacy inbox-burst
+// sources from ADR-0059 are still reconciled.
+func (s *Store) EndInboxReply(id, status, taskErr, reopenNote string) error {
 	if status != TaskFailed && status != TaskCancelled {
 		return fmt.Errorf("store: reply burst may end only failed or cancelled")
 	}
@@ -239,8 +300,8 @@ func (s *Store) EndReplyBurst(id, status, taskErr, reopenNote string) error {
 	if err := s.AppendEventTx(tx, "task.finished", &agentID, nil, map[string]string{"id": id, "status": status}); err != nil {
 		return err
 	}
-	if strings.TrimSpace(reopenNote) != "" && strings.HasPrefix(source, "inbox-burst:") {
-		itemID := strings.TrimPrefix(source, "inbox-burst:")
+	if strings.TrimSpace(reopenNote) != "" && (strings.HasPrefix(source, "inbox-tui:") || strings.HasPrefix(source, "inbox-burst:")) {
+		itemID := strings.TrimPrefix(strings.TrimPrefix(source, "inbox-tui:"), "inbox-burst:")
 		note := "\n\n> " + reopenNote
 		res, err := tx.Exec(`UPDATE inbox_items SET state = ?, responded_at = NULL, snoozed_until = NULL,
 			body = CASE WHEN ? = '' OR instr(body, ?) > 0 THEN body ELSE body || ? END, updated_at = ?
@@ -261,13 +322,13 @@ func (s *Store) EndReplyBurst(id, status, taskErr, reopenNote string) error {
 	return s.commit(tx)
 }
 
-// recoverInterruptedBursts runs once at store open. A burst's holder restores
-// the TUI when the daemon disappears; this transaction restores the matching
-// Inbox truth. A delivering task with a timestamp-correlated JSONL user row
-// is finalized as delivered; all other queued/delivering tasks cannot be
-// resumed by the vanished coordinator, so they fail and reopen the exact item
-// with the previous response preserved for prefill.
-func (s *Store) recoverInterruptedBursts() (int, error) {
+// recoverPendingInboxReplies runs once at store open. The TUI owns the writer,
+// so there is no lease to recover — only truth to reconcile. A pending task
+// with a timestamp-correlated JSONL user row is finalized as delivered; all
+// other pending reply tasks fail and reopen the exact item with the previous
+// response preserved for prefill. Legacy inbox-burst sources (ADR-0059) are
+// reconciled the same way.
+func (s *Store) recoverPendingInboxReplies() (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -283,7 +344,7 @@ func (s *Store) recoverInterruptedBursts() (int, error) {
 		createdAt string
 	}
 	rows, err := tx.Query(`SELECT id, agent_id, source, status, kind, payload, created_at FROM tasks
-		WHERE source LIKE 'inbox-burst:%' AND status IN (?, ?)`, TaskQueued, TaskDelivering)
+		WHERE (source LIKE 'inbox-tui:%' OR source LIKE 'inbox-burst:%') AND status IN (?, ?)`, TaskQueued, TaskDelivering)
 	if err != nil {
 		return 0, fmt.Errorf("store: find interrupted bursts: %w", err)
 	}
@@ -311,10 +372,10 @@ func (s *Store) recoverInterruptedBursts() (int, error) {
 	const message = "Reply delivery was interrupted by a PiCode restart. Send it again from this item."
 	now := nowUTC()
 	for _, row := range pending {
-		itemID := strings.TrimPrefix(row.source, "inbox-burst:")
+		itemID := strings.TrimPrefix(strings.TrimPrefix(row.source, "inbox-tui:"), "inbox-burst:")
 		var sessionPath string
 		_ = tx.QueryRow(`SELECT session_path FROM inbox_items WHERE id = ?`, itemID).Scan(&sessionPath)
-		if row.status == TaskDelivering && burstTaskMaterialized(sessionPath, row.payload, row.createdAt) {
+		if row.status == TaskDelivering && replyTaskMaterialized(sessionPath, row.payload, row.createdAt) {
 			if _, err := tx.Exec(`UPDATE tasks SET status = ?, delivered_at = ?, last_error = NULL WHERE id = ?`, TaskDelivered, now, row.taskID); err != nil {
 				return 0, err
 			}
@@ -356,11 +417,13 @@ func (s *Store) recoverInterruptedBursts() (int, error) {
 	return len(pending), nil
 }
 
-// burstTaskMaterialized resolves the only ambiguous crash state: a claimed
-// task may have reached JSONL just before the daemon died but before SQLite was
-// marked delivered. A full-payload user row at/after task creation is durable
-// proof; without that proof startup reopens the item for retry.
-func burstTaskMaterialized(sessionPath, payload, createdAt string) bool {
+// replyTaskMaterialized resolves the only ambiguous crash state: a pending
+// task may have reached JSONL just before the daemon died but before SQLite
+// recorded it. A full-payload user row at/after task creation is durable
+// proof; without that proof the item reopens for retry. It is also the boot
+// reconciliation for replies queued mid-turn: the row appears only when pi
+// processes the queue.
+func replyTaskMaterialized(sessionPath, payload, createdAt string) bool {
 	created, err := time.Parse(time.RFC3339Nano, createdAt)
 	if err != nil || strings.TrimSpace(sessionPath) == "" {
 		return false

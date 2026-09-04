@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/apps"
+	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -186,19 +189,6 @@ func TestInboxRespondInteractiveAgent(t *testing.T) {
 		t.Fatalf("a task was queued for an undeliverable agent: %+v", tasks)
 	}
 }
-
-// TestInboxAppActionRespondInteractiveAgent is the regression test for the
-// bug the above test's sibling did NOT catch: the raw /api/inbox/respond
-// route and the Inbox app's /api/apps/inbox/action route each build their
-// own AgentDeliverable closure (internal/server/inbox.go vs
-// internal/server/apps.go's appsHost). The first negated
-// deps.agentInteractive correctly; the second passed it straight through
-// under the old, differently-named field — silently inverted, so a reply
-// to a TUI agent was accepted and queued forever. A unit test that sets
-// apps.Host.AgentDeliverable by hand (internal/apps/inbox_test.go) cannot
-// see this: the bug lived entirely in appsHost()'s wiring. Only a real
-// HTTP round trip through the apps route, against a real tmux session,
-// exercises it.
 func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not available")
@@ -220,6 +210,19 @@ func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = tm.KillSession(context.Background(), name) })
 
+	// Give the agent an exact captured session for the delivery half. It
+	// must live inside the workspace's session root to pass the safety gate.
+	sessionPath := filepath.Join(session.Dir(ws.Path), "exact.jsonl")
+	if err := os.MkdirAll(filepath.Dir(sessionPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sessionPath, []byte(`{"type":"session"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.UpdateAgent(ag.ID, store.AgentPatch{SessionPath: &sessionPath}); err != nil {
+		t.Fatal(err)
+	}
+
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
 		Store: st, Tmux: tm, AgentCmd: "cat", Apps: apps.NewRegistry(apps.BuiltIns(false)...),
 	}).Handler)
@@ -229,26 +232,46 @@ func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 		`{"kind":"question","sourceKind":"agent","sourceId":"`+ag.ID+`","reason":"r","title":"q","body":"?"}`)
 	id, _ := out["id"].(string)
 
+	// No captured session on the item: refused, nothing parked.
 	res, err := http.Post(ts.URL+"/api/apps/inbox/action", "application/json",
 		bytes.NewBufferString(`{"action":"respond","path":"item/`+id+`","args":{"reply":"hi"}}`))
 	if err != nil {
 		t.Fatalf("POST action: %v", err)
 	}
-	body, _ := json.Marshal(map[string]any{})
-	_ = json.NewDecoder(res.Body).Decode(&body)
+	body, _ := io.ReadAll(res.Body)
 	res.Body.Close()
 	if res.StatusCode != http.StatusBadRequest {
-		t.Fatalf("app action to an interactive agent = %d, want 400 (refused)", res.StatusCode)
+		t.Fatalf("app action without an exact session = %d (%s), want 400 (refused)", res.StatusCode, body)
 	}
 	after, _ := st.GetInboxItem(id)
 	if after.State == store.InboxDone {
-		t.Fatalf("interactive-agent item was closed by the app action route")
-	}
-	if !strings.Contains(after.Body, "interactive terminal") {
-		t.Fatalf("no actionable annotation: %q", after.Body)
+		t.Fatalf("item was closed despite the session refusal")
 	}
 	if tasks, _ := st.ListTasks(ag.ID, 10); len(tasks) != 0 {
-		t.Fatalf("app action queued a task for an undeliverable agent: %+v", tasks)
+		t.Fatalf("refused action parked a task: %+v", tasks)
+	}
+
+	// With the exact captured session the same action delivers: the item
+	// parks done and exactly one correlated reply task exists.
+	_, out2 := inboxPost(t, ts, "/api/inbox",
+		`{"kind":"question","sourceKind":"agent","sourceId":"`+ag.ID+`","sessionPath":"`+sessionPath+`","reason":"r","title":"q2","body":"?"}`)
+	id2, _ := out2["id"].(string)
+	res, err = http.Post(ts.URL+"/api/apps/inbox/action", "application/json",
+		bytes.NewBufferString(`{"action":"respond","path":"item/`+id2+`","args":{"reply":"hi"}}`))
+	if err != nil {
+		t.Fatalf("POST action: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("app action with an exact session = %d, want 200 (delivered)", res.StatusCode)
+	}
+	after2, _ := st.GetInboxItem(id2)
+	if after2.State != store.InboxDone {
+		t.Fatalf("delivered item state = %s", after2.State)
+	}
+	tasks, _ := st.ListTasks(ag.ID, 10)
+	if len(tasks) != 1 || tasks[0].Source != "inbox-tui:"+id2 {
+		t.Fatalf("parked tasks = %+v", tasks)
 	}
 }
 

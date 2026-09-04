@@ -1,7 +1,8 @@
 # ADR-0059: Inbox replies use a transient RPC burst behind the TUI surface
 
-- **Status**: accepted (owner-approved 2026-09-03; supersedes the
-  "consented switch" amendment in ADR-0037 and narrows ADR-0006)
+- **Status**: superseded by ADR-0060 (Inbox replies are delivered into the
+  running TUI). Was accepted 2026-09-03; it superseded the "consented switch"
+  amendment in ADR-0037 and narrowed ADR-0006.
 - **Date**: 2026-09-03
 
 ## Context

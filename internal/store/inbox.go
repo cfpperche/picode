@@ -519,8 +519,9 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 }
 
 // RespondAndPark atomically records the human reply and its one correlated
-// burst task. The temporary coordinator claims the returned task id; it never
-// drains unrelated queued work (ADR-0059).
+// delivery task, correlated by the Inbox item id. The TUI reply sender claims
+// exactly this task; unrelated queued work is never drained (ADR-0060,
+// continuing ADR-0059's exact-task rule).
 func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, Task, error) {
 	it, err := s.GetInboxItem(id)
 	if err != nil {
@@ -555,7 +556,7 @@ func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, Task, error) {
 	payload := inboxForwardPayload(it, verb, text)
 	task := Task{
 		ID: newID("task", "task"), AgentID: it.SourceID, Kind: TaskFollowUp,
-		Payload: payload, Source: "inbox-burst:" + id, Status: TaskQueued, CreatedAt: nowUTC(),
+		Payload: payload, Source: "inbox-tui:" + id, Status: TaskQueued, CreatedAt: nowUTC(),
 	}
 	now := nowUTC()
 	resp := verb

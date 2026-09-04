@@ -38,7 +38,6 @@ type agentView struct {
 	Streaming bool          `json:"streaming"`
 	Waiting   bool          `json:"waiting"`
 	Dialog    *rpc.UIDialog `json:"dialog,omitempty"`
-	Burst     *BurstState   `json:"burst,omitempty"`
 }
 
 func asAgentView(a store.Agent, running bool) agentView {
@@ -96,7 +95,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 		// sidebar line is about the agent, not its container.
 		st, wt, dl := deps.liveState(a.ID)
 		views = append(views, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode),
-			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl, Burst: deps.Bursts.Snapshot(a.ID)})
+			Git: gitinfo.Inspect(store.AgentCwd(w, a)), Streaming: st, Waiting: wt, Dialog: dl})
 	}
 	var first *agentView
 	if len(views) > 0 {
@@ -271,13 +270,9 @@ func handleOpen(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusConflict, runInFlightMsg)
 			return
 		}
-		// ADR-0006: exclusive run mode — stop managed first. A burst returns
-		// its borrowed pane before this legacy workspace-level open continues.
-		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		// ADR-0006: exclusive run mode — stop managed first. The reply
+		// guard blocks a concurrent send while the pane is replaced.
+		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		agent, err = deps.Store.GetAgent(agent.ID)
 		if err != nil {
@@ -331,11 +326,7 @@ func handleClose(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(agent.ID)); err != nil {
 			writeErr(w, http.StatusInternalServerError, "stop agent: "+err.Error())

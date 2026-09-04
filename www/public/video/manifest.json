@@ -1,27 +1,27 @@
 {
-  "uiTreeHash": "3bdb4cc759d8e8b86e1936187c196a75ce72544f79049152b26c97c2bf506957",
+  "uiTreeHash": "31a43308d7b0ff99603e97f9b96c85e1343e1ddfbea1b408dd15c91b9b51d5c5",
   "videos": {
     "create-agent": {
       "file": "create-agent.mp4",
       "composition": "index.html",
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
-        "v1-1b-agents-tab": "1aa183d8c708673e73ece9ab81bcb855e7085ccc35eb5e7c78e2eee74cfaa1d1",
-        "v1-2-form": "2d7e932bebd572a88c95d28188bb1ca08335ae9116f8948ff10873b8615fa8f6",
-        "v1-3-running": "daf51d4209b95ce67a84b968e44b3b95583316468cb690a4a8c5b3a72b2a108e"
+        "v1-1b-agents-tab": "a12a7c4aaa7f1ef9bc7c6503835bce44b104f8da197326971a1da04d5608dc90",
+        "v1-2-form": "a905a0394d0bb48ddde839e38864bd2305bb19adc03ca82db67f988a70b0ed2e",
+        "v1-3-running": "d46b138a61f01aec5e3acee2ed33b7b03b33ceb99a19579848e9f52f9862e8c1"
       },
-      "mp4": "8757ef03202780ac4ea7762a87da8229e43b20682fc016111f0189617337f554"
+      "mp4": "e23e8d586bc57aeeab6bb6b02835fbd979b4afe13bbcc9744fead94b0ca46552"
     },
     "automate-it": {
       "file": "automate-it.mp4",
       "composition": "compositions/automate-it.html",
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
-        "v2-1-list": "7985e59d4521b97eca1c9a8a2f4ecd5929e3b121332af0b7ba5fc06107abea03",
-        "v2-2-detail": "f3b85f23dfc0a36193b0e3c0a81663cda89b6365f1302f4c0de5330a5d0a6051",
+        "v2-1-list": "133127190c05de6d18962ab337109b49e1659ec82e96a2c3c2e4adde4e4d4b6e",
+        "v2-2-detail": "4a223b3ac08e90754a2d7b25dadcd6fd227171228baac891f8f977795306254e",
         "v2-3-inbox": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6"
       },
-      "mp4": "fad5a07ec43e05fa5eb81a388be57ca5271fab65ae6d35d39be744954024e2ab"
+      "mp4": "984b8c4fa2fd3721f59fd235645e1e3a7cbb7d588049f79fc646822914261a26"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",

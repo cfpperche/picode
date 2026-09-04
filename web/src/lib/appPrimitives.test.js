@@ -160,35 +160,3 @@ test("normalizeView preserves tabs, drops junk ones, caps the count", () => {
   assert.equal(many.tabs.length, 8);
 });
 
-test("normalizeView keeps a form's burst flag (the same-tab confirm depends on it)", () => {
-  const view = {
-    apiVersion: SUPPORTED_API,
-    title: "t",
-    layout: "split",
-    blocks: [
-      {
-        type: "form",
-        pane: "detail",
-        form: {
-          id: "respond",
-          submit: "Send reply",
-          burst: true,
-          fields: [{ name: "reply", method: "editor", title: "Your reply" }],
-        },
-      },
-      {
-        type: "form",
-        pane: "detail",
-        form: {
-          id: "plain",
-          submit: "Send",
-          fields: [{ name: "reply", method: "editor", title: "Your reply" }],
-        },
-      },
-    ],
-  };
-  const out = normalizeView(view);
-  const forms = out.blocks.filter((b) => b.type === "form").map((b) => b.form);
-  assert.equal(forms[0].burst, true, "burst must survive normalization");
-  assert.equal(Boolean(forms[1].burst), false, "plain form stays plain");
-});

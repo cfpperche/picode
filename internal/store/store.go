@@ -58,7 +58,7 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if _, err := s.recoverInterruptedBursts(); err != nil {
+	if _, err := s.recoverPendingInboxReplies(); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("store: recover interrupted reply bursts: %w", err)
 	}

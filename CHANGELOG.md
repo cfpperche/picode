@@ -103,16 +103,20 @@ to the `[Unreleased]` section. The repository's official language is English
   no longer auto-reloads, SIGTERM cancels the watcher first, and HTTP
   drain is bounded at 8s (below `TimeoutStopSec=30`) even if `Shutdown`
   hangs on a listener.
-- **Inbox replies no longer fail on passive extension UI (ADR-0059 follow-up).**
-  A reply burst to a TUI agent whose extensions render widgets, status lines,
-  titles, notify toasts, or editor text (`setWidget`, `setStatus`, `setTitle`,
-  `notify`, `set_editor_text` — all fire-and-forget `extension_ui_request`
-  methods) treated those decoration updates as a blocking dialog and aborted
-  every attempt within milliseconds, reopening the item with "the reply needs
-  an interactive answer". Only real dialogs that wait on a human answer
-  (`select`/`confirm`/`input`/`editor`) stop a burst now, matching the
-  runtime's own dialog classification; the live checklist widget can no longer
-  make an agent unreachable for replies.
+- **Inbox replies land directly in the running TUI (ADR-0060), and the
+  ADR-0059 burst machinery is gone.** Every interactive agent TUI that PiCode
+  spawns now carries a generated receiver extension: it answers the daemon's
+  reply drops by submitting the human's answer through pi's own message path
+  (`pi.sendUserMessage`, queued natively when the agent is mid-turn), so the
+  reply renders in the terminal exactly like a typed message. Legacy TUIs
+  without the receiver get the reply typed in over tmux (bracketed paste +
+  Enter; the owner accepted the draft-race tradeoff). Delivery still counts
+  only when the exact captured session file gains the reply as a user row;
+  failure reopens the Inbox item with the answer prefilled, and a daemon
+  restart settles pending replies against the session file instead of juggling
+  holder leases. The burst surface, coordinator, holder swap, transient RPC
+  writer, cancel endpoint, and `agent.burst` feed events are removed —
+  no `receiving/processing/returning` card, no pause of your terminal.
 - **Cross-platform path aliases can no longer bypass backup safety or split
   one Git repository into multiple graphs.** Backup destination validation
   resolves the longest existing ancestor before testing containment, so a

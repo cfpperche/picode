@@ -23,7 +23,8 @@ import (
 func registerAgentRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/managed/start", handleManagedStart(deps))
 	mux.HandleFunc("POST /api/agents/{id}/managed/stop", handleManagedStop(deps))
-	mux.HandleFunc("POST /api/agents/{id}/burst/cancel", handleBurstCancel(deps))
+	mux.HandleFunc("POST /api/agents/{id}/tui-hello", handleTuiHello(deps))
+	mux.HandleFunc("POST /api/agents/{id}/tui-ack", handleTuiAck(deps))
 	mux.HandleFunc("PATCH /api/agents/{id}", handlePatchAgent(deps))
 	mux.HandleFunc("POST /api/agents/{id}/login", handleAgentLogin(deps))
 	mux.HandleFunc("POST /api/agents/{id}/command", handleAgentCommand(deps))
@@ -53,11 +54,6 @@ func (deps Deps) agentHome(agent store.Agent) (store.Workspace, string, error) {
 }
 
 func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
-	// ADR-0059: the temporary RPC writer is hidden behind the TUI's
-	// dedicated burst surface. It is not a managed-chat mode change.
-	if deps.Bursts != nil && deps.Bursts.Snapshot(agentID) != nil {
-		return modeInteractive
-	}
 	if deps.Runtime.Active(agentID) {
 		return modeManaged
 	}
@@ -79,9 +75,6 @@ func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
 // managed drains immediately, stopped is the legitimate park-and-wake
 // case (the queue drains on the next managed start).
 func (deps Deps) agentInteractive(ctx context.Context, agentID string) bool {
-	if deps.Bursts != nil && deps.Bursts.Snapshot(agentID) != nil {
-		return true
-	}
 	if deps.Runtime.Active(agentID) {
 		return false
 	}
@@ -105,14 +98,9 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		// ADR-0006: exclusive run mode — stop interactive first. A
-		// transient burst must restore its borrowed pane before the user's
-		// explicit managed-mode switch tears the tmux session down.
-		release, err := deps.cancelBurstAndWait(r.Context(), agentID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		// ADR-0006: exclusive run mode — stop interactive first. The reply
+		// guard blocks a concurrent send while the tmux session tears down.
+		release := deps.Replies.Controls.BeginMutation(agentID)
 		defer release()
 		if deps.runMode(r, agentID) == modeInteractive {
 			if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(agentID)); err != nil {
@@ -152,18 +140,8 @@ func handleManagedStop(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "agent not found")
 			return
 		}
-		release := deps.Bursts.BeginControl(agentID)
-		hadBurst := deps.Bursts.Snapshot(agentID) != nil
-		if err := deps.cancelBurstAndWaitHeld(r.Context(), agentID); err != nil {
-			release()
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(agentID)
 		defer release()
-		if hadBurst {
-			writeJSON(w, http.StatusOK, map[string]any{"mode": modeInteractive})
-			return
-		}
 		if !deps.Runtime.Stop(agentID) {
 			writeJSON(w, http.StatusOK, map[string]any{"mode": modeStopped, "alreadyStopped": true})
 			return
@@ -306,11 +284,7 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.SessionPath != nil {
-			release, err := deps.cancelBurstAndWait(r.Context(), id)
-			if err != nil {
-				writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-				return
-			}
+			release := deps.Replies.Controls.BeginMutation(id)
 			defer release()
 		}
 		agent, err := deps.Store.UpdateAgent(id, store.AgentPatch{
@@ -339,11 +313,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 			Provider string `json:"provider"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
-		release, err := deps.cancelBurstAndWait(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 
 		agent, err := deps.Store.GetAgent(id)
@@ -413,11 +383,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "only slash commands")
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		agent, err := deps.Store.GetAgent(id)
 		if errors.Is(err, store.ErrNotFound) {
@@ -480,11 +446,7 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		if deps.runMode(r, id) == modeInteractive {
 			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
@@ -549,7 +511,7 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 				cwd = *a.WorkPath
 			}
 			st, wt, dl := deps.liveState(a.ID)
-			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl, Burst: deps.Bursts.Snapshot(a.ID)})
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl})
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -707,8 +669,8 @@ var errAgentCmdMissing = errors.New("pi is not installed or not on PATH — inst
 
 // openAgentTUI starts (or confirms) the agent's interactive pi TUI in
 // tmux. Shared by the HTTP handler above and the inbox app's open-terminal
-// action (ADR-0037). restart deliberately replaces an existing pane after a
-// burst restoration failure; otherwise an existing session is preserved.
+// action (ADR-0037). restart deliberately replaces an existing pane whose
+// terminal is gone; otherwise an existing session is preserved.
 func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool) (alreadyRunning bool, err error) {
 	agent, err := deps.Store.GetAgent(agentID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -718,77 +680,13 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 		return false, err
 	}
 	name := tmux.SessionName(agent.ID)
-	var restartFailure *BurstState
-	if restart {
-		if state := deps.Bursts.Snapshot(agent.ID); state != nil && state.Phase == burstFailed && state.TerminalUnavailable {
-			restartFailure = state
-		}
-	}
 	if deps.automationRunOn(agent.ID) {
 		return false, errAgentTUIInFlight
 	}
-	// Manual takeover wins. The coordinator stops its one RPC writer and
-	// lets the holder restore Pi before this function inspects the pane. A
-	// terminal-unavailable card already represents a fully stopped burst, so
-	// explicit recovery keeps that generation visible as Returning instead of
-	// clearing it before the restart has actually succeeded.
-	var release func()
-	if restart {
-		release, err = deps.Bursts.TryBeginControl(agent.ID)
-		if err != nil {
-			return false, err
-		}
-		if restartFailure != nil {
-			if state, ok := deps.Bursts.Update(agent.ID, restartFailure.Generation, func(s *BurstState) {
-				s.Phase = burstRestoring
-				s.Activity = "Restarting the terminal"
-				s.Error = ""
-			}); ok {
-				deps.publishBurst(state)
-			}
-		} else if err = deps.cancelBurstAndWaitHeld(ctx, agent.ID); err != nil {
-			release()
-			return false, fmt.Errorf("stop terminal reply: %w", err)
-		}
-	} else {
-		release, err = deps.cancelBurstAndWait(ctx, agent.ID)
-		if err != nil {
-			return false, fmt.Errorf("stop terminal reply: %w", err)
-		}
-	}
+	// Manual takeover wins: the mutation guard blocks new replies while the
+	// pane is inspected or replaced (ADR-0060).
+	release := deps.Replies.Controls.BeginMutation(agent.ID)
 	defer release()
-	if restartFailure != nil {
-		// This defer runs before release, so another reply cannot reserve the
-		// agent between the restart result and the final card update.
-		defer func() {
-			if err == nil {
-				if deps.Bursts.Clear(agent.ID, restartFailure.Generation) {
-					// Recovery succeeded: do not carry the old unavailable bit
-					// into idle or the fleet reducer would stop the fresh TUI.
-					deps.publishBurst(BurstState{AgentID: agent.ID, Generation: restartFailure.Generation, Phase: burstIdle})
-				}
-				return
-			}
-			mutate := func(s *BurstState) {
-				s.Phase = burstFailed
-				s.Activity = "Terminal restart failed"
-				s.Error = "The terminal could not restart. Check that pi and tmux are available, then try again."
-				s.TerminalUnavailable = true
-			}
-			if state, ok := deps.Bursts.Update(agent.ID, restartFailure.Generation, mutate); ok {
-				deps.publishBurst(state)
-				return
-			}
-			state := *restartFailure
-			mutate(&state)
-			if restored, ok := deps.Bursts.RestoreIfAbsent(state); ok {
-				deps.publishBurst(restored)
-			}
-		}()
-	}
-	// Burst installation may have selected the item-owned session while we
-	// waited. Reload before spawning so a forced restart never resumes the
-	// stale pointer observed at request entry.
 	agent, err = deps.Store.GetAgent(agent.ID)
 	if err != nil {
 		return false, err
@@ -814,11 +712,6 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 			return false, fmt.Errorf("restart terminal: %w", err)
 		}
 	}
-	if restart {
-		// The writer has joined and any stale holder pane is gone. Remove its
-		// lease so the explicitly recovered TUI does not block the next reply.
-		removeBurstMarkers(deps.DataDir, agent.ID)
-	}
 	if err := deps.Tmux.NewSessionEnv(ctx, name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
 		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 		return false, fmt.Errorf("start agent: %w", err)
@@ -840,11 +733,7 @@ func handleAgentClose(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), id)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		deps.Runtime.Stop(id)
 		if deps.Tmux.Available() {

@@ -173,17 +173,7 @@ export default function MobileApp() {
   }
   async function onAppGoto(goto) {
     const value = String(goto || "");
-    if (value.startsWith("agentburst:")) {
-      const payload = value.slice("agentburst:".length);
-      const cut = payload.indexOf(":");
-      const id = cut < 0 ? payload : payload.slice(0, cut);
-      // The action response and SSE notice travel independently. Reconcile
-      // before navigation so a fast phone never flashes the parked TUI.
-      await reload().catch(() => {});
-      openAgent(id);
-    } else if (value.startsWith("agent:")) {
-      openAgent(value.slice("agent:".length));
-    }
+    if (value.startsWith("agent:")) openAgent(value.slice("agent:".length));
   }
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));
@@ -239,8 +229,8 @@ export default function MobileApp() {
   function stopAgent(agent, workspace) {
     return withBusy(agent, async () => {
       if (agent.mode === "interactive") {
-        // Agent-scoped control matters in multi-agent workspaces (and during
-        // an Inbox burst); the workspace endpoint only targets its default.
+        // Agent-scoped control matters in multi-agent workspaces; the
+        // workspace endpoint only targets its default.
         await api("/api/agents/" + agent.id + "/close", { method: "POST" });
         closeTerm(agent.id);
       } else {

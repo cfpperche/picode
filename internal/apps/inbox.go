@@ -346,9 +346,9 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 		}
 		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
-				ID:     "respond",
-				Submit: "Send reply",
-				Burst:  h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID),
+				ID:       "respond",
+				Submit:   "Send reply",
+				Terminal: h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID),
 				Fields: []Field{{
 					Name: "reply", Method: "editor", Title: "Your reply",
 					Placeholder: "Type your answer…", Prefill: priorInboxReply(it),
@@ -471,33 +471,24 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		if verb == store.VerbRespond && strings.TrimSpace(text) == "" {
 			return ActionResult{}, fmt.Errorf("write a reply first")
 		}
-		// ADR-0059: the shell confirms before sending _burst. The host then
-		// owns the coupled park + temporary control-channel lifecycle while
-		// this app only returns the agent/generation navigation directive.
-		// Without _burst the plain gate applies, so old clients fail honestly.
+		// ADR-0060: a TUI agent receives the reply in its own terminal —
+		// receiver extension or tmux paste — and the host owns delivery
+		// proof. Anything else falls through to the ordinary durable gate.
 		it, err := h.Store.GetInboxItem(id)
 		if err != nil {
 			return ActionResult{}, err
 		}
 		interactive := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
 			it.SourceKind == store.InboxFromAgent
-		if interactive && it.State != store.InboxDone &&
-			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) &&
-			strings.TrimSpace(req.Args["_burst"]) == "1" {
-			if h.StartReplyBurst == nil {
-				return ActionResult{}, fmt.Errorf("Reply not sent — temporary terminal replies are unavailable here")
-			}
-			agentID, generation, err := h.StartReplyBurst(id, verb, text)
-			if err != nil {
+		if interactive && h.DeliverReply != nil && it.State != store.InboxDone &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
+			if _, err := h.DeliverReply(id, verb, text); err != nil {
 				if strings.Contains(err.Error(), "agent no longer exists") {
 					return ActionResult{}, fmt.Errorf("Reply not delivered — the agent no longer exists; the item stays open")
 				}
 				return ActionResult{}, err
 			}
-			return ActionResult{
-				Toast: "Reply received — checking the terminal.",
-				Goto:  "agentburst:" + agentID + ":" + generation,
-			}, nil
+			return a.backTo(h, returnPath, "Reply sent to the terminal.")
 		}
 		if _, err := h.Store.RespondAndForward(id, verb, text, h.AgentDeliverable); err != nil {
 			// These surface verbatim as a toast (handleAppAction writes

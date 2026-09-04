@@ -145,7 +145,7 @@ stay on their own routes.
 | Hash | Surface | Owns |
 |---|---|---|
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. With no tab open (or pinned via the logo): the session observability dashboard once any workspace/agent/terminal exists — spend/activity/sessions/fleet tiles, a daily chart, and spend by model / workspace, tokens, tools, reliability, top sessions (ADR-0041, ADR-0042; `GET /api/sessions/stats`, fingerprint-cached, polled every 60 s while visible) — else the first-run blank slate. Not routed, derived from `noTabs && hasData`. |
-| `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load). During an ADR-0059 reply burst it stays on the Terminal view and exposes only receiving/processing/returning state, streamed answer, and cancel/return. |
+| `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load). An Inbox reply lands straight in this terminal (ADR-0060), so the tab never leaves the TUI. |
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
 | `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
@@ -172,24 +172,21 @@ sends `/name` as a prompt. Stopped agents omit that list. Names that collide
 with a PiCode command are dropped.
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
 The sidebar has five flat tabs, one kind each (ADR-0026, fifth added by ADR-0036), in order: **Workspaces** (the landing tab — one collapsible card per workspace holding its agents and its terminals; no section-level collapse), **Agents** (free agents, name-sorted, no hierarchy — agent and terminal cards share one flat row shape), **Terminals** (free terminals only), **Apps** (a grid of app tiles drawn from `GET /api/apps` manifests — numeric badge for actionable counts, dot for activity, aggregated onto the tab icon; a tile opens the app as a main tab `x:<id>` / `#/app/<id>`) and **Pins**. Nothing appears in two tabs. Terminals are first-class shells (ADR-0017): **+** on the Terminals tab creates a free one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`); the terminal button on a workspace card creates one owned by it, born in the workspace folder (`workspaceId` in the POST body). Either opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux; removing a workspace kills its terminals with it (the cleanup dialog warns with the count from the preview). Not tied to an agent. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear after **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
-An Inbox answer to an idle TUI agent keeps that same agent tab and tmux
-attachment. The mounted terminal is temporarily hidden behind `BurstSurface`
-(`receiving → processing → returning → done|failed`); ordinary chat,
-composer and model controls are absent, and sidebar Chat is unavailable until
-the holder restores Pi. `POST /api/agents/{id}/burst/cancel` stops the leased
-writer and returns control; `POST /api/agents/{id}/open?restart=1` is the
-explicit recovery path when automatic restoration exhausted both holder and
-direct-respawn attempts. If automatic pane restoration itself fails, the
-card marks the terminal unavailable and Return force-replaces any stale pane
-before starting that exact agent's TUI. The card stays visible as Returning
-during that restart and returns to its retryable failure state if recovery
-itself fails; mobile start/stop uses agent-scoped routes even inside a
-multi-agent workspace. Done remains readable for 800 ms before a 400 ms exit;
-reduced-motion preferences remove that exit animation.
-Desktop and mobile consume `agent.burst` from the change feed and reconcile
-from the optional `burst` field on fleet views. Reducers reject older burst
-generations, and mobile refreshes fleet state before opening a pushed burst so
-the parked terminal cannot flash first.
+An Inbox answer to a TUI agent lands directly in its running terminal
+(ADR-0060). Every spawned agent TUI carries PiCode's receiver extension
+(`<dataDir>/intercept/pi-inbox-reply.ts`, injected with `-e`); it says hello to
+`POST /api/agents/{id}/tui-hello` and consumes one-shot reply files under
+`<dataDir>/tui-inbox/<agentID>/`, submitting each through
+`pi.sendUserMessage` (queued natively mid-turn) and confirming via
+`POST /api/agents/{id}/tui-ack`. Without a fresh hello the daemon types the
+reply into the pane itself — tmux bracketed paste plus Enter (a legacy TUI
+tradeoff the owner accepted). Delivery truth stays the exact session JSONL:
+the reply counts only when the captured file gains the full-payload user row;
+otherwise the task fails and the Inbox item reopens with the response
+prefilled. Boot reconciliation settles pending replies the same way — no
+holders, leases, or fail-closed startup remain. `POST
+/api/agents/{id}/open?restart=1` still force-replaces a genuinely dead pane.
+Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
@@ -294,21 +291,13 @@ simultaneous design risked concurrent writers on pi's session files.
 
 Both channels read/write **the same session files** (`~/.pi/agent/sessions/`),
 so the user can alternate between the rich view and the terminal without
-losing state. They never write one file concurrently. ADR-0059's exception to
-an explicit product-mode switch is a generation-scoped Inbox burst: tmux
-`respawn-pane -k` replaces only the Pi child with a crash-safe holder, one
-parent-bound RPC process resumes the question's captured session for one
-`prompt`, then the holder execs the TUI in the unchanged pane. Runtime start
-and stop tickets hold the writer lease through process join, so a concurrent
-restart cannot occupy the shutdown gap. Pane/session routes hold a per-agent
-control guard across burst cancellation and their mutation, so a new reply
-cannot reserve the handoff gap. A vanished holder lease plus a stable live pane
-proves TUI restoration (script-backed `pi` panes report their interpreter, not
-`pi`, as the current command). Startup releases old holders before it opens
-SQLite; an uncertain live lease fails daemon startup closed. The persistent run
-mode stays `interactive`. Closing the browser tab does not kill anything:
-the interactive agent lives inside tmux; an ordinary RPC agent is detached
-from the browser entirely.
+losing state. They never write one file concurrently — ADR-0060 keeps it that
+way by never starting a second writer: an Inbox reply is submitted inside the
+TUI process by the receiver extension, or typed into the pane over tmux. A
+per-agent mutation guard serializes replies with pane/session changes. The
+persistent run mode stays `interactive`. Closing the browser tab does not kill
+anything: the interactive agent lives inside tmux; an ordinary RPC agent is
+detached from the browser entirely.
 
 ## Key subsystems
 
@@ -320,10 +309,10 @@ MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
 `agents` (many per workspace, own model/config; free agents in `ws_free` — ADR-0011),
 `terminals` (each owned by a workspace, `ws_free` for free ones — ADR-0026; no FK, cascade is app-driven),
 `tasks` (prompt/steer/follow_up queue with a delivery state machine;
-`inbox-burst:<itemID>` correlates a temporary reply), `inbox_items` (including
-the exact asking `session_path`; startup resolves an interrupted delivering
-reply from a full-payload, post-task-timestamp user row before deciding whether
-to reopen it), `messages` (reserved M4 broker inbox),
+`inbox-tui:<itemID>` correlates a terminal reply), `inbox_items` (including
+the exact asking `session_path`; boot reconciliation settles pending replies
+from a full-payload, post-task-timestamp user row before deciding whether to
+reopen them), `messages` (reserved M4 broker inbox),
 `events` (orchestration audit),
 `settings`. Embedded sequential migrations; the M1 JSON registry is imported
 once and retired (`workspaces.json.migrated`).
@@ -410,12 +399,13 @@ HTTP API (Go 1.22 method patterns):
   /api/inbox?state=&blocking=` lists (snoozed hidden until due). `POST
   /api/inbox/{id}/respond` `{verb: accept|edit|respond|ignore, text}`
   answers and marks done. A stopped or managed agent receives the existing
-  durable `follow_up` task. An idle TUI agent instead uses ADR-0059's exact,
-  correlated burst; absent/unsafe session identity or an active TUI turn is
-  refused before mutation. Materialization is verified from newly appended
-  user-message bytes, with three attempts. Terminal failure or restart before
-  delivery fails the exact task and reopens the same Inbox item with the prior
-  response retained for prefill. A deleted agent yields 409 and the item stays
+  durable `follow_up` task. A TUI agent instead receives the reply inside its
+  terminal (ADR-0060): receiver extension or tmux paste, gated on the item's
+  exact captured session, refused before mutation when identity is absent or
+  unsafe, another send is pending, or a pane/session mutation holds the guard.
+  The reply counts only when the session JSONL gains the full-payload user
+  row; failure reopens the same Inbox item with the prior response retained
+  for prefill. A deleted agent yields 409 and the item stays
   open. `POST /api/inbox/{id}/state` triages (`unread|read|done`,
   `snoozedUntil`).
   PiCode itself files items from the RPC pump: a run that settles with
@@ -556,8 +546,9 @@ lookups). Project shells use `picode-sh-<id>` (same prefix, different name).
 binary frames = terminal bytes, text frames = `resize` control JSON;
 closing the tab ends only the attach — the agent or shell keeps running in tmux.
 `RespawnPaneEnv` changes a pane's child without changing its immutable tmux
-session id; ADR-0059 uses it for holder entry and bounded TUI recovery.
-`PaneCommand` and `PaneSessionID` verify both transitions. Resize propagates
+session id (used by restart-same-mode and the explicit dead-pane recovery).
+`PasteText` types text into a pane as a bracketed paste plus Enter — the
+ADR-0060 reply fallback. `PaneCommand` and `PaneSessionID` verify transitions. Resize propagates
 via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5. Attach and `NewSession` set `extended-keys on` /
 `extended-keys-format xterm` (modifyOtherKeys). Probed live: tmux 3.6
 answers only DA1 to a pane's Kitty query, so pi falls back to
@@ -607,15 +598,7 @@ propagation) plus the **managed runtime** (ADR-0006): task delivery engine
 claiming from the store (`prompt` waits for `agent_settled`; `steer` /
 `follow_up` send while the turn is running), finished delivered/failed with
 audit), per-agent event hub feeding `GET /ws/agent?agent=<id>` (events +
-`enqueue` input). `Runtime.StartBurst` registers an observed, parent-bound
-writer without starting the general queue drain. The client event subscription
-is ready before `StartBurst` returns, and Runtime keeps its per-agent lease
-until a stopping process has joined; `agent_start`, exact post-baseline JSONL
-materialization, and `agent_settled` form the transient lifecycle. Thinking
-text is never projected to the status surface, and blocking extension dialogs
-(`select`/`confirm`/`input`/`editor`) fail the burst rather than opening chat;
-passive `extension_ui_request` updates (status, widget, title, notify, editor
-text) are ignored so decorating extensions cannot kill a reply.
+`enqueue` input). Thinking text is never projected to the status surface.
 Extension dialogs (`select`/`confirm`/`input`/`editor`) surface as RPC
 `extension_ui_request`. Managed snapshot includes `waiting` + `dialog`.
 The GUI shows one compact stepper per turn: labeled pills for answers (click
@@ -704,9 +687,8 @@ fans out to `GET /api/events` subscribers (SSE: `hello` with the bootId,
 `change` frames with `id:` for durable rows, `reset` when a cursor is
 older than the seven-day retention) and to in-process listeners (the
 push notifier). Ephemeral notices — `device.online` from presence,
-`agent.state` on every streaming / dialog edge, `agent.waiting`, and
-`agent.burst` on every generation-scoped reply phase — ride the same stream
-with id 0. Clients (`web/src/lib/feed.js`) keep one
+`agent.state` on every streaming / dialog edge, and `agent.waiting` — ride
+the same stream with id 0. Clients (`web/src/lib/feed.js`) keep one
 `EventSource` per shell, resume from a `sessionStorage` cursor, patch
 lists with `lib/feedReducers.js` and refetch when a reducer returns
 `null`; the old timers only tick while the feed is down. The server

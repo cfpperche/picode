@@ -62,23 +62,10 @@ type Client struct {
 // Start launches the rpc process (command run with args, cwd) and begins
 // pumping stdout until the process exits or Close is called.
 func Start(command string, args []string, cwd string, extraEnv ...string) (*Client, error) {
-	return start(command, args, cwd, false, extraEnv...)
-}
-
-// StartParentBound gives a transient writer the daemon's lifetime. On Linux
-// this closes the crash window before the tmux holder restores the TUI.
-func StartParentBound(command string, args []string, cwd string, extraEnv ...string) (*Client, error) {
-	return start(command, args, cwd, true, extraEnv...)
-}
-
-func start(command string, args []string, cwd string, parentBound bool, extraEnv ...string) (*Client, error) {
 	cmd := exec.Command(command, args...)
 	cmd.Dir = cwd
 	if len(extraEnv) > 0 {
 		cmd.Env = append(os.Environ(), extraEnv...)
-	}
-	if parentBound {
-		configureChild(cmd)
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

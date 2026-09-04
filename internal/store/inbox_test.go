@@ -421,7 +421,7 @@ func TestBurstTaskMaterializedRejectsMatchingRowOlderThanTask(t *testing.T) {
 	if err := os.WriteFile(path, append(row, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+	if replyTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
 		t.Fatal("an older identical reply proved crash-time delivery")
 	}
 	newerLonger, _ := json.Marshal(map[string]any{
@@ -431,7 +431,7 @@ func TestBurstTaskMaterializedRejectsMatchingRowOlderThanTask(t *testing.T) {
 	if err := os.WriteFile(path, append(append(row, '\n'), append(newerLonger, '\n')...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+	if replyTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
 		t.Fatal("a longer user message was mistaken for the exact reply")
 	}
 }
@@ -463,7 +463,7 @@ func TestBurstTaskMaterializedContinuesPastLargeJSONLRow(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if !burstTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
+	if !replyTaskMaterialized(path, payload, created.Format(time.RFC3339Nano)) {
 		t.Fatal("large preceding JSONL row hid the durable reply")
 	}
 }

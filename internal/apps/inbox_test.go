@@ -609,95 +609,74 @@ func TestInboxRecoveredReplyIsPrefilled(t *testing.T) {
 	t.Fatal("recovered item has no reply form")
 }
 
-// A consented _burst delegates the coupled reply + temporary writer handoff
-// to the host and navigates to the same terminal tab. Without _burst the plain
-// refusal still applies, and a managed agent ignores the marker entirely.
-func TestInboxReplyBurst(t *testing.T) {
+// An interactive TUI agent's reply goes straight to the terminal through the
+// host's DeliverReply; deliverable agents keep the ordinary durable forward.
+func TestInboxDeliverReply(t *testing.T) {
 	h := inboxHost(t)
 	app := inboxApp{}
 	ctx := context.Background()
 	ws, _ := h.Store.AddWorkspace("wsx", t.TempDir())
 	ag, _ := h.Store.AddAgent(ws.ID, "tui", "")
 	h.AgentDeliverable = func(string) bool { return false }
-	var bursts []string
-	h.StartReplyBurst = func(itemID, verb, text string) (string, string, error) {
-		bursts = append(bursts, itemID+":"+verb+":"+text)
+	var calls []string
+	h.DeliverReply = func(itemID, verb, text string) (string, error) {
+		calls = append(calls, itemID+":"+verb+":"+text)
 		if _, _, err := h.Store.RespondAndPark(itemID, verb, text); err != nil {
-			return "", "", err
+			return "", err
 		}
-		return ag.ID, "gen-1", nil
+		return ag.ID, nil
 	}
 	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q", Body: "?"})
 
-	v, err := app.View(ctx, h, "item/"+q.ID)
+	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "go"}})
 	if err != nil {
-		t.Fatalf("view: %v", err)
+		t.Fatalf("respond-terminal: %v", err)
 	}
-	if err := v.Validate(); err != nil {
-		t.Fatalf("view invalid: %v", err)
+	if res.Goto != "" && strings.Contains(res.Goto, "chat") {
+		t.Fatalf("goto = %q, want no chat navigation", res.Goto)
 	}
-	marked := false
-	for _, b := range v.Blocks {
-		if b.Type == "form" && b.Form != nil && b.Form.Burst {
-			marked = true
-		}
-	}
-	if !marked {
-		t.Fatalf("respond form not marked for a burst")
-	}
-
-	res, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "go", "_burst": "1"}})
-	if err != nil {
-		t.Fatalf("respond-burst: %v", err)
-	}
-	if res.Goto != "agentburst:"+ag.ID+":gen-1" || strings.Contains(res.Goto, "chat") {
-		t.Fatalf("goto = %q, want same-tab burst", res.Goto)
-	}
-	if len(bursts) != 1 || bursts[0] != q.ID+":respond:go" {
-		t.Fatalf("burst calls = %v", bursts)
+	if len(calls) != 1 || calls[0] != q.ID+":respond:go" {
+		t.Fatalf("deliver calls = %v", calls)
 	}
 	if got, _ := h.Store.GetInboxItem(q.ID); got.State != store.InboxDone {
-		t.Fatalf("item not done after burst")
+		t.Fatalf("item not done after delivery")
 	}
 	tasks, _ := h.Store.ListTasks(ag.ID, 5)
-	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "inbox-burst:"+q.ID {
+	if len(tasks) != 1 || tasks[0].Kind != store.TaskFollowUp || tasks[0].Source != "inbox-tui:"+q.ID {
 		t.Fatalf("parked task = %+v", tasks)
 	}
 
-	// An approval's primary Accept button uses the same temporary handoff.
+	// An approval's primary Accept button uses the same terminal delivery.
 	approval := mustItem(t, h, store.InboxItemParams{Kind: store.InboxApproval, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "approve", Body: "?"})
-	res, err = app.Action(ctx, h, ActionRequest{Action: "accept", Path: "item/" + approval.ID, Args: map[string]string{"_burst": "1"}})
-	if err != nil || res.Goto != "agentburst:"+ag.ID+":gen-1" {
-		t.Fatalf("approval burst = %+v, %v", res, err)
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "accept", Path: "item/" + approval.ID}); err != nil {
+		t.Fatalf("approval delivery: %v", err)
 	}
-	if got := bursts[len(bursts)-1]; got != approval.ID+":accept:" {
-		t.Fatalf("approval burst call = %q", got)
+	if got := calls[len(calls)-1]; got != approval.ID+":accept:" {
+		t.Fatalf("approval deliver call = %q", got)
 	}
 
-	// A preflight failure happens before the host mutates the item.
+	// A delivery failure reaches the form verbatim.
 	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q2", Body: "?"})
-	h.StartReplyBurst = func(string, string, string) (string, string, error) {
-		return "", "", fmt.Errorf("terminal is still working")
+	h.DeliverReply = func(string, string, string) (string, error) {
+		return "", fmt.Errorf("the terminal did not pick up the reply")
 	}
-	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "go", "_burst": "1"}}); err == nil {
-		t.Fatalf("burst preflight failure must reach the form")
-	}
-	if got, _ := h.Store.GetInboxItem(q2.ID); got.State != store.InboxUnread {
-		t.Fatalf("q2 changed despite preflight failure: %s", got.State)
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "go"}}); err == nil {
+		t.Fatalf("delivery failure must reach the form")
 	}
 
-	// A managed/deliverable agent uses the ordinary forward path.
+	// A deliverable agent uses the ordinary forward path.
 	h.AgentDeliverable = func(string) bool { return true }
-	before := len(bursts)
+	before := len(calls)
 	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q3", Body: "?"})
-	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "go", "_burst": "1"}}); err != nil {
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "go"}}); err != nil {
 		t.Fatalf("deliverable respond: %v", err)
 	}
-	if len(bursts) != before {
-		t.Fatalf("deliverable agent triggered a burst")
+	if len(calls) != before {
+		t.Fatalf("deliverable agent triggered a terminal delivery")
 	}
 
-	// Without _burst the refusal stands for an interactive agent.
+	// Without a host delivery channel the interactive refusal stands.
+	h.DeliverReply = nil
 	h.AgentDeliverable = func(string) bool { return false }
 	q4 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: ag.ID, Reason: "r", Title: "q4", Body: "?"})
 	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q4.ID, Args: map[string]string{"reply": "again"}}); err == nil || !strings.Contains(err.Error(), "interactive terminal") {

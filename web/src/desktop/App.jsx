@@ -19,7 +19,6 @@ import DashboardView from "../components/DashboardView.jsx";
 import SessionBar from "../components/SessionBar.jsx";
 import ChatSurface from "../components/ChatSurface.jsx";
 import TermSurface from "../components/TermSurface.jsx";
-import BurstSurface from "../components/BurstSurface.jsx";
 import FileSurface from "../components/FileSurface.jsx";
 import GitGraphSurface from "../components/GitGraphSurface.jsx";
 import FileTreeSurface from "../components/FileTreeSurface.jsx";
@@ -210,10 +209,7 @@ export default function App() {
   // the chat says so instead of reading as idle.
   const tuiBusy = !!(agent && agent.mode === "interactive" && tuiWorking.includes(agent.id));
   const interactive = !!(agent && agent.mode === "interactive");
-  // A burst owns the selected agent surface regardless of the viewer's
-  // previous Chat/Terminal preference. There is no route into ordinary chat
-  // until the temporary writer has restored the TUI.
-  const termView = !!(selectedId && (termWanted.has(selectedId) || (agent && agent.burst)));
+  const termView = !!(selectedId && termWanted.has(selectedId));
   const atAgents = useMemo(
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
@@ -2097,12 +2093,10 @@ export default function App() {
         apps={apps}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
         onChat={(id) => {
-          const target = locate(workspaces, freeAgents, id);
           revealAgent(id);
           setTermWanted((s) => {
             const n = new Set(s);
-            if (target && target.agent && target.agent.burst) n.add(id);
-            else n.delete(id);
+            n.delete(id);
             return n;
           });
         }}
@@ -2221,21 +2215,8 @@ export default function App() {
               manifest={apps.find((a) => a.id === tabAppId(id)) || null}
               onClose={() => closeTab(id)}
               onGoto={(g) => {
-                // Apps can focus an agent's existing tab. A burst keeps the
-                // terminal requested and merely replaces its pixels with the
-                // dedicated lifecycle surface — it never opens chat.
-                if (g.startsWith("agentburst:")) {
-                  const payload = g.slice("agentburst:".length);
-                  const cut = payload.indexOf(":");
-                  const id = cut < 0 ? payload : payload.slice(0, cut);
-                  if (!id) return;
-                  (async () => {
-                    const list = await refreshFleetFallback().catch(() => []);
-                    openTab(id, list);
-                    setTermWanted((s) => new Set(s).add(id));
-                  })();
-                  return;
-                }
+                // Apps can focus an agent's existing tab; "agent:" opens its
+                // interactive TUI (replies land in the terminal itself now).
                 if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
               }}
             />
@@ -2443,27 +2424,10 @@ export default function App() {
               <>
                 <TermSurface
                   key={"agterm-" + agent.id + "-" + (termEpochs[agent.id] || 0)}
-                  hidden={!!agent.burst}
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
                 />
-                {agent.burst ? (
-                  <BurstSurface
-                    burst={agent.burst}
-                    agentName={agent.name}
-                    onCancel={async () => {
-                      try {
-                        await api("/api/agents/" + agent.id + "/burst/cancel", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ generation: agent.burst.generation }),
-                        });
-                        if (agent.burst.terminalUnavailable) await openInteractive(agent.id, { restart: true });
-                      } catch (e) { toastError(e); }
-                    }}
-                  />
-                ) : null}
               </>
             ) : (
               <section className="term-surface" aria-label="Agent terminal">

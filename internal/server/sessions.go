@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -155,11 +154,7 @@ func handleNewSession(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		empty := ""
 		if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &empty}); err != nil {
@@ -198,11 +193,7 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &req.Path}); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -240,11 +231,7 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
-		release, err := deps.cancelBurstAndWait(r.Context(), agent.ID)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "stop terminal reply: "+err.Error())
-			return
-		}
+		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		if err := session.SetName(path, req.Name); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -314,10 +301,7 @@ func safeSessionPath(path string, dirs ...string) bool {
 }
 
 func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID string, mode agentRunMode) error {
-	release, err := deps.cancelBurstAndWait(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("stop terminal reply: %w", err)
-	}
+	release := deps.Replies.Controls.BeginMutation(agentID)
 	defer release()
 	// The agent's own cwd, never the workspace's: a free agent's
 	// workspace is the ws_free sentinel (no real path), and a WorkPath
@@ -348,14 +332,22 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 // (rpc.Runtime.Start). Before minting, an earlier run's pending session
 // is resolved to its file when one exists (ADR-0053): the TUI resumes
 // the chat's thread instead of opening a competing empty one.
+// Every spawned TUI also gets the Inbox reply receiver (ADR-0060):
+// best-effort write, and without it the tmux paste fallback carries replies.
 func (deps Deps) spawnFlags(agent store.Agent) []string {
+	fresh := false
 	if agent.SessionPath == nil || strings.TrimSpace(*agent.SessionPath) == "" {
 		if p := deps.Store.ResolvePendingAgentSession(agent.ID); p != "" {
 			agent.SessionPath = &p
 		}
+		fresh = agent.SessionPath == nil || strings.TrimSpace(*agent.SessionPath) == ""
 	}
-	if agent.SessionPath != nil && strings.TrimSpace(*agent.SessionPath) != "" {
-		return agent.CLIFlags()
+	flags := agent.CLIFlags()
+	if fresh {
+		flags = agent.CLIFlagsForSpawn(deps.Store.NewPendingAgentSession(agent.ID))
 	}
-	return agent.CLIFlagsForSpawn(deps.Store.NewPendingAgentSession(agent.ID))
+	if path, err := ensurePiReplyExtension(deps.DataDir); err == nil {
+		flags = append(flags, "-e", path)
+	}
+	return flags
 }

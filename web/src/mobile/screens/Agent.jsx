@@ -5,7 +5,6 @@ import Conversation from "../../components/Conversation.jsx";
 import Composer from "../../components/Composer.jsx";
 import TerminalDock from "../../components/TerminalDock.jsx";
 import { closeShellTerm } from "../../components/ShellTerm.jsx";
-import BurstSurface from "../../components/BurstSurface.jsx";
 import { useAgentSocket } from "../hooks/useAgentSocket.js";
 import { usePoll } from "../hooks/usePoll.js";
 import { api } from "../../lib/api.js";
@@ -41,11 +40,10 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
   const managed = mode === "managed";
-  const burst = agent && agent.burst;
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
 
-  useEffect(() => { setView(burst || interactive ? "term" : "chat"); }, [id, interactive, burst]);
+  useEffect(() => { setView(interactive ? "term" : "chat"); }, [id, interactive]);
 
   useEffect(() => {
     if (!id || stopped) { setSlashExtra([]); return; }
@@ -109,7 +107,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
         {agent.git && agent.git.dirty ? (
           <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("agent", id, name)}><IconGit size={13} /> {agent.git.dirty} changed</button>
         ) : null}
-        {interactive && !burst ? (
+        {interactive ? (
           <div className="dash-range m-seg" role="radiogroup" aria-label="View">
             {[["chat", "Chat"], ["term", "Terminal"]].map(([v, label]) => (
               <label key={v} className="dash-range-opt">
@@ -123,26 +121,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
 
       {view === "term" && interactive ? (
         <div className="m-term">
-          {burst ? (
-            <BurstSurface
-              burst={burst}
-              agentName={name}
-              onCancel={async () => {
-                try {
-                  await api("/api/agents/" + id + "/burst/cancel", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ generation: burst.generation }),
-                  });
-                  if (burst.terminalUnavailable) {
-                    closeShellTerm(id);
-                    await api("/api/agents/" + encodeURIComponent(id) + "/open?restart=1", { method: "POST" });
-                    setTerminalEpoch((value) => value + 1);
-                  }
-                } catch (e) { toastError(e); }
-              }}
-            />
-          ) : <TerminalDock key={"agent-term-" + id + "-" + terminalEpoch} open agent={agent} workspace={workspace} />}
+          {<TerminalDock key={"agent-term-" + id + "-" + terminalEpoch} open agent={agent} workspace={workspace} />}
         </div>
       ) : (
         <div className="m-chat chat-body">

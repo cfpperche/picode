@@ -80,7 +80,6 @@ type ManagedAgent struct {
 	waiting       *UIDialog     // blocking extension_ui_request, if any
 	lastFinal     string        // last assistant text from agent_end (inbox result body)
 	stopRequested bool          // Runtime.Stop was called: exit is expected, no fyi
-	transient     bool          // ADR-0059 burst: logical TUI mode survives this process
 	observer      *RunObserver  // automations/burst owner watching this run
 	deliveryPaths []string      // exact selected JSONL plus private dir for fresh sessions
 	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
@@ -222,21 +221,11 @@ func NewRuntime(agentCmd string, st *store.Store, onExit func(string)) *Runtime 
 // Start launches the ordinary managed agent and begins consuming its task
 // queue (delivery engine).
 func (r *Runtime) Start(agentID, path string) error {
-	_, err := r.start(agentID, path, true, false, "", nil)
+	_, err := r.start(agentID, path, true)
 	return err
 }
 
-// StartBurst launches the transient RPC writer used by ADR-0059. Runtime
-// lifecycle and state callbacks own it, but Get hides it from ordinary chat
-// and control endpoints. It does not drain the general queue: the burst
-// coordinator claims and prompts one exact task. exactSession overrides any
-// concurrently stale selected-session pointer, and the observer is installed
-// before the coordinator can send a prompt, so agent_start cannot race it.
-func (r *Runtime) StartBurst(agentID, path, exactSession string, observer *RunObserver) (*ManagedAgent, error) {
-	return r.start(agentID, path, false, true, exactSession, observer)
-}
-
-func (r *Runtime) start(agentID, path string, drain, transient bool, exactSession string, observer *RunObserver) (*ManagedAgent, error) {
+func (r *Runtime) start(agentID, path string, drain bool) (*ManagedAgent, error) {
 	r.mu.Lock()
 	_, running := r.agents[agentID]
 	_, starting := r.starting[agentID]
@@ -266,12 +255,7 @@ func (r *Runtime) start(agentID, path string, drain, transient bool, exactSessio
 	if r.store != nil {
 		if a, err := r.store.GetAgent(agentID); err == nil {
 			sid := ""
-			if transient && strings.TrimSpace(exactSession) != "" {
-				// The Inbox item, not a subsequently stale selected pointer,
-				// owns this burst. The coordinator persists the same exact path
-				// before it installs the crash-safe pane holder.
-				a.SessionPath = &exactSession
-			} else if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
+			if a.SessionPath == nil || strings.TrimSpace(*a.SessionPath) == "" {
 				// No current pointer — but an earlier run's pending
 				// --session-id (ADR-0039) may already have a file on
 				// disk: adopt it so the chat continues where the agent's
@@ -300,19 +284,9 @@ func (r *Runtime) start(agentID, path string, drain, transient bool, exactSessio
 		args = append(args, liveArgs...)
 		extraEnv = append(extraEnv, liveEnv...)
 	}
-	startProcess := Start
-	if transient {
-		startProcess = StartParentBound
-	}
-	client, err := startProcess(r.AgentCmd, args, path, extraEnv...)
+	client, err := Start(r.AgentCmd, args, path, extraEnv...)
 	if err != nil {
 		return nil, err
-	}
-	if observer != nil && observer.OnSpawn != nil {
-		if err := observer.OnSpawn(client.PID()); err != nil {
-			client.Close()
-			return nil, fmt.Errorf("rpc: record subprocess lease: %w", err)
-		}
 	}
 
 	_, cancel := context.WithCancel(context.Background())
@@ -328,8 +302,6 @@ func (r *Runtime) start(agentID, path string, drain, transient bool, exactSessio
 		cancel:        cancel,
 		done:          make(chan struct{}),
 		settledCh:     closedChan(), // settled until a prompt is accepted
-		transient:     transient,
-		observer:      observer,
 		deliveryPaths: deliveryPaths,
 	}
 
@@ -405,13 +377,7 @@ func (r *Runtime) Get(agentID string) *ManagedAgent {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	ma := r.agents[agentID]
-	if ma != nil && ma.transient {
-		// The burst writer is not an ordinary chat/control endpoint. Its owner
-		// already holds the returned pointer from StartBurst.
-		return nil
-	}
-	return ma
+	return r.agents[agentID]
 }
 
 // Active reports a registered or still-starting RPC writer. Lifecycle gates
@@ -574,11 +540,8 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 	ma.mu.Lock()
 	expected := ma.stopRequested
 	observer := ma.observer
-	transient := ma.transient
 	ma.mu.Unlock()
-	// A burst process is only borrowing the TUI's writer lease. Its exit
-	// must not announce that the logical interactive agent stopped.
-	if r := ma.store; r != nil && !transient {
+	if r := ma.store; r != nil {
 		_ = r.SetAgentRuntime(ma.AgentID, store.StatusStopped)
 		_ = r.AppendEvent("agent_process_exit", &ma.AgentID, nil, nil)
 	}

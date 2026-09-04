@@ -28,8 +28,8 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 			_, err := deps.openAgentTUI(r.Context(), agentID, false)
 			return err
 		},
-		StartReplyBurst: func(itemID, verb, text string) (string, string, error) {
-			return deps.startReplyBurst(r.Context(), itemID, verb, text)
+		DeliverReply: func(itemID, verb, text string) (string, error) {
+			return deps.DeliverReply(r.Context(), itemID, verb, text)
 		},
 	}
 }

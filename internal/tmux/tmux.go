@@ -104,6 +104,17 @@ func (m *Manager) run(ctx context.Context, args ...string) (string, error) {
 	return string(out), nil
 }
 
+// runStdin feeds stdin to tmux (load-buffer reads the buffer content from it).
+func (m *Manager) runStdin(ctx context.Context, stdin string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), fmt.Errorf("tmux %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return string(out), nil
+}
+
 // HasSession reports whether a tmux session with the given name exists.
 // The "=" prefix forces exact-name matching so dots in names can't be
 // parsed as session.window targets.
@@ -273,6 +284,28 @@ func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) err
 	}
 	args := append([]string{"send-keys", "-t", name + ":"}, keys...)
 	_, err := m.run(ctx, args...)
+	return err
+}
+
+// PasteText inserts text into the session's pane as a bracketed paste
+// (ADR-0060 reply fallback): the target editor inserts it wholesale, so no
+// keybinding fires and newlines stay literal, then presses Enter to submit.
+// A named buffer keeps the user's own copy buffer untouched.
+func (m *Manager) PasteText(ctx context.Context, name, text string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("tmux paste: empty session name")
+	}
+	if _, err := m.runStdin(ctx, text, "load-buffer", "-b", "picode-reply", "-"); err != nil {
+		return err
+	}
+	if _, err := m.run(ctx, "paste-buffer", "-p", "-b", "picode-reply", "-t", name+":"); err != nil {
+		return err
+	}
+	_, err := m.run(ctx, "delete-buffer", "-b", "picode-reply")
+	if err != nil {
+		return err
+	}
+	_, err = m.run(ctx, "send-keys", "-t", name+":", "Enter")
 	return err
 }
 
