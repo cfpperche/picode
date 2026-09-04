@@ -6,7 +6,7 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is at `ebf79257`, with the sidebar merge
+**Repository:** local `main` is clean, with the sidebar merge
 `9bfd1f01` in its history. While this session was completing the merge, the
 workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
 on local main. The resulting tree preserves the Inbox-to-TUI receiver
@@ -96,6 +96,7 @@ visual-review: PASS.
 
 ## Recent activity
 
+<<<<<<< HEAD
 - **2026-09-04 — merged and deployed compact supervision rows and CLI
   presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
   `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
@@ -108,6 +109,36 @@ visual-review: PASS.
   workspace list now advertises favicon availability and generated screenshot/
   tutorial inputs use named surface fingerprints. Full CI and docs parity
   passed; older detail is archived.
+=======
+- **2026-09-04 — sidebar scrollbar hides until hover/focus.** The
+  sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
+  rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
+  (all five tabs share the one scroll container); `::-webkit-scrollbar`
+  fallback covers engines that ignore the standard property. The gutter
+  stays reserved (`scrollbar-width: thin`), so reveal is a pure fade
+  with no layout shift. Verified live on a seeded dev instance:
+  computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45% /
+  focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
+  every state, overlay audit ok. visual-review: UNVERIFIED for the
+  thumb pixels — a forced-red control proved Chromium CDP screenshots
+  never paint scrollbars in any state, so the pixel check is
+  mechanically impossible in this harness; surface screenshots (read)
+  confirm no layout shift, no clipping and unchanged chrome.
+
+- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
+  screenshots and tutorial stills now map to named desktop/mobile profiles;
+  local screen imports, shared shell/style/fixture inputs and selected data
+  producers determine freshness, while tests and unrelated handlers do not.
+  The strict manual video audit identifies the affected tutorial and profile;
+  CI remains an integrity-only, non-rendering floor. A decision table covers
+  unchanged, test-only, shared-style, desktop-only, mobile-only and
+  cross-pipeline changes. Public screenshots were regenerated and the old
+  global UI-tree helper was removed. Selective capture/render, caching and a
+  maintenance trigger remain explicitly in flight. Full `make ci` passed;
+  `make docs-videos-fresh` deliberately reports the eight stale profiles named
+  under Known debts. visual-review: PASS (all three final screenshots read;
+  text and controls are legible, with no clipping, overlay or dead state).
+>>>>>>> feat/sidebar-auto-scroll
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
