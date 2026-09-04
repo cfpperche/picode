@@ -21,6 +21,13 @@ to the `[Unreleased]` section. The repository's official language is English
   vocabulary. Missing `.pi/compact.json` still applies those defaults.
   PiCode sets `PI_COMPACT_AGENT` on spawn for a per-agent overlay.
   The recent-token tail is kept; Pi overflow compact stays on.
+- **The user-menu Documentation link opens the docs site
+  (cfpperche.github.io/picode) instead of the repository.** The System
+  page keeps the repository link.
+- **A length-stop summarizer response in `pi-compact` is no longer
+  persisted as the compaction checkpoint** (falls back to Pi's
+  summarizer), and `/compact edit` writes only the keys it changes, so
+  an agent overlay does not freeze workspace values.
 
 - **Three tutorial videos on the docs** (`make docs-videos`): create an
   agent, automate it, take it anywhere. Each ~16s, silent, captioned,

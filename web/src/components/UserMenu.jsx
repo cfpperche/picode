@@ -107,7 +107,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
           </DropdownMenu.Item>
           <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div>
           <DropdownMenu.Item asChild>
-            <a className="um-item" id="um-docs" href="https://github.com/cfpperche/picode#readme" target="_blank" rel="noopener noreferrer">
+            <a className="um-item" id="um-docs" href="https://cfpperche.github.io/picode/" target="_blank" rel="noopener noreferrer">
               <span>Documentation</span>
               <IconExternal />
             </a>
