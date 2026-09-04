@@ -27,7 +27,11 @@ Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` in
 
 MCP servers: install `npm:pi-mcp-adapter`, then `#/mcps`. Guide: [MCP](/guide/mcp).
 
-Checklist: install `packages/pi-checklist` from the PiCode repository so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).
+Checklist: install `packages/pi-checklist` — an extension, not core — so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).
+
+Model roles: install `packages/pi-roles` — an extension, not core — so a session switches to a vision or plan model by content, and stays dormant until a roles file exists. Guide: [Model roles](/guide/roles).
+
+Inbox tools: install `packages/pi-inbox` — an extension, not core — so a plain terminal `pi` can file notifications and blocking questions into the Inbox app. Guide: [Inbox tools for pi](/guide/inbox-tools).
 
 Compact earlier: install `packages/pi-compact` — an extension, not core —
 so long sessions summarize at 100k tokens or half the window, with a cheap

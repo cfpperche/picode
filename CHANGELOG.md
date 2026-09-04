@@ -11,6 +11,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Public guides for the two remaining packages: Model roles
+  (`pi-roles`) and Inbox tools for pi (`pi-inbox`).** Both lead with the
+  extension-not-core positioning (optional package, dormant until
+  configured, removable without a trace), use the compact guide's
+  template — where-it-runs and config-scope tables, canonical schema
+  link, a "how you know it worked" check — and are reachable from the
+  sidebar and the Packages guide, which now lists all four packages with
+  the same framing.
+
 ### Changed
 
 - **Docs position `pi-compact` as an extension, not core.** The public

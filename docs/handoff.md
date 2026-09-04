@@ -135,6 +135,15 @@ configuration is created:
 
 ## Recent activity
 
+- **2026-09-04 — public guides for pi-roles and pi-inbox.** Both missing
+  guides landed in `www/guide/` using the compact template: extension-not-core
+  positioning up front, where-it-runs and config-scope tables (no machine
+  layer in either), commands/routing tables, canonical schema link (roles),
+  loopback POST mechanics (inbox), and a "how you know it worked" check.
+  Sidebar gains "Model roles" and "Inbox tools for pi"; the Packages guide
+  now lists all four packages. Docs-only; no deploy.
+
+
 - **2026-09-04 — pi-compact documented as an extension, not core.** The
   public guide leads with the positioning (optional package, dormant until
   configured, removable without a trace) and gains where-it-runs and
