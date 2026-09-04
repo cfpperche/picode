@@ -84,9 +84,10 @@ test("fleet: terminals", () => {
 
 test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
-  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "claude-code" } });
+  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "claude-code", at: "2026-09-04T10:00:00Z" } });
   assert.equal(s.terminals[0].state, "working");
   assert.equal(s.terminals[0].cli, "claude-code");
+  assert.equal(s.terminals[0].stateAt, "2026-09-04T10:00:00Z");
   s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "needs-you", cli: "claude-code" } });
   assert.equal(s.terminals[0].state, "needs-you");
   // Clearing (stale sweep) removes the fields instead of keeping a lie.
@@ -96,6 +97,30 @@ test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
   // Unknown terminals stay untouched — durable events reconcile the list.
   assert.equal(applyFleet(s, { type: "terminal.state", data: { termId: "zz", state: "working" } }), s);
   assert.equal(applyFleet(s, { type: "terminal.state", data: {} }), s);
+});
+
+test("fleet: terminal.runtime keeps run identities and rejects stale ends", () => {
+  let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
+  s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "started", cli: "pi", source: "wrapper", runId: "new", startedAt: "2026-09-04T10:00:00Z" } });
+  assert.deepEqual(s.terminals[0].tui, { cli: "pi", source: "wrapper", runId: "new", startedAt: "2026-09-04T10:00:00Z" });
+  s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "pi", runId: "new" } });
+  assert.equal(s.terminals[0].state, "working");
+  // A reconnect can deliver the new start without its paired clear event;
+  // starting a new wrapper run must still drop the old activity locally.
+  s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "started", cli: "pi", source: "wrapper", runId: "newer", startedAt: "2026-09-04T10:01:00Z" } });
+  assert.equal(s.terminals[0].state, undefined);
+  assert.equal(applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "started", cli: "pi", source: "wrapper", runId: "older", startedAt: "2026-09-04T10:00:30Z" } }), s);
+  const stale = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "ended", runId: "old" } });
+  assert.equal(stale, s);
+  s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "ended", runId: "newer" } });
+  assert.equal(s.terminals[0].tui, undefined);
+  assert.equal(s.terminals[0].state, undefined);
+  assert.equal(s.terminals[0].cli, undefined);
+  // Once the current lease is gone, a delayed state/end event still cannot
+  // resurrect or clear a later legacy projection.
+  const quiet = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "pi", runId: "newer" } });
+  assert.equal(quiet, s);
+  assert.equal(applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "ended", runId: "old" } }), s);
 });
 
 test("inbox reducer", () => {

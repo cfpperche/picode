@@ -4659,6 +4659,41 @@
         ]
       }
     },
+    "/api/terminals/{id}/runtime": {
+      "post": {
+        "operationId": "postApiTerminalsRuntime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/settings": {
       "get": {
         "operationId": "getApiTerminalsSettings",

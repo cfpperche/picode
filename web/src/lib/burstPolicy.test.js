@@ -17,7 +17,8 @@ test("TUI inbox replies have a same-tab burst route and no chat route", () => {
   assert.match(app, /forceRestart\) closeShellTerm\(loc\.agent\.id\)/);
   assert.match(app, /termEpochs\[agent\.id\]/);
   const rows = read("../components/WorkspaceRows.jsx");
-  assert.match(rows, /!ag\.burst \? <button[^>]+title="Chat"/);
+  assert.match(rows, /!ag\.burst \? <RowMenuItem[\s\S]*Open chat/);
+  assert.doesNotMatch(rows, /title="Chat"/);
   assert.match(surface, /_burst/);
   assert.match(surface, /action\.id === "accept" \|\| action\.id === "decline"/);
   assert.doesNotMatch(surface, /_switch/);

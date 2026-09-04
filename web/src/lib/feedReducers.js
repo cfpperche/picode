@@ -24,6 +24,41 @@ function compareBase36(a, b) {
   return a === b ? 0 : a > b ? 1 : -1;
 }
 
+function compareDecimal(a, b) {
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) return null;
+  const left = a.replace(/^0+(?=\d)/, "");
+  const right = b.replace(/^0+(?=\d)/, "");
+  if (left.length !== right.length) return left.length > right.length ? 1 : -1;
+  return left === right ? 0 : left > right ? 1 : -1;
+}
+
+function runtimeOrdinal(runId) {
+  const match = String(runId || "").match(/-(\d+)$/);
+  return match ? match[1] : "";
+}
+
+// A started event can legitimately replace the current wrapper lease, but an
+// older buffered start must not roll the browser back to the dead process.
+// The server includes both an RFC3339 timestamp and a nanosecond suffix in
+// wrapper run ids; reject an ambiguous replacement rather than guess.
+function staleRuntimeStart(current, incoming) {
+  if (!current || !incoming || current.runId === incoming.runId) return false;
+  if (current.source === "wrapper" && incoming.source !== "wrapper") return true;
+  if (current.source !== "wrapper" && incoming.source === "wrapper") return false;
+  const currentAt = String(current.startedAt || "");
+  const incomingAt = String(incoming.startedAt || "");
+  if (currentAt && incomingAt && currentAt !== incomingAt) {
+    const currentMS = Date.parse(currentAt);
+    const incomingMS = Date.parse(incomingAt);
+    if (Number.isFinite(currentMS) && Number.isFinite(incomingMS) && currentMS !== incomingMS) return incomingMS < currentMS;
+    return incomingAt < currentAt;
+  }
+  const currentOrdinal = runtimeOrdinal(current.runId);
+  const incomingOrdinal = runtimeOrdinal(incoming.runId);
+  const order = compareDecimal(incomingOrdinal, currentOrdinal);
+  return order == null ? true : order <= 0;
+}
+
 // Burst generations are "<unix-ns-base36>-<process-sequence-base36>". An
 // HTTP fleet reconciliation can overtake an already-buffered SSE notice, so
 // the browser must reject an older generation too—not only the coordinator.
@@ -144,20 +179,62 @@ export function applyFleet(state, ev) {
       return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...t, ...d } : t)) } : null;
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
+    case "terminal.runtime": {
+      // Ephemeral (id 0): a wrapper or the tmux reconciler confirmed which
+      // coding CLI owns the pane. A stale end event must not erase a newer
+      // run; the runId is the terminal's optimistic-concurrency key.
+      if (!d.termId) return state;
+      const term = terminals.find((t) => t.id === d.termId);
+      if (!term) return state;
+      if (d.runId && d.action !== "started" && (!term.tui || term.tui.runId !== d.runId)) return state;
+      if (d.runId && d.action === "started" && staleRuntimeStart(term.tui, d)) return state;
+      const next = d.action === "started"
+        ? (() => {
+            const started = {
+              ...term,
+              cli: d.cli || term.cli,
+              tui: { cli: d.cli || term.cli || "", source: d.source || "wrapper", runId: d.runId || "", startedAt: d.startedAt || undefined },
+            };
+            // A wrapper start is a new authoritative process. If the feed
+            // reconnects after the paired clear event, do not carry the old
+            // process's activity into this run.
+            if (d.source === "wrapper" && d.runId && term.tui?.runId !== d.runId) {
+              delete started.state;
+              delete started.stateAt;
+              delete started.runId;
+            }
+            return started;
+          })()
+        : (() => {
+            const rest = { ...term };
+            delete rest.tui;
+            delete rest.cli;
+            delete rest.state;
+            delete rest.stateAt;
+            delete rest.runId;
+            return rest;
+          })();
+      return { ...state, terminals: terminals.map((t) => (t.id === d.termId ? next : t)) };
+    }
     case "terminal.state": {
       // Ephemeral (id 0): a terminal CLI hook reported lifecycle state
       // (ADR-0056 tier 1) — same words as agent.state. Unknown terminals
-      // stay untouched; the durable terminal.updated events carry the
-      // state field for reconciliation after a refetch.
+      // stay untouched; durable terminal.updated events reconcile the list.
       if (!d.termId) return state;
-      if (!terminals.some((t) => t.id === d.termId)) return state;
+      const term = terminals.find((t) => t.id === d.termId);
+      if (!term) return state;
+      if (d.runId && (!term.tui || term.tui.runId !== d.runId)) return state;
       return {
         ...state,
         terminals: terminals.map((t) =>
           t.id === d.termId
             ? d.state
-              ? { ...t, state: d.state, cli: d.cli || undefined }
-              : { ...t, state: undefined, cli: undefined }
+              ? { ...t, state: d.state, cli: d.cli || t.cli || undefined, stateAt: d.at || undefined, runId: d.runId || t.tui?.runId || undefined }
+              : (() => {
+                  const rest = { ...t, state: undefined, stateAt: undefined };
+                  if (!rest.tui) delete rest.cli;
+                  return rest;
+                })()
             : t,
         ),
       };

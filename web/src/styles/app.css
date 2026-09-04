@@ -191,12 +191,19 @@ body {
   color: var(--text-secondary);
 }
 .pins-empty { padding-left: 0; margin: 8px 0; }
-/* Agent and terminal cards share one flat row shape (no chevron column):
-   each ws-row2 carries a real icon (folder, then git on its own line),
-   aligned under row 1's glyph by the shared flex + gap. */
+/* Shared flex helpers retained for compact sidebar surfaces outside the
+   supervision-row markup below. */
 .ws-row1, .ws-row2 {
   display: flex; align-items: center; gap: 8px;
 }
+/* Shared compact icon action used by section headers and non-row surfaces. */
+.ws-icon-btn {
+  width: 24px; height: 22px; padding: 0; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--text-secondary); cursor: pointer; flex: none;
+}
+.ws-icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+.ws-icon-btn.danger:hover { color: var(--danger); }
 .pin-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .pin-card {
   padding: 8px 8px; border-radius: 8px; cursor: pointer;
@@ -887,104 +894,125 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 8px; font-weight: 650; color: var(--text-secondary); flex: none;
   box-sizing: border-box;
 }
-.ws-row1 > .ws-face { margin-left: 0; flex: none; }
 .pi-spin {
-  width: 18px; height: 18px; display: grid; place-items: center; flex: none;
-  font-family: var(--mono); font-size: 14px; line-height: 1; color: var(--accent);
+  width: 16px; height: 16px; display: grid; place-items: center; flex: none;
+  font-family: var(--mono); font-size: 13px; line-height: 1; color: currentColor;
 }
 .ws-faces .ws-face:first-child { margin-left: 0; }
 .ws-face-more { font-size: 8px; padding: 0 3px; width: auto; min-width: 16px; background: var(--bg-hover); }
-/* Overlay on hover like .ws-actions: four buttons reserving grid space
-   would squeeze the workspace name to nothing at narrow widths. */
+.ws-item {
+  position: relative;
+  padding: 7px 4px 7px 6px; margin: 2px 0;
+  border-radius: var(--radius-ctl);
+  border: 1px solid transparent;
+}
+.ws-item:hover { background: var(--bg-hover); }
+.ws-item.active {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.ws-item.is-needs-you { box-shadow: inset 2px 0 0 var(--accent); }
+.ws-row-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ws-row-hit {
+  display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;
+  border-radius: 6px; cursor: pointer; outline: none;
+}
+.ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.ws-identity-mark {
+  position: relative; width: 24px; height: 24px; display: grid; place-items: center;
+  flex: none; color: var(--text-secondary);
+}
+.ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
+.ws-activity-dot {
+  position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
+  border: 2px solid var(--bg-panel); border-radius: 50%; background: var(--accent);
+  animation: pulse 1.4s ease infinite;
+}
+@keyframes pulse { 50% { opacity: .35; } }
+.ws-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.ws-title {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12.5px; font-weight: 600; color: var(--text-primary);
+}
+.ws-subtitle {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary);
+}
+.ws-status {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  min-height: 20px; padding: 0 5px; border-radius: 5px;
+  color: var(--text-secondary); font-size: 10.5px; white-space: nowrap;
+}
+.ws-status.is-working { color: var(--accent); }
+.ws-status.is-needs-you { color: var(--accent); font-weight: 650; background: var(--accent-soft); }
+.ws-status.is-interactive, .ws-status.is-ready { color: var(--text-secondary); }
+.ws-status.is-stopped { color: var(--text-secondary); opacity: .7; }
+.ws-status-age { color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+.ws-row-menu-trigger {
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
+  flex: none; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.ws-row-menu-trigger:hover, .ws-row-menu-trigger[aria-expanded="true"] {
+  color: var(--text-primary); background: var(--bg-base); border-color: var(--border);
+}
+.ws-row-menu {
+  min-width: 176px; padding: 4px; z-index: 60;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: 8px; box-shadow: 0 10px 28px color-mix(in srgb, #000 20%, transparent);
+}
+.ws-row-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  box-sizing: border-box; padding: 0 8px; border: 0; border-radius: 6px;
+  background: none; color: var(--text-primary); font: inherit; font-size: 12px;
+  cursor: pointer; outline: none;
+}
+.ws-row-menu-item:hover, .ws-row-menu-item[data-highlighted] { background: var(--bg-hover); }
+.ws-row-menu-item.danger { color: var(--danger); }
+.ws-row-menu-item svg { flex: none; color: currentColor; }
+.ws-context {
+  display: flex; align-items: center; gap: 5px; min-width: 0;
+  margin: 3px 31px 0 31px; overflow: hidden;
+}
+.ws-context-btn {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
+  padding: 1px 0; border: 0; background: none; color: var(--text-secondary);
+  font-family: var(--mono); font-size: 10.5px; line-height: 16px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ws-context-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-context-btn:hover { color: var(--text-primary); }
+.ws-context-git { flex: none; max-width: 48%; }
+.ws-context-git svg { color: var(--accent); }
+.ws-context-dirty {
+  flex: none; min-width: 13px; padding: 0 3px; border-radius: 4px;
+  background: var(--bg-hover); color: var(--warn); text-align: center;
+  font-size: 10px; line-height: 14px;
+}
+.ws-meta { display: block; margin: 2px 31px 0; font-size: 10px; color: var(--text-secondary); }
+.term-cli-badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  width: 22px; height: 22px; flex: none; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg-base); color: var(--text-primary);
+  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+}
+.term-cli-badge.is-shell { color: var(--text-secondary); }
+.term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
+.term-cli-badge.cli-codex { color: #74aa9c; border-color: color-mix(in srgb, #74aa9c 45%, var(--border)); }
+.term-cli-badge.cli-grok { color: var(--text-primary); border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border)); }
+.term-cli-badge.cli-pi { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
+.term-cli-label { white-space: nowrap; }
+/* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
 .ws-group-actions {
   display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity .12s;
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  padding-left: 8px;
-  background: linear-gradient(90deg, transparent, var(--bg-panel) 8px);
+  padding-left: 8px; background: linear-gradient(90deg, transparent, var(--bg-panel) 8px);
 }
-.ws-group:hover .ws-group-actions { opacity: 1; }
-.ws-item {
-  position: relative;
-  padding: 6px 4px; margin: 1px 0;
-  border-radius: var(--radius-ctl);
-  cursor: pointer; border: 1px solid transparent;
-}
-.ws-item:hover { background: var(--bg-hover); }
-.ws-item.active { background: var(--bg-hover); border-color: var(--border); }
-.ws-row1 { min-height: 20px; }
-.ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); flex: none; }
-.ws-dot.running { background: var(--ok); }
-.ws-dot.streaming { background: var(--accent); animation: pulse 1.4s ease infinite; }
-@keyframes pulse { 50% { opacity: .35; } }
-.ws-name { font-weight: 550; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-name-btn {
-  background: none; border: none; padding: 0; margin: 0;
-  font: inherit; font-weight: 550; color: inherit; text-align: left; cursor: pointer;
-  min-width: 0; flex: 0 1 auto; /* hover/click to rename stays on the name, not the whole row */
-  max-width: 100%; vertical-align: bottom;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.ws-name-btn:hover {
-  color: var(--accent);
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-.ws-model { font-weight: 450; color: var(--text-secondary); }
-.ws-mode {
-  font-family: var(--mono); font-size: 10px; color: var(--text-secondary);
-  border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; flex: none;
-}
-.ws-modes { display: inline-flex; gap: 2px; flex: none; }
-.ws-mode-btn {
-  width: 24px; height: 22px; padding: 0; display: grid; place-items: center;
-  border: 1px solid transparent; border-radius: 6px;
-  background: none; color: var(--text-secondary); cursor: pointer;
-}
-.ws-mode-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-.ws-mode-btn[aria-checked="true"] {
-  color: var(--accent); border-color: var(--border); background: var(--bg-base);
-}
-.ws-actions {
-  display: flex; gap: 2px; opacity: 0; transition: opacity .12s; flex: none;
-  position: absolute; right: 4px; top: 4px;
-  padding-left: 8px;
-  background: linear-gradient(90deg, transparent, var(--bg-panel) 8px);
-}
-.ws-item:hover .ws-actions, .ws-item.active .ws-actions {
-  background: linear-gradient(90deg, transparent, var(--bg-hover) 8px);
-}
-.ws-icon-btn {
-  width: 24px; height: 22px; padding: 0; display: grid; place-items: center;
-  border: 1px solid transparent; border-radius: 6px;
-  background: none; color: var(--text-secondary); cursor: pointer; flex: none;
-}
-.ws-icon-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-.ws-icon-btn.danger:hover { color: var(--danger); }
-.ws-item:hover .ws-actions { opacity: 1; }
-.ws-row2 { margin-top: 2px; gap: 6px; }
-/* Filesystem and repository as two pills on their own lines: [folder dir]
-   over [git branch]. Each pill shrinks and ellipsizes in its row. */
-.ws-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  height: 18px; padding: 0 7px; min-width: 0;
-  border: 1px solid var(--border); border-radius: 999px;
-  background: none; color: var(--text-secondary); cursor: pointer;
-  font-family: var(--mono); font-size: 11px; line-height: 1;
-}
-.ws-pill:hover { color: var(--text-primary); background: var(--bg-hover); }
-.ws-pill svg { flex: none; }
-.ws-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-pill-badge {
-  flex: none; min-width: 14px; padding: 0 4px; border-radius: 999px;
-  background: var(--bg-hover); color: var(--warn);
-  font-size: 10px; line-height: 14px; text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.ws-path {
-  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
-}
+.ws-group:hover .ws-group-actions, .ws-group:focus-within .ws-group-actions { opacity: 1; }
 
 .side-foot { padding: 8px; border-top: 1px solid var(--border); }
 
@@ -1346,6 +1374,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mtab-dot.running { background: var(--ok); }
 /* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
 .mtab-dot.attn { background: var(--accent); }
+.mtab-term .term-cli-badge {
+  width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
+}
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
@@ -2853,6 +2884,15 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .tree-card-meta { font-size: 11px; color: var(--text-secondary); }
 [data-sonner-toaster] {
   font-family: var(--sans);
+}
+@media (max-width: 767px) {
+  /* Mobile has a fixed 56px bottom nav. Keep toasts above it so an error
+     neither covers the tab controls nor hides the first card's heading. */
+  [data-sonner-toaster][data-y-position="top"],
+  [data-sonner-toaster][data-y-position="bottom"] {
+    top: auto !important;
+    bottom: calc(56px + env(safe-area-inset-bottom) + var(--mobile-offset-bottom) + var(--front-toast-height, 0px)) !important;
+  }
 }
 [data-sonner-toast].picode-toast {
   --normal-bg: var(--bg-elevated);

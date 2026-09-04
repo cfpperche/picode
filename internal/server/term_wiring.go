@@ -72,12 +72,31 @@ elif ev in ("Notification", "notification"):
 `
 
 const hookScriptTmpl = `#!/bin/sh
-# PiCode terminal CLI status hook (ADR-0056).
+# PiCode terminal CLI sensor (ADR-0056/0060).
 # Usage: picode-hook <working|needs-you|idle|auto> <cli> [json]
-# auto maps Claude/Grok/Codex JSON (stdin or $3) to a state word.
+# Runtime usage: picode-hook runtime-start|runtime-end <cli> <runId> [pid]
 [ -n "$PICODE_TERM_ID" ] || exit 0
 state=$1
 cli=$2
+TOKEN=$(cat "%s/token" 2>/dev/null)
+case "$PICODE_TERM_URL" in
+  https://127.0.0.1:*) url="https://localhost:${PICODE_TERM_URL##*:}" ;;
+  *) url=$PICODE_TERM_URL ;;
+esac
+
+if [ "$state" = "runtime-start" ] || [ "$state" = "runtime-end" ]; then
+  action=start
+  [ "$state" = "runtime-end" ] && action=end
+  run_id=$3
+  pid=$4
+  curl -fsSk -o /dev/null --max-time 3 \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"action\":\"$action\",\"cli\":\"$cli\",\"runId\":\"$run_id\",\"pid\":${pid:-0}}" \
+    "$url/api/terminals/$PICODE_TERM_ID/runtime" 2>/dev/null || true
+  exit 0
+fi
+
 if [ "$state" = auto ]; then
   MAP="%s/picode-hook-map.py"
   if [ -n "$3" ]; then
@@ -87,15 +106,11 @@ if [ "$state" = auto ]; then
   fi
   [ -n "$state" ] || exit 0
 fi
-TOKEN=$(cat "%s/token" 2>/dev/null)
-case "$PICODE_TERM_URL" in
-  https://127.0.0.1:*) url="https://localhost:${PICODE_TERM_URL##*:}" ;;
-  *) url=$PICODE_TERM_URL ;;
-esac
+run_id=${PICODE_TUI_RUN_ID-}
 curl -fsSk -o /dev/null --max-time 3 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"state\":\"$state\",\"cli\":\"$cli\"}" \
+  -d "{\"state\":\"$state\",\"cli\":\"$cli\",\"runId\":\"$run_id\"}" \
   "$url/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
 `
 

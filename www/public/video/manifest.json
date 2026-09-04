@@ -1,38 +1,38 @@
 {
-  "uiTreeHash": "3bdb4cc759d8e8b86e1936187c196a75ce72544f79049152b26c97c2bf506957",
+  "uiTreeHash": "0de5740f0e3ac502bb89e2e9bdaf719186d8125fae1b45f8a9b64b46a07c5353",
   "videos": {
     "create-agent": {
       "file": "create-agent.mp4",
       "composition": "index.html",
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
-        "v1-1b-agents-tab": "1aa183d8c708673e73ece9ab81bcb855e7085ccc35eb5e7c78e2eee74cfaa1d1",
-        "v1-2-form": "2d7e932bebd572a88c95d28188bb1ca08335ae9116f8948ff10873b8615fa8f6",
-        "v1-3-running": "daf51d4209b95ce67a84b968e44b3b95583316468cb690a4a8c5b3a72b2a108e"
+        "v1-1b-agents-tab": "746f22d2b827d4f8375819a9779e0c0e620e3a25f87a5817a8cd7656809261cf",
+        "v1-2-form": "07ca7535e2672f03acaa0d04c6802b897fd34cb3dad08c4d48c34b3b4eba4e1c",
+        "v1-3-running": "d487b44f8cd3fc0108ecfbd480e6ee8633947632658f3cd09e6fe5df2570e54b"
       },
-      "mp4": "8757ef03202780ac4ea7762a87da8229e43b20682fc016111f0189617337f554"
+      "mp4": "959101261a9641789c37b7f57b2d8ad30b87d04033cc9b602f7515406d2ad541"
     },
     "automate-it": {
       "file": "automate-it.mp4",
       "composition": "compositions/automate-it.html",
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
-        "v2-1-list": "7985e59d4521b97eca1c9a8a2f4ecd5929e3b121332af0b7ba5fc06107abea03",
-        "v2-2-detail": "f3b85f23dfc0a36193b0e3c0a81663cda89b6365f1302f4c0de5330a5d0a6051",
-        "v2-3-inbox": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6"
+        "v2-1-list": "2de9c8c67b369893c357f75a6c67eee188e8554ee1c8ebc7787defc84419cb40",
+        "v2-2-detail": "1d80d7a1c5a9b7dd58e347b182bac12e5f5fc3bedd42da4dfbc01efccdfe8843",
+        "v2-3-inbox": "6eba4cca5360e80889b1479bac06bdfdfa910def56d55025db8326e70f8bb758"
       },
-      "mp4": "fad5a07ec43e05fa5eb81a388be57ca5271fab65ae6d35d39be744954024e2ab"
+      "mp4": "a4fd33bba83e787ce3ab9e458f2e5afbcd819143b659f479909429fabde10aef"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",
       "composition": "compositions/take-it-anywhere.html",
       "compositionHash": "da7f53361180409907e9f01afd1aa952775c453d9d53abdf7250c9c4a28d83a0",
       "stills": {
-        "v3-1-fleet": "b2d7b5a5f0300452bdff7c16cb310ad31c24c46b83916fa3cf80648e5c36be49",
-        "v3-2-agent": "15a29ebdc2cdb56a5c7e86c036d99ceb72e065aba5cd13c3250494240f76044d",
+        "v3-1-fleet": "ee33e707bcfea045ae42605541d81bb05846091253365f3ea22cd2df098e6f16",
+        "v3-2-agent": "5385a26ece37c72b2b1b1857cb1ede040b923e4609e3f8305de9794b5596ce76",
         "v3-3-inbox": "38ea77ba8e883bed47803600936dfdba2ec7824ded76ac16d0fd2ede3deaebe0"
       },
-      "mp4": "1a0a5d40966b51cc66984472c95d313e3afaf51e4c5bfc450368d250de132391"
+      "mp4": "93cd70d717a6d7ff13a5fda71cd958e2b0d9dc013939b2a2f05a39fe3387feee"
     }
   }
 }

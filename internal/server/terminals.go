@@ -20,6 +20,7 @@ func registerTerminalRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PATCH /api/terminals/{id}", handleRenameTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/open", handleOpenTerminal(deps))
 	mux.HandleFunc("POST /api/terminals/{id}/state", handleSetTerminalState(deps))
+	mux.HandleFunc("POST /api/terminals/{id}/runtime", handleSetTerminalRuntime(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/text", handleGetTerminalText(deps))
 	mux.HandleFunc("PUT /api/terminals/{id}/text", handlePutTerminalText(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
@@ -57,8 +58,9 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	view := termView(t, session, live)
 	view["cwd"] = cwd
 	view["git"] = gitinfo.Inspect(cwd)
-	// Terminal CLI lifecycle state (ADR-0056 tier 1), when a sensor has
-	// reported for this terminal. Absent field = no signal.
+	// Terminal CLI presence is independent from lifecycle activity (ADR-0060).
+	// The runtime is applied first, then a state report may add activity.
+	applyTermRuntime(deps, view, t.ID)
 	applyTermState(deps, view, t.ID)
 	return view
 }
@@ -193,6 +195,12 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 		}
 		if deps.TermStates != nil {
 			deps.TermStates.Drop(id)
+		}
+		if deps.TermRuntimes != nil {
+			// The terminal.deleted event removes the row; no separate runtime
+			// event is needed, but the in-memory lease must not linger until the
+			// next reconciliation tick.
+			deps.TermRuntimes.Drop(id)
 		}
 		if err := deps.Store.DeleteTerminal(id); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())

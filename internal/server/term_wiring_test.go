@@ -461,6 +461,88 @@ func TestHookScriptTalksToLocalhostInsecure(t *testing.T) {
 	}
 }
 
+func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not on PATH")
+	}
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	hookLog := filepath.Join(root, "hooks.log")
+	realLog := filepath.Join(root, "real.log")
+	for _, cli := range []string{"claude-code", "codex", "grok", "pi"} {
+		if err := installIntercept(dataDir, cli); err != nil {
+			t.Fatalf("install %s: %v", cli, err)
+		}
+	}
+	hook := hookScriptPath(dataDir)
+	if err := writeExecutable(hook, "#!/bin/sh\nprintf '%s|%s|%s|%s\\n' \"$1\" \"$2\" \"$3\" \"$4\" >> \"$PICODE_TEST_HOOK_LOG\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"claude", "codex", "grok", "pi"} {
+		path := filepath.Join(root, name)
+		body := "#!/bin/sh\nprintf '%s|%s\\n' \"" + name + "\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"
+		if name == "grok" {
+			// Still executable, but its interpreter is absent: the wrapper's
+			// direct launch fails and must still report runtime-end.
+			body = "#!/no/such/picode-interpreter\n"
+		}
+		if name == "codex" {
+			// The wrapper probes --help before the real invocation. Returning
+			// no marker selects the normal hook override branch.
+			body += "exit 0\n"
+		}
+		if err := writeExecutable(path, body); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := exec.Command("sh", "-n", wrapperPath(dataDir, name)).CombinedOutput(); err != nil {
+			t.Fatalf("%s wrapper syntax: %v: %s", name, err, out)
+		}
+	}
+
+	cases := []struct {
+		cli     string
+		args    []string
+		wantErr bool
+	}{
+		{cli: "claude-code", args: []string{"hello"}},
+		{cli: "codex", args: []string{"hello"}},
+		{cli: "grok", args: []string{"hello"}, wantErr: true},
+		{cli: "pi", args: []string{"hello"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.cli, func(t *testing.T) {
+			name := map[string]string{"claude-code": "claude", "codex": "codex", "grok": "grok", "pi": "pi"}[tc.cli]
+			cmd := exec.Command(wrapperPath(dataDir, name), tc.args...)
+			cmd.Env = append(os.Environ(),
+				"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
+				"PICODE_TERM_ID=terminal-test",
+				"PICODE_TEST_HOOK_LOG="+hookLog,
+				"PICODE_TEST_REAL_LOG="+realLog,
+			)
+			if out, err := cmd.CombinedOutput(); (err != nil) != tc.wantErr {
+				t.Fatalf("wrapper error = %v, wantErr=%v: %s", err, tc.wantErr, out)
+			}
+		})
+	}
+	got, err := os.ReadFile(hookLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cli := range []string{"claude", "codex", "grok", "pi"} {
+		if !strings.Contains(string(got), "runtime-start|"+cli+"|") || !strings.Contains(string(got), "runtime-end|"+cli+"|") {
+			t.Fatalf("%s lifecycle = %q", cli, got)
+		}
+	}
+	if real, err := os.ReadFile(realLog); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(real), "pi|-e "+piTerminalStateExtensionFile(dataDir)+" hello") {
+		t.Fatalf("real argv did not preserve Pi injection: %q", real)
+	}
+}
+
 func TestClaudeSetWiringRefusesEnable(t *testing.T) {
 	_, err := claudeSetWiring("/nope", "", true)
 	if err == nil || !strings.Contains(err.Error(), "refusing") {
