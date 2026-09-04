@@ -99,6 +99,17 @@ export const WHEN_PRESETS = [
 
 export type WhenPresetId = (typeof WHEN_PRESETS)[number]["id"];
 
+/**
+ * Why a summarizer response must not become the compaction checkpoint,
+ * or null when it is safe. Mirrors Pi's own summarizer rule: a length
+ * stop holds partial text; empty text carries nothing.
+ */
+export function summaryBlocked(response: { stopReason?: string }, text: string): string | null {
+	if (response.stopReason === "length") return "length";
+	if (!text.trim()) return "empty";
+	return null;
+}
+
 export function parseAgentKey(raw: string | undefined): string | null {
 	if (!raw) return null;
 	const s = raw.trim();
@@ -154,7 +165,9 @@ function parseOptionalModel(v: unknown, path: string): { ok: true; value: string
 	return { ok: true, value: v };
 }
 
-function parseIntLike(v: unknown, path: string, opts: { min: number; allowNull: boolean }): number | null | string {
+function parseIntLike(v: unknown, path: string, opts: { min: number; allowNull: true }): number | null | string;
+function parseIntLike(v: unknown, path: string, opts: { min: number; allowNull?: false }): number | string;
+function parseIntLike(v: unknown, path: string, opts: { min: number; allowNull?: boolean }): number | null | string {
 	if (opts.allowNull && v === null) return null;
 	if (typeof v !== "number" || !Number.isFinite(v) || !Number.isInteger(v) || v < opts.min) {
 		return `${path} must be an integer ≥ ${opts.min}`;

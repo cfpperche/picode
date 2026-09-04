@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"target": "esnext",
+		"lib": ["esnext"],
+		"types": ["node"],
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"noFallthroughCasesInSwitch": true
+	},
+	"include": ["extensions", "src", "test"]
+}

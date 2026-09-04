@@ -35,6 +35,7 @@ import {
 	SKIP_FALLBACK,
 	statusLine,
 	summarizerCandidates,
+	summaryBlocked,
 	thresholdTokens,
 	WHEN_PRESETS,
 	type CompactConfig,
@@ -579,20 +580,16 @@ ${conversationText}
 			);
 			if (signal.aborted) return;
 			// A length stop holds partial text that must not become the
-			// session checkpoint — same rule as Pi's own summarizer
-			// (getSummarizationFailure is not exported publicly).
-			if (response.stopReason === "length") {
-				if (ctx.hasUI) {
-					ctx.ui.notify(`pi-compact (${chosen}): summary hit the token cap; using Pi default`, "warning");
-				}
-				return;
-			}
+			// session checkpoint — same rule as Pi's own summarizer.
 			const summary = response.content
 				.filter((c): c is { type: "text"; text: string } => c.type === "text")
 				.map((c) => c.text)
 				.join("\n");
-			if (!summary.trim()) {
-				if (ctx.hasUI) ctx.ui.notify("Summarizer returned empty text; using Pi default", "warning");
+			const blocked = summaryBlocked(response, summary);
+			if (blocked) {
+				if (ctx.hasUI) {
+					ctx.ui.notify(`pi-compact (${chosen}): ${blocked} summary; using Pi default`, "warning");
+				}
 				return;
 			}
 			return {

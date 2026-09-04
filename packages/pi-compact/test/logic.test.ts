@@ -21,11 +21,11 @@ import {
 	overlayRel,
 	parseAgentKey,
 	serializeLayer,
+	type CompactConfig,
 } from "../src/logic.ts";
 
-const cfg = (raw: unknown) => {
+const cfg = (raw: unknown): CompactConfig => {
 	const parsed = parseConfig(raw);
-	assert.equal(parsed.ok, true, parsed.ok ? "" : parsed.error);
 	if (!parsed.ok) throw new Error(parsed.error);
 	return effectiveConfig(parsed.layer);
 };

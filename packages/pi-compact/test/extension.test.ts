@@ -1,0 +1,234 @@
+/**
+ * Handler-level tests for extensions/compact.ts with narrow fakes — no pi
+ * runtime. Covers the runtime decision rows the pure logic tests cannot:
+ * the trigger chain on turn_end, summarizer selection with missing auth,
+ * the length-stop/empty fallback, and the /compact command surface.
+ */
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import piCompact from "../extensions/compact.ts";
+
+type Handler = (event: any, ctx: any) => Promise<unknown>;
+
+function makeHarness(opts: { config?: object; authed?: string[] } = {}) {
+	const handlers = new Map<string, Handler[]>();
+	const commands = new Map<string, (args: string, ctx: any) => Promise<void>>();
+	const notifications: string[] = [];
+	const compactions: Array<{ customInstructions?: string }> = [];
+
+	const authed = new Set(opts.authed ?? ["google/gemini-2.5-flash"]);
+	const cwd = mkdtempSync(join(tmpdir(), "picompact-"));
+	if (opts.config !== undefined) {
+		mkdirSync(join(cwd, ".pi"), { recursive: true });
+		writeFileSync(join(cwd, ".pi", "compact.json"), JSON.stringify(opts.config) + "\n");
+	} else {
+		mkdirSync(join(cwd, ".pi"), { recursive: true });
+	}
+
+	const model = (id: string) => ({ provider: id.split("/")[0], id: id.split("/")[1] });
+	const available = [
+		"google/gemini-2.5-flash",
+		"google/gemini-2.5-flash-lite",
+		"anthropic/claude-haiku-4-5",
+		"openai/gpt-5.2",
+	].map((id) => model(id));
+
+	const pi: any = {
+		on: (event: string, handler: Handler) => {
+			const list = handlers.get(event) ?? [];
+			list.push(handler);
+			handlers.set(event, list);
+		},
+		registerCommand: (name: string, cmd: { handler: (args: string, ctx: any) => Promise<void> }) => {
+			commands.set(name, cmd.handler);
+		},
+	};
+
+	const makeCtx = (over: Record<string, unknown> = {}) => ({
+		cwd,
+		hasUI: true,
+		ui: { notify: (m: string) => notifications.push(m), setStatus: () => {} },
+		model: model("openai/gpt-5.2"),
+		modelRegistry: {
+			getAvailable: () => available,
+			find: (provider: string, id: string) => (authed.has(`${provider}/${id}`) ? model(`${provider}/${id}`) : undefined),
+			hasConfiguredAuth: (m: any) => authed.has(`${m.provider}/${m.id}`),
+			complete: async (_m: unknown, _ctx: unknown, _opts: unknown) => {
+				throw new Error("complete() not configured for this test");
+			},
+		},
+		getContextUsage: () => ({ tokens: 10_000, contextWindow: 200_000, percent: 5 }),
+		compact: (options: { customInstructions?: string } = {}) => {
+			compactions.push(options);
+		},
+		waitForIdle: async () => {},
+		...over,
+	});
+
+	const ctx = makeCtx();
+	const emit = async (event: string, payload: any = {}) => {
+		const results = await Promise.all((handlers.get(event) ?? []).map((h) => h(payload, ctx)));
+		return results[0];
+	};
+
+	const start = async () => {
+		piCompact(pi);
+		await emit("session_start", { reason: "startup" });
+	};
+
+	return { pi, ctx, makeCtx, commands, notifications, compactions, emit, start, authed };
+}
+
+const okResponse = (text = "## Goal\nkeep going") => ({
+	content: [{ type: "text", text }],
+	stopReason: "stop",
+	usage: { input: 1, output: 2 },
+});
+
+describe("turn_end trigger chain (no config file = active defaults)", () => {
+	it("does not compact below the floor", async () => {
+		const h = await makeHarness();
+		await h.start();
+		await h.emit("turn_end", { turnIndex: 0 });
+		assert.equal(h.compactions.length, 0);
+	});
+
+	it("compacts at 100k tokens and again only after the cooldown", async () => {
+		const h = await makeHarness();
+		await h.start();
+		(h.ctx as any).getContextUsage = () => ({ tokens: 120_000, contextWindow: 1_000_000, percent: 12 });
+		await h.emit("turn_end", { turnIndex: 0 });
+		assert.equal(h.compactions.length, 1);
+		// Compact finished: onComplete resets the cooldown clock.
+		await h.emit("session_compact", { reason: "manual" });
+		// Next turn is inside the cooldown (default 2).
+		await h.emit("turn_end", { turnIndex: 1 });
+		assert.equal(h.compactions.length, 1);
+	});
+
+	it("does not compact when the session lock is off", async () => {
+		const h = await makeHarness();
+		await h.start();
+		(h.ctx as any).getContextUsage = () => ({ tokens: 120_000, contextWindow: 200_000, percent: 60 });
+		await h.commands.get("compact")!("off", h.ctx);
+		await h.emit("turn_end", { turnIndex: 0 });
+		assert.equal(h.compactions.length, 0);
+		await h.commands.get("compact")!("on", h.ctx);
+		await h.emit("turn_end", { turnIndex: 1 });
+		assert.equal(h.compactions.length, 1);
+	});
+
+	it("honors enabled:false in the file until /compact on", async () => {
+		const h = await makeHarness({ config: { enabled: false } });
+		await h.start();
+		(h.ctx as any).getContextUsage = () => ({ tokens: 120_000, contextWindow: 200_000, percent: 60 });
+		await h.emit("turn_end", { turnIndex: 0 });
+		assert.equal(h.compactions.length, 0);
+		await h.commands.get("compact")!("on", h.ctx);
+		await h.emit("turn_end", { turnIndex: 1 });
+		assert.equal(h.compactions.length, 1);
+	});
+});
+
+describe("session_before_compact summarizer selection", () => {
+	const preparation = {
+		firstKeptEntryId: "keep-1",
+		messagesToSummarize: [{ role: "user", content: [{ type: "text", text: "hello" }], timestamp: 1 }],
+		turnPrefixMessages: [],
+		isSplitTurn: false,
+		tokensBefore: 90_000,
+		fileOps: { readFiles: [], modifiedFiles: [] },
+		settings: { enabled: true, reserveTokens: 16_384, keepRecentTokens: 20_000 },
+	};
+	const event = (over: Record<string, unknown> = {}) => ({
+		preparation,
+		branchEntries: [],
+		customInstructions: undefined,
+		reason: "manual",
+		willRetry: false,
+		signal: new AbortController().signal,
+		...over,
+	});
+
+	it("uses the auto chain and preserves the cut when it works", async () => {
+		const h = await makeHarness();
+		await h.start();
+		let completedWith: any = null;
+		(h.ctx as any).modelRegistry.complete = async (m: any) => {
+			completedWith = `${m.provider}/${m.id}`;
+			return okResponse();
+		};
+		const result = (await h.emit("session_before_compact", event())) as any;
+		assert.equal(completedWith, "google/gemini-2.5-flash");
+		assert.equal(result.compaction.firstKeptEntryId, "keep-1");
+		assert.match(result.compaction.summary, /Goal/);
+	});
+
+	it("falls through a model with no auth and lands on the session model", async () => {
+		const h = await makeHarness({ authed: ["openai/gpt-5.2"] });
+		await h.start();
+		const tried: string[] = [];
+		(h.ctx as any).modelRegistry.complete = async (m: any) => {
+			tried.push(`${m.provider}/${m.id}`);
+			return okResponse();
+		};
+		const result = (await h.emit("session_before_compact", event())) as any;
+		assert.deepEqual(tried, ["openai/gpt-5.2"]);
+		assert.equal(result.compaction.details.summarizer, "openai/gpt-5.2");
+	});
+
+	it("returns undefined on a length stop so Pi's summarizer takes over", async () => {
+		const h = await makeHarness();
+		await h.start();
+		(h.ctx as any).modelRegistry.complete = async () => ({
+			content: [{ type: "text", text: "partial" }],
+			stopReason: "length",
+			usage: {},
+		});
+		const result = await h.emit("session_before_compact", event());
+		assert.equal(result, undefined);
+		assert.ok(h.notifications.some((n) => n.includes("length")));
+	});
+
+	it("returns undefined on an empty summary", async () => {
+		const h = await makeHarness();
+		await h.start();
+		(h.ctx as any).modelRegistry.complete = async () => okResponse("   ");
+		const result = await h.emit("session_before_compact", event());
+		assert.equal(result, undefined);
+	});
+
+	it("returns undefined when the model call throws", async () => {
+		const h = await makeHarness();
+		await h.start();
+		(h.ctx as any).modelRegistry.complete = async () => {
+			throw new Error("boom");
+		};
+		const result = await h.emit("session_before_compact", event());
+		assert.equal(result, undefined);
+		assert.ok(h.notifications.some((n) => n.includes("boom")));
+	});
+});
+
+describe("/compact command surface", () => {
+	it("instructions go through ctx.compact", async () => {
+		const h = await makeHarness();
+		await h.start();
+		await h.commands.get("compact")!("focus on auth", h.ctx);
+		assert.equal(h.compactions.length, 1);
+		assert.match(h.compactions[0].customInstructions ?? "", /focus on auth/);
+	});
+
+	it("edit and model subcommands do not compact", async () => {
+		const h = await makeHarness();
+		await h.start();
+		// Drive edit with a cancel at the first select — ctx.ui.select returns undefined.
+		const cancelCtx = h.makeCtx({ ui: { notify: (m: string) => h.notifications.push(m), setStatus: () => {}, select: async () => undefined } });
+		await h.commands.get("compact")!("edit", cancelCtx);
+		await h.commands.get("compact")!("model", cancelCtx);
+		assert.equal(h.compactions.length, 0);
+	});
+});

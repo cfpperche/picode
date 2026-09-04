@@ -101,5 +101,6 @@ compact or this package's summarizer on a manual `/compact`.
 npm test
 ```
 
-Zero runtime dependencies. Tests cover the decision table in
-`test/logic.test.ts`.
+`npm test` type-checks against the pinned pi types (`tsc`) and runs the
+pure decision table (`test/logic.test.ts`) plus handler tests with narrow
+fakes (`test/extension.test.ts`). Zero runtime dependencies.
