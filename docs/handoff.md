@@ -108,7 +108,8 @@ visual-review: PASS.
   workspace list now advertises favicon availability and generated screenshot/
   tutorial inputs use named surface fingerprints. Full CI and docs parity
   passed; older detail is archived.
-- **2026-09-04 — sidebar scrollbar hides until hover/focus.** The
+- **2026-09-04 — sidebar scrollbar hides until hover/focus; deployed to
+  the installed service as `29183241`.** The
   sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
   rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
   (all five tabs share the one scroll container); `::-webkit-scrollbar`
