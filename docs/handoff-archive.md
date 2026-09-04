@@ -3,6 +3,57 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 after runtime-favicon deployment)
+
+- **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,
+  self-healing chain.** The first real compaction exposed two defects: the
+  early trigger fired from `turn_end` and `ctx.compact()`'s leading `abort()`
+  killed the active run ("This operation was aborted"; agent never
+  continued), and the auto chain led with gemini-2.5-flash, which now 404s
+  for newer Google accounts, so compaction silently fell back to Pi's
+  summarizer. Fixes: dormant-until-configured semantics (owner directive —
+  no defaults, ever), trigger moved to `agent_settled` + `isIdle()` guard,
+  per-link chain retry with gemini-3.6-flash → Haiku. ADR-0061 amended in
+  place; guide/README/CHANGELOG updated; package tests 59/59; `make ci`
+  green (docs shots refreshed after the whats-new UI merge). Merged to
+  `main` and deployed: `0.1.0+18e6788`, health ok (new boot), service
+  active, 103 tmux sessions intact.
+
+- **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
+  Resolved the ADR-number collision with the already accepted terminal CLI
+  presence ADR-0062, merged the responsive desktop/mobile surface, regenerated
+  the public app screenshots, rebuilt/restarted the installed service, and
+  verified `/api/health` plus `/api/version` on `0.1.0`. Post-merge `make ci`
+  passed; visual review of the dialog states remained green.
+
+- **2026-09-04 — merged and deployed compact supervision rows and CLI
+  presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
+  `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
+  work, added ADR-0062 to the decision index, ran the complete CI/docs gates,
+  restarted the installed service, and verified health, version, current tmux
+  fleet, desktop/mobile UI, menu containment, reload, and Escape close.
+  visual-review: PASS (screenshots read; overlay audit ok; no clipping,
+  unreadable controls, double scroll or dead hover).
+- **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
+  workspace list now advertises favicon availability and generated screenshot/
+  tutorial inputs use named surface fingerprints. Full CI and docs parity
+  passed; older detail is archived.
+- **2026-09-04 — sidebar scrollbar hides until hover/focus; deployed to
+  the installed service as `29183241`.** The
+  sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
+  rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
+  (all five tabs share the one scroll container); `::-webkit-scrollbar`
+  fallback covers engines that ignore the standard property. The gutter
+  stays reserved (`scrollbar-width: thin`), so reveal is a pure fade
+  with no layout shift. Verified live on a seeded dev instance:
+  computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45% /
+  focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
+  every state, overlay audit ok. visual-review: UNVERIFIED for the
+  thumb pixels — a forced-red control proved Chromium CDP screenshots
+  never paint scrollbars in any state, so the pixel check is
+  mechanically impossible in this harness; surface screenshots (read)
+  confirm no layout shift, no clipping and unchanged chrome.
+
 ## Recent activity (archived after docs surface fingerprints)
 
 - **2026-09-04 — docs captures gained per-surface fingerprints.** Public

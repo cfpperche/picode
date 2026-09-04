@@ -6,32 +6,30 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is clean, with the sidebar merge
-`9bfd1f01` in its history. While this session was completing the merge, the
-workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
-on local main. The resulting tree preserves the Inbox-to-TUI receiver
-(ADR-0060), pi-compact (ADR-0061), compact supervision rows, authoritative
-terminal CLI presence (ADR-0062), the favicon fix, and the What’s New release
-surface (ADR-0063). Local commits have not been pushed to the remote.
+**Repository:** local `main` is clean at `eac09242`, with the runtime-favicon
+merge `dd70c8d0` and its generated-capture refresh in history. The resulting
+tree preserves the Inbox-to-TUI receiver (ADR-0060), pi-compact (ADR-0061),
+compact supervision rows, authoritative terminal CLI presence (ADR-0062),
+the official runtime favicon fix, and the What’s New release surface
+(ADR-0063). Local commits have not been pushed to the remote.
 
 **Deployment:** this session's `make deploy` completed successfully after the
-What’s New merge. The installed service is active and serves semver `0.1.0`;
-`GET /api/health` returned status `ok`, and `GET /api/version` confirmed the
-source build identity (`release: false`). There are currently 101 PiCode-owned
-tmux sessions after the restarts.
+runtime-favicon merge. The installed service is active and serves semver
+`0.1.0`; `GET /api/health` returned `status: ok` with boot id
+`3f5e79f70cb92a96`, and `GET /api/version` confirmed source build
+`0.1.0+eac0924` (`release: false`). The existing fleet remained available
+through the restart; 104 PiCode-owned tmux sessions are present now.
 
-**Quality:** post-merge `make ci` passes, including Go tests, 464 frontend
-tests, package tests, docs/OpenAPI/llms parity, Vale, and the embedded build.
-`make docs-shots` captured all three public app surfaces and `make docs-check`
-passed.
+**Quality:** post-merge `make ci` passes, including 465 frontend tests,
+Go/package tests, docs/OpenAPI/llms parity, Vale, and the embedded build.
+The generated captures were refreshed and `make docs-check` passed.
 
-**UI evidence:** post-deploy desktop and mobile screenshots were read:
-`/tmp/picode-postdeploy-desktop.png`, `/tmp/picode-postdeploy-menu-open.png`,
-`/tmp/picode-postdeploy-mobile-work.png`, and
-`/tmp/picode-postdeploy-mobile-menu2.png`. The populated rows, empty workspace,
-CLI labels, menus, reload state, and mobile navigation are legible. Open menus
-were inside the viewport and `window.__picodeOverlayAudit()` returned `ok: true`;
-Escape closed them. No new browser console/page/network error was observed.
+**UI evidence:** post-deploy desktop, mobile, and menu screenshots were read:
+`/tmp/picode-postmerge-desktop.png`, `/tmp/picode-postmerge-mobile.png`, and
+`/tmp/picode-postmerge-menu.png`. Runtime rows and official favicon badges are
+legible; the menu stayed inside the viewport and
+`window.__picodeOverlayAudit()` returned `ok: true`; Escape closed it. The
+attached browser QA passed with no new console/page/network error.
 visual-review: PASS.
 
 The What’s New dialog was also read in desktop light/dark, mobile-sheet and
@@ -77,26 +75,23 @@ directive: **no defaults, ever**):
 
 ## In flight
 
-- **ADR-0061 amendment is deployed (`0.1.0+18e6788`); it needs one more
-  owner restart, then a configured re-dogfood.** After restarting PiCode; sessions stay dormant (status
-  "not configured") until `/compact edit` writes a config — or opt in, and a
-  real compaction must record `fromHook: true` + gemini-3.6-flash pricing
-  with no aborted runs.
+- **ADR-0061's amendment is deployed in the current service.** A configured
+  real-compaction re-dogfood remains pending; without a config it stays dormant
+  as designed, and the run must record `fromHook: true` plus gemini-3.6-flash
+  pricing with no aborted turns.
 - Real CLI dogfood was intentionally not run. The historical Inbox `[Teste 3]`
   and `mobile-6bf740` rows still need deliberate reconciliation before a new
   live question is filed.
-- ADR-0054 `picode-act` still needs real model-emitted dogfood before merge.
-  The Browser preview emitter/panel remains open.
+- ADR-0054 `picode-act` still needs real model-emitted dogfood before merge;
+  the Browser preview emitter/panel remains open.
 - Second-account, container, public-OIDC, and other remote-mode acceptance
   runs require owner-controlled infrastructure.
 
 ## Next up
 
-1. Owner restarts PiCode (new binary), then chooses: leave agents dormant or
-   write a config (`/compact edit`); re-dogfood compaction expecting
-   `fromHook: true` + 3.6-flash pricing and no aborted runs.
-2. Review the current local main and decide when to push/promote it; the
-   What’s New merge and deploy are complete locally.
+1. Review current local `main` and decide when to push/promote it; merge and
+   deploy are complete locally.
+2. Configure and re-dogfood `pi-compact`, or explicitly leave it dormant.
 3. Inspect the exact historical Inbox rows before any real TUI reply test.
 4. Run the owner-controlled remote-mode acceptance matrix.
 5. Continue the Browser preview panel and ADR-0054 dogfood.
@@ -124,54 +119,14 @@ directive: **no defaults, ever**):
 
 ## Recent activity
 
-- **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,
-  self-healing chain.** The first real compaction exposed two defects: the
-  early trigger fired from `turn_end` and `ctx.compact()`'s leading `abort()`
-  killed the active run ("This operation was aborted"; agent never
-  continued), and the auto chain led with gemini-2.5-flash, which now 404s
-  for newer Google accounts, so compaction silently fell back to Pi's
-  summarizer. Fixes: dormant-until-configured semantics (owner directive —
-  no defaults, ever), trigger moved to `agent_settled` + `isIdle()` guard,
-  per-link chain retry with gemini-3.6-flash → Haiku. ADR-0061 amended in
-  place; guide/README/CHANGELOG updated; package tests 59/59; `make ci`
-  green (docs shots refreshed after the whats-new UI merge). Merged to
-  `main` and deployed: `0.1.0+18e6788`, health ok (new boot), service
-  active, 103 tmux sessions intact.
-
-- **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
-  Resolved the ADR-number collision with the already accepted terminal CLI
-  presence ADR-0062, merged the responsive desktop/mobile surface, regenerated
-  the public app screenshots, rebuilt/restarted the installed service, and
-  verified `/api/health` plus `/api/version` on `0.1.0`. Post-merge `make ci`
-  passed; visual review of the dialog states remained green.
-
-- **2026-09-04 — merged and deployed compact supervision rows and CLI
-  presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
-  `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
-  work, added ADR-0062 to the decision index, ran the complete CI/docs gates,
-  restarted the installed service, and verified health, version, current tmux
-  fleet, desktop/mobile UI, menu containment, reload, and Escape close.
-  visual-review: PASS (screenshots read; overlay audit ok; no clipping,
-  unreadable controls, double scroll or dead hover).
-- **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
-  workspace list now advertises favicon availability and generated screenshot/
-  tutorial inputs use named surface fingerprints. Full CI and docs parity
-  passed; older detail is archived.
-- **2026-09-04 — sidebar scrollbar hides until hover/focus; deployed to
-  the installed service as `29183241`.** The
-  sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
-  rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
-  (all five tabs share the one scroll container); `::-webkit-scrollbar`
-  fallback covers engines that ignore the standard property. The gutter
-  stays reserved (`scrollbar-width: thin`), so reveal is a pure fade
-  with no layout shift. Verified live on a seeded dev instance:
-  computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45% /
-  focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
-  every state, overlay audit ok. visual-review: UNVERIFIED for the
-  thumb pixels — a forced-red control proved Chromium CDP screenshots
-  never paint scrollbars in any state, so the pixel check is
-  mechanically impossible in this harness; surface screenshots (read)
-  confirm no layout shift, no clipping and unchanged chrome.
+- **2026-09-04 — runtime CLI favicon/alignment fix merged and deployed
+  (`dd70c8d0`, docs refresh `eac09242`, `0.1.0+eac0924`).** Claude Code,
+  Codex, Grok, and Pi badges now prefer their official runtime favicon,
+  retain a text fallback on asset failure, and align identity icons with the
+  first text line. Generated docs captures were refreshed; `make ci` and
+  `make docs-check` passed. The installed service is active and healthy with
+  104 PiCode-owned tmux sessions present. Post-deploy desktop/mobile/menu
+  screenshots were read; visual-review: PASS and overlay audit: ok.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
