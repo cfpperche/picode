@@ -447,9 +447,10 @@ Never exercised, because this machine was already past them:
 ## Recent activity
 
 - **2026-09-04 — Hosted CI restored across Ubuntu, macOS and Windows.** PR
-  [#2](https://github.com/cfpperche/picode/pull/2) run
-  [33824697394](https://github.com/cfpperche/picode/actions/runs/33824697394)
-  is green on all three hosts. Backup and Git identity checks now survive
+  [#2](https://github.com/cfpperche/picode/pull/2) merged as `b7c63d34`; final
+  PR run [33825094562](https://github.com/cfpperche/picode/actions/runs/33825094562)
+  and main run [33825413854](https://github.com/cfpperche/picode/actions/runs/33825413854)
+  are green on all three hosts. Backup and Git identity checks now survive
   symlinked path aliases; presence notifications stay ordered; package-watch,
   automation and tmux tests no longer depend on races or scheduler timing;
   Ubuntu builds checksum-pinned tmux 3.5a. The first PR run proved Linux and
@@ -461,7 +462,9 @@ Never exercised, because this machine was already past them:
   native Windows execution through WSL interop, and the prior flaky paths
   under 20×/100× stress all pass. Parity screenshots/videos were regenerated;
   their stills and three representative video contact sheets were read with no
-  visual defect.
+  visual defect. `make deploy` restarted the active service at
+  `0.1.0+b7c63d3`; repo and installed binaries both hash to
+  `aef368d2b608d64655847c7342656b2cf7ca4372250ddaad6cdf5e1122b276c2`.
 
 - **2026-09-03 — Manual Pi TUI terminal status completed (ADR-0056).**
   The opt-in scoped `pi` wrapper injects a generated native extension for
