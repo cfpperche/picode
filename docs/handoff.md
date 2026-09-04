@@ -17,7 +17,7 @@ surface (ADR-0063). Local commits have not been pushed to the remote.
 **Deployment:** this session's `make deploy` completed successfully after the
 What’s New merge. The installed service is active and serves semver `0.1.0`;
 `GET /api/health` returned status `ok`, and `GET /api/version` confirmed the
-source build identity (`release: false`). There are currently 99 PiCode-owned
+source build identity (`release: false`). There are currently 101 PiCode-owned
 tmux sessions after the restarts.
 
 **Quality:** post-merge `make ci` passes, including Go tests, 464 frontend
