@@ -32,6 +32,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Terminal runtime favicons fill the identity slot.** Claude Code, Codex,
+  Grok, and Pi rows no longer sit the vendor mark inside a bordered white
+  chip; a loaded favicon uses the same face treatment as agent rows, and
+  the boxed badge remains only for the text-mark fallback.
 - **Docs position `pi-compact` as an extension, not core.** The public
   guide states up front that the package is optional, dormant until
   configured, and removable without a trace; adds where-it-runs (TUI /

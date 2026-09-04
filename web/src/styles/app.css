@@ -1026,6 +1026,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   align-self: flex-start; flex: none; color: var(--text-secondary);
 }
 .ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
+/* Runtime favicons fill the same 22px slot as agent faces, but without the
+   white plate and ring — those read as a chip around sparse marks (Claude). */
+img.ws-face.term-cli-face {
+  background: transparent; border: 0; padding: 0;
+}
 .ws-activity-dot {
   position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
   border: 2px solid var(--bg-panel); border-radius: 50%; background: var(--accent);
@@ -1100,16 +1105,19 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   background: var(--bg-base); color: var(--text-primary);
   font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
 }
-/* A loaded vendor favicon needs no chrome of its own — same as workspace
-   favicons; the boxed look only frames the text-mark fallback. */
-.term-cli-badge.has-favicon { border-color: transparent; background: none; }
 .term-cli-badge.is-shell { color: var(--text-secondary); }
 .term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
 .term-cli-badge.cli-codex { color: #74aa9c; border-color: color-mix(in srgb, #74aa9c 45%, var(--border)); }
 .term-cli-badge.cli-grok { color: var(--text-primary); border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border)); }
 .term-cli-badge.cli-pi { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+/* Loaded favicons skip the chip (see TerminalCliBadge). Keep this after the
+   cli-* color rules so they cannot restore a border on .has-favicon. */
+.term-cli-badge.has-favicon {
+  width: auto; height: 22px; padding: 0;
+  border: 0; background: transparent; border-radius: 0;
+}
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
-.term-cli-favicon { width: 15px; height: 15px; display: block; object-fit: contain; }
+.term-cli-favicon { width: 22px; height: 22px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
 /* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
@@ -1483,6 +1491,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .mtab-term .term-cli-badge {
   width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
 }
+.mtab-term .ws-face { width: 16px; height: 16px; margin: 0; }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
