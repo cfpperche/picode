@@ -35,8 +35,10 @@ func WorkingDiff(dir, relPath string) (*FileDiff, bool) {
 		return nil, false
 	}
 	var raw string
+	untracked := false
 	if git(dir, "rev-parse", "HEAD") == "" {
 		raw = untrackedDiff(dir, relPath)
+		untracked = true
 	} else {
 		raw = git(dir, "diff", "HEAD", "--no-color", "-M", "--", relPath)
 		// An empty answer is ambiguous: clean-and-tracked, or untracked.
@@ -44,6 +46,7 @@ func WorkingDiff(dir, relPath string) (*FileDiff, bool) {
 		// tracked file fed to --no-index would answer with its whole body.
 		if strings.TrimSpace(raw) == "" && git(dir, "ls-files", "--", relPath) == "" {
 			raw = untrackedDiff(dir, relPath)
+			untracked = true
 		}
 	}
 	if strings.TrimSpace(raw) == "" {
@@ -62,6 +65,11 @@ func WorkingDiff(dir, relPath string) (*FileDiff, bool) {
 	// The /dev/null side of an untracked diff is bookkeeping, not a rename.
 	if f.OldPath == "/dev/null" || f.OldPath == "dev/null" {
 		f.OldPath = ""
+	}
+	// An untracked file is new by definition, and --no-index is the one diff
+	// whose mode lines cannot be trusted to say so.
+	if untracked {
+		f.Status = "added"
 	}
 	return &f, truncated
 }

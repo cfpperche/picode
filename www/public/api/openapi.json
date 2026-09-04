@@ -672,6 +672,32 @@
         ]
       }
     },
+    "/api/agents/{id}/git/blob": {
+      "get": {
+        "operationId": "getApiAgentsGitBlob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/git/commit": {
       "get": {
         "operationId": "getApiAgentsGitCommit",
@@ -4520,6 +4546,32 @@
         ]
       }
     },
+    "/api/terminals/{id}/git/blob": {
+      "get": {
+        "operationId": "getApiTerminalsGitBlob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/git/commit": {
       "get": {
         "operationId": "getApiTerminalsGitCommit",
@@ -5195,6 +5247,32 @@
     "/api/workspaces/{id}/file": {
       "get": {
         "operationId": "getApiWorkspacesFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/git/blob": {
+      "get": {
+        "operationId": "getApiWorkspacesGitBlob",
         "parameters": [
           {
             "in": "path",

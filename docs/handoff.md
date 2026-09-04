@@ -163,6 +163,22 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — git graph diff cards preview binary assets
+  (`feat/git-asset-preview`, unmerged).** `gitgraph.Blob` plus
+  `GET /api/{agents|terminals|workspaces}/{id}/git/blob` serve one blob at
+  one revision (hex hash or `HEAD`, in-tree path, 32 MB cap, blob-MIME
+  allowlist); `FileDiff` gained `status` (added/deleted/renamed derived from
+  mode lines; untracked files marked added). New `GitAssetPreview` replaces
+  the "Binary file — no text diff." line in UncommittedDetail, CommitDetail
+  and WorkingDiff: images before|after with lightbox, video/audio/pdf/3D on
+  the changed side, honest fallback for the rest. Verified live against a
+  scratch repo (modified/deleted/untracked PNG, committed video, audio, pdf,
+  zip fallback, text diff intact, shallow clone where every file is an
+  addition, WorkingDiff via workspace owner) with screenshots read;
+  overlayAudit ok; lightbox closes. Gates green (fmt/vet/test/test-js/build).
+  Not pixel-exercised: the missing-blob image error line (API 404 path unit-
+  tested; needs a corrupted/shallowed parent to appear) and the first-commit
+  deleted-asset note. visual-review: PASS.
 - **2026-09-04 — Next.js workspace favicons deployed (`0.1.0+4e9cedb`).**
   Lookup is project-agnostic (`icon.svg` and `apps/<name>/app`, not a named
   repo). Fast-forwarded `feat/workspace-favicon-nextjs` onto `main` after

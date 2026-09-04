@@ -13,6 +13,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Binary asset previews in the git graph's diff cards.** Image changes
+  (png/jpg/jpeg/gif/webp) now render before|after side by side with the
+  lightbox zoom instead of "Binary file — no text diff."; video (mp4/webm),
+  audio (mp3/wav/ogg/m4a), pdf and 3D (glb/gltf) render the changed side with
+  the file pane's players. Added/untracked files show only the new version,
+  deleted files only the old one (at its old name for renames), and
+  non-previewable binaries keep the plain line. New owner-scoped endpoint
+  `GET /api/{agents|terminals|workspaces}/{id}/git/blob?hash=&path=` serves
+  one blob at one revision (`git show <hash>:<path>`): full-hex hash or
+  `HEAD` only, path must resolve inside the tree, 32 MB cap, MIME from the
+  same allowlist as the working-tree blob endpoint. Commit cards compare
+  against the first parent; uncommitted cards compare `HEAD` against the
+  working tree.
 - **`packages/pi-compact`** (ADR-0061): opt-in pi extension that compact
   sessions earlier than Pi's window-edge default (100k tokens or 50% of
   the window), summarizes with a cheap model (thinking off, Flash →

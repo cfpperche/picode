@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { hunksFromDiff, countOf } from "../lib/diff.js";
 import DiffLine from "./DiffLine.jsx";
+import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 
 // One commit, read through the owner that opened the graph (ADR-0022). The
@@ -130,7 +131,16 @@ export default function CommitDetail({ owner, hash, onClose, onSelectCommit }) {
                 </button>
                 {shown ? (
                   f.binary ? (
-                    <p className="diff-empty">Binary file — no text diff.</p>
+                    <GitAssetPreview
+                      base={base}
+                      ownerId={ownerId}
+                      path={f.path}
+                      oldPath={f.oldPath}
+                      status={f.status}
+                      hash={detail.hash}
+                      parentHash={(detail.parents || [])[0] || ""}
+                      fallback={<p className="diff-empty">Binary file — no text diff.</p>}
+                    />
                   ) : (
                     <div className="diff">
                       {hunksFromDiff(f.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}

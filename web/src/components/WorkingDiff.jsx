@@ -3,6 +3,7 @@ import { api } from "../lib/api.js";
 import { hunksFromDiff, countOf } from "../lib/diff.js";
 import { treeApiBase } from "../lib/fileTree.js";
 import DiffLine from "./DiffLine.jsx";
+import GitAssetPreview from "./GitAssetPreview.jsx";
 
 // One file's working-tree diff — what a change dot in the file tree expands
 // into (ADR-0032). Rendered with the commit pane's classes: same lines, same
@@ -76,7 +77,14 @@ export default function WorkingDiff({ owner, path, nonce, onClose, onOpenFile })
           <p className="gg-warn">This diff is too large to show in full — the rest is cut off.</p>
         ) : null}
         {diff.binary ? (
-          <p className="diff-empty">Binary file — no text diff.</p>
+          <GitAssetPreview
+            base={base}
+            ownerId={ownerId}
+            path={path}
+            oldPath={diff.oldPath}
+            status={diff.status}
+            fallback={<p className="diff-empty">Binary file — no text diff.</p>}
+          />
         ) : (
           <div className="diff">
             {hunksFromDiff(diff.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}
