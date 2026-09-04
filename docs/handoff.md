@@ -6,14 +6,17 @@
 
 ## Current state (read this first)
 
-**Repository:** the Docker card-width fix is in `fix/docker-full-width`,
-based on local `main` `08a9bd5e`. Group cards fill the app canvas. V2 project
-operations/Compose and the new v3 resources/health/maintenance plan remain
-proposed (`docs/plans/docker-v2.md`, `docs/plans/docker-v3.md`). Local commits
-are unpushed; preserve the unrelated `.pi/compact.json`.
+**Repository:** local `main` includes the Docker full-width correction
+(`ea756cc1`). Tracked files are clean; commits remain local and unpushed.
+Preserve the unrelated `.pi/compact.json`. V2 and v3 remain proposals in
+`docs/plans/docker-v2.md` and `docs/plans/docker-v3.md`.
 
-**Deployment:** the installed service still runs `0.1.0+900ac98`. The new
-layout is validated on an isolated daemon; deployment follows the gates.
+**Deployment:** the installed service runs `0.1.0+ea756cc` (`release: false`),
+health `ok`, boot `f2a2e7ed88d02e06`. Served assets and installed binary match
+the tested build; all 125 pre-deploy tmux sessions were preserved. Real
+project cards reach the padded app edge at 1920px, expanded and closed.
+The deployed screenshot `/tmp/picode-docker-width-deployed.png` was read;
+overlay audit passed. QA servers and browser sessions were stopped.
 
 **Quality:** `make ci` passed (Go, 477 frontend tests, packages, build,
 docs parity and Vale). Browser checks proved
@@ -79,9 +82,8 @@ were not evaluated in this session:
 
 ## In flight
 
-- Full-width Docker cards passed CI and await local deployment. V3 is a proposal
-  for resources, health and supervised maintenance after v2; no v2/v3
-  capability was implemented by this layout correction.
+- V3 resources, health and supervised maintenance are proposed after v2.
+  No v2/v3 capability was implemented by the deployed width correction.
 - V2 project operations, Compose registration/deployment and shared tools
   are proposed in `docs/plans/docker-v2.md`; no project-level action is
   implemented yet. Grouped inventory is merged and deployed.
@@ -140,7 +142,7 @@ were not evaluated in this session:
 
 ## Recent activity
 
-- **2026-09-04 — Docker cards use the full app width; v3 proposed.** Removed
+- **2026-09-04 — Docker width fix deployed as `0.1.0+ea756cc`.** Removed
   the fixed 960px limit and checked wide/narrow/mobile viewports. The v3 plan
   sequences resources, health and assisted maintenance after v2.
   `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
