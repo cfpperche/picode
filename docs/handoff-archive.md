@@ -3,6 +3,27 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after the final local integration)
+
+- **2026-09-04 — pi-compact command routing was corrected.** The second
+  ADR-0061 amendment registers `/compact-edit|model|on|off`, leaves bare
+  `/compact` to Pi, and was merged as `0098081c`; 54 package tests passed.
+- **2026-09-04 — proposed release cadence was documented (ADR-0064).** The
+  benchmark, maintainer runbook and source-versus-stable proposal were linked
+  without activating a schedule or release date.
+- **2026-09-04 — runtime favicons and compact-row alignment landed.** Claude,
+  Codex, Grok and Pi badges prefer official assets with a text fallback; the
+  work was merged as `dd70c8d0` and its generated captures were refreshed.
+- **2026-09-04 — binary git-asset previews landed (`72f9e395`).** The API and
+  diff-card preview support passed live scratch-repository checks; the missing
+  parent/error visual paths remain documented as untested.
+- **2026-09-04 — terminal bridge writes were serialized.** Output, pings and
+  error frames now share one per-connection writer; targeted and race tests
+  passed, and the deployed service remained free of the observed panic.
+- **2026-09-04 — Next.js workspace favicon lookup and surface fingerprints
+  were delivered.** The project-agnostic finder covers nested app icons and
+  the docs capture pipeline records named desktop/mobile inputs.
+
 ## Recent activity (archived 2026-09-04 after runtime-favicon deployment)
 
 - **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,

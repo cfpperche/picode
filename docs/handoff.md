@@ -6,30 +6,29 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is clean, with the runtime-favicon merge
-`dd70c8d0`, its generated-capture refresh, and this deployment handoff in
-history. The resulting tree preserves the Inbox-to-TUI receiver (ADR-0060), pi-compact (ADR-0061),
-compact supervision rows, authoritative terminal CLI presence (ADR-0062),
-the official runtime favicon fix, and the What’s New release surface
-(ADR-0063). Release cadence research, proposed ADR-0064 and the maintainer
-runbook are also in the tree; no official cadence or date is set. Local
-commits have not been pushed to the remote.
+**Repository:** local `main` is clean and contains the runtime-favicon merge
+(`dd70c8d0`), WebSocket writer fix (`98d6bcad`), git asset preview merge
+(`72f9e395`), proposed release-cadence ADR-0064, and the pi-compact command
+routing merge (`0098081c`). The tree preserves ADRs 0060–0063 and the
+maintainer runbook; no official release cadence or date is set. Local commits
+have not been pushed to the remote.
 
-**Deployment:** this session's `make deploy` completed successfully after the
-runtime-favicon merge. The installed service is active and serves semver
-`0.1.0`; `GET /api/health` returned `status: ok` with boot id
-`3f5e79f70cb92a96`, and `GET /api/version` confirmed source build
-`0.1.0+eac0924` (`release: false`). The existing fleet remained available
-through the restart; 104 PiCode-owned tmux sessions are present now.
+**Deployment:** the installed service is active on the final product build
+`0.1.0+0098081` (`release: false`); later local commits are documentation
+only. `GET /api/health` returned `status: ok` with boot id
+`7480cf5b3f8c4eae`, and 109 PiCode-owned tmux sessions are present. The
+WebSocket writer fix has remained stable with no further panic in the observed
+uptime.
 
-**Quality:** post-merge `make ci` passes, including 465 frontend tests,
-Go/package tests, docs/OpenAPI/llms parity, Vale, and the embedded build.
-The generated captures were refreshed and `make docs-check` passed.
+**Quality:** post-integration `make ci` passes, including 468 frontend tests,
+54 pi-compact tests, Go/package tests, docs/OpenAPI/llms parity, Vale, and the
+embedded build. Generated captures were refreshed and `make docs-check` passed.
 
-**UI evidence:** post-deploy desktop, mobile, and menu screenshots were read:
-`/tmp/picode-postmerge-desktop.png`, `/tmp/picode-postmerge-mobile.png`, and
-`/tmp/picode-postmerge-menu.png`. Runtime rows and official favicon badges are
-legible; the menu stayed inside the viewport and
+**UI evidence:** final deployed desktop, mobile, and menu screenshots were
+read: `/tmp/picode-final-deployed-desktop.png`,
+`/tmp/picode-final-deployed-mobile.png`, and
+`/tmp/picode-final-deployed-menu.png`. Runtime rows and official favicon
+badges are legible; the menu stayed inside the viewport and
 `window.__picodeOverlayAudit()` returned `ok: true`; Escape closed it. The
 attached browser QA passed with no new console/page/network error.
 visual-review: PASS.
@@ -63,7 +62,9 @@ action stayed closed after reload.
 ### ADR-0061 compaction policy package (`pi-compact`)
 
 Shipped, deployed, then amended after the first real compaction (owner
-directive: **no defaults, ever**):
+directive: **no defaults, ever**). The checkout currently has no
+`.pi/compact.json`, so the package remains dormant until an explicit dogfood
+configuration is created:
 
 - **Dormant until configured.** Without `.pi/compact.json` (or a per-agent
   overlay) Pi's stock compaction and summarizer run untouched; the status
@@ -80,7 +81,7 @@ directive: **no defaults, ever**):
 - **The summarizer chain retries link by link** (error stops, throws, empty
   or length-capped summaries fall through; Pi's summarizer is the last
   resort). Auto chain: `gemini-3.6-flash` → `claude-haiku-4-5` — 2.5-flash
-  now 404s for newer Google accounts. 59 package tests; `make ci` green.
+  now 404s for newer Google accounts. 54 package tests; `make ci` green.
 
 ## In flight
 
@@ -132,79 +133,11 @@ directive: **no defaults, ever**):
 
 ## Recent activity
 
-- **2026-09-04 — pi-compact wizard made reachable: `/compact-edit` family
-  (second ADR-0061 amendment); deployed as `0.1.0+0098081`.** The owner
-  typed `/compact edit` in the TUI and got a native compaction instead of
-  the wizard: pi's interactive mode hard-codes `/compact …` dispatch before
-  extension commands run (verified in `interactive-mode.js`), and PiCode
-  chat reserves `/compact` too. The package now registers
-  `/compact-edit|model|on|off`, registers no colliding `compact` command,
-  and the status line/notifications point at `/compact-edit`; bare
-  `/compact` stays native with the summarizer hook still applied. Tests
-  54/54; `make ci` green; health ok on the new boot with 108 tmux sessions
-  intact.
-
-- **2026-09-04 — release cadence process documented (proposed ADR-0064).**
-  Added a benchmark study covering VS Code, Linear, Zed, Cursor and Go; a
-  proposed source/dogfood versus Stable release-lane decision; and a
-  maintainer runbook covering scope freeze, quality gates, tagging, artifact
-  verification, observation and hotfixes. Linked the documents from the
-  contributor, README, benchmark and ADR indexes. No official cadence, date,
-  Preview channel or scheduled workflow was activated. `make ci` passed.
-
-- **2026-09-04 — runtime CLI favicon/alignment fix merged and deployed
-  (`dd70c8d0`, docs refresh `eac09242`, `0.1.0+eac0924`).** Claude Code,
-  Codex, Grok, and Pi badges now prefer their official runtime favicon,
-  retain a text fallback on asset failure, and align identity icons with the
-  first text line. Generated docs captures were refreshed; `make ci` and
-  `make docs-check` passed. The installed service is active and healthy with
-  104 PiCode-owned tmux sessions present. Post-deploy desktop/mobile/menu
-  screenshots were read; visual-review: PASS and overlay audit: ok.
-- **2026-09-04 — git graph diff cards preview binary assets (merged from
-  `feat/git-asset-preview`).** `gitgraph.Blob` plus
-  `GET /api/{agents|terminals|workspaces}/{id}/git/blob` serve one blob at
-  one revision (hex hash or `HEAD`, in-tree path, 32 MB cap, blob-MIME
-  allowlist); `FileDiff` gained `status` (added/deleted/renamed derived from
-  mode lines; untracked files marked added). New `GitAssetPreview` replaces
-  the "Binary file — no text diff." line in UncommittedDetail, CommitDetail
-  and WorkingDiff: images before|after with lightbox, video/audio/pdf/3D on
-  the changed side, honest fallback for the rest. Verified live against a
-  scratch repo (modified/deleted/untracked PNG, committed video, audio, pdf,
-  zip fallback, text diff intact, shallow clone where every file is an
-  addition, WorkingDiff via workspace owner) with screenshots read;
-  overlayAudit ok; lightbox closes. Gates green (fmt/vet/test/test-js/build).
-  Not pixel-exercised: the missing-blob image error line (API 404 path unit-
-  tested; needs a corrupted/shallowed parent to appear) and the first-commit
-  deleted-asset note. visual-review: PASS. Merged to `main` (`72f9e395`) and
-  live on the installed service in `0.1.0+0098081`: `/api/health` ok on a
-  fresh boot, and `/api/workspaces/<bad>/git/blob` returns the new handler's
-  `404 {"error":"workspace not found"}` (the old binary answered a bare
-  mux 404 there). Deploy raced the compact-commands deploy and was
-  superseded by it within minutes — same end state, feature in the running
-  build; docs captures were refreshed post-merge (`dd9b52a4`, `e9b550b6`).
-- **2026-09-04 — Next.js workspace favicons deployed (`0.1.0+4e9cedb`).**
-  Lookup is project-agnostic (`icon.svg` and `apps/<name>/app`, not a named
-  repo). Fast-forwarded `feat/workspace-favicon-nextjs` onto `main` after
-  merging sidebar `hasFavicon` so the list and the image endpoint share one
-  finder. Live: COGNIXSE `hasFavicon: true`, favicon 200 SVG 24 673 bytes.
-  Reload once if a card still shows a folder. visual-review: N/A (no JSX).
-- **2026-09-04 — workspace cards find Next.js `icon.svg`.** Favicon lookup
-  now checks `icon.svg`/`png`/`ico` (svg still beats png/ico) and scans
-  `apps/<name>/{public,app,src/app}` after the static dirs, with `apps/web`
-  first. Cognixse (`apps/web/app/icon.svg`) is the reproducing case.
-- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
-  screenshots and tutorial stills now map to named desktop/mobile profiles;
-  local screen imports, shared shell/style/fixture inputs and selected data
-  producers determine freshness, while tests and unrelated handlers do not.
-  The strict manual video audit identifies the affected tutorial and profile;
-  CI remains an integrity-only, non-rendering floor. A decision table covers
-  unchanged, test-only, shared-style, desktop-only, mobile-only and
-  cross-pipeline changes. Public screenshots were regenerated and the old
-  global UI-tree helper was removed. Selective capture/render, caching and a
-  maintenance trigger remain explicitly in flight. Full `make ci` passed;
-  `make docs-videos-fresh` deliberately reports the eight stale profiles named
-  under Known debts. visual-review: PASS (all three final screenshots read;
-  text and controls are legible, with no clipping, overlay or dead state).
+- **2026-09-04 — final handoff reconciled after integration.** The local
+  checkout has no uncommitted product configuration, so `pi-compact` remains
+  dormant by the accepted ADR-0061 policy; its schema and source comment now
+  state that behavior consistently. Deployment and release-cadence status
+  remain unchanged and local commits are still unpushed.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

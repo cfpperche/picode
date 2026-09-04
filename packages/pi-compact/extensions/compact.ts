@@ -2,8 +2,8 @@
  * Opt-in compaction policy for pi (ADR-0061).
  *
  * Early-triggers compact at 100k or 50% of the window, summarizes with a
- * cheap model (thinking off). Missing config file
- * still applies defaults. With PI_COMPACT_AGENT=<id>, also reads/writes
+ * cheap model (thinking off) when explicitly configured. Missing config file
+ * leaves Pi's stock behavior untouched. With PI_COMPACT_AGENT=<id>, also reads/writes
  * <cwd>/.pi/compact/<id>.json (overlay).
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
