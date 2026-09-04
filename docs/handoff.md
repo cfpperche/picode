@@ -132,6 +132,18 @@ directive: **no defaults, ever**):
 
 ## Recent activity
 
+- **2026-09-04 — pi-compact wizard made reachable: `/compact-edit` family
+  (second ADR-0061 amendment); deployed as `0.1.0+0098081`.** The owner
+  typed `/compact edit` in the TUI and got a native compaction instead of
+  the wizard: pi's interactive mode hard-codes `/compact …` dispatch before
+  extension commands run (verified in `interactive-mode.js`), and PiCode
+  chat reserves `/compact` too. The package now registers
+  `/compact-edit|model|on|off`, registers no colliding `compact` command,
+  and the status line/notifications point at `/compact-edit`; bare
+  `/compact` stays native with the summarizer hook still applied. Tests
+  54/54; `make ci` green; health ok on the new boot with 108 tmux sessions
+  intact.
+
 - **2026-09-04 — release cadence process documented (proposed ADR-0064).**
   Added a benchmark study covering VS Code, Linear, Zed, Cursor and Go; a
   proposed source/dogfood versus Stable release-lane decision; and a
