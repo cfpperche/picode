@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -135,6 +136,109 @@ func terminalCLIFromCommand(command string) string {
 		return ""
 	}
 	return normalizeTerminalCLI(filepath.Base(fields[0]))
+}
+
+// procSnapshot maps every readable process id to its first two argv
+// tokens and parent id. Reading /proc is inherently Linux-specific; on
+// platforms without it the snapshot stays empty and reconciliation keeps
+// the exact tmux command match as the only fallback.
+type procSnapshot struct {
+	argv map[int][]string
+	ppid map[int]int
+}
+
+func readProcSnapshot() *procSnapshot {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return &procSnapshot{argv: map[int][]string{}, ppid: map[int]int{}}
+	}
+	snap := &procSnapshot{argv: make(map[int][]string, len(entries)), ppid: make(map[int]int, len(entries))}
+	for _, entry := range entries {
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil || pid <= 0 {
+			continue
+		}
+		if raw, err := os.ReadFile("/proc/" + entry.Name() + "/cmdline"); err == nil {
+			parts := strings.Split(string(raw), "\x00")
+			argv := make([]string, 0, 2)
+			for _, part := range parts {
+				if part = strings.TrimSpace(part); part != "" {
+					argv = append(argv, part)
+				}
+				if len(argv) == 2 {
+					break
+				}
+			}
+			if len(argv) > 0 {
+				snap.argv[pid] = argv
+			}
+		}
+		if raw, err := os.ReadFile("/proc/" + entry.Name() + "/stat"); err == nil {
+			// Field 4 (ppid) sits after the comm field, which may contain
+			// spaces and ')'. The final ')' is the safe delimiter.
+			end := strings.LastIndexByte(string(raw), ')')
+			if end >= 0 {
+				fields := strings.Fields(string(raw)[end+2:])
+				if len(fields) >= 2 {
+					if ppid, err := strconv.Atoi(fields[1]); err == nil {
+						snap.ppid[pid] = ppid
+					}
+				}
+			}
+		}
+	}
+	return snap
+}
+
+// identifyPaneCLIProcs walks the pane's process tree breadth-first and
+// returns the first known CLI with its process id. Wrapper shells stay
+// alive as the CLI's parent on purpose, so the pane command alone reads
+// "sh" while a supported CLI still owns the pane. A process matches by
+// its own name (native binaries) or, when it is an interpreter driving a
+// script, by the script's basename — which also matches the wrapper shell
+// itself, and the wrapper only lives while the CLI runs.
+func identifyPaneCLIProcs(panePID int, snap *procSnapshot) (string, int) {
+	if panePID <= 0 || snap == nil || len(snap.argv) == 0 {
+		return "", 0
+	}
+	children := make(map[int][]int, len(snap.ppid))
+	for pid, ppid := range snap.ppid {
+		children[ppid] = append(children[ppid], pid)
+	}
+	for _, kids := range children {
+		sort.Ints(kids)
+	}
+	queue := []int{panePID}
+	visited := 0
+	for len(queue) > 0 && visited < 64 {
+		pid := queue[0]
+		queue = queue[1:]
+		visited++
+		argv := snap.argv[pid]
+		if len(argv) == 0 {
+			continue
+		}
+		candidates := []string{filepath.Base(argv[0])}
+		if len(argv) > 1 && interpreters[strings.TrimSuffix(filepath.Base(argv[0]), ".exe")] {
+			candidates = append(candidates, filepath.Base(argv[1]))
+		}
+		for _, candidate := range candidates {
+			if cli := normalizeTerminalCLI(candidate); cli != "" {
+				return cli, pid
+			}
+		}
+		queue = append(queue, children[pid]...)
+	}
+	return "", 0
+}
+
+// interpreters re-identify a CLI from the script it drives: the kernel
+// records the interpreter as argv[0] for shebang scripts, and node-based
+// CLIs run as `node <path>/claude|codex|grok`.
+var interpreters = map[string]bool{
+	"sh": true, "bash": true, "dash": true, "zsh": true,
+	"node": true, "bun": true, "deno": true,
+	"python": true, "python3": true,
 }
 
 func processStartToken(pid int) string {
@@ -338,6 +442,7 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 		return
 	}
 	seen := map[string]bool{}
+	var procSnap *procSnapshot
 	for _, terminal := range terminals {
 		id := terminal.ID
 		name := tmux.ShellSessionName(id)
@@ -351,11 +456,23 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 		runtime, ok := deps.TermRuntimes.Get(id)
 		if ok {
 			// A legacy lease uses the pane shell PID, not the short-lived
-			// wrapper PID. Re-check the exact foreground command so it cannot
-			// survive the CLI returning to bash after a daemon restart.
+			// wrapper PID. Re-check the pane still hosts this CLI — by exact
+			// foreground command or, when the pane is held by a wrapper shell
+			// ("sh"), by its process tree — so a fallback cannot survive the
+			// CLI returning to bash or exiting.
 			if runtime.Source == "tmux-fallback" {
 				command, commandErr := deps.Tmux.PaneCommand(ctx, name)
-				if commandErr != nil || terminalCLIFromCommand(command) != runtime.CLI {
+				stillCLI := commandErr == nil && terminalCLIFromCommand(command) == runtime.CLI
+				if !stillCLI && commandErr == nil {
+					if pid, pidErr := deps.Tmux.PanePID(ctx, name); pidErr == nil && pid > 0 {
+						if procSnap == nil {
+							procSnap = readProcSnapshot()
+						}
+						foundCLI, _ := identifyPaneCLIProcs(pid, procSnap)
+						stillCLI = foundCLI == runtime.CLI
+					}
+				}
+				if !stillCLI {
 					finishTermRuntime(deps, id, runtime.RunID)
 					continue
 				}
@@ -372,12 +489,27 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 			continue
 		}
 		cli := terminalCLIFromCommand(command)
+		pid := 0
 		if cli == "" {
-			continue
-		}
-		pid, err := deps.Tmux.PanePID(ctx, name)
-		if err != nil || pid <= 0 {
-			continue
+			// A wrapper script keeps the pane command at "sh" while the CLI
+			// it wrapped is still running (ADR-0062). Identify the CLI from
+			// the pane's process tree — this also revives presence after a
+			// daemon restart, when the in-memory wrapper announcement is
+			// gone but the CLI still owns the pane.
+			if pid, pidErr := deps.Tmux.PanePID(ctx, name); pidErr == nil && pid > 0 {
+				if procSnap == nil {
+					procSnap = readProcSnapshot()
+				}
+				cli, pid = identifyPaneCLIProcs(pid, procSnap)
+			}
+			if cli == "" {
+				continue
+			}
+		} else {
+			pid, err = deps.Tmux.PanePID(ctx, name)
+			if err != nil || pid <= 0 {
+				continue
+			}
 		}
 		registerTermRuntime(deps, id, TermRuntime{
 			CLI: cli, Source: "tmux-fallback", RunID: "tmux-" + id + "-" + strconv.Itoa(pid),

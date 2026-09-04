@@ -135,6 +135,17 @@ configuration is created:
 
 ## Recent activity
 
+- **2026-09-04 — terminal identity survives restarts; favicon cards fixed
+  (owner report).** The owner's reload showed every wrapped terminal back at
+  "Shell session" and Codex still boxed: wrapper presence was memory-only
+  and the loaded OpenAI `.ico` paints its own opaque white card. Reconciliation
+  now revives CLI presence from the pane's process tree (exact command, or a
+  `/proc` walk through wrapper shells and interpreters, PID + start-token
+  validated, dropped when the CLI exits), and CLI badges lead with the same
+  transparent SVG marks the provider faces use. End-to-end proof on a scratch
+  daemon: wrapped CLI revived after a daemon restart and dropped when it
+  exited. visual-review for the badge face: carried by the transparent-SVG
+  swap verified in the browser; full PASS follows the deploy smoke.
 - **2026-09-04 — pi-compact documented as an extension, not core.** The
   public guide leads with the positioning (optional package, dormant until
   configured, removable without a trace) and gains where-it-runs and

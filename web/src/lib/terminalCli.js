@@ -20,23 +20,33 @@ const CLI_MARKS = Object.freeze({
   pi: "π",
 });
 
-// Keep runtime identity on the vendor's own favicon rather than a home-made
-// glyph. Each runtime lists its official assets in preference order; the
-// badge walks the list when one fails to load (bot challenges, moved files).
+// Keep runtime identity on the vendor's own mark rather than a home-made
+// glyph. Preference-ordered official assets; the badge walks the list when
+// one fails to load. The first links are the same transparent SVG marks the
+// provider faces use, so a loaded favicon never paints its own background
+// card (vendor .ico/.png files are opaque white).
+const CLI_ICON_BASE = "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/";
+
 const CLI_FAVICONS = Object.freeze({
-  // Anthropic's own icon first — claude.ai's favicon hangs or 403s for
-  // browser subresources, which left the Claude badge on its fallback.
   "claude-code": Object.freeze([
+    CLI_ICON_BASE + "claude.svg",
+    // Anthropic's own raster icons as fallbacks — claude.ai's favicon hangs
+    // or 403s for browser subresources.
     "https://www.anthropic.com/images/icons/favicon-32x32.png",
     "https://claude.ai/favicon.ico",
   ]),
   codex: Object.freeze([
+    CLI_ICON_BASE + "openai.svg",
     "https://openai.com/favicon.ico",
     // ChatGPT's official static CDN touch icon; openai.com challenges some
     // browsers, and this hash may rotate when OpenAI rebuilds the site.
     "https://cdn.oaistatic.com/assets/apple-touch-icon-mz9nytnj.webp",
   ]),
-  grok: Object.freeze(["https://grok.com/images/favicon.svg"]),
+  grok: Object.freeze([
+    CLI_ICON_BASE + "grok.svg",
+    "https://grok.com/images/favicon.svg",
+  ]),
+  // pi has no lobehub mark; pi.dev serves a transparent SVG.
   pi: Object.freeze(["https://pi.dev/favicon.svg"]),
 });
 
@@ -63,10 +73,6 @@ export function terminalCliMark(id) {
 
 export function terminalCliFaviconUrls(id) {
   return CLI_FAVICONS[normalizeTerminalCli(id)] || [];
-}
-
-export function terminalCliFaviconUrl(id) {
-  return terminalCliFaviconUrls(id)[0] || "";
 }
 
 export function terminalStatus(term) {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrl, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
+import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
 
 test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
@@ -12,20 +12,23 @@ test("terminal CLI aliases use one canonical identity", () => {
 });
 
 test("supported runtimes use their official favicons, best first", () => {
-  // Anthropic's own icon first — claude.ai's favicon hangs or 403s for
-  // browser subresources, so it never rendered the Claude badge.
-  assert.equal(terminalCliFaviconUrl("claude"), "https://www.anthropic.com/images/icons/favicon-32x32.png");
+  // First links are the same transparent SVG marks the provider faces use —
+  // vendor raster favicons are opaque white and read as a card behind the
+  // bare favicon. Later links are the vendor's own assets.
   assert.deepEqual(terminalCliFaviconUrls("claude"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/claude.svg",
     "https://www.anthropic.com/images/icons/favicon-32x32.png",
     "https://claude.ai/favicon.ico",
   ]);
-  // openai.com challenges some browsers; the official CDN touch icon is the
-  // second link so Codex still gets a real logo when the first is blocked.
   assert.deepEqual(terminalCliFaviconUrls("codex"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/openai.svg",
     "https://openai.com/favicon.ico",
     "https://cdn.oaistatic.com/assets/apple-touch-icon-mz9nytnj.webp",
   ]);
-  assert.deepEqual(terminalCliFaviconUrls("grok"), ["https://grok.com/images/favicon.svg"]);
+  assert.deepEqual(terminalCliFaviconUrls("grok"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/grok.svg",
+    "https://grok.com/images/favicon.svg",
+  ]);
   assert.deepEqual(terminalCliFaviconUrls("pi"), ["https://pi.dev/favicon.svg"]);
   assert.deepEqual(terminalCliFaviconUrls("shell"), []);
 });
