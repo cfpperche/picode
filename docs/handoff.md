@@ -96,7 +96,6 @@ visual-review: PASS.
 
 ## Recent activity
 
-<<<<<<< HEAD
 - **2026-09-04 — merged and deployed compact supervision rows and CLI
   presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
   `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
@@ -109,7 +108,6 @@ visual-review: PASS.
   workspace list now advertises favicon availability and generated screenshot/
   tutorial inputs use named surface fingerprints. Full CI and docs parity
   passed; older detail is archived.
-=======
 - **2026-09-04 — sidebar scrollbar hides until hover/focus.** The
   sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
   rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
@@ -124,21 +122,6 @@ visual-review: PASS.
   never paint scrollbars in any state, so the pixel check is
   mechanically impossible in this harness; surface screenshots (read)
   confirm no layout shift, no clipping and unchanged chrome.
-
-- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
-  screenshots and tutorial stills now map to named desktop/mobile profiles;
-  local screen imports, shared shell/style/fixture inputs and selected data
-  producers determine freshness, while tests and unrelated handlers do not.
-  The strict manual video audit identifies the affected tutorial and profile;
-  CI remains an integrity-only, non-rendering floor. A decision table covers
-  unchanged, test-only, shared-style, desktop-only, mobile-only and
-  cross-pipeline changes. Public screenshots were regenerated and the old
-  global UI-tree helper was removed. Selective capture/render, caching and a
-  maintenance trigger remain explicitly in flight. Full `make ci` passed;
-  `make docs-videos-fresh` deliberately reports the eight stale profiles named
-  under Known debts. visual-review: PASS (all three final screenshots read;
-  text and controls are legible, with no clipping, overlay or dead state).
->>>>>>> feat/sidebar-auto-scroll
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
