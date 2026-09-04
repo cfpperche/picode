@@ -169,10 +169,16 @@ to the `[Unreleased]` section. The repository's official language is English
   align the identity icon with the row's first line on desktop and mobile.
   A loaded favicon now renders bare — the same treatment as workspace
   favicons — and the boxed look is reserved for the text-mark fallback.
-  Claude Code loads Anthropic's own icon first (`claude.ai`'s favicon hangs
-  or 403s for browser subresources), Codex falls back to OpenAI's official
-  CDN touch icon when `openai.com` challenges the browser, and each runtime
-  walks its list of official assets before showing the text mark.
+  The first link is the same transparent SVG mark the provider faces use,
+  so the opaque white vendor `.ico`/`.png` files never read as a white card
+  behind the icon; the vendor's own assets remain as fallback links.
+- **Terminal CLI identity survives a daemon restart.** Wrapper presence
+  lived only in memory, so after a deploy every wrapped terminal fell back
+  to "Shell session" until the CLI was restarted. Reconciliation now
+  identifies the pane's CLI from its process tree — exact pane command or
+  a `/proc` walk that sees through the wrapper shell and interpreters —
+  validated by PID and process-start token, and it still drops the moment
+  the CLI exits. Presence stays ephemeral and pixel-free (ADR-0062).
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on

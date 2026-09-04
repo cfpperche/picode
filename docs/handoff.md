@@ -135,6 +135,17 @@ configuration is created:
 
 ## Recent activity
 
+- **2026-09-04 — terminal identity survives restarts; favicon cards fixed
+  (owner report).** The owner's reload showed every wrapped terminal back at
+  "Shell session" and Codex still boxed: wrapper presence was memory-only
+  and the loaded OpenAI `.ico` paints its own opaque white card. Reconciliation
+  now revives CLI presence from the pane's process tree (exact command, or a
+  `/proc` walk through wrapper shells and interpreters, PID + start-token
+  validated, dropped when the CLI exits), and CLI badges lead with the same
+  transparent SVG marks the provider faces use. End-to-end proof on a scratch
+  daemon: wrapped CLI revived after a daemon restart and dropped when it
+  exited. visual-review for the badge face: carried by the transparent-SVG
+  swap verified in the browser; full PASS follows the deploy smoke.
 - **2026-09-04 — public guides for pi-roles and pi-inbox.** Both missing
   guides landed in `www/guide/` using the compact template: extension-not-core
   positioning up front, where-it-runs and config-scope tables (no machine
@@ -142,7 +153,6 @@ configuration is created:
   loopback POST mechanics (inbox), and a "how you know it worked" check.
   Sidebar gains "Model roles" and "Inbox tools for pi"; the Packages guide
   now lists all four packages. Docs-only; no deploy.
-
 
 - **2026-09-04 — pi-compact documented as an extension, not core.** The
   public guide leads with the positioning (optional package, dormant until
