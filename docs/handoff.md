@@ -77,8 +77,8 @@ directive: **no defaults, ever**):
 
 ## In flight
 
-- **ADR-0061 amendment needs one more owner restart, then a configured
-  re-dogfood.** After deploy, restart PiCode; sessions stay dormant (status
+- **ADR-0061 amendment is deployed (`0.1.0+18e6788`); it needs one more
+  owner restart, then a configured re-dogfood.** After restarting PiCode; sessions stay dormant (status
   "not configured") until `/compact edit` writes a config — or opt in, and a
   real compaction must record `fromHook: true` + gemini-3.6-flash pricing
   with no aborted runs.
@@ -135,7 +135,8 @@ directive: **no defaults, ever**):
   per-link chain retry with gemini-3.6-flash → Haiku. ADR-0061 amended in
   place; guide/README/CHANGELOG updated; package tests 59/59; `make ci`
   green (docs shots refreshed after the whats-new UI merge). Merged to
-  `main`; deploy proof lands in the next docs commit.
+  `main` and deployed: `0.1.0+18e6788`, health ok (new boot), service
+  active, 103 tmux sessions intact.
 
 - **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
   Resolved the ADR-number collision with the already accepted terminal CLI
