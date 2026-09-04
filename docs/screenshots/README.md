@@ -40,3 +40,11 @@ Docker (ADR-0065): `docker-desktop-empty.png`, `docker-desktop-blocked.png`,
 `docker-desktop-error.png`, `docker-desktop-dark.png`, and
 `docker-mobile-confirm.png` cover the shared App host with synthetic data
 and one disposable QA container.
+
+Docker groups (ADR-0066): `docker-groups-desktop-light.png`,
+`docker-groups-desktop-dark.png`, `docker-groups-mobile-light.png` and
+`docker-groups-mobile-long.png` show project disclosure and readable long
+identities. `docker-groups-empty.png`, `docker-groups-blocked.png`,
+`docker-groups-error.png` and `docker-groups-mobile-confirm.png` cover the
+non-happy states. All use synthetic Docker data; real inventory grouping,
+keyboard navigation, search and fold persistence were also exercised.

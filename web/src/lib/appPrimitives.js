@@ -75,6 +75,7 @@ function normalizeTabs(list) {
 // new Go field needs a matching edit in this file.
 function blockHead(b) {
   return {
+    id: str(b.id),
     title: str(b.title),
     meta: strList(b.meta),
     at: str(b.at),
@@ -103,7 +104,7 @@ function normalizeBlock(b) {
         path: str(it.path),
         actions: normalizeActions(it.actions),
       }));
-    return { type: "list", ...head, items, empty: str(b.empty) };
+    return { type: "list", ...head, items, empty: str(b.empty), collapsible: b.collapsible === true && !!head.id && !!head.title };
   }
   if (b.type === "detail") {
     if (typeof b.text === "string") return { type: "detail", ...head, text: b.text };

@@ -3,6 +3,17 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 during Docker grouping)
+
+- **2026-09-04 — Docker App deployed; pi-sysadmin package ready (ADR-0065).**
+  Extended existing Apps primitives and mobile navigation; added bounded
+  Engine API operations, idempotent background jobs, verified outcomes and
+  durable history. Real disposable-container start/stop/restart passed.
+  Event bursts initially starved detail reads; container-state event filters
+  and a serialized refresh queue fixed the observed failure, with regression
+  coverage. Plain-text logs, empty/blocked/error and mobile confirmations
+  passed screenshot review. `make ci` passed. visual-review: PASS.
+
 ## Recent activity (archived 2026-09-04 during Docker delivery)
 
 - **2026-09-04 — terminal identity survives restarts; favicon cards fixed

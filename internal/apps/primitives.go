@@ -32,18 +32,20 @@ type Tab struct {
 // Block is one vertical section of a view. Type picks which field is
 // meaningful; the rest stay empty.
 type Block struct {
-	Type     string     `json:"type"`               // "list" | "detail" | "form" | "actions"
-	Title    string     `json:"title,omitempty"`    // section label above the block
-	Meta     []string   `json:"meta,omitempty"`     // header meta strip, beside Title
-	At       string     `json:"at,omitempty"`       // RFC3339, formatted by the host
-	Pane     string     `json:"pane,omitempty"`     // split pane hint; "detail" also gives a stacked title
-	Items    []ListItem `json:"items,omitempty"`    // list
-	Markdown string     `json:"markdown,omitempty"` // detail
-	Text     *string    `json:"text,omitempty"`     // detail: literal output, never Markdown
-	Empty    string     `json:"empty,omitempty"`    // list's zero-item state
-	Busy     bool       `json:"busy,omitempty"`     // work is still in progress
-	Form     *Form      `json:"form,omitempty"`     // form
-	Actions  []Action   `json:"actions,omitempty"`  // actions
+	ID          string     `json:"id,omitempty"`          // stable identity for host presentation preferences
+	Collapsible bool       `json:"collapsible,omitempty"` // list group; requires an ID and title
+	Type        string     `json:"type"`                  // "list" | "detail" | "form" | "actions"
+	Title       string     `json:"title,omitempty"`       // section label above the block
+	Meta        []string   `json:"meta,omitempty"`        // header meta strip, beside Title
+	At          string     `json:"at,omitempty"`          // RFC3339, formatted by the host
+	Pane        string     `json:"pane,omitempty"`        // split pane hint; "detail" also gives a stacked title
+	Items       []ListItem `json:"items,omitempty"`       // list
+	Markdown    string     `json:"markdown,omitempty"`    // detail
+	Text        *string    `json:"text,omitempty"`        // detail: literal output, never Markdown
+	Empty       string     `json:"empty,omitempty"`       // list's zero-item state
+	Busy        bool       `json:"busy,omitempty"`        // work is still in progress
+	Form        *Form      `json:"form,omitempty"`        // form
+	Actions     []Action   `json:"actions,omitempty"`     // actions
 }
 
 // ListItem is one row. Path, when set, navigates the view there on click.
@@ -157,6 +159,9 @@ func (v View) Validate() error {
 		}
 	}
 	for i, b := range v.Blocks {
+		if b.Collapsible && (b.Type != "list" || b.ID == "" || b.Title == "") {
+			return fmt.Errorf("view: collapsible block %d needs a list, id and title", i)
+		}
 		if !validPane(b.Pane) {
 			return fmt.Errorf("view: block %d pane %q unknown", i, b.Pane)
 		}

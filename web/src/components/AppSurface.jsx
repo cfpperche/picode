@@ -9,10 +9,11 @@ import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "../lib/appSearch.js";
 import AppIcon from "./AppIcon.jsx";
-import { IconChevronLeft, IconCheck, IconClock, IconInbox, IconTrash } from "./Icons.jsx";
+import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, IconTrash, IconPackage } from "./Icons.jsx";
 import { subscribeFeed } from "../lib/feed.js";
 import { touches } from "../lib/feedReducers.js";
 import { createRefreshQueue } from "../lib/appRefreshQueue.js";
+import { readGroupPreferences, writeGroupPreferences, groupIsOpen, resetGroupSearch, toggleGroup } from "../lib/appGroups.js";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -54,6 +55,9 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const [pending, setPending] = useState("");
   const actionRef = useRef(false);
   const [query, setQuery] = useState("");
+  const [groups, setGroups] = useState(() => ({ saved: readGroupPreferences(), search: { query: "", values: {} } }));
+  useEffect(() => { writeGroupPreferences(groups.saved); }, [groups.saved]);
+  useEffect(() => { setGroups((state) => resetGroupSearch(state, query)); }, [query]);
   const [listW, setListW] = useState(() => {
     const n = parseInt(localStorage.getItem(LIST_KEY) || "", 10);
     return Number.isFinite(n) ? Math.min(LIST_MAX, Math.max(LIST_MIN, n)) : 380;
@@ -214,7 +218,13 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     if (paneMode === "list" && onOpenItem && typeof p === "string" && p.startsWith("item/")) { onOpenItem(p); return; }
     setPath(p);
   };
-  const ctx = { onNavigate: navigate, onAction: fire, selected: path, pending: !!pending };
+  const groupKey = (id) => JSON.stringify([appId, id]);
+  const ctx = {
+    onNavigate: navigate, onAction: fire, selected: path, pending: !!pending,
+    groupOpen: (id) => groupIsOpen(groups, groupKey(id), query),
+    onGroupToggle: (id) => setGroups((state) => toggleGroup(state, groupKey(id), query)),
+    filtering: !!query.trim(),
+  };
   // The detail header repeats the selected row's kind lozenge so the two
   // panes agree — read off the list the app already sent, no new field.
   // A list-pane block isn't always a list block (e.g. a bulk-action row
@@ -312,14 +322,14 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
       ) : split && listOnly ? (
         <div className="app-body">
           {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-          {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+          {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
           {listBlocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
         </div>
       ) : split ? (
         <div className={"app-split" + (resizing ? " resizing" : "")}>
           <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
             {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-            {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+            {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
           </div>
           {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
           <div className="app-pane app-pane-detail" ref={detailRef}>
@@ -333,7 +343,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
       ) : (
         <div className="app-body">
           {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-          {filteredBodyBlocks.map((b, i) => <AppBlock key={i} block={b} {...ctx} />)}
+          {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
           {view.blocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
         </div>
       )}
@@ -352,7 +362,7 @@ function PaneBlocks({ blocks, ctx, badge }) {
       {blocks.map((b, i) => {
         if (merged && i === actionsAt) return null;
         const extra = merged && i === formAt ? blocks[actionsAt].actions : undefined;
-        return <AppBlock key={i} block={b} {...ctx} extraActions={extra} badge={i === 0 ? badge : null} />;
+        return <AppBlock key={b.id || i} block={b} {...ctx} extraActions={extra} badge={i === 0 ? badge : null} />;
       })}
     </>
   );
@@ -451,7 +461,7 @@ function BlockHead({ block, count, badge }) {
   );
 }
 
-function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge, pending }) {
+function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge, pending, groupOpen, onGroupToggle, filtering }) {
   if (block.type === "detail") {
     return (
       <div className={"app-block" + (block.busy ? " app-block-busy" : "")} aria-busy={block.busy || undefined}>
@@ -463,17 +473,29 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge, 
     );
   }
   if (block.type === "list") {
-    return (
-      <div className="app-block">
-        <BlockHead block={block} count={block.items.length} />
+    const content = <>
         {block.items.length === 0 ? <p className="app-list-empty">{block.empty || "No items yet."}</p> : null}
         <ul className="app-list">
           {block.items.map((it) => (
             <Row key={it.id} item={it} onNavigate={onNavigate} onAction={onAction} pending={pending} active={!!it.path && it.path === selected} />
           ))}
         </ul>
-      </div>
-    );
+      </>;
+    if (block.collapsible) {
+      const open = groupOpen(block.id);
+      const count = block.items.length;
+      return <details className="app-block app-group" open={open} aria-busy={block.busy || undefined}>
+        <summary className="app-group-summary" onClick={(event) => { event.preventDefault(); onGroupToggle(block.id); }}>
+          <IconChevronRight className="app-group-chevron" size={14} />
+          <IconPackage className="app-group-icon" size={16} />
+          <span className="app-group-title">{block.title}</span>
+          {count > 0 ? <span className="app-group-count">{count}{filtering ? (count === 1 ? " match" : " matches") : ""}</span> : null}
+          {block.meta.length > 0 ? <span className="app-group-meta">{block.meta.join(" · ")}</span> : null}
+        </summary>
+        <div className="app-group-items">{content}</div>
+      </details>;
+    }
+    return <div className="app-block"><BlockHead block={block} count={block.items.length} />{content}</div>;
   }
   if (block.type === "form") {
     return (

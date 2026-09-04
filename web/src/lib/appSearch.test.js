@@ -55,3 +55,20 @@ test("countListItems sums only list blocks, and is safe on empty input", () => {
   assert.equal(countListItems(null), 0);
   assert.equal(countListItems(undefined), 0);
 });
+
+test("group search matches its project or individual containers, retaining stable identity", () => {
+  const projects = [
+    { type: "list", id: "project-bidwar", title: "bidwar", collapsible: true, meta: ["1 running", "1 stopped"], items: [{ id: "db", title: "database", subtitle: "postgres:17" }, { id: "auth", title: "auth", subtitle: "gotrue" }] },
+    { type: "list", id: "project-cognixse", title: "cognixse", collapsible: true, items: [{ id: "web", title: "web", subtitle: "nginx" }] },
+  ];
+  assert.deepEqual(filterListBlocks(projects, "BIDWAR"), [projects[0]]);
+  const matches = filterListBlocks(projects, "postgres");
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].id, "project-bidwar");
+  assert.equal(matches[0].items.length, 1);
+  assert.equal(matches[0].items[0].id, "db");
+  assert.equal(countListItems(projects), 3);
+  assert.deepEqual(filterListBlocks(projects, "missing"), []);
+  // Ordinary lists keep their established row-only search behavior.
+  assert.deepEqual(filterListBlocks([{ ...projects[0], collapsible: false }], "bidwar"), []);
+});

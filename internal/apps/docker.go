@@ -2,7 +2,9 @@ package apps
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/docker"
@@ -152,8 +154,39 @@ func (a dockerApp) View(ctx context.Context, h Host, path string) (View, error) 
 		v.Blocks = []Block{dockerText("Docker unavailable", err.Error()), {Type: "detail", Markdown: "[Set up Docker](https://cfpperche.github.io/picode/guide/docker)"}, dockerRetry()}
 		return v, nil
 	}
-	items := []ListItem{}
+	v.Blocks = dockerContainerGroups(inv, ops)
+	if len(inv.Containers) == 0 {
+		v.Blocks = []Block{{Type: "list", Title: "Containers", At: inv.SampledAt, Empty: "No containers on this Docker connection.", Items: []ListItem{}}, {Type: "detail", Markdown: "[Set up an application](https://cfpperche.github.io/picode/guide/docker)"}}
+	}
+	return v, nil
+}
+
+func dockerContainerGroups(inv docker.Inventory, ops []store.DockerOperation) []Block {
+	type group struct {
+		block  Block
+		states map[string]int
+	}
+	groups := map[string]*group{}
 	for _, c := range inv.Containers {
+		g := groups[c.Project]
+		if g == nil {
+			title := c.Project
+			if title == "" {
+				title = "Standalone containers"
+			}
+			// The complete endpoint/project pair survives sorting, filtering,
+			// refreshes and connection changes without sharing fold preferences.
+			key, _ := json.Marshal([]string{inv.Endpoint, c.Project})
+			g = &group{block: Block{Type: "list", ID: "docker-group:" + string(key), Title: title, Collapsible: true, Items: []ListItem{}}, states: map[string]int{}}
+			groups[c.Project] = g
+		}
+		state := c.State
+		if state == "created" || state == "exited" {
+			state = "stopped"
+		} else if state == "" {
+			state = "unknown"
+		}
+		g.states[state]++
 		tone := ""
 		if c.State == "running" {
 			tone = "ok"
@@ -169,19 +202,42 @@ func (a dockerApp) View(ctx context.Context, h Host, path string) (View, error) 
 			}
 		}
 		meta := []string{}
-		if c.Project != "" {
-			meta = append(meta, c.Project)
-		}
 		if c.Service != "" {
 			meta = append(meta, c.Service)
 		}
-		items = append(items, ListItem{ID: c.ID, Title: c.Name, Subtitle: c.Image, Meta: meta, Badge: badge, Tone: tone, Busy: busy, Path: "item/" + c.ID})
+		g.block.Busy = g.block.Busy || busy
+		g.block.Items = append(g.block.Items, ListItem{ID: c.ID, Title: c.Name, Subtitle: c.Image, Meta: meta, Badge: badge, Tone: tone, Busy: busy, Path: "item/" + c.ID})
 	}
-	v.Blocks = append(v.Blocks, Block{Type: "list", Title: "Containers", At: inv.SampledAt, Empty: "No containers on this Docker connection.", Items: items})
-	if len(items) == 0 {
-		v.Blocks = append(v.Blocks, Block{Type: "detail", Markdown: "[Set up an application](https://cfpperche.github.io/picode/guide/docker)"})
+	projects := make([]string, 0, len(groups))
+	for project := range groups {
+		projects = append(projects, project)
 	}
-	return v, nil
+	sort.Slice(projects, func(i, j int) bool {
+		if (projects[i] == "") != (projects[j] == "") {
+			return projects[j] == ""
+		}
+		return projects[i] < projects[j]
+	})
+	blocks := make([]Block, 0, len(projects))
+	for _, project := range projects {
+		g := groups[project]
+		states := make([]string, 0, len(g.states))
+		for state := range g.states {
+			states = append(states, state)
+		}
+		sort.Slice(states, func(i, j int) bool {
+			if (states[i] == "running") != (states[j] == "running") {
+				return states[i] == "running"
+			}
+			return states[i] < states[j]
+		})
+		for _, state := range states {
+			g.block.Meta = append(g.block.Meta, fmt.Sprintf("%d %s", g.states[state], state))
+		}
+		sort.Slice(g.block.Items, func(i, j int) bool { return g.block.Items[i].Title < g.block.Items[j].Title })
+		blocks = append(blocks, g.block)
+	}
+	return blocks
 }
 
 func actionLabel(action string) string {

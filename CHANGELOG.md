@@ -32,6 +32,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Docker containers are grouped by Compose project inside the app**
+  (ADR-0066). Expand a project to inspect its containers; headings summarize
+  their states. Groups remember their open/closed state in this browser.
+  Search finds projects and containers inside closed groups; clearing it
+  restores the saved view. Containers without a project have their own group.
 - **Terminal runtime favicons fill the identity slot.** Claude Code, Codex,
   Grok, and Pi rows no longer sit the vendor mark inside a bordered white
   chip; a loaded favicon uses the same face treatment as agent rows, and

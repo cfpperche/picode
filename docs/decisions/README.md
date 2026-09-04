@@ -70,3 +70,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0063](0063-whats-new-release-highlights.md) | Curated in-product release highlights, stamped-build auto-open, per-browser acknowledgement | accepted |
 | [0064](0064-release-cadence.md) | Official release cadence and source/Stable release lanes | proposed |
 | [0065](0065-docker-sysadmin.md) | Local Docker App and optional sysadmin tools share bounded, audited operations | accepted |
+| [0066](0066-docker-project-groups.md) | Docker project groups inside the App, with saved disclosures and search | accepted |

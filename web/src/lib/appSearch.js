@@ -36,7 +36,8 @@ export function filterListBlocks(blocks, query) {
       if (b) out.push(b);
       continue;
     }
-    const items = (Array.isArray(b.items) ? b.items : []).filter((it) => matchesItem(it, query));
+    const groupMatch = b.collapsible && matchesItem({ title: b.title }, query);
+    const items = (Array.isArray(b.items) ? b.items : []).filter((it) => groupMatch || matchesItem(it, query));
     if (items.length) out.push({ ...b, items });
   }
   return out;

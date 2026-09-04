@@ -6,26 +6,21 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes the terminal-favicon flush merge
-(`cf9aafc8`) on top of Docker App/sysadmin (`a2e377ef`). Tracked files are
-clean aside from the untracked `.pi/compact.json`. Commits remain local and
-unpushed. ADR-0064 remains proposed.
+**Repository:** the Docker project grouping refinement (ADR-0066) is in
+`feat/docker-project-groups`, based on local `main` `1ed6708f`. Grouping,
+search and saved folds are implemented; v2 project operations/Compose are
+specified in `docs/plans/docker-v2.md` and are not implemented. Existing
+local commits remain unpushed. Preserve the unrelated `.pi/compact.json`.
 
-**Deployment:** the installed service runs `0.1.0+cf9aafc` (`release: false`).
-Health returned `ok`, boot `c170089b55025f43`. A loaded runtime mark is
-`img.ws-face.term-cli-face` filling the same 22px slot as agent faces, with
-no border or white plate. The boxed `.term-cli-badge` remains only for the
-text-mark fallback.
+**Deployment:** the installed service still runs `0.1.0+cf9aafc`. The
+refinement is verified on an isolated daemon; deployment follows the gates.
 
-**Quality:** `make fmt-check`, `make vet`, and `make test` passed on the
-favicon branch before merge. Post-merge `make deploy` rebuilt the embedded
-UI (`index-F5O0PkOy.css`). Full `make ci` was not re-run after the merge.
-
-**UI evidence:** post-deploy screenshot `/tmp/picode-term-favicon-deployed.png`
-was read: Claude/Codex/Grok/Pi sit on the row with no chip; computed style
-on `.term-cli-face` is `background: transparent; border: 0`. The owner's
-earlier `v0.1.0+a2e377e` screenshot was the Docker binary that had overwritten
-the worktree preview. visual-review: PASS.
+**Quality:** `make ci` passed (Go, 477 frontend tests, packages, build,
+docs parity and Vale). Browser QA covered real project labels, mouse/Enter/Space, refresh/reload/Back,
+search and saved folds. Empty/blocked/error, standalone groups, both themes,
+phone confirmations and long names were captured and read. A narrow-screen
+metadata truncation was fixed and re-captured. visual-review: PASS; overlay
+geometry is `ok`. Curated evidence: `docs/screenshots/docker-groups-*.png`.
 
 ### Product and platform
 
@@ -47,8 +42,10 @@ the worktree preview. visual-review: PASS.
   fallback.
 - Apps now provide literal output, progress, empty lists and generic mobile
   navigation. Docker exposes inventory, details, sampled resources/logs,
-  start/stop/restart and durable history. Optional `pi-sysadmin` tools share
-  the same service, existing authentication and local Unix socket access.
+  start/stop/restart and durable history. Inventory groups exact Compose
+  projects inside the app, with saved folds and search (ADR-0066). Optional
+  `pi-sysadmin` tools share the same service, existing authentication and
+  local Unix socket access.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
 - Public release mechanics are tag-driven. The cadence study, proposed
@@ -81,6 +78,9 @@ were not evaluated in this session:
 
 ## In flight
 
+- Docker groups passed the gates and await local deployment. V2 project
+  operations, Compose registration/deployment and shared tools are proposed
+  in `docs/plans/docker-v2.md`; no project-level action is shipped yet.
 - Docker v1 is merged and deployed. The real Pi 0.85.0 runtime loaded all
   four tools and executed inventory/detail against the shared API without a
   model turn. Autonomous model-driven dogfood and Docker Desktop/rootless
@@ -101,15 +101,16 @@ were not evaluated in this session:
 
 ## Next up
 
-1. Review current local `main` and decide when to push/promote it.
-2. Review ADR-0064 and choose the official cadence/pilot window; no release
+1. Implement Docker v2 project actions from `docs/plans/docker-v2.md`: exact
+   target preview, shared locks, parent/child results and partial failure QA.
+   Compose deployment follows in a separate ADR extending ADR-0065.
+2. Review current local `main` and decide when to push/promote it.
+3. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-3. Verify the local `pi-compact` configuration and re-dogfood its policy.
-4. Inspect the exact historical Inbox rows before any real TUI reply test.
-5. Run the owner-controlled remote-mode acceptance matrix.
-6. Continue the Browser preview panel and ADR-0054 dogfood.
-7. Extend Docker with Compose deployment after defining target ownership,
-   secret handling and recovery semantics in an ADR; v1 operations are covered.
+4. Verify the local `pi-compact` configuration and re-dogfood its policy.
+5. Inspect the exact historical Inbox rows before any real TUI reply test.
+6. Run the owner-controlled remote-mode acceptance matrix.
+7. Continue the Browser preview panel and ADR-0054 dogfood.
 8. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
@@ -134,20 +135,17 @@ were not evaluated in this session:
 
 ## Recent activity
 
+- **2026-09-04 — Docker project groups and v2 proposal (ADR-0066).** Native
+  disclosures stay in the app; exact Compose labels, standalone fallback,
+  state summaries, saved folds and search work together. Long phone rows
+  wrap. V2 separates detected groups from registered Compose deployments.
+  `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
 - **2026-09-04 — terminal favicons merged and deployed as `0.1.0+cf9aafc`.**
   The owner's `v0.1.0+a2e377e` screenshot still had the leftover chip because
   the first worktree preview was overwritten by the Docker deploy and the
   branch had not been merged. Rebased onto Docker `main`, merged, deployed.
   Live sidebar: Claude/Codex/Grok/Pi fill the 22px slot with no plate.
   visual-review: PASS (`/tmp/picode-term-favicon-deployed.png` read).
-- **2026-09-04 — Docker App deployed; pi-sysadmin package ready (ADR-0065).**
-  Extended existing Apps primitives and mobile navigation; added bounded
-  Engine API operations, idempotent background jobs, verified outcomes and
-  durable history. Real disposable-container start/stop/restart passed.
-  Event bursts initially starved detail reads; container-state event filters
-  and a serialized refresh queue fixed the observed failure, with regression
-  coverage. Plain-text logs, empty/blocked/error and mobile confirmations
-  passed screenshot review. `make ci` passed. visual-review: PASS.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

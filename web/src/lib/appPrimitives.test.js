@@ -8,6 +8,20 @@ import {
   aggregateBadge,
 } from "./appPrimitives.js";
 
+test("only identified, named list blocks become collapsible groups", () => {
+  const v = normalizeView({ apiVersion: 1, blocks: [
+    { type: "list", id: "one", title: "Project", collapsible: true },
+    { type: "list", title: "No identity", collapsible: true },
+    { type: "list", id: "two", collapsible: true },
+    { type: "detail", id: "three", title: "Details", text: "output", collapsible: true },
+  ] });
+  assert.equal(v.blocks[0].id, "one");
+  assert.equal(v.blocks[0].collapsible, true);
+  assert.equal(v.blocks[1].collapsible, false);
+  assert.equal(v.blocks[2].collapsible, false);
+  assert.equal(v.blocks[3].collapsible, undefined);
+});
+
 test("runtime output remains literal and empty lists retain their state text", () => {
   const v = normalizeView({ apiVersion: 1, blocks: [
     { type: "detail", text: "<script>bad()</script> **not Markdown**", busy: true },

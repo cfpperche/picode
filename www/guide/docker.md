@@ -23,6 +23,16 @@ choose **Check again**. Remote Docker engines are not supported in this version.
 
 ## Inspect and operate
 
+Containers appear in project groups inside the app. Select a heading to
+expand or collapse it; its count and state summary remain visible. Groups
+start closed and remember your choice in this browser. Containers without a
+Compose project appear under **Standalone containers**.
+
+Filter by project name, container name, image or state. Matching groups open
+while searching; clear the filter to restore your saved view. Project names
+come from Compose labels reported by Docker, so similar names alone do not
+put containers in the same group.
+
 | Control | Result |
 |---|---|
 | Container row | Current state, image, Compose labels, resource sample and recent logs |

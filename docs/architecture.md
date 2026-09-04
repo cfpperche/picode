@@ -851,6 +851,16 @@ The phone's More → Apps grid opens the shared AppSurface at `#/app/<id>`;
 Inbox keeps its specialized route. Public instructions live in the
 [Docker guide](../www/guide/docker.md).
 
+Docker inventory groups containers by their exact Compose project label
+(ADR-0066); unlabeled containers appear last under Standalone containers.
+Named list blocks opt into native disclosure with stable `id` and
+`collapsible` fields. Counts summarize running/stopped and other actual
+states. The host stores each app/endpoint/project fold in browser preferences;
+new groups start closed. Search reveals matching groups and clearing it
+restores the saved folds. Presentation changes do not mutate the store or
+Docker. Project actions and Compose deployment remain proposed in the
+[Docker v2 plan](plans/docker-v2.md).
+
 ## Explicit non-goals
 
 - Re-implementing the Pi TUI (we embed it instead).

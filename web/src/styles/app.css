@@ -3881,6 +3881,34 @@ img.ws-face.term-cli-face {
 .app-body > .app-block { max-width: 720px; }
 .app-block { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
+/* Native disclosure groups remain in the app canvas (ADR-0066). */
+.app-body > .app-group { max-width: 960px; }
+.app-group { display: block; flex: none; border: 1px solid var(--border); border-radius: var(--radius-ctl); }
+.app-group-summary { display: grid; grid-template-columns: 14px 16px minmax(0, 1fr) auto; column-gap: 8px; row-gap: 3px; padding: 10px 12px; list-style: none; cursor: pointer; border-radius: inherit; background: var(--bg-panel); transition: background 160ms; }
+.app-group-summary::-webkit-details-marker { display: none; }
+.app-group-summary:hover { background: var(--bg-hover); }
+.app-group-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.app-group-chevron, .app-group-icon { grid-row: 1 / span 2; align-self: center; color: var(--text-secondary); }
+.app-group-chevron { transition: transform 160ms var(--ease-out); }
+.app-group[open] .app-group-chevron { transform: rotate(90deg); }
+.app-group-title { grid-column: 3; font-weight: 600; overflow-wrap: anywhere; }
+.app-group-count { grid-column: 4; font-size: 11px; color: var(--text-secondary); align-self: center; }
+.app-group-meta { grid-column: 3 / -1; font-size: 11px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.app-group-items { padding: 2px 8px 4px 32px; }
+.app-group[aria-busy="true"] .app-group-icon { color: var(--accent); animation: app-operation-pulse 1s ease-in-out infinite alternate; }
+.app-group::details-content { overflow: clip; block-size: 0; opacity: 0; interpolate-size: allow-keywords; transition: block-size 160ms var(--ease-out), opacity 160ms, content-visibility 160ms allow-discrete; }
+.app-group[open]::details-content { block-size: auto; opacity: 1; }
+@media (max-width: 767px) {
+  .app-group .app-row-title { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .app-group .app-row-line2 { align-items: flex-start; flex-wrap: wrap; }
+  .app-group .app-meta { flex-wrap: wrap; row-gap: 3px; }
+  .app-group .app-meta > * { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-group-summary, .app-group-chevron, .app-group::details-content { transition: none; }
+  .app-group[aria-busy="true"] .app-group-icon { animation: none; }
+}
+
 /* Split: list left, detail right, each scrolling on its own. Below the
    breakpoint the panes stack — the list first, detail under it. */
 .app-split {
