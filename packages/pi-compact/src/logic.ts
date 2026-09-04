@@ -50,8 +50,7 @@ export const DEFAULT_CONFIG: CompactConfig = {
 
 /** Cheap summarizers tried after the configured model/fallback. */
 export const AUTO_SUMMARIZERS = [
-	"google/gemini-2.5-flash",
-	"google/gemini-2.5-flash-lite",
+	"google/gemini-3.6-flash",
 	"anthropic/claude-haiku-4-5",
 ] as const;
 
@@ -387,12 +386,14 @@ export function parsePercentInput(raw: string, allowNone: boolean): { ok: true; 
 }
 
 export function statusLine(opts: {
+	configured: boolean;
 	enabled: boolean;
 	tokens: number | null;
 	contextWindow: number;
 	threshold: number | null;
 	model: string | null;
 }): string {
+	if (!opts.configured) return "compact: not configured · /compact edit";
 	const tok = opts.tokens === null ? "?" : opts.tokens.toLocaleString("en");
 	const lim = opts.threshold === null ? "overflow only" : opts.threshold.toLocaleString("en");
 	const on = opts.enabled ? "on" : "off";

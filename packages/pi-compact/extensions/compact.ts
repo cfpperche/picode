@@ -61,6 +61,9 @@ type Loaded =
 			raw: Record<string, unknown>;
 			writeRel: string;
 			overlay: boolean;
+			/** True when at least one config layer file exists. Without a file the
+			 * extension stays dormant: no early trigger, no summarizer override. */
+			configured: boolean;
 	  };
 
 function unique(xs: string[]): string[] {
@@ -77,6 +80,7 @@ export default function piCompact(pi: ExtensionAPI) {
 		raw: {},
 		writeRel: WORKSPACE_REL,
 		overlay: false,
+		configured: false,
 	};
 	let sessionEnabled = true;
 	let turnsSinceCompact = DEFAULT_CONFIG.cooldownTurns;
@@ -133,6 +137,7 @@ export default function piCompact(pi: ExtensionAPI) {
 				raw,
 				writeRel: target.rel,
 				overlay: false,
+				configured: ws.status === "ok",
 			};
 		}
 		const ov = readFileAt(join(cwd, target.rel), target.rel);
@@ -147,11 +152,17 @@ export default function piCompact(pi: ExtensionAPI) {
 			raw,
 			writeRel: target.rel,
 			overlay: true,
+			configured: ws.status === "ok" || ov.status === "ok",
 		};
 	}
 
 	function configOrDefault(): CompactConfig {
 		return loaded.status === "ok" ? loaded.config : DEFAULT_CONFIG;
+	}
+
+	/** Dormant until a config file exists: Pi's stock compaction applies. */
+	function isConfigured(): boolean {
+		return loaded.status === "ok" && loaded.configured;
 	}
 
 	function writable(ctx: ExtensionContext): {
@@ -223,6 +234,7 @@ export default function piCompact(pi: ExtensionAPI) {
 		const window = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 		const body = {
 			v: 1,
+			configured: isConfigured(),
 			enabled: sessionEnabled && cfg.enabled,
 			tokens: usage?.tokens ?? null,
 			contextWindow: window || null,
@@ -248,6 +260,7 @@ export default function piCompact(pi: ExtensionAPI) {
 		ctx.ui.setStatus(
 			"pi-compact",
 			statusLine({
+				configured: isConfigured(),
 				enabled: sessionEnabled && cfg.enabled,
 				tokens: usage?.tokens ?? null,
 				contextWindow: window,
@@ -259,6 +272,9 @@ export default function piCompact(pi: ExtensionAPI) {
 	}
 
 	function triggerCompact(ctx: ExtensionContext, instructions?: string) {
+		// Defense in depth: ctx.compact() aborts an active run. Every current
+		// call site is idle, but a future one must not resurrect that bug.
+		if (typeof ctx.isIdle === "function" && !ctx.isIdle()) return;
 		if (compacting) {
 			if (ctx.hasUI) ctx.ui.notify("Compaction already running", "warning");
 			return;
@@ -489,7 +505,19 @@ export default function piCompact(pi: ExtensionAPI) {
 		if (loaded.status !== "invalid") loaded = reload(ctx.cwd);
 		turnsSinceCompact += 1;
 		paintStatus(ctx);
+	});
+
+	// Compaction must never run mid-run: ctx.compact() starts by aborting
+	// the active agent run, so triggering from turn_end killed long agentic
+	// loops ("This operation was aborted"). pi flips the run inactive before
+	// emitting agent_settled — the same boundary its own threshold compaction
+	// uses — making this the first safe point to compact.
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (loaded.status !== "invalid") loaded = reload(ctx.cwd);
+		paintStatus(ctx);
 		if (compacting) return;
+		if (!isConfigured()) return;
+		if (typeof ctx.isIdle === "function" && !ctx.isIdle()) return;
 		const cfg = configOrDefault();
 		const usage = ctx.getContextUsage();
 		const decision = shouldTrigger({
@@ -515,13 +543,16 @@ export default function piCompact(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_before_compact", async (event, ctx) => {
+		if (!isConfigured()) return;
 		const cfg = configOrDefault();
-		const chosen = pickSummarizer(summarizerCandidates(cfg, sessionModelId(ctx)), (id) => usable(ctx, id));
-		if (!chosen) return;
-		const parsed = parseModelId(chosen);
-		if (!parsed) return;
-		const model = ctx.modelRegistry.find(parsed.provider, parsed.id);
-		if (!model) return;
+		const attempts: { id: string; model: NonNullable<ReturnType<ExtensionContext["modelRegistry"]["find"]>> }[] = [];
+		for (const id of summarizerCandidates(cfg, sessionModelId(ctx))) {
+			if (!usable(ctx, id)) continue;
+			const pid = parseModelId(id);
+			const model = pid ? ctx.modelRegistry.find(pid.provider, pid.id) : undefined;
+			if (model) attempts.push({ id, model });
+		}
+		if (attempts.length === 0) return;
 
 		const { preparation, customInstructions, signal } = event;
 		const allMessages = [...preparation.messagesToSummarize, ...preparation.turnPrefixMessages];
@@ -562,50 +593,56 @@ ${conversationText}
 			},
 		];
 
-		if (ctx.hasUI) {
-			ctx.ui.notify(`Summarizing with ${chosen} (${cfg.thinking})…`, "info");
-		}
-
-		try {
-			const response = await ctx.modelRegistry.complete(
-				model,
-				{ messages: summaryMessages },
-				{
-					maxTokens: 8192,
-					signal,
-					cacheRetention: "none",
-					sessionId: randomUUID(),
-					reasoning: cfg.thinking,
-				},
-			);
-			if (signal.aborted) return;
-			// A length stop holds partial text that must not become the
-			// session checkpoint — same rule as Pi's own summarizer.
-			const summary = response.content
-				.filter((c): c is { type: "text"; text: string } => c.type === "text")
-				.map((c) => c.text)
-				.join("\n");
-			const blocked = summaryBlocked(response, summary);
-			if (blocked) {
-				if (ctx.hasUI) {
-					ctx.ui.notify(`pi-compact (${chosen}): ${blocked} summary; using Pi default`, "warning");
-				}
-				return;
+		// Try each chain link in order; a failed link (throw, error stop,
+		// empty or length-capped summary) falls through to the next one.
+		// Only when every link fails does Pi's built-in summarizer run.
+		for (const { id: chosen, model } of attempts) {
+			if (ctx.hasUI) {
+				ctx.ui.notify(`Summarizing with ${chosen} (${cfg.thinking})…`, "info");
 			}
-			return {
-				compaction: {
-					summary,
-					firstKeptEntryId: preparation.firstKeptEntryId,
-					tokensBefore: preparation.tokensBefore,
-					usage: response.usage,
-					details: { summarizer: chosen, thinking: cfg.thinking, from: "pi-compact" },
-				},
-			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			if (ctx.hasUI) ctx.ui.notify(`pi-compact summarizer failed (${chosen}): ${message}`, "warning");
-			return;
+			try {
+				const response = await ctx.modelRegistry.complete(
+					model,
+					{ messages: summaryMessages },
+					{
+						maxTokens: 8192,
+						signal,
+						cacheRetention: "none",
+						sessionId: randomUUID(),
+						reasoning: cfg.thinking,
+					},
+				);
+				if (signal.aborted) return;
+				// A length stop holds partial text that must not become the
+				// session checkpoint — same rule as Pi's own summarizer.
+				const summary = response.content
+					.filter((c): c is { type: "text"; text: string } => c.type === "text")
+					.map((c) => c.text)
+					.join("\n");
+				const blocked = summaryBlocked(response, summary);
+				if (blocked) {
+					if (ctx.hasUI) {
+						ctx.ui.notify(`pi-compact (${chosen}): ${blocked} summary; trying next summarizer`, "warning");
+					}
+					continue;
+				}
+				return {
+					compaction: {
+						summary,
+						firstKeptEntryId: preparation.firstKeptEntryId,
+						tokensBefore: preparation.tokensBefore,
+						usage: response.usage,
+						details: { summarizer: chosen, thinking: cfg.thinking, from: "pi-compact" },
+					},
+				};
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				if (ctx.hasUI) ctx.ui.notify(`pi-compact summarizer failed (${chosen}): ${message}`, "warning");
+				continue;
+			}
 		}
+		if (ctx.hasUI) ctx.ui.notify("pi-compact: every configured summarizer failed; using Pi default", "warning");
+		return;
 	});
 
 	pi.registerCommand("compact", {
@@ -621,15 +658,30 @@ ${conversationText}
 				return;
 			}
 			if (cmd.kind === "on") {
+				if (!isConfigured()) {
+					ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact edit first.", "warning");
+					return;
+				}
 				sessionEnabled = true;
 				ctx.ui.notify("Early compact on for this session", "info");
 				paintStatus(ctx);
 				return;
 			}
 			if (cmd.kind === "off") {
+				if (!isConfigured()) {
+					ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact edit first.", "warning");
+					return;
+				}
 				sessionEnabled = false;
 				ctx.ui.notify("Early compact off for this session (overflow still runs)", "info");
 				paintStatus(ctx);
+				return;
+			}
+			if (!isConfigured()) {
+				ctx.ui.notify(
+					"pi-compact is not configured — Pi's default compaction applies. Run /compact edit to configure.",
+					"warning",
+				);
 				return;
 			}
 			await ctx.waitForIdle();

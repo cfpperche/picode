@@ -18,14 +18,28 @@ to the `[Unreleased]` section. The repository's official language is English
   the desktop user menu, command palette and mobile More screen. Notes are
   bundled for offline use and the full release body is published from the
   matching changelog section.
-- **`packages/pi-compact`** (ADR-0061): opt-in pi extension that compact
+- **`packages/pi-compact`** (ADR-0061): opt-in pi extension that compacts
   sessions earlier than Pi's window-edge default (100k tokens or 50% of
-  the window), summarizes with a cheap model (thinking off, Flash →
-  Haiku → session fallback), and overlays `/compact` so `/compact`,
-  `/compact edit`, `/compact model`, `/compact on`/`off` stay one
-  vocabulary. Missing `.pi/compact.json` still applies those defaults.
-  PiCode sets `PI_COMPACT_AGENT` on spawn for a per-agent overlay.
-  The recent-token tail is kept; Pi overflow compact stays on.
+  the window), summarizes with a cheap model (thinking off,
+  gemini-3.6-flash → Haiku → session fallback), and overlays `/compact`
+  so `/compact`, `/compact edit`, `/compact model`, `/compact on`/`off`
+  stay one vocabulary. **Dormant until configured — no defaults, ever:**
+  without `.pi/compact.json` (or a per-agent overlay) Pi's stock behavior
+  applies untouched and the status line reads "not configured"; any config
+  file is the explicit opt-in. PiCode sets `PI_COMPACT_AGENT` on spawn
+  for a per-agent overlay. The recent-token tail is kept; Pi overflow
+  compact stays on.
+- **`pi-compact` no longer kills the agent run it compacts.** The early
+  trigger moved from `turn_end` (fired mid-run, where `ctx.compact()`
+  aborts the active run — dogfood showed "This operation was aborted"
+  and a dead agent) to `agent_settled`, the boundary Pi's own threshold
+  compaction uses, with an `isIdle()` guard.
+- **`pi-compact`'s summarizer chain retries link by link.** An error
+  stop, a throw, an empty summary, or a length-capped summary falls
+  through to the next candidate; Pi's built-in summarizer runs only when
+  every link failed. The auto chain default is now `google/gemini-
+  3.6-flash` → `anthropic/claude-haiku-4-5` (2.5-flash 404s for newer
+  Google accounts).
 - **The user-menu Documentation link opens the docs site
   (cfpperche.github.io/picode) instead of the repository.** The System
   page keeps the repository link.

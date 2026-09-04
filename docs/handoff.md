@@ -57,9 +57,31 @@ action stayed closed after reload.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
 
+### ADR-0061 compaction policy package (`pi-compact`)
+
+Shipped, deployed, then amended after the first real compaction (owner
+directive: **no defaults, ever**):
+
+- **Dormant until configured.** Without `.pi/compact.json` (or a per-agent
+  overlay) Pi's stock compaction and summarizer run untouched; the status
+  line reads `compact: not configured · /compact edit`; bare `/compact` and
+  `/compact on|off` report "not configured". Any config file is the opt-in.
+- **Trigger on `agent_settled`, never `turn_end`.** `ctx.compact()` starts
+  with `abort()`, so the old mid-run trigger killed active runs ("This
+  operation was aborted"); `agent_settled` is Pi's own post-run compaction
+  boundary, plus an `isIdle()` guard.
+- **The summarizer chain retries link by link** (error stops, throws, empty
+  or length-capped summaries fall through; Pi's summarizer is the last
+  resort). Auto chain: `gemini-3.6-flash` → `claude-haiku-4-5` — 2.5-flash
+  now 404s for newer Google accounts. 59 package tests; `make ci` green.
+
 ## In flight
 
-- No implementation or deployment step from the sidebar merge remains.
+- **ADR-0061 amendment needs one more owner restart, then a configured
+  re-dogfood.** After deploy, restart PiCode; sessions stay dormant (status
+  "not configured") until `/compact edit` writes a config — or opt in, and a
+  real compaction must record `fromHook: true` + gemini-3.6-flash pricing
+  with no aborted runs.
 - Real CLI dogfood was intentionally not run. The historical Inbox `[Teste 3]`
   and `mobile-6bf740` rows still need deliberate reconciliation before a new
   live question is filed.
@@ -70,12 +92,15 @@ action stayed closed after reload.
 
 ## Next up
 
-1. Review the current local main and decide when to push/promote it; the
+1. Owner restarts PiCode (new binary), then chooses: leave agents dormant or
+   write a config (`/compact edit`); re-dogfood compaction expecting
+   `fromHook: true` + 3.6-flash pricing and no aborted runs.
+2. Review the current local main and decide when to push/promote it; the
    What’s New merge and deploy are complete locally.
-2. Inspect the exact historical Inbox rows before any real TUI reply test.
-3. Run the owner-controlled remote-mode acceptance matrix.
-4. Continue the Browser preview panel and ADR-0054 dogfood.
-5. Decide whether selective docs-video capture/render should be scheduled;
+3. Inspect the exact historical Inbox rows before any real TUI reply test.
+4. Run the owner-controlled remote-mode acceptance matrix.
+5. Continue the Browser preview panel and ADR-0054 dogfood.
+6. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -98,6 +123,19 @@ action stayed closed after reload.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,
+  self-healing chain.** The first real compaction exposed two defects: the
+  early trigger fired from `turn_end` and `ctx.compact()`'s leading `abort()`
+  killed the active run ("This operation was aborted"; agent never
+  continued), and the auto chain led with gemini-2.5-flash, which now 404s
+  for newer Google accounts, so compaction silently fell back to Pi's
+  summarizer. Fixes: dormant-until-configured semantics (owner directive —
+  no defaults, ever), trigger moved to `agent_settled` + `isIdle()` guard,
+  per-link chain retry with gemini-3.6-flash → Haiku. ADR-0061 amended in
+  place; guide/README/CHANGELOG updated; package tests 59/59; `make ci`
+  green (docs shots refreshed after the whats-new UI merge). Merged to
+  `main`; deploy proof lands in the next docs commit.
 
 - **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
   Resolved the ADR-number collision with the already accepted terminal CLI

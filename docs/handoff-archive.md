@@ -5,6 +5,20 @@ state is always `docs/handoff.md`. Do not treat this file as current.
 
 ## Recent activity (archived after docs surface fingerprints)
 
+- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
+  screenshots and tutorial stills now map to named desktop/mobile profiles;
+  local screen imports, shared shell/style/fixture inputs and selected data
+  producers determine freshness, while tests and unrelated handlers do not.
+  The strict manual video audit identifies the affected tutorial and profile;
+  CI remains an integrity-only, non-rendering floor. A decision table covers
+  unchanged, test-only, shared-style, desktop-only, mobile-only and
+  cross-pipeline changes. Public screenshots were regenerated and the old
+  global UI-tree helper was removed. Selective capture/render, caching and a
+  maintenance trigger remain explicitly in flight. Full `make ci` passed;
+  `make docs-videos-fresh` deliberately reports the eight stale profiles named
+  under Known debts. visual-review: PASS (all three final screenshots read;
+  text and controls are legible, with no clipping, overlay or dead state).
+
 - **2026-09-04 — tutorial video rendering left the delivery critical path.**
   Default docs CI now checks composition, referenced-still, render and shipped
   MP4 integrity without treating every global UI-tree change as a mandatory

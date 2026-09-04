@@ -246,13 +246,27 @@ describe("status and instructions", () => {
 	it("formats a status line", () => {
 		assert.equal(
 			statusLine({
+				configured: true,
 				enabled: true,
 				tokens: 92000,
 				contextWindow: 200000,
 				threshold: 100000,
-				model: "google/gemini-2.5-flash",
+				model: "google/gemini-3.6-flash",
 			}),
-			"compact on · 92,000 / 100,000 · google/gemini-2.5-flash",
+			"compact on · 92,000 / 100,000 · google/gemini-3.6-flash",
+		);
+	});
+	it("formats the not-configured line", () => {
+		assert.equal(
+			statusLine({
+				configured: false,
+				enabled: true,
+				tokens: 92000,
+				contextWindow: 200000,
+				threshold: 100000,
+				model: null,
+			}),
+			"compact: not configured · /compact edit",
 		);
 	});
 	it("combines config and per-call instructions", () => {

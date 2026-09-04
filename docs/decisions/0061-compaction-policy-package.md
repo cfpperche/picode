@@ -1,6 +1,6 @@
 # ADR-0061: Compaction policy as an opt-in pi package
 
-- **Status**: accepted
+- **Status**: accepted (amended 2026-09-04 after first dogfood — no defaults, dormant until configured; trigger moved to `agent_settled`)
 - **Date**: 2026-09-04
 - **Extends**: [ADR-0028](0028-model-roles.md), [ADR-0010](0010-pi-packages.md), [ADR-0033](0033-roles-per-agent-overlay.md)
 
@@ -26,15 +26,26 @@ replacement algorithm.
 
 PiCode ships **`packages/pi-compact/`**, a pi package:
 
+> **Amendment 2026-09-04 (owner, after first dogfood): no defaults, ever.**
+> Dogfood surfaced two defects in the original decision: (a) with no config
+> file the package silently imposed a policy and a summarizer chain whose
+> first links now 404 (gemini-2.5-flash sunset for newer Google accounts);
+> (b) triggering from `turn_end` aborted active agent runs (`ctx.compact()`
+> starts with `abort()`) — "the agent does not continue after compaction".
+> Points 3, 6 and 7 below record the amended decision.
+
 1. **MIT in that directory only**, same carve-out as ADR-0028.
 2. **Opt-in install.** Nothing is installed by default (`pi install` /
    `#/packages`, ADR-0010). Config is not copied into SQLite (ADR-0005).
-3. **Active defaults without a file.** Unlike `pi-roles` (dormant until
-   `.pi/roles.json` exists, so it cannot fight per-agent `--model`), this
-   package applies a conservative policy as soon as it is loaded:
-   early compact at 100k tokens **or** 50% of the window, whichever
-   comes first, not below 32k; summarizer thinking `off`; cheap-model
-   auto chain then the session model; Pi's overflow compact stays on.
+3. **Dormant until configured — no defaults, ever.** While no config layer
+   exists, the package applies nothing: Pi's stock compaction and
+   summarizer run untouched, and the status line reads
+   `compact: not configured · /compact edit`. Any layer file (workspace
+   `.pi/compact.json` or a per-agent overlay) is the explicit opt-in;
+   documented schema defaults then fill keys the file does not set, and
+   `/compact edit` shows exactly what will be written before saving.
+   While unconfigured, bare `/compact` and `/compact on|off` report
+   "not configured" instead of acting.
 4. **Workspace file** `<cwd>/.pi/compact.json` overlays those defaults.
    With `PI_COMPACT_AGENT=<id>` (PiCode `Agent.SpawnEnv`, same slug
    rules as ADR-0033), `<cwd>/.pi/compact/<id>.json` overlays the
@@ -45,13 +56,22 @@ PiCode ships **`packages/pi-compact/`**, a pi package:
    `session_before_compact`). Sole-word subcommands: `edit`, `on`,
    `off`, `model`. A first word plus more text is always instructions
    (`/compact edit the summary` still compact).
-6. **Early trigger is `turn_end` + `ctx.compact()`.** Overflow and
-   threshold compact inside Pi remain the safety net. The package never
-   sets `compaction.enabled: false`.
+6. **Early trigger is `agent_settled` + `ctx.compact()`, never `turn_end`.**
+   Pi emits `turn_end` between turns of an active run, and `ctx.compact()`
+   begins with `abort()` — dogfood showed the run dying with
+   "This operation was aborted" before the compaction banner. `agent_settled`
+   is emitted after Pi marks the run inactive (the same boundary Pi's own
+   threshold compaction uses), and the trigger additionally checks
+   `ctx.isIdle()`. Overflow and threshold compact inside Pi remain the
+   safety net. The package never sets `compaction.enabled: false`.
 7. **`session_before_compact` picks a summarizer** from `model`, then
    `fallback[]`, then the auto cheap chain, then the session model, with
-   configured thinking (default `off`). If none are usable, the handler
-   returns and Pi's default summarizer runs. The cut keeps
+   configured thinking (default `off`). Links are tried in order: a link
+   that throws, stops with an error, or yields an empty or length-capped
+   summary falls through to the next; Pi's default summarizer runs only
+   when every link failed. The auto chain default is
+   `google/gemini-3.6-flash` → `anthropic/claude-haiku-4-5` (2.5-flash
+   now 404s for newer Google accounts). The cut keeps
    `preparation.firstKeptEntryId` (Pi's recent-token tail).
 8. **`/compact on` / `off` are session locks** for the early trigger.
    They do not persist. Config `enabled` is the persistent switch.
@@ -68,10 +88,12 @@ Easier: long sessions compact before the window edge; summarization does
 not inherit xhigh thinking; one `/compact` vocabulary; the same extension
 runs in the TUI and in PiCode.
 
-Harder: the package shadows Pi's `/compact` (by design; `ctx.compact()`
-is the equivalent). Two files to explain (workspace + overlay). Auto
-cheap models may be missing if the user has no Google/Anthropic auth —
-then the session model is used with thinking off.
+Harder: installing the package alone changes nothing until a config file
+exists (deliberate — the status line points at `/compact edit`). The
+package shadows Pi's `/compact` (by design; `ctx.compact()` is the
+equivalent). Two files to explain (workspace + overlay). Auto cheap
+models may be missing if the user has no Google/Anthropic auth — then the
+session model is used with thinking off.
 
 If wrong: uninstalling the package restores Pi's command and default
 timing. Overlay files can be deleted by hand.
@@ -80,8 +102,10 @@ timing. Overlay files can be deleted by hand.
 
 - **A `/compaction` command family, leaving `/compact` to Pi.** Rejected:
   two vocabularies for one action. Owner chose to overlay `/compact`.
-- **Dormant until a JSON file exists (pi-roles).** Rejected: installing
-  the package would not fix "too late" until a wizard ran.
+- **Dormant until a JSON file exists (pi-roles).** Originally rejected to
+  keep zero-step activation; **chosen by amendment** after dogfood — the
+  owner's no-defaults directive outweighs zero-step activation, and the
+  unconfigured status line points straight at `/compact edit`.
 - **Drop the recent-token tail and keep only the summary.** Rejected for
   a coding ADE: the last ~20k tokens are the live reads/edits.
 - **Disable Pi auto-compact and own every trigger.** Rejected: overflow

@@ -20,19 +20,26 @@ pi -e /absolute/path/to/picode/packages/pi-compact
 
 npm publish is not wired yet. Local path is the supported M1 install.
 
-## Defaults (no config file required)
+## Dormant until configured — no defaults
 
-Unlike `pi-roles`, a missing file does **not** disable the package.
-Loaded means:
+With no config file the package does **nothing**: Pi's stock compaction and
+summarizer run untouched, the status line reads `compact: not configured ·
+/compact edit`, and `/compact` reports it instead of acting. Any config file
+opts the session in; keys the file omits fall back to the documented values:
 
-| Knob | Default |
+| Knob | Default (once opted in) |
 |---|---|
-| Early trigger | **100 000 tokens or 50% of the window**, whichever first |
-| Floor | 32 000 tokens (short sessions stay untouched) |
-| Summarizer | Flash → Flash-Lite → Haiku → session model |
+| Early trigger | **100 000 tokens or 50% of the window**, whichever first |
+| Floor | 32 000 tokens (short sessions stay untouched) |
+| Summarizer | gemini-3.6-flash → Haiku → session model |
 | Thinking | `off` |
 | Recent tail | Pi's own cut (`keepRecentTokens`, default 20k) |
 | Pi overflow compact | still on |
+
+Each tried link must succeed: an error, an empty summary, or a length-capped
+summary falls through to the next — Pi's built-in summarizer only runs when
+every link failed. The early trigger fires at the end of an agent run, never
+mid-flight (compacting mid-run aborts the run).
 
 Create `<workspace>/.pi/compact.json`, or let `/compact edit` write it.
 
@@ -47,7 +54,7 @@ export that env.
   "atTokens": 100000,
   "atPercent": 0.5,
   "floorTokens": 32000,
-  "model": "google/gemini-2.5-flash",
+  "model": "google/gemini-3.6-flash",
   "fallback": ["anthropic/claude-haiku-4-5"],
   "thinking": "off",
   "instructions": "",
