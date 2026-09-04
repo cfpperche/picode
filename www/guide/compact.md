@@ -27,7 +27,7 @@ Once you save a config (`/compact-edit`, `/compact-model`, or a hand-written
 - compacts when the session hits **100 000 tokens** or **half the window**,
   whichever comes first (never below 32 000) — always at the end of a run,
   never mid-flight
-- summarizes with your configured model first, then its fallbacks —
+- summarizes with your configured model first, then its fallback models —
   `gemini-3.6-flash`, then Haiku, then the session model by default —
   thinking off; if a link fails, the next one takes over
 - keeps the recent work Pi already keeps (the last ~20 000 tokens)
