@@ -11,6 +11,12 @@
 screenshots must be `read`. overlayAudit + visual-card. Clip = FAIL.
 Skip = quality-gate FAIL.
 
+**CI optimization candidate:** `ci/pipeline-speed` is deliberately based on
+`origin/main` (`dd98084c`) so its PR will not publish local main's unpushed
+ADR-0059 commits. It replaces repeated three-OS npm work with one frontend
+artifact and path-routed parallel jobs. Local `make ci` passed in 2m21s and
+`actionlint` is clean; hosted full/docs-only acceptance is still pending.
+
 **Phase:** ADE past M3. Composer **A** + MCP **B** + Track **C** (waiting, queue, draft) shipped. Slash TUI **24 ui · 0 missing**. Providers + vault.
 Public docs on Pages. llama.cpp manager is **docs + dialog**, not an installer.
 Local backup V1 in Preferences (ADR-0014).
@@ -68,6 +74,12 @@ What exists:
 - **ADR-0045 v2** `/automate` + templates: `lib/automateDraft.js` (prompt, fence/object parser, command detection), `lib/automationDraft.js` (read-once `sessionStorage` handoff), `automate.Templates()` + `GET /api/automations/templates`, Suggested cards with category chips, *Start from template…* in the editor, "Drafted by / From template" origin line. Turn correlation is client-side (`automateRef` + `agent_settled` + `lastAssistantText`); no server change for `/automate`.
 
 ## In flight
+
+**CI pipeline speed — local gates pass, hosted proof pending.** The decision
+table in `scripts/ci-scope.test.mjs` covers full, public-docs-only,
+internal-docs-only, mixed, empty/unknown, and Windows-separator inputs. The
+next step is a PR run of the full graph, followed by a metadata-only commit to
+prove the lightweight route before merge.
 
 **`fix/checklist-staleness` — checklist row follows the current session
 (ADR-0055), MERGED to main (de78d44a) and DEPLOYED 2026-09-03 14:22
@@ -445,6 +457,14 @@ Never exercised, because this machine was already past them:
 - `install_windows.go` is a stub returning an error. ADR-0020 gives Windows a real path, but through `picode-desktop.exe`, not through that file.
 
 ## Recent activity
+
+- **2026-09-04 — CI workload split implemented locally.** The measured
+  docs-only run spent 7m40s extracting/building the 526 MB frontend on Windows,
+  2m44s doing it again on Ubuntu, and 2m43s building docs. The candidate runs
+  frontend once on Ubuntu, hands a 14 MB artifact to the embedded build, runs
+  docs and the three-OS Go boundary in parallel, cancels superseded refs, and
+  leaves metadata-only changes on two lightweight gates. `make ci` and the
+  executable routing table pass; hosted timings remain to be measured.
 
 - **2026-09-04 — Hosted CI restored across Ubuntu, macOS and Windows.** PR
   [#2](https://github.com/cfpperche/picode/pull/2) merged as `b7c63d34`; final
