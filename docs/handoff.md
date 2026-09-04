@@ -13,12 +13,12 @@
 **Repository:** this integrated `main` contains the ADR-0060 refactor
 (`a9c814a`, build `0.1.0+a9c814a`, deployed and verified), its handoff, the
 README refactor and current generated screenshots. Tutorial video integrity
-still gates CI, but strict freshness against the global UI tree is now an
-explicit maintenance audit rather than a delivery blocker. The owner approved
-publishing the accumulated local commits with this merge. The ADR-0059 burst
-machinery is removed: Inbox replies now land directly in the running TUI. The
-owner's systemd stop bound keeps deploys stopping cleanly (verified: no
-SIGKILL, no timeout).
+still gates CI without capture or rendering. Screenshot parity and the strict
+manual video audit now use named, per-surface input fingerprints instead of a
+global UI-tree hash. The owner approved publishing the accumulated local
+commits with this merge. The ADR-0059 burst machinery is removed: Inbox
+replies now land directly in the running TUI. The owner's systemd stop bound
+keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
 
 ### Product and platform
 
@@ -43,8 +43,10 @@ SIGKILL, no timeout).
 - Browser tool previews (ADR-0057) render generic `details.preview` frames; a
   package-side emitter and dedicated Browser surface remain open.
 - Public docs keep blocking parity for screenshots, OpenAPI and `llms.txt`.
-  Video CI is hash-only integrity; `make docs-videos-fresh` is the strict
-  manual audit and `make docs-videos` performs the expensive refresh.
+  Screenshot profiles exclude tests and unrelated handlers while following
+  each screen's imported code and selected data producers. Video CI is
+  hash-only integrity; `make docs-videos-fresh` reports drift by tutorial and
+  surface, and `make docs-videos` performs the expensive refresh.
 
 ### ADR-0060 Inbox replies land in the running TUI
 
@@ -78,24 +80,10 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
-- **ADR-0061 `packages/pi-compact` merges this session.** Opt-in MIT pi
-  package: early compact (100k tokens or 50% of the window, floor 32k),
-  cheap summarizer with thinking off (Flash → Haiku → session),
-  `/compact` overlay (`edit` / `model` / `on` / `off`). Active defaults
-  without a file; Pi overflow compact and the recent-token tail stay.
-  `PI_COMPACT_AGENT` joins `Agent.SpawnEnv`. 51 package tests (tsc gate
-  against pinned pi 0.85 types + pure table + handler fakes); the tsc
-  gate caught a real API mismatch during authoring. Owner-requested
-  fold-in on the same branch: the user-menu Documentation link opens
-  the docs site (verified live on an ephemeral daemon; screenshot read).
-  After deploy: dogfood with a real reload — `/compact edit`, an early
-  trigger, the Flash-missing fallback. Composer chip / agent settings
-  GUI is explicitly M2 (ADR-0061).
-- **ADR-0060 live validation passed (2026-09-04 15:25).** A real reply to the
-  `[Teste ADR-0060]` item landed inside this TUI, task delivered in 2.1s via
-  the exact JSONL row, item done, tmux identity intact, no leftovers. The
-  "Open terminal" card action was removed afterwards as noise (hotfix,
-  deployed `0.1.0+f8b140f`).
+- **ADR-0060 is deployed; the live validation reply is the owner's next move.**
+  This TUI (`mobile-6bf740`) predates the receiver, so its first live reply
+  exercises the tmux paste fallback; respawning a TUI (`open?restart=1` or a
+  fresh Start) switches that agent to the receiver channel.
 - **Historical Inbox QA state needs reconciliation before dogfood.** A prior
   failed reply is absent from the captured `mobile-6bf740` JSONL. Earlier
   cleanup targeted `qa-switch-058577` while the pending task belonged to
@@ -105,33 +93,22 @@ never shipped separately — the burst it fixed no longer exists.
   real model-emitted `picode-act` dogfood before integration.
 - **Browser preview follow-through:** upstream proposal/package emitter and a
   Browser panel remain open; the generic conversation renderer is shipped.
-- **Tutorial video maintenance needs an incremental design.** The temporary
-  policy removes global UI-tree freshness from CI while retaining composition,
-  referenced-still and MP4 integrity. Decide how to map changed surfaces to
-  only the affected tutorial, cache its capture/render, and run the strict
-  audit manually or on a schedule without blocking ordinary delivery.
+- **Tutorial video refresh still needs selective execution.** Named surface
+  fingerprints and tutorial mappings are shipped. The remaining work is to
+  capture and render only stale stills/tutorials, define cache boundaries, and
+  choose manual, scheduled, or both triggers without blocking delivery.
 - **Remote modes:** real second-account, container, and public OIDC acceptance
   runs require owner-controlled sudo/infrastructure.
 
 ## Next up
 
-1. Dogfood `pi-compact` after the deploy (reload an agent, `/compact edit`,
-   early trigger on a long session).
-2. pi-compact M2 (composer chip / agent settings) only after dogfood.
-3. The `tsc` type gate exists only in `packages/pi-compact`; `pi-roles`,
-   `pi-inbox` and `pi-checklist` still ship un-typechecked (jiti at
-   runtime). Same recipe applies when someone touches them.
-4. `pi-roles` / `pi-compact` npm publishing is not automated; local path
-   installation remains the supported route. pi 0.85's npm package has a
-   broken pure-ESM graph (`@earendil-works/pi-server` missing), so
-   pi-compact carries it as a devDependency for handler tests.
 1. Owner validates one live Inbox reply on this TUI (paste fallback), then
    respawns a TUI to prove the receiver channel end to end.
 2. Inspect the live store's historical Inbox rows; close or repair only the
    exact stale rows before any new live test.
-3. Design the incremental docs-video maintenance path: per-tutorial input
-   fingerprints, selective capture/render, cache boundaries and the trigger
-   policy (manual, scheduled or both).
+3. Implement selective docs-video capture/render from the shipped surface
+   profiles, add cache boundaries, and choose the maintenance trigger policy
+   (manual, scheduled or both).
 4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
 5. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
@@ -158,10 +135,12 @@ never shipped separately — the burst it fixed no longer exists.
   job skipped; follow-up run `33879325513` repeated that row in 27s.
   Cross-platform acceptance of the ADR-0060 reply path (non-Linux paste
   encoding) has not been live-proved.
-- Tutorial videos can now be visually stale after an unrelated UI-tree change
-  without failing CI. Missing/tampered MP4s and changed compositions or
-  referenced stills still fail. Until the incremental design above ships, run
-  `make docs-videos-fresh` during deliberate docs maintenance.
+- Tutorial videos can be visually stale without failing CI. Missing/tampered
+  MP4s and changed compositions or referenced stills still fail. The current
+  manual audit flags `create-agent` (agents/create/agent), `automate-it`
+  (automations/inbox), and `take-it-anywhere` (work/agent/inbox) because those
+  surface inputs changed since their last capture. Until selective refresh
+  ships, run `make docs-videos-fresh` during deliberate docs maintenance.
 - Pi still exposes one active credential slot; concurrent agents share it.
   Per-agent OAuth isolation and proactive quota switching require an owner
   decision and measurement.
@@ -177,49 +156,19 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
-- **2026-09-04 — pi-compact (ADR-0061) merged and deployed (`0.1.0+21d7144`).**
-  Rebased onto the new CI process (video freshness decoupled from
-  delivery; docs media regenerated for the UserMenu change). 51 package
-  tests + full `make ci` green; docs parity re-shot. Deploy verified:
-  health 200, served asset matches the built bundle (UserMenu docs link
-  live), service active, 89 tmux sessions intact. visual-review: PASS
-  (menu click verified on an ephemeral daemon earlier).
-- **2026-09-04 — "Open terminal" removed from Inbox item cards
-  (`32158c13`, deployed `0.1.0+f8b140f`).** With ADR-0060 the reply itself
-  lands in the agent's terminal, so the card-level escape hatch read as
-  noise. Action, host wiring, and the `open-terminal` case deleted; the view
-  test now asserts the card has no such action. First CI run under the new
-  process (video freshness decoupled) is green. visual-review: n/a
-  (removal only).
-- **2026-09-04 — tutorial video rendering left the delivery critical path.**
-  Default docs CI now checks composition, referenced-still, render and shipped
-  MP4 integrity without treating every global UI-tree change as a mandatory
-  three-video refresh. The strict comparison moved to
-  `make docs-videos-fresh`; capture/render remains explicit in
-  `make docs-videos`. A four-row decision table covers exact parity, unrelated
-  UI drift, changed rendered inputs and missing/tampered MP4s. Current app
-  screenshots were regenerated and read; the interrupted video render was not
-  retained. The first hosted run also exposed an inherited trailing blank line
-  in a frontend test; the whitespace gate is corrected. Because the current
-  screenshot fingerprint includes test files, that no-pixel change forced a
-  second screenshot capture and confirms the need for per-surface inputs.
-  Full `make ci` passed. visual-review: PASS (generated desktop and mobile docs
-  screenshots read; no layout defect, overlay change or new state).
-- **2026-09-04 — root README refactored around the reader's journey.** Product
-  value and proof now lead into shipped capabilities, native Pi boundaries,
-  current setup, daily commands and a compact runtime diagram; the stale
-  milestone roadmap is gone. Public setup metadata and `llms.txt` were kept in
-  sync. Markdown render/local references, docs build/parity, Vale and full
-  `make ci` passed. visual-review: N/A (docs-only; generated screenshot read,
-  no app pixels changed).
-- **2026-09-04 — ADR-0060: replies land in the running TUI (`a9c814a`,
-  `0.1.0+a9c814a`).** The ADR-0059 burst machinery (coordinator, holder swap,
-  transient RPC writer, cancel route, burst card, feed events) is deleted;
-  a receiver extension inside every spawned TUI submits Inbox replies through
-  `pi.sendUserMessage`, with tmux bracketed paste as the legacy fallback and
-  the session-JSONL row as the only delivery proof. Boot reconciliation
-  replaced holder/lease startup. `make ci` green; deploy stopped cleanly with
-  no tmux loss. Worktree and branch removed after merge.
+- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
+  screenshots and tutorial stills now map to named desktop/mobile profiles;
+  local screen imports, shared shell/style/fixture inputs and selected data
+  producers determine freshness, while tests and unrelated handlers do not.
+  The strict manual video audit identifies the affected tutorial and profile;
+  CI remains an integrity-only, non-rendering floor. A decision table covers
+  unchanged, test-only, shared-style, desktop-only, mobile-only and
+  cross-pipeline changes. Public screenshots were regenerated and the old
+  global UI-tree helper was removed. Selective capture/render, caching and a
+  maintenance trigger remain explicitly in flight. Full `make ci` passed;
+  `make docs-videos-fresh` deliberately reports the eight stale profiles named
+  under Known debts. visual-review: PASS (all three final screenshots read;
+  text and controls are legible, with no clipping, overlay or dead state).
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
