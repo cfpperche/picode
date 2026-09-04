@@ -6,26 +6,30 @@
 
 ## Current state (read this first)
 
-**Visual gate:** read `uiux-review` before JSX/CSS, then run
-`visual-review`. Empty/blocked/error states and screenshots are required;
-`window.__picodeOverlayAudit()` must be `ok`.
+**Repository:** local `main` is at merge commit `9bfd1f01`, which integrates
+`feat/sidebar-tui` on top of the current local main (`a6842109`). The merge
+preserves the Inbox-to-TUI receiver (ADR-0060) and pi-compact (ADR-0061), and
+adds compact supervision rows plus authoritative terminal CLI presence
+(ADR-0062). The local commits have not been pushed to the remote.
 
-**Repository:** this integrated `main` contains the ADR-0060 refactor
-(`a9c814a`, build `0.1.0+a9c814a`, deployed and verified), its handoff, the
-README refactor and current generated screenshots. Tutorial video integrity
-still gates CI without capture or rendering. Screenshot parity and the strict
-manual video audit now use named, per-surface input fingerprints instead of a
-global UI-tree hash. The owner approved publishing the accumulated local
-commits with this merge. The ADR-0059 burst machinery is removed: Inbox
-replies now land directly in the running TUI. The owner's systemd stop bound
-keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
+**Deployment:** `make deploy` completed successfully. The installed service is
+active/running and serves `0.1.0+9bfd1f0`; `GET /api/health` returned status
+`ok`, and `GET /api/version` returned the same build. There are currently 95
+PiCode-owned tmux sessions after the restart. No session loss was observed.
 
-Deployed `0.1.0+4e9cedb`. Workspace favicon lookup is project-agnostic:
-`icon.svg`/`png`/`ico` plus `apps/<name>/{public,app,src/app}` (`apps/web`
-first). Live check: COGNIXSE (`cognixse-79bedd`) advertises `hasFavicon:
-true` and `GET /api/workspaces/cognixse-79bedd/favicon` returns 200
-`image/svg+xml` (24 673 bytes). A page-load Set caches a prior 404 — reload
-once if a card still shows a folder.
+**Quality:** `make ci` passed after conflict resolution, including Go tests,
+457 frontend tests, package tests, docs/OpenAPI/llms parity, Vale, and the
+embedded build. `make docs-shots` captured 10/10 stills and `make docs-videos`
+regenerated all three tutorial videos; `make docs-check` passed.
+
+**UI evidence:** post-deploy desktop and mobile screenshots were read:
+`/tmp/picode-postdeploy-desktop.png`, `/tmp/picode-postdeploy-menu-open.png`,
+`/tmp/picode-postdeploy-mobile-work.png`, and
+`/tmp/picode-postdeploy-mobile-menu2.png`. The populated rows, empty workspace,
+CLI labels, menus, reload state, and mobile navigation are legible. Open menus
+were inside the viewport and `window.__picodeOverlayAudit()` returned `ok: true`;
+Escape closed them. No new browser console/page/network error was observed.
+visual-review: PASS.
 
 ### Product and platform
 
@@ -34,158 +38,71 @@ once if a card still shows a folder.
 - Workspaces contain multiple agents; free agents and first-class tmux
   terminals are supported. Agent sessions are privately scoped and recorded
   in `agent_sessions` (ADRs 0039/0040/0053).
-- Agents have interactive (Pi TUI in tmux) and managed (Pi RPC) run modes.
-  The process lock and runtime lifecycle enforce one writer per session.
-- Desktop/mobile use the ADR-0048 change feed (polling only for recovery), and
-  every state-changing store method emits its event in the same transaction.
-- Shipped surfaces include Inbox, automations, sessions/files/git, providers,
-  MCP/packages, terminals, Web Push, auth/pairing and truthful coding-CLI/TUI
-  status. Public
-  docs use VitePress/OpenAPI/Vale. Architecture and remaining track status live
-  in their ADRs rather than this handoff.
-- The root README now leads with a generated product view, shipped capabilities,
-  Pi ownership boundaries and a verified first-agent path. Source setup matches
-  `go.mod` and hosted CI (Go 1.26, Node.js 22); the public getting-started page
-  and generated `llms.txt` carry the same requirements.
-- Browser tool previews (ADR-0057) render generic `details.preview` frames; a
-  package-side emitter and dedicated Browser surface remain open.
-- Public docs keep blocking parity for screenshots, OpenAPI and `llms.txt`.
-  Screenshot profiles exclude tests and unrelated handlers while following
-  each screen's imported code and selected data producers. Video CI is
-  hash-only integrity; `make docs-videos-fresh` reports drift by tutorial and
-  surface, and `make docs-videos` performs the expensive refresh.
-
-### ADR-0060 Inbox replies land in the running TUI
-
-ADR-0059's transient burst is superseded and removed (net −1,868 lines). The
-reply never leaves the terminal:
-
-- Every spawned agent TUI carries PiCode's generated receiver extension
-  (`~/.picode/intercept/pi-inbox-reply.ts`, `-e` at spawn, refreshed at boot).
-  It hellos `POST /api/agents/{id}/tui-hello` (5-minute lease) and consumes
-  one-shot files under `~/.picode/tui-inbox/<agentID>/`, submitting each reply
-  via `pi.sendUserMessage` (queued natively mid-turn — owner decision) and
-  acking `POST /api/agents/{id}/tui-ack`.
-- Without a fresh hello (legacy TUI), the daemon types the reply into the pane:
-  tmux named buffer + `paste-buffer -p` + Enter (owner accepted the
-  draft-race tradeoff).
-- Durable proof is unchanged: the captured session JSONL must gain the
-  full-payload user row; otherwise the task fails and the Inbox item reopens
-  with the response prefilled. Boot reconciliation (`ReconcilePendingReplies`)
-  settles pending replies with a 2s grace — no holders, leases, Pdeathsig, or
-  fail-closed startup remain. A per-agent `AgentControls` guard serializes
-  replies with pane/session mutations; `open?restart=1` survives for dead
-  panes; migration 023 and the exact-session rule are retained.
-
-Integration evidence: `tui_reply_test.go` covers receiver ack/nack/no-ack,
-paste fallback against a real tmux pane, refusals, boot reconciliation, and
-receiver injection; store/apps/rpc suites updated. `make ci` green on the
-exact deployed commit; installed binary matches `bin/picode`; the receiver
-file exists under `~/.picode/intercept/`; burst routes 404; no tmux session
-lost across the deploy (additions only, 68 sessions). The passive-UI burst fix
-never shipped separately — the burst it fixed no longer exists.
+- Agents have interactive Pi TUI and managed Pi RPC run modes. Inbox replies
+  use the injected receiver extension with a tmux paste fallback (ADR-0060).
+- Desktop/mobile consume the ADR-0048 change feed. Store mutations append their
+  events in the same transaction; ephemeral terminal runtime/state signals are
+  deliberately in memory and reconcile through the terminal list.
+- Terminal CLI presence and activity remain separate. Wrappers identify
+  Claude Code, Codex, Grok, or Pi with a run id; exact tmux command/PID data is
+  only a weaker legacy presence fallback. Pixels are never scraped and a guest
+  CLI is never promoted to an Agent.
+- Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
+  and integrity-checked tutorial videos.
 
 ## In flight
 
-- **ADR-0060 is deployed; the live validation reply is the owner's next move.**
-  This TUI (`mobile-6bf740`) predates the receiver, so its first live reply
-  exercises the tmux paste fallback; respawning a TUI (`open?restart=1` or a
-  fresh Start) switches that agent to the receiver channel.
-- **Historical Inbox QA state needs reconciliation before dogfood.** A prior
-  failed reply is absent from the captured `mobile-6bf740` JSONL. Earlier
-  cleanup targeted `qa-switch-058577` while the pending task belonged to
-  `mobile-6bf740`; the existing `[Teste 3]` item/task must be inspected and
-  resolved deliberately before filing another live question.
-- **ADR-0054 extension actuator** is coded on its own branch but still needs a
-  real model-emitted `picode-act` dogfood before integration.
-- **Browser preview follow-through:** upstream proposal/package emitter and a
-  Browser panel remain open; the generic conversation renderer is shipped.
-- **Tutorial video refresh still needs selective execution.** Named surface
-  fingerprints and tutorial mappings are shipped. The remaining work is to
-  capture and render only stale stills/tutorials, define cache boundaries, and
-  choose manual, scheduled, or both triggers without blocking delivery.
-- **Remote modes:** real second-account, container, and public OIDC acceptance
-  runs require owner-controlled sudo/infrastructure.
+- No implementation or deployment step from the sidebar merge remains.
+- Real CLI dogfood was intentionally not run. The historical Inbox `[Teste 3]`
+  and `mobile-6bf740` rows still need deliberate reconciliation before a new
+  live question is filed.
+- ADR-0054 `picode-act` still needs real model-emitted dogfood before merge.
+  The Browser preview emitter/panel remains open.
+- Second-account, container, public-OIDC, and other remote-mode acceptance
+  runs require owner-controlled infrastructure.
 
 ## Next up
 
-1. Owner validates one live Inbox reply on this TUI (paste fallback), then
-   respawns a TUI to prove the receiver channel end to end.
-2. Inspect the live store's historical Inbox rows; close or repair only the
-   exact stale rows before any new live test.
-3. Implement selective docs-video capture/render from the shipped surface
-   profiles, add cache boundaries, and choose the maintenance trigger policy
-   (manual, scheduled or both).
-4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
-5. Run the owner-controlled remote-mode acceptance matrix, then decide the
-   SaaS track.
-6. Build Providers Models/Activity only after confirming their current study
-   still matches Pi's provider data.
+1. Review the merged local main and decide when to push/promote it; merge and
+   deploy are complete locally.
+2. Inspect the exact historical Inbox rows before any real TUI reply test.
+3. Run the owner-controlled remote-mode acceptance matrix.
+4. Continue the Browser preview panel and ADR-0054 dogfood.
+5. Decide whether selective docs-video capture/render should be scheduled;
+   current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
 
-- A deploy onto a daemon that still has the old binwatch will SIGKILL once
-  (the outgoing process re-execs). The next restart of `0.1.0+6cf705d` stops
-  in the 5s HTTP drain with no re-exec and no SIGKILL. `KillMode=process`
-  stays as the tmux safety net. Long-lived feeds still occupy that drain.
-- Terminal detail still makes two swallowed agent-only requests (`role-state`
-  and `slash`); this predates the manual Pi sensor and does not affect state.
-- The ADR-0060 tmux paste fallback can land in a draft the operator had open,
-  and cannot verify which session a legacy pane is showing — the JSONL row
-  proof still gates whether the item stays done (owner-accepted tradeoffs).
-- A receiver ack means the TUI owns the queued reply; if that TUI dies before
-  pi processes it, boot/timeout reconciliation reopens the item (small honest
-  window).
-- Hosted CI is green on Ubuntu, macOS, and Windows after PR #3. Full-path PR
-  run `33878224835` and post-merge main run `33878695007` passed in
-  3m54s/3m52s; metadata-only run `33879212363` passed in 32s with every heavy
-  job skipped; follow-up run `33879325513` repeated that row in 27s.
-  Cross-platform acceptance of the ADR-0060 reply path (non-Linux paste
-  encoding) has not been live-proved.
-- Tutorial videos can be visually stale without failing CI. Missing/tampered
-  MP4s and changed compositions or referenced stills still fail. The current
-  manual audit flags `create-agent` (agents/create/agent), `automate-it`
-  (automations/inbox), and `take-it-anywhere` (work/agent/inbox) because those
-  surface inputs changed since their last capture. Until selective refresh
-  ships, run `make docs-videos-fresh` during deliberate docs maintenance.
-- Pi still exposes one active credential slot; concurrent agents share it.
-  Per-agent OAuth isolation and proactive quota switching require an owner
-  decision and measurement.
+- Wrapper presence is strongest for instrumented sessions. Legacy sessions
+  get only exact command/PID fallback; Linux process identity has stronger
+  `/proc` protection than platforms without start tokens.
 - ADR-0048 ephemeral events can be missed across reconnects until a later
   state change or explicit reconciliation.
-- Checklist follow-ups remain: align client/server validation limits and add
-  a reminder-loop guard if Pi changes its follow-up hook invariant.
-- `pi-roles` publishing is not automated; local path installation remains the
-  supported development route.
+- Cross-platform acceptance of the ADR-0060 paste fallback has not been
+  live-proved. A receiver ack also leaves a small window before Pi processes
+  the queued reply.
+- Pi still exposes one active credential slot; per-agent OAuth isolation and
+  proactive quota switching need an owner decision and measurement.
 - The terminal Shift+Enter shim remains until a stable xterm/tmux protocol
-  combination replaces it without changing other control-key semantics.
+  combination replaces it. Some non-terminal screens still carry legacy
+  `role-state`/`slash` assumptions.
+- Tutorial CI checks committed integrity without rendering every changed
+  tutorial; `make docs-videos-fresh` remains the explicit drift audit.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
 
-- **2026-09-04 — Next.js workspace favicons deployed (`0.1.0+4e9cedb`).**
-  Lookup is project-agnostic (`icon.svg` and `apps/<name>/app`, not a named
-  repo). Fast-forwarded `feat/workspace-favicon-nextjs` onto `main` after
-  merging sidebar `hasFavicon` so the list and the image endpoint share one
-  finder. Live: COGNIXSE `hasFavicon: true`, favicon 200 SVG 24 673 bytes.
-  Reload once if a card still shows a folder. visual-review: N/A (no JSX).
-- **2026-09-04 — workspace cards find Next.js `icon.svg`.** Favicon lookup
-  now checks `icon.svg`/`png`/`ico` (svg still beats png/ico) and scans
-  `apps/<name>/{public,app,src/app}` after the static dirs, with `apps/web`
-  first. Cognixse (`apps/web/app/icon.svg`) is the reproducing case.
-- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
-  screenshots and tutorial stills now map to named desktop/mobile profiles;
-  local screen imports, shared shell/style/fixture inputs and selected data
-  producers determine freshness, while tests and unrelated handlers do not.
-  The strict manual video audit identifies the affected tutorial and profile;
-  CI remains an integrity-only, non-rendering floor. A decision table covers
-  unchanged, test-only, shared-style, desktop-only, mobile-only and
-  cross-pipeline changes. Public screenshots were regenerated and the old
-  global UI-tree helper was removed. Selective capture/render, caching and a
-  maintenance trigger remain explicitly in flight. Full `make ci` passed;
-  `make docs-videos-fresh` deliberately reports the eight stale profiles named
-  under Known debts. visual-review: PASS (all three final screenshots read;
-  text and controls are legible, with no clipping, overlay or dead state).
+- **2026-09-04 — merged and deployed compact supervision rows and CLI
+  presence (`9bfd1f01`, `0.1.0+9bfd1f0`).** Resolved the overlap with the
+  Inbox/TUI and compaction work, added ADR-0062 to the decision index, ran the
+  complete CI/docs gates, restarted the installed service, and verified health,
+  version, current tmux fleet, desktop/mobile UI, menu containment, reload,
+  and Escape close. visual-review: PASS (screenshots read; overlay audit ok;
+  no clipping, unreadable controls, double scroll or dead hover).
+- **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
+  workspace list now advertises favicon availability and generated screenshot/
+  tutorial inputs use named surface fingerprints. Full CI and docs parity
+  passed; older detail is archived.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
