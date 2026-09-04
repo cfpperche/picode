@@ -1080,6 +1080,9 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   background: var(--bg-base); color: var(--text-primary);
   font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
 }
+/* A loaded vendor favicon needs no chrome of its own — same as workspace
+   favicons; the boxed look only frames the text-mark fallback. */
+.term-cli-badge.has-favicon { border-color: transparent; background: none; }
 .term-cli-badge.is-shell { color: var(--text-secondary); }
 .term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
 .term-cli-badge.cli-codex { color: #74aa9c; border-color: color-mix(in srgb, #74aa9c 45%, var(--border)); }

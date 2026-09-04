@@ -142,6 +142,12 @@ to the `[Unreleased]` section. The repository's official language is English
   Codex, Grok, and Pi terminal badges now use the favicon served by their
   official runtime site, retain a text fallback if an asset cannot load, and
   align the identity icon with the row's first line on desktop and mobile.
+  A loaded favicon now renders bare — the same treatment as workspace
+  favicons — and the boxed look is reserved for the text-mark fallback.
+  Claude Code loads Anthropic's own icon first (`claude.ai`'s favicon hangs
+  or 403s for browser subresources), Codex falls back to OpenAI's official
+  CDN touch icon when `openai.com` challenges the browser, and each runtime
+  walks its list of official assets before showing the text mark.
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on

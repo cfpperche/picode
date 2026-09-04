@@ -21,12 +21,23 @@ const CLI_MARKS = Object.freeze({
 });
 
 // Keep runtime identity on the vendor's own favicon rather than a home-made
-// glyph. These are the public favicons served by each supported runtime.
+// glyph. Each runtime lists its official assets in preference order; the
+// badge walks the list when one fails to load (bot challenges, moved files).
 const CLI_FAVICONS = Object.freeze({
-  "claude-code": "https://claude.ai/favicon.ico",
-  codex: "https://openai.com/favicon.ico",
-  grok: "https://grok.com/images/favicon.svg",
-  pi: "https://pi.dev/favicon.svg",
+  // Anthropic's own icon first — claude.ai's favicon hangs or 403s for
+  // browser subresources, which left the Claude badge on its fallback.
+  "claude-code": Object.freeze([
+    "https://www.anthropic.com/images/icons/favicon-32x32.png",
+    "https://claude.ai/favicon.ico",
+  ]),
+  codex: Object.freeze([
+    "https://openai.com/favicon.ico",
+    // ChatGPT's official static CDN touch icon; openai.com challenges some
+    // browsers, and this hash may rotate when OpenAI rebuilds the site.
+    "https://cdn.oaistatic.com/assets/apple-touch-icon-mz9nytnj.webp",
+  ]),
+  grok: Object.freeze(["https://grok.com/images/favicon.svg"]),
+  pi: Object.freeze(["https://pi.dev/favicon.svg"]),
 });
 
 export function normalizeTerminalCli(id) {
@@ -50,8 +61,12 @@ export function terminalCliMark(id) {
   return CLI_MARKS[normalizeTerminalCli(id)] || ">_";
 }
 
+export function terminalCliFaviconUrls(id) {
+  return CLI_FAVICONS[normalizeTerminalCli(id)] || [];
+}
+
 export function terminalCliFaviconUrl(id) {
-  return CLI_FAVICONS[normalizeTerminalCli(id)] || "";
+  return terminalCliFaviconUrls(id)[0] || "";
 }
 
 export function terminalStatus(term) {

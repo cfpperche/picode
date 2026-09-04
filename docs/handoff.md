@@ -52,7 +52,9 @@ action stayed closed after reload.
 - Terminal CLI presence and activity remain separate. Wrappers identify
   Claude Code, Codex, Grok, or Pi with a run id; exact tmux command/PID data is
   only a weaker legacy presence fallback. Pixels are never scraped and a guest
-  CLI is never promoted to an Agent.
+  CLI is never promoted to an Agent. CLI badges wear the runtime's official
+  favicon (first working link wins), rendered bare like workspace favicons;
+  the compact text mark is only an asset-load fallback.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
 - Public release mechanics are tag-driven. The cadence study, proposed
@@ -133,6 +135,16 @@ configuration is created:
 
 ## Recent activity
 
+- **2026-09-04 — runtime badge favicons refined (owner report).** The owner's
+  screenshot showed Claude Code still on its boxed text mark: `claude.ai`'s
+  favicon hangs/403s as a browser subresource. CLI favicons now load from a
+  preference-ordered list of official assets (Claude: Anthropic's own icon
+  first; Codex: `openai.com` then OpenAI's CDN touch icon) and a loaded
+  favicon renders bare — the box is reserved for the text-mark fallback.
+  Verified on a scratch daemon with seeded wrapper runtimes: all four CLI
+  badges show real favicons on desktop rows, the tab strip and mobile rows;
+  the shell fallback stays boxed; 468 frontend tests pass; menu contained
+  and closes on Escape; overlay audit ok. visual-review: PASS.
 - **2026-09-04 — final handoff reconciled after integration.** The local
   checkout has no uncommitted product configuration, so `pi-compact` remains
   dormant by the accepted ADR-0061 policy; its schema and source comment now
