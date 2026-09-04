@@ -496,12 +496,14 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 			// the pane's process tree — this also revives presence after a
 			// daemon restart, when the in-memory wrapper announcement is
 			// gone but the CLI still owns the pane.
-			if pid, pidErr := deps.Tmux.PanePID(ctx, name); pidErr == nil && pid > 0 {
-				if procSnap == nil {
-					procSnap = readProcSnapshot()
-				}
-				cli, pid = identifyPaneCLIProcs(pid, procSnap)
+			panePID, pidErr := deps.Tmux.PanePID(ctx, name)
+			if pidErr != nil || panePID <= 0 {
+				continue
 			}
+			if procSnap == nil {
+				procSnap = readProcSnapshot()
+			}
+			cli, pid = identifyPaneCLIProcs(panePID, procSnap)
 			if cli == "" {
 				continue
 			}
