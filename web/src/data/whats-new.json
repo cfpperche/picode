@@ -1,0 +1,23 @@
+[
+  {
+    "version": "0.1.0",
+    "date": "2026-08-23",
+    "highlights": [
+      {
+        "icon": "agent",
+        "title": "Run real Pi agents from your browser",
+        "summary": "Create, configure and supervise agents without giving up the genuine Pi terminal."
+      },
+      {
+        "icon": "workspace",
+        "title": "Keep a fleet across projects",
+        "summary": "Group agents by workspace and keep their sessions running when the browser closes."
+      },
+      {
+        "icon": "phone",
+        "title": "Take supervision to your phone",
+        "summary": "Pair a mobile browser to see running work, answer Inbox requests and open terminals."
+      }
+    ]
+  }
+]

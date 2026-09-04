@@ -16,6 +16,8 @@ import Reconnect from "../components/Reconnect.jsx";
 import ShareDrawer, { OPEN_EVENT } from "../components/ShareDrawer.jsx";
 import Toasts from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import WhatsNew from "../components/WhatsNew.jsx";
+import RELEASE_NOTES from "../data/whats-new.json";
 import TabBar from "./components/TabBar.jsx";
 import CreateSheet from "./components/CreateSheet.jsx";
 import { agentState } from "./components/StateChip.jsx";
@@ -29,6 +31,7 @@ import More from "./screens/More.jsx";
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
 import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
+import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } from "../lib/whatsNew.js";
 import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
@@ -45,6 +48,11 @@ export default function MobileApp() {
   const [catalog, setCatalog] = useState(null);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
+  const [semver, setSemver] = useState("");
+  const [releaseBuild, setReleaseBuild] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [whatsNewMode, setWhatsNewMode] = useState("manual");
+  const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
   const [apps, setApps] = useState([]);
   const [inbox, setInbox] = useState([]);
   const [results, setResults] = useState([]);
@@ -98,6 +106,8 @@ export default function MobileApp() {
         const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
         setSystem(sys);
         setVersion(ver.version || "");
+        setSemver(ver.semver || ver.version || "");
+        setReleaseBuild(!!ver.release);
       } catch { /* offline */ }
       await loadCatalog();
     })();
@@ -145,6 +155,27 @@ export default function MobileApp() {
   const fleetTotal = flatAgents(workspaces, freeAgents).length;
   const inboxApp = apps.find((a) => a.id === "inbox");
   const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
+  const whatsNewCurrent = semver || version;
+  const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
+  const hasProductState = fleetTotal + terminals.length > 0;
+
+  useEffect(() => {
+    if (!loaded || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    const blocked = reconnect || !!create || shareOpen || entries.length > 0;
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+      setWhatsNewMode("auto");
+      setWhatsNewOpen(true);
+    }
+  }, [loaded, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, create, shareOpen, entries.length, whatsNewSeen]);
+
+  function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
+  function closeWhatsNew() {
+    if (releaseBuild && whatsNewCurrent) {
+      writeSeenVersion(whatsNewCurrent);
+      setWhatsNewSeen(whatsNewCurrent);
+    }
+    setWhatsNewOpen(false);
+  }
 
   const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
   const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
@@ -311,7 +342,7 @@ export default function MobileApp() {
     body = (
       <More section={route.section} catalog={catalog} system={system} version={version} themeMode={themeMode}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
-        onShare={() => setShareOpen(true)} onBack={() => goBack(route)} />
+        onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />
     );
   } else {
     body = (
@@ -331,6 +362,7 @@ export default function MobileApp() {
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
+      <WhatsNew open={whatsNewOpen} onClose={closeWhatsNew} currentSemver={whatsNewCurrent} seenVersion={whatsNewSeen} notes={RELEASE_NOTES} unseenOnly={whatsNewMode === "auto"} />
       <ConfirmDialog />
     </div>
   );

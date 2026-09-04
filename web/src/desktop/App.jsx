@@ -79,6 +79,9 @@ import { sessionsHash, sessionsRoute } from "../lib/routes.js";
 import SessionsView from "../components/SessionsView.jsx";
 import Hotkeys from "../components/Hotkeys.jsx";
 import Changelog from "../components/Changelog.jsx";
+import WhatsNew from "../components/WhatsNew.jsx";
+import RELEASE_NOTES from "../data/whats-new.json";
+import { hasUnseenRelease, readSeenVersion, shouldAutoOpen, writeSeenVersion } from "../lib/whatsNew.js";
 import ShareGist from "../components/ShareGist.jsx";
 import LlamaDialog from "../components/LlamaDialog.jsx";
 import TermSettingsPage from "../components/TermSettingsPage.jsx";
@@ -97,6 +100,12 @@ export default function App() {
   const [dashboardPinned, setDashboardPinned] = useState(false);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
+  const [semver, setSemver] = useState("");
+  const [releaseBuild, setReleaseBuild] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [whatsNewMode, setWhatsNewMode] = useState("manual");
+  const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
@@ -470,6 +479,8 @@ export default function App() {
         const [sys, ver] = await Promise.all([api("/api/system"), api("/api/version")]);
         setSystem(sys);
         setVersion(ver.version);
+        setSemver(ver.semver || ver.version || "");
+        setReleaseBuild(!!ver.release);
         setHost((sys.host && sys.host.name) || "local");
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
@@ -546,8 +557,32 @@ export default function App() {
         console.error("boot:", e);
         setTabsReady(true);
       }
+      setBootstrapped(true);
     })();
   }, [loadWorkspaces]);
+
+  const whatsNewCurrent = semver || version;
+  const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
+  const hasProductState = workspaces.length + freeAgents.length + terminals.length > 0;
+  const inboxNeedsYou = apps.some((app) => app.id === "inbox" && app.badge && (Number(app.badge.count) > 0 || app.badge.dot));
+
+  useEffect(() => {
+    if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || llamaOpen || shareOpen || waiting || inboxNeedsYou;
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+      setWhatsNewMode("auto");
+      setWhatsNewOpen(true);
+    }
+  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, llamaOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
+
+  function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
+  function closeWhatsNew() {
+    if (releaseBuild && whatsNewCurrent) {
+      writeSeenVersion(whatsNewCurrent);
+      setWhatsNewSeen(whatsNewCurrent);
+    }
+    setWhatsNewOpen(false);
+  }
 
   useEffect(() => startPresence(), []);
   useEffect(() => {
@@ -2112,6 +2147,8 @@ export default function App() {
           themeMode,
           onTheme: setTheme,
           onNavigate: go,
+          onWhatsNew: openWhatsNew,
+          whatsNewUnread,
           pkgUpdates,
         }}
       />
@@ -2508,6 +2545,7 @@ export default function App() {
         apps={apps}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
+          if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
@@ -2576,6 +2614,7 @@ export default function App() {
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <Changelog open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      <WhatsNew open={whatsNewOpen} onClose={closeWhatsNew} currentSemver={whatsNewCurrent} seenVersion={whatsNewSeen} notes={RELEASE_NOTES} unseenOnly={whatsNewMode === "auto"} />
       <ConfirmDialog />
       <PromptDialog />
     </div>

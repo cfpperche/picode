@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **In-product What’s New release highlights** (ADR-0063). Stamped releases
+  show a concise, responsive summary once per browser, with manual entry from
+  the desktop user menu, command palette and mobile More screen. Notes are
+  bundled for offline use and the full release body is published from the
+  matching changelog section.
 - **`packages/pi-compact`** (ADR-0061): opt-in pi extension that compact
   sessions earlier than Pi's window-edge default (100k tokens or 50% of
   the window), summarizes with a cheap model (thinking off, Flash →

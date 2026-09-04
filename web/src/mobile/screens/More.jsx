@@ -8,7 +8,7 @@ import Mcps from "../../components/Mcps.jsx";
 import Packages from "../../components/Packages.jsx";
 import InstallButton from "../../components/InstallButton.jsx";
 import PushPrefs from "../../components/PushPrefs.jsx";
-import { IconChevronRight, IconMonitor, IconQR } from "../../components/Icons.jsx";
+import { IconChevronRight, IconMonitor, IconQR, IconSparkles } from "../../components/Icons.jsx";
 import { setShell } from "../../lib/shell.js";
 
 const SECTIONS = [
@@ -27,7 +27,7 @@ const TITLES = Object.fromEntries(SECTIONS.map(([id, t]) => [id, t]));
 // The rest of the product, one tap deep. Sections mount the same page
 // components the desktop routes do — with real props — under a mobile
 // header; their own desktop "Back" link is hidden by mobile.css.
-export default function More({ section, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onBack }) {
+export default function More({ section, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack }) {
   if (!section) {
     return (
       <div className="m-screen">
@@ -44,6 +44,13 @@ export default function More({ section, catalog, system, version, themeMode, onT
               </a>
             </li>
           ))}
+          <li className={"m-row" + (whatsNewUnread ? " is-unread" : "")}>
+            <button type="button" className="m-row-main" onClick={onWhatsNew}>
+              <span className="m-row-face"><IconSparkles size={18} /></span>
+              <span className="m-row-text"><span className="m-row-title">What’s new</span><span className="m-row-sub">Release highlights and improvements</span></span>
+              <IconChevronRight size={16} className="m-row-chev" />
+            </button>
+          </li>
           <li className="m-row">
             <button type="button" className="m-row-main" onClick={onShare}>
               <span className="m-row-face"><IconQR size={18} /></span>
