@@ -151,6 +151,8 @@ agent process. Details and trade-offs live in
 - [Architecture](docs/architecture.md) — components, protocols and security
 - [Decision records](docs/decisions/) — the reasoning behind architectural
   choices
+- [Release process](docs/release-process.md) — maintainer checklist for public
+  releases (cadence proposal pending)
 - [Engineering benchmarks](docs/benchmarks.md) — the product and quality bars
   used in review
 

@@ -68,3 +68,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0061](0061-compaction-policy-package.md) | Compaction policy as an opt-in MIT pi package (`packages/pi-compact`); overlays `/compact`; dormant until a config file exists (no defaults) | accepted |
 | [0062](0062-terminal-cli-presence.md) | Authoritative ephemeral CLI presence in project terminals via wrapper leases, run IDs, process validation, and exact tmux/PID fallback; presence stays separate from lifecycle activity | accepted, amends 0056 |
 | [0063](0063-whats-new-release-highlights.md) | Curated in-product release highlights, stamped-build auto-open, per-browser acknowledgement | accepted |
+| [0064](0064-release-cadence.md) | Official release cadence and source/Stable release lanes | proposed |

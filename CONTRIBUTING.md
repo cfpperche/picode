@@ -60,4 +60,8 @@ should request translation rather than merge non-English content.
 ## Releases
 
 Maintainers cut releases: version tags follow SemVer; every release
-compiles its section from the changelog. No release without a green CI.
+compiles its section from the changelog. No release without a green CI. The
+operational checklist is in [docs/release-process.md](docs/release-process.md);
+the proposed cadence and release lanes are tracked in
+[ADR-0064](docs/decisions/0064-release-cadence.md). Neither sets official dates
+until the proposal is accepted.

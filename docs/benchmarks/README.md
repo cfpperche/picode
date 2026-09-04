@@ -28,6 +28,7 @@ and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
 
 ## Studies
 
+- [2026-09-04 — Release cadence and release-process documentation](2026-09-04-release-cadence.md)
 - [2026-09-03 — Providers view v2 (accounts, quota, model catalog)](2026-09-03-providers-view-v2.md)
 - [2026-09-03 — Docs harness (theme, screenshots, API reference, prose gate, videos)](2026-09-03-docs-harness.md)
 - [2026-09-03 — Guest TUI agent state (spinner / needs-you for guest CLIs)](2026-09-03-guest-tui-agent-state.md)

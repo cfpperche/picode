@@ -11,7 +11,9 @@
 history. The resulting tree preserves the Inbox-to-TUI receiver (ADR-0060), pi-compact (ADR-0061),
 compact supervision rows, authoritative terminal CLI presence (ADR-0062),
 the official runtime favicon fix, and the What’s New release surface
-(ADR-0063). Local commits have not been pushed to the remote.
+(ADR-0063). Release cadence research, proposed ADR-0064 and the maintainer
+runbook are also in the tree; no official cadence or date is set. Local
+commits have not been pushed to the remote.
 
 **Deployment:** this session's `make deploy` completed successfully after the
 runtime-favicon merge. The installed service is active and serves semver
@@ -54,6 +56,9 @@ action stayed closed after reload.
   CLI is never promoted to an Agent.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
+- Public release mechanics are tag-driven. The cadence study, proposed
+  ADR-0064 and maintainer checklist are documented, but no calendar-triggered
+  release or Preview lane is active.
 
 ### ADR-0061 compaction policy package (`pi-compact`)
 
@@ -86,16 +91,20 @@ directive: **no defaults, ever**):
   the Browser preview emitter/panel remains open.
 - Second-account, container, public-OIDC, and other remote-mode acceptance
   runs require owner-controlled infrastructure.
+- ADR-0064 is proposed: the owner still needs to choose whether to accept the
+  three-release, two-week pilot. Official release dates remain unset.
 
 ## Next up
 
 1. Review current local `main` and decide when to push/promote it; merge and
    deploy are complete locally.
-2. Configure and re-dogfood `pi-compact`, or explicitly leave it dormant.
-3. Inspect the exact historical Inbox rows before any real TUI reply test.
-4. Run the owner-controlled remote-mode acceptance matrix.
-5. Continue the Browser preview panel and ADR-0054 dogfood.
-6. Decide whether selective docs-video capture/render should be scheduled;
+2. Review ADR-0064 and choose the official cadence/pilot window; no release
+   date is committed yet.
+3. Configure and re-dogfood `pi-compact`, or explicitly leave it dormant.
+4. Inspect the exact historical Inbox rows before any real TUI reply test.
+5. Run the owner-controlled remote-mode acceptance matrix.
+6. Continue the Browser preview panel and ADR-0054 dogfood.
+7. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -118,6 +127,14 @@ directive: **no defaults, ever**):
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-04 — release cadence process documented (proposed ADR-0064).**
+  Added a benchmark study covering VS Code, Linear, Zed, Cursor and Go; a
+  proposed source/dogfood versus Stable release-lane decision; and a
+  maintainer runbook covering scope freeze, quality gates, tagging, artifact
+  verification, observation and hotfixes. Linked the documents from the
+  contributor, README, benchmark and ADR indexes. No official cadence, date,
+  Preview channel or scheduled workflow was activated. `make ci` passed.
 
 - **2026-09-04 — runtime CLI favicon/alignment fix merged and deployed
   (`dd70c8d0`, docs refresh `eac09242`, `0.1.0+eac0924`).** Claude Code,
