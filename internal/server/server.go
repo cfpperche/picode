@@ -75,6 +75,7 @@ func New(addr string, deps Deps) *http.Server {
 	// requiring the user to toggle intercept off/on.
 	if deps.DataDir != "" {
 		_, _ = ensureHookScript(deps.DataDir)
+		_, _ = ensurePiReplyExtension(deps.DataDir) // ADR-0060 receiver: fresh on every boot
 		for id, on := range loadInterceptEnabled(deps.DataDir) {
 			if on {
 				_ = installIntercept(deps.DataDir, id)
