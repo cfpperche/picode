@@ -20,7 +20,9 @@ to the `[Unreleased]` section. The repository's official language is English
   template — where-it-runs and config-scope tables, canonical schema
   link, a "how you know it worked" check — and are reachable from the
   sidebar and the Packages guide, which now lists all four packages with
-  the same framing.
+  the same framing. The Checklist guide was aligned to the same template,
+  with an honest core row: the tool and gate rule are the package's;
+  the sidebar line, cards and per-agent Level are PiCode's.
 
 ### Changed
 
