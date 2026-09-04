@@ -118,10 +118,10 @@ describe("agent_settled trigger chain (config file = active)", () => {
 		const h = await makeHarness({ config: { enabled: true } });
 		await h.start();
 		(h.ctx as any).getContextUsage = () => ({ tokens: 120_000, contextWindow: 200_000, percent: 60 });
-		await h.commands.get("compact")!("off", h.ctx);
+		await h.commands.get("compact-off")!("", h.ctx);
 		await h.emit("agent_settled", {});
 		assert.equal(h.compactions.length, 0);
-		await h.commands.get("compact")!("on", h.ctx);
+		await h.commands.get("compact-on")!("", h.ctx);
 		await h.emit("agent_settled", {});
 		assert.equal(h.compactions.length, 1);
 	});
@@ -132,7 +132,7 @@ describe("agent_settled trigger chain (config file = active)", () => {
 		(h.ctx as any).getContextUsage = () => ({ tokens: 120_000, contextWindow: 200_000, percent: 60 });
 		await h.emit("agent_settled", {});
 		assert.equal(h.compactions.length, 0);
-		await h.commands.get("compact")!("on", h.ctx);
+		await h.commands.get("compact-on")!("", h.ctx);
 		await h.emit("agent_settled", {});
 		assert.equal(h.compactions.length, 1);
 	});
@@ -180,19 +180,11 @@ describe("dormant without a config file", () => {
 		assert.equal(calls, 0);
 	});
 
-	it("bare /compact informs instead of compacting", async () => {
+	it("compact-on/off inform while unconfigured; bare compact is not registered", async () => {
 		const h = await makeHarness();
 		await h.start();
-		await h.commands.get("compact")!("", h.ctx);
-		assert.equal(h.compactions.length, 0);
-		assert.ok(h.notifications.some((n) => n.includes("not configured")));
-	});
-
-	it("on/off inform while unconfigured", async () => {
-		const h = await makeHarness();
-		await h.start();
-		await h.commands.get("compact")!("on", h.ctx);
-		await h.commands.get("compact")!("off", h.ctx);
+		await h.commands.get("compact-on")!("", h.ctx);
+		await h.commands.get("compact-off")!("", h.ctx);
 		assert.equal(h.compactions.length, 0);
 		assert.equal(h.notifications.filter((n) => n.includes("not configured")).length, 2);
 	});
@@ -293,24 +285,23 @@ describe("session_before_compact summarizer selection", () => {
 	});
 });
 
-describe("/compact command surface", () => {
-	it("instructions go through ctx.compact", async () => {
-		const h = await makeHarness({ config: { enabled: true } });
+describe("/compact-* command surface", () => {
+	it("registers only hyphenated invocations — pi's TUI owns bare /compact", async () => {
+		const h = await makeHarness();
 		await h.start();
-		await h.commands.get("compact")!("focus on auth", h.ctx);
-		assert.equal(h.compactions.length, 1);
-		assert.match(h.compactions[0].customInstructions ?? "", /focus on auth/);
+		const names = [...h.commands.keys()].sort();
+		assert.deepEqual(names, ["compact-edit", "compact-model", "compact-off", "compact-on"]);
 	});
 
-	it("edit and model subcommands do not compact", async () => {
+	it("edit and model commands do not compact", async () => {
 		const h = await makeHarness({ config: { enabled: true } });
 		await h.start();
 		// Drive edit with a cancel at the first select — ctx.ui.select returns undefined.
 		const cancelCtx = h.makeCtx({
 			ui: { notify: (m: string) => h.notifications.push(m), setStatus: () => {}, select: async () => undefined },
 		});
-		await h.commands.get("compact")!("edit", cancelCtx);
-		await h.commands.get("compact")!("model", cancelCtx);
+		await h.commands.get("compact-edit")!("", cancelCtx);
+		await h.commands.get("compact-model")!("", cancelCtx);
 		assert.equal(h.compactions.length, 0);
 	});
 });

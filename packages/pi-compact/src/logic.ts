@@ -65,15 +65,6 @@ export type ParseResult =
 	| { ok: true; layer: Partial<CompactConfig> }
 	| { ok: false; error: string };
 
-export type CompactCommand =
-	| { kind: "trigger"; instructions?: string }
-	| { kind: "edit" }
-	| { kind: "on" }
-	| { kind: "off" }
-	| { kind: "model" };
-
-const RESERVED = new Set(["edit", "on", "off", "model"]);
-
 export const WHEN_PRESETS = [
 	{
 		id: "recommended",
@@ -276,22 +267,6 @@ export function serializeLayer(
 	return out;
 }
 
-/**
- * `/compact` with no args triggers. Sole reserved words are subcommands.
- * Anything with more text is instructions, even if it starts with `edit`.
- */
-export function parseCompactArgs(args: string): CompactCommand {
-	const trimmed = (args ?? "").trim();
-	if (!trimmed) return { kind: "trigger" };
-	const space = trimmed.indexOf(" ");
-	const verb = (space < 0 ? trimmed : trimmed.slice(0, space)).toLowerCase();
-	const rest = space < 0 ? "" : trimmed.slice(space + 1).trim();
-	if (rest === "" && RESERVED.has(verb)) {
-		return { kind: verb as "edit" | "on" | "off" | "model" };
-	}
-	return { kind: "trigger", instructions: trimmed };
-}
-
 export type TriggerDecision =
 	| { trigger: false; reason: "disabled" | "unknown-tokens" | "below-floor" | "cooldown" | "under-threshold" }
 	| { trigger: true; reason: "tokens" | "percent" | "tokens+percent" };
@@ -393,7 +368,7 @@ export function statusLine(opts: {
 	threshold: number | null;
 	model: string | null;
 }): string {
-	if (!opts.configured) return "compact: not configured · /compact edit";
+	if (!opts.configured) return "compact: not configured · /compact-edit";
 	const tok = opts.tokens === null ? "?" : opts.tokens.toLocaleString("en");
 	const lim = opts.threshold === null ? "overflow only" : opts.threshold.toLocaleString("en");
 	const on = opts.enabled ? "on" : "off";

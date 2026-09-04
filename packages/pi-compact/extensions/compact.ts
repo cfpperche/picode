@@ -2,7 +2,7 @@
  * Opt-in compaction policy for pi (ADR-0061).
  *
  * Early-triggers compact at 100k or 50% of the window, summarizes with a
- * cheap model (thinking off), and overlays /compact. Missing config file
+ * cheap model (thinking off). Missing config file
  * still applies defaults. With PI_COMPACT_AGENT=<id>, also reads/writes
  * <cwd>/.pi/compact/<id>.json (overlay).
  */
@@ -21,7 +21,6 @@ import {
 	idsForProvider,
 	overlayRel,
 	parseAgentKey,
-	parseCompactArgs,
 	parseConfig,
 	parseModelId,
 	parsePercentInput,
@@ -645,47 +644,46 @@ ${conversationText}
 		return;
 	});
 
-	pi.registerCommand("compact", {
-		description: "Compact now. Subcommands: edit, model, on, off",
-		handler: async (args, ctx) => {
-			const cmd = parseCompactArgs(args ?? "");
-			if (cmd.kind === "edit") {
-				await editFlow(ctx);
-				return;
-			}
-			if (cmd.kind === "model") {
-				await modelFlow(ctx);
-				return;
-			}
-			if (cmd.kind === "on") {
-				if (!isConfigured()) {
-					ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact edit first.", "warning");
-					return;
-				}
-				sessionEnabled = true;
-				ctx.ui.notify("Early compact on for this session", "info");
-				paintStatus(ctx);
-				return;
-			}
-			if (cmd.kind === "off") {
-				if (!isConfigured()) {
-					ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact edit first.", "warning");
-					return;
-				}
-				sessionEnabled = false;
-				ctx.ui.notify("Early compact off for this session (overflow still runs)", "info");
-				paintStatus(ctx);
-				return;
-			}
+	// Pi's TUI dispatches /compact and '/compact …' to its built-in command
+	// before any extension command runs (interactive-mode hardcodes it), so a
+	// registered "compact" is unreachable there. The wizard lives on
+	// hyphenated invocations instead; bare /compact stays Pi's native
+	// compaction — our session_before_compact hook still feeds it the cheap
+	// summarizer chain when a config exists.
+	pi.registerCommand("compact-edit", {
+		description: "pi-compact wizard: when, model, fallback, thinking, save to",
+		handler: async (_args, ctx) => {
+			await editFlow(ctx);
+		},
+	});
+	pi.registerCommand("compact-model", {
+		description: "Change the pi-compact summarizer chain",
+		handler: async (_args, ctx) => {
+			await modelFlow(ctx);
+		},
+	});
+	pi.registerCommand("compact-on", {
+		description: "Turn pi-compact's early trigger on for this session",
+		handler: async (_args, ctx) => {
 			if (!isConfigured()) {
-				ctx.ui.notify(
-					"pi-compact is not configured — Pi's default compaction applies. Run /compact edit to configure.",
-					"warning",
-				);
+				ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact-edit first.", "warning");
 				return;
 			}
-			await ctx.waitForIdle();
-			triggerCompact(ctx, cmd.instructions);
+			sessionEnabled = true;
+			ctx.ui.notify("Early compact on for this session", "info");
+			paintStatus(ctx);
+		},
+	});
+	pi.registerCommand("compact-off", {
+		description: "Turn pi-compact's early trigger off for this session",
+		handler: async (_args, ctx) => {
+			if (!isConfigured()) {
+				ctx.ui.notify("pi-compact is not configured — nothing to toggle. Run /compact-edit first.", "warning");
+				return;
+			}
+			sessionEnabled = false;
+			ctx.ui.notify("Early compact off for this session (overflow still runs)", "info");
+			paintStatus(ctx);
 		},
 	});
 }

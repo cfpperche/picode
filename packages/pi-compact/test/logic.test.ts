@@ -7,7 +7,6 @@ import {
 	applyWhenPreset,
 	combineInstructions,
 	effectiveConfig,
-	parseCompactArgs,
 	parseConfig,
 	parseModelId,
 	parsePercentInput,
@@ -84,32 +83,6 @@ describe("effectiveConfig overlay", () => {
 		const out = serializeLayer({ enabled: false }, { extra: true, enabled: true });
 		assert.equal(out.extra, true);
 		assert.equal(out.enabled, false);
-	});
-});
-
-describe("parseCompactArgs", () => {
-	it("empty args trigger compact", () => {
-		assert.deepEqual(parseCompactArgs(""), { kind: "trigger" });
-		assert.deepEqual(parseCompactArgs("  "), { kind: "trigger" });
-	});
-	it("sole reserved words are subcommands, case-insensitive", () => {
-		assert.deepEqual(parseCompactArgs("edit"), { kind: "edit" });
-		assert.deepEqual(parseCompactArgs("EDIT"), { kind: "edit" });
-		assert.deepEqual(parseCompactArgs("on"), { kind: "on" });
-		assert.deepEqual(parseCompactArgs("off"), { kind: "off" });
-		assert.deepEqual(parseCompactArgs("model"), { kind: "model" });
-	});
-	it("reserved word plus more text is instructions", () => {
-		assert.deepEqual(parseCompactArgs("edit the previous summary"), {
-			kind: "trigger",
-			instructions: "edit the previous summary",
-		});
-	});
-	it("free text is instructions", () => {
-		assert.deepEqual(parseCompactArgs("focus on auth"), {
-			kind: "trigger",
-			instructions: "focus on auth",
-		});
 	});
 });
 
@@ -266,7 +239,7 @@ describe("status and instructions", () => {
 				threshold: 100000,
 				model: null,
 			}),
-			"compact: not configured · /compact edit",
+			"compact: not configured · /compact-edit",
 		);
 	});
 	it("combines config and per-call instructions", () => {
