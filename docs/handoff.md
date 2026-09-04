@@ -78,6 +78,19 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
+- **ADR-0061 `packages/pi-compact` merges this session.** Opt-in MIT pi
+  package: early compact (100k tokens or 50% of the window, floor 32k),
+  cheap summarizer with thinking off (Flash → Haiku → session),
+  `/compact` overlay (`edit` / `model` / `on` / `off`). Active defaults
+  without a file; Pi overflow compact and the recent-token tail stay.
+  `PI_COMPACT_AGENT` joins `Agent.SpawnEnv`. 51 package tests (tsc gate
+  against pinned pi 0.85 types + pure table + handler fakes); the tsc
+  gate caught a real API mismatch during authoring. Owner-requested
+  fold-in on the same branch: the user-menu Documentation link opens
+  the docs site (verified live on an ephemeral daemon; screenshot read).
+  After deploy: dogfood with a real reload — `/compact edit`, an early
+  trigger, the Flash-missing fallback. Composer chip / agent settings
+  GUI is explicitly M2 (ADR-0061).
 - **ADR-0060 live validation passed (2026-09-04 15:25).** A real reply to the
   `[Teste ADR-0060]` item landed inside this TUI, task delivered in 2.1s via
   the exact JSONL row, item done, tmux identity intact, no leftovers. The
@@ -102,6 +115,16 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Next up
 
+1. Dogfood `pi-compact` after the deploy (reload an agent, `/compact edit`,
+   early trigger on a long session).
+2. pi-compact M2 (composer chip / agent settings) only after dogfood.
+3. The `tsc` type gate exists only in `packages/pi-compact`; `pi-roles`,
+   `pi-inbox` and `pi-checklist` still ship un-typechecked (jiti at
+   runtime). Same recipe applies when someone touches them.
+4. `pi-roles` / `pi-compact` npm publishing is not automated; local path
+   installation remains the supported route. pi 0.85's npm package has a
+   broken pure-ESM graph (`@earendil-works/pi-server` missing), so
+   pi-compact carries it as a devDependency for handler tests.
 1. Owner validates one live Inbox reply on this TUI (paste fallback), then
    respawns a TUI to prove the receiver channel end to end.
 2. Inspect the live store's historical Inbox rows; close or repair only the
