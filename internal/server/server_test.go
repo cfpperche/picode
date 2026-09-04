@@ -19,6 +19,7 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/version"
 )
 
 // fakeBlockingAgentCmd is a tiny script that ignores argv and blocks
@@ -92,6 +93,10 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestVersionEndpoint(t *testing.T) {
+	oldVersion, oldStamped := version.Version, version.Stamped
+	version.Version = "9.8.7"
+	version.Stamped = "release"
+	t.Cleanup(func() { version.Version, version.Stamped = oldVersion, oldStamped })
 	ts := newTestServer(t, "cat")
 
 	res, err := ts.Client().Get(ts.URL + "/api/version")
@@ -106,6 +111,26 @@ func TestVersionEndpoint(t *testing.T) {
 	}
 	if body["name"] != "picode" {
 		t.Errorf("name field = %v, want picode", body["name"])
+	}
+	if body["semver"] != "9.8.7" {
+		t.Errorf("semver field = %v, want 9.8.7", body["semver"])
+	}
+	if body["release"] != true {
+		t.Errorf("release field = %v, want true for stamped builds", body["release"])
+	}
+
+	version.Stamped = ""
+	res2, err := ts.Client().Get(ts.URL + "/api/version")
+	if err != nil {
+		t.Fatalf("GET /api/version source build: %v", err)
+	}
+	defer res2.Body.Close()
+	var source map[string]any
+	if err := json.NewDecoder(res2.Body).Decode(&source); err != nil {
+		t.Fatalf("decode source build: %v", err)
+	}
+	if source["release"] != false {
+		t.Errorf("release field = %v, want false for source builds", source["release"])
 	}
 }
 

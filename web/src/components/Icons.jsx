@@ -53,6 +53,7 @@ import {
   RotateCw,
   Settings,
   SlidersHorizontal,
+  Sparkles,
   Smartphone,
   Square,
   Sun,
@@ -127,6 +128,7 @@ export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
 export const IconPin = lucide(Pin, 13);
 export const IconSettings = lucide(Settings, 14);
+export const IconSparkles = lucide(Sparkles, 14);
 export const IconMcp = lucide(Plug, 14);
 export const IconPackage = lucide(Package, 14);
 export const IconClip = lucide(Paperclip, 13);

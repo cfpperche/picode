@@ -20,6 +20,10 @@ machinery is removed: Inbox replies now land directly in the running TUI. The
 owner's systemd stop bound keeps deploys stopping cleanly (verified: no
 SIGKILL, no timeout).
 
+**Feature branch:** `feat/whats-new` carries ADR-0062, the in-product What’s
+New release highlights surface. It is implemented for desktop and mobile and
+awaits owner review/merge; the primary checkout remains untouched.
+
 ### Product and platform
 
 - One Go binary serves the React/Vite desktop and mobile ADE. HTTPS defaults
@@ -78,6 +82,15 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
+- **ADR-0062 What’s New release highlights is implemented on `feat/whats-new`,
+  pending review/merge.** Curated notes are bundled offline, opened once per
+  stamped semver per browser, and deferred behind Inbox/create/share/reconnect
+  work. Desktop user menu and Ctrl+K, plus mobile More, provide manual entry.
+  The release workflow validates matching changelog/catalog entries and
+  publishes the full changelog section.
+  `make ci` is green; the desktop light/dark, mobile sheet and empty-note
+  screenshots were read, overlay audits were `ok`, and a stamped-build
+  auto-open/reload cycle was verified on an ephemeral daemon.
 - **ADR-0061 `packages/pi-compact` merges this session.** Opt-in MIT pi
   package: early compact (100k tokens or 50% of the window, floor 32k),
   cheap summarizer with thinking off (Flash → Haiku → session),
@@ -115,27 +128,27 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Next up
 
-1. Dogfood `pi-compact` after the deploy (reload an agent, `/compact edit`,
+1. Review and merge `feat/whats-new` (ADR-0062), then include the next
+   release's curated entries in `web/src/data/whats-new.json` before tagging.
+2. Dogfood `pi-compact` after the deploy (reload an agent, `/compact edit`,
    early trigger on a long session).
-2. pi-compact M2 (composer chip / agent settings) only after dogfood.
-3. The `tsc` type gate exists only in `packages/pi-compact`; `pi-roles`,
+3. pi-compact M2 (composer chip / agent settings) only after dogfood.
+4. The `tsc` type gate exists only in `packages/pi-compact`; `pi-roles`,
    `pi-inbox` and `pi-checklist` still ship un-typechecked (jiti at
    runtime). Same recipe applies when someone touches them.
-4. `pi-roles` / `pi-compact` npm publishing is not automated; local path
+5. `pi-roles` / `pi-compact` npm publishing is not automated; local path
    installation remains the supported route. pi 0.85's npm package has a
    broken pure-ESM graph (`@earendil-works/pi-server` missing), so
    pi-compact carries it as a devDependency for handler tests.
-1. Owner validates one live Inbox reply on this TUI (paste fallback), then
-   respawns a TUI to prove the receiver channel end to end.
-2. Inspect the live store's historical Inbox rows; close or repair only the
+6. Inspect the live store's historical Inbox rows; close or repair only the
    exact stale rows before any new live test.
-3. Design the incremental docs-video maintenance path: per-tutorial input
+7. Design the incremental docs-video maintenance path: per-tutorial input
    fingerprints, selective capture/render, cache boundaries and the trigger
    policy (manual, scheduled or both).
-4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
-5. Run the owner-controlled remote-mode acceptance matrix, then decide the
+8. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
+9. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
-6. Build Providers Models/Activity only after confirming their current study
+10. Build Providers Models/Activity only after confirming their current study
    still matches Pi's provider data.
 
 ## Known debts / open questions
@@ -177,6 +190,14 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — What’s New release highlights (ADR-0062) implemented on
+  `feat/whats-new`.** Added the shared ResponsiveDialog surface, bundled
+  semver catalog and local acknowledgement policy to both shells; wired
+  desktop menu/palette and mobile More entry points; exposed the stamped-build
+  flag from `/api/version`; and made releases publish their changelog section
+  as notes. Unit, Go, docs parity and full `make ci` pass. Visual-review: PASS
+  (desktop light/dark, mobile sheet and empty-note PNGs read; overlay audit
+  `ok`; primary Got it action clicked and state stayed closed after reload).
 - **2026-09-04 — pi-compact (ADR-0061) merged and deployed (`0.1.0+21d7144`).**
   Rebased onto the new CI process (video freshness decoupled from
   delivery; docs media regenerated for the UserMenu change). 51 package

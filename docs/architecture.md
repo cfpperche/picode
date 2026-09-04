@@ -111,6 +111,18 @@ from drifting. `picode update` and `picode-desktop update` both use
 with `runas`), never by a manifest: the same executable is also the tray, and a
 `requireAdministrator` manifest would elevate that too.
 
+The release workflow also validates matching `CHANGELOG.md` and
+`whats-new.json` entries and publishes the changelog section as the GitHub
+release body. A stamped binary exposes
+`release: true` on `GET /api/version`; the two shells use that signal to offer
+the bundled `web/src/data/whats-new.json` highlights through the shared
+`WhatsNew` surface. A browser acknowledges a semver in
+`localStorage` (`picode-whats-new-seen`), so the release opens once per
+browser, after the first fleet state is available and never over an active
+Inbox, create, share, reconnect, or other modal flow. Source builds stay
+manual-only. The surface is bounded to the newest three releases and nine
+highlights and links to the complete release body for detail (ADR-0062).
+
 ## Application routes
 
 The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
@@ -360,6 +372,10 @@ page says so and offers no Sign out. `/api/catalog` also carries how many
 agents and automations name each provider, for the Sign out confirm.
 
 HTTP API (Go 1.22 method patterns):
+- `GET /api/health` and `/api/version` — liveness and build identity. The
+  version response includes `semver`, display `version`, and `release`, which
+  tells the shells whether the bundled What’s New notes may auto-open
+  (ADR-0062).
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.
   Add registers the folder only (ADR-0027): the 201 carries `agents: []`
   and no `agent` key; an idempotent re-add answers with the real agents

@@ -33,17 +33,20 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      # The UI is embedded with go:embed, so it has to exist before any
-      # binary is built — once, for every platform.
-      - name: Build UI
-        run: cd web && npm ci && npm run build
-
       - name: Resolve version
         id: v
         run: |
           tag="${{ github.event.inputs.tag || github.ref_name }}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release notes
+        run: node scripts/release-notes.mjs "${{ steps.v.outputs.version }}" --check
+
+      # The UI is embedded with go:embed, so it has to exist before any
+      # binary is built — once, for every platform.
+      - name: Build UI
+        run: cd web && npm ci && npm run build
 
       # Asset names are a contract: internal/install.assetName() looks for
       # exactly picode-<goos>-<goarch>, and that is what `picode update`
@@ -78,12 +81,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           set -euo pipefail
+          notes_file="$(mktemp)"
+          trap 'rm -f "$notes_file"' EXIT
+          node scripts/release-notes.mjs "$VERSION" > "$notes_file"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --notes-file "$notes_file"
           else
             gh release create "$TAG" dist/* \
               --title "$TAG" \
-              --notes "See CHANGELOG.md for what changed in $TAG."
+              --notes-file "$notes_file"
           fi

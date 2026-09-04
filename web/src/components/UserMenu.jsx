@@ -1,15 +1,16 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession, IconClock } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession, IconClock, IconSparkles } from "./Icons.jsx";
 import { readShellPref, setShell } from "../lib/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
-export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, pkgUpdates }) {
+export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates }) {
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
+  const hasNotice = hasPkgUp || !!whatsNewUnread;
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="um-trigger" id="um-trigger" aria-label={hasPkgUp ? host + ", package updates" : undefined}>
-          <span className="um-avatar" aria-hidden="true"><IconUser />{hasPkgUp ? <span className="um-dot" /> : null}</span>
+        <button className="um-trigger" id="um-trigger" aria-label={hasNotice ? host + ", updates available" : undefined}>
+          <span className="um-avatar" aria-hidden="true"><IconUser />{hasNotice ? <span className="um-dot" /> : null}</span>
           <span className="um-meta">
             <span className="um-name" id="um-name">{host}</span>
             <span className="um-sub" id="um-sub">this machine</span>
@@ -55,6 +56,11 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
           </div>
 
           <DropdownMenu.Separator className="um-divider" />
+          <DropdownMenu.Item className="um-item" id="um-whats-new" onSelect={() => onWhatsNew && onWhatsNew()}>
+            <IconSparkles className="um-item-ico" />
+            <span className="um-item-name">What’s new{whatsNewUnread ? <span className="um-dot" aria-label="New release notes" /> : null}</span>
+            <IconChevronRight />
+          </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-preferences" onSelect={() => onNavigate("preferences")}>
             <IconMode className="um-item-ico" />
             <span className="um-item-name">Preferences</span>

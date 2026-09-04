@@ -183,6 +183,9 @@ func handleVersion(w http.ResponseWriter, _ *http.Request) {
 		// semver-only consumers use "semver".
 		"version": version.Build(),
 		"semver":  version.Version,
+		// Release notes auto-open only for binaries stamped by the release
+		// workflow; source builds keep the same version but stay quiet.
+		"release": version.Stamped != "",
 	})
 }
 
