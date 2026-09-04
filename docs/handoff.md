@@ -175,7 +175,13 @@ directive: **no defaults, ever**):
   overlayAudit ok; lightbox closes. Gates green (fmt/vet/test/test-js/build).
   Not pixel-exercised: the missing-blob image error line (API 404 path unit-
   tested; needs a corrupted/shallowed parent to appear) and the first-commit
-  deleted-asset note. visual-review: PASS.
+  deleted-asset note. visual-review: PASS. Merged to `main` (`72f9e395`) and
+  live on the installed service in `0.1.0+0098081`: `/api/health` ok on a
+  fresh boot, and `/api/workspaces/<bad>/git/blob` returns the new handler's
+  `404 {"error":"workspace not found"}` (the old binary answered a bare
+  mux 404 there). Deploy raced the compact-commands deploy and was
+  superseded by it within minutes — same end state, feature in the running
+  build; docs captures were refreshed post-merge (`dd9b52a4`, `e9b550b6`).
 - **2026-09-04 — Next.js workspace favicons deployed (`0.1.0+4e9cedb`).**
   Lookup is project-agnostic (`icon.svg` and `apps/<name>/app`, not a named
   repo). Fast-forwarded `feat/workspace-favicon-nextjs` onto `main` after
