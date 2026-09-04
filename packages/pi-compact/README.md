@@ -1,6 +1,12 @@
 # pi-compact
 
-Opt-in compaction policy for [pi](https://pi.dev). Compacts earlier than
+Opt-in compaction policy for [pi](https://pi.dev) — **an extension, not
+part of PiCode core**. PiCode ships it in this repository (MIT — the rest
+of the tree is PolyForm Noncommercial) and it installs into pi like any
+package; the PiCode server neither configures nor invokes it, and a
+session without it compacts exactly as pi's stock behavior.
+
+It compacts earlier than
 Pi's window-edge default, summarizes with a cheap model (thinking off),
 and adds a `/compact-edit` wizard alongside Pi's own `/compact` (whose
 summarizer this package overrides when configured). Works in the pi TUI

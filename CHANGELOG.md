@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs position `pi-compact` as an extension, not core.** The public
+  guide states up front that the package is optional, dormant until
+  configured, and removable without a trace; adds where-it-runs (TUI /
+  PiCode chat / nothing in core), config scopes (workspace + agent, no
+  machine layer), a minimal config example with the canonical schema link,
+  and a "how you know it worked" check (JSONL `from: "pi-compact"`).
+  `docs/architecture.md`'s Compaction policy section — stale since the
+  ADR-0061 amendments — now matches HEAD (dormancy, `agent_settled`,
+  hyphenated command family, per-link retry) and states that the Go
+  server's only involvement is the `PI_COMPACT_AGENT` env var. Package
+  README and the Packages guide entry carry the same framing.
+
 ### Added
 
 - **In-product What’s New release highlights** (ADR-0063). Stamped releases

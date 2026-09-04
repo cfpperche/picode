@@ -135,6 +135,16 @@ configuration is created:
 
 ## Recent activity
 
+- **2026-09-04 — pi-compact documented as an extension, not core.** The
+  public guide leads with the positioning (optional package, dormant until
+  configured, removable without a trace) and gains where-it-runs and
+  config-scope tables, a minimal config example with the canonical schema
+  link, and a "how you know it worked" JSONL check.
+  `docs/architecture.md`'s Compaction policy section — stale since the two
+  ADR-0061 amendments — now matches HEAD and names the Go server's only
+  involvement: exporting `PI_COMPACT_AGENT`. Package README and the
+  Packages guide entry carry the same framing. Docs-only; no deploy.
+
 - **2026-09-04 — runtime badge favicons refined (owner report), deployed as
   `0.1.0+65be297`.** The owner's screenshot showed Claude Code still on its
   boxed text mark: `claude.ai`'s favicon hangs/403s as a browser subresource.
