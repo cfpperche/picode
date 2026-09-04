@@ -16,7 +16,9 @@ func TestExpireAnnouncesOnceAndPingRevives(t *testing.T) {
 		seen = append(seen, d.ID+":"+state)
 	}
 	r.Ping("d1", "ua", "10.0.0.2:1", false, "")
-	time.Sleep(10 * time.Millisecond) // OnChange for pings is async
+	if len(seen) != 1 || seen[0] != "d1:on" {
+		t.Fatalf("Ping must announce before returning: %v", seen)
+	}
 	if len(r.Expire()) != 0 {
 		t.Fatal("fresh device expired")
 	}
@@ -30,7 +32,6 @@ func TestExpireAnnouncesOnceAndPingRevives(t *testing.T) {
 		t.Fatal("expired twice")
 	}
 	r.Ping("d1", "ua", "10.0.0.2:1", false, "")
-	time.Sleep(10 * time.Millisecond)
 	if len(seen) != 3 || seen[0] != "d1:on" || seen[1] != "d1:off" || seen[2] != "d1:on" {
 		t.Fatalf("seen = %v", seen)
 	}

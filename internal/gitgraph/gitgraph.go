@@ -94,9 +94,20 @@ func Key(dir string) string {
 		// directory, and silently points above the repository otherwise.
 		common = filepath.Join(dir, common)
 	}
-	abs, err := filepath.Abs(common)
+	return canonicalPath(common)
+}
+
+// canonicalPath makes repository identity independent of an OS-level path
+// alias. macOS commonly exposes the same temporary directory as both /var
+// and /private/var; without resolving that symlink, two worktrees of one
+// repository can acquire different keys.
+func canonicalPath(path string) string {
+	abs, err := filepath.Abs(path)
 	if err != nil {
-		return common
+		return filepath.Clean(path)
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return filepath.Clean(resolved)
 	}
 	return filepath.Clean(abs)
 }
@@ -353,7 +364,7 @@ func loadWorktrees(dir string) []Worktree {
 			flush()
 		case strings.HasPrefix(line, "worktree "):
 			flush()
-			cur = &Worktree{Path: filepath.Clean(strings.TrimPrefix(line, "worktree "))}
+			cur = &Worktree{Path: canonicalPath(strings.TrimPrefix(line, "worktree "))}
 		case cur == nil:
 			// A stray line before any worktree header; nothing to attach it to.
 		case strings.HasPrefix(line, "HEAD "):

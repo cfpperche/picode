@@ -19,9 +19,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tmux (integration tests)
+      # Ubuntu 24.04 packages tmux 3.4, but PiCode's extended-keys-format
+      # contract starts at 3.5. Test the declared minimum instead of silently
+      # skipping that integration path. The release tarball is checksum-pinned.
+      - name: Install tmux 3.5a (integration tests)
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison libevent-dev libncurses-dev
+          curl -fsSL --retry 3 \
+            https://github.com/tmux/tmux/releases/download/3.5a/tmux-3.5a.tar.gz \
+            -o /tmp/tmux-3.5a.tar.gz
+          echo "16216bd0877170dfcc64157085ba9013610b12b082548c7c9542cc0103198951  /tmp/tmux-3.5a.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/tmux-3.5a.tar.gz -C /tmp
+          cd /tmp/tmux-3.5a
+          ./configure
+          make -j2
+          sudo make install
+          test "$(tmux -V)" = "tmux 3.5a"
       - uses: actions/setup-go@v5
         with:
           # Not 'go-version-file': macOS arm64 runners hit golang/go#67629
@@ -67,8 +82,22 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Test
+      # The daemon runs on Linux/macOS (inside WSL on Windows). Windows still
+      # compiles every package and test with the race toolchain, then executes
+      # the native tray/native-host boundary. Running the Linux daemon suite
+      # against Windows path and permission semantics tests an unsupported
+      # topology rather than the shipped Windows product (ADR-0020).
+      - name: Test daemon
+        if: matrix.os != 'windows-latest'
         run: go test -race ./...
+
+      - name: Compile Windows packages and tests
+        if: matrix.os == 'windows-latest'
+        run: go test -race -run '^$' ./...
+
+      - name: Test Windows host boundary
+        if: matrix.os == 'windows-latest'
+        run: go test -race ./cmd/picode ./cmd/picode-desktop ./internal/binwatch ./internal/browserhost ./internal/desktop ./internal/osopen ./internal/version
 
       - name: Build
         run: go build -tags embedui -o bin/picode ./cmd/picode

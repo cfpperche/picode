@@ -1,7 +1,7 @@
 package server
 
-// Guest CLI intercept HTTP (ADR-0056). Enable/disable writes wrappers
-// under <dataDir>/bin — never the user's ~/.claude, ~/.codex, ~/.grok.
+// Terminal CLI intercept HTTP (ADR-0056). Enable/disable writes wrappers
+// under <dataDir>/bin — never the user's ~/.claude, ~/.codex, ~/.grok, ~/.pi.
 
 import (
 	"encoding/json"
@@ -72,7 +72,7 @@ elif ev in ("Notification", "notification"):
 `
 
 const hookScriptTmpl = `#!/bin/sh
-# PiCode guest-CLI status hook (ADR-0056).
+# PiCode terminal CLI status hook (ADR-0056).
 # Usage: picode-hook <working|needs-you|idle|auto> <cli> [json]
 # auto maps Claude/Grok/Codex JSON (stdin or $3) to a state word.
 [ -n "$PICODE_TERM_ID" ] || exit 0
@@ -206,13 +206,19 @@ func wiringRows(dataDir string) []wiringRow {
 			ID: "codex", Label: "Codex", Bin: "codex",
 			Installed: installedOnPath("codex"),
 			Wired:     interceptWired(dataDir, "codex", "codex"),
-			Note:      "Injects notify via -c. End-of-turn only.",
+			Note:      "Invocation-only lifecycle hooks; trust stays scoped.",
 		},
 		{
 			ID: "grok", Label: "Grok", Bin: "grok",
 			Installed: installedOnPath("grok"),
 			Wired:     interceptWired(dataDir, "grok", "grok"),
 			Note:      "GROK_HOME overlay in PiCode's data dir. Auth stays yours.",
+		},
+		{
+			ID: "pi", Label: "Pi", Bin: "pi",
+			Installed: installedOnPath("pi"),
+			Wired:     interceptWired(dataDir, "pi", "pi"),
+			Note:      "Native lifecycle extension for manual Pi TUI sessions only.",
 		},
 	}
 }

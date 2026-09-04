@@ -61,6 +61,14 @@ password is left **locked** — provisioning reaches root through `wsl -u root`
 and never needs sudo, so setting a password or granting passwordless sudo
 would be a security decision the installer has no standing to make.
 
+CI follows that runtime boundary. Linux and macOS execute the complete daemon
+suite. Windows compiles every package and test with race instrumentation, then
+executes the native `picode-desktop`/browser-host boundary; the daemon still
+runs inside WSL, so pretending to run its POSIX path, permission, tmux and Pi
+session scenarios directly on Windows would test an unsupported topology.
+Live WSL tests additionally require a registered distro: `wsl.exe` alone is
+not evidence that one exists on a hosted runner.
+
 Both binaries ship in one GitHub release, tag-triggered
 (`.github/workflows/release.yml`), with the version stamped through
 `-X internal/version.Version` — `Version` is a var for exactly that. Asset
@@ -255,6 +263,17 @@ MCP and skills; PiCode never duplicates them. Schema v1: `workspaces`,
 `settings`. Embedded sequential migrations; the M1 JSON registry is imported
 once and retired (`workspaces.json.migrated`).
 
+Local backup destinations are checked against both live data trees before any
+snapshot write. The check canonicalizes the longest existing path prefix and
+then restores a not-yet-created suffix; resolving only the complete destination
+would miss OS aliases such as macOS `/var` → `/private/var`.
+
+| Destination | Path shape | Action |
+|---|---|---|
+| empty | any | refuse |
+| either live data root, or any descendant | existing, missing, direct, or reached through a symlinked ancestor | refuse |
+| outside both live trees | canonical roots differ | allow |
+
 ### AgentManager (M1 core shipped)
 Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
 workspaces start empty (ADR-0027) and own zero or more agents; tmux
@@ -425,8 +444,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
   the agents living in each worktree (`?limit=`, default 250). One graph per
-  repository: the identity is `git rev-parse --git-common-dir`, so every
-  worktree answers with the same key and collapses onto one tab. The route
+  repository: the identity is `git rev-parse --git-common-dir`, canonicalized
+  through filesystem symlinks, so every worktree (including macOS
+  `/var`/`/private/var` aliases) answers with the same key and collapses onto
+  one tab. The route
   carries the *owner* because the owner is what authorises the read — the
   server never resolves a repository from a path in the URL (ADR-0022).
 - `GET /api/agents/{id}/git/commit?hash=` · `GET /api/terminals/{id}/git/commit?hash=`
@@ -473,12 +494,30 @@ so `termKeys.js` encodes modified Enter itself (VS Code's terminal gets
 the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
-Guest CLI state (ADR-0056) is ephemeral: scoped wrappers inject Claude,
-Codex, or Grok hooks; reports become `terminal.state` feed events. Codex
-hooks are invocation-only `-c` values whose exact SHA-256 fingerprints
-are trusted in the same session flags — PiCode never bypasses trust and
-never writes `~/.codex`. PTY input closes the gap left by a CLI that omits
-its interruption callback:
+Terminal CLI state (ADR-0056) is ephemeral: scoped wrappers inject Claude,
+Codex, Grok, or manual Pi TUI hooks; reports become `terminal.state` feed
+events. Codex hooks are invocation-only `-c` values whose exact SHA-256
+fingerprints are trusted in the same session flags — PiCode never bypasses
+trust and never writes `~/.codex`. For agent invocations, the Pi wrapper
+prepends one generated `-e <data>/intercept/pi-terminal-state.ts` extension
+without replacing user extensions or arguments. Pi's maintenance/auth
+subcommands and help/version flags bypass injection so their argv[1] dispatch
+stays intact; the wrapper never writes `~/.pi`. Its native-event decision table
+is executable in `TestPiTerminalStateExtensionDecisionTable`:
+
+| `PICODE_TERM_ID` | Pi mode | Native event / condition | Lifecycle action |
+|---|---|---|---|
+| missing | any | any | no report |
+| present | RPC, print, or JSON | any | no report |
+| present | TUI | `session_start`, `agent_settled`, `session_shutdown` | publish `idle` |
+| present | TUI | `agent_start` | publish `working` |
+| present | TUI | `ui_prompt_start` | publish `needs-you` |
+| present | TUI | `ui_prompt_end`, `ctx.isIdle() == false` | publish `working` |
+| present | TUI | `ui_prompt_end`, `ctx.isIdle() == true` | publish `idle` |
+
+The two guards keep managed RPC agents, `pi -p`, JSON streams, and inherited
+sub-processes out of terminal state. PTY input closes the gap left by a CLI
+that omits its interruption callback:
 
 | Input | Current terminal state | Session | Lifecycle action |
 |---|---|---|---|
@@ -590,7 +629,9 @@ lists with `lib/feedReducers.js` and refetch when a reducer returns
 also publishes `agent.tui` (tmux watcher, `StartTuiWatch`),
 `agent.usage` (per assistant message, `Runtime.OnUsage`) and
 `device.offline` (`presence.Watch`); `agent.status` carries the run mode
-at every start. Rule: a state
+at every start. Presence invokes its transition callback after releasing the
+registry lock but before the heartbeat returns, so a sequential expiry cannot
+overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
 

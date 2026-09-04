@@ -155,19 +155,31 @@ func TestSessionNameSanitizes(t *testing.T) {
 func TestPaneCwdFollowsProcess(t *testing.T) {
 	m := requireTmux(t)
 	ctx := context.Background()
+	waitCwd := func(name, want string) {
+		t.Helper()
+		deadline := time.Now().Add(2 * time.Second)
+		var got string
+		var err error
+		for time.Now().Before(deadline) {
+			got, err = m.PaneCwd(ctx, name)
+			if err == nil && filepath.Clean(got) == filepath.Clean(want) {
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		t.Fatalf("PaneCwd = %q (err %v), want %q", got, err, want)
+	}
+
 	start := t.TempDir()
 	name := SessionName("cwd-" + time.Now().Format("150405-000000000"))
 	if err := m.NewSession(ctx, name, start, "sleep", "30"); err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
-	got, err := m.PaneCwd(ctx, name)
-	if err != nil {
-		t.Fatalf("PaneCwd: %v", err)
-	}
-	if filepath.Clean(got) != filepath.Clean(start) {
-		t.Fatalf("PaneCwd = %q, want %q", got, start)
-	}
+	// A detached tmux session briefly reports the server process and its cwd
+	// before the pane child has exec'd. The API contract is the live process
+	// cwd, so assert convergence rather than scheduler timing.
+	waitCwd(name, start)
 
 	live := t.TempDir()
 	name2 := SessionName("cwd2-" + time.Now().Format("150405-000000000"))
@@ -175,16 +187,7 @@ func TestPaneCwdFollowsProcess(t *testing.T) {
 		t.Fatalf("NewSession cd: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(ctx, name2) })
-	deadline := time.Now().Add(2 * time.Second)
-	var got2 string
-	for time.Now().Before(deadline) {
-		got2, err = m.PaneCwd(ctx, name2)
-		if err == nil && filepath.Clean(got2) == filepath.Clean(live) {
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	t.Fatalf("PaneCwd after cd = %q (err %v), want %q", got2, err, live)
+	waitCwd(name2, live)
 }
 
 // NewSession must create surfaces without the tmux status line (it renders

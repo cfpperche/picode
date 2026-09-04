@@ -84,7 +84,6 @@ func (r *Registry) PingSession(id, ua, remote string, claimedHost bool, kind, se
 	ip := stripPort(remote)
 	now := time.Now().UTC()
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	it, ok := r.items[id]
 	wasOnline := ok && r.view(it, now).Online
 	if !ok {
@@ -105,8 +104,16 @@ func (r *Registry) PingSession(id, ua, remote string, claimedHost bool, kind, se
 	it.last = now
 	d := r.view(it, now)
 	it.online = true
-	if !wasOnline && r.OnChange != nil {
-		go r.OnChange(d)
+	var changed func(Device)
+	if !wasOnline {
+		changed = r.OnChange
+	}
+	r.mu.Unlock()
+	// Keep the callback outside the registry lock, but finish it before Ping
+	// returns. The old detached goroutine could race a following Expire and
+	// publish online after offline for a device that was already stale.
+	if changed != nil {
+		changed(d)
 	}
 	return d
 }

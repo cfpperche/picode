@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -125,6 +126,211 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), "UserPromptSubmit") {
 		t.Fatalf("grok hooks: %s", raw)
+	}
+}
+
+func TestInterceptPi(t *testing.T) {
+	ts, dataDir := wiringTestServer(t)
+	home, _ := os.UserHomeDir()
+	piHome := filepath.Join(home, ".pi")
+	if err := os.MkdirAll(piHome, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(piHome, "keep-me")
+	if err := os.WriteFile(sentinel, []byte("user-owned\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if res := postJSON(t, ts, "/api/terminals/wiring/pi/enable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("pi enable = %d", res.StatusCode)
+	}
+	wrapper := wrapperPath(dataDir, "pi")
+	extension := piTerminalStateExtensionFile(dataDir)
+	wrapperBody, err := os.ReadFile(wrapper)
+	if err != nil {
+		t.Fatalf("pi wrapper missing: %v", err)
+	}
+	if !strings.Contains(string(wrapperBody), " -e "+fmt.Sprintf("%q", extension)+" \"$@\"") {
+		t.Fatalf("pi wrapper does not prepend the state extension and preserve argv:\n%s", wrapperBody)
+	}
+	if !strings.Contains(string(wrapperBody), `auth|config|install|list|remove|uninstall|update`) {
+		t.Fatalf("pi wrapper does not preserve subcommand dispatch:\n%s", wrapperBody)
+	}
+	extensionBody, err := os.ReadFile(extension)
+	if err != nil {
+		t.Fatalf("pi extension missing: %v", err)
+	}
+	for _, want := range []string{
+		`ctx.mode !== "tui"`, `process.env.PICODE_TERM_ID`,
+		`pi.on("agent_start"`, `pi.on("ui_prompt_start"`,
+		`pi.on("ui_prompt_end"`, `ctx.isIdle()`, `pi.on("agent_settled"`,
+	} {
+		if !strings.Contains(string(extensionBody), want) {
+			t.Fatalf("pi extension missing %q:\n%s", want, extensionBody)
+		}
+	}
+	if got, err := os.ReadFile(sentinel); err != nil || string(got) != "user-owned\n" {
+		t.Fatalf("enable changed ~/.pi sentinel: %q, %v", got, err)
+	}
+
+	// The wrapper prepends only PiCode's extension. Subcommands, flags, and
+	// user-supplied extensions remain byte-for-byte arguments to the real pi.
+	realDir := t.TempDir()
+	argLog := filepath.Join(t.TempDir(), "argv")
+	realPi := filepath.Join(realDir, "pi")
+	if err := writeExecutable(realPi, "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$PICODE_TEST_ARGV\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name   string
+		args   []string
+		inject bool
+	}{
+		{name: "version", args: []string{"--version"}},
+		{name: "auth command", args: []string{"auth", "check"}},
+		{name: "install command", args: []string{"install", "git:example/pi-package"}},
+		{name: "TUI prompt", args: []string{"hello"}, inject: true},
+		{name: "user extension", args: []string{"-e", "/tmp/user extension.ts", "--version"}, inject: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_ = os.Remove(argLog)
+			cmd := exec.Command(wrapper, tc.args...)
+			cmd.Env = []string{
+				"PATH=" + interceptBinDir(dataDir) + string(os.PathListSeparator) + realDir + string(os.PathListSeparator) + "/usr/bin:/bin",
+				"PICODE_TEST_ARGV=" + argLog,
+			}
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("wrapper: %v: %s", err, out)
+			}
+			got, err := os.ReadFile(argLog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantArgs := append([]string(nil), tc.args...)
+			if tc.inject {
+				wantArgs = append([]string{"-e", extension}, wantArgs...)
+			}
+			want := strings.Join(wantArgs, "\n") + "\n"
+			if string(got) != want {
+				t.Fatalf("argv = %q, want %q", got, want)
+			}
+		})
+	}
+
+	var page struct {
+		Clis []wiringRow `json:"clis"`
+	}
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/wiring"))
+	_ = json.NewDecoder(res.Body).Decode(&page)
+	var piRow *wiringRow
+	for i := range page.Clis {
+		if page.Clis[i].ID == "pi" {
+			piRow = &page.Clis[i]
+		}
+		if page.Clis[i].ID == "codex" && strings.Contains(page.Clis[i].Note, "End-of-turn only") {
+			t.Fatalf("stale Codex note: %q", page.Clis[i].Note)
+		}
+	}
+	if piRow == nil || !piRow.Wired {
+		t.Fatalf("Pi status = %+v, want wired", page.Clis)
+	}
+
+	if res := postJSON(t, ts, "/api/terminals/wiring/pi/disable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("pi disable = %d", res.StatusCode)
+	}
+	for _, path := range []string{wrapper, extension} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("%s should be gone after disable: %v", path, err)
+		}
+	}
+	if got, err := os.ReadFile(sentinel); err != nil || string(got) != "user-owned\n" {
+		t.Fatalf("disable changed ~/.pi sentinel: %q, %v", got, err)
+	}
+}
+
+func TestPiTerminalStateExtensionDecisionTable(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not on PATH")
+	}
+	ts, dataDir := wiringTestServer(t)
+	if res := postJSON(t, ts, "/api/terminals/wiring/pi/enable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("pi enable = %d", res.StatusCode)
+	}
+
+	// Replace the normal HTTP reporter with a deterministic recorder, then
+	// load the generated JavaScript-compatible .ts source as an ES module.
+	logPath := filepath.Join(t.TempDir(), "states.log")
+	recorder := "#!/bin/sh\nprintf '%s|%s\\n' \"$1\" \"$2\" >> \"$PICODE_TEST_LOG\"\n"
+	if err := writeExecutable(hookScriptPath(dataDir), recorder); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(piTerminalStateExtensionFile(dataDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modulePath := filepath.Join(t.TempDir(), "pi-terminal-state.mjs")
+	if err := os.WriteFile(modulePath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	harnessPath := filepath.Join(t.TempDir(), "fire-event.mjs")
+	harness := `import { pathToFileURL } from "node:url";
+const [modulePath, event, mode, idle] = process.argv.slice(2);
+const { default: load } = await import(pathToFileURL(modulePath).href);
+const handlers = new Map();
+load({ on(name, handler) { handlers.set(name, handler); } });
+const handler = handlers.get(event);
+if (!handler) throw new Error(` + "`missing handler: ${event}`" + `);
+await handler({}, { mode, isIdle: () => idle === "true" });
+`
+	if err := os.WriteFile(harnessPath, []byte(harness), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Decision table: both guards must pass; each native lifecycle event then
+	// maps to exactly one terminal state. ui_prompt_end resumes the state that
+	// was active before the blocking prompt.
+	cases := []struct {
+		name    string
+		event   string
+		mode    string
+		hasTerm bool
+		idle    bool
+		want    string
+	}{
+		{name: "missing terminal id", event: "agent_start", mode: "tui"},
+		{name: "managed RPC agent", event: "agent_start", mode: "rpc", hasTerm: true},
+		{name: "noninteractive print", event: "agent_start", mode: "print", hasTerm: true},
+		{name: "JSON stream", event: "agent_start", mode: "json", hasTerm: true},
+		{name: "session starts quiet", event: "session_start", mode: "tui", hasTerm: true, want: "idle|pi\n"},
+		{name: "agent starts working", event: "agent_start", mode: "tui", hasTerm: true, want: "working|pi\n"},
+		{name: "UI prompt needs user", event: "ui_prompt_start", mode: "tui", hasTerm: true, want: "needs-you|pi\n"},
+		{name: "UI prompt returns to work", event: "ui_prompt_end", mode: "tui", hasTerm: true, want: "working|pi\n"},
+		{name: "idle UI prompt stays idle", event: "ui_prompt_end", mode: "tui", hasTerm: true, idle: true, want: "idle|pi\n"},
+		{name: "agent settles idle", event: "agent_settled", mode: "tui", hasTerm: true, want: "idle|pi\n"},
+		{name: "session shutdown idle", event: "session_shutdown", mode: "tui", hasTerm: true, want: "idle|pi\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_ = os.Remove(logPath)
+			cmd := exec.Command("node", harnessPath, modulePath, tc.event, tc.mode, fmt.Sprint(tc.idle))
+			cmd.Env = []string{"PATH=/usr/bin:/bin", "PICODE_TEST_LOG=" + logPath}
+			if tc.hasTerm {
+				cmd.Env = append(cmd.Env, "PICODE_TERM_ID=terminal-test")
+			}
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("node harness: %v: %s", err, out)
+			}
+			got, err := os.ReadFile(logPath)
+			if os.IsNotExist(err) {
+				got = nil
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Fatalf("report = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

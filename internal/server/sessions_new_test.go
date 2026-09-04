@@ -215,6 +215,9 @@ func newFreeAgentServer(t *testing.T) *httptest.Server {
 // in the sentinel workspace path and failed with "no such file or
 // directory" — killing the TUI and toasting "That folder doesn't exist".
 func TestNewSessionFreeAgentTUIRestart(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed — TUI restart integration test skipped")
+	}
 	ts := newFreeAgentServer(t)
 	work := filepath.Join(os.TempDir(), "picode-test-work", t.Name())
 	if err := os.MkdirAll(work, 0o755); err != nil {

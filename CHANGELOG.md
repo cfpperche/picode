@@ -67,6 +67,16 @@ to the `[Unreleased]` section. The repository's official language is English
   overlay (auth stays yours). Nothing is written to `~/.claude` /
   `~/.codex` / `~/.grok`.
   (Retired: merging hooks into the user's Claude settings.json.)
+- **Manual Pi TUI terminal status.** The opt-in Terminal status roster now
+  includes Pi itself. Its scoped wrapper prepends a generated native `-e`
+  extension that maps agent start, blocking UI prompts, settled completion,
+  and session shutdown onto the same terminal states. Reports require both
+  `PICODE_TERM_ID` and TUI mode, so managed RPC agents, `pi -p`, JSON output,
+  and non-TUI subagents never duplicate state. Existing extensions and agent
+  arguments stay ordered; maintenance/auth commands and help/version bypass
+  injection so their first-argument dispatch stays intact. `~/.pi` is untouched.
+  The Codex preference note now correctly describes its full lifecycle hooks
+  instead of the retired end-of-turn-only fallback.
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on
@@ -86,6 +96,26 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Cross-platform path aliases can no longer bypass backup safety or split
+  one Git repository into multiple graphs.** Backup destination validation
+  resolves the longest existing ancestor before testing containment, so a
+  not-yet-created folder beneath macOS's `/var` → `/private/var` alias is still
+  refused when it sits inside live PiCode or pi data. Git graph keys and
+  worktree paths now resolve the same aliases before identity comparison.
+- **Presence transitions keep lifecycle order.** A returning device's
+  `online` callback now completes outside the registry lock but before the
+  heartbeat returns; a following expiry can no longer overtake a detached
+  callback and publish `online` after `offline`.
+- **The CI matrix now tests the supported runtime on every host.** Ubuntu
+  builds checksum-pinned tmux 3.5a instead of its unsupported 3.4 package;
+  macOS runs the complete daemon suite; Windows compiles every package and
+  test with the race toolchain, then runs the native tray/host boundary rather
+  than unsupported Linux/WSL daemon scenarios. Filesystem-separator,
+  absent-tmux/systemd/WSL, asynchronous automation-result, package-watcher
+  race, and pane-startup assumptions no longer cause runner-only failures.
+- **Docs tutorial regeneration runs when requested.** The `docs-videos`
+  Make target is now phony; the identically named source directory no longer
+  makes `make docs-videos` incorrectly report that everything is up to date.
 - **Guest CLI spinners start and stop with the real turn.** Codex does
   expose full lifecycle hooks: PiCode now injects `UserPromptSubmit`,
   `PermissionRequest`, `Stop`, `Interrupt`, and `SessionEnd`, so Codex

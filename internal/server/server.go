@@ -56,7 +56,7 @@ type Deps struct {
 	Apps         *apps.Registry // apps host (ADR-0036); nil-safe = no apps
 	Push         *push.Notifier // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
 	Feed         *feed.Feed     // change feed (ADR-0048); nil-safe = 503 on /api/events
-	TermStates   *TermStates    // guest terminal state (ADR-0056 tier 1); lazy-init in New
+	TermStates   *TermStates    // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	Auth         *auth.Service  // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
@@ -65,7 +65,7 @@ type Deps struct {
 func New(addr string, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 
-	// Guest terminal state (ADR-0056 tier 1): tests and minimal embeddings
+	// Coding-CLI terminal state (ADR-0056 tier 1): tests and minimal embeddings
 	// construct Deps without a registry — the endpoint still has to work.
 	if deps.TermStates == nil {
 		deps.TermStates = NewTermStates()

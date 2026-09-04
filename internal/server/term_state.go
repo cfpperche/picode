@@ -1,8 +1,8 @@
 package server
 
-// Guest CLI lifecycle state for terminals (ADR-0056, tier 1). A coding
-// CLI running inside a PiCode terminal reports its own state through a
-// small HTTP hook (Claude Code, Codex and Grok lifecycle hooks); PiCode correlates
+// Coding-CLI lifecycle state for terminals (ADR-0056, tier 1). A CLI
+// running inside a PiCode terminal reports its own state through a small
+// HTTP hook (Claude Code, Codex, Grok, or manual Pi TUI); PiCode correlates
 // the report to the terminal via PICODE_TERM_ID — injected into the tmux
 // session environment at creation, so every hook process inherits it —
 // and republishes changes as ephemeral terminal.state events (ADR-0048,
@@ -189,7 +189,7 @@ func terminalInterruptObserver(deps Deps) func(session string) {
 	}
 }
 
-// handleSetTerminalState records a guest CLI's report for one terminal:
+// handleSetTerminalState records a coding CLI's report for one terminal:
 // POST /api/terminals/{id}/state {"state":"working","cli":"claude-code"}.
 // The route sits behind the ordinary auth gate (ADR-0049) — hook scripts
 // send the install token like every other non-browser client.

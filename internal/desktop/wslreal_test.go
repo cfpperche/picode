@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// realWSL skips unless an actual wsl.exe is reachable. Like the tmux-gated
-// tests, this runs on a developer's machine and skips in CI — the parsing
-// itself is covered by the captured fixture in wsl_test.go, so nothing here is
-// load-bearing for correctness.
+// realWSL skips unless an actual wsl.exe with a registered distro is reachable.
+// Hosted Windows runners carry wsl.exe but no distro, while a developer's
+// machine can exercise the live integration. Parsing is covered independently
+// by the captured fixture in wsl_test.go.
 func realWSL(t *testing.T) Runner {
 	t.Helper()
 	exe := ResolveWSLExe()
@@ -19,7 +19,11 @@ func realWSL(t *testing.T) Runner {
 		}
 	}
 	WSLExe = exe
-	return liveRunner{}
+	r := liveRunner{}
+	if distros, err := ListDistros(r); err != nil || len(distros) == 0 {
+		t.Skipf("no registered WSL distro on this machine: %v", err)
+	}
+	return r
 }
 
 type liveRunner struct{}

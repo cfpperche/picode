@@ -50,10 +50,28 @@ func canon(p string) string {
 	if err != nil {
 		return filepath.Clean(p)
 	}
-	if r, err := filepath.EvalSymlinks(abs); err == nil {
-		return r
+
+	// The destination normally does not exist yet, so EvalSymlinks(abs)
+	// cannot resolve aliases in an existing ancestor. Resolve the longest
+	// existing prefix instead, then put the missing tail back. This matters
+	// on macOS, where t.TempDir commonly arrives below /var while the same
+	// directory's canonical spelling starts with /private/var.
+	cur := abs
+	var tail []string
+	for {
+		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+			for i := len(tail) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, tail[i])
+			}
+			return filepath.Clean(resolved)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return filepath.Clean(abs)
+		}
+		tail = append(tail, filepath.Base(cur))
+		cur = parent
 	}
-	return abs
 }
 
 func ensureDir(path string) error {

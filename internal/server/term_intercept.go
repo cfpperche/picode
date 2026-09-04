@@ -1,9 +1,9 @@
 package server
 
-// Guest CLI intercept (ADR-0056, owner 2026-09-03): never write the
-// user's ~/.claude / ~/.codex / ~/.grok. PiCode terminals prepend
+// Terminal CLI intercept (ADR-0056, owner 2026-09-03): never write the
+// user's ~/.claude / ~/.codex / ~/.grok / ~/.pi. PiCode terminals prepend
 // <dataDir>/bin to PATH at tmux session creation; wrappers there exec
-// the real binary with launch-time injection (args or GROK_HOME overlay).
+// the real binary with launch-time injection (args, extension, or overlay).
 // Outside those sessions the wrappers are not on PATH.
 
 import (
@@ -245,6 +245,58 @@ func writeCodexIntercept(dataDir, hook string) error {
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
 }
 
+func piTerminalStateExtensionFile(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "pi-terminal-state.ts")
+}
+
+const piTerminalStateExtensionTmpl = `import { spawn } from "node:child_process";
+
+const reporter = %s;
+let pending = Promise.resolve();
+
+function report(state, ctx) {
+  if (!process.env.PICODE_TERM_ID || ctx.mode !== "tui") return Promise.resolve();
+  pending = pending.then(() => new Promise((resolve) => {
+    try {
+      const child = spawn(reporter, [state, "pi"], { stdio: "ignore" });
+      child.once("error", resolve);
+      child.once("close", resolve);
+    } catch {
+      resolve();
+    }
+  }));
+  return pending;
+}
+
+export default function (pi) {
+  pi.on("session_start", async (_event, ctx) => report("idle", ctx));
+  pi.on("agent_start", async (_event, ctx) => report("working", ctx));
+  pi.on("ui_prompt_start", async (_event, ctx) => report("needs-you", ctx));
+  pi.on("ui_prompt_end", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
+  pi.on("agent_settled", async (_event, ctx) => report("idle", ctx));
+  pi.on("session_shutdown", async (_event, ctx) => report("idle", ctx));
+}
+`
+
+func writePiIntercept(dataDir, hook string) error {
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return err
+	}
+	extension := piTerminalStateExtensionFile(dataDir)
+	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook))
+	if err := os.WriteFile(extension, []byte(body), 0o600); err != nil {
+		return err
+	}
+	wrapper := "#!/bin/sh\n# PiCode intercept — Pi TUI. Session PATH only.\nname=pi\n" +
+		wrapperFindReal +
+		"# Pi dispatches subcommands only when they are argv[1]. Do not move them.\n" +
+		"case \"${1-}\" in\n" +
+		"  auth|config|install|list|remove|uninstall|update|--help|-h|--version|-v) exec \"$real\" \"$@\" ;;\n" +
+		"esac\n" +
+		fmt.Sprintf("exec \"$real\" -e %q \"$@\"\n", extension)
+	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
+}
+
 func grokHomeDir(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "grok-home")
 }
@@ -328,6 +380,10 @@ func installIntercept(dataDir, cliID string) error {
 		if err := writeGrokIntercept(dataDir, hook); err != nil {
 			return err
 		}
+	case "pi":
+		if err := writePiIntercept(dataDir, hook); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}
@@ -345,6 +401,9 @@ func uninstallIntercept(dataDir, cliID string) error {
 		removeWrapper(dataDir, "codex")
 	case "grok":
 		removeWrapper(dataDir, "grok")
+	case "pi":
+		removeWrapper(dataDir, "pi")
+		_ = os.Remove(piTerminalStateExtensionFile(dataDir))
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}

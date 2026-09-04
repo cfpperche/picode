@@ -1,4 +1,4 @@
-# Study: guest TUI agent state (spinner / "needs you" for non-pi CLIs)
+# Study: terminal TUI agent state (spinner / "needs you" for coding CLIs)
 
 - **Date:** 2026-09-03
 - **Sources:** fetched live 2026-09-03 —
@@ -14,7 +14,8 @@
   [github.com/BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban)
   (+ docs/settings/agent-configurations),
   [github.com/stravu/crystal](https://github.com/stravu/crystal),
-  [conductor.build](https://conductor.build). Repo studies reused:
+  [conductor.build](https://conductor.build), and the installed Pi 0.84.4
+  `docs/extensions.md` lifecycle contract. Repo studies reused:
   [t3code / paseo](2026-08-24-adopt-t3code-paseo-cursor.md),
   [herdr](2026-08-27-herdr.md).
 - **Scope:** the owner runs Claude Code, Codex, Grok CLI, Antigravity,
@@ -64,6 +65,7 @@ orchestrator reads pixels as its primary state source.
 | github.com/BloopAI/vibe-kanban | "Switch between 10+ coding agents — Claude Code, Codex, Gemini CLI, GitHub Copilot, Amp, Cursor, OpenCode, Droid, CCR, and Qwen Code"; docs: per-agent executor profiles with launch env |
 | github.com/stravu/crystal | "(Crystal is now Nimbalyst) Run multiple Codex and Claude Code AI sessions in parallel git worktrees" — desktop status/notifications over the CLIs |
 | conductor.build | "Conductor runs the first-party Claude Code, Codex, Cursor, and OpenCode agents under the hood" |
+| Pi 0.84.4 extension docs | Native events include `agent_start`, blocking `ui_prompt_start` / `ui_prompt_end`, and `agent_settled` after retry, compaction, and follow-up work; `ctx.mode` distinguishes TUI from RPC/print/JSON |
 
 ## Per-TUI channel catalog (what PiCode can read today)
 
@@ -76,7 +78,7 @@ orchestrator reads pixels as its primary state source.
 | Kimi / Qwen / Droid / Cursor | — | — | ACP listed |
 | Grok CLI (superagent-ai) | NDJSON events from `grok -p --format json` | partial (event stream, no permission semantics) | none public |
 | Antigravity | — | — | none public (Google IDE) → stays level 1 |
-| pi | RPC (in use) | RPC `waiting` (C1, shipped) | **pi-acp adapter listed in the official registry** |
+| pi | native extension `agent_start` / `agent_settled` in a manual TUI; RPC for managed agents | native extension `ui_prompt_start` / `ui_prompt_end`; RPC `waiting` for managed agents | **pi-acp adapter listed in the official registry** |
 
 Universal fallback for any TUI inside our PTYs: the **terminal bell**
 (Claude Code rings it when finished/prompting while the user is away;
@@ -85,8 +87,9 @@ the last resort after that.
 
 ## What PiCode should take (→ ADR-0056, proposed)
 
-1. Guests keep their **real TUIs in terminals** (ADR-0017/0026
-   substrate). State comes from **level-2 sensors**, not scraping: a
+1. Guest CLIs and manually launched Pi keep their **real TUIs in
+   terminals** (ADR-0017/0026 substrate). State comes from **level-2
+   sensors**, not scraping: a
    per-tool hook/notify config POSTs lifecycle events to the daemon.
 2. The daemon republishes sensor events on the **ADR-0048 feed** using
    the same state vocabulary pi already emits (`working` / `needs you`
