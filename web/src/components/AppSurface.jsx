@@ -167,7 +167,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
       });
       if (res && res.toast) toast(res.toast, "ok");
       // A goto directive outranks every in-app outcome: the action asks
-      // the shell to leave the app (Open terminal → the agent's tab).
+      // the shell to leave the app ("agent:" → the agent's tab).
       if (res && res.goto && onGoto) {
         onGoto(String(res.goto));
         return;

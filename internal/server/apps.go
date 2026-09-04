@@ -24,10 +24,6 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 		// Negate once, right here, matching handleRespondInbox's own
 		// wiring (internal/server/inbox.go) — deliverable, not interactive.
 		AgentDeliverable: func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) },
-		OpenAgentTerminal: func(agentID string) error {
-			_, err := deps.openAgentTUI(r.Context(), agentID, false)
-			return err
-		},
 		DeliverReply: func(itemID, verb, text string) (string, error) {
 			return deps.DeliverReply(r.Context(), itemID, verb, text)
 		},

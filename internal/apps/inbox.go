@@ -331,19 +331,6 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 		for _, verb := range it.Allowed {
 			allowed[verb] = true
 		}
-		// A TUI agent is not reachable through the ordinary queue
-		// (h.AgentDeliverable answers false). Keep Open terminal beside the
-		// ADR-0059 burst form as the one-click escape hatch if preflight
-		// refuses the temporary handoff.
-		if it.SourceKind == store.InboxFromAgent &&
-			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) &&
-			allowed[store.VerbRespond] &&
-			h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
-			h.OpenAgentTerminal != nil {
-			detail = append(detail, Block{Type: "actions", Pane: "detail", Actions: []Action{{
-				ID: "open-terminal", Label: "Open terminal", Args: map[string]string{"item": it.ID},
-			}}})
-		}
 		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
 				ID:       "respond",
@@ -435,25 +422,6 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		return a.backTo(h, returnPath, "Item deleted")
-	case "open-terminal":
-		it, err := h.Store.GetInboxItem(id)
-		if err != nil {
-			return ActionResult{}, err
-		}
-		if it.SourceKind != store.InboxFromAgent || strings.TrimSpace(it.SourceID) == "" {
-			return ActionResult{}, fmt.Errorf("This item has no agent terminal to open.")
-		}
-		if h.OpenAgentTerminal == nil {
-			return ActionResult{}, fmt.Errorf("Opening a terminal is not supported here.")
-		}
-		if err := h.OpenAgentTerminal(it.SourceID); err != nil {
-			// Sentence case: surfaces verbatim as a toast.
-			return ActionResult{}, fmt.Errorf("Could not open the terminal: %v", err)
-		}
-		return ActionResult{
-			Toast: "Terminal started — it lives on the agent's tab.",
-			Goto:  "agent:" + it.SourceID,
-		}, nil
 	case "respond", "accept", "ignore", "decline":
 		verb := req.Action
 		text := req.Args["reply"]

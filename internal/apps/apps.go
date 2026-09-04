@@ -43,12 +43,6 @@ type Host struct {
 	// meaning is how this got inverted the first time. Optional — nil
 	// means "assume yes" (tests, the demo app).
 	AgentDeliverable store.AgentDeliverable
-	// OpenAgentTerminal starts (or confirms) the agent's interactive pi
-	// TUI — the escape hatch an inbox item offers when a reply cannot be
-	// delivered to a TUI agent (ADR-0037). Optional — nil means the host
-	// cannot open terminals (tests, the demo app) and the action is not
-	// offered.
-	OpenAgentTerminal func(agentID string) error
 	// DeliverReply sends an Inbox reply directly into the agent's running
 	// terminal TUI (ADR-0060): receiver extension, tmux paste fallback, and
 	// durable JSONL proof with reopen-on-failure. It returns the source
