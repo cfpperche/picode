@@ -45,7 +45,7 @@ rewrites it on each start, so port changes are picked up) and POSTs the
 item to `POST /api/inbox` over loopback. Identity comes from
 `PICODE_AGENT_ID`, which PiCode sets on every managed agent; a plain
 terminal `pi` files as *pi (unmanaged)*. The self-signed certificate is
-accepted for that one localhost request only.
+accepted for that single loopback request only.
 
 ## How you know it worked
 
