@@ -20,6 +20,13 @@ commits with this merge. The ADR-0059 burst machinery is removed: Inbox
 replies now land directly in the running TUI. The owner's systemd stop bound
 keeps deploys stopping cleanly (verified: no SIGKILL, no timeout).
 
+Workspace cards still miss Next.js App Router marks on the deployed binary
+(`0.1.0+21d7144`). Branch `feat/workspace-favicon-nextjs` (worktree
+`.worktrees/workspace-favicon-nextjs`) extends favicon lookup to `icon.svg`
+and `apps/<name>/{public,app,src/app}` — Cognixse's
+`apps/web/app/icon.svg` is found. Not merged, not deployed. The primary
+checkout has an unfinished merge; leave it.
+
 ### Product and platform
 
 - One Go binary serves the React/Vite desktop and mobile ADE. HTTPS defaults
@@ -80,6 +87,12 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
+- **Workspace Next.js favicon** on `feat/workspace-favicon-nextjs`. Lookup
+  covers `icon.svg`/`png`/`ico` plus `apps/<name>/{public,app,src/app}`
+  (`apps/web` first). Server tests pass, including a live check of
+  `/home/goat/cognixse/apps/web/app/icon.svg` (24 673 bytes). UI is unchanged
+  (`WsFavicon` already renders the endpoint); a page-load Set caches a 404,
+  so deploy must be followed by a reload. visual-review: N/A (no JSX/CSS).
 - **ADR-0060 is deployed; the live validation reply is the owner's next move.**
   This TUI (`mobile-6bf740`) predates the receiver, so its first live reply
   exercises the tmux paste fallback; respawning a TUI (`open?restart=1` or a
@@ -102,21 +115,29 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Next up
 
-1. Owner validates one live Inbox reply on this TUI (paste fallback), then
+1. Merge `feat/workspace-favicon-nextjs` and deploy; hard-reload the sidebar
+   so COGNIXSE's cached favicon 404 does not stick.
+2. Owner validates one live Inbox reply on this TUI (paste fallback), then
    respawns a TUI to prove the receiver channel end to end.
-2. Inspect the live store's historical Inbox rows; close or repair only the
+3. Inspect the live store's historical Inbox rows; close or repair only the
    exact stale rows before any new live test.
-3. Implement selective docs-video capture/render from the shipped surface
+4. Implement selective docs-video capture/render from the shipped surface
    profiles, add cache boundaries, and choose the maintenance trigger policy
    (manual, scheduled or both).
-4. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
-5. Run the owner-controlled remote-mode acceptance matrix, then decide the
+5. Continue the browser-preview emitter/panel and ADR-0054 real-page dogfood.
+6. Run the owner-controlled remote-mode acceptance matrix, then decide the
    SaaS track.
-6. Build Providers Models/Activity only after confirming their current study
+7. Build Providers Models/Activity only after confirming their current study
    still matches Pi's provider data.
 
 ## Known debts / open questions
 
+- The primary `picode` checkout has an unfinished merge in progress. Do not
+  `git switch` or `git clean -fdx` there.
+- A Pi TUI compact at ~100.8k tokens aborted an in-flight `read` and did not
+  resume the turn (session `w nodeterm compact`, 2026-09-04). ADR-0061 says
+  early compact is `turn_end`; this looked mid-turn. Separate from the
+  favicon branch.
 - A deploy onto a daemon that still has the old binwatch will SIGKILL once
   (the outgoing process re-execs). The next restart of `0.1.0+6cf705d` stops
   in the 5s HTTP drain with no re-exec and no SIGKILL. `KillMode=process`
@@ -156,6 +177,12 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — workspace cards find Next.js `icon.svg`.** Favicon lookup
+  now checks `icon.svg`/`png`/`ico` (svg still beats png/ico) and scans
+  `apps/<name>/{public,app,src/app}` after the static dirs, with `apps/web`
+  first. Cognixse (`apps/web/app/icon.svg`) is the reproducing case. Branch
+  `feat/workspace-favicon-nextjs`, not deployed. visual-review: N/A (lookup
+  only; sidebar already wears `/api/workspaces/{id}/favicon`).
 - **2026-09-04 — docs captures gained per-surface fingerprints.** Public
   screenshots and tutorial stills now map to named desktop/mobile profiles;
   local screen imports, shared shell/style/fixture inputs and selected data

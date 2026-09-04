@@ -428,8 +428,9 @@ HTTP API (Go 1.22 method patterns):
   `?state=done` is refused (400) so nothing can wipe the mailbox by
   accident.
 - `GET /api/workspaces/{id}/favicon` — the project's favicon (root, then
-  public/static/app/src/app/www/docs; svg > png > ico), read-only and
-  confined to the folder; the workspace card wears it.
+  public/static/app/src/app/www/docs and nested frontends, including Next.js
+  App Router `icon.svg` under `app/` or `apps/<name>/app/`; svg > png > ico),
+  read-only and confined to the folder; the workspace card wears it.
 - `DELETE /api/workspaces/{id}` — remove (stops **all** agents first, then
   kills the workspace's terminals — sessions best-effort, records and
   settings overrides in one transaction; ADR-0026). With

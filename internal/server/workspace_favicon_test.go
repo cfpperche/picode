@@ -1,7 +1,9 @@
 package server
 
 import (
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,5 +81,128 @@ func TestWorkspaceFaviconNestedFrontend(t *testing.T) {
 	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wk.ID+"/favicon"))
 	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
 		t.Fatalf("nested favicon = %d %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+}
+
+func writeFavicon(t *testing.T, root, rel string, data []byte) {
+	t.Helper()
+	p := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func getFavicon(t *testing.T, ts *httptest.Server, wkID string) *http.Response {
+	t.Helper()
+	return do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wkID+"/favicon"))
+}
+
+func faviconBody(t *testing.T, res *http.Response) string {
+	t.Helper()
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestWorkspaceFaviconNextAppRouter(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Next", proj)
+	writeFavicon(t, proj, "app/icon.svg", []byte("<svg id='next'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("app/icon.svg = %d %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	if got := faviconBody(t, res); got != "<svg id='next'/>" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestWorkspaceFaviconAppsWebMonorepo(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Turbo", proj)
+	writeFavicon(t, proj, "apps/web/app/icon.svg", []byte("<svg id='web'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("apps/web/app/icon.svg = %d %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	if got := faviconBody(t, res); got != "<svg id='web'/>" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestWorkspaceFaviconAppsOtherName(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Site", proj)
+	writeFavicon(t, proj, "apps/site/app/icon.svg", []byte("<svg id='site'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("apps/site/app/icon.svg = %d %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	if got := faviconBody(t, res); got != "<svg id='site'/>" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestWorkspaceFaviconIconSvgBeatsIco(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Both", proj)
+	writeFavicon(t, proj, "app/favicon.ico", []byte("ico-bytes"))
+	writeFavicon(t, proj, "app/icon.svg", []byte("<svg id='mark'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if res.Header.Get("Content-Type") != "image/svg+xml" {
+		t.Fatalf("icon.svg should beat favicon.ico: %q", res.Header.Get("Content-Type"))
+	}
+	if got := faviconBody(t, res); got != "<svg id='mark'/>" {
+		t.Fatalf("body = %q", got)
+	}
+}
+
+func TestWorkspaceFaviconRootBeatsApps(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Root", proj)
+	writeFavicon(t, proj, "apps/web/app/icon.svg", []byte("<svg id='nested'/>"))
+	writeFavicon(t, proj, "favicon.svg", []byte("<svg id='root'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if got := faviconBody(t, res); got != "<svg id='root'/>" {
+		t.Fatalf("root should win: %q", got)
+	}
+}
+
+func TestWorkspaceFaviconSkipsDotAndNodeModulesApps(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "Skip", proj)
+	writeFavicon(t, proj, "apps/node_modules/app/icon.svg", []byte("<svg id='nm'/>"))
+	writeFavicon(t, proj, "apps/.cache/app/icon.svg", []byte("<svg id='dot'/>"))
+	res := getFavicon(t, ts, wk.ID)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("hidden/node_modules apps should be ignored, got %d", res.StatusCode)
+	}
+}
+
+func TestFindWorkspaceFaviconPrefersWebApp(t *testing.T) {
+	root := t.TempDir()
+	writeFavicon(t, root, "apps/site/app/icon.svg", []byte("site"))
+	writeFavicon(t, root, "apps/web/app/icon.svg", []byte("web"))
+	abs, ok := findWorkspaceFavicon(root)
+	if !ok {
+		t.Fatal("expected a favicon")
+	}
+	got, err := os.ReadFile(abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "web" {
+		t.Fatalf("apps/web should outrank other apps: %q", got)
 	}
 }

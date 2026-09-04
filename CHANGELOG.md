@@ -113,6 +113,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Workspace cards pick up a Next.js App Router `icon.svg`**, including
+  turborepo apps under `apps/<name>/app/`. A project whose mark lives at
+  `apps/web/app/icon.svg` no longer shows a plain folder next to workspaces
+  that ship `favicon.svg`.
+
 - **`systemctl --user restart picode` no longer waits 30s for SIGKILL.**
   Deploy copies the new binary then signals the running daemon; the daemon
   used to notice the newer file during that SIGTERM and `exec` itself in the
