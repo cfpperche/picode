@@ -161,8 +161,12 @@ never shipped separately — the burst it fixed no longer exists.
   `make docs-videos`. A four-row decision table covers exact parity, unrelated
   UI drift, changed rendered inputs and missing/tampered MP4s. Current app
   screenshots were regenerated and read; the interrupted video render was not
-  retained. Full `make ci` passed. visual-review: PASS (generated desktop and
-  mobile docs screenshots read; no layout defect, overlay change or new state).
+  retained. The first hosted run also exposed an inherited trailing blank line
+  in a frontend test; the whitespace gate is corrected. Because the current
+  screenshot fingerprint includes test files, that no-pixel change forced a
+  second screenshot capture and confirms the need for per-surface inputs.
+  Full `make ci` passed. visual-review: PASS (generated desktop and mobile docs
+  screenshots read; no layout defect, overlay change or new state).
 - **2026-09-04 — root README refactored around the reader's journey.** Product
   value and proof now lead into shipped capabilities, native Pi boundaries,
   current setup, daily commands and a compact runtime diagram; the stale

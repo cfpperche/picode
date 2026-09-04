@@ -159,4 +159,3 @@ test("normalizeView preserves tabs, drops junk ones, caps the count", () => {
   });
   assert.equal(many.tabs.length, 8);
 });
-
