@@ -7,22 +7,22 @@
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
         "v1-1b-agents-tab": {
-          "sha256": "746f22d2b827d4f8375819a9779e0c0e620e3a25f87a5817a8cd7656809261cf",
+          "sha256": "88866945498b99eac2d5044f4b6861020c13e9750e82b9069b62f6e471f329d1",
           "surface": "desktop-agents",
-          "inputHash": "7dbe64cba5ee62679c435ff104c1e965f1b13747fed23898ffc26f523449cfeb"
+          "inputHash": "fdccd62f37195b65e9675fd9d2586e4cbf59d5f10810e7d9de7004a1c2938d63"
         },
         "v1-2-form": {
-          "sha256": "2b4166a98979b2137eb353bff77212b22e36265a9496aa1171583927695308d7",
+          "sha256": "1fbeefec83647a2d354ed50784eb656ff211fae29493511ac6b477f845408d20",
           "surface": "desktop-create-agent",
-          "inputHash": "371eee0c5880e337aa4b7740bb740609401336dcbef207191fea99c8e780a112"
+          "inputHash": "eecb4c0965bae082e7bf39b0bb803eb5d0c73787aaa97d4efbf25ca7ca5be017"
         },
         "v1-3-running": {
-          "sha256": "8865db3fdf15a313f2362601ccceac0613aeadfb387f1eb87ac3e0644cb9426e",
+          "sha256": "dc1c3dedbeec366399e745f388e0a66ad1620584bf67c40ea7233e96a17a8009",
           "surface": "desktop-agent",
-          "inputHash": "ae6b3560d3237885392be522b5950f4e848ce18d73e8f6fe7ce7682338c7ce68"
+          "inputHash": "5eee694a8505efa5f8ae524e97d81c764ca61cd4cde8cbee46e6964917285ba3"
         }
       },
-      "mp4": "b09177877a88d429b27600fe6f385b3f7b3d46c69e8a6f6e70b8921f20d4c197"
+      "mp4": "eb47778a3b17efd6f6cb37218863f4a7c9d684c28fc8a1867e62f5c0b95a4619"
     },
     "automate-it": {
       "file": "automate-it.mp4",
@@ -30,22 +30,22 @@
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
         "v2-1-list": {
-          "sha256": "dc759374f9c98cbbdb6db9ec2cd8957d689c0a7cdf62cf61e307ce0698fb7bb4",
+          "sha256": "bd4644f7a5aaaa46ee08a801ba45d1f98911ea1b0c55986bc8ea25d4caee861e",
           "surface": "desktop-automations",
-          "inputHash": "9613b10323152c9a95d7ab04586c1b0d57c9a75b99943234ab4dad9f90852cf3"
+          "inputHash": "8eeb2f267a10fdfb8061b3bb2b8672b1a2c2a60946b5fab3a0b0d4c53397cd7a"
         },
         "v2-2-detail": {
-          "sha256": "3f27f5b48f43cbe408bbdd488df401a9daf94865fd47ce8ba3ceed768a06db61",
+          "sha256": "6dc3d73dd0838b48a60dd2cb64b9c7fac80f98b220e3cfc54207c6e3ca584117",
           "surface": "desktop-automations",
-          "inputHash": "9613b10323152c9a95d7ab04586c1b0d57c9a75b99943234ab4dad9f90852cf3"
+          "inputHash": "8eeb2f267a10fdfb8061b3bb2b8672b1a2c2a60946b5fab3a0b0d4c53397cd7a"
         },
         "v2-3-inbox": {
-          "sha256": "1ff3c5792c60e98a845a4499647276c2b2c8736cdaba0117e12f37b4422ebfc6",
+          "sha256": "6eba4cca5360e80889b1479bac06bdfdfa910def56d55025db8326e70f8bb758",
           "surface": "desktop-inbox",
-          "inputHash": "b21266f35af4411daf7c468c38dfe68b10593e706a5edd217ec83bb9e6b6afb0"
+          "inputHash": "bde1fd3f071a78ee5159cce5ec00bf177734db3622afa6c50bd2bab5ae8fa03e"
         }
       },
-      "mp4": "8a21e3338911676ae3c8d4eee29c0784cda1d2a754957505bad4d83cb8f328d3"
+      "mp4": "2f0d29fcec90f15c935b13068fcfdb12d6aac35499b60f36b3a0e29576d8aa87"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",
@@ -53,19 +53,19 @@
       "compositionHash": "da7f53361180409907e9f01afd1aa952775c453d9d53abdf7250c9c4a28d83a0",
       "stills": {
         "v3-1-fleet": {
-          "sha256": "ee33e707bcfea045ae42605541d81bb05846091253365f3ea22cd2df098e6f16",
+          "sha256": "293e03e341bb5bd8d40abeb6cb0cfe0f7ef983c2ca44f94b0515b23a37e98ee1",
           "surface": "mobile-work",
-          "inputHash": "792a3410f959df79c789cb771605cee5ee68f18df79303c32e7cd9bf8c5600f8"
+          "inputHash": "cc1310f3b5774eab2d1e3b5f75aa2287d5b46f085c2994d295720459edd07a6e"
         },
         "v3-2-agent": {
           "sha256": "5385a26ece37c72b2b1b1857cb1ede040b923e4609e3f8305de9794b5596ce76",
           "surface": "mobile-agent",
-          "inputHash": "d7ce90072913aec1ce6e77696a9f80e510de8b1254adcc52d6616cb6534304d1"
+          "inputHash": "69b434c10b34eed35e2b4b68864f7fa48c576251bde52ff884ff333e449ec6d3"
         },
         "v3-3-inbox": {
           "sha256": "38ea77ba8e883bed47803600936dfdba2ec7824ded76ac16d0fd2ede3deaebe0",
           "surface": "mobile-inbox",
-          "inputHash": "464e39d32e1f57bfcd731d8b788015ca7785dff344a5c0b3ed067ed770b78f61"
+          "inputHash": "cde5f20bee900d67a4da58ac5a068b3d969d1641281ef3889e88c5db89f2ad67"
         }
       },
       "mp4": "93cd70d717a6d7ff13a5fda71cd958e2b0d9dc013939b2a2f05a39fe3387feee"

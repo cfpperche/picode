@@ -20,6 +20,15 @@ const CLI_MARKS = Object.freeze({
   pi: "π",
 });
 
+// Keep runtime identity on the vendor's own favicon rather than a home-made
+// glyph. These are the public favicons served by each supported runtime.
+const CLI_FAVICONS = Object.freeze({
+  "claude-code": "https://claude.ai/favicon.ico",
+  codex: "https://openai.com/favicon.ico",
+  grok: "https://grok.com/images/favicon.svg",
+  pi: "https://pi.dev/favicon.svg",
+});
+
 export function normalizeTerminalCli(id) {
   return CLI_ALIASES[String(id || "").trim().toLowerCase()] || "";
 }
@@ -39,6 +48,10 @@ export function terminalCliLabel(id) {
 
 export function terminalCliMark(id) {
   return CLI_MARKS[normalizeTerminalCli(id)] || ">_";
+}
+
+export function terminalCliFaviconUrl(id) {
+  return CLI_FAVICONS[normalizeTerminalCli(id)] || "";
 }
 
 export function terminalStatus(term) {

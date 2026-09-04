@@ -1,5 +1,5 @@
 {
-  "session": "video-stills-1275445-v3-3-inbox",
+  "session": "video-stills-1491851-v3-3-inbox",
   "results": [
     {
       "name": "v1-1-dashboard",
@@ -19,7 +19,7 @@
     {
       "name": "v1-3-running",
       "ok": true,
-      "kb": 58
+      "kb": 57
     },
     {
       "name": "v2-1-list",

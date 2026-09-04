@@ -125,6 +125,10 @@ to the `[Unreleased]` section. The repository's official language is English
   changes, and uses exact tmux command/PID data only as a presence fallback for
   legacy sessions. No terminal pixels are scraped and no guest Agent is
   created.
+- **Official runtime favicons and first-line row alignment.** Claude Code,
+  Codex, Grok, and Pi terminal badges now use the favicon served by their
+  official runtime site, retain a text fallback if an asset cannot load, and
+  align the identity icon with the row's first line on desktop and mobile.
 - **Providers view v2 — every account says what is left of it, who it is,
   and whether pi can actually use it** (ADR-0058, study
   `docs/benchmarks/2026-09-03-providers-view-v2.md`). Each row on
