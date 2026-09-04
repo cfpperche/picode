@@ -3,6 +3,41 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived after release-cadence documentation)
+
+- **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,
+  self-healing chain.** The first real compaction exposed an early
+  `turn_end` trigger that aborted the active run and a stale model link that
+  returned 404s. ADR-0061 now stays dormant without configuration, triggers at
+  `agent_settled` while idle, and retries gemini-3.6-flash → Haiku before Pi's
+  summarizer. Package tests 59/59; `make ci` green; merged and deployed.
+- **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
+  The responsive desktop/mobile surface and generated screenshots landed;
+  `/api/health` and `/api/version` were verified after the local deploy, and
+  the dialog visual review remained green.
+- **2026-09-04 — compact supervision rows and CLI presence merged and deployed
+  (`9bfd1f01`, `66bee74f`).** The complete CI/docs gates and desktop/mobile
+  smoke passed; the terminal rows now keep identity and truthful state first.
+
+- **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
+  workspace list now advertises favicon availability and generated screenshot/
+  tutorial inputs use named surface fingerprints. Full CI and docs parity
+  passed; older detail is archived.
+- **2026-09-04 — sidebar scrollbar hides until hover/focus; deployed to
+  the installed service as `29183241`.** The sidebar's `.side-section` thumb
+  is `scrollbar-color: transparent` at rest and fades in over 180ms on
+  `#sidebar:hover` or `:focus-within` (all five tabs share the one scroll
+  container); `::-webkit-scrollbar` fallback covers engines that ignore the
+  standard property. The gutter stays reserved (`scrollbar-width: thin`), so
+  reveal is a pure fade with no layout shift. Verified live on a seeded dev
+  instance: computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45%
+  / focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
+  every state, overlay audit ok. visual-review: UNVERIFIED for the thumb
+  pixels — a forced-red control proved Chromium CDP screenshots never paint
+  scrollbars in any state, so the pixel check is mechanically impossible in
+  this harness; surface screenshots (read) confirm no layout shift, no
+  clipping and unchanged chrome.
+
 ## Recent activity (archived after docs surface fingerprints)
 
 - **2026-09-04 — docs captures gained per-surface fingerprints.** Public

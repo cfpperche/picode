@@ -6,6 +6,7 @@ Living documentation — evolves with the code, by contract ([AGENTS.md](/AGENTS
 |---|---|
 | [design/providers-gui.md](design/providers-gui.md) | Providers page as TUI `/login` wizard (API key vs account) |
 | [guidelines.md](guidelines.md) | **How we write docs** — internal vs public Pages; pi correlation |
+| [release-process.md](release-process.md) | Maintainer runbook for cutting and verifying a public release |
 | [architecture.md](architecture.md) | Components, protocols, security model |
 | [philosophy.md](philosophy.md) | Moat, values, the "door not cage" principle |
 | [benchmarks.md](benchmarks.md) | Engineering + UI/UX *bars* (enforced by skills) |

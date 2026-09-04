@@ -12,7 +12,9 @@ workspace-favicon merge (`4e9cedbf`) and its handoff (`66bee74f`) also landed
 on local main. The resulting tree preserves the Inbox-to-TUI receiver
 (ADR-0060), pi-compact (ADR-0061), compact supervision rows, authoritative
 terminal CLI presence (ADR-0062), the favicon fix, and the What’s New release
-surface (ADR-0063). Local commits have not been pushed to the remote.
+surface (ADR-0063). Release cadence research, proposed ADR-0064 and the
+maintainer runbook are also in the tree; no official cadence or date is set.
+Local commits have not been pushed to the remote.
 
 **Deployment:** this session's `make deploy` completed successfully after the
 What’s New merge. The installed service is active and serves semver `0.1.0`;
@@ -56,6 +58,9 @@ action stayed closed after reload.
   CLI is never promoted to an Agent.
 - Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
   and integrity-checked tutorial videos.
+- Public release mechanics are tag-driven. The cadence study, proposed
+  ADR-0064 and maintainer checklist are documented, but no calendar-triggered
+  release or Preview lane is active.
 
 ### ADR-0061 compaction policy package (`pi-compact`)
 
@@ -89,18 +94,22 @@ directive: **no defaults, ever**):
   The Browser preview emitter/panel remains open.
 - Second-account, container, public-OIDC, and other remote-mode acceptance
   runs require owner-controlled infrastructure.
+- ADR-0064 is proposed: the owner still needs to choose whether to accept the
+  three-release, two-week pilot. Official release dates remain unset.
 
 ## Next up
 
 1. Owner restarts PiCode (new binary), then chooses: leave agents dormant or
    write a config (`/compact edit`); re-dogfood compaction expecting
    `fromHook: true` + 3.6-flash pricing and no aborted runs.
-2. Review the current local main and decide when to push/promote it; the
+2. Review ADR-0064 and choose the official cadence/pilot window; no release
+   date is committed yet.
+3. Review the current local main and decide when to push/promote it; the
    What’s New merge and deploy are complete locally.
-3. Inspect the exact historical Inbox rows before any real TUI reply test.
-4. Run the owner-controlled remote-mode acceptance matrix.
-5. Continue the Browser preview panel and ADR-0054 dogfood.
-6. Decide whether selective docs-video capture/render should be scheduled;
+4. Inspect the exact historical Inbox rows before any real TUI reply test.
+5. Run the owner-controlled remote-mode acceptance matrix.
+6. Continue the Browser preview panel and ADR-0054 dogfood.
+7. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -124,54 +133,13 @@ directive: **no defaults, ever**):
 
 ## Recent activity
 
-- **2026-09-04 — ADR-0061 amended after dogfood: no defaults, safe trigger,
-  self-healing chain.** The first real compaction exposed two defects: the
-  early trigger fired from `turn_end` and `ctx.compact()`'s leading `abort()`
-  killed the active run ("This operation was aborted"; agent never
-  continued), and the auto chain led with gemini-2.5-flash, which now 404s
-  for newer Google accounts, so compaction silently fell back to Pi's
-  summarizer. Fixes: dormant-until-configured semantics (owner directive —
-  no defaults, ever), trigger moved to `agent_settled` + `isIdle()` guard,
-  per-link chain retry with gemini-3.6-flash → Haiku. ADR-0061 amended in
-  place; guide/README/CHANGELOG updated; package tests 59/59; `make ci`
-  green (docs shots refreshed after the whats-new UI merge). Merged to
-  `main` and deployed: `0.1.0+18e6788`, health ok (new boot), service
-  active, 103 tmux sessions intact.
-
-- **2026-09-04 — What’s New release highlights merged and deployed (ADR-0063).**
-  Resolved the ADR-number collision with the already accepted terminal CLI
-  presence ADR-0062, merged the responsive desktop/mobile surface, regenerated
-  the public app screenshots, rebuilt/restarted the installed service, and
-  verified `/api/health` plus `/api/version` on `0.1.0`. Post-merge `make ci`
-  passed; visual review of the dialog states remained green.
-
-- **2026-09-04 — merged and deployed compact supervision rows and CLI
-  presence (`9bfd1f01`), then verified the newer local main (`66bee74f`,
-  `0.1.0+66bee74`).** Resolved the overlap with the Inbox/TUI and compaction
-  work, added ADR-0062 to the decision index, ran the complete CI/docs gates,
-  restarted the installed service, and verified health, version, current tmux
-  fleet, desktop/mobile UI, menu containment, reload, and Escape close.
-  visual-review: PASS (screenshots read; overlay audit ok; no clipping,
-  unreadable controls, double scroll or dead hover).
-- **2026-09-04 — workspace favicon and docs-surface parity work landed.** The
-  workspace list now advertises favicon availability and generated screenshot/
-  tutorial inputs use named surface fingerprints. Full CI and docs parity
-  passed; older detail is archived.
-- **2026-09-04 — sidebar scrollbar hides until hover/focus; deployed to
-  the installed service as `29183241`.** The
-  sidebar's `.side-section` thumb is `scrollbar-color: transparent` at
-  rest and fades in over 180ms on `#sidebar:hover` or `:focus-within`
-  (all five tabs share the one scroll container); `::-webkit-scrollbar`
-  fallback covers engines that ignore the standard property. The gutter
-  stays reserved (`scrollbar-width: thin`), so reveal is a pure fade
-  with no layout shift. Verified live on a seeded dev instance:
-  computed thumb color per state (rest `rgba(0,0,0,0)` / hover 45% /
-  focus 45%), transition interpolated mid-flight, `clientWidth` 243 in
-  every state, overlay audit ok. visual-review: UNVERIFIED for the
-  thumb pixels — a forced-red control proved Chromium CDP screenshots
-  never paint scrollbars in any state, so the pixel check is
-  mechanically impossible in this harness; surface screenshots (read)
-  confirm no layout shift, no clipping and unchanged chrome.
+- **2026-09-04 — release cadence process documented (proposed ADR-0064).**
+  Added a benchmark study covering VS Code, Linear, Zed, Cursor and Go; a
+  proposed source/dogfood versus Stable release-lane decision; and a
+  maintainer runbook covering scope freeze, quality gates, tagging, artifact
+  verification, observation and hotfixes. Linked the documents from the
+  contributor, README, benchmark and ADR indexes. No official cadence, date,
+  Preview channel or scheduled workflow was activated. `make ci` passed.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
