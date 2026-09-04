@@ -78,10 +78,11 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## In flight
 
-- **ADR-0060 is deployed; the live validation reply is the owner's next move.**
-  This TUI (`mobile-6bf740`) predates the receiver, so its first live reply
-  exercises the tmux paste fallback; respawning a TUI (`open?restart=1` or a
-  fresh Start) switches that agent to the receiver channel.
+- **ADR-0060 live validation passed (2026-09-04 15:25).** A real reply to the
+  `[Teste ADR-0060]` item landed inside this TUI, task delivered in 2.1s via
+  the exact JSONL row, item done, tmux identity intact, no leftovers. The
+  "Open terminal" card action was removed afterwards as noise (hotfix,
+  deployed `0.1.0+f8b140f`).
 - **Historical Inbox QA state needs reconciliation before dogfood.** A prior
   failed reply is absent from the captured `mobile-6bf740` JSONL. Earlier
   cleanup targeted `qa-switch-058577` while the pending task belonged to
@@ -153,6 +154,13 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — "Open terminal" removed from Inbox item cards
+  (`32158c13`, deployed `0.1.0+f8b140f`).** With ADR-0060 the reply itself
+  lands in the agent's terminal, so the card-level escape hatch read as
+  noise. Action, host wiring, and the `open-terminal` case deleted; the view
+  test now asserts the card has no such action. First CI run under the new
+  process (video freshness decoupled) is green. visual-review: n/a
+  (removal only).
 - **2026-09-04 — tutorial video rendering left the delivery critical path.**
   Default docs CI now checks composition, referenced-still, render and shipped
   MP4 integrity without treating every global UI-tree change as a mandatory
