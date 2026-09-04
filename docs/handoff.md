@@ -177,6 +177,13 @@ never shipped separately — the burst it fixed no longer exists.
 
 ## Recent activity
 
+- **2026-09-04 — pi-compact (ADR-0061) merged and deployed (`0.1.0+21d7144`).**
+  Rebased onto the new CI process (video freshness decoupled from
+  delivery; docs media regenerated for the UserMenu change). 51 package
+  tests + full `make ci` green; docs parity re-shot. Deploy verified:
+  health 200, served asset matches the built bundle (UserMenu docs link
+  live), service active, 89 tmux sessions intact. visual-review: PASS
+  (menu click verified on an ephemeral daemon earlier).
 - **2026-09-04 — "Open terminal" removed from Inbox item cards
   (`32158c13`, deployed `0.1.0+f8b140f`).** With ADR-0060 the reply itself
   lands in the agent's terminal, so the card-level escape hatch read as
