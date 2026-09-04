@@ -10,11 +10,13 @@
 `visual-review`. Empty/blocked/error states and screenshots are required;
 `window.__picodeOverlayAudit()` must be `ok`.
 
-**Repository:** local `main` contains ADR-0059 feature commit `81ac872b` plus
-this deployment handoff; `origin/main` remains `dd98084c` (no push requested).
-`make ci` passed at the exact feature commit. `make deploy` installed
-`0.1.0+81ac872`; health, embedded assets, migration, browser load, and session
-preservation were verified.
+**Repository:** local `main` keeps the unpushed ADR-0059 commits
+`81ac872b`/`83ed7a9c` and passive-extension follow-up `259eb50a`, then merges
+`origin/main` through CI handoff `43c99186`; those local product commits remain
+unpublished by owner choice. PR #3's optimized hosted CI is green on its full
+and metadata-only paths; final local `make ci` passed in 195s on the merged
+tree. The active installed service reports `0.1.0+259eb50`; the CI-only merge
+needs no deployment.
 
 ### Product and platform
 
@@ -63,6 +65,10 @@ RPC turn on the Inbox item's exact captured session:
 - Holder and direct-respawn restoration get independent deadlines. If both
   fail, a retryable card explicitly replaces the stale session and remounts the
   terminal client. Direct `send-keys` remains an explicit fallback only.
+- Passive extension UI updates (status, widget, title, notify, editor text) no
+  longer abort a reply burst; only blocking select/confirm/input/editor dialogs
+  stop it. This follow-up is committed locally as `259eb50a` and is active in
+  the installed service, but remains unpublished.
 
 Integration evidence:
 
@@ -85,7 +91,11 @@ Integration evidence:
 
 ## In flight
 
-- **No ADR-0059 implementation, merge, or deployment work remains.** A real-Pi
+- **The ADR-0059 passive-extension follow-up remains unpushed.** Commit
+  `259eb50a` includes server/race decision-table coverage and refreshed docs
+  media. The installed service is running that commit; publishing it remains
+  separate from the now-complete CI optimization.
+- **No original ADR-0059 implementation, merge, or deployment work remains.** A real-Pi
   Inbox reply/cancel remains deliberately separate dogfood and has not been
   authorized or performed.
 - **Historical Inbox QA state needs reconciliation before dogfood.** A prior
@@ -136,8 +146,12 @@ Integration evidence:
   is deliberate even if the operator later browses another TUI session.
 - Direct `send-keys` delivery is available only as a deliberate fallback; no
   automatic fallback bypasses exact-session verification or consent.
-- Hosted CI is green on Ubuntu, macOS, and Windows after PR #2. Hard-crash
-  burst behavior outside Linux still lacks a live platform acceptance run.
+- Hosted CI is green on Ubuntu, macOS, and Windows after PR #3. Full-path PR
+  run `33878224835` and post-merge main run `33878695007` passed in
+  3m54s/3m52s; metadata-only run `33879212363` passed in 32s with every heavy
+  job skipped; follow-up run `33879325513` repeated that row in 27s.
+  Hard-crash burst behavior outside Linux still lacks a live
+  platform acceptance run.
 - Pi still exposes one active credential slot; concurrent agents share it.
   Per-agent OAuth isolation and proactive quota switching require an owner
   decision and measurement.
@@ -153,6 +167,20 @@ Integration evidence:
 
 ## Recent activity
 
+- **2026-09-04 — Hosted CI split by workload and merged (PR #3).** Frontend is
+  built/tested once on Ubuntu and its 14 MB output feeds the embedded build;
+  public docs and the Linux/macOS/Windows Go boundary run in parallel without
+  repeated Node installs. The fail-safe path classifier and final gate are
+  decision-table tested, superseded runs cancel, and parity now checks the
+  committed OpenAPI/llms.txt before regeneration. Full PR/main runs
+  `33878224835`/`33878695007` passed in 3m54s/3m52s; metadata-only runs
+  `33879212363`/`33879325513` ran only classifier + final gate and passed in
+  32s/27s. No product deployment was needed.
+- **2026-09-04 — Passive extension UI no longer kills Inbox replies.** Local,
+  unpushed `259eb50a` ignores fire-and-forget status/widget/title/notify/editor
+  updates during a reply burst while retaining fail-closed behavior for real
+  select/confirm/input/editor dialogs. Tests and docs media are in the commit;
+  the installed service reports that version, but it remains unpushed.
 - **2026-09-04 — ADR-0059 integrated and deployed.** Local `main` fast-forwarded
   to gated feature commit `81ac872b`; `make deploy` now serves
   `0.1.0+81ac872`. The original 50 and immediate 54 tmux identities, both exact

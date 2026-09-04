@@ -1,10 +1,14 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos build restart deploy install test test-js fmt fmt-check vet ci clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos build restart deploy install test test-js fmt fmt-check vet ci-docs ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+# Lockfiles and integrity hashes still decide the exact dependency graph; these
+# flags avoid advisory/funding network calls and prefer setup-node's warm cache.
+NPM_CI_FLAGS ?= --prefer-offline --no-audit --no-fund
 
 # .git/hooks is not versioned, so the guards live in .githooks and every
 # target that a human or an agent runs first points git at them. Idempotent
@@ -29,7 +33,7 @@ ui: ## Vite HMR on :5173 (proxies /api and /ws to https://localhost:8445)
 NODE_STAMP := web/node_modules/.package-lock.json
 
 $(NODE_STAMP): web/package-lock.json
-	cd web && npm ci
+	cd web && npm ci $(NPM_CI_FLAGS)
 	@touch $(NODE_STAMP)
 
 web: $(NODE_STAMP) ## Build the React UI into internal/web/public (ADR-0008)
@@ -38,7 +42,7 @@ web: $(NODE_STAMP) ## Build the React UI into internal/web/public (ADR-0008)
 WWW_STAMP := www/node_modules/.package-lock.json
 
 $(WWW_STAMP): www/package-lock.json
-	cd www && npm ci
+	cd www && npm ci $(NPM_CI_FLAGS)
 	@touch $(WWW_STAMP)
 
 docs: openapi llms $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
@@ -121,6 +125,7 @@ test: ## Run all Go tests
 
 test-js: $(NODE_STAMP) ## Run the frontend unit tests and the pi package suites
 	cd web && npm test
+	node --test scripts/*.test.mjs
 	node --test packages/pi-roles/test/*.test.ts
 	node --test packages/pi-inbox/test/*.test.ts
 	node --test packages/pi-checklist/test/*.test.ts
@@ -142,7 +147,13 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-ci: hooks-check fmt-check vet test test-js build docs docs-check vale ## Everything CI runs (includes UI + public docs + image + prose parity)
+# Keep parity ahead of generation: `docs` rewrites OpenAPI/llms.txt, so checking
+# afterward would accidentally bless stale committed artifacts.
+ci-docs: ## Verify committed docs parity, then build the public site
+	$(MAKE) docs-check
+	$(MAKE) docs
+
+ci: hooks-check fmt-check vet test test-js build ci-docs vale ## Everything CI runs (includes UI + public docs + image + prose parity)
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist
