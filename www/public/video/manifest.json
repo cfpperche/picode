@@ -7,22 +7,22 @@
       "compositionHash": "107b14b9b49fb537f749769192800b8d30da2661d0982e4f075f1af85ee6816a",
       "stills": {
         "v1-1b-agents-tab": {
-          "sha256": "88866945498b99eac2d5044f4b6861020c13e9750e82b9069b62f6e471f329d1",
+          "sha256": "bc77aae011e6bd5eaa99c61c7738c026feb7d55cff58fc44f11eb689fad618c8",
           "surface": "desktop-agents",
-          "inputHash": "fdccd62f37195b65e9675fd9d2586e4cbf59d5f10810e7d9de7004a1c2938d63"
+          "inputHash": "cef17aa759d3f92b815a9e5eb997f4e43609aba116ed9819afc917b884bf5b32"
         },
         "v1-2-form": {
-          "sha256": "1fbeefec83647a2d354ed50784eb656ff211fae29493511ac6b477f845408d20",
+          "sha256": "7045599ad364f937485e24d0c7a1fcffcd890ff783d76ef508e2af21117bdc56",
           "surface": "desktop-create-agent",
-          "inputHash": "eecb4c0965bae082e7bf39b0bb803eb5d0c73787aaa97d4efbf25ca7ca5be017"
+          "inputHash": "bde9f9d06e59e48ab51a1881295323d51216acdb6e38aa3509a781400c118b9d"
         },
         "v1-3-running": {
           "sha256": "dc1c3dedbeec366399e745f388e0a66ad1620584bf67c40ea7233e96a17a8009",
           "surface": "desktop-agent",
-          "inputHash": "5eee694a8505efa5f8ae524e97d81c764ca61cd4cde8cbee46e6964917285ba3"
+          "inputHash": "cbff2b3a657ae9feaf54b17ef15f62c99fa154f97a172f3160a5159ab3de2255"
         }
       },
-      "mp4": "eb47778a3b17efd6f6cb37218863f4a7c9d684c28fc8a1867e62f5c0b95a4619"
+      "mp4": "337bd64bcb2c1e8a754450392b759fda858d696ba15cce20c05a816823e53c6d"
     },
     "automate-it": {
       "file": "automate-it.mp4",
@@ -30,22 +30,22 @@
       "compositionHash": "38b977b1b5a9ae1480318d8e62fd0099d2936bc5d2abb99ba91f85fd35444b20",
       "stills": {
         "v2-1-list": {
-          "sha256": "bd4644f7a5aaaa46ee08a801ba45d1f98911ea1b0c55986bc8ea25d4caee861e",
+          "sha256": "2ff2424c3cf1c4b1d83103befecdbb400da7acadc434246ca72a05bb6dd41f14",
           "surface": "desktop-automations",
-          "inputHash": "8eeb2f267a10fdfb8061b3bb2b8672b1a2c2a60946b5fab3a0b0d4c53397cd7a"
+          "inputHash": "dd3f1eb80dfce10c4f1553fe672486a8fd90d913f84d1d33bc0e35d771acf93f"
         },
         "v2-2-detail": {
-          "sha256": "6dc3d73dd0838b48a60dd2cb64b9c7fac80f98b220e3cfc54207c6e3ca584117",
+          "sha256": "966fac896e5d3dee04bcc17c9236a0512c8d32e57517cbffb6ba94498d585583",
           "surface": "desktop-automations",
-          "inputHash": "8eeb2f267a10fdfb8061b3bb2b8672b1a2c2a60946b5fab3a0b0d4c53397cd7a"
+          "inputHash": "dd3f1eb80dfce10c4f1553fe672486a8fd90d913f84d1d33bc0e35d771acf93f"
         },
         "v2-3-inbox": {
-          "sha256": "6eba4cca5360e80889b1479bac06bdfdfa910def56d55025db8326e70f8bb758",
+          "sha256": "7afbf6271f85e7caff03390d4d237e8bf08b5ca93fa6d2b6144f13788c4a07f5",
           "surface": "desktop-inbox",
-          "inputHash": "bde1fd3f071a78ee5159cce5ec00bf177734db3622afa6c50bd2bab5ae8fa03e"
+          "inputHash": "427b4a6eab9ee48730d488236b03582142d0719989bac4aeea392eacf56704ed"
         }
       },
-      "mp4": "2f0d29fcec90f15c935b13068fcfdb12d6aac35499b60f36b3a0e29576d8aa87"
+      "mp4": "bcb0fb7f66485a50781a545addea4ae2bfa13dc183ad36ddba8bbaeed4410ca4"
     },
     "take-it-anywhere": {
       "file": "take-it-anywhere.mp4",
@@ -55,17 +55,17 @@
         "v3-1-fleet": {
           "sha256": "293e03e341bb5bd8d40abeb6cb0cfe0f7ef983c2ca44f94b0515b23a37e98ee1",
           "surface": "mobile-work",
-          "inputHash": "cc1310f3b5774eab2d1e3b5f75aa2287d5b46f085c2994d295720459edd07a6e"
+          "inputHash": "42c0f5c6822def8288e13057a40e8dcb21661501e12172e8b1beaf6ac403700c"
         },
         "v3-2-agent": {
           "sha256": "5385a26ece37c72b2b1b1857cb1ede040b923e4609e3f8305de9794b5596ce76",
           "surface": "mobile-agent",
-          "inputHash": "69b434c10b34eed35e2b4b68864f7fa48c576251bde52ff884ff333e449ec6d3"
+          "inputHash": "c8938ee653aaf32696ffdf6dce73f3b0805521c6f4d3c1502cdf82ada26ea1ea"
         },
         "v3-3-inbox": {
           "sha256": "38ea77ba8e883bed47803600936dfdba2ec7824ded76ac16d0fd2ede3deaebe0",
           "surface": "mobile-inbox",
-          "inputHash": "cde5f20bee900d67a4da58ac5a068b3d969d1641281ef3889e88c5db89f2ad67"
+          "inputHash": "5caf3715f5a3836de6c6f698d94e2f2c57811e5413624f52840b26a101f39927"
         }
       },
       "mp4": "93cd70d717a6d7ff13a5fda71cd958e2b0d9dc013939b2a2f05a39fe3387feee"
