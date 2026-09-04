@@ -6,15 +6,16 @@
 
 ## Current state (read this first)
 
-**Repository:** `feat/docker-sysadmin` includes current local `main`
-(`c117fa46`) and the Docker delivery in ADR-0065. Local integration/deploy
-remain to be completed; the full gate passed. The primary checkout's untracked
-`.pi/compact.json` belongs to ongoing local work and was left untouched.
-Local commits remain unpushed; ADR-0064 is still proposed.
+**Repository:** local `main` includes Docker App/sysadmin delivery
+`a2e377ef` and all prior work through `c117fa46`. Tracked files are clean.
+The pre-existing untracked `.pi/compact.json` was preserved; commits remain
+local and unpushed. ADR-0064 remains proposed.
 
-**Deployment:** the installed service is now on `0.1.0+c117fa4` until this
-session's final deployment. Docker QA runs on separate data directories and
-ports, with one disposable container; existing applications are untouched.
+**Deployment:** the installed service runs `0.1.0+a2e377e` (`release: false`).
+Health returned `ok`, boot `baddf1edaa26e732`; all 123 tmux sessions survived.
+Installed binary and served UI asset hashes match the validated build.
+The deployed Docker inventory and container details work. Scratch daemons,
+owned browser sessions and the disposable QA container were cleaned up.
 
 **Quality:** post-integration `make ci` passes: Go tests, 472 frontend tests,
 all Pi package suites (including sysadmin confirmation/connection coverage),
@@ -25,7 +26,9 @@ tests passed. The ADR-0065 decision table links each outcome to coverage.
 operation and confirmation states. Curated evidence is in
 `docs/screenshots/docker-*.png`. The mobile title/state/ID fit the viewport;
 confirmation overlays return `window.__picodeOverlayAudit().ok: true`.
-visual-review: PASS. Generated docs captures were refreshed and read.
+visual-review: PASS. Deployed mobile details/confirmation were also read;
+audit stayed `ok`, Cancel worked, and no page errors were reported. Generated
+docs captures were refreshed and read.
 
 ### Product and platform
 
@@ -81,10 +84,10 @@ were not evaluated in this Docker session:
 
 ## In flight
 
-- Docker: local merge and deployment are pending; the full gate passed. The real Pi
-  0.85.0 runtime loaded all four tools and executed inventory/detail against
-  the shared API without a model turn. Autonomous model-driven dogfood and
-  Docker Desktop/rootless acceptance were not run.
+- Docker v1 is merged and deployed. The real Pi 0.85.0 runtime loaded all
+  four tools and executed inventory/detail against the shared API without a
+  model turn. Autonomous model-driven dogfood and Docker Desktop/rootless
+  acceptance remain open; the Linux Engine path passed real operation QA.
 - **ADR-0061's amendment is deployed in the current service.** A configured
   real-compaction re-dogfood remains pending; without a config it stays dormant
   as designed, and the run must record `fromHook: true` plus gemini-3.6-flash
@@ -135,14 +138,14 @@ were not evaluated in this Docker session:
 
 ## Recent activity
 
-- **2026-09-04 — Docker App and optional pi-sysadmin package (ADR-0065).**
+- **2026-09-04 — Docker App deployed; pi-sysadmin package ready (ADR-0065).**
   Extended existing Apps primitives and mobile navigation; added bounded
   Engine API operations, idempotent background jobs, verified outcomes and
   durable history. Real disposable-container start/stop/restart passed.
   Event bursts initially starved detail reads; container-state event filters
   and a serialized refresh queue fixed the observed failure, with regression
   coverage. Plain-text logs, empty/blocked/error and mobile confirmations
-  passed screenshot review. visual-review: PASS.
+  passed screenshot review. `make ci` passed. visual-review: PASS.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
