@@ -270,6 +270,9 @@ func TestWorkspaceAPI(t *testing.T) {
 	if len(list) != 1 || list[0].ID != wk.ID {
 		t.Fatalf("list = %+v, want 1 workspace %s", list, wk.ID)
 	}
+	if list[0].HasFavicon {
+		t.Fatal("workspace without an icon should advertise hasFavicon=false")
+	}
 
 	// Open/missing → 404.
 	res5 := do(t, client, mustPost(t, ts.URL+"/api/workspaces/missing/open"))

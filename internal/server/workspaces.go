@@ -20,9 +20,10 @@ import (
 // object here would read as a truthy agent with an empty id in the UI.
 type workspaceView struct {
 	store.Workspace
-	Agent  *agentView    `json:"agent,omitempty"` // first agent; kept for older clients
-	Agents []agentView   `json:"agents"`
-	Git    *gitinfo.Info `json:"git,omitempty"`
+	Agent      *agentView    `json:"agent,omitempty"` // first agent; kept for older clients
+	Agents     []agentView   `json:"agents"`
+	Git        *gitinfo.Info `json:"git,omitempty"`
+	HasFavicon bool          `json:"hasFavicon"`
 }
 
 type agentView struct {
@@ -101,7 +102,7 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	if len(views) > 0 {
 		first = &views[0]
 	}
-	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path)}, nil
+	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {
@@ -197,6 +198,14 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		if deps.Tmux != nil && deps.Tmux.Available() {
 			for _, t := range terms {
 				_ = deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(t.ID))
+			}
+		}
+		for _, t := range terms {
+			if deps.TermStates != nil {
+				deps.TermStates.Drop(t.ID)
+			}
+			if deps.TermRuntimes != nil {
+				deps.TermRuntimes.Drop(t.ID)
 			}
 		}
 		preview := deps.previewCleanup(wk.Path, dying)

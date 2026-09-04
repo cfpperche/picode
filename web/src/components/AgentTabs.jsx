@@ -2,8 +2,10 @@ import { useState } from "react";
 import { locate, displayAgentName } from "../lib/tree.js";
 import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
-import { IconTerminal, IconFile, IconGit, IconFolders } from "./Icons.jsx";
+import { IconFile, IconGit, IconFolders } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
+import TerminalCliBadge from "./TerminalCliBadge.jsx";
+import { terminalCli, terminalCliLabel, terminalStatus } from "../lib/terminalCli.js";
 
 export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
   const terms = terminals || [];
@@ -19,13 +21,13 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
             if (!term) return null;
             return (
               <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab (terminal keeps running)">
-                <span className="mtab-term"><IconTerminal size={13} /></span>
-                <span>{term.name}</span>
-                {/* Terminal CLI state on the tab (ADR-0056 tier 1): needs-you is
+                <span className="mtab-term"><TerminalCliBadge term={term} /></span>
+                <span title={terminalCli(term) ? terminalCliLabel(terminalCli(term)) : "Terminal"}>{term.name}</span>
+                {/* Terminal CLI state on the tab (ADR-0056/0060): needs-you is
                     the user's move, so it gets the accent dot; working gets
-                    the same green dot a running agent wears. */}
-                {term.state === "needs-you" ? <span className="mtab-dot attn" title="Needs you" /> : null}
-                {term.state === "working" ? <span className="mtab-dot running" title="Working" /> : null}
+                    the same accent motion as a running agent. */}
+                {terminalStatus(term) === "needs-you" ? <span className="mtab-dot attn" title="Needs you" /> : null}
+                {terminalStatus(term) === "working" ? <span className="mtab-dot running" title="Working" /> : null}
               </Tab>
             );
           }

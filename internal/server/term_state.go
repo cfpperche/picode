@@ -6,9 +6,11 @@ package server
 // the report to the terminal via PICODE_TERM_ID — injected into the tmux
 // session environment at creation, so every hook process inherits it —
 // and republishes changes as ephemeral terminal.state events (ADR-0048,
-// same pattern as mcp.updated). Nothing here touches SQLite: this is
-// live signal, lost on restart exactly like the MCP snapshots, and a
-// restart is honest "no signal" until the next hook fires.
+// same pattern as mcp.updated). When a wrapper lease exists, the state also
+// carries its runId, so an old process cannot overwrite a newer one. Nothing
+// here touches SQLite: this is live signal, lost on restart exactly like the
+// MCP snapshots, and a restart is honest "no signal" until the next hook or
+// runtime reconciliation fires.
 
 import (
 	"context"
@@ -44,6 +46,7 @@ const cliCap = 32
 type TermState struct {
 	State string    `json:"state"`
 	CLI   string    `json:"cli,omitempty"`
+	RunID string    `json:"runId,omitempty"`
 	At    time.Time `json:"at"`
 }
 
@@ -65,6 +68,13 @@ func validTermState(s string) bool {
 // Set records a report and tells whether anything changed (a repeat of
 // the same state with the same cli is not worth an event).
 func (ts *TermStates) Set(termID, state, cli string, now time.Time) (TermState, bool) {
+	return ts.SetForRun(termID, state, cli, "", now)
+}
+
+// SetForRun records a lifecycle report and associates it with a runtime
+// lease when the wrapper supplied one. An empty runID keeps the legacy hook
+// path working and inherits the previous run identity when possible.
+func (ts *TermStates) SetForRun(termID, state, cli, runID string, now time.Time) (TermState, bool) {
 	if len(cli) > cliCap {
 		cli = cli[:cliCap]
 	}
@@ -74,10 +84,13 @@ func (ts *TermStates) Set(termID, state, cli string, now time.Time) (TermState, 
 		ts.m = map[string]TermState{}
 	}
 	prev, had := ts.m[termID]
-	if had && prev.State == state && prev.CLI == cli {
+	if runID == "" && had {
+		runID = prev.RunID
+	}
+	if had && prev.State == state && prev.CLI == cli && prev.RunID == runID {
 		return prev, false
 	}
-	st := TermState{State: state, CLI: cli, At: now}
+	st := TermState{State: state, CLI: cli, RunID: runID, At: now}
 	ts.m[termID] = st
 	return st, true
 }
@@ -92,11 +105,20 @@ func (ts *TermStates) Get(termID string) (TermState, bool) {
 
 // Drop forgets a terminal (deleted). Reports whether anything was held.
 func (ts *TermStates) Drop(termID string) bool {
+	return ts.DropForRun(termID, "")
+}
+
+// DropForRun clears only the matching runtime's state. Empty state RunIDs
+// are legacy reports and can be cleared by the current runtime ending.
+func (ts *TermStates) DropForRun(termID, runID string) bool {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	_, ok := ts.m[termID]
+	prev, ok := ts.m[termID]
+	if !ok || (runID != "" && prev.RunID != "" && prev.RunID != runID) {
+		return false
+	}
 	delete(ts.m, termID)
-	return ok
+	return true
 }
 
 // Sweep clears stale "working" entries (ttl since the last report) and
@@ -123,9 +145,19 @@ func applyTermState(deps Deps, view map[string]any, termID string) {
 		return
 	}
 	if st, ok := deps.TermStates.Get(termID); ok {
+		if deps.TermRuntimes != nil {
+			if runtime, present := deps.TermRuntimes.Get(termID); present && st.RunID != "" && st.RunID != runtime.RunID {
+				return
+			}
+		}
 		view["state"] = st.State
-		view["cli"] = st.CLI
+		if st.CLI != "" {
+			view["cli"] = st.CLI
+		}
 		view["stateAt"] = st.At
+		if st.RunID != "" {
+			view["runId"] = st.RunID
+		}
 	}
 }
 
@@ -152,11 +184,29 @@ func loopbackURL(deps Deps) string {
 }
 
 func reportTermState(deps Deps, id, state, cli string, now time.Time) TermState {
-	st, changed := deps.TermStates.Set(id, state, cli, now)
+	return reportTermStateForRun(deps, id, state, cli, "", now)
+}
+
+func reportTermStateForRun(deps Deps, id, state, cli, runID string, now time.Time) TermState {
+	if deps.TermRuntimes != nil {
+		if runtime, ok := deps.TermRuntimes.Get(id); ok {
+			if runID == "" {
+				runID = runtime.RunID
+			}
+			if cli == "" {
+				cli = runtime.CLI
+			}
+		}
+	}
+	st, changed := deps.TermStates.SetForRun(id, state, cli, runID, now)
 	if changed && deps.Feed != nil {
-		deps.Feed.Ephemeral("terminal.state", map[string]any{
-			"termId": id, "state": st.State, "cli": st.CLI,
-		})
+		data := map[string]any{
+			"termId": id, "state": st.State, "cli": st.CLI, "at": st.At,
+		}
+		if st.RunID != "" {
+			data["runId"] = st.RunID
+		}
+		deps.Feed.Ephemeral("terminal.state", data)
 	}
 	return st
 }
@@ -190,7 +240,7 @@ func terminalInterruptObserver(deps Deps) func(session string) {
 }
 
 // handleSetTerminalState records a coding CLI's report for one terminal:
-// POST /api/terminals/{id}/state {"state":"working","cli":"claude-code"}.
+// POST /api/terminals/{id}/state {"state":"working","cli":"claude-code","runId":"..."}.
 // The route sits behind the ordinary auth gate (ADR-0049) — hook scripts
 // send the install token like every other non-browser client.
 func handleSetTerminalState(deps Deps) http.HandlerFunc {
@@ -207,6 +257,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 		var req struct {
 			State string `json:"state"`
 			CLI   string `json:"cli"`
+			RunID string `json:"runId"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -216,8 +267,18 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "state must be working, needs-you or idle")
 			return
 		}
-		st := reportTermState(deps, id, req.State, strings.TrimSpace(req.CLI), time.Now())
-		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "at": st.At})
+		runID := strings.TrimSpace(req.RunID)
+		if deps.TermRuntimes != nil {
+			if runtime, ok := deps.TermRuntimes.Get(id); ok {
+				if runID != "" && runID != runtime.RunID {
+					writeErr(w, http.StatusConflict, "stale terminal runtime")
+					return
+				}
+				runID = runtime.RunID
+			}
+		}
+		st := reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, time.Now())
+		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At})
 	}
 }
 
@@ -236,7 +297,13 @@ func StartTermStateSweep(ctx context.Context, deps Deps, every time.Duration) {
 			return
 		case <-t.C:
 			for _, id := range deps.TermStates.Sweep(time.Now(), workingTTL) {
-				deps.Feed.Ephemeral("terminal.state", map[string]any{"termId": id, "state": nil})
+				data := map[string]any{"termId": id, "state": nil}
+				if deps.TermRuntimes != nil {
+					if runtime, ok := deps.TermRuntimes.Get(id); ok {
+						data["runId"] = runtime.RunID
+					}
+				}
+				deps.Feed.Ephemeral("terminal.state", data)
 			}
 		}
 	}

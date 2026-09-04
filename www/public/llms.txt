@@ -24,7 +24,7 @@
 - [Checklist](https://cfpperche.github.io/picode/guide/checklist): Make an agent write its plan before it changes anything, and follow that
 - [Compact earlier](https://cfpperche.github.io/picode/guide/compact): Pi waits until the session is almost out of room before it summarizes.
 - [MCP](https://cfpperche.github.io/picode/guide/mcp): Pi does not speak MCP itself. PiCode writes the files the MCP adapter package reads.
-- [Terminal status for CLIs](https://cfpperche.github.io/picode/guide/terminal-status): A coding CLI running inside a PiCode terminal can report its own
+- [Terminal status for CLIs](https://cfpperche.github.io/picode/guide/terminal-status): A coding CLI running inside a PiCode terminal can identify itself and
 - [llama.cpp](https://cfpperche.github.io/picode/guide/llama): PiCode talks to a running [llama.cpp](https://github.com/ggml-org/llama.cpp) router. It does not install the binary or delete GGUF files.
 - [Chrome extension](https://cfpperche.github.io/picode/guide/browser-extension): Send the tab you are looking at to a PiCode agent — URL, title, selected
 - [Automations](https://cfpperche.github.io/picode/guide/automations): Run an agent on a schedule, or whenever another tool calls a URL. Every run

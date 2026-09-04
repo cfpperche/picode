@@ -12,12 +12,13 @@ import ProviderFaces from "./ProviderFaces.jsx";
 import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
 
 // Workspace cards wear the project's favicon when it has one (ADR-0027).
-// Failures are remembered per page-load so a card without a favicon costs
-// one 404, not one per render; a favicon added mid-session shows on reload.
+// The list advertises whether one exists, so a normal workspace without an
+// icon never creates an expected 404. Failures are still remembered per
+// page-load when a file disappears between the list and image request.
 const faviconFailed = new Set();
 export function WsFavicon({ ws }) {
   const [failed, setFailed] = useState(faviconFailed.has(ws.id));
-  if (failed) return <IconFolder size={16} />;
+  if (failed || ws.hasFavicon === false) return <IconFolder size={16} />;
   return (
     <img
       className="ws-favicon" width={16} height={16} alt="" loading="lazy"

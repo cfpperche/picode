@@ -1,4 +1,5 @@
-import { IconChat, IconTerminal, IconPlay, IconStop, IconX, IconFolder, IconGit, IconSettings } from "./Icons.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine, termLine } from "../lib/repoLine.js";
@@ -6,11 +7,96 @@ import { relTime, absTime } from "../lib/relTime.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine } from "../lib/checklist.js";
+import TerminalCliBadge from "./TerminalCliBadge.jsx";
+import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "../lib/terminalCli.js";
 
-// One row shape for an agent, shared by the sidebar (dense, every action
-// live) and the home dashboard (click-to-open only, a last-active stamp
-// instead of the action cluster). `actions=false` hides run/stop/remove/
-// rename/chat/terminal; `meta=true` adds the relative-time stamp.
+function RowMenu({ label, children }) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="ws-row-menu-trigger"
+          aria-label={"Actions for " + label}
+          title="Actions"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <IconEllipsis size={15} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
+          {children}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function RowMenuItem({ children, onSelect, danger = false }) {
+  return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect}>{children}</DropdownMenu.Item>;
+}
+
+function openRow(e, onSelect) {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    onSelect();
+  }
+}
+
+function AgentStatus({ status, stamp }) {
+  const active = status === "working";
+  const age = active && stamp ? relTime(stamp) : "";
+  return (
+    <span className={"ws-status is-" + status}>
+      {active ? <PiSpinner title="Working" /> : null}
+      <span>{status === "needs-you" ? "Needs you" : status === "working" ? "Working" : status === "interactive" ? "In terminal" : status === "stopped" ? "Stopped" : "Ready"}</span>
+      {age ? <span className="ws-status-age">{age}</span> : null}
+    </span>
+  );
+}
+
+function TerminalStatus({ term }) {
+  const status = terminalStatus(term);
+  const stamp = terminalActivityStamp(term);
+  const age = status === "working" && stamp ? relTime(stamp) : "";
+  return (
+    <span className={"ws-status is-" + status}>
+      {status === "working" ? <PiSpinner title="Working" /> : null}
+      <span>{terminalStatusLabel(term)}</span>
+      {age ? <span className="ws-status-age">{age}</span> : null}
+    </span>
+  );
+}
+
+function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGraph }) {
+  return (
+    <div className="ws-context">
+      <button
+        type="button"
+        className="ws-context-btn"
+        title={"Files — " + line.dir}
+        onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree(ownerKind, ownerId, ownerLabel); }}
+      >
+        <IconFolder size={12} /><span>{line.dir}</span>
+      </button>
+      {line.git ? (
+        <button
+          type="button"
+          className="ws-context-btn ws-context-git"
+          title={"Git graph — " + (line.git.branch || "git")}
+          onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph(ownerKind, ownerId, ownerLabel); }}
+        >
+          <IconGit size={12} /><span>{line.git.branch || "git"}</span>{line.git.dirty ? <span className="ws-context-dirty">{line.git.dirty}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// Compact supervision row shared by the desktop sidebar and dashboard. The
+// row is intentionally flat: identity and activity lead, location recedes,
+// and secondary actions live behind one keyboard-accessible menu.
 export function AgentRow({
   agent: ag, ws,
   selectedId, onSelect,
@@ -22,105 +108,93 @@ export function AgentRow({
   const mode = ag.mode || "stopped";
   const label = displayAgentName(ag, ws);
   const model = shortModel(ag.model || "");
-  const title = model ? label + " - " + model : label;
+  const title = model ? label + " — " + model : label;
   const repo = repoLine(ag, ws);
   const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
   const check = checklistLine(checklists && checklists[ag.id]);
+  const waiting = ag.waiting || ag.id === waitingId;
+  const working = !waiting && (ag.streaming || ag.id === workingId || (workingIds || []).includes(ag.id));
+  const status = waiting ? "needs-you" : working ? "working" : mode === "interactive" ? "interactive" : mode === "stopped" ? "stopped" : "ready";
+  const select = () => onSelect(ag.id);
   return (
-    <li
-      className={"ws-item" + (ag.id === selectedId ? " active" : "")}
-      onClick={(e) => { if (e.target.closest("button")) return; onSelect(ag.id); }}
-    >
-      <div className="ws-row1">
-        {ag.id === workingId || (workingIds || []).includes(ag.id) ? <PiSpinner /> : <ProviderFace agent={ag} />}
-        <span className="ws-name" title={title}>
-          {actions ? (
-            <button type="button" className="ws-name-btn" title="Rename" onClick={() => onRenameAgent && onRenameAgent(ag, label)}>{label}</button>
-          ) : label}
-          {model ? <span className="ws-model"> - {model}</span> : null}
-        </span>
-        {ag.id === waitingId ? <span className="ws-wait">Waiting</span> : null}
-        {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
-      </div>
-      {check ? <ChecklistLine line={check} /> : null}
-      <div className="ws-row2">
-        <button
-          type="button"
-          className="ws-pill"
-          title={"Files — " + (ws ? ws.path : (ag.workPath || ""))}
-          onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("agent", ag.id, label); }}
+    <li className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "")}>
+      <div className="ws-row-main">
+        <div
+          className="ws-row-hit"
+          role="button"
+          tabIndex={0}
+          aria-current={ag.id === selectedId ? "page" : undefined}
+          aria-label={title}
+          onClick={select}
+          onKeyDown={(e) => openRow(e, select)}
         >
-          <IconFolder size={12} /><span className="ws-pill-text">{repo.dir}</span>
-        </button>
-      </div>
-      {repo.git ? (
-        <div className="ws-row2">
-          <button
-            type="button"
-            className="ws-pill"
-            title={"Git graph" + (repo.git.branch ? " — " + repo.git.branch : "")}
-            onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("agent", ag.id, label); }}
-          >
-            <IconGit size={12} /><span className="ws-pill-text">{repo.git.branch || "git"}</span>{repo.git.dirty ? <span className="ws-pill-badge">{repo.git.dirty}</span> : null}
-          </button>
+          <span className="ws-identity-mark">
+            <ProviderFace agent={ag} />
+            {status === "working" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
+          </span>
+          <span className="ws-copy">
+            <span className="ws-title" title={title}>{label}</span>
+            <span className="ws-subtitle">{model || (mode === "interactive" ? "Interactive session" : "Pi agent")}</span>
+          </span>
+          <AgentStatus status={status} stamp={stamp} />
         </div>
-      ) : null}
-      {actions ? (
-        <span className="ws-actions">
-          {mode === "stopped"
-            ? <button type="button" className="ws-icon-btn" title="Run" onClick={() => onRun(ag.id)}><IconPlay /></button>
-            : <button type="button" className="ws-icon-btn" title="Stop" onClick={() => onStop(ag.id)}><IconStop size={12} /></button>}
-          <button type="button" className="ws-icon-btn danger" title="Remove agent" onClick={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={12} /></button>
-          <button type="button" className="ws-icon-btn" title="Chat" aria-pressed={ag.id === selectedId && !termView} onClick={(e) => { e.stopPropagation(); onChat && onChat(ag.id); }}><IconChat size={14} /></button>
-          <button type="button" className="ws-icon-btn" title="Terminal" aria-pressed={ag.id === selectedId && !!termView} onClick={(e) => { e.stopPropagation(); onTerm && onTerm(ag.id); }}><IconTerminal size={14} /></button>
-        </span>
-      ) : null}
+        {actions ? (
+          <RowMenu label={label}>
+            {mode === "stopped"
+              ? <RowMenuItem onSelect={() => onRun && onRun(ag.id)}><IconPlay size={14} /> Start agent</RowMenuItem>
+              : <RowMenuItem onSelect={() => onStop && onStop(ag.id)}><IconStop size={13} /> Stop agent</RowMenuItem>}
+            <RowMenuItem onSelect={() => onChat && onChat(ag.id)}><IconChat size={14} /> Open chat</RowMenuItem>
+            <RowMenuItem onSelect={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /> Open terminal</RowMenuItem>
+            <RowMenuItem onSelect={() => onRenameAgent && onRenameAgent(ag, label)}>Rename</RowMenuItem>
+            <RowMenuItem danger onSelect={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={13} /> Remove agent</RowMenuItem>
+          </RowMenu>
+        ) : null}
+      </div>
+      <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />
+      {check ? <ChecklistLine line={check} /> : null}
+      {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
     </li>
   );
 }
 
-// Same shape for a terminal. Terminals have no live-status field beyond
-// `createdAt`, so the meta stamp reads as "created", not "last active".
+// Terminal rows use the same identity → activity → location rhythm as agent
+// rows. `tui` is authoritative when present; legacy top-level cli/state is
+// still rendered so older sessions degrade visibly rather than disappearing.
 export function TermRow({
   term: t,
   selectedId, onSelectTerm,
   onFileTree, onGitGraph,
-  actions = true, meta = false,
+  actions = true,
   onRenameTerm, onRemoveTerm,
 }) {
   const line = termLine(t);
-  const stamp = t.createdAt;
+  const cli = terminalCli(t);
+  const cliLabel = cli ? terminalCliLabel(cli) : "Terminal";
+  const selected = selectedId === "t:" + t.id;
+  const select = () => onSelectTerm && onSelectTerm(t.id);
   return (
-    <li
-      className={"ws-item" + (selectedId === "t:" + t.id ? " active" : "")}
-      onClick={(e) => { if (e.target.closest("button")) return; onSelectTerm && onSelectTerm(t.id); }}
-    >
-      <div className="ws-row1">
-        {t.state === "working" ? <PiSpinner title="Working" /> : <span className="tree-icon"><IconTerminal size={14} /></span>}
-        {actions ? (
-          <button type="button" className="ws-name ws-name-btn" title="Rename" onClick={() => onRenameTerm && onRenameTerm(t)}>{t.name}</button>
-        ) : <span className="ws-name">{t.name}</span>}
-        {t.state === "needs-you" ? <span className="ws-wait">Needs you</span> : null}
-        {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
-      </div>
-      <div className="ws-row2">
-        <button type="button" className="ws-pill" title={"Files — " + t.cwd} onClick={(e) => { e.stopPropagation(); onFileTree && onFileTree("term", t.id, t.name); }}>
-          <IconFolder size={12} /><span className="ws-pill-text">{line.dir}</span>
-        </button>
-      </div>
-      {line.git ? (
-        <div className="ws-row2">
-          <button type="button" className="ws-pill" title={"Git graph" + (line.git.branch ? " — " + line.git.branch : "")} onClick={(e) => { e.stopPropagation(); onGitGraph && onGitGraph("term", t.id, t.name); }}>
-            <IconGit size={12} /><span className="ws-pill-text">{line.git.branch || "git"}</span>{line.git.dirty ? <span className="ws-pill-badge">{line.git.dirty}</span> : null}
-          </button>
+    <li className={"ws-item is-terminal is-" + terminalStatus(t) + (selected ? " active" : "")}>
+      <div className="ws-row-main">
+        <div className="ws-row-hit" role="button" tabIndex={0} aria-current={selected ? "page" : undefined} aria-label={(t.name || "Terminal") + " — " + cliLabel} onClick={select} onKeyDown={(e) => openRow(e, select)}>
+          <span className="ws-identity-mark">
+            <TerminalCliBadge term={t} />
+            {terminalStatus(t) === "working" ? <span className="ws-activity-dot" aria-hidden="true" /> : null}
+          </span>
+          <span className="ws-copy">
+            <span className="ws-title" title={t.name || "Terminal"}>{t.name || "Terminal"}</span>
+            <span className="ws-subtitle">{cli ? cliLabel : "Shell session"}</span>
+          </span>
+          <TerminalStatus term={t} />
         </div>
-      ) : null}
-      {actions ? (
-        <span className="ws-actions">
-          <button type="button" className="ws-icon-btn danger" title="Remove terminal" onClick={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={12} /></button>
-          <button type="button" className="ws-icon-btn" title="Settings" onClick={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings /></button>
-        </span>
-      ) : null}
+        {actions ? (
+          <RowMenu label={t.name || "Terminal"}>
+            <RowMenuItem onSelect={() => onRenameTerm && onRenameTerm(t)}>Rename</RowMenuItem>
+            <RowMenuItem onSelect={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings size={14} /> Terminal settings</RowMenuItem>
+            <RowMenuItem danger onSelect={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={13} /> Remove terminal</RowMenuItem>
+          </RowMenu>
+        ) : null}
+      </div>
+      <ContextLine line={line} ownerKind="term" ownerId={t.id} ownerLabel={t.name || "Terminal"} onFileTree={onFileTree} onGitGraph={onGitGraph} />
     </li>
   );
 }
@@ -131,11 +205,11 @@ export function TermRow({
 export function ChecklistLine({ line }) {
   if (!line) return null;
   if (line.kind === "absent") {
-    return <div className="ws-row2 ws-check absent" title="The task required a checklist and none was written"><span className="ws-check-text">No checklist</span></div>;
+    return <div className="ws-check absent" title="The task required a checklist and none was written"><span className="ws-check-text">No checklist</span></div>;
   }
   const pos = "(" + line.position + "/" + line.total + ")";
   return (
-    <div className="ws-row2 ws-check" title={pos + " " + line.text}>
+    <div className="ws-check" title={pos + " " + line.text}>
       <span className="ws-check-pos">{pos}</span>
       <span className="ws-check-text">{line.text}</span>
     </div>
