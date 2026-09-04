@@ -1,5 +1,5 @@
 /**
- * Opt-in compaction policy for pi (ADR-0060).
+ * Opt-in compaction policy for pi (ADR-0061).
  *
  * Early-triggers compact at 100k or 50% of the window, summarizes with a
  * cheap model (thinking off), and overlays /compact. Missing config file

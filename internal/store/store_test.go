@@ -343,7 +343,7 @@ func TestAgentSpawnEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := agent.SpawnEnv()
-	// Roles overlay (ADR-0033), compact overlay (ADR-0060), the neutral
+	// Roles overlay (ADR-0033), compact overlay (ADR-0061), the neutral
 	// identity pi-inbox reads (ADR-0037), and the checklist obligation
 	// pi-checklist reads (ADR-0055).
 	if len(got) != 4 || got[0] != RolesAgentEnv+"="+agent.ID || got[1] != CompactAgentEnv+"="+agent.ID || got[2] != AgentIDEnv+"="+agent.ID || got[3] != ChecklistEnv+"="+ChecklistChanges {

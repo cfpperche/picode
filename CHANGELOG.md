@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **`packages/pi-compact`** (ADR-0060): opt-in pi extension that compact
+- **`packages/pi-compact`** (ADR-0061): opt-in pi extension that compact
   sessions earlier than Pi's window-edge default (100k tokens or 50% of
   the window), summarizes with a cheap model (thinking off, Flash →
   Haiku → session fallback), and overlays `/compact` so `/compact`,

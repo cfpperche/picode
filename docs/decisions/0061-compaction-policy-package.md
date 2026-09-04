@@ -1,4 +1,4 @@
-# ADR-0060: Compaction policy as an opt-in pi package
+# ADR-0061: Compaction policy as an opt-in pi package
 
 - **Status**: accepted
 - **Date**: 2026-09-04

@@ -315,7 +315,7 @@ func (a Agent) CLIFlagsForSpawn(sessionID string) []string {
 // RolesAgentEnv is the process env pi-roles reads for a per-agent overlay (ADR-0033).
 const RolesAgentEnv = "PI_ROLES_AGENT"
 
-// CompactAgentEnv is the process env pi-compact reads for a per-agent overlay (ADR-0060).
+// CompactAgentEnv is the process env pi-compact reads for a per-agent overlay (ADR-0061).
 const CompactAgentEnv = "PI_COMPACT_AGENT"
 
 // AgentIDEnv is the neutral agent identity for packages that talk back
@@ -330,7 +330,7 @@ func (a Agent) SpawnEnv() []string {
 		return nil
 	}
 	// ADR-0055: the checklist obligation, read by pi-checklist when installed.
-	// ADR-0060: compaction overlay, same slug as roles.
+	// ADR-0061: compaction overlay, same slug as roles.
 	return []string{
 		RolesAgentEnv + "=" + id,
 		CompactAgentEnv + "=" + id,

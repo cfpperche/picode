@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0060).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0061).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -631,7 +631,7 @@ Agents communicate through their native protocol — no internals hacked.
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
 
-### Compaction policy (ADR-0060)
+### Compaction policy (ADR-0061)
 
 Opt-in pi package at `packages/pi-compact/` (MIT). Users install it with
 `pi install -l` / `#/packages`. Unlike roles, a missing config file still

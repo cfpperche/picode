@@ -9,7 +9,7 @@ PiCode is **source-available**, not OSI open source.
 | `packages/pi-roles/` (the installable pi package) | [MIT](packages/pi-roles/LICENSE) — see [ADR-0028](docs/decisions/0028-model-roles.md) |
 | `packages/pi-inbox/` (the installable pi package) | [MIT](packages/pi-inbox/LICENSE) — see [ADR-0037](docs/decisions/0037-inbox-async-agent-human-messages.md) |
 | `packages/pi-checklist/` (the installable pi package) | [MIT](packages/pi-checklist/LICENSE) — see [ADR-0055](docs/decisions/0055-internal-checklist.md) |
-| `packages/pi-compact/` (the installable pi package) | [MIT](packages/pi-compact/LICENSE) — see [ADR-0060](docs/decisions/0060-compaction-policy-package.md) |
+| `packages/pi-compact/` (the installable pi package) | [MIT](packages/pi-compact/LICENSE) — see [ADR-0061](docs/decisions/0061-compaction-policy-package.md) |
 
 Copyright stays with the author. A license is a **grant of permission**,
 not a transfer of ownership. MIT/Apache would give enterprise an
