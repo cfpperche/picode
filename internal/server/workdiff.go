@@ -73,7 +73,7 @@ func writeWorkDiff(w http.ResponseWriter, r *http.Request, cwd string) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path": f.Path, "oldPath": f.OldPath, "binary": f.Binary,
-		"patch": f.Patch, "truncated": truncated,
+		"patch": f.Patch, "truncated": truncated, "status": f.Status,
 	})
 }
 

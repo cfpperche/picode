@@ -396,8 +396,12 @@ type FileDiff struct {
 	OldPath string `json:"oldPath,omitempty"`
 	Patch   string `json:"patch"`
 	Binary  bool   `json:"binary"`
-	Add     int    `json:"add"`
-	Del     int    `json:"del"`
+	// added / deleted / renamed / modified, read from the patch's own mode
+	// lines. It decides which sides of a binary asset preview to render — a
+	// preview of an added image has no "before" to show.
+	Status string `json:"status,omitempty"`
+	Add    int    `json:"add"`
+	Del    int    `json:"del"`
 }
 
 // CommitDetail is one commit with its message body and its diff.
@@ -523,6 +527,12 @@ func splitPatch(patch string) []FileDiff {
 			cur.Path = strings.TrimPrefix(line, "+++ b/")
 		case strings.HasPrefix(line, "--- a/"):
 			cur.OldPath = strings.TrimPrefix(line, "--- a/")
+		case strings.HasPrefix(line, "new file mode"):
+			cur.Status = "added"
+		case strings.HasPrefix(line, "deleted file mode"):
+			cur.Status = "deleted"
+		case strings.HasPrefix(line, "rename from "):
+			cur.Status = "renamed"
 		case strings.HasPrefix(line, "Binary files ") || strings.HasPrefix(line, "GIT binary patch"):
 			cur.Binary = true
 		}

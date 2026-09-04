@@ -144,6 +144,45 @@ directive: **no defaults, ever**):
   `make docs-check` passed. The installed service is active and healthy with
   104 PiCode-owned tmux sessions present. Post-deploy desktop/mobile/menu
   screenshots were read; visual-review: PASS and overlay audit: ok.
+- **2026-09-04 — git graph diff cards preview binary assets (merged from
+  `feat/git-asset-preview`).** `gitgraph.Blob` plus
+  `GET /api/{agents|terminals|workspaces}/{id}/git/blob` serve one blob at
+  one revision (hex hash or `HEAD`, in-tree path, 32 MB cap, blob-MIME
+  allowlist); `FileDiff` gained `status` (added/deleted/renamed derived from
+  mode lines; untracked files marked added). New `GitAssetPreview` replaces
+  the "Binary file — no text diff." line in UncommittedDetail, CommitDetail
+  and WorkingDiff: images before|after with lightbox, video/audio/pdf/3D on
+  the changed side, honest fallback for the rest. Verified live against a
+  scratch repo (modified/deleted/untracked PNG, committed video, audio, pdf,
+  zip fallback, text diff intact, shallow clone where every file is an
+  addition, WorkingDiff via workspace owner) with screenshots read;
+  overlayAudit ok; lightbox closes. Gates green (fmt/vet/test/test-js/build).
+  Not pixel-exercised: the missing-blob image error line (API 404 path unit-
+  tested; needs a corrupted/shallowed parent to appear) and the first-commit
+  deleted-asset note. visual-review: PASS.
+- **2026-09-04 — Next.js workspace favicons deployed (`0.1.0+4e9cedb`).**
+  Lookup is project-agnostic (`icon.svg` and `apps/<name>/app`, not a named
+  repo). Fast-forwarded `feat/workspace-favicon-nextjs` onto `main` after
+  merging sidebar `hasFavicon` so the list and the image endpoint share one
+  finder. Live: COGNIXSE `hasFavicon: true`, favicon 200 SVG 24 673 bytes.
+  Reload once if a card still shows a folder. visual-review: N/A (no JSX).
+- **2026-09-04 — workspace cards find Next.js `icon.svg`.** Favicon lookup
+  now checks `icon.svg`/`png`/`ico` (svg still beats png/ico) and scans
+  `apps/<name>/{public,app,src/app}` after the static dirs, with `apps/web`
+  first. Cognixse (`apps/web/app/icon.svg`) is the reproducing case.
+- **2026-09-04 — docs captures gained per-surface fingerprints.** Public
+  screenshots and tutorial stills now map to named desktop/mobile profiles;
+  local screen imports, shared shell/style/fixture inputs and selected data
+  producers determine freshness, while tests and unrelated handlers do not.
+  The strict manual video audit identifies the affected tutorial and profile;
+  CI remains an integrity-only, non-rendering floor. A decision table covers
+  unchanged, test-only, shared-style, desktop-only, mobile-only and
+  cross-pipeline changes. Public screenshots were regenerated and the old
+  global UI-tree helper was removed. Selective capture/render, caching and a
+  maintenance trigger remain explicitly in flight. Full `make ci` passed;
+  `make docs-videos-fresh` deliberately reports the eight stale profiles named
+  under Known debts. visual-review: PASS (all three final screenshots read;
+  text and controls are legible, with no clipping, overlay or dead state).
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { hunksFromDiff, countOf } from "../lib/diff.js";
 import DiffLine from "./DiffLine.jsx";
+import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 
 // The dirty working tree behind the graph's Uncommitted Changes row
@@ -104,7 +105,14 @@ export default function UncommittedDetail({ owner, onClose }) {
                   ) : diff.error ? (
                     <p className="diff-empty">{diff.error}</p>
                   ) : diff.binary ? (
-                    <p className="diff-empty">Binary file — no text diff.</p>
+                    <GitAssetPreview
+                      base={base}
+                      ownerId={ownerId}
+                      path={c.path}
+                      oldPath={diff.oldPath}
+                      status={c.kind}
+                      fallback={<p className="diff-empty">Binary file — no text diff.</p>}
+                    />
                   ) : (
                     <div className="diff">
                       {hunksFromDiff(diff.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}

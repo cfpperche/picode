@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -69,6 +70,9 @@ func registerGitGraphRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/terminals/{id}/git/commit", handleTerminalCommit(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/head", handleAgentGitHead(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/head", handleTerminalGitHead(deps))
+	mux.HandleFunc("GET /api/agents/{id}/git/blob", handleAgentGitBlob(deps))
+	mux.HandleFunc("GET /api/terminals/{id}/git/blob", handleTerminalGitBlob(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/git/blob", handleWorkspaceGitBlob(deps))
 }
 
 func handleAgentGitHead(deps Deps) http.HandlerFunc {
@@ -315,4 +319,73 @@ func writeCommit(w http.ResponseWriter, r *http.Request, cwd string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
+}
+
+func handleAgentGitBlob(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, err := agentCwd(deps, r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeGitBlob(w, r, cwd)
+	}
+}
+
+func handleTerminalGitBlob(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		term, err := deps.Store.GetTerminal(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeGitBlob(w, r, liveTermCwd(deps, r, term))
+	}
+}
+
+func handleWorkspaceGitBlob(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		writeGitBlob(w, r, cwd)
+	}
+}
+
+// writeGitBlob streams one file's contents at one revision — the picture
+// behind a binary row in a diff card. Content type comes from the same
+// extension allowlist the working-tree /blob endpoint uses, so a hand-written
+// URL gets 415 for anything the UI would not render anyway.
+func writeGitBlob(w http.ResponseWriter, r *http.Request, cwd string) {
+	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
+	path := r.URL.Query().Get("path")
+	if hash == "" || path == "" {
+		writeErr(w, http.StatusBadRequest, "pass ?hash=<revision>&path=<file>")
+		return
+	}
+	mime := blobMIME[strings.ToLower(filepath.Ext(path))]
+	// Revision and path are validated by Blob itself, before the MIME
+	// allowlist speaks: a bad path is 400 even when its extension is also
+	// unknown, and the cap bounds whatever Blob does read.
+	b, err := gitgraph.Blob(cwd, hash, path)
+	switch {
+	case errors.Is(err, gitgraph.ErrNoRepo):
+		writeErr(w, http.StatusNotFound, "not a git repository")
+	case errors.Is(err, gitgraph.ErrBadHash), errors.Is(err, gitgraph.ErrBadPath):
+		writeErr(w, http.StatusBadRequest, "bad revision or path")
+	case errors.Is(err, gitgraph.ErrNoBlob):
+		writeErr(w, http.StatusNotFound, "no such file at that revision")
+	case errors.Is(err, gitgraph.ErrTooBig):
+		writeErr(w, http.StatusRequestEntityTooLarge, "file too large to preview")
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+	case mime == "":
+		writeErr(w, http.StatusUnsupportedMediaType, "can't preview this file type")
+	default:
+		w.Header().Set("Content-Type", mime)
+		w.Header().Set("Cache-Control", "private, max-age=0")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+	}
 }
