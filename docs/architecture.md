@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04.
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0060).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -630,6 +630,19 @@ Agents communicate through their native protocol — no internals hacked.
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only.
+
+### Compaction policy (ADR-0060)
+
+Opt-in pi package at `packages/pi-compact/` (MIT). Users install it with
+`pi install -l` / `#/packages`. Unlike roles, a missing config file still
+applies defaults: early compact at 100k tokens or 50% of the window
+(whichever first, not below 32k), summarizer thinking off, cheap-model
+auto chain then the session model. Pi's overflow compact stays on. The
+package registers `/compact` (extension commands run first) and calls
+`ctx.compact()` so the pipeline is still Pi's. Workspace file
+`<cwd>/.pi/compact.json`, overlay `<cwd>/.pi/compact/<id>.json` when
+`PI_COMPACT_AGENT` is set (PiCode `Agent.SpawnEnv`). The recent-token
+tail is not dropped.
 
 ### Model roles (ADR-0028, ADR-0033)
 

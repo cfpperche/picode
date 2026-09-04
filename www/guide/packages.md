@@ -28,3 +28,5 @@ Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` in
 MCP servers: install `npm:pi-mcp-adapter`, then `#/mcps`. Guide: [MCP](/guide/mcp).
 
 Checklist: install `packages/pi-checklist` from the PiCode repository so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).
+
+Compact earlier: install `packages/pi-compact` so long sessions summarize at 100k tokens or half the window, with a cheap model, instead of waiting for the edge. Guide: [Compact earlier](/guide/compact).

@@ -1,0 +1,29 @@
+{
+  "name": "pi-compact",
+  "version": "0.1.0",
+  "description": "Opt-in compaction policy for pi: early trigger, cheap summarizer, /compact config.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode"],
+  "files": [
+    "extensions",
+    "src",
+    "compact.schema.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/compact.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-compact"
+  }
+}

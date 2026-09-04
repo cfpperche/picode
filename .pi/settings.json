@@ -3,6 +3,7 @@
   "packages": [
     "../packages/pi-inbox",
     "../packages/pi-roles",
-    "../packages/pi-checklist"
+    "../packages/pi-checklist",
+    "../packages/pi-compact"
   ]
 }

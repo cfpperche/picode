@@ -47,6 +47,7 @@ export default defineConfig({
           { text: "Providers", link: "/guide/providers" },
           { text: "Packages", link: "/guide/packages" },
           { text: "Checklist", link: "/guide/checklist" },
+          { text: "Compact earlier", link: "/guide/compact" },
           { text: "MCP", link: "/guide/mcp" },
           { text: "Terminal status for CLIs", link: "/guide/terminal-status" },
           { text: "llama.cpp", link: "/guide/llama" },

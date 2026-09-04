@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cfpperche/picode/tree/main/packages/pi-compact/compact.schema.json",
+  "title": "pi-compact config",
+  "description": "Workspace .pi/compact.json or per-agent overlay .pi/compact/<id>.json. Unknown keys are ignored so the file can grow. Missing file = package defaults (early compact at 100k or 50% of window).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "atTokens": { "type": ["integer", "null"], "minimum": 1 },
+    "atPercent": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 },
+    "floorTokens": { "type": "integer", "minimum": 1 },
+    "model": { "type": ["string", "null"], "minLength": 1 },
+    "fallback": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "thinking": {
+      "type": "string",
+      "enum": ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+    },
+    "instructions": { "type": "string" },
+    "cooldownTurns": { "type": "integer", "minimum": 0 }
+  }
+}

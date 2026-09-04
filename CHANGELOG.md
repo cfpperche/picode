@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **`packages/pi-compact`** (ADR-0060): opt-in pi extension that compact
+  sessions earlier than Pi's window-edge default (100k tokens or 50% of
+  the window), summarizes with a cheap model (thinking off, Flash →
+  Haiku → session fallback), and overlays `/compact` so `/compact`,
+  `/compact edit`, `/compact model`, `/compact on`/`off` stay one
+  vocabulary. Missing `.pi/compact.json` still applies those defaults.
+  PiCode sets `PI_COMPACT_AGENT` on spawn for a per-agent overlay.
+  The recent-token tail is kept; Pi overflow compact stays on.
+
 - **Three tutorial videos on the docs** (`make docs-videos`): create an
   agent, automate it, take it anywhere. Each ~16s, silent, captioned,
   1280x720 — embedded in Getting started, Automations and On your

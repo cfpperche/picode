@@ -41,6 +41,7 @@ const CURATED = [
   ["Guides", "guide/providers.md", "Providers"],
   ["Guides", "guide/packages.md", "Packages"],
   ["Guides", "guide/checklist.md", "Checklist"],
+  ["Guides", "guide/compact.md", "Compact earlier"],
   ["Guides", "guide/mcp.md", "MCP"],
   ["Guides", "guide/terminal-status.md", "Terminal status for CLIs"],
   ["Guides", "guide/llama.md", "llama.cpp"],
