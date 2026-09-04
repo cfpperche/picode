@@ -13,12 +13,12 @@ routing merge (`0098081c`). The tree preserves ADRs 0060–0063 and the
 maintainer runbook; no official release cadence or date is set. Local commits
 have not been pushed to the remote.
 
-**Deployment:** the installed service is active on `0.1.0+65be297`
-(`release: false`), which carries the runtime badge favicon refinement.
-`GET /api/health` returned `status: ok` with boot id `a89dacd8f72395e3`, and
-113 PiCode-owned tmux sessions are present (additions only across the
-restart). The WebSocket writer fix has remained stable with no further panic
-in the observed uptime.
+**Deployment:** the installed service is active on `0.1.0+9ffaa39`
+(`release: false`), carrying the runtime badge refinement and terminal
+presence revival. `GET /api/health` returned `status: ok` with boot id
+`89ebcc898588d5dd`; tmux sessions were preserved across the restart. The
+WebSocket writer fix has remained stable with no further panic in the
+observed uptime.
 
 **Quality:** post-integration `make ci` passes, including 468 frontend tests,
 54 pi-compact tests, Go/package tests, docs/OpenAPI/llms parity, Vale, and the
@@ -136,16 +136,18 @@ configuration is created:
 ## Recent activity
 
 - **2026-09-04 — terminal identity survives restarts; favicon cards fixed
-  (owner report).** The owner's reload showed every wrapped terminal back at
-  "Shell session" and Codex still boxed: wrapper presence was memory-only
-  and the loaded OpenAI `.ico` paints its own opaque white card. Reconciliation
-  now revives CLI presence from the pane's process tree (exact command, or a
-  `/proc` walk through wrapper shells and interpreters, PID + start-token
-  validated, dropped when the CLI exits), and CLI badges lead with the same
-  transparent SVG marks the provider faces use. End-to-end proof on a scratch
-  daemon: wrapped CLI revived after a daemon restart and dropped when it
-  exited. visual-review for the badge face: carried by the transparent-SVG
-  swap verified in the browser; full PASS follows the deploy smoke.
+  (owner report); deployed as `0.1.0+9ffaa39`.** The owner's reload showed
+  every wrapped terminal back at "Shell session" and Codex still boxed:
+  wrapper presence was memory-only, and the loaded OpenAI `.ico` paints its
+  own opaque white card. Reconciliation now revives CLI presence from the
+  pane's process tree (exact command, or a `/proc` walk through wrapper
+  shells and interpreters, PID + start-token validated, dropped when the CLI
+  exits), and CLI badges lead with the same transparent SVG marks the
+  provider faces use. End-to-end proof on a scratch daemon (revive after
+  restart, drop on CLI exit), then live: every wrapped terminal regained its
+  identity after the deploy and stayed stable across polls; badges render
+  bare with no white card. visual-review: PASS (live sidebar screenshot
+  read; overlay audit ok).
 - **2026-09-04 — public guides for pi-roles and pi-inbox.** Both missing
   guides landed in `www/guide/` using the compact template: extension-not-core
   positioning up front, where-it-runs and config-scope tables (no machine
