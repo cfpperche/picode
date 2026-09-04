@@ -6,9 +6,9 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` is clean at `eac09242`, with the runtime-favicon
-merge `dd70c8d0` and its generated-capture refresh in history. The resulting
-tree preserves the Inbox-to-TUI receiver (ADR-0060), pi-compact (ADR-0061),
+**Repository:** local `main` is clean, with the runtime-favicon merge
+`dd70c8d0`, its generated-capture refresh, and this deployment handoff in
+history. The resulting tree preserves the Inbox-to-TUI receiver (ADR-0060), pi-compact (ADR-0061),
 compact supervision rows, authoritative terminal CLI presence (ADR-0062),
 the official runtime favicon fix, and the What’s New release surface
 (ADR-0063). Local commits have not been pushed to the remote.
