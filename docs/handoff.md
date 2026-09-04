@@ -6,28 +6,26 @@
 
 ## Current state (read this first)
 
-**Repository:** `feat/term-favicon-flush` rebases onto `main` (`d7382e6c`,
-Docker App/sysadmin). The favicon chip fix is this commit: a loaded runtime
-mark is `img.ws-face.term-cli-face` filling the same 22px slot as agent
-faces, with no border or white plate. The boxed `.term-cli-badge` remains
-only for the text-mark fallback. Local commits remain unpushed. ADR-0064
-remains proposed.
+**Repository:** local `main` includes the terminal-favicon flush merge
+(`cf9aafc8`) on top of Docker App/sysadmin (`a2e377ef`). Tracked files are
+clean aside from the untracked `.pi/compact.json`. Commits remain local and
+unpushed. ADR-0064 remains proposed.
 
-**Deployment:** the installed service still runs `0.1.0+a2e377e` until this
-branch is merged and deployed. The owner's screenshot
-(`v0.1.0+a2e377e`) still shows Claude/Codex/Grok/Pi inside the leftover
-chip — Docker deploy overwrote the earlier worktree preview.
+**Deployment:** the installed service runs `0.1.0+cf9aafc` (`release: false`).
+Health returned `ok`, boot `c170089b55025f43`. A loaded runtime mark is
+`img.ws-face.term-cli-face` filling the same 22px slot as agent faces, with
+no border or white plate. The boxed `.term-cli-badge` remains only for the
+text-mark fallback.
 
-**Quality:** `make fmt-check`, `make vet`, `make test`, and frontend tests
-passed on the pre-rebase commit. Re-run gates after merge before calling
-the landing done.
+**Quality:** `make fmt-check`, `make vet`, and `make test` passed on the
+favicon branch before merge. Post-merge `make deploy` rebuilt the embedded
+UI (`index-F5O0PkOy.css`). Full `make ci` was not re-run after the merge.
 
-**UI evidence:** pre-rebase live screenshots were read:
-`/tmp/picode-term-favicon-workspaces.png` (selected Claude Code vs hermes),
-`/tmp/picode-term-favicon-selected-menu.png` (row menu),
-`/tmp/picode-term-favicon-empty-terminals.png` (free-terminals empty).
-`window.__picodeOverlayAudit()` returned `ok: true`. Re-verify on the
-merged deploy. visual-review: PASS (pre-rebase); post-merge verify owed.
+**UI evidence:** post-deploy screenshot `/tmp/picode-term-favicon-deployed.png`
+was read: Claude/Codex/Grok/Pi sit on the row with no chip; computed style
+on `.term-cli-face` is `background: transparent; border: 0`. The owner's
+earlier `v0.1.0+a2e377e` screenshot was the Docker binary that had overwritten
+the worktree preview. visual-review: PASS.
 
 ### Product and platform
 
@@ -83,9 +81,6 @@ were not evaluated in this session:
 
 ## In flight
 
-- **`feat/term-favicon-flush` is rebased onto Docker `main` and not yet
-  merged.** The live service still serves `a2e377e` (old chip). Merge +
-  deploy + live screenshot are the remaining steps.
 - Docker v1 is merged and deployed. The real Pi 0.85.0 runtime loaded all
   four tools and executed inventory/detail against the shared API without a
   model turn. Autonomous model-driven dogfood and Docker Desktop/rootless
@@ -106,18 +101,16 @@ were not evaluated in this session:
 
 ## Next up
 
-1. Merge `feat/term-favicon-flush` to `main`, deploy, and hard-reload until
-   the header is not `v0.1.0+a2e377e` and terminal marks have no chip.
-2. Review current local `main` and decide when to push/promote it.
-3. Review ADR-0064 and choose the official cadence/pilot window; no release
+1. Review current local `main` and decide when to push/promote it.
+2. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-4. Verify the local `pi-compact` configuration and re-dogfood its policy.
-5. Inspect the exact historical Inbox rows before any real TUI reply test.
-6. Run the owner-controlled remote-mode acceptance matrix.
-7. Continue the Browser preview panel and ADR-0054 dogfood.
-8. Extend Docker with Compose deployment after defining target ownership,
+3. Verify the local `pi-compact` configuration and re-dogfood its policy.
+4. Inspect the exact historical Inbox rows before any real TUI reply test.
+5. Run the owner-controlled remote-mode acceptance matrix.
+6. Continue the Browser preview panel and ADR-0054 dogfood.
+7. Extend Docker with Compose deployment after defining target ownership,
    secret handling and recovery semantics in an ADR; v1 operations are covered.
-9. Decide whether selective docs-video capture/render should be scheduled;
+8. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -141,14 +134,12 @@ were not evaluated in this session:
 
 ## Recent activity
 
-- **2026-09-04 — terminal favicons fill the identity slot (owner report).**
-  The owner's screenshots still showed Claude Code / Codex inside a bordered
-  light chip: `.term-cli-badge.has-favicon` lost to later `.cli-*`
-  `border-color` rules, and the image stayed 15px inside a 22px badge.
-  A loaded favicon is now the same face treatment as agent rows (`ws-face
-  term-cli-face`, 22px, no plate). visual-review: PASS (pre-rebase
-  screenshots read; overlay audit ok). Docker `main` later overwrote the
-  worktree preview (`0.1.0+a2e377e`); merge + deploy still owed.
+- **2026-09-04 — terminal favicons merged and deployed as `0.1.0+cf9aafc`.**
+  The owner's `v0.1.0+a2e377e` screenshot still had the leftover chip because
+  the first worktree preview was overwritten by the Docker deploy and the
+  branch had not been merged. Rebased onto Docker `main`, merged, deployed.
+  Live sidebar: Claude/Codex/Grok/Pi fill the 22px slot with no plate.
+  visual-review: PASS (`/tmp/picode-term-favicon-deployed.png` read).
 - **2026-09-04 — Docker App deployed; pi-sysadmin package ready (ADR-0065).**
   Extended existing Apps primitives and mobile navigation; added bounded
   Engine API operations, idempotent background jobs, verified outcomes and
