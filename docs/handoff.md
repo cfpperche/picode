@@ -154,7 +154,9 @@ configuration is created:
   layer in either), commands/routing tables, canonical schema link (roles),
   loopback POST mechanics (inbox), and a "how you know it worked" check.
   Sidebar gains "Model roles" and "Inbox tools for pi"; the Packages guide
-  now lists all four packages. Docs-only; no deploy.
+  now lists all four packages. Docs-only; no deploy. Follow-up: the
+  Checklist guide was aligned to the same template with an honest core row
+  (tool and rule in the package; sidebar, cards and Level in PiCode).
 
 - **2026-09-04 — pi-compact documented as an extension, not core.** The
   public guide leads with the positioning (optional package, dormant until
