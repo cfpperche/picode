@@ -39,6 +39,21 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.SetTerminalLaunchAttempt(tm.ID, clilaunch.Attempt{Error: "failed"})
 		}, []string{"terminal.launch"}},
 		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
+		{"AddWebhook", func(s *Store) {
+			s.OnEvent = recorder(s)
+			_, _ = s.AddWebhook("https://example.com/hook", []string{"agent."})
+		}, []string{"webhook.created"}},
+		{"UpdateWebhook", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", nil)
+			s.OnEvent = recorder(s)
+			w.Enabled = false
+			_, _ = s.UpdateWebhook(w)
+		}, []string{"webhook.updated"}},
+		{"DeleteWebhook", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", nil)
+			s.OnEvent = recorder(s)
+			_ = s.DeleteWebhook(w.ID)
+		}, []string{"webhook.deleted"}},
 		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "cli", proj)
