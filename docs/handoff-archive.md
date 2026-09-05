@@ -3,6 +3,19 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Provider favicon deployment (archived during Integrations merge)
+
+- **2026-09-05 — Provider favicons and icon-size parity.** Agent tabs use
+  `ProviderFace` with a trailing activity dot; tabs share full-bleed 18px marks
+  with terminals. Sidebar agent marks drop the ring/padding to match terminal
+  marks at 22px; the contrast plate remains for black artwork in dark themes.
+  Light/dark screenshots were read and overlay audits passed. Evidence:
+  `docs/screenshots/agent-tabs-provider-favicon-*`, `agent-tabs-icon-size-*`
+  and `sidebar-icon-size-*`. Waiting-state dots were code-reviewed only because
+  no live waiting agent existed. Formatting/vet/tests/frontend/build passed.
+  Final recorded deployment: `0.1.0+37de779`, bundle `index-CbRxsHfT.js`;
+  live tab-strip/sidebar evidence was read again after restart. No push.
+
 ## File Tree/mobile acceptance (archived during Integrations)
 
 - **2026-09-05 — File Tree ignore decoration.** One bounded Git call classifies

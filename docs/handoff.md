@@ -10,11 +10,13 @@ not merged, pushed or deployed. HEAD also includes File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
 reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
 coding CLIs are terminals. Preserve the unrelated root `.pi/compact.json`.
+The current main's provider favicons and tab/sidebar icon-size parity are
+included; merge and deployment of Integrations are now owner-authorized.
 
-**Last recorded application deployment:** `0.1.0+050580f`, health `ok`, boot
-`04ceec7199555424`. File Tree ignore styling and mobile review fixes were
-validated there; this Integrations session did not touch the installed service.
-Five terminal records and 17 baseline pane identities survived that deployment.
+**Last recorded application deployment:** `0.1.0+37de779`, desktop bundle
+`index-CbRxsHfT.js`. Provider favicons and tab/sidebar size parity were verified
+live after that restart. Integrations is being revalidated against current main
+before the authorized deployment.
 
 **Quality:** Integrations `make ci` passed: Go formatting/vet/tests, frontend
 and package tests, both UI builds, embedded binary, generated docs, screenshot
@@ -87,8 +89,8 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ## Next up
 
-1. Review/merge `feat/outbound-webhooks` and choose its deployment; local gates
-   pass. Provider OAuth/marketplace work needs separate scope approval.
+1. Complete the authorized Integrations merge/deployment after combined gates;
+   provider OAuth/marketplace work still needs separate scope approval.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
    belong only in `web/mobile`.
 3. Run the version-specific CLI working/approval/settled acceptance matrix.

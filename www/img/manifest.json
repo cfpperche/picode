@@ -1,18 +1,18 @@
 {
   "fingerprintVersion": 1,
-  "capturedAt": "2026-09-05T18:36:19.022Z",
+  "capturedAt": "2026-09-05T20:10:43.650Z",
   "gitSha": "bc2540fa4806b3afad8a023dfae5b5f15b08f254",
   "base": "http://127.0.0.1:18747",
   "tool": "agent-browser",
-  "note": "Native agent_browser capture using scripts/docs-shots.mjs surface definitions; all three images read and reviewed.",
+  "note": "Native agent_browser selective refresh: app-fleet captured and read after integrating main; unchanged mobile captures retain their verified hashes.",
   "surfaces": {
     "app-fleet": {
       "profile": "desktop-dashboard",
-      "inputHash": "e72bec94c255afff8455b3d95838e073fda62168fcbff6b48d5341eaa86d0b8a",
+      "inputHash": "a65a66eb32aa68e81cf2e699c1a09929eff492cc3885c127e78b11d77019e467",
       "file": "app-fleet.png",
       "url": "/desktop/",
       "viewport": "1440x900",
-      "sha256": "9e91b594e393441d5677c8ffded3293498a68578029f3e0e980434b13c83849a"
+      "sha256": "b21af6cbc91b54df4de5f8d59d983323fb6bf0e191d56296917d074b50ef45ec"
     },
     "app-mobile-inbox": {
       "profile": "mobile-inbox",
