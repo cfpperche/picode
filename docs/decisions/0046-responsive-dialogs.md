@@ -2,6 +2,9 @@
 
 - **Status**: accepted
 - **Date**: 2026-09-01
+- **Presentation/build boundary**: partially superseded by
+  [ADR-0072](0072-independent-web-applications.md). The original rationale
+  below is retained as history.
 
 ## Context
 

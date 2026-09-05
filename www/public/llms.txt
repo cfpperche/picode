@@ -11,11 +11,12 @@
 
 ## Run it somewhere
 
+- [On Windows](https://cfpperche.github.io/picode/guide/windows-desktop): Start PiCode Desktop at Windows sign-in, inspect its task and repair startup without changing WSL.
 - [Security and pairing](https://cfpperche.github.io/picode/guide/security): PiCode gives whoever is signed in a shell on the machine that runs it,
 - [On a server](https://cfpperche.github.io/picode/guide/remote-server): One PiCode on a Linux box you own, reached from your PC and your phone
 - [Share one server](https://cfpperche.github.io/picode/guide/shared-server): Several people, one Linux box on your tailnet. Each person gets their own
 - [Open it to the internet](https://cfpperche.github.io/picode/guide/public-access): People on any network reach their PiCode at https://picode.example.com
-- [On your phone](https://cfpperche.github.io/picode/guide/mobile): Open the same address you use on the desktop (https://<host>:8445) on your
+- [On your phone](https://cfpperche.github.io/picode/guide/mobile): Open https://<host>:8445/mobile/ for the phone app. Opening the server's
 
 ## Guides
 

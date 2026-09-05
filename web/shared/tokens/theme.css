@@ -1,0 +1,46 @@
+/* Canonical PiCode design tokens (ADR-0072). No application layout. */
+
+:root {
+  --bg-base: #0e0e11;
+  --bg-panel: #16161c;
+  --bg-elevated: var(--bg-panel);
+  --bg-hover: #202027;
+  --border: #232329;
+  --border-strong: #2c2c34;
+  --text-primary: #ececf1;
+  --text-secondary: #9b9ba7;
+  --accent: #7c8cf8;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --ok: #63d297;
+  --warn: #e5c07b;
+  --danger: #f7768e;
+  --remote: #7dcfff;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --code: "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Code", Menlo, monospace;
+  --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  --radius-ctl: 8px;
+  --radius-panel: 12px;
+  --ctl-h: 36px;
+  --chrome-h: 40px;
+  --chat-col: 768px;
+  --chat-gutter: 24px;
+  --motion-fast: 120ms;
+  --motion-med: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+:root[data-theme="light"] {
+  --bg-base: #ffffff;
+  --bg-panel: oklch(96.7% 0.003 264.542);
+  --bg-elevated: var(--bg-panel);
+  --bg-hover: #e6e9ef;
+  --border: #dfe3ea;
+  --border-strong: #c9cedb;
+  --text-primary: #16181d;
+  --text-secondary: #5b6472;
+  --accent: #2f6fed;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --ok: #2e7d32;
+  --warn: #a16207;
+  --danger: #cf3b54;
+  --remote: #0e7490;
+}

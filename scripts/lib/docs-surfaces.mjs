@@ -10,13 +10,11 @@ export const FINGERPRINT_VERSION = 1;
 // not change pixels. Screen components below bring their local imports along
 // automatically, so a newly extracted child cannot escape the fingerprint.
 const COMMON_FILES = [
-  "web/index.html",
   "web/package.json",
   "web/package-lock.json",
-  "web/vite.config.js",
-  "web/src/main.jsx",
-  "web/src/index.css",
-  "web/src/styles/app.css",
+  "web/tools/vite-config.mjs",
+  "web/shared/package.json",
+  "web/shared/tokens/theme.css",
   "cmd/picode-docs-fixture/main.go",
   "internal/server/server.go",
   "internal/server/workspaces.go",
@@ -40,14 +38,14 @@ const COMMON_FILES = [
 
 const SHELLS = {
   desktop: {
-    shallow: ["web/src/desktop/App.jsx"],
-    logic: ["web/src/desktop/App.jsx", "web/src/main.jsx"],
-    entries: ["web/src/components/Sidebar.jsx"],
+    shallow: ["web/desktop/index.html", "web/desktop/package.json", "web/desktop/vite.config.js", "web/desktop/src/App.jsx"],
+    logic: ["web/desktop/src/App.jsx", "web/desktop/src/main.jsx"],
+    entries: ["web/desktop/src/components/Sidebar.jsx"],
   },
   mobile: {
-    shallow: ["web/src/mobile/App.jsx", "web/src/mobile/mobile.css"],
-    logic: ["web/src/mobile/App.jsx", "web/src/main.jsx"],
-    entries: ["web/src/mobile/components/TabBar.jsx"],
+    shallow: ["web/mobile/index.html", "web/mobile/package.json", "web/mobile/vite.config.js", "web/mobile/src/App.jsx", "web/mobile/src/mobile.css"],
+    logic: ["web/mobile/src/App.jsx", "web/mobile/src/main.jsx"],
+    entries: ["web/mobile/src/components/TabBar.jsx"],
   },
 };
 
@@ -56,22 +54,22 @@ const SHELLS = {
 export const SURFACE_PROFILES = Object.freeze({
   "desktop-dashboard": {
     shell: "desktop",
-    entries: ["web/src/components/DashboardView.jsx"],
+    entries: ["web/desktop/src/components/DashboardView.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-agents": {
     shell: "desktop",
-    entries: ["web/src/components/DashboardView.jsx"],
+    entries: ["web/desktop/src/components/DashboardView.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-create-agent": {
     shell: "desktop",
-    entries: ["web/src/components/DashboardView.jsx", "web/src/components/CreateForm.jsx"],
+    entries: ["web/desktop/src/components/DashboardView.jsx", "web/desktop/src/components/CreateForm.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-agent": {
     shell: "desktop",
-    entries: ["web/src/components/AgentTabs.jsx", "web/src/components/ChatSurface.jsx"],
+    entries: ["web/desktop/src/components/AgentTabs.jsx", "web/desktop/src/components/ChatSurface.jsx"],
     files: [
       "internal/server/agents.go",
       "internal/server/roles_state.go",
@@ -81,12 +79,12 @@ export const SURFACE_PROFILES = Object.freeze({
   },
   "desktop-automations": {
     shell: "desktop",
-    entries: ["web/src/components/Automations.jsx"],
+    entries: ["web/desktop/src/components/Automations.jsx"],
     files: ["internal/server/automations.go", "internal/store/automations.go"],
   },
   "desktop-inbox": {
     shell: "desktop",
-    entries: ["web/src/components/AgentTabs.jsx", "web/src/components/AppSurface.jsx"],
+    entries: ["web/desktop/src/components/AgentTabs.jsx", "web/desktop/src/components/AppSurface.jsx"],
     files: [
       "internal/apps/apps.go",
       "internal/apps/inbox.go",
@@ -98,7 +96,7 @@ export const SURFACE_PROFILES = Object.freeze({
   },
   "mobile-now": {
     shell: "mobile",
-    entries: ["web/src/mobile/screens/Now.jsx"],
+    entries: ["web/mobile/src/screens/Now.jsx"],
     files: [
       "internal/server/inbox.go",
       "internal/server/session_ops.go",
@@ -108,12 +106,12 @@ export const SURFACE_PROFILES = Object.freeze({
   },
   "mobile-work": {
     shell: "mobile",
-    entries: ["web/src/mobile/screens/Work.jsx"],
+    entries: ["web/mobile/src/screens/Work.jsx"],
     files: [],
   },
   "mobile-agent": {
     shell: "mobile",
-    entries: ["web/src/mobile/screens/Agent.jsx"],
+    entries: ["web/mobile/src/screens/Agent.jsx"],
     files: [
       "internal/server/agents.go",
       "internal/server/roles_state.go",
@@ -123,7 +121,7 @@ export const SURFACE_PROFILES = Object.freeze({
   },
   "mobile-inbox": {
     shell: "mobile",
-    entries: ["web/src/mobile/screens/Inbox.jsx"],
+    entries: ["web/mobile/src/screens/Inbox.jsx"],
     files: [
       "internal/apps/apps.go",
       "internal/apps/inbox.go",
@@ -209,11 +207,17 @@ function localImports(source) {
   for (const re of patterns) {
     for (const match of source.matchAll(re)) specs.push(match[1]);
   }
-  return specs.filter((spec) => spec.startsWith("."));
+  return specs.filter((spec) => spec.startsWith(".") || spec.startsWith("@picode/shared/"));
 }
 
 function resolveLocalImport(root, from, spec) {
-  const base = resolve(root, dirname(from), spec);
+  let base;
+  if (spec.startsWith("@picode/shared/")) {
+    const exports = JSON.parse(readFileSync(join(root, "web/shared/package.json"), "utf8")).exports;
+    const target = exports["./" + spec.slice("@picode/shared/".length)];
+    if (!target) throw new Error(`unknown shared export: ${spec}`);
+    base = resolve(root, "web/shared", target);
+  } else base = resolve(root, dirname(from), spec);
   const candidates = extname(base)
     ? [base]
     : [
@@ -238,15 +242,17 @@ function collectImports(root, entry, files, allow = () => true, walked = new Set
   if (!/[.](?:[cm]?[jt]sx?|css)$/.test(rel)) return;
   const source = readFileSync(join(root, rel), "utf8");
   for (const spec of localImports(source)) {
-    const unresolved = posixPath(relative(resolve(root), resolve(root, dirname(rel), spec)));
-    if (!allow(unresolved)) continue;
+    const candidate = spec.startsWith("@picode/shared/")
+      ? "web/shared/" + spec.slice("@picode/shared/".length)
+      : posixPath(relative(resolve(root), resolve(root, dirname(rel), spec)));
+    if (!allow(candidate)) continue;
     const target = resolveLocalImport(root, rel, spec);
     if (allow(target)) collectImports(root, target, files, allow, walked);
   }
 }
 
 function shellLogicInput(path) {
-  return path.startsWith("web/src/lib/") || path.startsWith("web/src/mobile/hooks/") || path.endsWith(".css");
+  return /^web\/(desktop|mobile)\/src\/(lib|hooks)\//.test(path) || path.startsWith("web/shared/") || path.endsWith(".css");
 }
 
 export function surfaceInputFiles(root, profile, { pipeline = "screenshots" } = {}) {

@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0070).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073/0074).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -57,12 +57,33 @@ lingering, then `-u <owner>` for the unit, certificate and data dir, because
 installing those as root would put PiCode in `/root`. The merged view keeps
 whichever pass resolved each step. Windows-side it owns only what cannot live
 in the distro: trusting the mkcert CA (already elevated at install, so no UAC
-dance), the `onlogon` scheduled task (`/rl limited` — an elevated tray cannot
-reach Explorer's notification area), and a `sleep infinity` child that stops
+dance), an interactive user-logon task with limited privileges, and a
+`sleep infinity` child that stops
 WSL's idle timeout from reclaiming the VM. It learns the address from
 `server.json` once, then polls `/api/health` over HTTP rather than spawning
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
+
+Desktop startup policy (ADR-0071) is explicit: no execution-time, battery,
+idle or network gates; duplicate task starts are ignored; launch failures have
+three retries one minute apart. `internal/desktop/task.ps1` is embedded and called
+through Windows PowerShell's Task Scheduler COM API with literal, UTF-16
+encoded arguments. Registration applies the full definition in one write and
+verifies the result. No new runtime dependency is added to Go.
+
+`startup-check` inspects the Windows task without starting WSL. Doctor shares
+its configured/disabled/stopped/running/error distinctions and reports the
+registered executable and last result without inventing an exit cause.
+`startup-repair` backs up an existing owned definition and changes only its
+policy, preserving action, principal, triggers and enabled/disabled choice.
+It does not start/stop a process or touch the distro, certificates or agents;
+only access denied may request UAC. Missing or unexpected task definitions are
+refused. A normal tray Quit exits zero, including after setup resolution failed.
+The scheduler is not a general crash supervisor: an already-started process
+that later exits nonzero may remain stopped. Even a successful launch retry's
+one-minute gap does not guarantee WSL/session survival; separating keepalive
+from the tray remains future work. Upgrade the tray executable before repairing
+an old installation.
 
 On a machine without WSL, `install` first walks a stage machine derived from
 what it observes — never from saved progress, so an interrupted run resumes
@@ -86,8 +107,9 @@ not evidence that one exists on a hosted runner.
 
 The hosted workflow classifies the complete Git diff before allocating its
 expensive runners. Unknown paths fail closed to the full matrix. Frontend build
-and package tests run once on Ubuntu, then the 14 MB Vite output—not the 526 MB
-`node_modules` tree—crosses the artifact boundary for an embedded-build check.
+and package tests run once on Ubuntu. The complete Vite output crosses the
+artifact boundary for an embedded-build check; dependencies stay on the
+frontend runner.
 The three-OS Go matrix never installs Node. Public docs build in parallel and
 check committed screenshot/OpenAPI/llms.txt parity *before* their generators
 can rewrite those files. That job also verifies tutorial composition, still,
@@ -125,7 +147,7 @@ The release workflow also validates matching `CHANGELOG.md` and
 `whats-new.json` entries and publishes the changelog section as the GitHub
 release body. A stamped binary exposes
 `release: true` on `GET /api/version`; the two shells use that signal to offer
-the bundled `web/src/data/whats-new.json` highlights through the shared
+the bundled `web/shared/data/whats-new.json` highlights through their owned
 `WhatsNew` surface. A browser acknowledges a semver in
 `localStorage` (`picode-whats-new-seen`), so the release opens once per
 browser, after the first fleet state is available and never over an active
@@ -135,27 +157,38 @@ highlights and links to the complete release body for detail (ADR-0063).
 
 ## Application routes
 
-The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
-picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`
-(sticky in `localStorage`). Rotating never remounts — a remount would drop
-agent websockets. The mobile shell (ADR-0044) is a **supervision console**,
-not the desktop shrunk, and it has no header (the tab bar is the chrome):
-four tabs — `#/` **Now** (needs-you queue, running agents and live
-terminals, today's spend, recent results), `#/inbox[/id]` (the ADR-0037
-app through `AppSurface`), `#/work[/workspaces|agents|terminals]` (the
-desktop rail's three views: folder cards with agents + terminals, free
-agents, all terminals), `#/more[/section]` — plus the pushed
-`#/agent/<id>` screen (shared `Conversation` + `Composer`, Chat | Terminal
-for TUI agents; a transient reply replaces both with status-only terminal
-progress) and `#/term/<id>` (shared `TermSurface` + a key bar for
-Esc/Tab/Ctrl/arrows). Desktop hashes map to the closest mobile section. The
-fleet poll (`GET /api/workspaces`, `GET /api/agents?free=1`) carries each
-agent's `streaming` / `waiting` / `dialog`, so the phone answers a prompt
-from the home through `POST /api/agents/{id}/ui` without a socket; only
-the agent screen opens `/ws/agent`, driven by the pure reducer
-`web/src/lib/agentEvents.js`.
-The mobile shell is a PWA (`manifest.json`, `sw.js`, Apple
-`apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
+The Go binary serves **two independent React applications** (ADR-0072):
+`web/desktop` at `/desktop/` and `web/mobile` at `/mobile/`. Each has its own
+entry, dependencies, UI, styles and build output. `web/shared` exports
+contracts, client adapters, domain helpers and theme tokens through explicit
+subpaths; it contains no React presentation. Source and resolved build checks
+prevent imports between the applications. Tailwind scans only each app's
+sources. A root launcher chooses once by legacy query, saved preference or
+viewport (`max-width: 767px`), preserving the hash and other query parameters.
+Explicit app paths win at every width. Rotation does not replace the app or
+its connections. The desktop remains responsive, with a navigation disclosure
+above the canvas on narrow screens. Both outputs ship atomically in one binary.
+
+Mobile owns four tabs: **Now** (needs-you queue, activity and results),
+**Inbox**, **Work** (workspaces, agents, terminals) and **More** (settings and
+Apps). Pushed agent, terminal, changes and app-detail screens retain the
+existing API behavior and compatible agent/terminal hashes. Conversation,
+composer, terminal, settings and preview components are mobile-owned copies;
+secondary screens load on demand and offer retry on loading failure. Mobile
+has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
+are always sheets, including wide previews; desktop keeps responsive dialogs.
+The composer opens agent Settings over the mounted conversation, preserving
+unsent text and attachments. Both mobile settings paths save via the agent
+PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
+The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
+consume the change feed; presence follows the mounted app rather than width.
+
+The PWA keeps the root worker registration and scope. Manifest identity
+`/?mobile=1` preserves existing installations while `/mobile/` becomes the
+start URL. Hashed assets have separate launcher/desktop/mobile caches; HTML
+and APIs remain fresh. Cache failures fall back to the network; persistence
+never blocks a successful asset response. Parsed source imports and transitive
+shared build dependencies enforce the headless package boundary. See the [migration inventory and decision table](plans/mobile-decoupling.md).
 **Web Push (ADR-0047):** `internal/push` (stdlib VAPID + RFC 8291) posts
 encrypted messages to each subscribed browser's push service; the store
 holds subscriptions (`/api/push/*`), `sw.js` shows them and routes a tap
@@ -172,10 +205,10 @@ stay on their own routes.
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. With no tab open (or pinned via the logo): the session observability dashboard once any workspace/agent/terminal exists — spend/activity/sessions/fleet tiles, a daily chart, and spend by model / workspace, tokens, tools, reliability, top sessions (ADR-0041, ADR-0042; `GET /api/sessions/stats`, fingerprint-cached, polled every 60 s while visible) — else the first-run blank slate. Not routed, derived from `noTabs && hasData`. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load). An Inbox reply lands straight in this terminal (ADR-0060), so the tab never leaves the TUI. |
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
-| `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
+| `#/tree/<w\|t\|a>/<id>` | File tree tab | lazy per-level browse and a **Changes** list from `…/gitstatus`, with changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab. Files and Changes select the editor/preview or diff in one resizable local detail pane (ADR-0074). |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
-| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More share this surface. The old `#/preferences/status` address redirects here. |
+| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
@@ -190,6 +223,20 @@ offsets, loaded history, searches and the open item survive a switch and die
 only with the tab. A hidden surface takes no part in the window-focus refresh
 — revealing it refetches instead, and only when its last read is older than
 10s; the git graph refreshes on demand only, so a reveal never refetches it.
+
+Directory browsing adds optional `ignored` metadata using one bounded Git
+`check-ignore` call per listing. Desktop renders ignored names in muted italics;
+tracked files and ignore exceptions remain normal. Non-Git folders and Git
+failures retain ordinary browsing. Existing directory exclusions are unchanged.
+
+The file tree's selection is local to its tab: changing Files/Changes only
+changes the navigation list. `FilePane` supplies both standalone and embedded
+layouts from one document controller (`web/src/lib/fileDocument.js`). Dirty
+replacement, switching to a diff and closing the containing tree tab share
+Save/Discard/Cancel. A failed write retains the editable draft. An unchanged
+refresh preserves editor history/scroll; dirty buffers and edits made while a
+read is pending are never overwritten. Preview/Raw keeps CodeMirror mounted.
+Hidden tabs keep drafts, and browser unload uses native unsaved protection.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Composer `/` also lists **extension commands** from the running managed agent
@@ -577,7 +624,7 @@ HTTP API (Go 1.22 method patterns):
   session, then applies the session's **resolved** tmux options (ADR-0024) — on
   every attach, so a setting changed while the terminal was closed takes hold
   when it is reopened and an older session heals itself.
-  `web/src/lib/termClipboard.js` handles OSC 52 (write only; the read form is
+  `web/shared/domain/termClipboard.js` handles OSC 52 (write only; the read form is
   refused) so a copy made in the pane reaches the system clipboard — which is
   what keeps copying possible now that `mouse on` gives the drag to tmux.
   Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
@@ -613,7 +660,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
-  the agents living in each worktree (`?limit=`, default 250). One graph per
+  the agents living in each worktree (`?limit=`, default 250). Each worktree
+  also carries its own dirty count, `self` (the checkout the graph was read
+  through) and `bare`/`detached`/`prunable` health flags, so the browser can
+  draw one uncommitted row per dirty worktree (ADR-0073). One graph per
   repository: the identity is `git rev-parse --git-common-dir`, canonicalized
   through filesystem symlinks, so every worktree (including macOS
   `/var`/`/private/var` aliases) answers with the same key and collapses onto
@@ -636,7 +686,11 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/{agents|terminals|workspaces}/{id}/gitstatus` — the working-tree
   changes of the owner's repository, `git status --porcelain -z -uall`
   re-anchored from the repo toplevel to the owner's cwd (what falls outside
-  is dropped). No repository is a state, not an error: `200 {"git": false}`.
+  is dropped). Agents and terminals accept `?worktree=<branch|head hash>` to
+  read a sibling worktree of the same repository instead: the value is a ref
+  resolved through `git worktree list`, never a path from the URL, and an
+  unresolvable ref is 404 (ADR-0073). No repository is a state, not an error:
+  `200 {"git": false}`.
 - `GET /api/{agents|terminals|workspaces}/{id}/gitdiff?path=` — one file's
   working-tree-vs-HEAD patch (ADR-0032), confined by the same cwd rules;
   untracked files arrive as whole-file additions, binary and truncation
@@ -645,6 +699,12 @@ HTTP API (Go 1.22 method patterns):
   folder (optional confined `{"path"}` body) in the host file manager via
   `internal/osopen` (WSL → explorer.exe, darwin → open, else xdg-open).
   Host-local by design: a remote browser opens it on the server's desktop.
+
+ADR-0074 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
+blob, gitstatus, gitdiff, git/blob and reveal. The resolved owner cwd remains
+the authority: the parameter only asserts equality, and a mismatch returns
+409 before reading or writing. The tree pins these requests to its open root;
+only explicit Refresh may adopt a new terminal cwd, after its document guard.
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,
@@ -832,7 +892,7 @@ fans out to `GET /api/events` subscribers (SSE: `hello` with the bootId,
 older than the seven-day retention) and to in-process listeners (the
 push notifier). Ephemeral notices — `device.online` from presence,
 `agent.state` on every streaming / dialog edge, and `agent.waiting` — ride
-the same stream with id 0. Clients (`web/src/lib/feed.js`) keep one
+the same stream with id 0. Clients (`web/shared/client/feed.js`) keep one
 `EventSource` per shell, resume from a `sessionStorage` cursor, patch
 lists with `lib/feedReducers.js` and refetch when a reducer returns
 `null`; the old timers only tick while the feed is down. The server

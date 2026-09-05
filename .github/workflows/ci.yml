@@ -188,6 +188,8 @@ jobs:
       - name: Test and build embedded UI
         run: |
           test -f internal/web/public/index.html
+          test -f internal/web/public/desktop/index.html
+          test -f internal/web/public/mobile/index.html
           go test -tags embedui ./internal/web
           mkdir -p bin
           go build -tags embedui -o bin/picode ./cmd/picode

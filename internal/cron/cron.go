@@ -4,7 +4,7 @@
 // Sunday is 0 or 7; when both day fields are constrained a date matches
 // if either does. Names (`MON`, `JAN`) and `L`/`W`/`?` are not supported.
 // Stdlib only (AGENTS.md #3) — the grammar is small enough not to earn a
-// dependency, and the web mirrors it in web/src/lib/cron.js.
+// dependency, and the web mirrors it in web/shared/domain/cron.js.
 package cron
 
 import (

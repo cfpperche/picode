@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,9 +10,11 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/store"
@@ -114,6 +117,9 @@ func handleAgentBrowse(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		out, err := browseAgentDir(cwd, r.URL.Query().Get("dir"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -146,6 +152,13 @@ func handleAgentBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
@@ -163,6 +176,9 @@ func handleAgentText(deps Deps) http.HandlerFunc {
 		cwd, err := agentCwd(deps, r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
+			return
+		}
+		if !checkFileRoot(w, r, cwd) {
 			return
 		}
 		out, code, err := readAgentText(cwd, r.URL.Query().Get("path"))
@@ -194,6 +210,9 @@ func handlePutAgentText(deps Deps) http.HandlerFunc {
 		}
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
+		}
+		if !checkFileRoot(w, r, cwd) {
+			return
 		}
 		out, code, err := writeAgentText(cwd, req.Path, req.Text, req.Mtime)
 		if err != nil {
@@ -370,8 +389,9 @@ func writeAgentText(cwd, rel, text string, mtime int64) (map[string]any, int, er
 }
 
 type browseHit struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Ignored bool   `json:"ignored,omitempty"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
 }
 
 func browseAgentDir(cwd, rel string) (map[string]any, error) {
@@ -403,6 +423,7 @@ func browseAgentDir(cwd, rel string) (map[string]any, error) {
 		}
 		files = append(files, browseHit{Name: name, Path: child})
 	}
+	markBrowseIgnored(cwd, dirs, files)
 	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name < dirs[j].Name })
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
 	if dirs == nil {
@@ -425,6 +446,38 @@ func browseAgentDir(cwd, rel string) (map[string]any, error) {
 		"cwdOk": true, "root": canonDir(cwd), "dir": outRel, "parent": parent,
 		"dirs": dirs, "files": files,
 	}, nil
+}
+
+// Ask Git once per directory listing, preserving tracked files and ignore
+// negations. Ignore detection is optional: browsing also works without Git.
+func markBrowseIgnored(cwd string, groups ...[]browseHit) {
+	var input strings.Builder
+	for _, hits := range groups {
+		for _, hit := range hits {
+			input.WriteString(hit.Path)
+			input.WriteByte(0)
+		}
+	}
+	if input.Len() == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", cwd, "check-ignore", "-z", "--stdin")
+	cmd.Stdin = strings.NewReader(input.String())
+	output, err := cmd.Output()
+	if err != nil {
+		return
+	}
+	ignored := make(map[string]bool)
+	for _, path := range strings.Split(string(output), "\x00") {
+		ignored[path] = true
+	}
+	for _, hits := range groups {
+		for i := range hits {
+			hits[i].Ignored = ignored[hits[i].Path]
+		}
+	}
 }
 
 func readAgentImage(cwd, rel string) (map[string]any, error) {

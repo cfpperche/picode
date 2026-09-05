@@ -1,0 +1,18 @@
+import SearchCombo from "./SearchCombo.jsx";
+import { IconMode } from "./Icons.jsx";
+import { modeChipLabel, modeChoices } from "@picode/shared/domain/chip.js";
+
+export default function ModeChip({ cfg, onChange }) {
+  const mode = (cfg && cfg.opMode) || "full";
+  return (
+    <SearchCombo
+      id="agent-mode"
+      value={mode === "readonly" ? "readonly" : "full"}
+      onChange={(id) => onChange({ opMode: id })}
+      options={modeChoices()}
+      label={modeChipLabel(cfg)}
+      searchPlaceholder="Search modes"
+      icon={<IconMode />}
+    />
+  );
+}

@@ -28,6 +28,11 @@ the open select card), `mobile-inbox-respond.png` (stacked inbox, reply form),
 `mobile-work-workspaces.png` (Work → Workspaces card with agents and the
 + Agent / + Terminal row), `mobile-terminal.png` (pushed terminal with the key
 bar), `mobile-more.png`.
+Git graph worktrees (ADR-0073): `adr0073-gitgraph-worktrees-dirty.png`
+(three dirty worktrees — owner with "this worktree", a detached checkout and a
+sibling branch — with the sibling's file list open, dark),
+`adr0073-gitgraph-branch-picker.png` (local branches marked with the worktree
+they are checked out in).
 Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
 first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
 reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).
@@ -80,3 +85,45 @@ the mobile discard sheet without empty scroll space. Screenshots were read;
 settled overlay audits passed. QA used isolated fixture data and disposable
 terminals; version checks did not start conversations. This is not evidence
 of every native vendor lifecycle event.
+
+Independent web applications (ADR-0072): `split-mobile-*.png` covers the initial
+mobile copy, empty Inbox/Changes, unavailable Docker, form validation, chunk
+load recovery and an always-sheet wide preview. `split-desktop-small-*.png`
+shows responsive desktop navigation at 390px. All were read, using an isolated
+embedded fixture; overlay audits passed. Package-chunk failure was injected
+and Try again recovered after the interception was removed. No model turns
+were started. Physical PWA installation/push delivery remains separate QA.
+
+### Mobile review corrections (2026-09-05)
+
+Synthetic embedded fixture, no model turns. Screenshots were read; settled
+sheet/popover audits passed. Light phone and wide dark sheet; save failure
+rolls back controls, and closing Settings preserves the draft and attachment.
+
+- [Agent Settings](mobile-review-settings-light.png)
+- [Save failure](mobile-review-settings-error.png)
+- [Retained draft and image](mobile-review-draft-retained.png)
+- [Tool selector above the sheet](mobile-review-mode-selector.png)
+- [Wide dark sheet](mobile-review-settings-wide-dark.png)
+
+File Tree v2 (ADR-0074): `filetree-v2-editor-dark.png`,
+`filetree-v2-editor-light.png`, `filetree-v2-diff-dark.png` and
+`filetree-v2-image.png` show one local detail panel for content and changes.
+`filetree-v2-unsaved-dialog.png`, `filetree-v2-save-error.png`,
+`filetree-v2-conflict.png`, `filetree-v2-removed.png` and
+`filetree-v2-root-changed.png` cover draft protection and recovery.
+The empty, clean-changes, blocked, unsupported and tree-error captures show
+their next actions. Narrow, preview-narrow, compact and stacked captures cover
+900, 720, 550 and 390px desktop windows. Screenshots were read after correcting narrow
+preview controls; overlay and toolbar-boundary audits passed.
+
+`filetree-v2-qa.json` records all 15 browser acceptance groups. Reproduce with
+`scripts/qa-filetree-v2.mjs` against a private `picode-docs-fixture -addr
+127.0.0.1:18746` instance, using the current UI build. Set `PICODE_QA_BASE` to
+that address, `PICODE_QA_CDP` to the CDP URL of a dedicated browser session,
+and `PICODE_PLAYWRIGHT_MODULE` to an installed Playwright module. Start the
+agent-browser session with `AGENT_BROWSER_NO_AUTO_DIALOG=1` so the test can
+observe and dismiss the native unsaved-changes dialog. The runner checks the
+synthetic workspace identity before writing fixture files and removes its
+disposable terminal afterward. Public docs use a separate unmodified fixture;
+`docs-shots.mjs` now closes only its own browser session.

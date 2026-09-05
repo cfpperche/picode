@@ -106,6 +106,25 @@ func writeGitHead(w http.ResponseWriter, cwd string) {
 	writeJSON(w, http.StatusOK, gitHeadView{Key: key, Token: token, Uncommitted: dirty})
 }
 
+// resolveGitWorktree narrows cwd to a sibling worktree of the same
+// repository when the request names one via ?worktree=<branch|head>. The
+// value is a ref, never a path: gitgraph.WorktreeOfRef only answers for a
+// branch or commit git itself lists as checked out in this repository, so
+// the URL still resolves no directory of its own (ADR-0022). Absent means
+// cwd unchanged; an unresolvable ref is 404.
+func resolveGitWorktree(w http.ResponseWriter, r *http.Request, cwd string) (string, bool) {
+	ref := strings.TrimSpace(r.URL.Query().Get("worktree"))
+	if ref == "" {
+		return cwd, true
+	}
+	dir := gitgraph.WorktreeOfRef(cwd, ref)
+	if dir == "" {
+		writeErr(w, http.StatusNotFound, "no worktree of this repository is checked out at that branch or commit")
+		return "", false
+	}
+	return dir, true
+}
+
 func handleAgentGraph(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cwd, err := agentCwd(deps, r.PathValue("id"))
@@ -328,6 +347,10 @@ func handleAgentGitBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		writeGitBlob(w, r, cwd)
 	}
 }
@@ -339,7 +362,11 @@ func handleTerminalGitBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		writeGitBlob(w, r, liveTermCwd(deps, r, term))
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
+		writeGitBlob(w, r, cwd)
 	}
 }
 
@@ -358,6 +385,9 @@ func handleWorkspaceGitBlob(deps Deps) http.HandlerFunc {
 // extension allowlist the working-tree /blob endpoint uses, so a hand-written
 // URL gets 415 for anything the UI would not render anyway.
 func writeGitBlob(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
 	path := r.URL.Query().Get("path")
 	if hash == "" || path == "" {

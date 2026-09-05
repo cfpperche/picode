@@ -12,8 +12,8 @@
 // Lessons baked in (all the hard way):
 //  - one browser session per run: a session's window that is not focused
 //    paints blank in headless Chromium;
-//  - the shell (?desktop=1 / ?mobile=1) goes in the URL query, which always
-//    wins over a stored pref (lib/shell.js); the nonce goes in the query too,
+//  - the application path (/desktop/ or /mobile/) wins over a stored pref;
+//    the nonce goes in the query,
 //    never in the fragment (a fragment nonce breaks the mobile router);
 //  - the marker check is scoped to the surface's own container and rejects
 //    the Reconnecting banner — a cold load can boot empty (the app swallows
@@ -43,12 +43,12 @@ const base = process.argv.includes("--base")
 // waitText must be VIEW-SPECIFIC and is checked inside `scope` (both mobile
 // screens render the seeded question's title, so the container decides).
 const surfaces = [
-  { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/?desktop=1", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
+  { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/desktop/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
   // app-automations is off the list for now: a cold deep link to
   // #/automations mounts the workspace dashboard (app deep-link bug,
   // handoff 2026-09-03) — the surface returns once that is fixed.
-  { name: "app-mobile-inbox", profile: DOC_SCREENSHOT_SURFACES["app-mobile-inbox"], path: "/?mobile=1#/app/inbox", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-inbox" },
-  { name: "app-mobile", profile: DOC_SCREENSHOT_SURFACES["app-mobile"], path: "/?mobile=1", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-screen" },
+  { name: "app-mobile-inbox", profile: DOC_SCREENSHOT_SURFACES["app-mobile-inbox"], path: "/mobile/#/app/inbox", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-inbox" },
+  { name: "app-mobile", profile: DOC_SCREENSHOT_SURFACES["app-mobile"], path: "/mobile/", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-screen" },
 ];
 
 const ab = (args) =>
@@ -71,10 +71,7 @@ async function main() {
     try { return JSON.parse(readFileSync(manifestPath, "utf8")); } catch { return null; }
   })();
 
-  // Stale windows from previous runs occlude the new one (headless paints
-  // the focused surface only) — sweep them first.
-  try { ab(["close", "--all"]); } catch { /* first run: nothing open */ }
-
+  // This run owns one session; other worktrees may be reviewing their UI.
   // ONE browser session for the whole run; surfaces stay sequential and
   // focused. A session's window that is not focused paints blank.
   // ONE session for preflight + every surface: a second tab (e.g. a

@@ -13,12 +13,41 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Distinguish Git-ignored files and folders in the desktop File Tree with muted,
+  italic names and an accessible label, while keeping them fully navigable.
+
+- Keep mobile drafts and attachments when opening agent Settings, and persist
+  model, tool and checklist changes from both mobile settings entry points.
+  Selectors stay above settings sheets and within the phone viewport.
+- Keep web assets available when browser cache storage fails; reject shared
+  presentation dependencies across supported JavaScript/TypeScript modules.
+
+- **Windows tray startup and normal Quit** (ADR-0071). The installer now
+  registers an explicit resident task: no time/battery/idle/network gates,
+  limited interactive user, duplicate-task suppression and three launch
+  retries one minute apart. A normal Quit exits successfully instead of
+  falling through to an unknown-command error. `startup-check` and doctor
+  inspect the actual policy and runtime state; `startup-repair` backs up and
+  repairs an existing owned task without restarting processes or provisioning
+  WSL. Disabled startup remains disabled, and access errors stay explicit.
+  Launch retries are not a guarantee of recovery after a runtime crash.
+
 - **Workspace cards: status and the actions button sit on the name line.**
   In agent and terminal rows the right-hand column (status chip, overflow
   menu) centered against the two-line title block and visually dropped onto
   the subtitle line; it now top-aligns with the agent or terminal name.
 
 ### Added
+
+- **Git graph shows every worktree's working tree** (ADR-0073). One
+  "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
+  the graph was opened from — labelled with its branch, directory, the agents
+  living there and a "this worktree" marker on your own checkout, each joined
+  to its HEAD by a dashed trail. Clicking a sibling's row opens its files and
+  diffs inline; detached checkouts decorate their HEAD commit with a directory
+  chip; the branch picker marks which branches are checked out in a worktree.
+  Sibling reads are addressed by branch or HEAD hash — never by path — so the
+  graph stays read-only and confined.
 
 - **Docker v3 resources, health and supervised maintenance** (ADRs 0067/0068).
   Inspect images, volumes and networks with all container consumers, including
@@ -55,6 +84,25 @@ to the `[Unreleased]` section. The repository's official language is English
   the sidebar line, cards and per-agent Level are PiCode's.
 
 ### Changed
+
+- **Independent desktop and mobile web apps** (ADR-0072). `/desktop/` keeps
+  the responsive workstation; `/mobile/` owns its screens, styles, sheets and
+  build. Mobile loads secondary screens on demand and includes only its
+  reachable UI. Existing links and PWA identity remain compatible, with shared
+  authentication, data contracts and theme tokens. Narrow desktop views gain
+  a navigation disclosure, and mobile screen loading failures offer retry.
+
+- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
+  entry in the agent and terminal row menus without an icon; every entry now
+  carries one.
+
+- **File Tree v2:** selecting a file displays its editor or preview beside the
+  tree. Files and Changes share one detail pane; Open file and View diff keep
+  navigation in the same tab. The tree highlights the selection, supports
+  keyboard navigation and remembers its adjustable width. Save/Discard/Cancel
+  protects edits when replacing a document or closing its tree tab; failed
+  saves retain the draft, and a terminal directory change cannot redirect a
+  file read or save to a different folder.
 
 - **Agent CLIs launch inspection** (ADR-0070). Show detected defaults and
   PiCode-injected settings before editing; preview the next launch, protect

@@ -3,6 +3,122 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## File Tree v2 delivery (archived during mobile review integration)
+
+- **2026-09-05 — File Tree v2 (ADR-0074).** Content, editing and changes share
+  one local panel. Draft guards, root preconditions and keyboard resizing
+  passed 15 browser groups; narrow controls were corrected and screenshots read.
+  Integrated the independent desktop app and sibling-worktree read contracts.
+  visual-review: PASS. Full `make ci` passed; merged and locally deployed as
+  `0.1.0+469b960`. Live file selection stayed in one tab; no files were edited.
+  Disposable fixtures and newly observed test shells were cleaned up.
+
+
+## Concurrent Git Graph and app split delivery (archived during File Tree v2)
+
+- **2026-09-05 — ADR-0073 merged and deployed.** `feat/gitgraph-worktrees`
+  merged into `main` (renumbered 0071→0073: desktop task reliability and
+  independent web applications took the earlier numbers), worktree and branch
+  removed, `make deploy` restarted the service — `0.1.0+ff8beb8`, health
+  `ok`, `/desktop/` bundle carries the feature. Merge resolved handoff/
+  changelog/decisions text and regenerated the three app captures
+  (`make docs-shots`); full `make ci` green on the merged tree.
+
+- **2026-09-05 — Git graph shows every worktree's working tree (ADR-0073),**
+  merged from `feat/gitgraph-worktrees`. One uncommitted row per dirty
+  worktree (branch + directory chip + agents + "this worktree"), dashed
+  trails anchored at each worktree's HEAD, detached checkouts decorate their
+  HEAD commit, branch picker marks checked-out branches, and
+  `gitstatus`/`gitdiff`/`git/blob`/`blob` accept `?worktree=<branch|hash>`
+  for sibling reads — refs, never paths. Benchmarks: Conductor, GitButler,
+  mhutchie Git Graph, herdr/Crystal. `make ci` passed including regenerated
+  docs captures; visual-review: PASS (`docs/screenshots/adr0073-*.png`,
+  overlay audit ok, light + dark read; a pseudo-hash index bug was caught and
+  fixed in QA).
+
+- **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
+  entries, copied mobile UI, shared contracts/tokens, explicit app paths and
+  stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
+  optional previews remain lazy. Incorporated concurrent Rename/task work
+  and the Windows/macOS test portability fixes.
+  visual-review: PASS; public captures refreshed. No application deployment.
+
+## Cross-platform test portability (archived 2026-09-05 during web decoupling)
+
+- **2026-09-05 — Cross-platform test portability.** Publication `385329ab`
+  passed local CI and hosted Pages (run `33974331763`); hosted CI exposed
+  pre-existing Windows test compilation and macOS socket-path failures
+  (run `33974331748`). Moved Linux `/proc` process-group fixtures into a
+  Linux-only test file; portable runtime tests remain shared. Docker socket
+  fixtures now use short private temporary directories, with a long-test-name
+  regression test. Windows cross-vet, all-package test cross-compilation,
+  focused Linux race tests and full local `make ci` passed. Hosted CI
+  `33975160712` passed on `e707fac6`, including all three OS jobs. No
+  application, tray or task policy changes; next-logon acceptance remains
+  deferred by the owner.
+
+## Desktop publication (archived 2026-09-05 during CI follow-up)
+
+- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
+  the completed increment and deferred Windows login acceptance. Removed
+  stale remote-state prose; no further task, tray or service changes.
+
+## Desktop delivery (archived 2026-09-05 during publication)
+
+- **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
+  scoped repair and Quit exit-code fix validated on Linux and Windows.
+  `make ci` passed; regenerated/read the three already-stale public captures.
+  visual-review: PASS for the Windows guide at desktop/mobile widths;
+  no app/tray layout or overlay changed. Installed locally, verified one task
+  instance and unchanged baseline panes. Backups/evidence are in the plan.
+
+
+## Prior state detail archived during web decoupling (2026-09-05)
+
+**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
+parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
+argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
+Browser QA covers profiles, workspace/palette context, reset, pending/restart,
+dirty navigation and preview/network recovery. Empty/blocked, desktop/mobile
+and light/dark screenshots were read; overlay audits passed (`docs/screenshots/cli-v2-*.png`).
+Public captures were refreshed with isolated fixtures. No model turns were used;
+v2 does not certify every vendor lifecycle event.
+
+
+### ADR-0061 compaction policy package (`pi-compact`)
+
+Deployed and dormant until configured: no defaults without `.pi/compact.json`
+(or a per-agent overlay). The untracked root config belongs to other work and
+was not evaluated here. Commands are `/compact-edit|model|on|off`; bare
+`/compact` remains Pi's native command. Trigger on `agent_settled` plus idle,
+never `turn_end`, which aborts active work. Auto summarizer fallback remains
+`gemini-3.6-flash` → `claude-haiku-4-5` → Pi; 54 package tests pass. A configured
+real-compaction run must still prove `fromHook: true` and no aborted turns.
+
+
+## Recent activity (archived 2026-09-05 during desktop task reliability)
+
+- **2026-09-05 — Pushed `main` to `origin` (`83124956..a160739e`).** Owner
+  decision; fast-forward, no force. This preceded the desktop task increment.
+- **2026-09-05 — Rename menu icon.** `IconPencil` (existing) now leads the
+  Rename entry in agent and terminal row menus; previously the only entry
+  without one. visual-review: PASS (term-menu / agent-menu captures at
+  1280×900 on the deployed service; overlay audit ok; card 5/5). First
+  `make ci` failed only at `docs-check` (fleet/mobile capture inputs changed);
+  `make docs-shots` regenerated three `www/img` captures and `ci-docs`+`vale`
+  then passed; every earlier stage had passed. Process deviation: committed
+  on the primary `main` checkout and deployed before its docs commit; no
+  worktree was used. The public site captures are not part of the binary.
+- **2026-09-05 — Workspace row first-line alignment fix.** Status and menu
+  now top-align with the name (title center delta 0.6px, measured). Visual
+  review read agent, terminal and menu-overlay captures at desktop and 550px;
+  overlay audit passed. Deployed as `0.1.0+9393c14`, boot `920ca74e6f1f752d`.
+- **2026-09-05 — Local Windows tray recovery.** Ran the existing task without
+  restarting the service. Policy repair was denied; duration/battery settings
+  remained pending. Original XML: `var/PiCodeDesktop-before-20260905T125140Z.xml`.
+  CI passed (`var/desktop-logon-settings-ci.log`); no installer code changed
+  in that earlier operation. Details follow.
+
 ## Local Windows tray recovery checks (2026-09-05)
 
 Machine-local operation, not an installer fix. The task already had an enabled
@@ -2515,3 +2631,13 @@ The existing test cleanup context/lifetime needs review; no test code changed.
 - **2026-08-23** — M1 complete: screenshot tooling, tmux, WS↔PTY, terminal
   grid, ADR-0004.
 - **2026-08-23** — Language policy: English is the repository language.
+
+
+- **2026-09-05 — Mobile decoupling adversarial corrections.** Cache storage
+  failures preserve successful asset responses. Composer Settings stays above
+  the mounted conversation; both settings paths persist configuration, and
+  tool/checklist selectors remain above sheets and inside the viewport.
+  Parsed imports and resolved shared dependencies reject presentation leakage.
+  `make ci` passed (648 frontend tests on the combined tree); visual-review: PASS (light/dark,
+  small/wide, empty/error, preserved draft/image and persisted settings).
+  No model turns, push or deployment for these fixes.

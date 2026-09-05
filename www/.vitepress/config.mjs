@@ -39,6 +39,7 @@ export default defineConfig({
         items: [
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
+          { text: "Files and changes", link: "/guide/files" },
         ],
       },
       {
@@ -62,6 +63,7 @@ export default defineConfig({
       {
         text: "Run it somewhere",
         items: [
+          { text: "On Windows", link: "/guide/windows-desktop" },
           { text: "Security and pairing", link: "/guide/security" },
           { text: "On a server", link: "/guide/remote-server" },
           { text: "Share one server", link: "/guide/shared-server" },

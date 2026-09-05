@@ -139,7 +139,7 @@ internal/browserhost/  native-messaging host + Chrome install
 internal/server/   HTTP server + API
 internal/web/      UI loader: from disk by default, embedded with `-tags embedui` (ADR-0023).
                    public/ is Vite output and is NOT committed
-web/               React + Vite + Tailwind sources (ADR-0008)
+web/               Independent desktop/mobile apps + shared contracts/tokens (ADR-0072)
 .github/           CI
 ```
 
@@ -156,11 +156,11 @@ supersede it with a new one instead.
   English — code, comments, docs, commits, changelog entries, issues and
   PR descriptions. No exceptions for canonical content.
 - Go: idiomatic, stdlib-first, table-driven tests, no `init()` magic.
-- UI: React in `web/`; design tokens live in `web/src/styles/app.css`
+- UI: React in `web/`; design tokens live in `web/shared/tokens/theme.css`
   (do not invent a second palette). After any UI change run `make web`
   and a JS/JSX syntax check (`npm run build` must succeed).
 - **Forms: Zod, never native browser validation.** Schemas live in
-  `web/src/lib/schemas.js`. Forms set `noValidate`. Same messages in every
+  `web/shared/contracts/schemas.js`. Forms set `noValidate`. Same messages in every
   browser.
 - **Prefer popular primitives over homemade widgets.** Use Radix (already
   in the app), cmdk, **shadcn/ui patterns**, or native controls. Tailwind
@@ -176,7 +176,7 @@ supersede it with a new one instead.
   A mutation is a store method that appends its event in the same
   transaction; writing to SQLite around the store, or adding a mutator
   without a row in `TestEveryMutationAppendsAnEvent`, is a bug. UI lists
-  subscribe to the feed (`web/src/lib/feed.js`) and patch or refetch; a
+  subscribe to the feed (`web/shared/client/feed.js`) and patch or refetch; a
   new `setInterval` against `/api/*` needs a reason the feed cannot cover
   (metrics, presence, tmux).
 - Commits: imperative, scoped (`server: add /api/version endpoint`).

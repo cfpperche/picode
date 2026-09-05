@@ -6,82 +6,83 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
-v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
-not agent runtimes. Nothing was pushed. Preserve the unrelated root
-`.pi/compact.json`. Compose registration/deployment remains proposed.
+**Repository:** HEAD includes File Tree v2 (ADR-0074), the worktree-aware
+Git Graph (0073), independent web apps (0072), Windows task reliability
+(0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
+coding CLIs are terminals. This session has not pushed. Read Git for upstream
+status; preserve the unrelated root `.pi/compact.json`.
+Mobile review fixes are validated locally, including the combined tree.
+These fixes are included in the latest local deployment; no push was made.
 
-**Last application deployment:** `0.1.0+9393c14`, health `ok`, boot
-`920ca74e6f1f752d`; served HTML/assets match the freshly built build.
-Ships the workspace row first-line alignment fix (see activity below):
-the live sidebar re-measured on real data shows status/menu to title
-center delta 0.6px on every row. Deployment retained all pre-restart
-terminal records (tmux-backed sessions survive service restarts).
+**Last application deployment:** `0.1.0+050580f`, health `ok`, boot
+`04ceec7199555424`. Git-ignored tree entries are visibly distinct in the live
+app, and two files still open in one inline pane. All five terminal records
+and 17 baseline pane identities survived the restart. Local browser evidence:
+`var/filetree-ignored/deployed.png` and `live-check.json`.
 
-**Local Windows tray (2026-09-05):** restarted through the existing enabled
-`PiCodeDesktop` logon task; one tray process observed. Server boot
-`97d7ca348df4a75a` and all six observed tmux pane IDs/PIDs stayed unchanged.
-Task settings still need administrator approval; no installer code changed.
+**Windows desktop (ADR-0071):** resident task policy, diagnosis, scoped repair
+and normal Quit are implemented and locally installed. Native policy/lifecycle
+and race tests passed. UAC repair preserved action/principal/triggers; repeat
+repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
-**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
-parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
-argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
-Browser QA covers profiles, workspace/palette context, reset, pending/restart,
-dirty navigation and preview/network recovery. Empty/blocked, desktop/mobile
-and light/dark screenshots were read; overlay audits passed (`docs/screenshots/cli-v2-*.png`).
-Public captures were refreshed with isolated fixtures. No model turns were used;
-v2 does not certify every vendor lifecycle event.
+**Quality:** File Tree ignore refinement `make ci` passed (649 frontend tests,
+Go, packages, build, docs and Vale). Four read screenshots cover both themes,
+selection, empty and blocked states; audits passed. The integrated code is
+commit `050580f9`; dedicated test fixtures and the QA browser are stopped. Evidence lives in
+`docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
+The preceding mobile combined `make ci` passed (648 frontend tests, Go, packages,
+build, docs and Vale), plus embedded UI/server checks. The repeatable mobile
+browser runner passed draft/image retention, both settings callbacks, save
+failure rollback and model/tool/checklist persistence. Light/dark, small/wide,
+empty/blocked/error screenshots were read; settled overlay audits passed.
+Evidence: `docs/screenshots/mobile-review-*` and
+`var/mobile-review-fixes-14748677/`. File Tree v2's earlier evidence remains
+in `docs/screenshots/filetree-v2-*`. Physical PWA/push acceptance is open;
+no model turns were started by this correction increment.
 
 ### Product and platform
 
-- One Go binary serves the React/Vite desktop and mobile ADE. HTTPS defaults
-  to `:8445`; hashed assets may cache, while HTML and APIs do not.
-- Workspaces contain multiple agents; free agents and first-class tmux
-  terminals are supported. Agent sessions are privately scoped and recorded
-  in `agent_sessions` (ADRs 0039/0040/0053).
-- Agents have interactive Pi TUI and managed Pi RPC run modes. Inbox replies
-  use the injected receiver extension with a tmux paste fallback (ADR-0060).
-- Desktop/mobile consume the ADR-0048 change feed. Store mutations append their
-  events in the same transaction; ephemeral terminal runtime/state signals are
-  deliberately in memory and reconcile through the terminal list.
-- Terminal CLI presence and activity remain separate. Wrappers identify
-  Claude Code, Codex, Grok, or Pi with a run id; exact tmux command/PID data is
-  only a weaker legacy presence fallback. Pixels are never scraped and a guest
-  CLI is never promoted to an Agent. CLI favicons fill the same 22px face slot
-  as agent rows, with no chip; the compact text mark is only an asset-load
-  fallback.
-- Agent CLIs is available from the desktop user menu/palette and mobile More.
-  It owns visible launch defaults, copied profiles, per-terminal overrides,
-  shared previews, persistent setup checks, explicit repair and lifecycle
-  actions. The old Terminal status preference redirects to `#/clis`. Saving
-  settings never restarts a process; a stopped configured terminal needs Start.
-- Apps now provide literal output, progress, empty lists and generic mobile
-  navigation. Docker exposes inventory, resources/consumers, health/incident sampling,
-  reviewed project operations and maintenance procedures with durable history. Inventory groups exact Compose
-  projects inside the app, with saved folds and search (ADR-0066). Optional
-  `pi-sysadmin` tools share the same service, existing authentication and
-  local Unix socket access.
-- Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
-  and integrity-checked tutorial videos.
-- Public release mechanics are tag-driven. The cadence study, proposed
-  ADR-0064 and maintainer checklist are documented, but no calendar-triggered
-  release or Preview lane is active.
+- One Go binary serves independent `/desktop/` and `/mobile/` apps. Desktop
+  stays responsive; mobile owns copied UI and lazy screens. Shared contracts
+  and tokens have explicit exports; HTTPS defaults to `:8445`.
+- The git graph (ADR-0022/0038/0073) draws one dirty row per worktree with
+  its branch, directory, agents and a "this worktree" marker; sibling reads
+  are addressed by branch or HEAD hash (`?worktree=`), never by path. The
+  graph stays read-only and manually refreshed; sibling dirty states ride
+  the manual Refresh, and the unused `git/head` token endpoints remain.
+- Desktop File Tree marks Git-ignored entries with muted italic names and
+  accessible labels; selection remains legible and files still open inline.
+- File Tree v2 keeps file content and working diffs beside the navigation.
+  One document controller protects edits on replacement, close and refresh;
+  optional root preconditions prevent a terminal cd from redirecting a draft.
+- Workspaces support multiple agents, free agents and tmux terminals. Private
+  agent sessions follow ADRs 0039/0040/0053. Pi has interactive TUI and managed
+  RPC modes; Inbox uses the receiver extension with a paste fallback (ADR-0060).
+- Store mutations append feed events transactionally. Terminal presence and
+  activity are distinct, with wrapper leases and exact process fallback;
+  pixels are never scraped (ADRs 0048/0062).
+- Agent CLIs v2 owns launch defaults, copied profiles, previews, setup checks
+  and lifecycle actions. Saving configuration never restarts a process.
+- Docker v3 and `pi-sysadmin` share resource inventory, project operations,
+  health sampling and reviewed maintenance. Compose registration stays proposed.
+- Public docs have generated API/llms maps, screenshots and video integrity
+  checks. Releases remain tag-driven; ADR-0064's cadence pilot is proposed.
 
-### ADR-0061 compaction policy package (`pi-compact`)
+### Compaction policy (`pi-compact`, ADR-0061)
 
-Deployed and dormant until configured: no defaults without `.pi/compact.json`
-(or a per-agent overlay). The untracked root config belongs to other work and
-was not evaluated here. Commands are `/compact-edit|model|on|off`; bare
-`/compact` remains Pi's native command. Trigger on `agent_settled` plus idle,
-never `turn_end`, which aborts active work. Auto summarizer fallback remains
-`gemini-3.6-flash` → `claude-haiku-4-5` → Pi; 54 package tests pass. A configured
-real-compaction run must still prove `fromHook: true` and no aborted turns.
+Deployed and dormant without configuration. The root `.pi/compact.json`
+belongs to other work and was not evaluated. A configured real-compaction
+run must still prove `fromHook: true` and no aborted turns. Prior policy
+and fallback detail is archived; the implementation is unchanged here.
 
 ## In flight
 
-- Local tray policy repair: `Set-ScheduledTask` returned `0x80070005`
-  (access denied). Removing `PT72H` and both battery restrictions awaits
-  owner-approved elevation; those settings remain unchanged.
+- Physical iOS/Android PWA upgrade and notification delivery need device
+  acceptance. The browser migration and shared worker decision table passed.
+
+- Windows next-logon, battery and sleep/resume acceptance is explicitly
+  deferred by the owner. Installer and local task repair are complete;
+  do not interrupt the current Windows session for these tests.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -103,13 +104,15 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Next up
 
-1. Run the version-specific CLI working/approval/settled acceptance matrix.
+1. Validate the deployed PWA upgrade and push delivery on iOS/Android.
+   Further mobile UI increments belong only in `web/mobile`.
+
+2. Run the version-specific CLI working/approval/settled acceptance matrix.
    Any first-class CLI agent proposal needs a separate ADR covering
    protocol/session/package parity.
-2. Design the separate Compose registration/deployment increment from
+3. Design the separate Compose registration/deployment increment from
    `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
    deployment preview and recovery. Existing-project operations are implemented.
-3. Review current local `main` and decide when to push/promote it.
 4. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
 5. Verify the local `pi-compact` configuration and re-dogfood its policy.
@@ -121,10 +124,15 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Known debts / open questions
 
-- Desktop installer task creation still inherits Windows duration/battery
-  defaults. An installer fix and next-logon acceptance are separate work.
-- `TestTerminalBrowse` left one disposable tmux session after passing CI;
-  identity-checked cleanup removed it. Review test cleanup context/lifetime.
+- Task Scheduler launch retries are not general crash recovery: a native
+  exit-one probe stayed stopped for 90 seconds. Separate tray/WSL keepalive
+  lifetime and runtime supervision need a new owner-approved design.
+- Windows native lifecycle acceptance is opt-in in ordinary CI; it was run
+  and passed here. Battery/sleep/sign-in transitions remain owner-controlled;
+  see `docs/plans/desktop-task-reliability.md` for the decision table/evidence.
+- Existing `TestTerminalBrowse` cleanup can leave tmux shells with deleted
+  temporary folders. Newly observed disposable shells were identity-checked
+  and removed; pre-existing shells were retained. Review cleanup lifetime.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
@@ -144,24 +152,17 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - The terminal Shift+Enter shim remains until a stable xterm/tmux protocol
   combination replaces it. Some non-terminal screens still carry legacy
   `role-state`/`slash` assumptions.
-- Tutorial CI checks committed integrity without rendering every changed
-  tutorial; `make docs-videos-fresh` remains the explicit drift audit.
+- Tutorial integrity passes. The strict freshness audit reports all three
+  tutorials stale after source relocation; recapture/render remains explicit
+  maintenance. Their existing hashes were not relabeled as fresh.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
 
-- **2026-09-05 — Workspace row first-line alignment fix.** Agent and terminal
-  rows centered the status chip and overflow button against the two-line
-  title block, so the right column rendered on the subtitle line; `.ws-row-*`
-  now top-align with the name (title center delta 0.6px, measured). Visual
-  review read agent, terminal and menu-overlay captures at desktop and 550px
-  widths; overlay audit ok. Deployed after merge.
-
-- **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
-  process/task running, with no service restart. Policy update blocked by
-  Windows permissions; duration/battery settings remain pending. Original XML:
-  `var/PiCodeDesktop-before-20260905T125140Z.xml`. `make ci` passed (log:
-  `var/desktop-logon-settings-ci.log`); no product/UI changes or deployment.
+- **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
+  listing in one bounded call. Tracked files, exceptions and unavailable Git
+  are covered; light/dark, inline selection, empty and blocked screenshots
+  were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go, build, docs and Vale).
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

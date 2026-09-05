@@ -30,6 +30,10 @@ func handleAgentWorkDiff(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		writeWorkDiff(w, r, cwd)
 	}
 }
@@ -41,7 +45,11 @@ func handleTerminalWorkDiff(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		writeWorkDiff(w, r, liveTermCwd(deps, r, term))
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
+		writeWorkDiff(w, r, cwd)
 	}
 }
 
@@ -56,6 +64,9 @@ func handleWorkspaceWorkDiff(deps Deps) http.HandlerFunc {
 }
 
 func writeWorkDiff(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	rel := r.URL.Query().Get("path")
 	if rel == "" {
 		writeErr(w, http.StatusBadRequest, "pass ?path=<file>")
@@ -110,6 +121,9 @@ func handleWorkspaceReveal(deps Deps) http.HandlerFunc {
 }
 
 func writeReveal(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	var req struct {
 		Path string `json:"path"`
 	}

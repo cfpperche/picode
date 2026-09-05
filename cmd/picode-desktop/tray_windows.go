@@ -20,10 +20,11 @@ const pollEvery = 5 * time.Second
 type tray struct {
 	app app
 
-	mu     sync.Mutex
-	url    string
-	bootID string
-	up     bool
+	mu            sync.Mutex
+	url           string
+	bootID        string
+	up            bool
+	quitRequested bool
 
 	status  *systray.MenuItem
 	open    *systray.MenuItem
@@ -75,7 +76,10 @@ func runTray(distroFlag, userFlag string) error {
 			_ = t.keepalive.Process.Kill()
 		}
 	})
-	return resolveErr
+	t.mu.Lock()
+	quitRequested := t.quitRequested
+	t.mu.Unlock()
+	return trayResult(resolveErr, quitRequested)
 }
 
 func (t *tray) poll() {
@@ -170,6 +174,9 @@ func (t *tray) handleClicks() {
 			}
 
 		case <-t.quit.ClickedCh:
+			t.mu.Lock()
+			t.quitRequested = true
+			t.mu.Unlock()
 			systray.Quit()
 			return
 		}
