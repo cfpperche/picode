@@ -159,9 +159,15 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
-  the completed increment and deferred Windows login acceptance. Removed
-  stale remote-state prose; no further task, tray or service changes.
+- **2026-09-05 — Cross-platform test portability.** Publication `385329ab`
+  passed local CI and hosted Pages; hosted CI exposed pre-existing Windows
+  test compilation and macOS socket-path failures (run `33974331748`).
+  Moved Linux `/proc` process-group fixtures into a Linux-only test file;
+  portable runtime tests remain shared. Docker socket fixtures now use short
+  private temporary directories, with a long-test-name regression test.
+  Windows cross-vet, all-package test cross-compilation, focused Linux race
+  tests and full local `make ci` passed. Hosted matrix revalidation follows;
+  no application, tray or task policy changes.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

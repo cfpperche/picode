@@ -3,6 +3,12 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Desktop publication (archived 2026-09-05 during CI follow-up)
+
+- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
+  the completed increment and deferred Windows login acceptance. Removed
+  stale remote-state prose; no further task, tray or service changes.
+
 ## Desktop delivery (archived 2026-09-05 during publication)
 
 - **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,

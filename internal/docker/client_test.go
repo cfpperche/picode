@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -77,7 +78,14 @@ func TestReadLogs(t *testing.T) {
 
 func socketClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
-	socket := filepath.Join(t.TempDir(), "engine.sock")
+	// Do not include t.Name(): macOS Unix socket paths have a 104-byte limit,
+	// and its temporary directory prefix already consumes much of that space.
+	dir, err := os.MkdirTemp("", "pd-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "engine.sock")
 	ln, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +99,19 @@ func socketClient(t *testing.T, handler http.HandlerFunc) *Client {
 	}
 	t.Cleanup(c.Close)
 	return c
+}
+
+func TestSocketClientWithLongTestName(t *testing.T) {
+	t.Run(strings.Repeat("long-name-", 20), func(t *testing.T) {
+		c := socketClient(t, func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.WriteString(w, `{"ApiVersion":"1.54","MinAPIVersion":"1.44"}`)
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := c.Check(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestVersionAndTransport(t *testing.T) {
