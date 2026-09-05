@@ -70,6 +70,7 @@
     "./domain/theme.js": "./domain/theme.js",
     "./domain/toolArgs.js": "./domain/toolArgs.js",
     "./domain/toolPreview.js": "./domain/toolPreview.js",
+    "./domain/transcriptMerge.js": "./domain/transcriptMerge.js",
     "./domain/tree.js": "./domain/tree.js",
     "./domain/turns.js": "./domain/turns.js",
     "./tokens/theme.css": "./tokens/theme.css"

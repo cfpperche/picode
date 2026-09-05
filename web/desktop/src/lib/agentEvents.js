@@ -5,7 +5,8 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import { alertFromPi } from "@picode/shared/domain/piError.js";
 import { humanizeError } from "@picode/shared/client/api.js";
 import { summarizeArgs } from "@picode/shared/domain/toolArgs.js";
-import { previewFromDetails } from "@picode/shared/domain/toolPreview.js";
+import { captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
+import { startTool } from "@picode/shared/domain/transcriptMerge.js";
 
 // Pure reducer over the agent WebSocket stream (ADR-0044). The desktop's
 // inline handleEvent (desktop/App.jsx) is the reference for every case
@@ -81,14 +82,11 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
         detail: JSON.stringify(e.args || {}, null, 2), expanded: false,
         change: fileChangeFromTool(e.toolName, e.args, null), preview: null, ts: now,
       };
-      return { state: { ...s, items: [...s.items, item] }, effects: [{ type: "scroll" }] };
+      return { state: { ...s, items: startTool(s.items, item) }, effects: [{ type: "scroll" }] };
     }
     case "tool_execution_update": {
-      // ADR-0057: a tool streaming partial results may carry a preview frame;
-      // latest wins, nothing else about the item moves.
-      const preview = previewFromDetails(e.partialResult && e.partialResult.details);
-      if (!preview) return { state: s, effects: [] };
-      const items = s.items.map((it) => (it.kind === "tool" && it.id === e.toolCallId ? { ...it, preview } : it));
+      const items = s.items.map((it) => (it.kind === "tool" && it.id === e.toolCallId
+        ? updateCapture(it, e.partialResult?.details) : it));
       return { state: { ...s, items }, effects: [] };
     }
     case "tool_execution_end": {
@@ -98,9 +96,9 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
         const hits = isSearchTool(e.toolName || it.name) ? hitsFromResult(e.result) : [];
         return {
           ...it, status: e.isError ? "error" : "ok",
-          detail: JSON.stringify(e.result || {}, null, 2), result: e.result,
+          detail: toolResultDetail(e.result), result: e.result,
           expanded: it.expanded || hits.length > 0, change,
-          preview: previewFromDetails(e.result && e.result.details) || it.preview,
+          ...captureState(e.result?.details),
         };
       });
       return { state: { ...s, items }, effects: [] };

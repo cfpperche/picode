@@ -24,6 +24,20 @@ catalog/form and webhook editing. Read screenshots and final overlay/row audits
 passed. All data belongs to an isolated daemon; real HTTP/MCP results are recorded
 in `docs/plans/integrations.md`, not inferred from these images.
 
+Tool captures (ADR-0076): `tool-capture-desktop-*` (light, 1280×900) and
+`tool-capture-mobile-*` (dark, 390×844) cover no capture, running capture,
+blocked source, decode failure/Retry and the existing image viewer. All ten
+images were read; overlay audits passed. The embedded docs fixture plus
+`scripts/fixtures/tool-preview-init.js` supplies synthetic socket events and
+successful history reads delayed by 1.6s, not aborted requests. This proves
+host rendering/reconciliation, **not** a real browser-package emitter.
+Mobile reconnect, rapid agent switches and final/late-update checks are local
+`var/tool-preview/*.json` evidence. See the [plan](../plans/browser-preview.md)
+for remaining integration acceptance and fixture setup. These ten captures
+were refreshed against combined main during merge review. The mobile composer
+now wraps rather than clipping Send; 320px evidence and audits are retained in
+`var/capture-merge/` alongside the 390px state checks.
+
 Working captures stay in `var/screenshots/`. Devices footer (list + centred Pair/Copy): `devices-foot.png`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
 Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,

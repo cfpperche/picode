@@ -1,6 +1,6 @@
 {
   "fingerprintVersion": 1,
-  "capturedAt": "2026-09-05T20:10:43.650Z",
+  "capturedAt": "2026-09-05T20:41:27.468Z",
   "gitSha": "bc2540fa4806b3afad8a023dfae5b5f15b08f254",
   "base": "http://127.0.0.1:18747",
   "tool": "agent-browser",
@@ -8,7 +8,7 @@
   "surfaces": {
     "app-fleet": {
       "profile": "desktop-dashboard",
-      "inputHash": "a65a66eb32aa68e81cf2e699c1a09929eff492cc3885c127e78b11d77019e467",
+      "inputHash": "05945a6a0327ac7fb64ac7383efe60891e86548b8fbd3a319a7debfd41899ae0",
       "file": "app-fleet.png",
       "url": "/desktop/",
       "viewport": "1440x900",
@@ -16,19 +16,19 @@
     },
     "app-mobile-inbox": {
       "profile": "mobile-inbox",
-      "inputHash": "254d1bd27a181c811e2ad0d29c84e5ea7068c642c0f7e6e9df82ee08cb9fea9e",
+      "inputHash": "c4508933634438fffa139c2811fc855e5f7038757185fb394057e931896decd6",
       "file": "app-mobile-inbox.png",
       "url": "/mobile/#/app/inbox",
       "viewport": "390x844",
-      "sha256": "4383b9cdf3b36177f34608a88612c035d0cbb54dfa1b3ec7e0f5f346800a5391"
+      "sha256": "e29a96ad4886087e61966ef75287fc2cf08bc417862ee5b93038bd16fd360e52"
     },
     "app-mobile": {
       "profile": "mobile-now",
-      "inputHash": "91346711e057456bc5c72e8cb430190401bdfa9535115ba472304675e204470b",
+      "inputHash": "3f2946414e1bac002bb1ffc5713d9eb5cfdaa84d38b9b88f9160cbc342c8c53d",
       "file": "app-mobile.png",
       "url": "/mobile/",
       "viewport": "390x844",
-      "sha256": "2c7254f4e49708ceeba155ccd27864b7854e9c71d73c2e20c4b376948613fc72"
+      "sha256": "956ae2c06a0781c620b4f8ee58bb6de0160c6067af83c4dc9d41057fecbf856d"
     }
   }
 }

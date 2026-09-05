@@ -80,3 +80,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0073](0073-git-graph-worktrees.md) | The git graph shows every worktree's working tree — one dirty row per worktree, ref-addressed sibling reads, detached chips | accepted |
 | [0074](0074-file-tree-inline-details.md) | Files and Changes share a local detail pane with document guards and root preconditions | accepted |
 | [0075](0075-integrations.md) | Integrations: generic outbound webhooks and externally implemented MCP connectors | accepted |
+
+| [0076](0076-bounded-tool-captures.md) | Bounded historical tool captures and transcript reconciliation | accepted |

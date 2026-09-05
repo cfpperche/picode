@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Mobile chat wraps its controls when space is tight, keeping Send visible
+  alongside Stop during execution.
+
+- Bound optional tool captures before display and stop loading external preview
+  images from conversation history. Captions say **Last capture**; unavailable
+  images have a compact fallback. Desktop/mobile reconcile overlapping tool
+  history and live events without duplicating tools or replacing newer captures.
+  Browser-package capture emission is still a separate, opt-in integration.
+
 - Distinguish Git-ignored files and folders in the desktop File Tree with muted,
   italic names and an accessible label, while keeping them fully navigable.
 

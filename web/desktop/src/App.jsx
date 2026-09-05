@@ -10,7 +10,8 @@ import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
 import { closeShellTerm } from "./components/ShellTerm.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
 import { fileChangeFromTool } from "@picode/shared/domain/diff.js";
-import { previewFromDetails } from "@picode/shared/domain/toolPreview.js";
+import { captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
+import { reconcileTranscript, liveSince, startTool, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
@@ -150,6 +151,8 @@ export default function App() {
   const flushingRef = useRef(false);
   // Which agent the items on screen belong to (guards ask-memory writes).
   const itemsAgentRef = useRef("");
+  const historyGate = useRef(transcriptGate());
+  const itemsSessionRef = useRef("");
   // Active pi-roles state for the composer chip (null = no chip).
   const [roleState, setRoleState] = useState(null);
   // Last snapshot per panel: reconciles restored open asks against reality.
@@ -211,6 +214,7 @@ export default function App() {
   const pendingPayload = useRef("");
 
   const selectedRef = useRef(null);
+  if (selectedRef.current !== selectedId) historyGate.current.invalidate();
   selectedRef.current = selectedId;
 
   const located = locate(workspaces, freeAgents, selectedId);
@@ -342,28 +346,36 @@ export default function App() {
   }, []);
 
   const loadSessions = useCallback(async (wsId, opts) => {
+    const ticket = historyGate.current.begin();
+    const baseline = itemsRef.current;
+    const current = () => historyGate.current.current(ticket) && selectedRef.current === selectedId;
     const loc = locate(workspaces, freeAgents, selectedId);
     const id = wsId || (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id) { setSessions([]); setSessionCurrent(""); return; }
     try {
       const q = selectedId ? "?agent=" + encodeURIComponent(selectedId) : "";
       const data = await api("/api/workspaces/" + id + "/sessions" + q);
+      if (!current()) return;
       setSessions(data.sessions || []);
       const newest = (data.sessions || [])[0] && (data.sessions || [])[0].path;
       const cur = (opts && opts.preferNewest && newest) ? newest : (data.current || "");
-      setSessionCurrent(cur);
       if (!cur) {
+        setSessionCurrent("");
         // No session file yet (extension commands only) — the thread
         // still restores from the agent's live ask-memory slot.
         let live = mergeAskMemory(selectedId, "", []);
         const snapLive = snapWaitingRef.current;
         if (snapLive.agentId === selectedId && !snapLive.waiting) live = cancelOpenAsks(live);
         itemsAgentRef.current = selectedId || "";
-        setItems(live);
+        setItems((items) => current() ? reconcileTranscript(live, items) : items);
         setEarlierRemaining(0);
         return;
       }
       const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : "") + "&tail=200");
+      if (!current()) return;
+      const sameSession = !itemsSessionRef.current || itemsSessionRef.current === cur;
+      itemsSessionRef.current = cur;
+      setSessionCurrent(cur);
       const ev = t.events || [];
       earlierSkipRef.current = 0;
       setEarlierRemaining(t.remaining || 0);
@@ -373,7 +385,11 @@ export default function App() {
       const snap = snapWaitingRef.current;
       if (snap.agentId === selectedId && !snap.waiting) merged = cancelOpenAsks(merged);
       itemsAgentRef.current = selectedId || "";
-      setItems(merged);
+      setItems((items) => {
+        if (!current()) return items;
+        const reconciled = sameSession ? reconcileTranscript(merged, liveSince(items, baseline)) : merged;
+        return snap.agentId === selectedId && !snap.waiting ? cancelOpenAsks(reconciled) : reconciled;
+      });
       scrollToEnd();
       if ((t.bytes || 0) > 32 * 1024 * 1024) {
         if (t.compacted) {
@@ -382,7 +398,7 @@ export default function App() {
           toast.info("Huge session — run /compact to shrink future boots.");
         }
       }
-    } catch { setSessions([]); setSessionCurrent(""); }
+    } catch { /* A failed read cannot clear the live conversation or session identity. */ }
   }, [selectedId, workspaces, freeAgents]);
 
   const fetchEarlier = useCallback(async () => {
@@ -391,11 +407,13 @@ export default function App() {
     const id = (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id || !selectedId) return;
     earlierLoadingRef.current = true;
+    const ticket = historyGate.current.token();
     try {
       const cur = sessionCurrent || "";
       if (!cur) return;
       const skip = earlierSkipRef.current + 200;
       const t = await api("/api/workspaces/" + id + "/sessions/transcript?path=" + encodeURIComponent(cur) + (selectedId ? "&agent=" + encodeURIComponent(selectedId) : "") + "&tail=200&skip=" + skip);
+      if (!historyGate.current.current(ticket) || selectedRef.current !== selectedId || itemsSessionRef.current !== cur) return;
       const ev = t.events || [];
       if (ev.length) {
         const older = eventsToItems(ev);
@@ -408,11 +426,13 @@ export default function App() {
   }, [selectedId, workspaces, freeAgents, sessionCurrent]);
 
   const pinNewestSession = useCallback(async () => {
+    const ticket = historyGate.current.token();
     const loc = locate(workspaces, freeAgents, selectedId);
     const id = (loc && loc.workspace && loc.workspace.id) || (loc && loc.agent ? "ws_free" : null);
     if (!id || !selectedId) return;
     try {
       const data = await api("/api/workspaces/" + id + "/sessions?agent=" + encodeURIComponent(selectedId));
+      if (!historyGate.current.current(ticket) || selectedRef.current !== selectedId) return;
       setSessions(data.sessions || []);
       const newest = (data.sessions || [])[0] && (data.sessions || [])[0].path;
       if (!newest) return;
@@ -438,7 +458,18 @@ export default function App() {
     if (selectedId && !isTermTab(selectedId)) fetchRoleState();
   }, [selectedId, fetchRoleState]);
 
-  useEffect(() => { loadSessions(); }, [selectedId, workspaces.length, freeAgents.length]);
+  useEffect(() => {
+    if (itemsAgentRef.current !== (selectedId || "")) {
+      itemsAgentRef.current = selectedId || "";
+      itemsSessionRef.current = "";
+      foreignTurnRef.current = false;
+      itemsRef.current = [];
+      setItems([]);
+      setSessions([]);
+      setSessionCurrent("");
+    }
+    loadSessions();
+  }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
     if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
@@ -449,7 +480,7 @@ export default function App() {
   useEffect(() => {
     // Only when the items on screen belong to this agent — on a tab switch
     // this effect fires with the previous agent's thread still in state.
-    if (selectedId && itemsAgentRef.current === selectedId) {
+    if (selectedId && itemsAgentRef.current === selectedId && itemsRef.current === items) {
       writeAskMemory(selectedId, sessionCurrent, items);
     }
   }, [items, selectedId, sessionCurrent]);
@@ -1076,6 +1107,7 @@ export default function App() {
   }
 
   function handleEvent(env, panel) {
+    if (panelRef.current !== panel || panel.stopped || selectedRef.current !== panel.agentId) return;
     const ev = env.event || {};
     switch (ev.type) {
       case "snapshot":
@@ -1131,7 +1163,7 @@ export default function App() {
       }
       case "tool_execution_start": {
         const change = fileChangeFromTool(ev.toolName, ev.args, null);
-        setItems((cur) => [...cur, {
+        setItems((cur) => startTool(cur, {
           kind: "tool",
           id: ev.toolCallId,
           name: ev.toolName || "tool",
@@ -1143,15 +1175,13 @@ export default function App() {
           change,
           preview: null,
           ts: Date.now(),
-        }]);
+        }));
         queueMicrotask(scrollConv);
         break;
       }
       case "tool_execution_update": {
-        // ADR-0057: latest preview frame wins; nothing else moves.
-        const preview = previewFromDetails(ev.partialResult && ev.partialResult.details);
-        if (!preview) break;
-        setItems((cur) => cur.map((it) => (it.kind === "tool" && it.id === ev.toolCallId ? { ...it, preview } : it)));
+        setItems((cur) => cur.map((it) => (it.kind === "tool" && it.id === ev.toolCallId
+          ? updateCapture(it, ev.partialResult?.details) : it)));
         break;
       }
       case "tool_execution_end":
@@ -1162,11 +1192,11 @@ export default function App() {
           return {
             ...it,
             status: ev.isError ? "error" : "ok",
-            detail: JSON.stringify(ev.result || {}, null, 2),
+            detail: toolResultDetail(ev.result),
             result: ev.result,
             expanded: it.expanded || searchHits.length > 0,
             change,
-            preview: previewFromDetails(ev.result && ev.result.details) || it.preview,
+            ...captureState(ev.result?.details),
           };
         }));
         break;

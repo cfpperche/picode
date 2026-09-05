@@ -12,6 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/toolpreview"
 )
 
 // Hub fans out events to subscribers (one per managed agent).
@@ -521,7 +522,7 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 			ma.noteUIRequest(ev)
 		}
 		// Envelope for WS consumers: {"agentId":..., "event":{...}}
-		env, _ := json.Marshal(map[string]any{"agentId": ma.AgentID, "event": json.RawMessage(ev)})
+		env, _ := json.Marshal(map[string]any{"agentId": ma.AgentID, "event": json.RawMessage(toolpreview.Event(ev))})
 		ma.hub.Broadcast(env)
 	})
 	close(ready)
