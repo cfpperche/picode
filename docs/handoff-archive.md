@@ -3,21 +3,37 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
-## File Tree ignore and mobile review validation (archived during capture hardening)
+## Provider favicon deployment (archived during Integrations merge)
 
-- **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
-  listing in one bounded call. Tracked files, exceptions and unavailable Git
-  are covered; light/dark, inline selection, empty and blocked screenshots
-  were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go,
-  packages, build, docs and Vale). Commit `050580f9`; evidence in
-  `docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
-- Preceding mobile combined `make ci` passed (648 frontend tests) plus embedded
-  UI/server checks. The repeatable browser runner passed draft/image retention,
-  both settings callbacks, failure rollback and model/tool/checklist persistence.
-  Light/dark, small/wide, empty/blocked/error screenshots were read; audits passed.
-  Evidence: `docs/screenshots/mobile-review-*`, `var/mobile-review-fixes-14748677/`
-  and earlier `docs/screenshots/filetree-v2-*`. No model turns were started.
-  Physical PWA/push acceptance remains in the living handoff.
+- **2026-09-05 — Provider favicons and icon-size parity.** Agent tabs use
+  `ProviderFace` with a trailing activity dot; tabs share full-bleed 18px marks
+  with terminals. Sidebar agent marks drop the ring/padding to match terminal
+  marks at 22px; the contrast plate remains for black artwork in dark themes.
+  Light/dark screenshots were read and overlay audits passed. Evidence:
+  `docs/screenshots/agent-tabs-provider-favicon-*`, `agent-tabs-icon-size-*`
+  and `sidebar-icon-size-*`. Waiting-state dots were code-reviewed only because
+  no live waiting agent existed. Formatting/vet/tests/frontend/build passed.
+  Final recorded deployment: `0.1.0+37de779`, bundle `index-CbRxsHfT.js`;
+  live tab-strip/sidebar evidence was read again after restart. No push.
+
+## File Tree/mobile acceptance (archived during Integrations)
+
+- **2026-09-05 — File Tree ignore decoration.** One bounded Git call classifies
+  each directory listing. Tracked files, exceptions and unavailable Git passed;
+  read light/dark, selection, empty and blocked screenshots. visual-review: PASS.
+  `make ci` passed (649 frontend tests, Go, build, docs and Vale), integrated as
+  `050580f9`. Evidence: `docs/screenshots/filetree-ignored-*` and
+  `var/filetree-ignored/`; dedicated fixtures and QA browser were stopped.
+- The preceding combined mobile `make ci` passed (648 frontend tests), with
+  embedded UI/server checks. Browser acceptance covered draft/image retention,
+  both settings callbacks, save rollback and model/tool/checklist persistence.
+  Light/dark, small/wide, empty/blocked/error screenshots were read and audits
+  passed. Evidence: `docs/screenshots/mobile-review-*` and
+  `var/mobile-review-fixes-14748677/`. Physical PWA/push acceptance remained open.
+- Last deployment at that handoff: `0.1.0+050580f`, health `ok`, boot
+  `04ceec7199555424`. Ignore styling and two files in one inline pane were visible;
+  five terminal records and 17 baseline pane identities survived the restart.
+  Local evidence: `var/filetree-ignored/deployed.png` and `live-check.json`.
 
 ## File Tree v2 delivery (archived during mobile review integration)
 

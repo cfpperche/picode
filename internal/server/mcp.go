@@ -95,7 +95,8 @@ func handleMCPImport(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
-		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports, "found": rep.Found})
+		announceMCPConfig(deps)
+		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports, "found": rep.Found, "connectorPackages": rep.ConnectorPackages})
 	}
 }
 
@@ -310,7 +311,16 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 	}
 }
 
+// Native MCP files remain authoritative; this invalidates views without
+// copying their credentials into SQLite or the durable outbound event log.
+func announceMCPConfig(deps Deps) {
+	if deps.Feed != nil {
+		deps.Feed.Ephemeral("mcp.config", map[string]any{})
+	}
+}
+
 func writeMCP(w http.ResponseWriter, deps Deps, p mcp.Paths, sources []string, agentID string) {
+	announceMCPConfig(deps)
 	rep, err := mcp.List(p)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})

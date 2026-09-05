@@ -39,6 +39,41 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.SetTerminalLaunchAttempt(tm.ID, clilaunch.Attempt{Error: "failed"})
 		}, []string{"terminal.launch"}},
 		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
+		{"AddWebhook", func(s *Store) {
+			s.OnEvent = recorder(s)
+			_, _ = s.AddWebhook("https://example.com/hook", []string{"agent."})
+		}, []string{"webhook.created"}},
+		{"UpdateWebhook", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", []string{"agent."})
+			s.OnEvent = recorder(s)
+			w.Enabled = false
+			_, _ = s.UpdateWebhook(w)
+		}, []string{"webhook.updated"}},
+		{"DeleteWebhook", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", []string{"agent."})
+			s.OnEvent = recorder(s)
+			_ = s.DeleteWebhook(w.ID)
+		}, []string{"webhook.deleted"}},
+		{"RotateWebhookSecret", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", []string{"agent."})
+			s.OnEvent = recorder(s)
+			_, _ = s.RotateWebhookSecret(w.ID, w.Revision)
+		}, []string{"webhook.updated"}},
+		{"SaveWebhookProgress", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", []string{"agent."})
+			s.OnEvent = recorder(s)
+			after := w
+			after.LastStatus = "delivered"
+			after.LastAttemptAt = nowUTC()
+			_ = s.SaveWebhookProgress(w, after)
+		}, []string{"webhook.delivery"}},
+		{"SaveWebhookProgress/scan-only", func(s *Store) {
+			w, _ := s.AddWebhook("https://example.com/hook", []string{"agent."})
+			s.OnEvent = recorder(s)
+			after := w
+			after.Cursor++
+			_ = s.SaveWebhookProgress(w, after)
+		}, nil},
 		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "cli", proj)

@@ -1,0 +1,12 @@
+{
+  "name": "pi-connector-deepwiki",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional public-repository connector through pi-mcp-adapter",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": [],
+    "mcp": "./mcp.json"
+  }
+}

@@ -1,4 +1,4 @@
-# ADR-0075: Bounded, historical tool captures
+# ADR-0076: Bounded, historical tool captures
 
 - **Status**: accepted (owner approved the revised Browser preview plan)
 - **Date**: 2026-09-05

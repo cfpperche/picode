@@ -7,6 +7,7 @@ const PiSettings = lazy(() => import("../components/PiSettings.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
 const Providers = lazy(() => import("../components/Providers.jsx"));
 const Mcps = lazy(() => import("../components/Mcps.jsx"));
+const Integrations = lazy(() => import("../components/Integrations.jsx"));
 const Packages = lazy(() => import("../components/Packages.jsx"));
 import InstallButton from "../components/InstallButton.jsx";
 import PushPrefs from "../components/PushPrefs.jsx";
@@ -21,7 +22,7 @@ const SECTIONS = [
   ["providers", "Providers", "Accounts, keys, usage"],
   ["settings", "Settings", "Pi: model, thinking, prompt"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
-  ["mcps", "MCP", "Servers this agent can use"],
+  ["integrations", "Integrations", "Connectors and event delivery"],
   ["packages", "Packages", "Skills, extensions, updates"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
@@ -85,6 +86,9 @@ export default function More({ section, apps, catalog, system, version, themeMod
       {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
       {section === "providers" ? <Providers hidden={false} catalog={catalog} onRefresh={onRefreshCatalog} /> : null}
+      {section === "integrations" ? <Integrations hidden={false}
+        workspaceId={workspace?.id || ""} workspaceName={workspace?.name || ""} workspacePath={workspace?.path || ""}
+        agentId={agent?.id || ""} agentName={agentName} agentWorkPath={agent?.workPath || ""} agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")} /> : null}
       {section === "mcps" ? (
         <Mcps hidden={false} workspaceId={workspace ? workspace.id : ""} workspaceName={workspace ? workspace.name : ""} workspacePath={workspace ? workspace.path : ""}
           agentId={agent ? agent.id : ""} agentName={agentName} agentWorkPath={agent ? agent.workPath || "" : ""} agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")} />

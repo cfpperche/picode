@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Mobile chat wraps its controls when space is tight, keeping Send visible
+  alongside Stop during execution.
+
 - Bound optional tool captures before display and stop loading external preview
   images from conversation history. Captions say **Last capture**; unavailable
   images have a compact fallback. Desktop/mobile reconcile overlapping tool
@@ -44,6 +47,13 @@ to the `[Unreleased]` section. The repository's official language is English
   the subtitle line; it now top-aligns with the agent or terminal name.
 
 ### Added
+
+- **Integrations** has its own desktop/mobile route, with signed outbound
+  webhooks, event selection, durable retry/cursor state, secret replacement
+  and receiver tests. Connector setup reuses the MCP adapter and native
+  configuration, adds reviewed external-definition import, and lists optional
+  connector packages separately from live services. A local DeepWiki package
+  demonstrates the adapter's `pi.mcp` contract without vendor code in core.
 
 - **Git graph shows every worktree's working tree** (ADR-0073). One
   "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
@@ -90,6 +100,19 @@ to the `[Unreleased]` section. The repository's official language is English
   the sidebar line, cards and per-agent Level are PiCode's.
 
 ### Changed
+
+- **Agent tabs wear the agent's provider favicon** (desktop). The tab strip
+  now mirrors terminal tabs: identity leads as the favicon — the same
+  provider face the sidebar renders, full-bleed at the terminal mark's 18px
+  box (the white plate stays only to keep dark marks visible in dark mode) —
+  while activity moves to a trailing dot after the name (green working,
+  accent needs-you), matching the terminal-tab state vocabulary.
+
+- **Sidebar identity marks match at full bleed** (desktop). Agent rows kept
+  a 1.5px ring plus 1px padding that shrank their provider art to ~18px
+  beside full 22px terminal marks; both now render full-bleed in the 22px
+  identity slot. The white plate stays for dark-mode contrast and remains
+  invisible on light chrome.
 
 - **Independent desktop and mobile web apps** (ADR-0072). `/desktop/` keeps
   the responsive workstation; `/mobile/` owns its screens, styles, sheets and

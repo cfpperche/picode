@@ -1,6 +1,7 @@
 import { IconAgent } from "./Icons.jsx";
 
-export default function PageFrame({ id, title, context, children, hidden, wide }) {
+export default function PageFrame({ id, title, context, children, hidden, wide, embedded }) {
+  if (embedded) return <section id={id} hidden={hidden} aria-label={title}>{context && <p className="settings-ctx">{context}</p>}{children}</section>;
   return (
     <section id={id} className="pane-view" hidden={hidden} aria-label={title}>
       <div className={"settings-wrap" + (wide ? " wide" : "")}>

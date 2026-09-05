@@ -11,7 +11,7 @@ Desktop and mobile own their UI independently (ADR-0072).
 
 ## Increments
 
-1. Bound the existing contract and document privacy (ADR-0075).
+1. Bound the existing contract and document privacy (ADR-0076).
 2. Protect tool state during transcript reconciliation; gate stale requests
    and socket events by agent/connection; handle unavailable images in both apps.
 3. Spike the installed native browser package without modifying the global
@@ -105,6 +105,16 @@ The fixture accepts `?capture=none` for the ordinary row. Its
 but takes 1.6s, so the original overwrite race is exercised rather than hidden
 by an aborted request. Inspect the app through normal controls, capture and
 read PNGs, then stop only the exact fixture process you launched.
+
+## Merge review — 2026-09-05
+
+The owner authorized merge and deployment of the host increment. Integrations
+had already taken ADR-0075, so the capture decision is now ADR-0076 with no
+policy change. Combined main `make ci` passed; ten host screenshots were
+recaptured and read. A preexisting mobile toolbar overflow was corrected with
+wrapping; Send remains inside 320/390px viewports while Stop is visible.
+Receipts are in `var/capture-merge/`; deployment state belongs in the handoff.
+This does not change the pending real-emitter acceptance below.
 
 ## Integration acceptance (not certified by renderer fixtures)
 

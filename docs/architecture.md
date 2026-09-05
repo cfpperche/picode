@@ -178,7 +178,9 @@ secondary screens load on demand and offer retry on loading failure. Mobile
 has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
 are always sheets, including wide previews; desktop keeps responsive dialogs.
 The composer opens agent Settings over the mounted conversation, preserving
-unsent text and attachments. Both mobile settings paths save via the agent
+unsent text and attachments. Mobile composer controls wrap onto a second row
+when needed, so Send remains visible alongside Stop on narrow screens.
+Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
 consume the change feed; presence follows the mounted app rather than width.
@@ -211,6 +213,7 @@ stay on their own routes.
 | `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
+| `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
@@ -787,7 +790,7 @@ Timeout on the request dismisses the card (pi auto-resolves).
 Auto-approve policy stays undecided. Track C:
 [conversation-control-roadmap.md](design/conversation-control-roadmap.md).
 
-**Tool captures (ADRs 0057/0075):** a tool may emit
+**Tool captures (ADRs 0057/0076):** a tool may emit
 `details.preview = { image, url?, title?, ts?, source? }` in partial results
 and the final result. The host accepts only base64 PNG/JPEG captures up to
 200 KiB, 1600 pixels per side and 1.6 million pixels; remote URLs never load.
@@ -877,6 +880,44 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 - PiCode's value-add (M3–M4): a visual MCP Server Manager per workspace and
   per agent (enable/disable, precedence layers) writing the same config
   files the adapter reads. We orchestrate the ecosystem; we don't fork it.
+
+### Integrations (ADR-0075)
+
+The core owns `#/integrations`, subscription lifecycle and generic outbound
+HTTP delivery. Vendor tools remain external MCP servers or optional Pi
+packages; there is no in-process vendor adapter, second package manager or
+credential database. `packages/pi-connector-deepwiki` exercises the existing
+adapter's `pi.mcp` manifest contract (verified with 2.32.1). The UI reports
+package installation separately from configured/live services. Native package
+settings own removal; already-running agents may need a restart. The original
+`#/mcps` route stays compatible. File-config changes emit a credential-free
+`mcp.config` invalidation through the feed, not a copy of native config.
+
+`internal/webhooks.Engine` runs with the daemon context, four requests at most
+in parallel, one in flight per subscription. Migration 028 stores filters,
+secret, cursor, revision, failures and next attempt. CRUD/rotation and attempt
+status events commit transactionally. Revision and starting cursor guard
+acknowledgements against concurrent edits; an issued HTTP request cannot be
+recalled. Scan-only cursor advancement deliberately emits no event, avoiding
+self-sustaining feedback from skipped `webhook.*` rows.
+
+Each matching durable event becomes one POST with event ID/type, Unix timestamp
+and HMAC-SHA256 of `timestamp + "." + body`. Retries are ordered, at least once
+within retention, and back off from one minute to one hour; expiry records a
+missed-history warning and resumes at the current end. New subscriptions start
+at the current end. Tests use the same HTTP/signing path with event ID zero but
+never advance the cursor or clear real retry state. Configuration changes clear
+previous attempt status without rewinding the cursor. Secrets are returned only
+on creation/rotation and excluded from normal JSON and event payloads.
+
+Requests have a ten-second bound, no redirects and no ambient proxy. Owner-chosen
+HTTP/LAN/loopback destinations are supported; URL userinfo/fragments and
+link-local/metadata addresses are refused, including at DNS dial time. No raw
+receiver response or credential-bearing URL enters delivery errors or audit.
+This is outbound data disclosure to an owner-selected service, not agent tool
+access. The ordinary device gate protects all `/api/webhooks` CRUD/test/secret
+routes. See [acceptance tables](plans/integrations.md) and the
+[public guide](../www/guide/integrations.md).
 
 ### Automations (ADR-0045)
 

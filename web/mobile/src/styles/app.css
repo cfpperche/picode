@@ -1547,12 +1547,13 @@ img.ws-face.term-cli-face {
 }
 #task-input::placeholder { color: var(--text-secondary); opacity: 1; }
 .composer-controls {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 8px; margin-top: 6px;
 }
 .composer-left, .composer-right {
   display: flex; align-items: center; gap: 6px; min-width: 0;
 }
+.composer-right { margin-left: auto; }
 .cockpit-chip {
   display: inline-flex; align-items: center; gap: 4px;
   max-width: 220px; height: 28px; padding: 0 8px;

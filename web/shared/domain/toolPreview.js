@@ -1,4 +1,4 @@
-// ADR-0075: a capture is historical metadata, never an arbitrary image URL.
+// ADR-0076: a capture is historical metadata, never an arbitrary image URL.
 export const MAX_CAPTURE_BYTES = 200 * 1024;
 export const MAX_CAPTURE_SIDE = 1600;
 export const MAX_CAPTURE_PIXELS = 1600000;

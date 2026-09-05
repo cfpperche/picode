@@ -89,9 +89,9 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             <span className="um-item-name">Providers</span>
             <IconChevronRight />
           </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-mcps" onSelect={() => onNavigate("mcps")}>
+          <DropdownMenu.Item className="um-item" id="um-integrations" onSelect={() => onNavigate("integrations")}>
             <IconMcp className="um-item-ico" />
-            <span className="um-item-name">MCPs</span>
+            <span className="um-item-name">Integrations</span>
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-packages" onSelect={() => onNavigate("packages")}>

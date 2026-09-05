@@ -55,6 +55,7 @@ import (
 	providerusage "github.com/cfpperche/picode/internal/usage"
 	"github.com/cfpperche/picode/internal/version"
 	"github.com/cfpperche/picode/internal/web"
+	"github.com/cfpperche/picode/internal/webhooks"
 )
 
 func main() {
@@ -479,7 +480,14 @@ func serve() {
 	}
 	defer dockerService.Close()
 
+	hooks := webhooks.New(st)
+	hookCtx, hookCancel := context.WithCancel(backupCtx)
+	hookDone := make(chan struct{})
+	go func() { defer close(hookDone); hooks.Loop(hookCtx) }()
+	defer func() { hookCancel(); <-hookDone }()
+
 	deps := server.Deps{
+		Webhooks: hooks,
 		Store:    st,
 		Auth:     gate,
 		Tmux:     tmux.New(),

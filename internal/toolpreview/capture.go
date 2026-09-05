@@ -1,5 +1,5 @@
 // Package toolpreview bounds optional capture metadata before web delivery.
-// It does not write Pi's session files or capture any pixels (ADR-0075).
+// It does not write Pi's session files or capture any pixels (ADR-0076).
 package toolpreview
 
 import (
