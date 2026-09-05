@@ -6,27 +6,28 @@
 
 ## Current state (read this first)
 
-**Repository:** Agent CLIs v2 is implemented in `feat/agent-cli-v2` (ADR-0070),
-ready for merge/deployment. Local `main` already has v1
-and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals, not
-agent runtimes. Nothing was pushed. Preserve the unrelated root
+**Repository:** local `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
+v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
+not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Deployment:** the installed service is still v1, `0.1.0+567280b`. V2's
-installation, binary/assets comparison and exact tmux preservation check are
-the remaining delivery step; prior v1 acceptance is archived.
+**Deployment:** `0.1.0+c326537`, health `ok`, boot `88294e9107a7ccef`.
+Installed binary/process hashes and served HTML/assets match the tested build.
+All 134 pre-deploy tmux sessions retained their exact pane IDs/PIDs; the seven
+terminal records and all four CLI configurations/reporting switches are unchanged.
+Live desktop/mobile summaries and launch details passed screenshot review;
+the read-only preview route also passed. Captures: `var/screenshots/cli-v2-deployed-*.png`;
+comparison/CI logs: `var/cli-v2-validation/`. Disposable QA daemons, browser
+sessions, profiles, terminals and fixture data are cleaned up.
 
 **Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
-parity and Vale), including final preview-error recovery. Focused CLI/Store/runtime
-race tests passed. Real tmux tests cover
-adapter argv parity, inherited/pinned defaults, failed-start retry, restart
-preparation preserving the old PID and workspace artifact cleanup. Browser QA
-covers profile create/edit/use/remove, workspace/palette context, default reset,
-pending/restart, dirty-link/button/hash navigation, preview/network recovery,
-empty/blocked states and mobile dark sheets. Screenshots were read and settled
-overlay audits passed: `docs/screenshots/cli-v2-*.png`. Public docs captures
-were refreshed using an isolated fixture/browser namespace. No model turns
-were used; v2 does not certify every vendor lifecycle event.
+parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
+argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
+Browser QA covers profiles, workspace/palette context, reset, pending/restart,
+dirty navigation and preview/network recovery. Empty/blocked, desktop/mobile
+and light/dark screenshots were read; overlay audits passed (`docs/screenshots/cli-v2-*.png`).
+Public captures were refreshed with isolated fixtures. No model turns were used;
+v2 does not certify every vendor lifecycle event.
 
 ### Product and platform
 
@@ -75,8 +76,6 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- V2 merge/deployment and final QA cleanup are pending; no user terminal was
-  restarted by this work. Update the deployment evidence after installation.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -122,7 +121,6 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - Docker v3 deliberately leaves volume deletion, backup/restore, remote engines,
   historical metrics charts and automatic repair policies for future decisions.
   Secret masking is best effort; arbitrary unlabeled secrets are not detectable.
-
 - Wrapper presence is strongest for instrumented sessions. Legacy sessions
   get only exact command/PID fallback; Linux process identity has stronger
   `/proc` protection than platforms without start tokens.
@@ -146,7 +144,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
   persistent setup checks, explicit repair, pending comparison and safer restart
   preparation. Fixed workspace artifact cleanup, context selection and mobile
   sheet scrolling. visual-review: PASS (screenshots read; overlay audits ok).
-  Merge/deployment evidence is pending; native lifecycle acceptance stays open.
+  CI and focused race tests passed; merged/deployed as `0.1.0+c326537` with all
+  134 sessions/PIDs and CLI settings unchanged. Native lifecycle acceptance stays open.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
