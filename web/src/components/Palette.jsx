@@ -52,6 +52,7 @@ function buildActions(workspaces, apps) {
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
     { id: "clis", label: "Agent CLIs", group: "app", kind: "clis" },
+    { id: "cli-new", label: "New CLI terminal", group: "app", kind: "cli-new" },
     { id: "system", label: "System", group: "app", kind: "system" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },
@@ -63,6 +64,7 @@ function buildActions(workspaces, apps) {
     out.push({ id: "app-" + a.id, label: "Open " + a.name, group: "apps", kind: "app", appId: a.id });
   }
   for (const ws of workspaces) {
+    out.push({ id: "cli-new-" + ws.id, label: "New CLI terminal · " + ws.name, group: ws.name, kind: "cli-new", wsId: ws.id });
     const mode = ws.agent ? ws.agent.mode : "stopped";
     out.push({ id: "open-" + ws.id, label: "Open " + ws.name, group: ws.name, kind: "open", wsId: ws.id });
     out.push({ id: "files-" + ws.id, label: "Files · " + ws.name, group: ws.name, kind: "files", wsId: ws.id, wsName: ws.name });

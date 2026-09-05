@@ -13,6 +13,7 @@ type TerminalLaunch struct {
 	CLI        string              `json:"cli"`
 	Overrides  clilaunch.Overrides `json:"overrides"`
 	Applied    *clilaunch.Snapshot `json:"applied,omitempty"`
+	Attempt    *clilaunch.Attempt  `json:"attempt,omitempty"`
 }
 
 func (s *Store) CLIConfig(id string) (clilaunch.Config, bool, error) {
@@ -79,8 +80,8 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 func (s *Store) TerminalLaunch(id string) (*TerminalLaunch, error) {
 	v := &TerminalLaunch{TerminalID: id}
 	var raw string
-	var applied sql.NullString
-	err := s.db.QueryRow(`SELECT cli,overrides,applied FROM terminal_launches WHERE terminal_id=?`, id).Scan(&v.CLI, &raw, &applied)
+	var applied, attempt sql.NullString
+	err := s.db.QueryRow(`SELECT cli,overrides,applied,attempt FROM terminal_launches WHERE terminal_id=?`, id).Scan(&v.CLI, &raw, &applied, &attempt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -92,6 +93,11 @@ func (s *Store) TerminalLaunch(id string) (*TerminalLaunch, error) {
 	}
 	if applied.Valid {
 		if err := json.Unmarshal([]byte(applied.String), &v.Applied); err != nil {
+			return nil, err
+		}
+	}
+	if attempt.Valid {
+		if err := json.Unmarshal([]byte(attempt.String), &v.Attempt); err != nil {
 			return nil, err
 		}
 	}
@@ -130,7 +136,7 @@ func (s *Store) SetTerminalLaunchApplied(id string, v clilaunch.Snapshot) error 
 		return err
 	}
 	defer s.rollback(tx)
-	res, err := tx.Exec(`UPDATE terminal_launches SET applied=?,updated_at=? WHERE terminal_id=?`, string(raw), nowUTC(), id)
+	res, err := tx.Exec(`UPDATE terminal_launches SET applied=?,attempt=NULL,updated_at=? WHERE terminal_id=?`, string(raw), nowUTC(), id)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
@@ -223,7 +224,10 @@ export default function Sidebar({
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="Files in this folder" onClick={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
-                  <button type="button" className="ws-icon-btn" title="New terminal in this folder" onClick={() => onNewTerm && onNewTerm(ws.id)}><IconTerminal size={12} /></button>
+                  <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="ws-icon-btn" title="New terminal in this folder" aria-label={"New terminal in " + ws.name}><IconTerminal size={12} /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" side="bottom" align="start" sideOffset={6} collisionPadding={12}>
+                    <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
+                    <DropdownMenu.Item className="um-item" onSelect={() => { location.hash = "#/clis/new/pi?workspace=" + encodeURIComponent(ws.id); }}>Agent CLI terminal</DropdownMenu.Item>
+                  </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
                   <button type="button" className="ws-icon-btn danger" title="Remove workspace" onClick={() => onRemove(ws)}><IconX size={12} /></button>
                 </span>

@@ -47,6 +47,8 @@ export const cliTerminalSchema = z.object({
   cwd: z.string(),
 });
 
+export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
+
 const modelPick = z.object({
   provider: required("Provider"),
   model: required("Model"),

@@ -21,22 +21,15 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-type CLIDiagnostic struct {
-	Version     string `json:"version,omitempty"`
-	Error       string `json:"error,omitempty"`
-	CheckedAt   string `json:"checkedAt"`
-	Fingerprint string `json:"-"`
-}
+type CLIDiagnostic = clilaunch.Diagnostic
 
 // CLITerminals serializes terminal operations, not agent turns. Diagnostics
 // are a cache of explicit checks and never launch a native conversation.
 type CLITerminals struct {
-	locks       sync.Map
-	mu          sync.Mutex
-	diagnostics map[string]CLIDiagnostic
+	locks sync.Map
 }
 
-func newCLITerminals() *CLITerminals { return &CLITerminals{diagnostics: map[string]CLIDiagnostic{}} }
+func newCLITerminals() *CLITerminals { return &CLITerminals{} }
 func terminalLock(deps Deps, id string) func() {
 	if deps.CLIs == nil {
 		return func() {}
@@ -112,6 +105,7 @@ type cliView struct {
 	Problem            string           `json:"problem,omitempty"`
 	IntegrationApplied bool             `json:"integrationApplied"`
 	Diagnostic         *CLIDiagnostic   `json:"diagnostic,omitempty"`
+	Plan               clilaunch.Plan   `json:"plan"`
 }
 
 func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
@@ -119,22 +113,23 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		return cliView{}, err
 	}
-	v := cliView{CLI: cli, Config: c, IntegrationApplied: interceptWired(deps.DataDir, cli.ID, cli.Command)}
+	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli)}
+	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveCLIExecutable(cli, c)
 	v.Installed = err == nil
 	if err != nil {
 		v.Problem = err.Error()
 	}
-	if c.Integration && !v.IntegrationApplied {
-		v.Problem = "Integration files need repair. Run Check setup."
+	if v.Installed && c.Integration && !v.IntegrationApplied {
+		v.Problem = "Activity reporting files need repair."
 	}
-	if deps.CLIs != nil {
-		deps.CLIs.mu.Lock()
-		d, ok := deps.CLIs.diagnostics[cli.ID]
-		deps.CLIs.mu.Unlock()
-		if ok && d.Fingerprint == clilaunch.Fingerprint(c) {
-			v.Diagnostic = &d
-		}
+	d, err := deps.Store.CLICheck(cli.ID)
+	if err != nil {
+		return v, err
+	}
+	if d != nil {
+		d.Stale = d.Fingerprint != clilaunch.Fingerprint(c) || d.Identity != executableIdentity(v.Executable)
+		v.Diagnostic = d
 	}
 	return v, nil
 }
@@ -158,6 +153,7 @@ func syncCLIIntegration(deps Deps, id string, on bool) error {
 }
 
 func registerCLIRoutes(mux Registrar, deps Deps) {
+	registerCLIProfileRoutes(mux, deps)
 	mux.HandleFunc("GET /api/clis", func(w http.ResponseWriter, r *http.Request) {
 		rows := []cliView{}
 		for _, cli := range clilaunch.Catalog() {
@@ -202,6 +198,34 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 		writeJSON(w, 200, v)
 	})
 	mux.HandleFunc("POST /api/clis/{cli}/check", handleCLICheck(deps))
+	mux.HandleFunc("POST /api/clis/{cli}/preview", handleCLIPreview(deps))
+	mux.HandleFunc("POST /api/clis/{cli}/repair", func(w http.ResponseWriter, r *http.Request) {
+		cli, ok := clilaunch.Find(r.PathValue("cli"))
+		if !ok {
+			writeErr(w, 404, "Unknown CLI.")
+			return
+		}
+		unlock := terminalLock(deps, "cli-config")
+		defer unlock()
+		c, err := cliConfig(deps, cli.ID)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		if err := syncCLIIntegration(deps, cli.ID, c.Integration); err != nil {
+			writeErr(w, 500, "Could not repair PiCode integration files.")
+			return
+		}
+		if deps.Feed != nil {
+			deps.Feed.Ephemeral("cli.repaired", map[string]string{"id": cli.ID})
+		}
+		v, err := describeCLI(deps, cli)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, v)
+	})
 	mux.HandleFunc("POST /api/clis/{cli}/terminals", handleCreateCLITerminal(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/launch", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -308,6 +332,8 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 		}
 		d := CLIDiagnostic{CheckedAt: time.Now().UTC().Format(time.RFC3339), Fingerprint: clilaunch.Fingerprint(c)}
 		binary, err := resolveCLIExecutable(cli, c)
+		d.Executable = binary
+		d.Identity = executableIdentity(binary)
 		if err == nil {
 			ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 			defer cancel()
@@ -319,6 +345,11 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 			cmd.WaitDelay = time.Second
 			if err = cmd.Run(); err == nil {
 				d.Version = strings.TrimSpace(output.String())
+				for _, value := range c.Env {
+					if value != "" {
+						d.Version = strings.ReplaceAll(d.Version, value, "••••")
+					}
+				}
 				if len(d.Version) > 160 {
 					d.Version = d.Version[:160]
 				}
@@ -331,22 +362,19 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 		}
 		if err == nil && c.Integration {
 			for _, command := range []string{"curl", "python3"} {
-				if _, e := exec.LookPath(command); e != nil {
+				if _, e := resolveCLIExecutable(clilaunch.CLI{Name: command, Command: command}, clilaunch.Config{Path: c.Path}); e != nil {
 					err = fmt.Errorf("%s is required for activity reporting.", command)
 					break
 				}
 			}
-			if err == nil {
-				err = syncCLIIntegration(deps, cli.ID, true)
-			}
+			d.Prerequisites = err == nil
 		}
 		if err != nil {
 			d.Error = err.Error()
 		}
-		if deps.CLIs != nil {
-			deps.CLIs.mu.Lock()
-			deps.CLIs.diagnostics[cli.ID] = d
-			deps.CLIs.mu.Unlock()
+		if err := deps.Store.SetCLICheck(cli.ID, d); err != nil {
+			writeErr(w, 500, err.Error())
+			return
 		}
 		writeJSON(w, 200, d)
 	}
@@ -389,6 +417,8 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 		if strings.TrimSpace(v.Name) == "" {
 			v.Name = cli.Name
 		}
+		unlockWorkspace := terminalLock(deps, "workspace:"+v.WorkspaceID)
+		defer unlockWorkspace()
 		t, err := deps.Store.CreateTerminalIn(v.WorkspaceID, v.Name, v.Cwd)
 		if err != nil {
 			writeErr(w, 400, err.Error())
@@ -420,12 +450,11 @@ func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, 
 	if err != nil {
 		return cli, c, "", err
 	}
-	c = clilaunch.Resolve(c, v.Overrides)
-	if err := clilaunch.Validate(c); err != nil {
-		return cli, c, "", err
+	p, c := launchPlan(deps, cli, c, v.Overrides, filepath.Join(deps.DataDir, "cli-launch", v.TerminalID, "run-{next}"))
+	if p.Problem != "" {
+		return cli, c, "", errors.New(p.Problem)
 	}
-	binary, err := resolveCLIExecutable(cli, c)
-	return cli, c, binary, err
+	return cli, c, p.Executable, nil
 }
 
 func handleCLITerminalAction(deps Deps) http.HandlerFunc {
@@ -462,6 +491,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			writeErr(w, 409, "Confirm the action on this terminal.")
 			return
 		}
+		var prepared *preparedCLILaunch
 		if action == "restart" {
 			launch, err := deps.Store.TerminalLaunch(id)
 			if err != nil {
@@ -469,10 +499,13 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				return
 			}
 			if launch != nil {
-				if _, _, _, err := resolvedTerminalLaunch(deps, launch); err != nil {
+				prepared, err = prepareCLITerminal(deps, t.Cwd, launch)
+				if err != nil {
+					recordCLILaunchAttempt(deps, id, err)
 					writeErr(w, 400, err.Error())
 					return
 				}
+				defer prepared.discard()
 			}
 			if st, err := os.Stat(t.Cwd); err != nil || !st.IsDir() {
 				writeErr(w, 400, "That folder no longer exists.")
@@ -505,6 +538,14 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			return
 		}
 		if action == "start" || action == "restart" {
+			if prepared != nil {
+				if err := prepared.start(deps, r, name, t.Cwd); err != nil {
+					recordCLILaunchAttempt(deps, id, err)
+					publishTerminalState(deps, r, t, false)
+					writeErr(w, 400, err.Error())
+					return
+				}
+			}
 			if err := ensureShell(deps, r, name, id, t.Cwd); err != nil {
 				publishTerminalState(deps, r, t, false)
 				writeErr(w, 400, err.Error())
@@ -553,17 +594,54 @@ func cleanCLILaunches(dataDir, id, keep string) error {
 }
 
 func launchCLITerminal(deps Deps, r *http.Request, name, cwd string, v *store.TerminalLaunch) error {
+	p, err := prepareCLITerminal(deps, cwd, v)
+	if err == nil {
+		defer p.discard()
+		err = p.start(deps, r, name, cwd)
+	}
+	if err != nil {
+		recordCLILaunchAttempt(deps, v.TerminalID, err)
+	}
+	return err
+}
+
+func recordCLILaunchAttempt(deps Deps, id string, err error) {
+	a := clilaunch.Attempt{At: time.Now().UTC().Format(time.RFC3339)}
+	if err != nil {
+		// Persist a fixed diagnostic, never a native process's output or argv.
+		a.Error = "Launch failed. Check the executable, folder and PiCode integration files."
+	}
+	_ = deps.Store.SetTerminalLaunchAttempt(id, a)
+}
+
+type preparedCLILaunch struct {
+	dir, script, id string
+	environment     []string
+	snapshot        clilaunch.Snapshot
+	started         bool
+}
+
+func (p *preparedCLILaunch) discard() {
+	if !p.started {
+		_ = os.RemoveAll(p.dir)
+	}
+}
+
+func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*preparedCLILaunch, error) {
+	if st, err := os.Stat(cwd); err != nil || !st.IsDir() {
+		return nil, errors.New("That folder no longer exists.")
+	}
 	cli, c, binary, err := resolvedTerminalLaunch(deps, v)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)
 	if err := os.MkdirAll(root, 0o700); err != nil {
-		return err
+		return nil, err
 	}
 	dir, err := os.MkdirTemp(root, "run-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	started := false
 	defer func() {
@@ -575,7 +653,7 @@ func launchCLITerminal(deps Deps, r *http.Request, name, cwd string, v *store.Te
 	if c.Integration {
 		hook, err := ensureHookScript(deps.DataDir)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		switch cli.ID {
 		case "pi":
@@ -588,16 +666,16 @@ func launchCLITerminal(deps Deps, r *http.Request, name, cwd string, v *store.Te
 			err = writeGrokIntercept(dir, hook)
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 		command = wrapperPath(dir, cli.Command)
 		raw, err := os.ReadFile(command)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		body := strings.Replace(string(raw), wrapperFindReal, "real="+shellQuote(binary)+"\n", 1)
 		if err := writeExecutable(command, body); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	var body strings.Builder
@@ -621,7 +699,7 @@ func launchCLITerminal(deps Deps, r *http.Request, name, cwd string, v *store.Te
 	// Returning to the normal shell also restores the manual CLI wrappers.
 	rc, err := ensureInterceptBashrc(deps.DataDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Fprintf(&body, "exec %s", shellQuote(defaultShell()))
 	if base := filepath.Base(defaultShell()); base == "bash" {
@@ -630,24 +708,35 @@ func launchCLITerminal(deps Deps, r *http.Request, name, cwd string, v *store.Te
 	body.WriteByte('\n')
 	script := filepath.Join(dir, "launch.sh")
 	if err := os.WriteFile(script, []byte(body.String()), 0o700); err != nil {
-		return err
+		return nil, err
 	}
-	env := []string{"PICODE_TERM_ID=" + v.TerminalID, "PICODE_TERM_URL=" + loopbackURL(deps)}
+	snapshot := clilaunch.Describe(c, binary, "")
+	snapshot.CLI = cli.ID
+	snapshot.Identity = executableIdentity(binary)
+	if c.Integration {
+		plan, _ := launchPlan(deps, cli, c, clilaunch.Overrides{}, dir)
+		snapshot.Injection = &plan.Injection
+	}
+	started = true // ownership transfers to the prepared object
+	return &preparedCLILaunch{dir: dir, script: script, id: v.TerminalID, snapshot: snapshot, environment: cliEnvironment(c)}, nil
+}
+
+func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) error {
+	env := append(append([]string{}, p.environment...), "PICODE_TERM_ID="+p.id, "PICODE_TERM_URL="+loopbackURL(deps))
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)
 	}
-	if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, "/bin/sh", script); err != nil {
+	if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, "/bin/sh", p.script); err != nil {
 		return err
 	}
-	snapshot := clilaunch.Describe(c, binary, time.Now().UTC().Format(time.RFC3339Nano))
-	snapshot.CLI = cli.ID
-	if err := deps.Store.SetTerminalLaunchApplied(v.TerminalID, snapshot); err != nil {
+	p.snapshot.StartedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	if err := deps.Store.SetTerminalLaunchApplied(p.id, p.snapshot); err != nil {
 		_ = deps.Tmux.KillSession(r.Context(), name)
 		return err
 	}
-	started = true
+	p.started = true
 	// There was no live session on entry. Keep only this immutable generation.
-	_ = cleanCLILaunches(deps.DataDir, v.TerminalID, filepath.Base(dir))
+	_ = cleanCLILaunches(deps.DataDir, p.id, filepath.Base(p.dir))
 	return nil
 }
 
@@ -661,8 +750,12 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 	}
 	view["launchCli"] = v.CLI
 	view["launchApplied"] = v.Applied
+	view["launchAttempt"] = v.Attempt
 	c, err := cliConfig(deps, v.CLI)
 	if err == nil && v.Applied != nil {
-		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != clilaunch.Fingerprint(clilaunch.Resolve(c, v.Overrides))
+		effective := clilaunch.Resolve(c, v.Overrides)
+		cli, _ := clilaunch.Find(v.CLI)
+		binary, _ := resolveCLIExecutable(cli, effective)
+		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != clilaunch.Fingerprint(effective) || binary != v.Applied.Executable || (v.Applied.Identity != "" && v.Applied.Identity != executableIdentity(binary))
 	}
 }

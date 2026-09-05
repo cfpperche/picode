@@ -6,31 +6,27 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes Agent CLIs v1 (`567280b2`, ADR-0069) and
-Docker v3. Managed agents remain Pi-only; other coding CLIs are terminals,
-not agent runtimes. Commits remain local and unpushed. Preserve the unrelated
-root `.pi/compact.json`. Compose registration/deployment remains proposed.
+**Repository:** Agent CLIs v2 is implemented in `feat/agent-cli-v2` (ADR-0070),
+ready for merge/deployment. Local `main` already has v1
+and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals, not
+agent runtimes. Nothing was pushed. Preserve the unrelated root
+`.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Deployment:** `0.1.0+567280b`, health `ok`, boot `6b6567e8816a5596`. Installed
-binary hash and served JS/CSS match the tested build. All 129 pre-deploy tmux
-sessions retained their exact pane IDs/PIDs; none were added or replaced.
-All four legacy integration switches migrated unchanged. The real catalog,
-terminal inventory and mobile action menu were checked without changing user
-configuration or processes. Captures: `var/screenshots/cli-v1-deployed-*.png`.
-QA daemons, browsers and disposable terminals are closed.
+**Deployment:** the installed service is still v1, `0.1.0+567280b`. V2's
+installation, binary/assets comparison and exact tmux preservation check are
+the remaining delivery step; prior v1 acceptance is archived.
 
-**Quality:** `make ci` passed (Go, 486 frontend tests, packages, build, docs
-parity and Vale), along with focused CLI/Store/server race checks. The manual
-adoption regression preserves observed versus saved launch identity. Real tmux QA
-covers exact arguments/environment/PATH, concurrent Start, pending settings,
-confirmation, stop/restart/remove, browser restoration and daemon reconnect.
-Installed Pi 0.85.0, Claude Code 2.1.261, Codex 0.153.2 and Grok 1.0.13 opened
-their native TUIs without model turns; native trust was not bypassed. Pi and
-Claude initial activity was observed; Codex/Grok presence was not presented as
-activity. Manual Claude adoption preserved the pane PID. Empty/blocked/error,
-desktop/mobile, light/dark, menus and confirmation screenshots were read;
-settled overlay audits passed. Evidence: `docs/screenshots/cli-v1-*.png`.
-Public docs captures were refreshed with an isolated fixture and browser namespace.
+**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
+parity and Vale), including final preview-error recovery. Focused CLI/Store/runtime
+race tests passed. Real tmux tests cover
+adapter argv parity, inherited/pinned defaults, failed-start retry, restart
+preparation preserving the old PID and workspace artifact cleanup. Browser QA
+covers profile create/edit/use/remove, workspace/palette context, default reset,
+pending/restart, dirty-link/button/hash navigation, preview/network recovery,
+empty/blocked states and mobile dark sheets. Screenshots were read and settled
+overlay audits passed: `docs/screenshots/cli-v2-*.png`. Public docs captures
+were refreshed using an isolated fixture/browser namespace. No model turns
+were used; v2 does not certify every vendor lifecycle event.
 
 ### Product and platform
 
@@ -51,7 +47,8 @@ Public docs captures were refreshed with an isolated fixture and browser namespa
   as agent rows, with no chip; the compact text mark is only an asset-load
   fallback.
 - Agent CLIs is available from the desktop user menu/palette and mobile More.
-  It owns launch defaults, per-terminal overrides, setup checks and lifecycle
+  It owns visible launch defaults, copied profiles, per-terminal overrides,
+  shared previews, persistent setup checks, explicit repair and lifecycle
   actions. The old Terminal status preference redirects to `#/clis`. Saving
   settings never restarts a process; a stopped configured terminal needs Start.
 - Apps now provide literal output, progress, empty lists and generic mobile
@@ -78,6 +75,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
+- V2 merge/deployment and final QA cleanup are pending; no user terminal was
+  restarted by this work. Update the deployment evidence after installation.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -99,9 +98,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Next up
 
-1. Run the version-specific CLI working/approval/settled acceptance matrix and
-   close workspace-cascade launch artifact cleanup debt. Any first-class CLI
-   agent proposal needs a separate ADR covering protocol/session/package parity.
+1. Run the version-specific CLI working/approval/settled acceptance matrix.
+   Any first-class CLI agent proposal needs a separate ADR covering
+   protocol/session/package parity.
 2. Design the separate Compose registration/deployment increment from
    `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
    deployment preview and recovery. Existing-project operations are implemented.
@@ -120,9 +119,6 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
-- Workspace-level cascade removes stored launch settings but does not collect
-  private `cli-launch/<terminal>` files yet. Use the central Remove action for
-  complete terminal cleanup; workspace cascade artifact cleanup is follow-up debt.
 - Docker v3 deliberately leaves volume deletion, backup/restore, remote engines,
   historical metrics charts and automatic repair policies for future decisions.
   Secret masking is best effort; arbitrary unlabeled secrets are not detectable.
@@ -146,12 +142,11 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-04 — Agent CLIs v1.** Moved Terminal status out of Preferences;
-  added launch defaults/overrides, terminal control, setup checks and honest
-  applied/pending diagnostics. Pi remains the only managed agent runtime.
-  Native CLI and isolated tmux acceptance passed; visual-review: PASS
-  (screenshots read, settled overlay audits ok). CI passed; merged and deployed
-  as `0.1.0+567280b` with all 129 tmux sessions/PIDs and legacy switches intact.
+- **2026-09-05 — Agent CLIs v2.** Added visible launch plans, copied profiles,
+  persistent setup checks, explicit repair, pending comparison and safer restart
+  preparation. Fixed workspace artifact cleanup, context selection and mobile
+  sheet scrolling. visual-review: PASS (screenshots read; overlay audits ok).
+  Merge/deployment evidence is pending; native lifecycle acceptance stays open.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

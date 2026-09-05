@@ -155,6 +155,8 @@ func handleAdd(deps Deps) http.HandlerFunc {
 func handleRemove(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		unlockWorkspace := terminalLock(deps, "workspace:"+id)
+		defer unlockWorkspace()
 		if id == store.FreeWorkspaceID {
 			writeErr(w, http.StatusBadRequest, "cannot remove the free workspace")
 			return
@@ -187,9 +189,9 @@ func handleRemove(deps Deps) http.HandlerFunc {
 			dying[a.ID] = true
 			deps.stopAgent(r.Context(), a.ID)
 		}
-		// The workspace's terminals go with it (ADR-0026): kill their tmux
-		// sessions best-effort, like handleDeleteTerminal does; the records
-		// and their settings overrides fall in RemoveWorkspace's transaction.
+		// The workspace's terminals go with it (ADRs 0026/0070): stop each
+		// session before cleanup. Failure leaves the records available for
+		// retry; successful removal cascades their settings in one transaction.
 		terms, err := deps.Store.ListWorkspaceTerminals(wk.ID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -197,10 +199,21 @@ func handleRemove(deps Deps) http.HandlerFunc {
 		}
 		if deps.Tmux != nil && deps.Tmux.Available() {
 			for _, t := range terms {
-				_ = deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(t.ID))
+				unlock := terminalLock(deps, t.ID)
+				defer unlock()
+				if err := deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(t.ID)); err != nil {
+					writeErr(w, 500, "Could not stop a workspace terminal. Try removing the workspace again.")
+					return
+				}
 			}
 		}
 		for _, t := range terms {
+			if deps.DataDir != "" {
+				if err := cleanCLILaunches(deps.DataDir, t.ID, ""); err != nil {
+					writeErr(w, 500, "Could not remove terminal launch files. Try again.")
+					return
+				}
+			}
 			if deps.TermStates != nil {
 				deps.TermStates.Drop(t.ID)
 			}

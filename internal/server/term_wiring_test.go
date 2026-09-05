@@ -150,7 +150,7 @@ func TestInterceptPi(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pi wrapper missing: %v", err)
 	}
-	if !strings.Contains(string(wrapperBody), " -e "+fmt.Sprintf("%q", extension)+" \"$@\"") {
+	if !strings.Contains(string(wrapperBody), quotedCLIArgs([]string{"-e", extension})+" \"$@\"") {
 		t.Fatalf("pi wrapper does not prepend the state extension and preserve argv:\n%s", wrapperBody)
 	}
 	if !strings.Contains(string(wrapperBody), `auth|config|install|list|remove|uninstall|update`) {

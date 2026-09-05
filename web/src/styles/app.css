@@ -2831,6 +2831,12 @@ img.ws-face.term-cli-face {
   border-radius: 16px 16px 0 0; border-width: 1px 0 0;
   padding: 8px 18px calc(20px + env(safe-area-inset-bottom)); outline: none;
 }
+/* Vaul extends the backdrop below the drawer for overshoot. Our sheets
+   scroll their own content, so that extension creates empty scroll space. */
+.dlg.dlg-sheet::after { display: none; }
+@supports selector(::-webkit-scrollbar) {
+  .dlg.dlg-sheet { scrollbar-width: auto; scrollbar-color: auto; }
+}
 .dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
 .dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }
 .dlg.dlg-sheet input, .dlg.dlg-sheet select, .dlg.dlg-sheet textarea { font-size: 16px; }

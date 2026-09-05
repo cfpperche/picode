@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI } from "./cliLaunch.js";
+import { cliLocation, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "./schemas.js";
 import { parseRoute } from "./routes.js";
 import { mobileRoute } from "./mobileRoutes.js";
@@ -42,4 +42,52 @@ test("adopting a manual terminal proposes its observed CLI without replacing sav
   assert.equal(terminalLaunchCLI({ cli: "grok" }, "terminal-id"), "grok");
   assert.equal(terminalLaunchCLI({ launchCli: "codex", tui: { cli: "pi" } }), "codex");
   assert.equal(terminalLaunchCLI(null, "pi"), "pi");
+});
+
+test("restoring defaults retains reporting choice and automatic executable", () => {
+  for (const integration of [true, false]) {
+    const c = defaultLaunchConfig(integration);
+    assert.equal(c.executable, ""); assert.equal(c.integration, integration);
+    assert.deepEqual(launchConfig(launchDraft(c)), c);
+  }
+});
+
+test("profile copies preserve empty pins and ignore later profile edits", () => {
+  const base = { ...defaultLaunchConfig(true), args: ["base"], env: { DROP: "x" } };
+  const profile = { ...defaultLaunchConfig(false), env: { ADD: "secret" } };
+  const overrides = profileOverrides(base, profile);
+  profile.args.push("changed"); profile.env.ADD = "new";
+  assert.deepEqual(resolveLaunch(base, overrides), { ...defaultLaunchConfig(false), env: { ADD: "secret" } });
+  assert.deepEqual(editLaunchOverrides(base, overrides, resolveLaunch(base, overrides)), overrides);
+});
+
+test("editing an unrelated field retains an override equal to current defaults", () => {
+  const base = defaultLaunchConfig(false), previous = { args: [], integration: false };
+  assert.deepEqual(editLaunchOverrides(base, previous, { ...base, executable: "/bin/pi" }), { args: [], integration: false, executable: "/bin/pi" });
+});
+
+test("argument editor preserves empty and literal quoted arguments", () => {
+  const c = { ...defaultLaunchConfig(false), args: ["", "  ", '"quoted"', "'single'", "$literal", "two words"] };
+  assert.deepEqual(launchConfig(launchDraft(c)), c);
+});
+
+test("profile and workspace routes carry launch context", () => {
+  assert.deepEqual(cliLocation("#/clis/new/pi?profile=review&workspace=project"), { view: "new", id: "pi", profile: "review", workspace: "project" });
+  assert.deepEqual(cliLocation("#/clis/profile/new/pi"), { view: "profile", id: "new", cli: "pi" });
+});
+
+test("workspace picker accepts the API's direct array response", () => {
+  const rows = [{ id: "project", name: "Project" }];
+  assert.deepEqual(cliWorkspaceList(rows), rows);
+  assert.deepEqual(cliWorkspaceList({ workspaces: rows }), rows);
+  assert.deepEqual(cliWorkspaceList(null), []);
+});
+
+test("launch comparison detects binary replacement without marking legacy snapshots stale", () => {
+  const applied = { cli: "pi", fingerprint: "config", executable: "/bin/pi", identity: "old" };
+  assert.equal(launchChanged(applied, { ...applied }), false);
+  for (const patch of [{ cli: "codex" }, { fingerprint: "changed" }, { executable: "/other/pi" }, { identity: "replaced" }]) {
+    assert.equal(launchChanged(applied, { ...applied, ...patch }), true);
+  }
+  assert.equal(launchChanged({ ...applied, identity: "" }, applied), false);
 });

@@ -214,7 +214,7 @@ func writeClaudeIntercept(dataDir, hook string) error {
 	body := "#!/bin/sh\n# PiCode intercept — Claude Code. Session PATH only.\nname=claude\n" +
 		wrapperFindReal +
 		wrapperLifecycle(hook) +
-		fmt.Sprintf("\"$real\" --settings %q \"$@\"\n", claudeSettingsFile(dataDir)) +
+		"\"$real\"" + quotedCLIArgs(cliIntegrationPlan("claude-code", dataDir, hook).Branches[0].Args) + " \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "claude"), body)
 }
@@ -283,11 +283,7 @@ func codexHookOverrides(hook string) []string {
 }
 
 func writeCodexIntercept(dataDir, hook string) error {
-	overrides := codexHookOverrides(hook)
-	var hookArgs strings.Builder
-	for _, override := range overrides {
-		fmt.Fprintf(&hookArgs, " -c %q", override)
-	}
+	branches := cliIntegrationPlan("codex", dataDir, hook).Branches
 	// --dangerously-bypass-hook-trust is only a capability marker. PiCode
 	// deliberately does not pass it: the injected hook hashes above trust
 	// these exact commands while repository hooks keep their own trust rules.
@@ -295,10 +291,10 @@ func writeCodexIntercept(dataDir, hook string) error {
 		wrapperFindReal +
 		wrapperLifecycle(hook) +
 		"if \"$real\" --help 2>&1 | grep -q -- '--dangerously-bypass-hook-trust'; then\n" +
-		fmt.Sprintf("  \"$real\"%s \"$@\"\n", hookArgs.String()) +
+		"  \"$real\"" + quotedCLIArgs(branches[0].Args) + " \"$@\"\n" +
 		wrapperLifecycleEnd +
 		"fi\n" +
-		fmt.Sprintf("\"$real\" -c %q \"$@\"\n", overrides[len(overrides)-1]) +
+		"\"$real\"" + quotedCLIArgs(branches[1].Args) + " \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
 }
@@ -374,10 +370,10 @@ func writePiIntercept(dataDir, hook string) error {
 		wrapperFindReal +
 		"# Pi dispatches subcommands only when they are argv[1]. Do not move them.\n" +
 		"case \"${1-}\" in\n" +
-		"  auth|config|install|list|remove|uninstall|update|--help|-h|--version|-v) exec \"$real\" \"$@\" ;;\n" +
+		"  " + strings.Join(piPassthrough, "|") + ") exec \"$real\" \"$@\" ;;\n" +
 		"esac\n" +
 		wrapperLifecycle(hook) +
-		fmt.Sprintf("\"$real\" -e %q \"$@\"\n", extension) +
+		"\"$real\"" + quotedCLIArgs(cliIntegrationPlan("pi", dataDir, hook).Branches[0].Args) + " \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
 }
@@ -425,7 +421,7 @@ if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/
 `
 	body := "#!/bin/sh\n# PiCode intercept — Grok. Session PATH only. GROK_HOME overlay.\nname=grok\n" +
 		wrapperFindReal +
-		fmt.Sprintf("export GROK_HOME=%q\n", home) +
+		"export GROK_HOME=" + shellQuote(cliIntegrationPlan("grok", dataDir, hook).Environment["GROK_HOME"]) + "\n" +
 		refresh +
 		wrapperLifecycle(hook) +
 		"\"$real\" \"$@\"\n" +

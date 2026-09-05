@@ -68,3 +68,15 @@ All terminals and configuration changes belong to an isolated QA daemon;
 native installed CLIs opened without model turns. Screenshots were read and
 settled menu/dialog audits passed. QA terminals and their private launch files
 were removed afterward; native CLI data was retained.
+
+Agent CLIs v2 (ADR-0070): `cli-v2-desktop-defaults.png` and
+`cli-v2-desktop-injection.png` show visible defaults and shared launch details.
+`cli-v2-profile-editor.png`, `cli-v2-terminal-pending.png` and
+`cli-v2-workspace-menu.png` cover copied profiles, pending settings and contextual
+creation. `cli-v2-desktop-blocked.png` / `cli-v2-desktop-error.png` cover recovery;
+`cli-v2-discard-confirm.png` / `cli-v2-restart-confirm.png` cover named decisions.
+`cli-v2-mobile-dark.png` / `cli-v2-mobile-discard.png` show readable paths and
+the mobile discard sheet without empty scroll space. Screenshots were read;
+settled overlay audits passed. QA used isolated fixture data and disposable
+terminals; version checks did not start conversations. This is not evidence
+of every native vendor lifecycle event.

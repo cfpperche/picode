@@ -49,6 +49,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Agent CLIs launch inspection** (ADR-0070). Show detected defaults and
+  PiCode-injected settings before editing; preview the next launch, protect
+  unsaved changes and restore defaults without changing activity reporting.
+  Reusable profiles copy settings into new terminals, including workspace and
+  command-palette shortcuts. Setup checks persist with staleness detection;
+  repair is explicit and observed activity stays separate. Restart prepares
+  launch files before stopping the process, failures remain inspectable, and
+  workspace removal cleans its private terminal launch files. Mobile summaries
+  keep paths readable, and bottom sheets no longer scroll into empty space.
+
 - **Terminal status moves out of Preferences into Agent CLIs.** Existing
   switches migrate without resetting choices; the old address redirects.
   Activity reporting remains invocation-scoped, and live launch files stay

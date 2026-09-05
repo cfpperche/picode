@@ -124,14 +124,16 @@ func Fingerprint(c Config) string {
 // Snapshot contains diagnostics only. Configurations are read separately by
 // the editor; secrets never ride terminal views or change-feed events.
 type Snapshot struct {
-	CLI         string   `json:"cli"`
-	Executable  string   `json:"executable"`
-	Args        []string `json:"args"`
-	EnvKeys     []string `json:"envKeys"`
-	Path        []string `json:"path"`
-	Integration bool     `json:"integration"`
-	Fingerprint string   `json:"fingerprint"`
-	StartedAt   string   `json:"startedAt"`
+	CLI         string           `json:"cli"`
+	Executable  string           `json:"executable"`
+	Identity    string           `json:"identity,omitempty"`
+	Args        []string         `json:"args"`
+	EnvKeys     []string         `json:"envKeys"`
+	Path        []string         `json:"path"`
+	Integration bool             `json:"integration"`
+	Fingerprint string           `json:"fingerprint"`
+	StartedAt   string           `json:"startedAt"`
+	Injection   *IntegrationPlan `json:"injection,omitempty"`
 }
 
 func Describe(c Config, executable, at string) Snapshot {

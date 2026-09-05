@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0069).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0070).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -322,6 +322,40 @@ Manual CLI commands in ordinary terminals retain session-local wrapper
 instrumentation. Launch defaults apply to the central manager, not to commands
 typed in a shell. Configured CLI, observed presence, observed activity and
 installation/setup checks are separate facts in the UI.
+
+ADR-0070 adds read-only launch inspection and copied profiles. The backend
+`launchPlan` resolver supplies both previews and launch preparation; shared
+`cliIntegrationPlan` argument vectors drive the actual adapter writers and
+their inspectable branches. Preview never runs an executable or writes files.
+It uses symbolic generation paths and explicitly labels Codex's runtime
+capability choice and Pi's maintenance bypass. The actual process environment
+inherits the daemon environment, with settings and correlation keys layered
+on top. Environment values are absent from preview/terminal events.
+
+`cli_profiles` stores named full configurations; applying one copies explicit
+overrides, not a live foreign-key relationship. Updates/removal cannot modify
+terminals already created from it. `cli.profile` events carry IDs only.
+`cli_checks` persists bounded checks (`cli.checked` events); executable path,
+size/mtime and configuration fingerprint determine staleness. Check runs
+`--version` and tests prerequisites, while the separate repair route regenerates
+only private integration files. Observed activity remains ephemeral and is never
+inferred from a prepared file or a version check.
+
+`terminal_launches.attempt` retains the latest redacted launch failure/time.
+Snapshots include injected branches/files and executable identity. Pending
+state detects configuration and binary changes; the editor compares next and
+last-applied settings and lists terminals affected by a defaults edit. Restart
+prepares all launch artifacts before stopping the existing process, then uses
+that exact generation. Spawn failure after stopping is reported without claiming
+rollback. Workspace deletion holds terminal locks and collects exact private
+launch directories; native CLI data and unrelated terminal directories survive.
+
+The default view is a read-only summary. Restore clears launch customization
+without changing reporting; Save remains explicit. Editors guard dirty
+navigation through a hash guard installed before route observers, use shared
+Zod schemas, and preview after edits with a debounce (not periodic API polling).
+Feed invalidation keeps profiles and checks current.
+Workspace menus and the palette open the shared terminal editor with context.
 
 ## Component diagram
 

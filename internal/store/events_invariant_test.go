@@ -25,6 +25,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"SetCLIProfile", func(s *Store) { _ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"}) }, []string{"cli.profile"}},
+		{"DeleteCLIProfile", func(s *Store) {
+			_ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"})
+			s.OnEvent = recorder(s)
+			_ = s.DeleteCLIProfile("p")
+		}, []string{"cli.profile"}},
+		{"SetCLICheck", func(s *Store) { _ = s.SetCLICheck("pi", clilaunch.Diagnostic{Version: "1"}) }, []string{"cli.checked"}},
+		{"SetTerminalLaunchAttempt", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "cli", proj)
+			_ = s.SetTerminalLaunch(tm.ID, "pi", clilaunch.Overrides{})
+			s.OnEvent = recorder(s)
+			_ = s.SetTerminalLaunchAttempt(tm.ID, clilaunch.Attempt{Error: "failed"})
+		}, []string{"terminal.launch"}},
 		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
 		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {

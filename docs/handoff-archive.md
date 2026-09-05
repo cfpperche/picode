@@ -3,6 +3,24 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Agent CLIs v1 validation (archived 2026-09-05 during v2)
+
+- **2026-09-04 — Agent CLIs v1.** Moved Terminal status out of Preferences;
+  added launch defaults/overrides, terminal control, setup checks and honest
+  applied/pending diagnostics. Pi remains the only managed agent runtime.
+  CI passed (486 frontend tests), along with focused CLI/Store/server race
+  checks. Merged and deployed as `0.1.0+567280b`, boot `6b6567e8816a5596`,
+  with all 129 tmux sessions/pane PIDs and legacy switches intact.
+  Installed Pi 0.85.0, Claude Code 2.1.261, Codex 0.153.2 and Grok 1.0.13
+  opened their native TUIs without model turns or bypassing native trust.
+  Pi/Claude initial activity was observed; Codex/Grok presence was not
+  presented as activity. Manual Claude adoption preserved its pane PID.
+  Empty/blocked/error, desktop/mobile, light/dark, menus and confirmations
+  passed screenshot review and settled overlay audits. Captures:
+  `docs/screenshots/cli-v1-*.png`, `var/screenshots/cli-v1-deployed-*.png`.
+  All disposable QA processes/data were cleaned up. The version-specific
+  working/approval/settled matrix remained open.
+
 ## Recent activity (archived 2026-09-04 during Agent CLIs v1)
 
 - **2026-09-04 — Docker v3 resources, health and supervised maintenance.**
