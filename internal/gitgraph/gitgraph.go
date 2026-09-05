@@ -47,10 +47,20 @@ type Ref struct {
 }
 
 // Worktree is one checkout of the repository. Branch is empty when detached.
+// Uncommitted is set when that working tree has changes of its own — the
+// graph draws one dirty row per worktree, not only for the reader's own
+// checkout. Self marks the worktree the graph was read through. Bare and
+// Prunable are health flags: neither can be statused, and Prunable usually
+// means the directory is already gone.
 type Worktree struct {
-	Path   string `json:"path"`
-	Head   string `json:"head"`
-	Branch string `json:"branch,omitempty"`
+	Path        string           `json:"path"`
+	Head        string           `json:"head"`
+	Branch      string           `json:"branch,omitempty"`
+	Bare        bool             `json:"bare,omitempty"`
+	Detached    bool             `json:"detached,omitempty"`
+	Prunable    bool             `json:"prunable,omitempty"`
+	Self        bool             `json:"self,omitempty"`
+	Uncommitted *UncommittedInfo `json:"uncommitted,omitempty"`
 }
 
 // UncommittedInfo summarises the dirty working tree of the cwd the graph was
@@ -169,9 +179,11 @@ func LoadFiltered(dir string, opts LoadOptions) *Graph {
 	g.More = len(g.Commits) == limit
 	g.Worktrees = loadWorktrees(dir)
 	// Status guards the bare case itself: no toplevel, no changes, no row.
-	if _, changes := Status(dir); len(changes) > 0 {
+	top, changes := Status(dir)
+	if len(changes) > 0 {
 		g.Uncommitted = &UncommittedInfo{Count: len(changes)}
 	}
+	annotateWorktrees(g.Worktrees, top, changes)
 	return g
 }
 
@@ -367,6 +379,12 @@ func loadWorktrees(dir string) []Worktree {
 			cur = &Worktree{Path: canonicalPath(strings.TrimPrefix(line, "worktree "))}
 		case cur == nil:
 			// A stray line before any worktree header; nothing to attach it to.
+		case line == "bare":
+			cur.Bare = true
+		case line == "detached":
+			cur.Detached = true
+		case strings.HasPrefix(line, "prunable"):
+			cur.Prunable = true
 		case strings.HasPrefix(line, "HEAD "):
 			cur.Head = strings.TrimPrefix(line, "HEAD ")
 		case strings.HasPrefix(line, "branch "):
@@ -375,6 +393,43 @@ func loadWorktrees(dir string) []Worktree {
 	}
 	flush()
 	return list
+}
+
+// maxStatusWorktrees bounds the per-worktree status scan. Each live worktree
+// costs one `git status` (3–95ms measured here); a repository with dozens of
+// checkouts must not turn one graph load into seconds of git. Past the cap
+// the remaining worktrees draw without a dirty count.
+const maxStatusWorktrees = 32
+
+// annotateWorktrees fills in what the graph draws per worktree: which entry
+// is the checkout the graph was read through (Self), and — for every healthy,
+// non-bare worktree — whether its working tree is dirty. The reader's own
+// status is already paid for, so that entry reuses it instead of a second
+// exec. Prunable entries are skipped: git itself says the checkout may be
+// missing, and a status call there can only fail or lie.
+func annotateWorktrees(worktrees []Worktree, ownerTop string, ownerChanges []Change) {
+	owner := ""
+	if ownerTop != "" {
+		owner = canonicalPath(ownerTop)
+	}
+	budget := maxStatusWorktrees
+	for i := range worktrees {
+		wt := &worktrees[i]
+		if owner != "" && wt.Path == owner {
+			wt.Self = true
+			if len(ownerChanges) > 0 {
+				wt.Uncommitted = &UncommittedInfo{Count: len(ownerChanges)}
+			}
+			continue
+		}
+		if wt.Bare || wt.Prunable || budget <= 0 {
+			continue
+		}
+		budget--
+		if _, changes := Status(wt.Path); len(changes) > 0 {
+			wt.Uncommitted = &UncommittedInfo{Count: len(changes)}
+		}
+	}
 }
 
 func git(dir string, args ...string) string {

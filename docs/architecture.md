@@ -613,7 +613,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
-  the agents living in each worktree (`?limit=`, default 250). One graph per
+  the agents living in each worktree (`?limit=`, default 250). Each worktree
+  also carries its own dirty count, `self` (the checkout the graph was read
+  through) and `bare`/`detached`/`prunable` health flags, so the browser can
+  draw one uncommitted row per dirty worktree (ADR-0071). One graph per
   repository: the identity is `git rev-parse --git-common-dir`, canonicalized
   through filesystem symlinks, so every worktree (including macOS
   `/var`/`/private/var` aliases) answers with the same key and collapses onto
@@ -636,7 +639,11 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/{agents|terminals|workspaces}/{id}/gitstatus` — the working-tree
   changes of the owner's repository, `git status --porcelain -z -uall`
   re-anchored from the repo toplevel to the owner's cwd (what falls outside
-  is dropped). No repository is a state, not an error: `200 {"git": false}`.
+  is dropped). Agents and terminals accept `?worktree=<branch|head hash>` to
+  read a sibling worktree of the same repository instead: the value is a ref
+  resolved through `git worktree list`, never a path from the URL, and an
+  unresolvable ref is 404 (ADR-0071). No repository is a state, not an error:
+  `200 {"git": false}`.
 - `GET /api/{agents|terminals|workspaces}/{id}/gitdiff?path=` — one file's
   working-tree-vs-HEAD patch (ADR-0032), confined by the same cwd rules;
   untracked files arrive as whole-file additions, binary and truncation

@@ -7,9 +7,10 @@
 // registerUnavailablePoint) so this stays diffable against the original.
 //
 // What is dropped: the original's isCommitted/numUncommitted plumbing. Its
-// "Uncommitted Changes" row came back in ADR-0038, but as a wrapper instead:
-// layoutUncommitted prepends a pseudo-commit whose parent is HEAD, runs the
-// ordinary layout, and splits the pseudo's trail out for dashed drawing.
+// "Uncommitted Changes" row came back in ADR-0038 as a wrapper, and ADR-0071
+// generalized it: layoutUncommitted prepends one pseudo-commit per dirty
+// worktree, each anchored at that worktree's own HEAD, runs the ordinary
+// layout, and splits every pseudo's trail out for dashed drawing.
 //
 // The layout is greedy and single-pass: walk the commits top to bottom, and on
 // each row a branch claims the leftmost column still free. There is no global
@@ -264,33 +265,55 @@ export function layout(commits, { onlyFollowFirstParent = false } = {}) {
 
 export const GRID = { x: 14, y: 26, offsetX: 12, offsetY: 13 };
 
-// The hash of the pseudo-commit standing in for the dirty working tree. "*" can
-// never collide with an object name, and reads as "changes" on its own.
+// The hash prefix of the pseudo-commits standing in for dirty working trees.
+// "*" can never collide with an object name, and reads as "changes" on its
+// own; the index distinguishes several dirty worktrees.
 export const UNCOMMITTED = "*";
 
-// layoutUncommitted lays out the history with an "Uncommitted Changes" row on
-// top: a pseudo-commit whose only parent is HEAD goes through the ordinary
-// allocator — exactly how the original handles it — and its trail down to the
-// HEAD row comes back separately so the caller can draw it dashed. When HEAD
-// is missing or outside the loaded window there is no row to anchor the trail,
-// so the plain layout comes back and rows === commits.
-export function layoutUncommitted(commits, head) {
+export function uncommittedHash(k) {
+  return UNCOMMITTED + k;
+}
+
+export function isUncommittedHash(hash) {
+  return typeof hash === "string" && hash.startsWith(UNCOMMITTED);
+}
+
+// layoutUncommitted lays out the history with one "Uncommitted Changes" row
+// per dirty worktree (ADR-0071): each anchor gets a pseudo-commit whose only
+// parent is that worktree's own HEAD, and every pseudo goes through the
+// ordinary allocator — exactly how the original handled the single row. Each
+// pseudo's trail down to its anchor row comes back separately so the caller
+// can draw the trails dashed. Anchors whose HEAD is missing or outside the
+// loaded window have no row to anchor a trail and are dropped; rows carry the
+// caller's anchor object back on `.anchor` for labelling.
+export function layoutUncommitted(commits, anchors) {
   const list = commits || [];
-  const headAt = head ? list.findIndex((c) => c.hash === head) : -1;
-  if (headAt < 0) {
-    return { placed: layout(list), rows: list, dashed: null };
+  const usable = (Array.isArray(anchors) ? anchors : []).filter(
+    (a) => a && a.hash && list.some((c) => c.hash === a.hash),
+  );
+  if (usable.length === 0) {
+    return { placed: layout(list), rows: list, dashed: [] };
   }
-  const rows = [{ hash: UNCOMMITTED, parents: [head] }, ...list];
+  const rows = [
+    ...usable.map((a, k) => ({ hash: uncommittedHash(k), parents: [a.hash], anchor: a })),
+    ...list,
+  ];
   const placed = layout(rows);
-  const headRow = headAt + 1;
-  // The pseudo is vertex 0, so the first branch created starts at it; its
-  // lines down to the HEAD row are the trail. Whatever the branch draws below
-  // HEAD is real history and stays solid.
-  let dashed = null;
-  const first = placed.branches[0];
-  if (first) {
-    dashed = { colour: first.colour, lines: first.lines.filter((l) => l.p2.y <= headRow) };
-    first.lines = first.lines.filter((l) => l.p2.y > headRow);
+  // A pseudo's branch is the one that starts at the pseudo's own row: the
+  // walk creates one branch per pseudo, in row order, before any real branch
+  // can start (real commits sit strictly below the pseudo rows). Lines down
+  // to the anchor row are the dashed trail; whatever the branch draws below
+  // it is real history and stays solid.
+  const dashed = [];
+  for (let k = 0; k < usable.length; k++) {
+    const branch = placed.branches.find(
+      (b) => b.lines.length > 0 && b.lines[0].p1.y === k,
+    );
+    if (!branch) continue;
+    const anchorRow = rows.findIndex((r) => r.hash === usable[k].hash);
+    const trail = branch.lines.filter((l) => l.p2.y <= anchorRow);
+    branch.lines = branch.lines.filter((l) => l.p2.y > anchorRow);
+    if (trail.length) dashed.push({ colour: branch.colour, lines: trail });
   }
   return { placed, rows, dashed };
 }

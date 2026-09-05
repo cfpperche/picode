@@ -146,6 +146,10 @@ func handleAgentBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())

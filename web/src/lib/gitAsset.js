@@ -21,19 +21,28 @@ export function assetSides(status) {
 }
 
 // gitRevBlobUrl: one asset at one revision. hash is a full object name or
-// the literal "HEAD" — the server refuses anything else.
-export function gitRevBlobUrl(base, ownerId, hash, path) {
+// the literal "HEAD" — the server refuses anything else. worktree optionally
+// narrows the read to a sibling checkout (ADR-0071); it names a branch or
+// full head hash, never a path.
+export function gitRevBlobUrl(base, ownerId, hash, path, worktree) {
   return (
     base +
     encodeURIComponent(ownerId) +
     "/git/blob?hash=" +
     encodeURIComponent(hash) +
     "&path=" +
-    encodeURIComponent(path)
+    encodeURIComponent(path) +
+    (worktree ? "&worktree=" + encodeURIComponent(worktree) : "")
   );
 }
 
 // gitWorkBlobUrl: one asset as the working tree has it right now.
-export function gitWorkBlobUrl(base, ownerId, path) {
-  return base + encodeURIComponent(ownerId) + "/blob?path=" + encodeURIComponent(path);
+export function gitWorkBlobUrl(base, ownerId, path, worktree) {
+  return (
+    base +
+    encodeURIComponent(ownerId) +
+    "/blob?path=" +
+    encodeURIComponent(path) +
+    (worktree ? "&worktree=" + encodeURIComponent(worktree) : "")
+  );
 }

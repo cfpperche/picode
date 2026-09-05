@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef } from "react";
-import { layout, layoutUncommitted, UNCOMMITTED, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
+import { layout, layoutUncommitted, isUncommittedHash, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
 import { IconRemote } from "./Icons.jsx";
 
 // One row per commit, with the branch lines drawn as a single SVG layer behind
@@ -14,6 +14,12 @@ function shortDate(at) {
     ? { day: "2-digit", month: "short" }
     : { day: "2-digit", month: "short", year: "numeric" };
   return d.toLocaleDateString(undefined, opts);
+}
+
+function basename(p) {
+  const s = String(p || "");
+  const cut = s.lastIndexOf("/");
+  return cut < 0 ? s : s.slice(cut + 1);
 }
 
 function refKindClass(kind) {
@@ -37,7 +43,7 @@ function refLabel(ref) {
 }
 
 export default function GitGraph({
-  graph, showRemoteBranches, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
+  graph, anchors, showRemoteBranches, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
   onEndReached, loadingEarlier,
 }) {
   const commits = graph.commits || [];
@@ -64,16 +70,13 @@ export default function GitGraph({
     if (row) row.scrollIntoView({ block: "center" });
   }, [activeMatch]);
 
-  // A dirty working tree prepends a pseudo row over HEAD (ADR-0038). `rows` is
-  // the single source for every index: dots, head dot, selection, expandAt —
-  // never commits[i] with a scattered +1.
-  const dirty = graph.uncommitted ? graph.uncommitted.count : 0;
+  // One dirty row per worktree with changes of its own (ADR-0071): each is a
+  // pseudo-commit anchored at that worktree's own HEAD, joined to it by a
+  // dashed trail. `rows` is the single source for every index: dots, head dot,
+  // selection, expandAt — never commits[i] with a scattered +N.
   const { placed, rows, dashed } = useMemo(
-    () =>
-      dirty > 0
-        ? layoutUncommitted(commits, graph.head)
-        : { placed: layout(commits), rows: commits, dashed: null },
-    [commits, graph.head, dirty],
+    () => layoutUncommitted(commits, anchors),
+    [commits, anchors],
   );
 
   // The inline detail is a row in the flow, so the list below it moves by
@@ -84,7 +87,8 @@ export default function GitGraph({
 
   // A commit carries every ref that points at it, and a branch carries the
   // agents living in the worktree checked out on it — the one thing this graph
-  // can show that a git client cannot.
+  // can show that a git client cannot. Detached worktrees have no branch to
+  // carry them, so they decorate their HEAD commit directly.
   const refsByHash = useMemo(() => {
     const map = new Map();
     for (const ref of graph.refs || []) {
@@ -102,6 +106,16 @@ export default function GitGraph({
     const map = new Map();
     for (const wt of graph.worktrees || []) {
       if (wt.branch && (wt.agents || []).length) map.set(wt.branch, wt.agents);
+    }
+    return map;
+  }, [graph.worktrees]);
+
+  const detachedByHead = useMemo(() => {
+    const map = new Map();
+    for (const wt of graph.worktrees || []) {
+      if (!wt.detached || wt.bare || !wt.head) continue;
+      if (!map.has(wt.head)) map.set(wt.head, []);
+      map.get(wt.head).push(wt);
     }
     return map;
   }, [graph.worktrees]);
@@ -160,16 +174,17 @@ export default function GitGraph({
             stroke={colourAt(branch.colour)}
           />
         ))}
-        {dashed && dashed.lines.length ? (
+        {dashed.map((d, i) => (
           <path
+            key={i}
             className="gg-line gg-line-dashed"
-            d={branchPath(dashed.lines, { expandAt: selIdx, expandY })}
-            stroke={colourAt(dashed.colour)}
+            d={branchPath(d.lines, { expandAt: selIdx, expandY })}
+            stroke={colourAt(d.colour)}
           />
-        ) : null}
+        ))}
         {placed.vertices.map((v, i) => {
           const isHead = rows[i].hash === graph.head;
-          const isDirty = rows[i].hash === UNCOMMITTED;
+          const isDirty = isUncommittedHash(rows[i].hash);
           return (
             <circle
               key={i}
@@ -186,17 +201,34 @@ export default function GitGraph({
 
       <ol className="gg-list" ref={listRef}>
         {rows.map((c, i) => {
-          if (c.hash === UNCOMMITTED) {
+          if (isUncommittedHash(c.hash)) {
+            const wt = (c.anchor && c.anchor.wt) || {};
+            const count = wt.uncommitted ? wt.uncommitted.count : 0;
             return (
-              <Fragment key={UNCOMMITTED}>
+              <Fragment key={c.hash}>
                 <li>
                   <button
                     type="button"
-                    className={rowClass(UNCOMMITTED, " gg-row-uncommitted")}
-                    aria-current={selected === UNCOMMITTED ? "true" : undefined}
-                    onClick={() => onSelect && onSelect(UNCOMMITTED)}
+                    className={rowClass(c.hash, " gg-row-uncommitted")}
+                    aria-current={selected === c.hash ? "true" : undefined}
+                    onClick={() => onSelect && onSelect(c.hash)}
                   >
-                    Uncommitted Changes ({dirty})
+                    <span className="gg-refs">
+                      {wt.branch ? <span className="gg-ref gg-ref-head">{wt.branch}</span> : null}
+                      <span className="gg-ref gg-ref-wt" title={wt.path || ""}>
+                        {wt.detached ? basename(wt.path) : wt.branch ? basename(wt.path) : "worktree"}
+                      </span>
+                      {(wt.agents || []).map((a) => (
+                        <span key={a.id} className="gg-occupant" title={`Agent ${a.name} works here`}>
+                          {a.name}
+                        </span>
+                      ))}
+                      {wt.self ? <span className="gg-occupant gg-occupant-self">this worktree</span> : null}
+                    </span>
+                    <span className="gg-subject">Uncommitted Changes ({count})</span>
+                    <span className="gg-author" />
+                    <span className="gg-date" />
+                    <span className="gg-hash" />
                   </button>
                 </li>
                 {i === selIdx ? inlineDetail : null}
@@ -204,6 +236,7 @@ export default function GitGraph({
             );
           }
           const refs = refsByHash.get(c.hash) || [];
+          const detached = detachedByHead.get(c.hash) || [];
           return (
             <Fragment key={c.hash}>
             <li>
@@ -230,6 +263,16 @@ export default function GitGraph({
                       </span>
                     );
                   })}
+                  {detached.map((wt) => (
+                    <span key={wt.path} className="gg-ref gg-ref-wt" title={`${wt.path} — detached HEAD`}>
+                      {basename(wt.path)}
+                      {(wt.agents || []).map((a) => (
+                        <span key={a.id} className="gg-occupant" title={`Agent ${a.name} works here`}>
+                          {a.name}
+                        </span>
+                      ))}
+                    </span>
+                  ))}
                 </span>
                 <span className="gg-subject" title={c.subject}>{c.subject}</span>
                 <span className="gg-author">{c.author}</span>

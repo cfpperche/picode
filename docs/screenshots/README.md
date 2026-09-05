@@ -28,6 +28,11 @@ the open select card), `mobile-inbox-respond.png` (stacked inbox, reply form),
 `mobile-work-workspaces.png` (Work → Workspaces card with agents and the
 + Agent / + Terminal row), `mobile-terminal.png` (pushed terminal with the key
 bar), `mobile-more.png`.
+Git graph worktrees (ADR-0071): `adr0071-gitgraph-worktrees-dirty.png`
+(three dirty worktrees — owner with "this worktree", a detached checkout and a
+sibling branch — with the sibling's file list open, dark),
+`adr0071-gitgraph-branch-picker.png` (local branches marked with the worktree
+they are checked out in).
 Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
 first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
 reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).

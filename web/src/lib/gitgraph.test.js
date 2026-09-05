@@ -218,21 +218,23 @@ test("expanding at the last row is a no-op for every line", () => {
   assert.equal(branchPath(lines, { expandAt: 2, expandY: 500 }), branchPath(lines));
 });
 
-// The Uncommitted Changes row (ADR-0038): a pseudo-commit through the ordinary
-// allocator, with its trail split out for dashed drawing.
+// The Uncommitted Changes rows (ADR-0038, generalized per worktree in
+// ADR-0071): pseudo-commits through the ordinary allocator, trails split out
+// for dashed drawing.
 
 test("a dirty tree over HEAD at the top yields a one-row dashed trail", () => {
   const { placed, rows, dashed } = layoutUncommitted(
     [commit("h"), commit("g")], // g is unreachable from h here; keep it simple
-    "h",
+    [{ hash: "h", wt: { branch: "main" } }],
   );
   assert.equal(rows.length, 3);
-  assert.equal(rows[0].hash, UNCOMMITTED);
+  assert.equal(rows[0].hash, UNCOMMITTED + "0");
+  assert.equal(rows[0].anchor.wt.branch, "main");
   assert.equal(placed.vertices.length, 3);
-  assert.ok(dashed, "a trail must come back");
-  assert.equal(dashed.lines.length, 1);
-  assert.deepEqual(dashed.lines[0].p1, { x: 0, y: 0 });
-  assert.deepEqual(dashed.lines[0].p2, { x: 0, y: 1 });
+  assert.equal(dashed.length, 1);
+  assert.equal(dashed[0].lines.length, 1);
+  assert.deepEqual(dashed[0].lines[0].p1, { x: 0, y: 0 });
+  assert.deepEqual(dashed[0].lines[0].p2, { x: 0, y: 1 });
 });
 
 test("the dashed trail reaches a HEAD further down and stops there", () => {
@@ -242,15 +244,16 @@ test("the dashed trail reaches a HEAD further down and stops there", () => {
   //  B
   const { placed, rows, dashed } = layoutUncommitted(
     [commit("A", "B"), commit("H", "B"), commit("B")],
-    "H",
+    [{ hash: "H" }],
   );
   assert.equal(rows.length, 4);
   const headRow = rows.findIndex((r) => r.hash === "H");
   assert.equal(headRow, 2);
-  assert.ok(dashed.lines.length >= 1);
-  const last = dashed.lines[dashed.lines.length - 1];
+  assert.ok(dashed.length === 1 && dashed[0].lines.length >= 1);
+  const trail = dashed[0].lines;
+  const last = trail[trail.length - 1];
   assert.equal(last.p2.y, headRow, "the trail must end at the HEAD row");
-  for (const l of dashed.lines) {
+  for (const l of trail) {
     assert.ok(l.p2.y <= headRow, "no dashed line may pass HEAD");
   }
   // The solid remainder of that branch continues below HEAD (H → B).
@@ -261,14 +264,53 @@ test("the dashed trail reaches a HEAD further down and stops there", () => {
   assert.ok(first.lines.length >= 1, "history below HEAD stays solid");
 });
 
-test("a HEAD outside the loaded window means no pseudo row at all", () => {
+test("two dirty worktrees on different heads get two anchored trails", () => {
+  //  *0                 dirty worktree one, on A
+  //  *1                 dirty worktree two, on H
+  //  A   (tip)
+  //  H   HEAD of worktree two
+  //  B
+  const commits = [commit("A", "B"), commit("H", "B"), commit("B")];
+  const { rows, dashed } = layoutUncommitted(commits, [
+    { hash: "A", wt: { branch: "one" } },
+    { hash: "H", wt: { branch: "two" } },
+  ]);
+  assert.equal(rows.length, 5);
+  assert.equal(rows[0].hash, UNCOMMITTED + "0");
+  assert.deepEqual(rows[0].parents, ["A"]);
+  assert.equal(rows[1].hash, UNCOMMITTED + "1");
+  assert.deepEqual(rows[1].parents, ["H"]);
+  assert.equal(dashed.length, 2, "each anchor draws its own trail");
+  for (const d of dashed) {
+    const bottom = d.lines[d.lines.length - 1].p2.y;
+    const top = d.lines[0].p1.y;
+    assert.ok(top < bottom, "a trail runs downward");
+    assert.ok([2, 3].includes(bottom), "a trail ends at its own anchor row");
+  }
+});
+
+test("two dirty worktrees on the same head still get two rows", () => {
+  const commits = [commit("H", "B"), commit("B")];
+  const { rows, dashed } = layoutUncommitted(commits, [
+    { hash: "H", wt: { branch: "one" } },
+    { hash: "H", wt: { branch: "two" } },
+  ]);
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].parents[0], "H");
+  assert.equal(rows[1].parents[0], "H");
+  assert.equal(dashed.length, 2);
+});
+
+test("an anchor outside the loaded window is dropped, not fatal", () => {
   const commits = [commit("A", "B"), commit("B")];
-  const { placed, rows, dashed } = layoutUncommitted(commits, "not-loaded");
+  const { placed, rows, dashed } = layoutUncommitted(commits, [{ hash: "not-loaded" }]);
   assert.equal(rows, commits);
-  assert.equal(dashed, null);
+  assert.deepEqual(dashed, []);
   assert.equal(placed.vertices.length, 2);
-  const noHead = layoutUncommitted(commits, "");
-  assert.equal(noHead.dashed, null);
+  const noHead = layoutUncommitted(commits, []);
+  assert.deepEqual(noHead.dashed, []);
+  const mixed = layoutUncommitted(commits, [{ hash: "not-loaded" }, { hash: "A" }]);
+  assert.equal(mixed.rows.length, 3, "the usable anchor still draws");
 });
 
 test("the pseudo row does not disturb where the history lands", () => {
@@ -279,7 +321,7 @@ test("the pseudo row does not disturb where the history lands", () => {
     commit("D"),
   ];
   const plain = layout(commits);
-  const { placed } = layoutUncommitted(commits, "A");
+  const { placed } = layoutUncommitted(commits, [{ hash: "A" }]);
   // Same columns for every real commit, one row down.
   for (let i = 0; i < commits.length; i++) {
     assert.equal(placed.vertices[i + 1].x, plain.vertices[i].x, `commit ${commits[i].hash} moved`);

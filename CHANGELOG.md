@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Git graph shows every worktree's working tree** (ADR-0071). One
+  "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
+  the graph was opened from — labelled with its branch, directory, the agents
+  living there and a "this worktree" marker on your own checkout, each joined
+  to its HEAD by a dashed trail. Clicking a sibling's row opens its files and
+  diffs inline; detached checkouts decorate their HEAD commit with a directory
+  chip; the branch picker marks which branches are checked out in a worktree.
+  Sibling reads are addressed by branch or HEAD hash — never by path — so the
+  graph stays read-only and confined.
+
 ### Fixed
 
 - **Workspace cards: status and the actions button sit on the name line.**

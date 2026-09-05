@@ -5,12 +5,14 @@ import DiffLine from "./DiffLine.jsx";
 import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 
-// The dirty working tree behind the graph's Uncommitted Changes row
-// (ADR-0038). The file list comes from gitstatus and each patch is fetched
-// lazily from gitdiff on expand — the same owner-scoped endpoints the file
-// tree's diff reads. Read-only, like everything else in the graph.
+// The dirty working tree behind the graph's Uncommitted Changes rows
+// (ADR-0038; sibling worktrees since ADR-0071). The file list comes from
+// gitstatus and each patch is fetched lazily from gitdiff on expand — the
+// same owner-scoped endpoints the file tree's diff reads, narrowed to a
+// sibling worktree by `?worktree=<branch|head>` when one is open. Read-only,
+// like everything else in the graph.
 
-export default function UncommittedDetail({ owner, onClose }) {
+export default function UncommittedDetail({ owner, worktree, onClose }) {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState({});
@@ -20,25 +22,40 @@ export default function UncommittedDetail({ owner, onClose }) {
   // screen — a workspace folder itself.
   const base = owner && owner.kind === "term" ? "/api/terminals/" : owner && owner.kind === "workspace" ? "/api/workspaces/" : "/api/agents/";
   const ownerId = owner ? owner.id : "";
+  // A sibling worktree is named by the ref git knows it by — its branch, or
+  // its full HEAD hash when detached. The URL never carries a path. A named
+  // worktree with no resolvable ref is an error, never a silent fallback to
+  // the owner's own tree.
+  const wtRef = worktree ? worktree.branch || worktree.head || "" : "";
+  const wtQuery = wtRef ? `?worktree=${encodeURIComponent(wtRef)}` : "";
+  const askedButGone = Boolean(worktree) && !wtRef;
 
   useEffect(() => {
     if (!ownerId) return;
     let stop = false;
-    api(`${base}${encodeURIComponent(ownerId)}/gitstatus`)
+    api(`${base}${encodeURIComponent(ownerId)}/gitstatus${wtQuery}`)
       .then((s) => { if (!stop) setStatus(s); })
       .catch((e) => { if (!stop) setError(e.message || "Could not read the working tree."); });
     return () => { stop = true; };
-  }, [base, ownerId]);
+  }, [base, ownerId, wtQuery]);
 
   const toggle = (path) => {
     const opening = !open[path];
     setOpen((o) => ({ ...o, [path]: opening }));
     if (opening && !diffs[path]) {
-      api(`${base}${encodeURIComponent(ownerId)}/gitdiff?path=${encodeURIComponent(path)}`)
+      api(`${base}${encodeURIComponent(ownerId)}/gitdiff${wtQuery}${wtQuery ? "&" : "?"}path=${encodeURIComponent(path)}`)
         .then((d) => setDiffs((m) => ({ ...m, [path]: d })))
         .catch((e) => setDiffs((m) => ({ ...m, [path]: { error: e.message || "Could not read this diff." } })));
     }
   };
+
+  if (askedButGone) {
+    return (
+      <section className="gg-detail" aria-label="Uncommitted changes">
+        <p className="gg-msg">That worktree is gone — Refresh the graph.</p>
+      </section>
+    );
+  }
 
   if (error) {
     return (
@@ -70,7 +87,14 @@ export default function UncommittedDetail({ owner, onClose }) {
   return (
     <section className="gg-detail" aria-label="Uncommitted changes">
       <header className="gg-detail-head">
-        <h3 className="gg-detail-subject">Uncommitted Changes ({changes.length})</h3>
+        <h3 className="gg-detail-subject">
+          Uncommitted Changes ({changes.length})
+          {wtRef ? (
+            <span className="gg-detail-wt" title={worktree && worktree.path ? worktree.path : ""}>
+              {worktree.branch || wtRef.slice(0, 7)}
+            </span>
+          ) : null}
+        </h3>
         <span className="gg-spacer" />
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Close</button>
       </header>
@@ -111,6 +135,7 @@ export default function UncommittedDetail({ owner, onClose }) {
                       path={c.path}
                       oldPath={diff.oldPath}
                       status={c.kind}
+                      worktree={wtRef}
                       fallback={<p className="diff-empty">Binary file — no text diff.</p>}
                     />
                   ) : (

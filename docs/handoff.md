@@ -10,6 +10,9 @@
 v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
 not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
+Branch `feat/gitgraph-worktrees` (worktree `.worktrees/gitgraph-worktrees`)
+adds ADR-0071 — the git graph shows every worktree's working tree — on top,
+awaiting merge.
 
 **Last application deployment:** `0.1.0+9393c14`, health `ok`, boot
 `920ca74e6f1f752d`; served HTML/assets match the freshly built build.
@@ -36,6 +39,11 @@ v2 does not certify every vendor lifecycle event.
 
 - One Go binary serves the React/Vite desktop and mobile ADE. HTTPS defaults
   to `:8445`; hashed assets may cache, while HTML and APIs do not.
+- The git graph (ADR-0022/0038/0071) draws one dirty row per worktree with
+  its branch, directory, agents and a "this worktree" marker; sibling reads
+  are addressed by branch or HEAD hash (`?worktree=`), never by path. The
+  graph stays read-only and manually refreshed; sibling dirty states ride
+  the manual Refresh, and the unused `git/head` token endpoints remain.
 - Workspaces contain multiple agents; free agents and first-class tmux
   terminals are supported. Agent sessions are privately scoped and recorded
   in `agent_sessions` (ADRs 0039/0040/0053).
@@ -79,6 +87,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
+- `feat/gitgraph-worktrees` (ADR-0071) is complete and gated (`make ci`,
+  visual review PASS) but not merged; nothing is deployed with it yet.
 - Local tray policy repair: `Set-ScheduledTask` returned `0x80070005`
   (access denied). Removing `PT72H` and both battery restrictions awaits
   owner-approved elevation; those settings remain unchanged.
@@ -103,7 +113,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Next up
 
-1. Run the version-specific CLI working/approval/settled acceptance matrix.
+1. Review and merge `feat/gitgraph-worktrees` (ADR-0071), then `make deploy`
+   so the installed service picks the worktree-aware graph up.
+2. Run the version-specific CLI working/approval/settled acceptance matrix.
    Any first-class CLI agent proposal needs a separate ADR covering
    protocol/session/package parity.
 2. Design the separate Compose registration/deployment increment from
@@ -149,6 +161,17 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Git graph shows every worktree's working tree (ADR-0071)**
+  on `feat/gitgraph-worktrees`. One uncommitted row per dirty worktree
+  (branch + directory chip + agents + "this worktree"), dashed trails
+  anchored at each worktree's HEAD, detached checkouts decorate their HEAD
+  commit, branch picker marks checked-out branches, and `gitstatus`/`gitdiff`
+  /`git/blob`/`blob` accept `?worktree=<branch|hash>` for sibling reads —
+  refs, never paths. Benchmarks: Conductor, GitButler, mhutchie Git Graph,
+  herdr/Crystal. `make ci` passed including regenerated docs captures;
+  visual-review: PASS (`docs/screenshots/adr0071-*.png`, overlay audit ok,
+  light + dark read; a pseudo-hash index bug was caught and fixed in QA).
 
 - **2026-09-05 — Workspace row first-line alignment fix.** Agent and terminal
   rows centered the status chip and overflow button against the two-line
