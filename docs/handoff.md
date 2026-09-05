@@ -29,7 +29,9 @@ repair removed `PT72H` and battery/idle/network gates. A final task launch at
 11:55:13 local time is running with one instance; all 18 baseline pane IDs/PIDs
 survived. Action/principal/triggers were preserved; repeat repair is a no-op.
 
-**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
+**Quality:** hosted CI passed on `e707fac6` (Linux/macOS/Windows,
+run `33975160712`); Pages passed on publication `385329ab` (run `33974331763`).
+Local `make ci` passed (Go, 495 frontend tests, packages, build, docs
 parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
 argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
 Browser QA covers profiles, workspace/palette context, reset, pending/restart,
@@ -166,8 +168,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
   portable runtime tests remain shared. Docker socket fixtures now use short
   private temporary directories, with a long-test-name regression test.
   Windows cross-vet, all-package test cross-compilation, focused Linux race
-  tests and full local `make ci` passed. Hosted matrix revalidation follows;
-  no application, tray or task policy changes.
+  tests and full local `make ci` passed. Hosted CI `33975160712` passed on
+  `e707fac6`, including all three OS jobs. No application, tray or task policy
+  changes; next-logon acceptance remains deferred by the owner.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
