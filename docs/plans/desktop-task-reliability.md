@@ -71,3 +71,32 @@ All native probes use unique disposable tasks and helper executables, never
 the live tray. Physical sign-in, battery and sleep/resume acceptance remains
 owner-controlled. Inspect pane IDs/PIDs and health before and after any live
 tray replacement; record installed policy separately from code validation.
+
+## Workstation delivery
+
+Installed tray/native host from implementation `5c5fb4eb` through
+`make desktop-restart`. Executable SHA-256:
+`87274cb69015a73c12a980abde165c944835f94a0ed3447fc8f603e862430400`.
+Windows `startup-repair` requested normal UAC, and a subsequent independent
+check verified the complete policy. A final supported relaunch at 11:55:13
+local time started the updated tray under that policy. The task has one
+running instance, `PT0S`, all battery/idle/network gates off, IgnoreNew,
+RestartCount 3 and interval `PT1M`. Original action, principal and triggers
+match the backed-up XML; repeat repair reports no change and requests no UAC.
+
+All 18 baseline tmux pane IDs/PIDs survived both tray swaps. Server health
+is `ok`; its boot changed from `920ca74e6f1f752d` to `70c3e75648358c41`
+because a concurrent deployment installed `0.1.0+7964d4d` at 14:52 UTC.
+The second tray swap preserved that boot; this increment issued no server
+restart. That concurrent main change was merged without overwriting it.
+
+Recoverable Windows backups:
+
+- `%LOCALAPPDATA%\PiCode\desktop-backups\20260905-task-policy\` holds both
+  previous executables (original tray hash starts `6fa68ab54a63`).
+- `%LOCALAPPDATA%\PiCode\task-backups\PiCodeDesktop-d054c6b38dab48d9b70982ec06fa89b1.xml`
+  holds the prior task definition; the denied non-elevated attempt also
+  retained its own backup. No permissions were bypassed or relaxed.
+
+Visual evidence: [desktop guide](../screenshots/desktop-task-guide-desktop.png)
+and [mobile missing/blocked/error actions](../screenshots/desktop-task-guide-mobile-errors.png).

@@ -11,19 +11,19 @@ v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
 not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Last application deployment:** `0.1.0+9393c14`, health `ok`, boot
-`920ca74e6f1f752d`; served HTML/assets match the freshly built build.
-Ships the workspace row first-line alignment fix (see activity below):
-the live sidebar re-measured on real data shows status/menu to title
-center delta 0.6px on every row. Deployment retained all pre-restart
-terminal records (tmux-backed sessions survive service restarts).
+**Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
+`70c3e75648358c41`. This concurrent deployment added the Rename pencil icon
+on top of the earlier row alignment fix. The tray increment did not restart
+the server; the observed service restart at 14:52 UTC installed that build.
 
 **Windows desktop (ADR-0071):** explicit resident-task installer policy,
 read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
 normal Quit are implemented. Native Windows launch-retry/duplicate/Quit and
 policy-preservation tests passed, plus focused race tests and `make ci`.
-The installed tray/task still awaits replacement and policy repair; its
-earlier `PT72H`/battery settings remain. No server restart was performed.
+The installed tray was replaced through `make desktop-restart`; normal UAC
+repair removed `PT72H` and battery/idle/network gates. A final task launch at
+11:55:13 local time is running with one instance; all 18 baseline pane IDs/PIDs
+survived. Action/principal/triggers were preserved; repeat repair is a no-op.
 
 **Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
 parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
@@ -81,9 +81,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- Local tray delivery: replace through `make desktop-restart`, then apply and
-  verify `startup-repair` (normal UAC if needed). Recheck task/health/pane IDs
-  after the controlled launch. Physical next-logon acceptance stays open.
+- Windows next-logon, battery and sleep/resume acceptance remains
+  owner-controlled. Installer and local task repair are complete.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -160,7 +159,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
   scoped repair and Quit exit-code fix validated on Linux and Windows.
   `make ci` passed; regenerated/read the three already-stale public captures.
   visual-review: PASS for the Windows guide at desktop/mobile widths;
-  no app/tray layout or overlay changed. Local application is still pending.
+  no app/tray layout or overlay changed. Installed locally, verified one task
+  instance and unchanged baseline panes. Backups/evidence are in the plan.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
