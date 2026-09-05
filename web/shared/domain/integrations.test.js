@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { integrationSection, destinationLabel, readConnectorDefinition } from "./integrations.js";
+import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -9,6 +9,20 @@ test("integration routes and safe destination labels", () => {
   assert.equal(integrationSection("#/integrations/webhooks"), "webhooks");
   assert.equal(integrationSection("#/more/integrations/webhooks"), "webhooks");
   assert.equal(destinationLabel("https://example.com/hook?token=secret"), "example.com/hook");
+});
+
+test("connector tabs keep the catalog fixed and list only hosts with servers", () => {
+  const found = [
+    { kind: "vscode", label: "VS Code", servers: [] },
+    { kind: "codex", label: "Codex", servers: [{ name: "ctx", on: false }] },
+    { kind: "claude-code", label: "Claude Code", servers: [{ name: "a", on: true }, { name: "b", on: false }] },
+  ];
+  const tabs = connectorTabs(found);
+  assert.deepEqual(tabs.map((t) => t.id), ["catalog", "claude-code", "codex"]);
+  assert.deepEqual(tabs.map((t) => t.label), ["Catalog", "Claude Code", "Codex"]);
+  assert.equal(tabs[0].fixed, true);
+  assert.deepEqual(connectorTabs([]).map((t) => t.id), ["catalog"]);
+  assert.deepEqual(connectorTabs().map((t) => t.id), ["catalog"]);
 });
 
 test("webhook form validates and normalizes", () => {

@@ -8,7 +8,7 @@ import { toast } from "../lib/toast.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { readConnectorDefinition, destinationLabel } from "@picode/shared/domain/integrations.js";
+import { readConnectorDefinition, destinationLabel, connectorTabs } from "@picode/shared/domain/integrations.js";
 
 export default function Mcps({ hidden, embedded, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload }) {
   const [data, setData] = useState(null);
@@ -17,7 +17,9 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
-  const [pickOpen, setPickOpen] = useState(false);
+  const [catalogTab, setCatalogTab] = useState("catalog");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [hostPick, setHostPick] = useState(null);
   const [justSigned, setJustSigned] = useState({});
   const signCtl = useRef({ id: "", stop: false });
   const dataRef = useRef(null);
@@ -73,6 +75,7 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
+  const tabs = connectorTabs(data && data.found);
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   const showScopes = canProject || canAgent;
@@ -108,12 +111,16 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
     };
   }
 
+  function whereLabel() {
+    return scope === "user" ? "this machine" : scope === "project" ? (workspaceName || "this workspace") : (agentName || "this agent");
+  }
+
   async function importDefinition(file) {
     if (!file || job) return;
     try {
       if (file.size > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
       const entry = readConnectorDefinition(await file.text());
-      const where = scope === "user" ? "this machine" : scope === "project" ? (workspaceName || "this workspace") : (agentName || "this agent");
+      const where = whereLabel();
       const message = entry.command
         ? "Runs " + [entry.command, ...(entry.args || [])].map(v => JSON.stringify(v)).join(" ") + " with your system permissions. Add to " + where + " only if you trust its source."
         : "Allows agents in " + where + " to use tools from " + destinationLabel(entry.url) + ". Only connect services you trust.";
@@ -167,6 +174,7 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
       }));
       if (!next) return;
       setForm(emptyForm());
+      setCustomOpen(false);
     }
     if (auth === "oauth") await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
   }
@@ -183,18 +191,7 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
     if (turningOn) await signIn({ ...s, disabled: false }, { quiet: true });
   }
 
-  function importHosts() {
-    if (!installed) return;
-    const found = (data && data.found) || [];
-    if (!found.length) {
-      toast.info("No other apps with servers.");
-      return;
-    }
-    setPickOpen(true);
-  }
-
   async function applyPicks(picks) {
-    setPickOpen(false);
     await runJob("import", "apps", () => api("/api/mcp/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -422,84 +419,152 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
                 ) : null}
               </div>
             ) : null}
-            <div className={embedded ? "integration-catalog" : "mcp-presets"} data-align-row={embedded ? undefined : true}>
-              <button type="button" className="pkg-scope-btn" disabled={!!job} onClick={importHosts}>Use from…</button>
-              {presets.map((p) => (
+            <div className="catalog-tabs" role="tablist" aria-label="Connector catalogs">
+              {tabs.map((t) => (
                 <button
-                  key={p.id}
+                  key={t.id}
                   type="button"
-                  className={embedded ? "integration-preset" : "pkg-scope-btn"}
+                  role="tab"
+                  aria-selected={catalogTab === t.id}
+                  className="pkg-scope-btn"
                   disabled={!!job}
-                  title={p.summary}
-                  onClick={() => addServer({ name: p.id, ...p.entry })}
-                >{embedded ? <><strong>{p.name}</strong><span>{p.summary}</span></> : p.name}</button>
+                  onClick={() => setCatalogTab(t.id)}
+                >{t.label}</button>
               ))}
             </div>
-            <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
-              <div className="mcp-form-row" data-align-row>
-                <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
-                <div className="pkg-scope" role="radiogroup" aria-label="How it connects">
-                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio", auth: "", token: "" })}>Command</button>
-                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
-                </div>
-              </div>
-              <div className="mcp-form-row" data-align-row>
-                {form.kind === "stdio" ? (
-                  <>
-                    <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="Command" aria-label="Command" disabled={!!job} />
-                    <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="Arguments" aria-label="Arguments" disabled={!!job} />
-                  </>
-                ) : (
-                  <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://" aria-label="Server URL" disabled={!!job} />
-                )}
-                <button type="submit" className="btn btn-primary" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add</button>
-              </div>
-              <button
-                type="button"
-                className="btn btn-ghost mcp-more"
-                aria-expanded={form.more}
-                disabled={!!job}
-                onClick={() => setForm({ ...form, more: !form.more, pairs: form.pairs.length ? form.pairs : [{ key: "", value: "" }] })}
-              >{form.more ? "Less" : "More"}</button>
-              {form.more ? (
-                <div className="mcp-extra">
-                  {form.kind === "url" ? (
-                    <div className="mcp-form-row" data-align-row>
-                      <div className="pkg-scope" role="radiogroup" aria-label="Sign-in">
-                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === ""} onClick={() => setForm({ ...form, auth: "", token: "" })}>None</button>
-                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "oauth"} title="Opens the server's sign-in page" onClick={() => setForm({ ...form, auth: "oauth", token: "" })}>Sign in</button>
-                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "bearer"} onClick={() => setForm({ ...form, auth: "bearer" })}>Token</button>
-                      </div>
-                      {form.auth === "bearer" ? (
-                        <input
-                          className="dlg-input"
-                          type="password"
-                          autoComplete="off"
-                          value={form.token}
-                          onChange={(e) => setForm({ ...form, token: e.target.value })}
-                          placeholder="Token"
-                          aria-label="Token"
+            {tabs.map((t) => {
+              if (t.id !== catalogTab) return null;
+              return (
+                <div key={t.id} className={embedded ? "integration-catalog" : "mcp-presets"} data-align-row={embedded ? undefined : true} role="tabpanel" aria-label={t.fixed ? "Cataloged services" : t.label + " servers"}>
+                  {t.fixed ? (
+                    <>
+                      <button
+                        type="button"
+                        className={(embedded ? "integration-preset" : "pkg-scope-btn") + " integration-custom"}
+                        disabled={!!job}
+                        onClick={() => { setForm(emptyForm()); setFormError(""); setCustomOpen(true); }}
+                      ><strong>Custom</strong><span>Configure a server by URL or local command.</span></button>
+                      {presets.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className={embedded ? "integration-preset" : "pkg-scope-btn"}
                           disabled={!!job}
-                        />
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <PairList
-                    kind={form.kind}
-                    pairs={form.pairs}
-                    disabled={!!job}
-                    onChange={(pairs) => setForm({ ...form, pairs })}
-                  />
+                          title={p.summary}
+                          onClick={() => addServer({ name: p.id, ...p.entry })}
+                        >{embedded ? <><strong>{p.name}</strong><span>{p.summary}</span></> : p.name}</button>
+                      ))}
+                    </>
+                  ) : t.servers.map((s) => (
+                    <button
+                      key={s.name}
+                      type="button"
+                      className={(embedded ? "integration-preset" : "pkg-scope-btn") + (s.on && embedded ? " integration-added" : "")}
+                      disabled={!!job || s.on}
+                      title={s.on ? "Already added from " + t.label : "Import from " + t.label}
+                      onClick={() => setHostPick({ kind: t.id, label: t.label, server: s.name })}
+                    >{embedded ? <><strong>{s.name}</strong><span>{s.on ? "Added from " + t.label : "Found in " + t.label}</span></> : (s.on ? s.name + " ✓" : s.name)}</button>
+                  ))}
                 </div>
-              ) : null}
-              {formError ? <p className="form-error">{formError}</p> : null}
-            </form>
+              );
+            })}
           </section>
         </>
       )}
 
-      {pickOpen ? (
-        <UseFromDialog found={(data && data.found) || []} onClose={() => setPickOpen(false)} onUse={applyPicks} />
+      {customOpen ? (
+        <Dialog.Root open onOpenChange={(v) => { if (!v) setCustomOpen(false); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="dlg-overlay" />
+            <Dialog.Content className="dlg integration-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <Dialog.Title className="dlg-title">Add custom connector</Dialog.Title>
+              <Dialog.Description className="dlg-body">Name the server and choose how PiCode reaches it.</Dialog.Description>
+              <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
+                <div className="mcp-form-row" data-align-row>
+                  <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
+                  <div className="pkg-scope" role="radiogroup" aria-label="How it connects">
+                    <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio", auth: "", token: "" })}>Command</button>
+                    <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
+                  </div>
+                </div>
+                <div className="mcp-form-row" data-align-row>
+                  {form.kind === "stdio" ? (
+                    <>
+                      <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="Command" aria-label="Command" disabled={!!job} />
+                      <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="Arguments" aria-label="Arguments" disabled={!!job} />
+                    </>
+                  ) : (
+                    <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://" aria-label="Server URL" disabled={!!job} />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost mcp-more"
+                  aria-expanded={form.more}
+                  disabled={!!job}
+                  onClick={() => setForm({ ...form, more: !form.more, pairs: form.pairs.length ? form.pairs : [{ key: "", value: "" }] })}
+                >{form.more ? "Less" : "More"}</button>
+                {form.more ? (
+                  <div className="mcp-extra">
+                    {form.kind === "url" ? (
+                      <div className="mcp-form-row" data-align-row>
+                        <div className="pkg-scope" role="radiogroup" aria-label="Sign-in">
+                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === ""} onClick={() => setForm({ ...form, auth: "", token: "" })}>None</button>
+                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "oauth"} title="Opens the server's sign-in page" onClick={() => setForm({ ...form, auth: "oauth", token: "" })}>Sign in</button>
+                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "bearer"} onClick={() => setForm({ ...form, auth: "bearer" })}>Token</button>
+                        </div>
+                        {form.auth === "bearer" ? (
+                          <input
+                            className="dlg-input"
+                            type="password"
+                            autoComplete="off"
+                            value={form.token}
+                            onChange={(e) => setForm({ ...form, token: e.target.value })}
+                            placeholder="Token"
+                            aria-label="Token"
+                            disabled={!!job}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <PairList
+                      kind={form.kind}
+                      pairs={form.pairs}
+                      disabled={!!job}
+                      onChange={(pairs) => setForm({ ...form, pairs })}
+                    />
+                  </div>
+                ) : null}
+                {formError ? <p className="form-error">{formError}</p> : null}
+                <div className="dlg-actions">
+                  <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => setCustomOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add connector</button>
+                </div>
+              </form>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ) : null}
+
+      {hostPick ? (
+        <Dialog.Root open onOpenChange={(v) => { if (!v) setHostPick(null); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="dlg-overlay" />
+            <Dialog.Content className="dlg integration-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <Dialog.Title className="dlg-title">Add {hostPick.server} from {hostPick.label}?</Dialog.Title>
+              <Dialog.Description className="dlg-body">Pi reads those apps. The server lands in {whereLabel()}.</Dialog.Description>
+              <div className="dlg-actions">
+                <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => setHostPick(null)}>Cancel</button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!!job}
+                  onClick={() => { const hp = hostPick; setHostPick(null); applyPicks([{ kind: hp.kind, servers: [hp.server] }]); }}
+                >Add connector</button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
       {job ? (
         <JobOverlay
@@ -510,116 +575,6 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
         />
       ) : null}
     </PageFrame>
-  );
-}
-
-function UseFromDialog({ found, onClose, onUse }) {
-  const [open, setOpen] = useState(() => {
-    const o = {};
-    (found || []).forEach((h) => { o[h.kind] = true; });
-    return o;
-  });
-  const [on, setOn] = useState(() => {
-    const o = {};
-    (found || []).forEach((h) => {
-      (h.servers || []).forEach((s) => { o[h.kind + ":" + s.name] = !!s.on; });
-    });
-    return o;
-  });
-
-  function key(kind, name) { return kind + ":" + name; }
-
-  function appStats(h) {
-    const names = (h.servers || []).map((s) => s.name);
-    const n = names.filter((name) => on[key(h.kind, name)]).length;
-    return { all: names.length > 0 && n === names.length, some: n > 0 && n < names.length, n };
-  }
-
-  function toggleApp(h, v) {
-    setOn((cur) => {
-      const next = { ...cur };
-      (h.servers || []).forEach((s) => { next[key(h.kind, s.name)] = v; });
-      return next;
-    });
-  }
-
-  function submit() {
-    const picks = (found || []).map((h) => ({
-      kind: h.kind,
-      servers: (h.servers || []).map((s) => s.name).filter((name) => on[key(h.kind, name)]),
-    })).filter((p) => p.servers.length);
-    onUse(picks);
-  }
-
-  return (
-    <Dialog.Root open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dlg-overlay" />
-        <Dialog.Content className="dlg dlg-use-from" onCloseAutoFocus={(e) => e.preventDefault()}>
-          <Dialog.Title className="dlg-title">Use from other apps</Dialog.Title>
-          <Dialog.Description className="dlg-body">Check the servers to use. Pi reads those apps.</Dialog.Description>
-          <ul className="mcp-tree">
-            {(found || []).map((h) => {
-              const st = appStats(h);
-              return (
-                <li key={h.kind}>
-                  <div className="mcp-tree-row">
-                    <button
-                      type="button"
-                      className="mcp-tree-chev"
-                      aria-expanded={!!open[h.kind]}
-                      aria-label={open[h.kind] ? "Collapse" : "Expand"}
-                      onClick={() => setOpen((o) => ({ ...o, [h.kind]: !o[h.kind] }))}
-                    >{open[h.kind] ? "▾" : "▸"}</button>
-                    <TreeCheck checked={st.all} some={st.some} onChange={(v) => toggleApp(h, v)} label={h.label} />
-                    <span className="mcp-tree-label">{h.label}</span>
-                  </div>
-                  {open[h.kind] ? (
-                    <ul className="mcp-tree-kids">
-                      {(h.servers || []).length === 0 ? (
-                        <li className="mcp-tree-row mcp-tree-empty">No servers</li>
-                      ) : (h.servers || []).map((s) => (
-                        <li key={s.name} className="mcp-tree-row">
-                          <span className="mcp-tree-spc" aria-hidden="true" />
-                          <label className="mcp-tree-item">
-                            <input
-                              type="checkbox"
-                              checked={!!on[key(h.kind, s.name)]}
-                              onChange={(e) => setOn((cur) => ({ ...cur, [key(h.kind, s.name)]: e.target.checked }))}
-                            />
-                            <span>{s.name}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="dlg-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={submit}>Use</button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
-
-function TreeCheck({ checked, some, onChange, label }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = !!some && !checked;
-  }, [some, checked]);
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={!!checked}
-      aria-label={label}
-      onChange={(e) => onChange(e.target.checked)}
-    />
   );
 }
 
@@ -715,7 +670,7 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose, onCancel }) {
   const steps = [
-    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "signout" ? "Sign out " + job.label : job.action === "import" ? "Use from other apps" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "signout" ? "Sign out " + job.label : job.action === "import" ? "Import servers" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
     { id: "reload", label: job.action === "signin" ? "Finish in the browser tab" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (

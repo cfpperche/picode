@@ -57,6 +57,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Connector catalog tabs.** The Add-connector card gains internal tabs: a
+  fixed **Catalog** tab (a **Custom** card opening the server form, plus the
+  cataloged services) and one tab per agent CLI whose configuration contains
+  MCP servers, replacing the Use-from dialog. Host servers carry an Added
+  state and import through a reviewed confirmation.
+
 - **Gmail connector recipe** across all three add paths: a **Gmail** catalog
   card, an importable `connectors/gmail.json`, and an optional
   `packages/pi-connector-gmail` package. Credentials stay outside PiCode in

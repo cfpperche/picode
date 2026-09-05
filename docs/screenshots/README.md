@@ -17,6 +17,11 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
+Connector catalog tabs: `connector-tabs-catalog.png` shows the fixed Catalog
+Custom card plus presets; `-custom-dialog.png` the moved server form;
+`-host-added.png` / `-mobile-added.png` the Claude Code tab with an imported
+server's Added state (desktop and mobile).
+
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector
 catalog. `integrations-mobile-*` covers installed package metadata, the scrolled

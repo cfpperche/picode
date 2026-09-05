@@ -16,6 +16,16 @@ export function destinationLabel(raw) {
 
 // Import standard MCP configuration, not a second runtime/package format.
 // Reviewing one server at a time makes command/token permissions explicit.
+// Catalog tabs for the Add-connector card: the fixed catalog first, then one
+// tab per agent CLI whose configuration actually contains MCP servers.
+export function connectorTabs(found) {
+  const hosts = (found || [])
+    .filter((h) => h && h.kind && h.label && Array.isArray(h.servers) && h.servers.length)
+    .map((h) => ({ id: h.kind, label: h.label, servers: h.servers }));
+  hosts.sort((a, b) => a.label.localeCompare(b.label));
+  return [{ id: "catalog", label: "Catalog", fixed: true }, ...hosts];
+}
+
 export function readConnectorDefinition(text) {
   if (text.length > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
   let data;

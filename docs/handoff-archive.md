@@ -3,6 +3,22 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Gmail connector (archived during catalog tabs)
+
+- **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
+  host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
+  serves the `gmail` preset and the card renders with `context7` untouched;
+  32/32 panes survived. visual-review: PASS. No integration mutations or push.
+
+- **2026-09-05 — Gmail connector across all three add paths.** Catalog gains a
+  Gmail card (community `@gongrzhe/server-gmail-autoauth-mcp`, credentials stay
+  in `~/.gmail-mcp/`), `connectors/gmail.json` is importable, and optional
+  `packages/pi-connector-gmail` documents install/sign-in/revocation. Preset
+  completeness test added; guide recipe and changelog updated. Isolated-daemon
+  browser check: one catalog click created the `gmail` server entry with the
+  exact command; desktop/mobile screenshots read, audits ok. visual-review:
+  PASS (`integrations-catalog-before/gmail-added.png`). `make ci` passed.
+
 ## Capture host deployment (archived during Gmail connector deploy)
 
 - **2026-09-05 — Capture host merged and deployed.** Reconciled main and
