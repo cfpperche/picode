@@ -4409,3 +4409,8 @@ img.ws-face.term-cli-face {
   .ft-detail { animation: none; }
   .ft-split-open .ft-body { transition: none; }
 }
+
+/* Ignored entries stay navigable; retain full-strength selection and focus. */
+.ft-row-ignored .ft-name { font-style: italic; }
+.ft-row-ignored:not(.ft-row-on) .ft-name,
+.ft-row-ignored:not(.ft-row-on) .ft-icon { color: var(--text-secondary); }

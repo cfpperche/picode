@@ -34,11 +34,11 @@ export function flattenTree(levels, expanded) {
     for (const d of level.dirs) {
       const open = expanded.has(d.path);
       const children = levels[d.path];
-      out.push({ path: d.path, name: d.name, depth, isDir: true, open, loaded: !open || !!children, empty: open && !!children && !children.dirs.length && !children.files.length });
+      out.push({ path: d.path, name: d.name, ignored: !!d.ignored, depth, isDir: true, open, loaded: !open || !!children, empty: open && !!children && !children.dirs.length && !children.files.length });
       if (open) walk(d.path, depth + 1);
     }
     for (const f of level.files) {
-      out.push({ path: f.path, name: f.name, depth, isDir: false });
+      out.push({ path: f.path, name: f.name, ignored: !!f.ignored, depth, isDir: false });
     }
   };
   walk("", 0);

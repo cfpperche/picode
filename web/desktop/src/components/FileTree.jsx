@@ -27,12 +27,13 @@ export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggl
             aria-selected={selectedPath === row.path}
             tabIndex={active === row.path ? 0 : -1}
             data-path={row.path}
-            className={"ft-row" + (row.isDir ? " ft-row-dir" : "") + (selectedPath === row.path ? " ft-row-on" : "")}
+            className={"ft-row" + (row.ignored ? " ft-row-ignored" : "") + (row.isDir ? " ft-row-dir" : "") + (selectedPath === row.path ? " ft-row-on" : "")}
             style={{ paddingLeft: 8 + row.depth * 14 }}
             onFocus={() => setFocused(row.path)}
             onKeyDown={(e) => onKey(e, index)}
             onClick={() => (row.isDir ? onToggle(row.path) : onOpen(row.path))}
-            title={row.path}
+            title={row.path + (row.ignored ? " — Ignored by Git" : "")}
+            aria-label={row.ignored ? row.name + ", ignored by Git" : undefined}
           >
             <span className={"ft-chev" + (row.isDir && row.open ? " ft-chev-open" : "")}>
               {row.isDir ? <IconChevronRight /> : null}

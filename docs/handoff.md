@@ -24,7 +24,11 @@ and normal Quit are implemented and locally installed. Native policy/lifecycle
 and race tests passed. UAC repair preserved action/principal/triggers; repeat
 repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
-**Quality:** combined `make ci` passed (648 frontend tests, Go, packages,
+**Quality:** File Tree ignore refinement `make ci` passed (649 frontend tests,
+Go, packages, build, docs and Vale). Four read screenshots cover both themes,
+selection, empty and blocked states; audits passed. Evidence lives in
+`docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
+The preceding mobile combined `make ci` passed (648 frontend tests, Go, packages,
 build, docs and Vale), plus embedded UI/server checks. The repeatable mobile
 browser runner passed draft/image retention, both settings callbacks, save
 failure rollback and model/tool/checklist persistence. Light/dark, small/wide,
@@ -44,6 +48,8 @@ no model turns were started by this correction increment.
   are addressed by branch or HEAD hash (`?worktree=`), never by path. The
   graph stays read-only and manually refreshed; sibling dirty states ride
   the manual Refresh, and the unused `git/head` token endpoints remain.
+- Desktop File Tree marks Git-ignored entries with muted italic names and
+  accessible labels; selection remains legible and files still open inline.
 - File Tree v2 keeps file content and working diffs beside the navigation.
   One document controller protects edits on replacement, close and refresh;
   optional root preconditions prevent a terminal cd from redirecting a draft.
@@ -151,6 +157,11 @@ and fallback detail is archived; the implementation is unchanged here.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
+  listing in one bounded call. Tracked files, exceptions and unavailable Git
+  are covered; light/dark, inline selection, empty and blocked screenshots
+  were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go, build, docs and Vale).
 
 - **2026-09-05 — Mobile decoupling adversarial corrections.** Cache storage
   failures preserve successful asset responses. Composer Settings stays above

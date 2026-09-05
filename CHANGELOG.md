@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Distinguish Git-ignored files and folders in the desktop File Tree with muted,
+  italic names and an accessible label, while keeping them fully navigable.
+
 - Keep mobile drafts and attachments when opening agent Settings, and persist
   model, tool and checklist changes from both mobile settings entry points.
   Selectors stay above settings sheets and within the phone viewport.

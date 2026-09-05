@@ -224,6 +224,11 @@ only with the tab. A hidden surface takes no part in the window-focus refresh
 — revealing it refetches instead, and only when its last read is older than
 10s; the git graph refreshes on demand only, so a reveal never refetches it.
 
+Directory browsing adds optional `ignored` metadata using one bounded Git
+`check-ignore` call per listing. Desktop renders ignored names in muted italics;
+tracked files and ignore exceptions remain normal. Non-Git folders and Git
+failures retain ordinary browsing. Existing directory exclusions are unchanged.
+
 The file tree's selection is local to its tab: changing Files/Changes only
 changes the navigation list. `FilePane` supplies both standalone and embedded
 layouts from one document controller (`web/src/lib/fileDocument.js`). Dirty

@@ -89,3 +89,11 @@ test("changedDirs yields every ancestor of a changed file", () => {
   const dirs = changedDirs([{ path: "a/b/c.go" }, { path: "top.go" }]);
   assert.deepEqual([...dirs].sort(), ["a", "a/b"]);
 });
+
+test("ignore metadata survives lazy directory expansion and refresh", () => {
+  const levels = mergeLevel({}, { dirs: [{ name: "out", path: "out", ignored: true }], files: [{ name: "keep", path: "keep" }] });
+  const expanded = mergeLevel(levels, { dir: "out", files: [{ name: "a", path: "out/a", ignored: true }] });
+  assert.deepEqual(flattenTree(expanded, new Set(["out"])).map(r => r.ignored), [true, true, false]);
+  const refreshed = mergeLevel(expanded, { dir: "out", files: [{ name: "a", path: "out/a" }] });
+  assert.equal(flattenTree(refreshed, new Set(["out"]))[1].ignored, false);
+});
