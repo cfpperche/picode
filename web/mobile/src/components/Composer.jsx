@@ -1,0 +1,777 @@
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import KindChip from "./KindChip.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
+import PiSpinner from "./PiSpinner.jsx";
+import AgentPageBar from "./AgentPageBar.jsx";
+import VoiceMeter from "./VoiceMeter.jsx";
+import ImageLightbox from "./ImageLightbox.jsx";
+import WorkspaceAttach from "./WorkspaceAttach.jsx";
+import { IconClip, IconSketch } from "./Icons.jsx";
+import ComposerStatus from "./ComposerStatus.jsx";
+import { Command } from "cmdk";
+import { api } from "@picode/shared/client/api.js";
+import { sniffImage, readImage, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
+import { filterSlash } from "@picode/shared/domain/slash.js";
+import { atQuery, insertAtPath, mergeAtHits, skillsFromSlash } from "@picode/shared/domain/atMention.js";
+import { commandDocUrl } from "../lib/commandDocs.js";
+import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "@picode/shared/domain/composerHist.js";
+import {
+  speechSupported, createRecognizer, mergeTranscript, humanizeSpeechError, discloseSttOnce,
+  unlockMic, speakText, stopSpeak,
+} from "@picode/shared/domain/speech.js";
+import { toast } from "../lib/toast.js";
+import { matchAction, primaryChord, formatChord } from "../lib/appKeys.js";
+import { readAppKeyOverrides } from "../lib/appKeyPrefs.js";
+
+const PinSketch = lazy(() => import("./PinSketch.jsx"));
+
+export default function Composer({
+  kind, onKind, value, onChange, onSend, status, streaming, waiting,
+  stopped, onToggleDock, onStop, onAbort, onSlash, statusBar, onCompact, sessionBar, lastReply,
+  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking,
+}) {
+  const appKeyOverrides = readAppKeyOverrides();
+  const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
+  const dictateKeyHint = formatChord(primaryChord("composer.dictate", appKeyOverrides));
+  const ta = useRef(null);
+  const hist = useRef(newHist());
+  const rec = useRef(null);
+  const wantListen = useRef(false);
+  const gen = useRef(0);
+  const modeRef = useRef("off");
+  const finals = useRef("");
+  const dictateBase = useRef("");
+  const valueRef = useRef(value);
+  const streamingRef = useRef(!!streaming);
+  const prevStream = useRef(!!streaming);
+  const mutedRef = useRef(false);
+  const streamRef = useRef(null);
+  const [slashIdx, setSlashIdx] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const [voice, setVoice] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [muted, setMuted] = useState(false);
+  const [dictate, setDictate] = useState(false);
+  const [micStream, setMicStream] = useState(null);
+  const [caret, setCaret] = useState(0);
+  const [atHits, setAtHits] = useState(null);
+  const [atOk, setAtOk] = useState(false);
+  const [atIdx, setAtIdx] = useState(0);
+  const [atHide, setAtHide] = useState("");
+  const [pics, setPics] = useState([]);
+  const [drag, setDrag] = useState(false);
+  const [preview, setPreview] = useState("");
+  const [pick, setPick] = useState(false);
+  const [sketch, setSketch] = useState(null);
+  const [text, setText] = useState(value || "");
+  const hits = filterSlash(text, slashExtra);
+  const at = hits.length ? null : atQuery(text, caret);
+  const atKey = at ? "@" + at.query : "";
+  const showAt = !!(at && atOk && atHits && atHide !== atKey);
+
+  useEffect(() => { setText(value || ""); }, [value]);
+  useEffect(() => { valueRef.current = text; }, [text]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (onChange) onChange(text); }, 160);
+    return () => clearTimeout(t);
+  }, [text]);
+  useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
+
+  useEffect(() => {
+    const el = ta.current;
+    if (!el) return;
+    if (expanded) { el.style.height = "100%"; return; }
+    el.style.height = "auto";
+    el.style.height = Math.max(52, Math.min(el.scrollHeight, 160)) + "px";
+  }, [text, expanded, voice]);
+
+  useEffect(() => { setSlashIdx(0); }, [text]);
+  useEffect(() => { setAtIdx(0); }, [atKey]);
+
+  useEffect(() => {
+    if (!agentId || !atKey || hits.length) {
+      setAtHits(null);
+      setAtOk(false);
+      return;
+    }
+    const q = atKey.slice(1);
+    const t = setTimeout(async () => {
+      let files = [];
+      try {
+        const d = await api("/api/agents/" + encodeURIComponent(agentId) + "/files?q=" + encodeURIComponent(q));
+        if (d.cwdOk) files = d.hits || [];
+      } catch { /* skills and agents still list */ }
+      setAtOk(true);
+      setAtHits(mergeAtHits(q, {
+        files,
+        skills: skillsFromSlash(slashExtra),
+        agents: atAgents,
+      }));
+    }, 120);
+    return () => clearTimeout(t);
+  }, [agentId, atKey, hits.length, slashExtra, atAgents]);
+
+  useEffect(() => {
+    return () => stopRec();
+  }, []);
+
+  useEffect(() => {
+    if (!voice) return;
+    if (streaming) {
+      stopRec();
+      stopSpeak();
+      return;
+    }
+    startListen("voice");
+  }, [streaming, voice]);
+
+  useEffect(() => {
+    const was = prevStream.current;
+    prevStream.current = !!streaming;
+    if (voice && was && !streaming && !mutedRef.current && lastReply) {
+      speakText(lastReply);
+    }
+  }, [streaming, voice, lastReply]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (matchAction("composer.voice.toggle", e)) {
+        e.preventDefault();
+        toggleVoice();
+        return;
+      }
+      if (matchAction("composer.dictate", e)) {
+        e.preventDefault();
+        if (voice) return;
+        if (dictate) confirmDictate();
+        else startListen("dictate");
+        return;
+      }
+      if (e.key === "Escape") {
+        if (dictate) { e.preventDefault(); cancelDictate(); return; }
+        if (voice) { e.preventDefault(); leaveVoice(); return; }
+        if (expanded) { e.preventDefault(); setExpanded(false); }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [voice, expanded, listening, caption, streaming, dictate]);
+
+  function markCaret(el) {
+    if (el && typeof el.selectionStart === "number") setCaret(el.selectionStart);
+  }
+
+  function setAtQuery(q) {
+    const tok = atQuery(text, caret);
+    if (!tok) return;
+    const next = (text || "").slice(0, tok.start) + "@" + q + (text || "").slice(caret);
+    setText(next);
+    const pos = tok.start + 1 + q.length;
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (el) { el.setSelectionRange(pos, pos); }
+      setCaret(pos);
+    });
+  }
+
+  function pickAt(hit) {
+    if (!hit) return;
+    const next = insertAtPath(text, caret, hit.path);
+    setText(next.text);
+    setAtHits(null);
+    setAtHide(atKey);
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(next.caret, next.caret);
+      setCaret(next.caret);
+    });
+  }
+
+  async function addPics(files) {
+    const incoming = [...(files || [])].filter(Boolean);
+    if (!incoming.length) return;
+    const next = pics.slice();
+    for (const f of incoming) {
+      if (!sniffImage(f)) continue;
+      if (next.length >= MAX_IMAGES) { toast.error("Up to 4 images."); break; }
+      try {
+        const im = await readImage(f);
+        next.push({ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + next.length, ...im });
+      } catch (err) {
+        if (err && err.message === "too-large") toast.error("Each image must be under 4 MB.");
+      }
+    }
+    setPics(next);
+  }
+
+  async function attachHit(hit) {
+    setPick(false);
+    if (!hit || !hit.path) return;
+    if (/\.(png|jpe?g|gif|webp)$/i.test(hit.name || hit.path)) {
+      if (pics.length >= MAX_IMAGES) { setPick(false); toast.error("Up to 4 images."); return; }
+      try {
+        const d = await api("/api/agents/" + encodeURIComponent(agentId) + "/file?path=" + encodeURIComponent(hit.path));
+        setPics((cur) => cur.length >= MAX_IMAGES ? cur : cur.concat([{
+          id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+          mime: d.mime, name: d.name, data: d.data,
+          url: "data:" + d.mime + ";base64," + d.data,
+        }]));
+      } catch (e) {
+        toast.error(e.message || "Can't attach that image.");
+      }
+      return;
+    }
+    const next = insertAtPath(text, caret, hit.path);
+    setText(next.text);
+    requestAnimationFrame(() => {
+      const el = ta.current;
+      if (el) { el.focus(); el.setSelectionRange(next.caret, next.caret); }
+      setCaret(next.caret);
+    });
+  }
+
+  function dropPic(id) {
+    setPics((cur) => cur.filter((p) => p.id !== id));
+  }
+
+  function openSketch(edit) {
+    if (!edit && pics.length >= MAX_IMAGES) { toast.error("Up to 4 images."); return; }
+    setSketch(edit || {});
+  }
+
+  async function insertSketch({ scene, preview }) {
+    if (!sceneHasInk(scene && scene.elements)) { toast.error("Draw something first."); return; }
+    const file = new File([preview], "sketch.png", { type: "image/png" });
+    try {
+      const im = await readImage(file);
+      const row = {
+        id: (sketch && sketch.id) || (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+        ...im,
+        scene,
+      };
+      setPics((cur) => {
+        if (sketch && sketch.id) return cur.map((p) => p.id === sketch.id ? row : p);
+        if (cur.length >= MAX_IMAGES) return cur;
+        return cur.concat(row);
+      });
+      setSketch(null);
+    } catch (err) {
+      if (err && err.message === "too-large") toast.error("Each image must be under 4 MB.");
+    }
+  }
+
+  function fireSend(sent) {
+    const body = sent == null ? text : sent;
+    histPush(hist.current, body || "");
+    if (onSend) onSend(body, pics);
+    setPics([]);
+    setText("");
+    if (onChange) onChange("");
+  }
+
+  function pickSlash(cmd) {
+    if (!cmd) return;
+    if (cmd.run === "insert") {
+      setText(cmd.insert || cmd.label + " ");
+      requestAnimationFrame(() => ta.current?.focus());
+      return;
+    }
+    if (cmd.run === "prompt") {
+      fireSend(cmd.label);
+      return;
+    }
+    setText("");
+    if (cmd.run === "copy") {
+      const t = lastReply || "";
+      if (!t) { toast.info("No assistant reply yet."); return; }
+      navigator.clipboard.writeText(t).then(() => toast.ok("Copied last reply.")).catch(() => toast.error("Clipboard blocked."));
+      return;
+    }
+    if (onSlash) onSlash(cmd);
+  }
+
+  function stopRec() {
+    wantListen.current = false;
+    gen.current += 1;
+    const r = rec.current;
+    rec.current = null;
+    setListening(false);
+    if (r) try { r.abort(); } catch { /* already stopped */ }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setMicStream(null);
+  }
+
+  async function startListen(mode) {
+    const my = ++gen.current;
+    wantListen.current = false;
+    const prev = rec.current;
+    rec.current = null;
+    setListening(false);
+    if (prev) try { prev.abort(); } catch { /* already stopped */ }
+    if (mode === "dictate") setDictate(true);
+
+    if (!speechSupported()) {
+      toast.error(humanizeSpeechError("not-supported"));
+      setDictate(false);
+      return;
+    }
+    try {
+      const stream = await unlockMic(undefined, true);
+      if (my !== gen.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      streamRef.current = stream;
+      setMicStream(stream);
+    } catch {
+      if (my !== gen.current) return;
+      toast.error("Microphone permission denied.");
+      setCaption("Microphone blocked — click the mic to retry");
+      setDictate(false);
+      return;
+    }
+    if (my !== gen.current) return;
+    await new Promise((ok) => setTimeout(ok, 80));
+    if (my !== gen.current) return;
+
+    discloseSttOnce((m) => toast.info(m));
+    wantListen.current = true;
+    modeRef.current = mode;
+    finals.current = "";
+    if (mode === "dictate") dictateBase.current = valueRef.current || "";
+    try {
+      rec.current = createRecognizer({
+        onInterim: (t) => {
+          const shown = mergeTranscript(finals.current, t);
+          setCaption(shown);
+          if (modeRef.current === "dictate") setText(mergeTranscript(dictateBase.current, shown));
+        },
+        onFinal: (t) => {
+          finals.current = mergeTranscript(finals.current, t);
+          setCaption(finals.current);
+          if (modeRef.current === "dictate") setText(mergeTranscript(dictateBase.current, finals.current));
+        },
+        onError: (code) => {
+          const msg = humanizeSpeechError(code);
+          if (msg) toast.error(msg);
+          if (code === "not-allowed" || code === "audio-capture") {
+            wantListen.current = false;
+            setListening(false);
+            setCaption("Microphone blocked — click the mic to retry");
+            setDictate(false);
+          }
+        },
+        onEnd: () => {
+          setListening(false);
+          if (modeRef.current === "voice" && !streamingRef.current && finals.current.trim()) {
+            const text = finals.current.trim();
+            finals.current = "";
+            setCaption("");
+            fireSend(text);
+          }
+          if (wantListen.current && rec.current && my === gen.current) {
+            try { rec.current.start(); setListening(true); } catch { /* restart race */ }
+          }
+        },
+      });
+      rec.current.start();
+      setListening(true);
+    } catch (e) {
+      toast.error(humanizeSpeechError((e && e.message) || "failed"));
+    }
+  }
+
+  function confirmDictate() {
+    stopRec();
+    modeRef.current = "off";
+    setDictate(false);
+    setCaption("");
+  }
+
+  function cancelDictate() {
+    const base = dictateBase.current || "";
+    stopRec();
+    modeRef.current = "off";
+    setDictate(false);
+    setCaption("");
+    setText(base);
+  }
+
+  function toggleDictate() {
+    if (dictate) confirmDictate();
+    else startListen("dictate");
+  }
+
+  function toggleVoice() {
+    if (voice) leaveVoice();
+    else enterVoice();
+  }
+
+  function enterVoice() {
+    setVoice(true);
+  }
+
+  function leaveVoice() {
+    const leftover = (caption || finals.current || "").trim();
+    stopRec();
+    stopSpeak();
+    modeRef.current = "off";
+    setVoice(false);
+    setCaption("");
+    finals.current = "";
+    if (leftover && !streamingRef.current) setText(mergeTranscript(valueRef.current, leftover));
+  }
+
+  function interrupt() {
+    stopSpeak();
+    if (streaming) {
+      if (onAbort) onAbort();
+      return;
+    }
+    stopRec();
+  }
+
+  function toggleMute() {
+    setMuted((m) => {
+      const next = !m;
+      if (next) stopSpeak();
+      else if (lastReply) {
+        const ok = speakText(lastReply);
+        if (!ok) toast.error("This browser cannot speak replies.");
+      } else {
+        toast.info("I'll speak the agent's replies.");
+      }
+      return next;
+    });
+  }
+
+
+  return (
+    <div className={"composer-wrap" + (expanded ? " expanded" : "") + (voice ? " voice" : "") + (drag ? " drop" : "")}>
+      <div
+        className="composer"
+        onClick={(e) => { if (e.target === e.currentTarget) ta.current?.focus(); }}
+        onPaste={(e) => {
+          const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+          if (!files.some(sniffImage)) return;
+          e.preventDefault();
+          addPics(files);
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          addPics([...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]);
+        }}
+      >
+        {showAt && !voice && (
+          <Command
+            className="slash-menu"
+            shouldFilter={false}
+            loop
+            label="Mentions"
+            value={atHits[atIdx] ? atHits[atIdx].path : ""}
+            onValueChange={(id) => {
+              const i = atHits.findIndex((h) => h.path === id);
+              if (i >= 0) setAtIdx(i);
+            }}
+          >
+            <input
+              className="slash-filter"
+              placeholder="Filter"
+              value={at ? at.query : ""}
+              onChange={(e) => setAtQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setAtIdx((i) => Math.max(0, i - 1)); return; }
+                if (e.key === "Tab" || e.key === "Enter") {
+                  e.preventDefault();
+                  if (atHits[atIdx]) pickAt(atHits[atIdx]);
+                  return;
+                }
+                if (e.key === "Escape") { e.preventDefault(); setAtHide(atKey); ta.current?.focus(); }
+              }}
+            />
+            <Command.List>
+              {atHits.length === 0 ? (
+                <div className="slash-empty">No matches</div>
+              ) : atHits.map((h) => (
+                <Command.Item
+                  key={h.kind + ":" + h.path}
+                  value={h.path}
+                  className={"slash-item" + (h.path === (atHits[atIdx] && atHits[atIdx].path) ? " active" : "")}
+                  onSelect={() => pickAt(h)}
+                >
+                  <span className="slash-label">@{h.path}</span>
+                  <span className="combo-hint">{h.kind === "skill" ? "Skill" : h.kind === "agent" ? "Agent" : "File"}</span>
+                </Command.Item>
+              ))}
+            </Command.List>
+          </Command>
+        )}
+        {hits.length > 0 && !voice && (
+          <Command
+            className="slash-menu"
+            shouldFilter={false}
+            loop
+            value={hits[slashIdx] ? hits[slashIdx].id : ""}
+            onValueChange={(id) => {
+              const i = hits.findIndex((c) => c.id === id);
+              if (i >= 0) setSlashIdx(i);
+            }}
+          >
+            <Command.List>
+              {hits.map((c) => (
+                <Command.Item
+                  key={c.id}
+                  value={c.id}
+                  className={"slash-item" + (c.id === (hits[slashIdx] && hits[slashIdx].id) ? " active" : "")}
+                  onSelect={() => pickSlash(c)}
+                >
+                  <span className="slash-label">{c.label}</span>
+                  {c.docs === false ? (
+                    <span className="slash-hint">{c.hint}</span>
+                  ) : (
+                  <a
+                    className="slash-hint"
+                    href={commandDocUrl(c.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <IconDocs />
+                    {c.hint}
+                  </a>
+                  )}
+                </Command.Item>
+              ))}
+            </Command.List>
+          </Command>
+        )}
+        <div className="composer-tools" data-align-row>
+          {sessionBar}
+          <div className="composer-tools-end">
+            <AgentPageBar onGo={onAgentPage} pkgUpdates={pkgUpdates}>
+              <button
+                type="button"
+                className="composer-page"
+                title={expanded ? "Collapse" : "Expand"}
+                aria-label={expanded ? "Collapse composer" : "Expand composer"}
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? <IconCollapse /> : <IconExpand />}
+              </button>
+            </AgentPageBar>
+          </div>
+        </div>
+        {tuiWorking ? (
+          <div className="composer-tui-working" data-align-row role="status">
+            <PiSpinner title="Working" />
+            <span className="composer-tui-working-text">Working in the terminal — output lands there, not here.</span>
+            <button type="button" className="composer-page" title="Open the terminal" onClick={() => onToggleDock && onToggleDock()}>
+              Open
+            </button>
+          </div>
+        ) : null}
+        <WorkspaceAttach open={pick} agentId={agentId} onPick={attachHit} onClose={() => setPick(false)} />
+        {sketch ? (
+          <Suspense fallback={null}>
+            <PinSketch
+              open
+              title={sketch.id ? "Edit sketch" : "Sketch"}
+              initial={sketch.scene || null}
+              confirmLabel="Insert"
+              onSave={insertSketch}
+              onClose={() => setSketch(null)}
+            />
+          </Suspense>
+        ) : null}
+        {pics.length ? (
+          <div className="composer-pics">
+            {pics.map((p) => (
+              <span key={p.id} className="pin-att composer-pic">
+                <button type="button" className="pin-att-face" title={p.scene ? "Edit sketch" : "View image"} onClick={() => p.scene ? openSketch({ id: p.id, scene: p.scene }) : setPreview(p.url)}>
+                  <img src={p.url} alt="" />
+                </button>
+                <button type="button" className="pin-att-x" title="Remove image" onClick={() => dropPic(p.id)}><IconX size={12} /></button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {voice ? (
+          <div className="composer-voice-body">
+            <p className={"composer-voice-caption" + (caption ? "" : " placeholder")}>
+              {caption || (listening ? "Listening…" : streaming ? "Working…" : "Speak to the agent")}
+            </p>
+          </div>
+        ) : (
+          <textarea
+            id="task-input"
+            ref={ta}
+            rows={2}
+            placeholder="Message the agent — / commands, @ files, ! shell"
+            value={text}
+            onChange={(e) => { histTyped(hist.current); setText(e.target.value); markCaret(e.target); }}
+            onSelect={(e) => markCaret(e.target)}
+            onClick={(e) => markCaret(e.target)}
+            onKeyUp={(e) => markCaret(e.target)}
+            onKeyDown={(e) => {
+              if (hits.length) {
+                if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(hits.length - 1, i + 1)); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(0, i - 1)); return; }
+                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
+                if (e.key === "Escape") { e.preventDefault(); setText(""); return; }
+              }
+              if (showAt) {
+                if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
+                if (e.key === "ArrowUp") { e.preventDefault(); setAtIdx((i) => Math.max(0, i - 1)); return; }
+                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                  e.preventDefault();
+                  if (atHits[atIdx]) pickAt(atHits[atIdx]);
+                  return;
+                }
+                if (e.key === "Escape") { e.preventDefault(); setAtHide(atKey); return; }
+              }
+              if (e.key === "ArrowUp" && caretFirstLine(ta.current)) {
+                e.preventDefault();
+                setText(histUp(hist.current, text || ""));
+                requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
+                return;
+              }
+              if (e.key === "ArrowDown" && caretLastLine(ta.current)) {
+                e.preventDefault();
+                setText(histDown(hist.current, text || ""));
+                requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                fireSend();
+              }
+            }}
+          />
+        )}
+        <div className="composer-controls">
+          {voice ? (
+            <div className="composer-left" data-align-row>
+              <div className="voice-cluster">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title={"Back to text (" + voiceKeyHint + ")"}
+                  aria-label="Back to text"
+                  onClick={leaveVoice}
+                >
+                  <IconWave />
+                </button>
+                <button
+                  type="button"
+                  className={"icon-btn" + (listening ? " listening" : "")}
+                  title={listening ? "Stop listening" : "Listen"}
+                  aria-pressed={listening}
+                  onClick={() => listening ? stopRec() : startListen("voice")}
+                >
+                  <IconMic />
+                </button>
+                <button
+                  type="button"
+                  className={"icon-btn" + (muted ? " muted" : "")}
+                  title={muted ? "Unmute replies" : "Mute replies"}
+                  aria-pressed={!muted}
+                  onClick={toggleMute}
+                >
+                  {muted ? <IconSpeakerOff /> : <IconSpeaker />}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="composer-left chip-group">
+              <a className="cockpit-chip" href="#/more/settings">Settings</a>
+              <KindChip value={kind} onChange={onKind} />
+            </div>
+          )}
+          <div className="composer-right" data-align-row>
+            <span id="chat-status-text" className="sr-only">{waiting ? "waiting" : status}{streaming ? " streaming" : ""}</span>
+            {voice ? (
+              <button type="button" className="btn-voice-interrupt" id="btn-voice-interrupt" onClick={interrupt}>
+                Interrupt
+              </button>
+            ) : dictate ? (
+              <div className="dictate-bar" data-align-row>
+                <VoiceMeter stream={micStream} />
+                <button type="button" className="icon-btn" title="Cancel dictation" aria-label="Cancel dictation" onClick={cancelDictate}>
+                  <IconX />
+                </button>
+                <button type="button" className="icon-btn icon-btn-ok" title="Done" aria-label="Confirm dictation" onClick={confirmDictate}>
+                  <IconCheck />
+                </button>
+              </div>
+            ) : (
+              <>
+                {agentId ? (
+                  <>
+                    <button
+                      type="button"
+                      className="icon-btn composer-attach"
+                      title="Attach from workspace"
+                      aria-label="Attach from workspace"
+                      onClick={() => setPick(true)}
+                    >
+                      <IconClip />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn composer-attach"
+                      title="Sketch"
+                      aria-label="Sketch"
+                      onClick={() => openSketch()}
+                    >
+                      <IconSketch />
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-mic"
+                  title={"Dictation (" + dictateKeyHint + ")"}
+                  aria-label="Dictation"
+                  onClick={() => startListen("dictate")}
+                >
+                  <IconMic />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-wave"
+                  title={"Voice mode (" + voiceKeyHint + ")"}
+                  aria-label="Enter voice mode"
+                  onClick={enterVoice}
+                >
+                  <IconWave />
+                </button>
+                {streaming || waiting ? (
+                  <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
+                    <IconStop size={16} />
+                  </button>
+                ) : null}
+                <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!(value && value.trim()) && !pics.length} onClick={() => fireSend()}>
+                  <IconSend size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        <ComposerStatus bar={statusBar} onCompact={onCompact} />
+      </div>
+      <ImageLightbox src={preview} onClose={() => setPreview("")} />
+    </div>
+  );
+}

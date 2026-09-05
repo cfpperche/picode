@@ -1,0 +1,42 @@
+// Mobile route helpers. Desktop-only editors and tab identities are absent.
+const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup"];
+
+export function agentRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/agent\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function workspaceHash(agentId) {
+  return agentId ? "#/agent/" + encodeURIComponent(agentId) : "#/";
+}
+
+export function termRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/term\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function termHash(id) {
+  return id ? "#/term/" + encodeURIComponent(id) : "#/";
+}
+
+export function appPath(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const match = /^\/app\/[^/]+\/(.*)$/.exec(h);
+  if (!match) return "";
+  return match[1].split("/").map((part) => { try { return decodeURIComponent(part); } catch { return part; } }).join("/");
+}
+
+export function prefSection(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/preferences\/([a-z]+)$/.exec(h);
+  if (m && PREF_SECTIONS.includes(m[1])) return m[1];
+  return "appearance";
+}
+
+export function go(section) {
+  location.hash = "#/more/" + encodeURIComponent(section || "providers");
+}

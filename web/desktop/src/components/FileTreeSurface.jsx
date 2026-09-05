@@ -1,0 +1,326 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { api } from "@picode/shared/client/api.js";
+import { changedDirs, changeKinds, flattenTree, mergeLevel, treeApiBase } from "../lib/fileTree.js";
+import { useKeptScroll } from "../lib/keepScroll.js";
+import { shortPath } from "@picode/shared/domain/repoLine.js";
+import { toast, toastError } from "../lib/toast.js";
+import FileTree from "./FileTree.jsx";
+import WorkingDiff from "./WorkingDiff.jsx";
+
+const SKELETON_ROWS = 12;
+const TREE_MIN = 220;
+const TREE_MAX = 720;
+const TREE_KEY = "picode-ft-w";
+// A hidden tab keeps its tree; revealing it refetches only when the last read
+// is old enough to have missed something (an agent worked, a terminal
+// committed) — flipping between two tabs must not re-walk every open folder.
+const REVEAL_STALE_MS = 10_000;
+
+// The file tree of one folder (ADR-0030). The owner is what the server reads
+// through; the folder it answers with is what the tab is. No polling — the
+// tree refreshes when asked, like the git graph.
+export default function FileTreeSurface({ owner, hidden, onKey, onOpenFile, onClose }) {
+  const [levels, setLevels] = useState(null); // null = first load
+  const [expanded, setExpanded] = useState(() => new Set());
+  const [panel, setPanel] = useState("files"); // "files" | "changes"
+  const [status, setStatus] = useState({ git: false, changes: [] });
+  const [gone, setGone] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [diffPath, setDiffPath] = useState("");
+  const [nonce, setNonce] = useState(0);
+  const [treeW, setTreeW] = useState(() => {
+    const n = parseInt(localStorage.getItem(TREE_KEY) || "", 10);
+    return Number.isFinite(n) ? Math.min(TREE_MAX, Math.max(TREE_MIN, n)) : 320;
+  });
+  const [resizing, setResizing] = useState(false);
+  const keyRef = useRef("");
+  const busyRef = useRef(false);
+  const loadRef = useRef(() => {});
+  const expandedRef = useRef(new Set());
+  const hiddenRef = useRef(false);
+  const rootRef = useKeptScroll(hidden, [".ft-body"]);
+  // Mounting counts as a read: the owner effect below loads immediately, and
+  // the reveal check must not fire a second load on top of it.
+  const lastLoadRef = useRef(Date.now());
+
+  const base = treeApiBase(owner ? owner.kind : "agent");
+  const ownerId = owner ? owner.id : "";
+
+  const fetchDir = useCallback(
+    (dir) => api(`${base}${encodeURIComponent(ownerId)}/browse${dir ? "?dir=" + encodeURIComponent(dir) : ""}`),
+    [base, ownerId],
+  );
+
+  const load = useCallback(
+    async (openDirs) => {
+      if (!ownerId) return;
+      setBusy(true);
+      try {
+        const root = await fetchDir("");
+        if (!root || root.cwdOk === false) {
+          setGone(true);
+          setLevels({});
+          setError("");
+          return;
+        }
+        setGone(false);
+        let next = mergeLevel({}, root);
+        for (const dir of openDirs) {
+          try {
+            next = mergeLevel(next, await fetchDir(dir));
+          } catch {
+            /* a vanished subdir just stops being expandable */
+          }
+        }
+        setLevels(next);
+        setError("");
+        if (root.root && root.root !== keyRef.current) {
+          keyRef.current = root.root;
+          if (onKey) onKey(root.root);
+        }
+        try {
+          const st = await api(`${base}${encodeURIComponent(ownerId)}/gitstatus`);
+          setStatus(st && st.git ? st : { git: false, changes: [] });
+        } catch {
+          setStatus({ git: false, changes: [] });
+        }
+        setNonce((n) => n + 1);
+      } catch (e) {
+        // Keep the last good tree on a refetch; only a first load goes blank.
+        setError(e.message || "Could not read this folder.");
+      } finally {
+        setBusy(false);
+        lastLoadRef.current = Date.now();
+      }
+    },
+    [base, ownerId, fetchDir, onKey],
+  );
+
+  useEffect(() => {
+    load([]);
+    // A new owner is a new tree: collapse what the old one had open.
+    setExpanded(new Set());
+    setDiffPath("");
+    setPanel("files");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, ownerId]);
+
+  useEffect(() => subscribeFeed((ev) => {
+    // The git watcher (ADR-0048) publishes one event per changed
+    // directory; this tree's root is one of them, so a commit in the
+    // terminal refreshes the tree and the Changes list on its own.
+    // No polling — the tree refreshes when git moves or when asked, and
+    // reconciles once when the feed (re)opens.
+    const hit = ev.type === "git.updated" && ev.data && ev.data.path === keyRef.current;
+    const reconcile = (ev.type === "feed.open" || ev.type === "feed.reset") && keyRef.current;
+    if (hit || reconcile) loadRef.current([...expandedRef.current]);
+  }), []);
+
+  busyRef.current = busy;
+  expandedRef.current = expanded;
+  loadRef.current = load;
+  hiddenRef.current = !!hidden;
+
+  const toggle = useCallback(
+    async (path) => {
+      const open = new Set(expanded);
+      if (open.has(path)) {
+        open.delete(path);
+        setExpanded(open);
+        return;
+      }
+      open.add(path);
+      setExpanded(open);
+      if (!levels || levels[path]) return;
+      try {
+        const page = await fetchDir(path);
+        setLevels((prev) => mergeLevel(prev || {}, page));
+      } catch (e) {
+        open.delete(path);
+        setExpanded(new Set(open));
+        toast(e.message || "Could not read that folder.");
+      }
+    },
+    [expanded, levels, fetchDir],
+  );
+
+  // Coming back to the app is the moment the working tree most likely moved
+  // (an agent worked, a terminal committed) — refresh then, instead of
+  // polling (ADR-0032; ADR-0030 still refuses a watcher). Trees on hidden tabs
+  // sit this out: every open tab would refetch, for folders nobody is looking
+  // at. Their reveal is the refresh.
+  useEffect(() => {
+    const kick = () => {
+      if (document.hidden || hiddenRef.current || busyRef.current) return;
+      loadRef.current([...expandedRef.current]);
+    };
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("focus", kick);
+    return () => {
+      document.removeEventListener("visibilitychange", kick);
+      window.removeEventListener("focus", kick);
+    };
+  }, []);
+
+  // Reappearing is the other "back to look at it" moment — the window never
+  // lost focus, so nothing above fires. The tree stays open either way:
+  // load() refetches exactly the folders that are expanded.
+  useEffect(() => {
+    if (hidden || busyRef.current) return;
+    if (Date.now() - lastLoadRef.current > REVEAL_STALE_MS) loadRef.current([...expandedRef.current]);
+  }, [hidden]);
+
+  const reveal = useCallback(async () => {
+    try {
+      await api(`${base}${encodeURIComponent(ownerId)}/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    } catch (e) {
+      toastError(e);
+    }
+  }, [base, ownerId]);
+
+  function onSizerDown(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = treeW;
+    let latest = startW;
+    setResizing(true);
+    const move = (ev) => {
+      latest = Math.min(TREE_MAX, Math.max(TREE_MIN, Math.round(startW + (ev.clientX - startX))));
+      setTreeW(latest);
+    };
+    const up = () => {
+      setResizing(false);
+      try { localStorage.setItem(TREE_KEY, String(latest)); } catch { /* ignore */ }
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  if (!owner) return null;
+
+  if (error && !levels) {
+    return (
+      <section className="ft-surface" aria-label="Files" hidden={!!hidden} ref={rootRef}>
+        <p className="ft-msg">
+          {error}{" "}
+          <button type="button" className="btn btn-sm" onClick={() => load([...expanded])}>
+            Try again
+          </button>
+        </p>
+      </section>
+    );
+  }
+
+  if (levels === null) {
+    return (
+      <section className="ft-surface" aria-label="Files" aria-busy="true" hidden={!!hidden} ref={rootRef}>
+        <header className="ft-head">
+          <span className="skel-line w-40" />
+        </header>
+        <div className="ft-body">
+          {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+            <div key={i} className="skel-line" style={{ width: 30 + ((i * 19) % 50) + "%" }} />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  const root = keyRef.current;
+  // The tab strip already carries the folder's basename; the header is the
+  // one place a reader confirms EXACTLY which folder — that has to be the
+  // path, not the name a repo can share across worktrees and workspaces.
+  const name = root ? shortPath(root) : "";
+  const changes = status.git ? status.changes || [] : [];
+  const kinds = changeKinds(changes);
+  const dirtyDirs = changedDirs(changes);
+  const rows = flattenTree(levels, expanded);
+
+  return (
+    <section className="ft-surface" aria-label={`Files in ${name}`} hidden={!!hidden} ref={rootRef}>
+      <header className="ft-head">
+        <h2 className="ft-title" title={name}>{name}</h2>
+        {status.git ? (
+          <span className="ft-count">
+            {changes.length === 0 ? "clean" : changes.length === 1 ? "1 change" : `${changes.length} changes`}
+          </span>
+        ) : null}
+        <span className="ft-spacer" />
+        <button type="button" className="btn btn-sm btn-ghost" title="Open this folder in your file manager" onClick={reveal}>
+          Reveal
+        </button>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => load([...expanded])} disabled={busy}>
+          Refresh
+        </button>
+        {onClose ? (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
+            Close
+          </button>
+        ) : null}
+      </header>
+
+      {gone ? (
+        <p className="ft-msg">
+          That folder is gone.{" "}
+          <button type="button" className="btn btn-sm" onClick={() => load([...expanded])}>
+            Refresh
+          </button>
+        </p>
+      ) : (
+        <div className={"ft-split" + (diffPath ? " ft-split-open" : "") + (resizing ? " resizing" : "")}>
+        <div className="ft-body" style={diffPath ? { width: treeW } : undefined}>
+          {status.git ? (
+            <nav className="ft-tabs" role="tablist" aria-label="File list view">
+              <button type="button" role="tab" className="ft-tab" aria-selected={panel === "files"} onClick={() => setPanel("files")}>
+                Files
+              </button>
+              <button type="button" role="tab" className="ft-tab" aria-selected={panel === "changes"} onClick={() => setPanel("changes")}>
+                Changes
+                {changes.length > 0 ? <span className="ft-tab-badge">{changes.length}</span> : null}
+              </button>
+            </nav>
+          ) : null}
+          {status.git && panel === "changes" ? (
+            changes.length === 0 ? (
+              <p className="ft-msg">No changes.</p>
+            ) : (
+              <ul className="ft-list">
+                {changes.map((c) => (
+                  <li key={c.path}>
+                    <button type="button" className={"ft-row" + (diffPath === c.path ? " ft-row-on" : "")} onClick={() => setDiffPath(c.path === diffPath ? "" : c.path)} title={c.path}>
+                      <span className={"ft-dot ft-dot-" + c.kind} title={c.kind} />
+                      <span className="ft-name ft-name-path">{c.path}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : rows.length === 0 ? (
+            <p className="ft-msg">Empty folder.</p>
+          ) : (
+            <FileTree rows={rows} kinds={kinds} dirtyDirs={dirtyDirs} onToggle={toggle} onOpen={onOpenFile} />
+          )}
+        </div>
+        {diffPath ? <div className="ft-sizer" title="Drag to resize" onPointerDown={onSizerDown} /> : null}
+        {diffPath ? (
+          <WorkingDiff
+            owner={owner}
+            path={diffPath}
+            nonce={nonce}
+            onClose={() => setDiffPath("")}
+            onOpenFile={onOpenFile}
+          />
+        ) : null}
+        </div>
+      )}
+    </section>
+  );
+}

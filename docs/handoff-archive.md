@@ -3,7 +3,14 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
-## Desktop delivery (archived 2026-09-05 during publication)
+## Desktop publication follow-up (archived 2026-09-05)
+
+- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
+  the completed increment and deferred Windows login acceptance. Removed
+  stale remote-state prose; no further task, tray or service changes.
+
+
+## Prior state detail archived during web decoupling (2026-09-05)
 
 - **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
   scoped repair and Quit exit-code fix validated on Linux and Windows.
@@ -11,6 +18,28 @@ state is always `docs/handoff.md`. Do not treat this file as current.
   visual-review: PASS for the Windows guide at desktop/mobile widths;
   no app/tray layout or overlay changed. Installed locally, verified one task
   instance and unchanged baseline panes. Backups/evidence are in the plan.
+
+
+**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
+parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
+argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
+Browser QA covers profiles, workspace/palette context, reset, pending/restart,
+dirty navigation and preview/network recovery. Empty/blocked, desktop/mobile
+and light/dark screenshots were read; overlay audits passed (`docs/screenshots/cli-v2-*.png`).
+Public captures were refreshed with isolated fixtures. No model turns were used;
+v2 does not certify every vendor lifecycle event.
+
+
+### ADR-0061 compaction policy package (`pi-compact`)
+
+Deployed and dormant until configured: no defaults without `.pi/compact.json`
+(or a per-agent overlay). The untracked root config belongs to other work and
+was not evaluated here. Commands are `/compact-edit|model|on|off`; bare
+`/compact` remains Pi's native command. Trigger on `agent_settled` plus idle,
+never `turn_end`, which aborts active work. Auto summarizer fallback remains
+`gemini-3.6-flash` → `claude-haiku-4-5` → Pi; 54 package tests pass. A configured
+real-compaction run must still prove `fromHook: true` and no aborted turns.
+
 
 ## Recent activity (archived 2026-09-05 during desktop task reliability)
 

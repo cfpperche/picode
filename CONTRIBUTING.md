@@ -65,3 +65,13 @@ operational checklist is in [docs/release-process.md](docs/release-process.md);
 the proposed cadence and release lanes are tracked in
 [ADR-0064](docs/decisions/0064-release-cadence.md). Neither sets official dates
 until the proposal is accepted.
+
+## Frontend applications
+
+`web/desktop` and `web/mobile` own their UI and build independently (ADR-0072).
+From `web/`, use `npm run dev:desktop` or `npm run dev:mobile` for one app;
+`make ui` runs both with the root launcher. `npm run build:desktop` and
+`npm run build:mobile` preserve sibling output. `make build` assembles the
+complete Go release. Shared contracts and theme tokens live in `web/shared`;
+import only its explicit package exports. A UI change belongs to its app,
+while a shared contract change requires both client suites.

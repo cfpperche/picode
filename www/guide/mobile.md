@@ -1,9 +1,13 @@
 # PiCode on your phone
 
-Open the same address you use on the desktop (`https://<host>:8445`) on your
-phone. Below 768px PiCode switches to the **mobile shell** — a console for
-watching your agents and answering them when you are away from a desk, not
-the workstation squeezed onto a small screen.
+Open `https://<host>:8445/mobile/` for the phone app. Opening the server's
+root address chooses the phone app below 768px unless you saved a layout
+preference. `/desktop/` always opens the responsive desktop app. Resizing
+or rotating keeps your current app and connection.
+
+The phone app has its own interface and download, with Now, Inbox, Work
+and More for watching agents and responding while away from your desk.
+Existing links and home-screen installations continue to work.
 
 ## Install it
 

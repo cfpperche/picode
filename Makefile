@@ -36,7 +36,7 @@ $(NODE_STAMP): web/package-lock.json
 	cd web && npm ci $(NPM_CI_FLAGS)
 	@touch $(NODE_STAMP)
 
-web: $(NODE_STAMP) ## Build the React UI into internal/web/public (ADR-0008)
+web: $(NODE_STAMP) ## Build launcher + desktop/mobile into internal/web/public (ADR-0072)
 	cd web && npm run build
 
 WWW_STAMP := www/node_modules/.package-lock.json

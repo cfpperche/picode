@@ -30,7 +30,7 @@ GitHub artifacts, not a source deployment.
 3. Confirm every user-visible change has an honest entry under `[Unreleased]`
    in [`CHANGELOG.md`](../CHANGELOG.md).
 4. Add or revise the matching entry in
-   [`web/src/data/whats-new.json`](../web/src/data/whats-new.json). Keep the
+   [`web/shared/data/whats-new.json`](../web/shared/data/whats-new.json). Keep the
    catalog concise: benefit-led titles and summaries, with no more than nine
    highlights for the surface.
 

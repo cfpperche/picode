@@ -6,13 +6,12 @@
 
 ## Current state (read this first)
 
-**Repository:** `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
-v1, Docker v3 and desktop task reliability (ADR-0071). Managed agents remain
-Pi-only; coding CLIs are terminals, not agent runtimes. The owner approved
-publication of the desktop increment on 2026-09-05. Read Git's current
-upstream status rather than treating a stored remote SHA as live state.
-Preserve the unrelated root
-`.pi/compact.json`. Compose registration/deployment remains proposed.
+**Repository:** HEAD includes independent desktop/mobile web applications
+(ADR-0072), desktop task reliability (ADR-0071), Agent CLIs v2 and Docker v3.
+Managed agents remain Pi-only; coding CLIs are terminals. This decoupling
+increment is local-only: no push or application deployment. Read Git for
+current upstream status. Preserve the unrelated root `.pi/compact.json`.
+Compose registration/deployment remains proposed.
 
 **Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
 `70c3e75648358c41`; served HTML references the freshly built `index-_7SLKl4D.js`
@@ -29,61 +28,43 @@ repair removed `PT72H` and battery/idle/network gates. A final task launch at
 11:55:13 local time is running with one instance; all 18 baseline pane IDs/PIDs
 survived. Action/principal/triggers were preserved; repeat repair is a no-op.
 
-**Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
-parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
-argv parity, inheritance/pins, retry, preflight PID preservation and cleanup.
-Browser QA covers profiles, workspace/palette context, reset, pending/restart,
-dirty navigation and preview/network recovery. Empty/blocked, desktop/mobile
-and light/dark screenshots were read; overlay audits passed (`docs/screenshots/cli-v2-*.png`).
-Public captures were refreshed with isolated fixtures. No model turns were used;
-v2 does not certify every vendor lifecycle event.
+**Quality:** decoupling passed `make ci` (603 frontend tests, Go/packages,
+build, docs and Vale), embedded UI/server tests, independent-build artifact
+checks, and synthetic-browser review. Empty/blocked/error, light/dark,
+narrow desktop and wide mobile sheets were read; overlay audits passed
+(`docs/screenshots/split-*.png`). Legacy links, worker upgrade, chunk retry,
+root preservation on resize and both Vite dev entries were checked. No model
+turns were started. Physical PWA/push acceptance is still open.
 
 ### Product and platform
 
-- One Go binary serves the React/Vite desktop and mobile ADE. HTTPS defaults
-  to `:8445`; hashed assets may cache, while HTML and APIs do not.
-- Workspaces contain multiple agents; free agents and first-class tmux
-  terminals are supported. Agent sessions are privately scoped and recorded
-  in `agent_sessions` (ADRs 0039/0040/0053).
-- Agents have interactive Pi TUI and managed Pi RPC run modes. Inbox replies
-  use the injected receiver extension with a tmux paste fallback (ADR-0060).
-- Desktop/mobile consume the ADR-0048 change feed. Store mutations append their
-  events in the same transaction; ephemeral terminal runtime/state signals are
-  deliberately in memory and reconcile through the terminal list.
-- Terminal CLI presence and activity remain separate. Wrappers identify
-  Claude Code, Codex, Grok, or Pi with a run id; exact tmux command/PID data is
-  only a weaker legacy presence fallback. Pixels are never scraped and a guest
-  CLI is never promoted to an Agent. CLI favicons fill the same 22px face slot
-  as agent rows, with no chip; the compact text mark is only an asset-load
-  fallback.
-- Agent CLIs is available from the desktop user menu/palette and mobile More.
-  It owns visible launch defaults, copied profiles, per-terminal overrides,
-  shared previews, persistent setup checks, explicit repair and lifecycle
-  actions. The old Terminal status preference redirects to `#/clis`. Saving
-  settings never restarts a process; a stopped configured terminal needs Start.
-- Apps now provide literal output, progress, empty lists and generic mobile
-  navigation. Docker exposes inventory, resources/consumers, health/incident sampling,
-  reviewed project operations and maintenance procedures with durable history. Inventory groups exact Compose
-  projects inside the app, with saved folds and search (ADR-0066). Optional
-  `pi-sysadmin` tools share the same service, existing authentication and
-  local Unix socket access.
-- Public docs use VitePress, generated OpenAPI, Vale, committed screenshots,
-  and integrity-checked tutorial videos.
-- Public release mechanics are tag-driven. The cadence study, proposed
-  ADR-0064 and maintainer checklist are documented, but no calendar-triggered
-  release or Preview lane is active.
+- One Go binary serves independent `/desktop/` and `/mobile/` apps. Desktop
+  stays responsive; mobile owns copied UI and lazy screens. Shared contracts
+  and tokens have explicit exports; HTTPS defaults to `:8445`.
+- Workspaces support multiple agents, free agents and tmux terminals. Private
+  agent sessions follow ADRs 0039/0040/0053. Pi has interactive TUI and managed
+  RPC modes; Inbox uses the receiver extension with a paste fallback (ADR-0060).
+- Store mutations append feed events transactionally. Terminal presence and
+  activity are distinct, with wrapper leases and exact process fallback;
+  pixels are never scraped (ADRs 0048/0062).
+- Agent CLIs v2 owns launch defaults, copied profiles, previews, setup checks
+  and lifecycle actions. Saving configuration never restarts a process.
+- Docker v3 and `pi-sysadmin` share resource inventory, project operations,
+  health sampling and reviewed maintenance. Compose registration stays proposed.
+- Public docs have generated API/llms maps, screenshots and video integrity
+  checks. Releases remain tag-driven; ADR-0064's cadence pilot is proposed.
 
-### ADR-0061 compaction policy package (`pi-compact`)
+### Compaction policy (`pi-compact`, ADR-0061)
 
-Deployed and dormant until configured: no defaults without `.pi/compact.json`
-(or a per-agent overlay). The untracked root config belongs to other work and
-was not evaluated here. Commands are `/compact-edit|model|on|off`; bare
-`/compact` remains Pi's native command. Trigger on `agent_settled` plus idle,
-never `turn_end`, which aborts active work. Auto summarizer fallback remains
-`gemini-3.6-flash` → `claude-haiku-4-5` → Pi; 54 package tests pass. A configured
-real-compaction run must still prove `fromHook: true` and no aborted turns.
+Deployed and dormant without configuration. The root `.pi/compact.json`
+belongs to other work and was not evaluated. A configured real-compaction
+run must still prove `fromHook: true` and no aborted turns. Prior policy
+and fallback detail is archived; the implementation is unchanged here.
 
 ## In flight
+
+- Physical iOS/Android PWA upgrade and notification delivery need device
+  acceptance. The browser migration and shared worker decision table passed.
 
 - Windows next-logon, battery and sleep/resume acceptance is explicitly
   deferred by the owner. Installer and local task repair are complete;
@@ -109,19 +90,22 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Next up
 
-1. Run the version-specific CLI working/approval/settled acceptance matrix.
+1. Validate the existing PWA on iOS/Android, then promote the decoupled build.
+   Further mobile UI increments belong only in `web/mobile`.
+
+2. Run the version-specific CLI working/approval/settled acceptance matrix.
    Any first-class CLI agent proposal needs a separate ADR covering
    protocol/session/package parity.
-2. Design the separate Compose registration/deployment increment from
+3. Design the separate Compose registration/deployment increment from
    `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
    deployment preview and recovery. Existing-project operations are implemented.
-3. Review ADR-0064 and choose the official cadence/pilot window; no release
+4. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-4. Verify the local `pi-compact` configuration and re-dogfood its policy.
-5. Inspect the exact historical Inbox rows before any real TUI reply test.
-6. Run the owner-controlled remote-mode acceptance matrix.
-7. Continue the Browser preview panel and ADR-0054 dogfood.
-8. Decide whether selective docs-video capture/render should be scheduled;
+5. Verify the local `pi-compact` configuration and re-dogfood its policy.
+6. Inspect the exact historical Inbox rows before any real TUI reply test.
+7. Run the owner-controlled remote-mode acceptance matrix.
+8. Continue the Browser preview panel and ADR-0054 dogfood.
+9. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -132,8 +116,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - Windows native lifecycle acceptance is opt-in in ordinary CI; it was run
   and passed here. Battery/sleep/sign-in transitions remain owner-controlled;
   see `docs/plans/desktop-task-reliability.md` for the decision table/evidence.
-- `TestTerminalBrowse` left one disposable tmux session after passing CI;
-  identity-checked cleanup removed it. Review test cleanup context/lifetime.
+- Existing `TestTerminalBrowse` cleanup can leave tmux shells with deleted
+  temporary folders. Seven were observed without a worktree ownership marker;
+  retained them and recorded the cleanup context/lifetime debt.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
@@ -153,15 +138,18 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 - The terminal Shift+Enter shim remains until a stable xterm/tmux protocol
   combination replaces it. Some non-terminal screens still carry legacy
   `role-state`/`slash` assumptions.
-- Tutorial CI checks committed integrity without rendering every changed
-  tutorial; `make docs-videos-fresh` remains the explicit drift audit.
+- Tutorial integrity passes. The strict freshness audit reports all three
+  tutorials stale after source relocation; recapture/render remains explicit
+  maintenance. Their existing hashes were not relabeled as fresh.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
 
-- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
-  the completed increment and deferred Windows login acceptance. Removed
-  stale remote-state prose; no further task, tray or service changes.
+- **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
+  entries, copied mobile UI, shared contracts/tokens, explicit app paths and
+  stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
+  optional previews remain lazy. Incorporated concurrent Rename/task work.
+  visual-review: PASS; public captures refreshed. No application deployment.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

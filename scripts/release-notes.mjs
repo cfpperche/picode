@@ -30,14 +30,14 @@ if (!body || !/^###\s+/m.test(body)) {
 
 let catalog;
 try {
-  catalog = JSON.parse(readFileSync("web/src/data/whats-new.json", "utf8"));
+  catalog = JSON.parse(readFileSync("web/shared/data/whats-new.json", "utf8"));
 } catch (error) {
-  console.error(`web/src/data/whats-new.json could not be read: ${error.message}`);
+  console.error(`web/shared/data/whats-new.json could not be read: ${error.message}`);
   process.exit(1);
 }
 const entry = Array.isArray(catalog) ? catalog.find((item) => item && item.version === version) : null;
 if (!entry || !Array.isArray(entry.highlights) || !entry.highlights.length) {
-  console.error(`web/src/data/whats-new.json has no highlights for ${version}`);
+  console.error(`web/shared/data/whats-new.json has no highlights for ${version}`);
   process.exit(1);
 }
 

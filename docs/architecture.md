@@ -107,8 +107,9 @@ not evidence that one exists on a hosted runner.
 
 The hosted workflow classifies the complete Git diff before allocating its
 expensive runners. Unknown paths fail closed to the full matrix. Frontend build
-and package tests run once on Ubuntu, then the 14 MB Vite output—not the 526 MB
-`node_modules` tree—crosses the artifact boundary for an embedded-build check.
+and package tests run once on Ubuntu. The complete Vite output crosses the
+artifact boundary for an embedded-build check; dependencies stay on the
+frontend runner.
 The three-OS Go matrix never installs Node. Public docs build in parallel and
 check committed screenshot/OpenAPI/llms.txt parity *before* their generators
 can rewrite those files. That job also verifies tutorial composition, still,
@@ -146,7 +147,7 @@ The release workflow also validates matching `CHANGELOG.md` and
 `whats-new.json` entries and publishes the changelog section as the GitHub
 release body. A stamped binary exposes
 `release: true` on `GET /api/version`; the two shells use that signal to offer
-the bundled `web/src/data/whats-new.json` highlights through the shared
+the bundled `web/shared/data/whats-new.json` highlights through their owned
 `WhatsNew` surface. A browser acknowledges a semver in
 `localStorage` (`picode-whats-new-seen`), so the release opens once per
 browser, after the first fleet state is available and never over an active
@@ -156,27 +157,33 @@ highlights and links to the complete release body for detail (ADR-0063).
 
 ## Application routes
 
-The SPA has **two shells** in one Vite app (`web/src/desktop`, `web/src/mobile`),
-picked at boot by viewport (`max-width: 767px`) or `?desktop=1` / `?mobile=1`
-(sticky in `localStorage`). Rotating never remounts — a remount would drop
-agent websockets. The mobile shell (ADR-0044) is a **supervision console**,
-not the desktop shrunk, and it has no header (the tab bar is the chrome):
-four tabs — `#/` **Now** (needs-you queue, running agents and live
-terminals, today's spend, recent results), `#/inbox[/id]` (the ADR-0037
-app through `AppSurface`), `#/work[/workspaces|agents|terminals]` (the
-desktop rail's three views: folder cards with agents + terminals, free
-agents, all terminals), `#/more[/section]` — plus the pushed
-`#/agent/<id>` screen (shared `Conversation` + `Composer`, Chat | Terminal
-for TUI agents; a transient reply replaces both with status-only terminal
-progress) and `#/term/<id>` (shared `TermSurface` + a key bar for
-Esc/Tab/Ctrl/arrows). Desktop hashes map to the closest mobile section. The
-fleet poll (`GET /api/workspaces`, `GET /api/agents?free=1`) carries each
-agent's `streaming` / `waiting` / `dialog`, so the phone answers a prompt
-from the home through `POST /api/agents/{id}/ui` without a socket; only
-the agent screen opens `/ws/agent`, driven by the pure reducer
-`web/src/lib/agentEvents.js`.
-The mobile shell is a PWA (`manifest.json`, `sw.js`, Apple
-`apple-mobile-web-app-capable`) so Add to Home Screen opens full screen.
+The Go binary serves **two independent React applications** (ADR-0072):
+`web/desktop` at `/desktop/` and `web/mobile` at `/mobile/`. Each has its own
+entry, dependencies, UI, styles and build output. `web/shared` exports
+contracts, client adapters, domain helpers and theme tokens through explicit
+subpaths; it contains no React presentation. Source and resolved build checks
+prevent imports between the applications. Tailwind scans only each app's
+sources. A root launcher chooses once by legacy query, saved preference or
+viewport (`max-width: 767px`), preserving the hash and other query parameters.
+Explicit app paths win at every width. Rotation does not replace the app or
+its connections. The desktop remains responsive, with a navigation disclosure
+above the canvas on narrow screens. Both outputs ship atomically in one binary.
+
+Mobile owns four tabs: **Now** (needs-you queue, activity and results),
+**Inbox**, **Work** (workspaces, agents, terminals) and **More** (settings and
+Apps). Pushed agent, terminal, changes and app-detail screens retain the
+existing API behavior and compatible agent/terminal hashes. Conversation,
+composer, terminal, settings and preview components are mobile-owned copies;
+secondary screens load on demand and offer retry on loading failure. Mobile
+has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
+are always sheets, including wide previews; desktop keeps responsive dialogs.
+The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
+consume the change feed; presence follows the mounted app rather than width.
+
+The PWA keeps the root worker registration and scope. Manifest identity
+`/?mobile=1` preserves existing installations while `/mobile/` becomes the
+start URL. Hashed assets have separate launcher/desktop/mobile caches; HTML
+and APIs remain fresh. See the [migration inventory and decision table](plans/mobile-decoupling.md).
 **Web Push (ADR-0047):** `internal/push` (stdlib VAPID + RFC 8291) posts
 encrypted messages to each subscribed browser's push service; the store
 holds subscriptions (`/api/push/*`), `sw.js` shows them and routes a tap
@@ -196,7 +203,7 @@ stay on their own routes.
 | `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
-| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More share this surface. The old `#/preferences/status` address redirects here. |
+| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
@@ -598,7 +605,7 @@ HTTP API (Go 1.22 method patterns):
   session, then applies the session's **resolved** tmux options (ADR-0024) — on
   every attach, so a setting changed while the terminal was closed takes hold
   when it is reopened and an older session heals itself.
-  `web/src/lib/termClipboard.js` handles OSC 52 (write only; the read form is
+  `web/shared/domain/termClipboard.js` handles OSC 52 (write only; the read form is
   refused) so a copy made in the pane reaches the system clipboard — which is
   what keeps copying possible now that `mouse on` gives the drag to tmux.
   Study: `docs/benchmarks/2026-08-30-web-terminal-clipboard.md`.
@@ -853,7 +860,7 @@ fans out to `GET /api/events` subscribers (SSE: `hello` with the bootId,
 older than the seven-day retention) and to in-process listeners (the
 push notifier). Ephemeral notices — `device.online` from presence,
 `agent.state` on every streaming / dialog edge, and `agent.waiting` — ride
-the same stream with id 0. Clients (`web/src/lib/feed.js`) keep one
+the same stream with id 0. Clients (`web/shared/client/feed.js`) keep one
 `EventSource` per shell, resume from a `sessionStorage` cursor, patch
 lists with `lib/feedReducers.js` and refetch when a reducer returns
 `null`; the old timers only tick while the feed is down. The server

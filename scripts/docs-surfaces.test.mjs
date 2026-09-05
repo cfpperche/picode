@@ -74,7 +74,7 @@ test("screenshot freshness decision table", async (t) => {
 
   await t.test("test files and unrelated server handlers change no surface", () => {
     withSurfaceTree((tree, manifest) => {
-      for (const rel of ["web/src/lib/appPrimitives.test.js", "internal/server/agent_bash.go"]) {
+      for (const rel of ["web/shared/contracts/appPrimitives.test.js", "internal/server/agent_bash.go"]) {
         const path = join(tree, rel);
         mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, "unrelated change\n");
@@ -85,28 +85,28 @@ test("screenshot freshness decision table", async (t) => {
 
   await t.test("a shared style invalidates all public screenshots", () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, "web/src/styles/app.css"), "\n:root { --docs-test: 1; }\n");
+      appendFileSync(join(tree, "web/shared/tokens/theme.css"), "\n:root { --docs-test: 1; }\n");
       assert.deepEqual(changedSurfaces(tree, manifest).sort(), Object.keys(DOC_SCREENSHOT_SURFACES).sort());
     });
   });
 
   await t.test("a shared shell dependency invalidates all public screenshots", () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, "web/src/lib/feed.js"), "\n// docs fingerprint test\n");
+      appendFileSync(join(tree, "web/shared/client/feed.js"), "\n// docs fingerprint test\n");
       assert.deepEqual(changedSurfaces(tree, manifest).sort(), Object.keys(DOC_SCREENSHOT_SURFACES).sort());
     });
   });
 
   await t.test("a dashboard component invalidates only the desktop fleet", () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, "web/src/components/DashboardView.jsx"), "\n// docs fingerprint test\n");
+      appendFileSync(join(tree, "web/desktop/src/components/DashboardView.jsx"), "\n// docs fingerprint test\n");
       assert.deepEqual(changedSurfaces(tree, manifest), ["app-fleet"]);
     });
   });
 
   await t.test("an Inbox screen component invalidates only the Inbox screenshot", () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, "web/src/mobile/screens/Inbox.jsx"), "\n// docs fingerprint test\n");
+      appendFileSync(join(tree, "web/mobile/src/screens/Inbox.jsx"), "\n// docs fingerprint test\n");
       assert.deepEqual(changedSurfaces(tree, manifest), ["app-mobile-inbox"]);
     });
   });
@@ -145,3 +145,13 @@ test("surface input sets contain no test files", () => {
     assert.equal(files.some((file) => /(?:\.test\.[cm]?[jt]sx?|_test\.go)$/.test(file)), false, profile);
   }
 });
+
+for (const app of ["desktop", "mobile"]) {
+  test(`${app} styles do not invalidate the other application`, () => {
+    withSurfaceTree((tree, manifest) => {
+      appendFileSync(join(tree, `web/${app}/src/styles/app.css`), "\n/* isolated application change */\n");
+      assert.deepEqual(changedSurfaces(tree, manifest).sort(),
+        Object.entries(DOC_SCREENSHOT_SURFACES).filter(([, profile]) => profile.startsWith(app + "-")).map(([name]) => name).sort());
+    });
+  });
+}

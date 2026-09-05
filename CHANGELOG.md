@@ -72,6 +72,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Independent desktop and mobile web apps** (ADR-0072). `/desktop/` keeps
+  the responsive workstation; `/mobile/` owns its screens, styles, sheets and
+  build. Mobile loads secondary screens on demand and includes only its
+  reachable UI. Existing links and PWA identity remain compatible, with shared
+  authentication, data contracts and theme tokens. Narrow desktop views gain
+  a navigation disclosure, and mobile screen loading failures offer retry.
+
 - **Agent CLIs launch inspection** (ADR-0070). Show detected defaults and
   PiCode-injected settings before editing; preview the next launch, protect
   unsaved changes and restore defaults without changing activity reporting.

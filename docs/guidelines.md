@@ -16,17 +16,15 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 
 ## UI rules that are enforced by tests
 
-- **Dialogs (ADR-0046).** Every modal imports
-  `web/src/components/ResponsiveDialog.jsx` — never `@radix-ui/react-dialog`,
-  `@radix-ui/react-alert-dialog` or `vaul` directly. The primitive is a
-  centred dialog at `min-width: 720px` and a bottom sheet below; content
-  keeps the `dlg dlg-*` classes. Confirmations use its `Alert` set.
-  `web/src/lib/dialogPolicy.test.js` fails the build on a raw import; the
-  only allowlisted exceptions are desktop-only surfaces (`Palette`,
-  `Hotkeys`). Anchored popovers are not modals and stay Radix Popover.
-  On the phone the sheet never focuses a field by itself — the keyboard
-  comes up only on a tap — so `autoFocus` on a dialog input is a desktop
-  convenience the primitive undoes below 720px; do not work around it.
+- **Dialogs (ADRs 0046/0072).** Desktop modals import
+  `web/desktop/src/components/ResponsiveDialog.jsx`: centered at ≥720px,
+  bottom sheets below. Mobile modals import
+  `web/mobile/src/components/MobileSheet.jsx`: sheets at every width.
+  Both retain `dlg dlg-*` classes and the `Alert` confirmation API.
+  `web/tools/dialog-policy.test.mjs` rejects raw Radix dialog/alert or Vaul
+  imports outside these primitives and the desktop Palette/Hotkeys exceptions.
+  Anchored popovers stay Radix Popover. A sheet focuses a field only after
+  the user taps or types; do not bypass the primitive's focus handling.
 
 ## Public site (`www/`)
 

@@ -80,3 +80,11 @@ the mobile discard sheet without empty scroll space. Screenshots were read;
 settled overlay audits passed. QA used isolated fixture data and disposable
 terminals; version checks did not start conversations. This is not evidence
 of every native vendor lifecycle event.
+
+Independent web applications (ADR-0072): `split-mobile-*.png` covers the initial
+mobile copy, empty Inbox/Changes, unavailable Docker, form validation, chunk
+load recovery and an always-sheet wide preview. `split-desktop-small-*.png`
+shows responsive desktop navigation at 390px. All were read, using an isolated
+embedded fixture; overlay audits passed. Package-chunk failure was injected
+and Try again recovered after the interception was removed. No model turns
+were started. Physical PWA installation/push delivery remains separate QA.

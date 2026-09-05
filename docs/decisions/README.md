@@ -76,3 +76,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted |
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
+| [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted |

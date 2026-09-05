@@ -3,6 +3,9 @@
 - **Status**: accepted; amended 2026-09-01 (same day) after the owner's first
   use on a phone — see *Amendment* at the end
 - **Date**: 2026-09-01
+- **Presentation/build boundary**: partially superseded by
+  [ADR-0072](0072-independent-web-applications.md). The original rationale
+  below is retained as history.
 
 ## Context
 
