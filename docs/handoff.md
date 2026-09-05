@@ -12,9 +12,10 @@ Git Graph (0073), independent web apps (0072), Windows task reliability
 coding CLIs are terminals. This session has not pushed. Read Git for upstream
 status; preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+ff8beb8`, health `ok`, boot
-`a78810a9a9e8cae2`. The independent apps and Git Graph are deployed;
-File Tree v2 deployment is pending final integration checks.
+**Last application deployment:** `0.1.0+469b960`, health `ok`, boot
+`59f0a9b22db1be14`. File Tree v2 is deployed; served desktop assets match
+the build. Live read-only navigation opened two files in one tab. All seven
+terminal records and 20 baseline pane identities survived the restart.
 
 **Windows desktop (ADR-0071):** resident task policy, diagnosis, scoped repair
 and normal Quit are implemented and locally installed. Native policy/lifecycle
@@ -116,8 +117,8 @@ and fallback detail is archived; the implementation is unchanged here.
   and passed here. Battery/sleep/sign-in transitions remain owner-controlled;
   see `docs/plans/desktop-task-reliability.md` for the decision table/evidence.
 - Existing `TestTerminalBrowse` cleanup can leave tmux shells with deleted
-  temporary folders. Seven were observed without a worktree ownership marker;
-  retained them and recorded the cleanup context/lifetime debt.
+  temporary folders. Newly observed disposable shells were identity-checked
+  and removed; pre-existing shells were retained. Review cleanup lifetime.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
@@ -148,7 +149,9 @@ and fallback detail is archived; the implementation is unchanged here.
   one local panel. Draft guards, root preconditions and keyboard resizing
   passed 15 browser groups; narrow controls were corrected and screenshots read.
   Integrated the independent desktop app and sibling-worktree read contracts.
-  Full `make ci` passed; local deployment is pending.
+  visual-review: PASS. Full `make ci` passed; merged and locally deployed as
+  `0.1.0+469b960`. Live file selection stayed in one tab; no files were edited.
+  Disposable fixtures and newly observed test shells were cleaned up.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
