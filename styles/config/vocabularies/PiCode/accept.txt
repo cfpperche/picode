@@ -80,3 +80,5 @@ summarizer
 gmail
 Gmail
 untracked
+fullscreen
+scrollback

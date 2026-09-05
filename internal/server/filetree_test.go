@@ -108,9 +108,16 @@ func TestTerminalBrowse(t *testing.T) {
 }
 
 type gitStatusPage struct {
-	Git      bool                          `json:"git"`
-	RepoRoot string                        `json:"repoRoot"`
-	Changes  []struct{ Path, Kind string } `json:"changes"`
+	Git      bool   `json:"git"`
+	RepoRoot string `json:"repoRoot"`
+	Branch   string `json:"branch"`
+	Worktree string `json:"worktree"`
+	Changes  []struct {
+		Path, Kind string
+		Add, Del   int
+		Binary     bool
+	} `json:"changes"`
+	Totals map[string]int `json:"totals"`
 }
 
 func getGitStatus(t *testing.T, ts *httptest.Server, path string) (int, gitStatusPage) {
@@ -149,11 +156,25 @@ func TestGitStatusReAnchorsToTheOwnerCwd(t *testing.T) {
 		t.Fatalf("workspace gitstatus = %d %+v", code, page)
 	}
 	kinds := map[string]string{}
+	counts := map[string][2]int{}
 	for _, c := range page.Changes {
 		kinds[c.Path] = c.Kind
+		counts[c.Path] = [2]int{c.Add, c.Del}
 	}
 	if kinds["a"] != "modified" || kinds["sub/fresh"] != "untracked" {
 		t.Fatalf("toplevel changes = %v", kinds)
+	}
+	// The Inspector's counts ride along: "a" went from one line to one line
+	// (+1 −1), the untracked file is one unterminated line (+1), and the
+	// totals sum what the reader can see. The branch names the checkout.
+	if counts["a"] != [2]int{1, 1} || counts["sub/fresh"] != [2]int{1, 0} {
+		t.Fatalf("toplevel counts = %v, want a +1 −1 and sub/fresh +1", counts)
+	}
+	if page.Totals["add"] != 2 || page.Totals["del"] != 1 || page.Totals["files"] != 2 {
+		t.Fatalf("toplevel totals = %v, want add 2 del 1 files 2", page.Totals)
+	}
+	if page.Branch != "main" || page.Worktree != "" {
+		t.Fatalf("branch/worktree = %q/%q, want main and no worktree name", page.Branch, page.Worktree)
 	}
 
 	// An agent confined to the subdir sees only its slice, re-anchored.
@@ -177,6 +198,11 @@ func TestGitStatusReAnchorsToTheOwnerCwd(t *testing.T) {
 	}
 	if _, leaked := kinds["../a"]; leaked || len(kinds) != 1 {
 		t.Fatalf("changes outside the cwd leaked: %v", kinds)
+	}
+	// Totals are the visible slice's, not the repository's: the toplevel
+	// edit to "a" must not be summed into the subfolder reader's badge.
+	if page.Totals["add"] != 1 || page.Totals["del"] != 0 || page.Totals["files"] != 1 {
+		t.Fatalf("subdir totals = %v, want add 1 del 0 files 1", page.Totals)
 	}
 }
 

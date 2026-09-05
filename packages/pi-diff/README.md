@@ -6,8 +6,16 @@ and the hunks of the file the agent touched last, refreshed after each
 edit — the panel Claude Code shows, for pi (ADR-0077).
 
 - **`/diff`** toggles the panel. It never takes keyboard focus: you keep
-  typing in the editor while it stays open. It hides itself on terminals
-  narrower than 100 columns and comes back when there is room.
+  typing in the editor while it stays open. It fills the whole terminal
+  height, hides itself on terminals narrower than 100 columns and comes
+  back when there is room.
+- **Use pi's fullscreen TUI mode** (`--tui-mode fullscreen`, or *TUI mode*
+  in `/settings`). There the panel is a real column of pi's layout: the
+  chat and the editor take the left 55%, the panel the right 45%, and it
+  stays put while the transcript scrolls. The mouse wheel over the panel
+  scrolls the hunks. In pi's default *regular* mode the terminal owns the
+  scrollback, so the panel is an overlay that scrolls away with everything
+  else; the first `/diff` says so once.
 - **The list** is every tracked change (`git diff HEAD`, staged or not)
   plus untracked files, one row each with `+added -removed`, `+n new` or
   `bin`. Renames show the new name and say where they came from.
@@ -29,19 +37,28 @@ refresh or the next `/diff`.
 
 ## How it draws
 
-The overlay goes straight through the TUI (`tui.showOverlay`, non-capturing),
-not through `ctx.ui.custom()`. A custom component counts as a UI prompt in
-pi's lifecycle events, so a panel that stayed open all session would tell
-every host watching those events that pi is "waiting for user" — PiCode's
+In fullscreen mode the extension wraps pi's layout root in an `HStack`:
+the transcript-and-dock tree on the left, the panel on the right, both
+full height. In regular mode it calls `tui.showOverlay` with a
+non-capturing, full-height overlay. Neither goes through
+`ctx.ui.custom()`: a custom component counts as a UI prompt in pi's
+lifecycle events, so a panel that stayed open all session would tell every
+host watching those events that pi is "waiting for user" — PiCode's
 guest-TUI sensors included (ADR-0056). The widget slot `pi-diff` is the
-handle pi owns for us: registering it shows the overlay, clearing it hides
-the overlay.
+handle pi owns for us: setting it mounts the panel on the current TUI,
+clearing it unmounts; every refresh re-sets it, because switching TUI mode
+replaces pi's TUI instance.
+
+Switching from regular to fullscreen while the panel is open is refused by
+pi ("Close active overlays before changing TUI mode"): run `/diff off`
+first. Fullscreen to regular works with the panel open.
 
 ## Where it runs
 
 | | What you get |
 |---|---|
-| **Pi TUI** (terminal) | The panel, the commands, the shortcuts and the footer total |
+| **Pi TUI, fullscreen mode** | The panel as a fixed side column, the commands, the shortcuts, wheel scrolling and the footer total |
+| **Pi TUI, regular mode** | The same as a full-height overlay that scrolls with the terminal |
 | **`pi --mode rpc`** (PiCode chat) | The footer total only; `/diff` says the panel needs the terminal |
 | **PiCode core** | Nothing — this package talks to git, never to PiCode |
 

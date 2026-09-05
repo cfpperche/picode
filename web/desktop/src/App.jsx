@@ -21,6 +21,7 @@ import SessionBar from "./components/SessionBar.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TermSurface from "./components/TermSurface.jsx";
 import FileSurface from "./components/FileSurface.jsx";
+import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Inspector.jsx";
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
@@ -78,6 +79,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
+import { anchorFor, readInspectorPrefs, writeInspectorPrefs } from "./lib/inspector.js";
 import { sessionsHash, sessionsRoute } from "./lib/routes.js";
 import SessionsView from "./components/SessionsView.jsx";
 import Hotkeys from "./components/Hotkeys.jsx";
@@ -119,6 +121,30 @@ export default function App() {
   const [hash, setHash] = useState(() => (typeof location !== "undefined" ? location.hash : "#/"));
   const [goneId, setGoneId] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Inspector rail: a per-viewer preference like the sidebar width (no hash
+  // route). The anchor follows the selected tab's owner; file tabs remember
+  // which view (editor or diff) the rail opened them in.
+  const [inspectorPrefs, setInspectorPrefs] = useState(readInspectorPrefs);
+  const [inspectorAnchor, setInspectorAnchor] = useState(null);
+  const [fileViews, setFileViews] = useState({});
+  const [inspectorChanged, setInspectorChanged] = useState(null);
+  const inspectorLayout = useInspectorLayout({ open: inspectorPrefs.open, width: inspectorPrefs.width, narrow });
+  const inspectorWantOpenRef = useRef(inspectorLayout.wantOpen);
+  inspectorWantOpenRef.current = inspectorLayout.wantOpen;
+  const toggleInspector = useCallback(() => {
+    setInspectorPrefs((p) => {
+      const next = { ...p, open: !inspectorWantOpenRef.current };
+      writeInspectorPrefs(next);
+      return next;
+    });
+  }, []);
+  const rememberInspector = useCallback((patch) => {
+    setInspectorPrefs((p) => {
+      const next = { ...p, ...patch };
+      writeInspectorPrefs(next);
+      return next;
+    });
+  }, []);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
@@ -216,6 +242,23 @@ export default function App() {
   const selectedRef = useRef(null);
   if (selectedRef.current !== selectedId) historyGate.current.invalidate();
   selectedRef.current = selectedId;
+
+  useEffect(() => {
+    setInspectorAnchor((last) => anchorFor(selectedId, { workspaces, freeAgents, terminals, gitOwners, treeOwners }, last));
+  }, [selectedId, workspaces, freeAgents, terminals, gitOwners, treeOwners]);
+  const fileTabInfo = isFileTab(selectedId) ? parseFileTab(selectedId) : null;
+  const fileTabOnAnchor = !!(fileTabInfo && inspectorAnchor && fileTabInfo.kind === inspectorAnchor.kind && fileTabInfo.id === inspectorAnchor.id);
+  const inspectorActivePath = fileTabOnAnchor ? fileTabInfo.path : "";
+  const fileTabChanged = !!(fileTabInfo && inspectorChanged && inspectorChanged.owner
+    && inspectorChanged.owner.kind === fileTabInfo.kind && inspectorChanged.owner.id === fileTabInfo.id
+    && inspectorChanged.paths.has(fileTabInfo.path));
+  // Paths this session's edit/write tools named — the Inspector's "This
+  // agent" scope intersects the working tree with them.
+  const touchedPaths = useMemo(() => {
+    const out = [];
+    for (const it of items) if (it && it.kind === "tool" && it.change && it.change.path) out.push(it.change.path);
+    return out;
+  }, [items]);
 
   const located = locate(workspaces, freeAgents, selectedId);
   const selected = located && located.workspace;
@@ -318,6 +361,10 @@ export default function App() {
       if (matchAction("app.palette.toggle", e)) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
+      }
+      if (matchAction("app.inspector.toggle", e)) {
+        e.preventDefault();
+        toggleInspector();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -916,10 +963,11 @@ export default function App() {
     }
   }
 
-  function openFileTab(kind, ownerId, path) {
+  function openFileTab(kind, ownerId, path, view = "file") {
     setDashboardPinned(false);
     if (!ownerId || !path) return;
     const id = fileTabId(kind, ownerId, path);
+    setFileViews((v) => (v[id] === view ? v : { ...v, [id]: view }));
     setGoneId("");
     setSelectedId(id);
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -1008,6 +1056,12 @@ export default function App() {
   async function closeTab(id) {
     const guard = treeCloseGuards.current.get(id);
     if (guard && !await guard()) return;
+    setFileViews((v) => {
+      if (!(id in v)) return v;
+      const next = { ...v };
+      delete next[id];
+      return next;
+    });
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -2221,6 +2275,7 @@ export default function App() {
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
             onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
+            endSlot={narrow ? null : <InspectorToggle shown={inspectorLayout.shown} reason={inspectorLayout.reason} onToggle={toggleInspector} />}
           />
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
@@ -2264,9 +2319,12 @@ export default function App() {
             );
           })}
           <FileSurface
-            owner={isFileTab(selectedId) ? parseFileTab(selectedId) : null}
-            path={isFileTab(selectedId) ? (parseFileTab(selectedId) || {}).path : ""}
+            owner={fileTabInfo}
+            path={fileTabInfo ? fileTabInfo.path : ""}
             onClose={() => isFileTab(selectedId) && closeTab(selectedId)}
+            view={fileViews[selectedId] || "file"}
+            onView={(view) => setFileViews((v) => ({ ...v, [selectedId]: view }))}
+            changed={fileTabChanged}
           />
           {/* Same rule as the trees below: the loaded history, the open
               commit, the search and the branch filter belong to the tab. */}
@@ -2613,6 +2671,26 @@ export default function App() {
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
+      <Inspector
+        hidden={onPane || showHome || !inspectorLayout.shown}
+        anchor={inspectorAnchor}
+        workspaces={workspaces}
+        freeAgents={freeAgents}
+        terminals={terminals}
+        touchedPaths={inspectorAnchor && inspectorAnchor.kind === "agent" && agent && agent.id === inspectorAnchor.id ? touchedPaths : null}
+        tab={inspectorPrefs.tab}
+        onTab={(tab) => rememberInspector({ tab })}
+        width={inspectorLayout.width}
+        maxWidth={inspectorLayout.maxWidth}
+        onWidth={(width) => rememberInspector({ width })}
+        onToggle={toggleInspector}
+        activePath={inspectorActivePath}
+        onOpenFile={(o, path) => openFileTab(o.kind, o.id, path, "file")}
+        onOpenDiff={(o, path) => openFileTab(o.kind, o.id, path, "diff")}
+        onOpenGraph={(o, name) => openGitTab(o.kind, o.id, name)}
+        onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
+        onChanges={setInspectorChanged}
+      />
 
       <Palette
         open={paletteOpen}
@@ -2621,6 +2699,7 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
+          if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }

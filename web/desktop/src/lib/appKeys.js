@@ -6,6 +6,7 @@ import { readAppKeyOverrides } from "./appKeyPrefs.js";
 export const CATALOG = [
   { id: "app.palette.toggle", group: "Global", label: "Command palette", defaults: ["ctrl+k", "super+k"] },
   { id: "app.terminal.new", group: "Global", label: "New terminal", defaults: ["ctrl+`", "super+`"] },
+  { id: "app.inspector.toggle", group: "Global", label: "Toggle inspector", defaults: ["ctrl+.", "super+."] },
   { id: "composer.voice.toggle", group: "Composer", label: "Toggle voice", defaults: ["ctrl+shift+o", "super+shift+o"] },
   { id: "composer.dictate", group: "Composer", label: "Dictate", defaults: ["ctrl+d", "super+d"] },
 ];

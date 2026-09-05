@@ -280,6 +280,8 @@ export interface LayoutInput {
 	scroll: number;
 	width: number;
 	height: number;
+	/** Pad with blank lines to exactly `height` rows, so the panel is a full column. */
+	fill?: boolean;
 }
 
 export interface Layout {
@@ -294,6 +296,16 @@ const plainPaint: Paint = (_k, t) => t;
 
 /** The panel: header, file list, separator, hunks of the focused file. Each line fits `width` columns. */
 export function layout(input: LayoutInput, paint: Paint = plainPaint, measure: (s: string) => number = cpLength): Layout {
+	const out = layoutContent(input, paint, measure);
+	if (input.fill) {
+		const height = Math.max(6, input.height);
+		while (out.lines.length < height) out.lines.push("");
+		if (out.lines.length > height) out.lines.length = height;
+	}
+	return out;
+}
+
+function layoutContent(input: LayoutInput, paint: Paint, measure: (s: string) => number): Layout {
 	const width = Math.max(20, input.width);
 	const height = Math.max(6, input.height);
 	const { model } = input;

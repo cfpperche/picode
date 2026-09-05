@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- `pi-diff` (ADR-0077 amendment): in pi's fullscreen TUI mode the panel is
+  now a real layout column — full height, fixed while the transcript
+  scrolls, chat and editor wrapping to the left — with mouse-wheel
+  scrolling; in regular mode the overlay fills the whole height and the
+  first `/diff` points at fullscreen mode once.
+
 ### Added
 
 - `packages/pi-diff` (ADR-0077): a side diff panel for the pi TUI. `/diff`
@@ -21,6 +29,17 @@ to the `[Unreleased]` section. The repository's official language is English
   core — installed like the other `packages/`.
 
 ### Fixed
+
+- Managed agents stop again. `Stop agent`, `Open terminal` and automation
+  run teardown all hang forever when the real `pi` (running behind the
+  intercept shell wrapper) outlives its killed parent as an orphan holding
+  the rpc client's stdout pipe: `Runtime.Stop` waited on the pipe EOF that
+  never came (the 2026-09-05 `pi-diff` hang). The rpc client now spawns the
+  agent in its own process group, SIGKILLs the whole group on `Close`, and
+  closes stdin/stdout so the pump unblocks even if a stray descriptor
+  survives. The pi intercept wrapper additionally `exec`s the real pi
+  directly for managed `--mode rpc`/`--mode json` runs, dropping the shell
+  middleman outright.
 
 - Mobile chat wraps its controls when space is tight, keeping Send visible
   alongside Stop during execution.
@@ -63,6 +82,19 @@ to the `[Unreleased]` section. The repository's official language is English
   MCP servers, replacing the Use-from dialog. Host servers carry an Added
   state and import through a reviewed confirmation.
 
+- **Inspector rail** (ADR-0078). The desktop gains a right-hand rail beside the
+  conversation or terminal with **Changes** (the working tree as a folder tree
+  with `+N −M` per file and folder, an `Uncommitted` total, branch and
+  worktree, and an `All | This agent` scope beside an agent) and **Files** (the
+  project tree with a filter over loaded rows). It follows the selected tab's
+  owner and opens files and working-tree diffs as center tabs — the file tab
+  gains a **Diff** view that swaps with the editor. Reads pin the owner's
+  folder; a terminal that moves shows "This terminal moved to …" with
+  **Follow**. Width, open state and tab are remembered; the rail opens by
+  default on windows of 1440px or wider, shrinks before it hides, and never
+  squeezes the conversation under 640px. Toggle with the tab-strip button,
+  `Ctrl+.` / `Cmd+.` or the command palette. `…/gitstatus` now reports per-file
+  added/removed lines, totals and the branch.
 - **Gmail connector recipe** across all three add paths: a **Gmail** catalog
   card, an importable `connectors/gmail.json`, and an optional
   `packages/pi-connector-gmail` package. Credentials stay outside PiCode in

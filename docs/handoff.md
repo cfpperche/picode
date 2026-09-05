@@ -5,31 +5,77 @@
 
 ## Current state (read this first)
 
-**Repository:** bounded captures (ADR-0076), history reconciliation and mobile
-composer wrapping are merged into main and locally deployed as `974780ba`.
-The capture ADR was renumbered because Integrations took 0075. The opt-in native
-emitter and real end-to-end acceptance remain pending: deployment does not
-enable browser capture emission. Integrations and the current provider favicons
-and tab/sidebar size fixes remain included. Desktop user menu Agent CLIs now
-uses the terminal icon so it no longer matches Preferences (sliders).
+**Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
+owner accepts the shipped result) is merged into main and locally deployed as
+`9a8e15a7`: Changes and Files beside the center, per-file counts on
+`gitstatus`, the file tab's Diff view, the `Ctrl+.` toggle, the seeded docs
+fixture and the `app-inspector` public capture. Feature worktree and branch
+are removed.
+
+**Repository:** the managed-stop hang is fixed and locally deployed. Clicking
+`Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
+hang forever: the intercept wrapper's real `pi` survived its killed parent
+holding the rpc stdout pipe, `Runtime.Stop` waited on an EOF that never came,
+and every later stop/open queued behind it. The rpc client now spawns the
+agent in its own process group, SIGKILLs the group on `Close` and closes
+stdin/stdout as a second net; the pi wrapper `exec`s the real pi for managed
+rpc/json runs so there is no middleman to orphan. Regression test spawns a
+wrapper+grandchild double and fails on the old code (`Close hung`). Verified
+live: managed start → close round-trip completes in ~50ms, final agent state
+`stopped`. main meanwhile absorbed the pi-diff fullscreen column fix
+(ADR-0077 amendment); this branch sits on it.
+
+Known debts / open questions from this fix:
+
+- `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
+  managed start is in flight waits for the start, then returns true without
+  stopping the just-started agent. Not exercised by tests; unfixed.
+- Windows `Close` kills only the direct child (no posix process groups;
+  Job Objects would be the faithful equivalent). The managed server does
+  not run on Windows today.
+- The regressions in this fix are process-tree tests; the UI itself is
+  unchanged, so no visual-review pass applies.
+
+Before it, main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
+fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
+user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because
+Integrations took 0075; the opt-in native emitter and real end-to-end
+acceptance remain pending, so deployment does not enable browser capture
+emission.
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+bd9f28b`, health `ok`, boot
-`ca34d21d4fc3495d`, desktop bundle `index-UlgaKnlT.js` (served bundle equals
-the built one). `make deploy` restarted systemd; the existing terminal
-records survived. This deploy carries `pi-diff` (ADR-0077) and refreshed UI
-captures; no PiCode core behavior changed.
-
-**Quality:** fmt/vet/Go tests/frontend tests/`make web` passed for the icon
-swap. visual-review: PASS on Vite `:5174` and live `:8445` (`overlayAudit` ok).
-Gmail `make ci` from the previous deploy still stands. Feature worktree and
-branch are removed after merge.
+**Last application deployment:** `0.1.0+9a8e15a`, health `200`, desktop bundle
+`index-DYuuKYrY.js` (served and built hashes match). `make deploy` restarted
+systemd (new pid); the seven terminal records survived. The live `gitstatus`
+already answers with `branch`, per-file counts and `totals`, and the rail
+renders beside the live `glm5` agent at 1440px (Changes 1 · `+7`, overlay
+audit ok). A fresh browser profile at 1280px keeps it closed by default, as
+designed.
+**Quality:** `make ci` passed three times — on the feature tree, after the
+first main merge (with regenerated captures) and on the final merged tree —
+including Go tests, 700 frontend/package tests, both UI builds, the embedded
+binary, docs parity (`app-inspector` added) and Vale. Browser acceptance:
+`scripts/qa-inspector.mjs` 11/11 groups on an isolated fixture
+(`docs/screenshots/inspector-qa.json`), 11 screenshots plus the live shell
+read, overlay/row audits ok. visual-review: PASS. The docs fixture and QA
+browser sessions are closed.
 
 ### Product and platform
 
+- The desktop Inspector rail (ADR-0078) follows the selected tab's owner
+  (agent, terminal, workspace; apps keep the last anchor) and shows **Changes**
+  — a folder-grouped working tree with `+N −M` per file and folder, an
+  `Uncommitted` total, branch and worktree, and an `All | This agent` scope
+  beside an agent — and **Files**, the lazy project tree with a filter over
+  loaded rows. It opens files and diffs as center tabs (the file tab gained a
+  Diff view), pins the owner's root and turns a background 409 into "This
+  terminal moved to … Follow". Width/open/tab are per-viewer localStorage;
+  open by default at ≥1440px; shrinks before it hides and never leaves the
+  conversation under 640px. `gitstatus` now carries `add`/`del`/`binary`,
+  `totals`, `branch` and `worktree`.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -73,18 +119,22 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ### Diff panel (`pi-diff`, ADR-0077)
 
-Merged (`32b9c24f`) and deployed as `0.1.0+bd9f28b`. `/diff` in the pi TUI
-opens a non-capturing right-hand overlay with the changed files and the
-focused file's numbered hunks; the footer carries the total. Listed in the
-root `.pi/settings.json`, so project agents load it on their next start.
-Dogfooded in tmux on a scratch repository (tracked, untracked, binary,
-renamed files; scrolling, narrow-terminal hiding, close/reopen, one real
-grok write turn that moved the focus by itself). 19 logic tests.
+Deployed. `/diff` in the pi TUI opens a right-hand panel with the changed
+files and the focused file's numbered hunks; the footer carries the total.
+In pi's fullscreen TUI mode (`--tui-mode fullscreen` or `/settings`) the
+panel is a real layout column: full height, fixed while the transcript
+scrolls, chat and editor wrapping left, mouse wheel scrolls the hunks. In
+regular mode it is a full-height overlay that scrolls with the terminal and
+the first `/diff` says so once (owner refinement 2026-09-05, ADR amendment).
+Dogfooded in tmux in both modes, including a real grok write turn that
+refreshed and refocused the column. 20 logic tests. Listed in the root
+`.pi/settings.json`, so project agents load it on their next start.
 
 ## In flight
 
-- `pi-diff` (ADR-0077) is deployed; model-driven dogfood inside a PiCode
-  terminal tab (not a scratch `pi`) is still to be observed.
+- `pi-diff` (ADR-0077): whether PiCode should spawn terminal TUIs with
+  `--tui-mode fullscreen` so the panel is always a fixed column is an owner
+  decision not yet taken; in regular mode the panel scrolls with the terminal.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
@@ -121,6 +171,10 @@ grok write turn that moved the focus by itself). 19 logic tests.
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
+9. After a few days of Inspector dogfood, decide its later phases (ADR-0078
+   designs both, neither approved): a read-only **PR** tab through the host's
+   `gh`, and **Commit / Commit & Push** — pre-typed into the owner's terminal,
+   or server-side behind an interlock. Accept or amend ADR-0078 then.
 
 ## Known debts / open questions
 
@@ -152,6 +206,15 @@ grok write turn that moved the focus by itself). 19 logic tests.
 - Tutorial integrity passes, but all three strict freshness audits remain stale
   after source relocation. Recapture/render is explicit; hashes were not relabeled.
 - Branch protection and CODEOWNERS require owner action on GitHub.
+- Inspector debts (ADR-0078): no complete filename search yet — the Files
+  filter covers loaded rows only (`/files?q=` is agent-only and stops at 200
+  files; `git ls-files` for all three owner kinds is the planned fix); free
+  terminals outside a watched folder refresh on focus/visibility and their row's
+  live facts, not on a watcher (a per-anchor watch lease is the fallback);
+  the This-agent scope chips show only while the agent's own tab is selected;
+  the sizer idiom is still copied in Sidebar and FileTreeSurface; the per-turn
+  `+N −M` footer beside the conversation is not drawn. ADR-0078 may be
+  renumbered at merge — `feat/pi-diff` also holds an unmerged 0076.
 
 ## Recent activity
 
@@ -162,7 +225,27 @@ grok write turn that moved the focus by itself). 19 logic tests.
   on desktop and mobile. Domain helper `connectorTabs` unit-tested; `make ci`
   passed. Isolated-daemon browser E2E: custom add, host import and Added state
   on both apps; screenshots read, settled audits ok. visual-review: PASS
-  (`connector-tabs-*.png`). Branch `feat/connector-tabs`; not merged/deployed.
+  (`connector-tabs-*.png`).
+
+- **2026-09-05 — Inspector rail (ADR-0078).** Study
+  `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
+  and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;
+  `lib/inspector.js` + `lib/resizeEdge.js` (17 node tests); `Inspector.jsx`
+  mounted after `<main>`; file-tab Diff view; fixture seeds a dirty repository;
+  `app-inspector` docs capture. Browser QA on an isolated fixture:
+  `scripts/qa-inspector.mjs` passed 11/11 groups (`docs/screenshots/inspector-qa.json`);
+  11 screenshots read, overlay/row audits ok. visual-review: PASS. Two defects
+  found and fixed in review: the blocked line named the stale cwd (now read live
+  from `…/cwd`), and the Diff view's header row was misaligned outside the
+  folder tab. Merged `9a8e15a7` after three catch-up merges of main
+  (pi-diff, Gmail, managed-stop) and deployed; served bundle
+  `index-DYuuKYrY.js`, seven terminals survived. No push.
+- **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
+  owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
+  fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
+  (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
+  a full-height overlay plus a one-time hint. Widget slot re-set per refresh
+  because a mode switch replaces the TUI instance. Dogfooded both modes.
 
 - **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
   Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`

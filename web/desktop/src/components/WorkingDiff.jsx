@@ -42,7 +42,7 @@ export default function WorkingDiff({ owner, path, root = "", nonce, onClose, on
         <div className="ft-diff-actions" data-align-row>
           {diff ? <span className="gg-detail-meta">{diff.binary ? "binary" : <><span className="gg-add">+{add}</span> <span className="gg-del">−{del}</span></>}</span> : null}
           {onOpenFile && diff?.status !== "deleted" ? <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenFile(path)}>Open file</button> : null}
-          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close diff panel">Close</button>
+          {onClose ? <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close diff panel">Close</button> : null}
         </div>
       </header>
       {error ? <p className="file-pane-notice" role="status"><span>{clean ? "No changes in this file." : error}</span>{!clean ? <button type="button" className="btn btn-sm" onClick={() => setRetry((n) => n + 1)}>Try again</button> : null}</p> : null}

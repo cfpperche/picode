@@ -239,3 +239,13 @@ test("layout: painter wraps segments without changing the visible text", () => {
 	assert.match(out.lines[7]!, /^<del>  2 -old<\/del>$/);
 	assert.match(out.lines[2]!, /^<accent>▸ <\/accent><accent>a\.ts<\/accent> +<add>\+1<\/add> <del>-1<\/del>$/);
 });
+
+test("layout: fill pads to exactly the height so the panel is a full column", () => {
+	const files = [tracked("a.ts", 1, 1)];
+	const out = layout({ model: model(files, "a.ts"), scroll: 0, width: 40, height: 30, fill: true });
+	assert.equal(out.lines.length, 30);
+	assert.equal(out.lines[29], "");
+	const empty = layout({ model: { files: [], focus: undefined, diff: [] }, scroll: 0, width: 40, height: 12, fill: true });
+	assert.equal(empty.lines.length, 12);
+	assert.equal(layout({ model: model(files, "a.ts"), scroll: 0, width: 40, height: 30 }).lines.length, 12);
+});

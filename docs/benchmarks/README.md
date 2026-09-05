@@ -15,7 +15,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [pingdotgg/t3code](https://github.com/pingdotgg/t3code) | Agent-harness control surface (Claude/Codex/Cursor/Grok/OpenCode) | Runtime normalization, composer depth, URL-routed threads, waiting state | Open repo — file-path receipts |
 | [getpaseo/paseo](https://github.com/getpaseo/paseo) | Daemon + clients for Claude/Codex/Copilot/OpenCode/**Pi** | Same ADE mission, different bet (PTY+hooks, task graphs). They already speak Pi | Open repo — file-path receipts |
 | [herdrdev/herdr](https://github.com/herdrdev/herdr) | Rust PTY runtime for guest CLIs | Semantic idle/working/blocked, socket API, later worktrees. **Not** the editor bar | Open repo — file-path receipts |
-| [herdrdev/herdr](https://github.com/herdrdev/herdr) | Rust PTY runtime for guest CLIs | Semantic idle/working/blocked, socket API, later worktrees. **Not** the editor bar | Open repo — file-path receipts |
+| Orca | Desktop agent workbench (tasks, automations, projects with worktrees) | The right-hand Files/Search/Git/Tasks rail beside the center; worktrees as the unit (later) | Owner screenshots only — study [2026-09-05](2026-09-05-inspector-rail.md) |
 | [Agent Client Protocol](https://agentclientprotocol.com) | Open editor↔agent standard (Zed) — JSON-RPC over stdio | The guest-CLI escape hatch: Claude, Codex, Gemini, OpenCode, Kimi, Qwen, Droid, Cursor — and **Pi** (pi-acp) — already speak it | Public docs + registry — study [2026-09-03](2026-09-03-guest-tui-agent-state.md) |
 | [Devin](https://devin.ai) | Hosted autonomous engineer (Cognition) | **Automations** (triggers → session, ACU/rate caps, activity log, NL-generated config), blocked-and-wake sessions (ADR-0037). Not a runtime or editor bar | Public docs + owner's org UI — hosted, no clone |
 | [OpenWiki / docs platforms](2026-09-03-docs-harness.md) | Docs harness study: Diátaxis, Scalar, Vale, Mintlify, Remotion license, HyperFrames, D2 | Public docs completeness/beauty: theme, screenshots pipeline, API reference, prose gate, tutorial videos | Live pages + local receipts, 2026-09-03 |
@@ -31,6 +31,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-05 — The right-hand inspector rail (Paseo, Orca, t3code)](2026-09-05-inspector-rail.md)
 - [2026-09-05 — Desktop/mobile decoupling](2026-09-05-mobile-decoupling.md)
 
 - [2026-09-04 — Release cadence and release-process documentation](2026-09-04-release-cadence.md)
