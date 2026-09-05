@@ -156,10 +156,4 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
   exact command; desktop/mobile screenshots read, audits ok. visual-review:
   PASS (`integrations-catalog-before/gmail-added.png`). `make ci` passed.
 
-- **2026-09-05 — Capture host merged and deployed.** Reconciled main and
-  renumbered the capture ADR to 0076; corrected mobile toolbar clipping found
-  in QA. Combined `make ci`, refreshed host states, 320/390px geometry and live
-  deployment checks passed. visual-review: PASS. Deployed `974780ba`; emitter
-  remains pending. No push or package-setting changes.
-
 Older activity lives in `docs/handoff-archive.md`.
