@@ -12,7 +12,7 @@ import { withFileRoot } from "../lib/fileIO.js";
 // With `hash` set the card reads a commit (before = parentHash, after =
 // hash); without it, uncommitted changes (before = HEAD, after = the working
 // tree). `fallback` renders when the extension has no visual answer.
-export default function GitAssetPreview({ base, ownerId, path, oldPath, status, hash, parentHash, fallback, root = "" }) {
+export default function GitAssetPreview({ base, ownerId, path, oldPath, status, hash, parentHash, worktree, fallback, root = "" }) {
   const [zoom, setZoom] = useState("");
   const kind = assetKind(path);
   if (!kind) return fallback || null;
@@ -25,12 +25,12 @@ export default function GitAssetPreview({ base, ownerId, path, oldPath, status, 
       ? parentHash
         ? gitRevBlobUrl(base, ownerId, parentHash, beforePath)
         : ""
-      : gitRevBlobUrl(base, ownerId, "HEAD", beforePath)
+      : gitRevBlobUrl(base, ownerId, "HEAD", beforePath, worktree)
     : "", root);
   const afterUrl = withFileRoot(sides.includes("after")
     ? hash
       ? gitRevBlobUrl(base, ownerId, hash, path)
-      : gitWorkBlobUrl(base, ownerId, path)
+      : gitWorkBlobUrl(base, ownerId, path, worktree)
     : "", root);
 
   if (kind === "image") {

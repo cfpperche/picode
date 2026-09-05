@@ -28,6 +28,11 @@ the open select card), `mobile-inbox-respond.png` (stacked inbox, reply form),
 `mobile-work-workspaces.png` (Work → Workspaces card with agents and the
 + Agent / + Terminal row), `mobile-terminal.png` (pushed terminal with the key
 bar), `mobile-more.png`.
+Git graph worktrees (ADR-0073): `adr0073-gitgraph-worktrees-dirty.png`
+(three dirty worktrees — owner with "this worktree", a detached checkout and a
+sibling branch — with the sibling's file list open, dark),
+`adr0073-gitgraph-branch-picker.png` (local branches marked with the worktree
+they are checked out in).
 Dashboard v2 (ADR-0042): `dashboard-v2-7d-light.png` (tiles + daily chart +
 first breakdown row), `dashboard-v2-breakdowns-dark.png` (tokens, tools,
 reliability, top sessions), `dashboard-v2-empty.png` (Today with no activity).
@@ -89,7 +94,7 @@ embedded fixture; overlay audits passed. Package-chunk failure was injected
 and Try again recovered after the interception was removed. No model turns
 were started. Physical PWA installation/push delivery remains separate QA.
 
-File Tree v2 (ADR-0073): `filetree-v2-editor-dark.png`,
+File Tree v2 (ADR-0074): `filetree-v2-editor-dark.png`,
 `filetree-v2-editor-light.png`, `filetree-v2-diff-dark.png` and
 `filetree-v2-image.png` show one local detail panel for content and changes.
 `filetree-v2-unsaved-dialog.png`, `filetree-v2-save-error.png`,

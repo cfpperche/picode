@@ -1,4 +1,4 @@
-# ADR-0073: Files and Changes share the file tree's detail pane
+# ADR-0074: Files and Changes share the file tree's detail pane
 
 - **Status**: accepted (owner approved the refactoring plan on 2026-09-05)
 - **Date**: 2026-09-05
@@ -47,6 +47,10 @@ The parameter never supplies an alternate folder to read. Existing requests
 without it retain their behavior. A background refresh cannot retarget a tree;
 an explicit Refresh checks the dirty guard before accepting a new root.
 
+The ADR-0073 Git Graph routes still resolve their optional `worktree` ref
+first. On those routes, a supplied root must match that resolved checkout.
+File Tree does not send a worktree ref; its requests remain scoped to its owner.
+
 ## Decision table and acceptance
 
 | Conditions | Action | Evidence |
@@ -67,6 +71,7 @@ an explicit Refresh checks the dirty guard before accepting a new root.
 | Matching root or legacy request, any owner | Read/write through the resolved owner cwd | `TestFileRootPreconditionAcrossOwners` |
 | Mismatched root, any owner/route | 409; no write or Reveal | `TestFileRootPreconditionAcrossOwners` |
 | Terminal cd with identical relative filenames | Reject stale reads/writes; refreshed root works | `TestFileRootRejectsTerminalCD`, browser QA |
+| Git Graph worktree ref plus root precondition | Preserve sibling reads; reject a root naming a different checkout | `TestFileRootWithWorktreeScope` |
 | No Git / empty folder / clean Changes | Show files or a compact empty state with an action | Browser QA |
 | Unsupported, oversized or inaccessible file | Show one state and a recovery action | Browser QA |
 

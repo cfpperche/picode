@@ -3,6 +3,35 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Concurrent Git Graph and app split delivery (archived during File Tree v2)
+
+- **2026-09-05 — ADR-0073 merged and deployed.** `feat/gitgraph-worktrees`
+  merged into `main` (renumbered 0071→0073: desktop task reliability and
+  independent web applications took the earlier numbers), worktree and branch
+  removed, `make deploy` restarted the service — `0.1.0+ff8beb8`, health
+  `ok`, `/desktop/` bundle carries the feature. Merge resolved handoff/
+  changelog/decisions text and regenerated the three app captures
+  (`make docs-shots`); full `make ci` green on the merged tree.
+
+- **2026-09-05 — Git graph shows every worktree's working tree (ADR-0073),**
+  merged from `feat/gitgraph-worktrees`. One uncommitted row per dirty
+  worktree (branch + directory chip + agents + "this worktree"), dashed
+  trails anchored at each worktree's HEAD, detached checkouts decorate their
+  HEAD commit, branch picker marks checked-out branches, and
+  `gitstatus`/`gitdiff`/`git/blob`/`blob` accept `?worktree=<branch|hash>`
+  for sibling reads — refs, never paths. Benchmarks: Conductor, GitButler,
+  mhutchie Git Graph, herdr/Crystal. `make ci` passed including regenerated
+  docs captures; visual-review: PASS (`docs/screenshots/adr0073-*.png`,
+  overlay audit ok, light + dark read; a pseudo-hash index bug was caught and
+  fixed in QA).
+
+- **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
+  entries, copied mobile UI, shared contracts/tokens, explicit app paths and
+  stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
+  optional previews remain lazy. Incorporated concurrent Rename/task work
+  and the Windows/macOS test portability fixes.
+  visual-review: PASS; public captures refreshed. No application deployment.
+
 ## Cross-platform test portability (archived 2026-09-05 during web decoupling)
 
 - **2026-09-05 — Cross-platform test portability.** Publication `385329ab`

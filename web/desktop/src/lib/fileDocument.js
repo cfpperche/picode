@@ -1,5 +1,5 @@
 // One open document. Reads and writes are injected so the same lifecycle is
-// exercised by the browser and node:test (ADR-0073).
+// exercised by the browser and node:test (ADR-0074).
 export function createFileDocument({ read, write, release = () => {} }) {
   let state = { kind: "load", text: "", dirty: false, saving: false, refreshing: false, error: "", revision: 0 };
   let savedText = "";

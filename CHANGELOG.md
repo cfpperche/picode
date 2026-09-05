@@ -30,6 +30,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Git graph shows every worktree's working tree** (ADR-0073). One
+  "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
+  the graph was opened from — labelled with its branch, directory, the agents
+  living there and a "this worktree" marker on your own checkout, each joined
+  to its HEAD by a dashed trail. Clicking a sibling's row opens its files and
+  diffs inline; detached checkouts decorate their HEAD commit with a directory
+  chip; the branch picker marks which branches are checked out in a worktree.
+  Sibling reads are addressed by branch or HEAD hash — never by path — so the
+  graph stays read-only and confined.
+
 - **Docker v3 resources, health and supervised maintenance** (ADRs 0067/0068).
   Inspect images, volumes and networks with all container consumers, including
   stopped services. Review selected image/custom-network removal and project

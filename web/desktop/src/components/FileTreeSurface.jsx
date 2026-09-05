@@ -14,7 +14,7 @@ const TREE_KEY = "picode-ft-w";
 const REVEAL_STALE_MS = 10_000;
 
 // One mounted surface per canonical folder; Files and Changes share one
-// local selection and detail pane (ADR-0073). The owner still authorizes it.
+// local selection and detail pane (ADR-0074). The owner still authorizes it.
 export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerCloseGuard, onClose }) {
   const [levels, setLevels] = useState(null);
   const [expanded, setExpanded] = useState(() => new Set());

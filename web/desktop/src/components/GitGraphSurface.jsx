@@ -8,7 +8,7 @@ import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
-import { UNCOMMITTED } from "../lib/gitgraph.js";
+import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
 
 const SKELETON_ROWS = 14;
 const DEFAULT_LIMIT = 250;
@@ -92,6 +92,25 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
   const [matchIdx, setMatchIdx] = useState(0);
   useEffect(() => { setMatchIdx(0); }, [debouncedQuery]);
   const activeMatch = searching && matchList.length ? matchList[matchIdx % matchList.length] : "";
+
+  // One dirty row per worktree with changes of its own (ADR-0073). Anchors
+  // only survive when the worktree's HEAD is inside the loaded window — the
+  // pseudo-row index in its hash (`*3`) indexes exactly this filtered list.
+  const anchors = useMemo(() => {
+    if (!graph) return [];
+    const known = new Set((graph.commits || []).map((c) => c.hash));
+    return (graph.worktrees || [])
+      .filter((wt) => wt.uncommitted && wt.uncommitted.count > 0 && wt.head && known.has(wt.head))
+      .map((wt) => ({ hash: wt.head, wt }));
+  }, [graph]);
+  const anchorFor = useCallback(
+    (hash) => {
+      if (!isUncommittedHash(hash)) return null;
+      const k = parseInt(hash.slice(UNCOMMITTED.length), 10);
+      return Number.isInteger(k) ? anchors[k] || null : null;
+    },
+    [anchors],
+  );
 
   const onSearchKey = (e) => {
     if (e.key !== "Enter" || matchList.length === 0) return;
@@ -257,8 +276,9 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
   const count = (graph.commits || []).length;
   // A parent link can land outside the loaded window even after growing it
   // once; the anchor row does not exist, so there is nowhere to open inline.
+  // Pseudo rows (`*<n>`) are always present by construction.
   const selectedMissing =
-    Boolean(selected) && selected !== UNCOMMITTED && count > 0 &&
+    Boolean(selected) && !isUncommittedHash(selected) && count > 0 &&
     !(graph.commits || []).some((c) => c.hash === selected);
 
   return (
@@ -267,6 +287,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
         <h2 className="gg-title">{graph.name}</h2>
         <GitGraphBranches
           refs={graph.refs}
+          worktrees={graph.worktrees}
           selected={selectedBranches}
           showRemotes={showRemoteBranches}
           onChange={onChangeBranches}
@@ -319,6 +340,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
       ) : (
         <GitGraph
           graph={graph}
+          anchors={anchors}
           showRemoteBranches={showRemoteBranches}
           selected={selected}
           onSelect={(h) => setSelected(h === selected ? "" : h)}
@@ -329,8 +351,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
           onEndReached={onEndReached}
           loadingEarlier={busy}
           detail={
-            selected === UNCOMMITTED ? (
-              <UncommittedDetail owner={owner} onClose={() => setSelected("")} />
+            isUncommittedHash(selected) ? (
+              anchorFor(selected) ? (
+                <UncommittedDetail
+                  owner={owner}
+                  worktree={anchorFor(selected).wt}
+                  onClose={() => setSelected("")}
+                />
+              ) : (
+                <p className="gg-msg">That worktree is gone — Refresh the graph.</p>
+              )
             ) : selected && !selectedMissing ? (
               <CommitDetail
                 owner={owner}

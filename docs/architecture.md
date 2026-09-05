@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073/0074).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -200,7 +200,7 @@ stay on their own routes.
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. With no tab open (or pinned via the logo): the session observability dashboard once any workspace/agent/terminal exists — spend/activity/sessions/fleet tiles, a daily chart, and spend by model / workspace, tokens, tools, reliability, top sessions (ADR-0041, ADR-0042; `GET /api/sessions/stats`, fingerprint-cached, polled every 60 s while visible) — else the first-run blank slate. Not routed, derived from `noTabs && hasData`. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load). An Inbox reply lands straight in this terminal (ADR-0060), so the tab never leaves the TUI. |
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
-| `#/tree/<w\|t\|a>/<id>` | File tree tab | lazy per-level browse and a **Changes** list from `…/gitstatus`, with changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab. Files and Changes select the editor/preview or diff in one resizable local detail pane (ADR-0073). |
+| `#/tree/<w\|t\|a>/<id>` | File tree tab | lazy per-level browse and a **Changes** list from `…/gitstatus`, with changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab. Files and Changes select the editor/preview or diff in one resizable local detail pane (ADR-0074). |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
@@ -650,7 +650,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/agents/{id}/cwd` — Pi TUI pane path (fallback: agent work dir)
 - `GET /api/agents/{id}/git` · `GET /api/terminals/{id}/git` — the commit DAG,
   refs and worktrees of whatever repository that owner's cwd belongs to, plus
-  the agents living in each worktree (`?limit=`, default 250). One graph per
+  the agents living in each worktree (`?limit=`, default 250). Each worktree
+  also carries its own dirty count, `self` (the checkout the graph was read
+  through) and `bare`/`detached`/`prunable` health flags, so the browser can
+  draw one uncommitted row per dirty worktree (ADR-0073). One graph per
   repository: the identity is `git rev-parse --git-common-dir`, canonicalized
   through filesystem symlinks, so every worktree (including macOS
   `/var`/`/private/var` aliases) answers with the same key and collapses onto
@@ -673,7 +676,11 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/{agents|terminals|workspaces}/{id}/gitstatus` — the working-tree
   changes of the owner's repository, `git status --porcelain -z -uall`
   re-anchored from the repo toplevel to the owner's cwd (what falls outside
-  is dropped). No repository is a state, not an error: `200 {"git": false}`.
+  is dropped). Agents and terminals accept `?worktree=<branch|head hash>` to
+  read a sibling worktree of the same repository instead: the value is a ref
+  resolved through `git worktree list`, never a path from the URL, and an
+  unresolvable ref is 404 (ADR-0073). No repository is a state, not an error:
+  `200 {"git": false}`.
 - `GET /api/{agents|terminals|workspaces}/{id}/gitdiff?path=` — one file's
   working-tree-vs-HEAD patch (ADR-0032), confined by the same cwd rules;
   untracked files arrive as whole-file additions, binary and truncation
@@ -683,7 +690,7 @@ HTTP API (Go 1.22 method patterns):
   `internal/osopen` (WSL → explorer.exe, darwin → open, else xdg-open).
   Host-local by design: a remote browser opens it on the server's desktop.
 
-ADR-0073 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
+ADR-0074 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
 blob, gitstatus, gitdiff, git/blob and reveal. The resolved owner cwd remains
 the authority: the parameter only asserts equality, and a mismatch returns
 409 before reading or writing. The tree pins these requests to its open root;

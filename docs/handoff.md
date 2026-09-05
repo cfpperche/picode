@@ -6,41 +6,40 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD includes independent desktop/mobile web applications
-(ADR-0072), desktop task reliability (ADR-0071), Agent CLIs v2 and Docker v3.
-Managed agents remain Pi-only; coding CLIs are terminals. This decoupling
-increment is local-only: no push or application deployment. Read Git for
-current upstream status. Preserve the unrelated root `.pi/compact.json`.
-Compose registration/deployment remains proposed.
+**Repository:** HEAD includes File Tree v2 (ADR-0074), the worktree-aware
+Git Graph (0073), independent web apps (0072), Windows task reliability
+(0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
+coding CLIs are terminals. This session has not pushed. Read Git for upstream
+status; preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
-`70c3e75648358c41`; served HTML references the freshly built `index-_7SLKl4D.js`
-bundle. Ships the Rename menu icon on top of the row alignment fix. All ten
-sidebar rows kept their menu triggers after the restart. This concurrent
-deployment restarted the service at 14:52 UTC; the tray increment did not.
+**Last application deployment:** `0.1.0+ff8beb8`, health `ok`, boot
+`a78810a9a9e8cae2`. The independent apps and Git Graph are deployed;
+File Tree v2 deployment is pending final integration checks.
 
-**Windows desktop (ADR-0071):** explicit resident-task installer policy,
-read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
-normal Quit are implemented. Native Windows launch-retry/duplicate/Quit and
-policy-preservation tests passed, plus focused race tests and `make ci`.
-The installed tray was replaced through `make desktop-restart`; normal UAC
-repair removed `PT72H` and battery/idle/network gates. A final task launch at
-11:55:13 local time is running with one instance; all 18 baseline pane IDs/PIDs
-survived. Action/principal/triggers were preserved; repeat repair is a no-op.
+**Windows desktop (ADR-0071):** resident task policy, diagnosis, scoped repair
+and normal Quit are implemented and locally installed. Native policy/lifecycle
+and race tests passed. UAC repair preserved action/principal/triggers; repeat
+repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
-**Quality:** decoupling passed `make ci` (603 frontend tests, Go/packages,
-build, docs and Vale), embedded UI/server tests, independent-build artifact
-checks, and synthetic-browser review. Empty/blocked/error, light/dark,
-narrow desktop and wide mobile sheets were read; overlay audits passed
-(`docs/screenshots/split-*.png`). Legacy links, worker upgrade, chunk retry,
-root preservation on resize and both Vite dev entries were checked. No model
-turns were started. Physical PWA/push acceptance is still open.
+**Quality:** `make ci` passed (Go, 625 web tests, packages, build, docs and
+Vale). All 15 File Tree browser groups and root/worktree endpoint tests passed;
+screenshots were read and overlay/toolbar audits passed. Evidence:
+`docs/screenshots/filetree-v2-*` and `var/filetree-v2/make-ci-delivery.log`.
+Physical PWA/push acceptance remains open; no model turns were started.
 
 ### Product and platform
 
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Desktop
   stays responsive; mobile owns copied UI and lazy screens. Shared contracts
   and tokens have explicit exports; HTTPS defaults to `:8445`.
+- The git graph (ADR-0022/0038/0073) draws one dirty row per worktree with
+  its branch, directory, agents and a "this worktree" marker; sibling reads
+  are addressed by branch or HEAD hash (`?worktree=`), never by path. The
+  graph stays read-only and manually refreshed; sibling dirty states ride
+  the manual Refresh, and the unused `git/head` token endpoints remain.
+- File Tree v2 keeps file content and working diffs beside the navigation.
+  One document controller protects edits on replacement, close and refresh;
+  optional root preconditions prevent a terminal cd from redirecting a draft.
 - Workspaces support multiple agents, free agents and tmux terminals. Private
   agent sessions follow ADRs 0039/0040/0053. Pi has interactive TUI and managed
   RPC modes; Inbox uses the receiver extension with a paste fallback (ADR-0060).
@@ -90,7 +89,7 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Next up
 
-1. Validate the existing PWA on iOS/Android, then promote the decoupled build.
+1. Validate the deployed PWA upgrade and push delivery on iOS/Android.
    Further mobile UI increments belong only in `web/mobile`.
 
 2. Run the version-specific CLI working/approval/settled acceptance matrix.
@@ -145,12 +144,11 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Recent activity
 
-- **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
-  entries, copied mobile UI, shared contracts/tokens, explicit app paths and
-  stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
-  optional previews remain lazy. Incorporated concurrent Rename/task work
-  and the Windows/macOS test portability fixes.
-  visual-review: PASS; public captures refreshed. No application deployment.
+- **2026-09-05 — File Tree v2 (ADR-0074).** Content, editing and changes share
+  one local panel. Draft guards, root preconditions and keyboard resizing
+  passed 15 browser groups; narrow controls were corrected and screenshots read.
+  Integrated the independent desktop app and sibling-worktree read contracts.
+  Full `make ci` passed; local deployment is pending.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

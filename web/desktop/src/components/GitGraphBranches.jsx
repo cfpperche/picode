@@ -10,11 +10,20 @@ import { IconGit, IconCheck, IconRemote } from "./Icons.jsx";
 // this one stays open across multiple picks and groups Local/Remote — a
 // different enough interaction shape that bolting it onto SearchCombo would
 // risk its six other single-select consumers.
-export default function GitGraphBranches({ refs, selected, showRemotes, onChange, onToggleRemotes }) {
+export default function GitGraphBranches({ refs, worktrees, selected, showRemotes, onChange, onToggleRemotes }) {
   const [open, setOpen] = useState(false);
   const { local, remote } = useMemo(() => groupBranches(refs, showRemotes), [refs, showRemotes]);
   const label = useMemo(() => triggerLabel(selected), [selected]);
   const selectedSet = useMemo(() => new Set(selected || []), [selected]);
+  // A branch checked out in a worktree is live somewhere on disk (GitButler
+  // marks the same fact in its branch list): the directory name says where.
+  const worktreeByBranch = useMemo(() => {
+    const map = new Map();
+    for (const wt of worktrees || []) {
+      if (wt.branch && !wt.bare) map.set(wt.branch, wt);
+    }
+    return map;
+  }, [worktrees]);
 
   function toggle(name) {
     onChange(selectedSet.has(name) ? (selected || []).filter((n) => n !== name) : [...(selected || []), name]);
@@ -22,6 +31,8 @@ export default function GitGraphBranches({ refs, selected, showRemotes, onChange
 
   function row(name, kind) {
     const on = selectedSet.has(name);
+    const wt = kind === "head" ? worktreeByBranch.get(name) : null;
+    const dir = wt ? (wt.path.split("/").pop() || wt.path) : "";
     return (
       <Command.Item
         key={kind + ":" + name}
@@ -32,6 +43,12 @@ export default function GitGraphBranches({ refs, selected, showRemotes, onChange
         <span className="gg-branch-check">{on ? <IconCheck /> : null}</span>
         {kind === "remote" ? <IconRemote /> : null}
         <span>{name}</span>
+        {wt ? (
+          <span className="gg-branch-wt" title={`${wt.path}${wt.prunable ? " (missing)" : ""}`}>
+            {dir}
+            {wt.prunable ? " (missing)" : ""}
+          </span>
+        ) : null}
       </Command.Item>
     );
   }

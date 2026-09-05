@@ -162,3 +162,46 @@ func TestFileRootRejectsTerminalCD(t *testing.T) {
 		t.Fatalf("refreshed root = %d", res.StatusCode)
 	}
 }
+
+func TestFileRootWithWorktreeScope(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	if err := os.WriteFile(filepath.Join(side, "dot.png"), pngBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, side, "add", "dot.png")
+	gitRun(t, side, "commit", "-m", "asset")
+	if err := os.WriteFile(filepath.Join(side, "messy.txt"), []byte("sibling work\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st := testStore(t)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminal("Scope", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	for _, base := range []string{"/api/agents/" + agent.ID, "/api/terminals/" + term.ID} {
+		routes := []string{"/gitstatus?", "/gitdiff?path=messy.txt", "/git/blob?hash=HEAD&path=dot.png"}
+		if strings.Contains(base, "/agents/") {
+			routes = append(routes, "/blob?path=dot.png")
+		}
+		for _, route := range routes {
+			for _, root := range []struct {
+				value string
+				want  int
+			}{{"", 200}, {canonDir(side), 200}, {canonDir(repo), 409}} {
+				t.Run(base+route+root.value, func(t *testing.T) {
+					code, _ := getBody(t, ts, base+route+"&worktree=side&root="+url.QueryEscape(root.value))
+					if code != root.want {
+						t.Fatalf("scoped root = %d, want %d", code, root.want)
+					}
+				})
+			}
+		}
+	}
+}

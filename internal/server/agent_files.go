@@ -149,6 +149,10 @@ func handleAgentBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}
