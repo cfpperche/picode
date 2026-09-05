@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appPath } from "./routes.js";
+
+test("integrations deep links remain reload-safe", () => {
+  for (const hash of ["#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) assert.equal(parseRoute(hash), "integrations");
+  assert.equal(parseRoute("#/mcps"), "mcps");
+});
 import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {

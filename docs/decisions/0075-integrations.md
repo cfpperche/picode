@@ -26,6 +26,11 @@ building a marketplace or implying that webhook delivery grants agent tools.
 `#/integrations/connectors` exposes the existing MCP manager as the first
 connector implementation. Desktop and mobile own their presentation. Native
 MCP config remains authoritative, with no second connection database or vault.
+Reviewed standard MCP definition imports add services without a binary change.
+Optional packages declare `pi.mcp`; installation metadata is read from native
+package settings, while the installed adapter owns discovery and execution.
+The local DeepWiki example exercises this contract (adapter 2.32.1), without
+embedding provider logic or asserting installation means live tool access.
 Custom remote/local MCP servers remain installable without recompiling PiCode;
 provider-specific execution lives in those external servers/packages. Existing
 MCP access remains compatible. Agent capabilities remain Pi-only today.

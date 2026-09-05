@@ -28,6 +28,7 @@ import PiSettings from "./components/PiSettings.jsx";
 import System from "./components/System.jsx";
 import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
+import Integrations from "./components/Integrations.jsx";
 import Packages from "./components/Packages.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
@@ -2565,6 +2566,17 @@ export default function App() {
             else await startManaged(agent.id);
           }}
         />
+        <Integrations hidden={route !== "integrations"}
+          workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""}
+          agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} agentWorkPath={agent?.workPath || ""}
+          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
+          onReload={async () => {
+            if (!agent || agent.mode === "stopped") return;
+            const was = agent.mode;
+            await stopAgent(agent.id);
+            if (was === "interactive") await openInteractive(agent.id);
+            else await startManaged(agent.id);
+          }} />
         <Packages hidden={route !== "packages"} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
@@ -2580,7 +2592,7 @@ export default function App() {
         onRun={(a) => {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);

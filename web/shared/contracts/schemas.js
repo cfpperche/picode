@@ -4,6 +4,14 @@ import { cronError } from "../domain/cron.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
+export const webhookSchema = z.object({
+  url: z.string().trim().max(2048).refine((raw) => {
+    try { const u = new URL(raw); return ["http:", "https:"].includes(u.protocol) && !!u.hostname && !u.username && !u.password && !u.hash; } catch { return false; }
+  }, "Use an HTTP or HTTPS URL without a username, password or fragment."),
+  types: z.string().transform((raw) => [...new Set(raw.split(",").map(t => t.trim().toLowerCase()).filter(Boolean))].sort())
+    .refine(types => types.length > 0 && types.length <= 32 && types.every(t => /^[a-z][a-z0-9_.-]{0,79}$/.test(t) && !t.startsWith("webhook")), "Choose event prefixes such as agent. or inbox.; webhook events are internal."),
+});
+
 // Server-driven App forms still validate with the same browser-independent
 // schema layer. Select/confirm values must come from the offered choices;
 // free-form replies retain their existing optional, literal text semantics.

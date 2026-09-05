@@ -2,104 +2,187 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
 
 func TestWebhookCRUD(t *testing.T) {
 	s := openTest(t)
-
-	w, err := s.AddWebhook("https://example.com/hook", []string{" Agent.", " inbox.", "agent.", ""})
+	if err := s.AppendEvent("agent.example", nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	latest, _ := s.LatestEventID()
+	w, err := s.AddWebhook("https://example.com/hook?token=private", []string{" Agent.", "inbox.", "agent.", ""})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Secret == "" {
-		t.Fatal("AddWebhook must return the generated secret once")
+	if w.Secret == "" || w.Cursor != latest || !w.Enabled || strings.Join(w.Types, ",") != "agent.,inbox." {
+		t.Fatalf("bad defaults: %#v", w)
 	}
-	if len(w.Types) != 2 || w.Types[0] != "agent." || w.Types[1] != "inbox." {
-		t.Fatalf("types not normalized: %v", w.Types)
+	rows, err := s.ListWebhooks()
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("list: %v %v", rows, err)
 	}
-	if w.Enabled != true || w.Cursor < 0 {
-		t.Fatalf("unexpected defaults: %+v", w)
+	raw, _ := json.Marshal(rows)
+	if strings.Contains(string(raw), w.Secret) || strings.Contains(string(raw), `"secret"`) {
+		t.Fatal("secret serialized")
 	}
-
-	// The stored row keeps the secret but it never marshals — the HTTP
-	// layer answers with the marshaled struct, so the secret cannot cross
-	// to the browser after creation.
-	listed, err := s.ListWebhooks()
-	if err != nil || len(listed) != 1 {
-		t.Fatalf("list: %v %+v", err, listed)
+	events, _ := s.ListEventsSince(latest, 100)
+	for _, ev := range events {
+		if strings.Contains(string(ev.Data), "private") || strings.Contains(string(ev.Data), w.Secret) {
+			t.Fatal("credential in event")
+		}
 	}
-	if j, _ := json.Marshal(listed[0]); strings.Contains(string(j), "secret") {
-		t.Fatalf("secret must not marshal: %s", j)
-	}
-	got, err := s.GetWebhook(w.ID)
-	if err != nil || got.Secret != w.Secret {
-		t.Fatalf("store lost the secret: %v", err)
-	}
-
-	// Delivery bookkeeping advances cursor and status without events.
-	deliveries := 0
-	s.OnEvent = func(ev Event) { deliveries++ }
-	if err := s.SetWebhookDelivery(w.ID, 42, "ok", ""); err != nil {
+	after := w
+	after.Cursor = 42
+	after.LastStatus = "delivered"
+	after.LastAttemptAt = nowUTC()
+	if err := s.SaveWebhookProgress(w, after); err != nil {
 		t.Fatal(err)
 	}
-	got, err = s.GetWebhook(w.ID)
-	if err != nil || got.Cursor != 42 || got.LastStatus != "ok" {
-		t.Fatalf("delivery state not recorded: %+v %v", got, err)
+	w.URL = "https://example.com/v2"
+	w.Enabled = false
+	up, err := s.UpdateWebhook(w)
+	if err != nil || up.Secret != w.Secret || up.Cursor != 42 || up.Enabled || up.Revision != w.Revision+1 {
+		t.Fatalf("update: %#v %v", up, err)
 	}
-	if deliveries != 0 {
-		t.Fatalf("delivery bookkeeping must not append events, got %d", deliveries)
+	if _, err := s.UpdateWebhook(w); !errors.Is(err, ErrWebhookConflict) {
+		t.Fatalf("stale edit: %v", err)
 	}
-
-	// Update changes url/types/enabled, keeps secret and cursor.
-	got.URL = "https://example.com/v2"
-	got.Types = []string{"inbox."}
-	got.Enabled = false
-	up, err := s.UpdateWebhook(got)
-	if err != nil {
-		t.Fatal(err)
+	rotated, err := s.RotateWebhookSecret(up.ID, up.Revision)
+	if err != nil || rotated.Secret == up.Secret {
+		t.Fatalf("rotate: %v", err)
 	}
-	if up.URL != "https://example.com/v2" || up.Enabled || up.Secret != w.Secret || up.Cursor != 42 {
-		t.Fatalf("update lost state: %+v", up)
-	}
-
 	if err := s.DeleteWebhook(w.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.GetWebhook(w.ID); err == nil {
-		t.Fatal("deleted webhook still exists")
+	if _, err := s.GetWebhook(w.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
 	}
-	if err := s.DeleteWebhook(w.ID); err == nil {
-		t.Fatal("deleting a missing webhook must be ErrNotFound")
+	if err := s.DeleteWebhook(w.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
 	}
 }
 
-func TestAddWebhookValidation(t *testing.T) {
-	s := openTest(t)
-	if _, err := s.AddWebhook("ftp://example.com", nil); err == nil {
-		t.Fatal("non-http url must be refused")
-	}
-	if _, err := s.AddWebhook("   ", nil); err == nil {
-		t.Fatal("empty url must be refused")
-	}
-	// http on a tailnet/LAN is the owner's call — allowed alongside https.
-	if _, err := s.AddWebhook("http://n8n.lan/hook", nil); err != nil {
-		t.Fatalf("http url must be allowed: %v", err)
+func TestWebhookValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name, url string
+		types     []string
+		ok        bool
+	}{
+		{"https", "https://example.com/hook", []string{"agent."}, true},
+		{"LAN", "http://n8n.lan/hook", []string{"inbox."}, true},
+		{"loopback", "http://127.0.0.1:8080/hook", []string{"task."}, true},
+		{"empty", "", []string{"agent."}, false},
+		{"scheme", "ftp://example.com", []string{"agent."}, false},
+		{"missing host", "https://", []string{"agent."}, false},
+		{"userinfo", "https://user:secret@example.com", []string{"agent."}, false},
+		{"fragment", "https://example.com/#secret", []string{"agent."}, false},
+		{"metadata", "http://169.254.169.254", []string{"agent."}, false},
+		{"metadata ipv6", "http://[fe80::1]/", []string{"agent."}, false},
+		{"no types", "https://example.com", nil, false},
+		{"internal", "https://example.com", []string{"webhook."}, false},
+		{"wildcard", "https://example.com", []string{"*"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := openTest(t)
+			_, err := s.AddWebhook(tc.url, tc.types)
+			if (err == nil) != tc.ok {
+				t.Fatalf("add: %v", err)
+			}
+			w, err := s.AddWebhook("https://example.com", []string{"agent."})
+			if err != nil {
+				t.Fatal(err)
+			}
+			w.URL = tc.url
+			w.Types = tc.types
+			_, err = s.UpdateWebhook(w)
+			if (err == nil) != tc.ok {
+				t.Fatalf("edit: %v", err)
+			}
+		})
 	}
 }
 
-func TestWebhookCursorStartsAtLatest(t *testing.T) {
-	s := openTest(t)
-	if _, err := s.AddWebhook("https://example.com/first", nil); err != nil {
-		t.Fatal(err)
-	} // seeds a webhook.created event
-	latest, _ := s.LatestEventID()
-	w, err := s.AddWebhook("https://example.com/second", nil)
-	if err != nil {
-		t.Fatal(err)
+func TestWebhookStaleDeliveryDecisionTable(t *testing.T) {
+	for _, action := range []string{"edit", "pause", "rotate", "delete", "advance"} {
+		t.Run(action, func(t *testing.T) {
+			s := openTest(t)
+			w, err := s.AddWebhook("https://example.com", []string{"agent."})
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch action {
+			case "edit":
+				next := w
+				next.URL = "https://other.example.com"
+				_, err = s.UpdateWebhook(next)
+			case "pause":
+				next := w
+				next.Enabled = false
+				_, err = s.UpdateWebhook(next)
+			case "rotate":
+				_, err = s.RotateWebhookSecret(w.ID, w.Revision)
+			case "delete":
+				err = s.DeleteWebhook(w.ID)
+			case "advance":
+				next := w
+				next.Cursor++
+				err = s.SaveWebhookProgress(w, next)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			after := w
+			after.Cursor = 100
+			after.LastStatus = "delivered"
+			if err := s.SaveWebhookProgress(w, after); !errors.Is(err, ErrWebhookConflict) {
+				t.Fatalf("stale ack accepted: %v", err)
+			}
+		})
 	}
-	if w.Cursor != latest {
-		t.Fatalf("cursor = %d, want the newest event id %d (history is not replayed to new subscriptions)", w.Cursor, latest)
+}
+
+func TestWebhookTransactionRollback(t *testing.T) {
+	for _, op := range []string{"add", "update", "delete", "rotate", "delivery"} {
+		t.Run(op, func(t *testing.T) {
+			s := openTest(t)
+			w, err := s.AddWebhook("https://example.com", []string{"agent."})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.db.Exec(`CREATE TRIGGER fail_event BEFORE INSERT ON events BEGIN SELECT RAISE(ABORT,'injected failure'); END`); err != nil {
+				t.Fatal(err)
+			}
+			switch op {
+			case "add":
+				_, err = s.AddWebhook("https://other.example.com", []string{"agent."})
+			case "update":
+				next := w
+				next.Enabled = false
+				_, err = s.UpdateWebhook(next)
+			case "delete":
+				err = s.DeleteWebhook(w.ID)
+			case "rotate":
+				_, err = s.RotateWebhookSecret(w.ID, w.Revision)
+			case "delivery":
+				next := w
+				next.Cursor = 99
+				next.LastStatus = "delivered"
+				err = s.SaveWebhookProgress(w, next)
+			}
+			if err == nil {
+				t.Fatal("event failure ignored")
+			}
+			got, err := s.GetWebhook(w.ID)
+			if err != nil || got.Enabled != w.Enabled || got.Cursor != w.Cursor || got.Secret != w.Secret || got.Revision != w.Revision {
+				t.Fatalf("mutation escaped rollback: %#v %v", got, err)
+			}
+			rows, _ := s.ListWebhooks()
+			if len(rows) != 1 {
+				t.Fatal("add escaped rollback")
+			}
+		})
 	}
 }

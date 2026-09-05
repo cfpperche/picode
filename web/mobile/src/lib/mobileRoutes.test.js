@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 import { mobileRoute, mobileHash, tabOf, parentHash } from "./mobileRoutes.js";
 
 describe("mobileRoute", () => {
+  it("opens independent integrations deep links from More", () => {
+    for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) {
+      const route = mobileRoute(hash);
+      assert.equal(route.section, "integrations");
+      assert.equal(tabOf(route), "more");
+      assert.equal(parentHash(route), "#/more");
+    }
+  });
   it("opens Apps on the phone and keeps the Inbox route", () => {
     const route = mobileRoute("#/app/docker");
     assert.deepEqual(route, { screen: "app", id: "docker", section: "" });

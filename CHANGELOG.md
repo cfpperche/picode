@@ -39,6 +39,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Integrations** has its own desktop/mobile route, with signed outbound
+  webhooks, event selection, durable retry/cursor state, secret replacement
+  and receiver tests. Connector setup reuses the MCP adapter and native
+  configuration, adds reviewed external-definition import, and lists optional
+  connector packages separately from live services. A local DeepWiki package
+  demonstrates the adapter's `pi.mcp` contract without vendor code in core.
+
 - **Git graph shows every worktree's working tree** (ADR-0073). One
   "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
   the graph was opened from — labelled with its branch, directory, the agents

@@ -67,13 +67,14 @@ type Entry struct {
 
 // Report is GET /api/mcp.
 type Report struct {
-	Adapter  Adapter    `json:"adapter"`
-	Layers   []Layer    `json:"layers"`
-	Servers  []Server   `json:"servers"`
-	Presets  []Preset   `json:"presets"`
-	Imports  []string   `json:"imports"`
-	Found    []HostInfo `json:"found"`
-	WriteDir string     `json:"writeDir,omitempty"`
+	ConnectorPackages []ConnectorPackage `json:"connectorPackages"`
+	Adapter           Adapter            `json:"adapter"`
+	Layers            []Layer            `json:"layers"`
+	Servers           []Server           `json:"servers"`
+	Presets           []Preset           `json:"presets"`
+	Imports           []string           `json:"imports"`
+	Found             []HostInfo         `json:"found"`
+	WriteDir          string             `json:"writeDir,omitempty"`
 }
 
 // Adapter reports whether pi-mcp-adapter is a configured package.
@@ -182,7 +183,7 @@ func (p Paths) Layers() []Layer {
 
 // List merges servers. Missing files are empty.
 func List(p Paths) (Report, error) {
-	rep := Report{Adapter: Adapter{Source: AdapterSource}, Presets: Presets(), Layers: p.Layers()}
+	rep := Report{Adapter: Adapter{Source: AdapterSource}, Presets: Presets(), Layers: p.Layers(), ConnectorPackages: connectorPackages(p)}
 	if raw, err := readFile(p.PiGlobal()); err == nil && raw != nil {
 		rep.Imports = importKindsOf(raw)
 	}

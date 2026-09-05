@@ -17,6 +17,13 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
+Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
+missing adapter, validation overlay, failed delivery/retry and the connector
+catalog. `integrations-mobile-*` covers installed package metadata, the scrolled
+catalog/form and webhook editing. Read screenshots and final overlay/row audits
+passed. All data belongs to an isolated daemon; real HTTP/MCP results are recorded
+in `docs/plans/integrations.md`, not inferred from these images.
+
 Working captures stay in `var/screenshots/`. Devices footer (list + centred Pair/Copy): `devices-foot.png`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
 Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,

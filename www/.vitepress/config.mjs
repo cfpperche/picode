@@ -53,6 +53,7 @@ export default defineConfig({
           { text: "Model roles", link: "/guide/roles" },
           { text: "Inbox tools for pi", link: "/guide/inbox-tools" },
           { text: "MCP", link: "/guide/mcp" },
+          { text: "Integrations", link: "/guide/integrations" },
           { text: "Agent CLIs", link: "/guide/agent-clis" },
           { text: "CLI activity reporting", link: "/guide/terminal-status" },
           { text: "llama.cpp", link: "/guide/llama" },

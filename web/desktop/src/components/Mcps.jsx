@@ -8,8 +8,9 @@ import { toast } from "../lib/toast.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
+import { readConnectorDefinition, destinationLabel } from "@picode/shared/domain/integrations.js";
 
-export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload }) {
+export default function Mcps({ hidden, embedded, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [scope, setScope] = useState("user");
@@ -50,16 +51,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     load();
   }, [agentRunning]);
   useEffect(() => {
-    if (hidden || !agentRunning) return;
+    if (hidden) return;
     // Change feed (ADR-0048): pi's live MCP status streams as ephemeral
     // mcp.updated events — one fleet-wide watcher instead of one poll per
     // open panel. The interval below is only the feed-down fallback, and
     // the panel reconciles once when the feed (re)opens.
     const unsub = subscribeFeed((ev) => {
       if (ev.type === "feed.open" || ev.type === "feed.reset") load();
+      else if (ev.type === "mcp.config") load();
       else if (ev.type === "mcp.updated" && ev.data && ev.data.agentId === agentId) load();
     });
-    const t = setInterval(() => { if (!feedConnected()) load(); }, 2500);
+    const t = agentRunning ? setInterval(() => { if (!feedConnected()) load(); }, 2500) : null;
     return () => { unsub(); clearInterval(t); };
   }, [hidden, agentRunning, workspaceId, agentId]);
   useEffect(() => {
@@ -106,6 +108,21 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     };
   }
 
+  async function importDefinition(file) {
+    if (!file || job) return;
+    try {
+      if (file.size > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
+      const entry = readConnectorDefinition(await file.text());
+      const where = scope === "user" ? "this machine" : scope === "project" ? (workspaceName || "this workspace") : (agentName || "this agent");
+      const message = entry.command
+        ? "Runs " + [entry.command, ...(entry.args || [])].map(v => JSON.stringify(v)).join(" ") + " with your system permissions. Add to " + where + " only if you trust its source."
+        : "Allows agents in " + where + " to use tools from " + destinationLabel(entry.url) + ". Only connect services you trust.";
+      if (!await askConfirm({ title: "Add " + entry.name + "?", message, confirmLabel: "Add connector" })) return;
+      setFormError("");
+      await addServer(entry);
+    } catch (err) { setFormError(err.message); }
+  }
+
   async function addServer(entry) {
     if (!installed) return;
     let name = "";
@@ -122,6 +139,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           args: entry.args || [],
           url: entry.url || "",
           auth: entry.auth || "",
+          env: entry.env, headers: entry.headers, bearerToken: entry.bearerToken,
         })),
       }));
       if (!next) return;
@@ -309,7 +327,8 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   return (
-    <PageFrame id="mcps-view" title="MCPs" context={paneContext(agentName, workspaceName)} hidden={hidden}>
+    <PageFrame id={embedded ? "connectors-view" : "mcps-view"} title={embedded ? "Connectors" : "MCPs"} embedded={embedded} context={paneContext(agentName, workspaceName)} hidden={hidden}>
+      {embedded && <p className="integrations-intro">Connect services your agents can use.</p>}
       {loading ? (
         <div className="mcp-skel" aria-hidden="true">
           <div className="skel-line w-70" />
@@ -317,18 +336,23 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         </div>
       ) : loadError && !data ? (
         <div className="mcp-empty">
-          <p>Couldn't load MCPs.</p>
+          <p>Couldn't load {embedded ? "connectors" : "MCPs"}.</p>
           <button type="button" className="btn btn-primary" onClick={() => { setLoadError(""); load(); }}>Retry</button>
         </div>
       ) : !installed ? (
         <div className="mcp-empty">
-          <p>Install the MCP adapter to add servers.</p>
+          <p>Install the MCP adapter to connect services.</p>
           <a className="btn btn-primary" href="#/packages">Open packages</a>
         </div>
       ) : (
         <>
+          {embedded && !!data?.connectorPackages?.length && <section className="pkg-installed">
+            <h3>Connector packages</h3>
+            <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href="#/packages">Manage package</a></li>)}</ul>
+            <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
+          </section>}
           <section className="pkg-installed">
-            <h3>Servers</h3>
+            <h3>{embedded ? "Configured services" : "Servers"}</h3>
             {servers.length ? (
               <ul className="mcp-list">
                 {servers.map((s) => {
@@ -366,12 +390,13 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                 })}
               </ul>
             ) : (
-              <p className="pkg-fine">No servers yet.</p>
+              <p className="pkg-fine">No {embedded ? "connectors" : "servers"} yet. Choose a service below to add one.</p>
             )}
           </section>
 
           <section className="mcp-add">
-            <h3>Add</h3>
+            <h3>{embedded ? "Add connector" : "Add"}</h3>
+            {embedded && <label className="integration-import">Import a connector definition<input type="file" accept=".json,application/json" disabled={!!job} onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; importDefinition(file); }} /></label>}
             {showScopes ? (
               <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
                 <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
@@ -397,17 +422,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                 ) : null}
               </div>
             ) : null}
-            <div className="mcp-presets" data-align-row>
+            <div className={embedded ? "integration-catalog" : "mcp-presets"} data-align-row={embedded ? undefined : true}>
               <button type="button" className="pkg-scope-btn" disabled={!!job} onClick={importHosts}>Use from…</button>
               {presets.map((p) => (
                 <button
                   key={p.id}
                   type="button"
-                  className="pkg-scope-btn"
+                  className={embedded ? "integration-preset" : "pkg-scope-btn"}
                   disabled={!!job}
                   title={p.summary}
                   onClick={() => addServer({ name: p.id, ...p.entry })}
-                >{p.name}</button>
+                >{embedded ? <><strong>{p.name}</strong><span>{p.summary}</span></> : p.name}</button>
               ))}
             </div>
             <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>

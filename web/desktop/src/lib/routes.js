@@ -7,6 +7,7 @@ export const ROUTES = {
   system: "/system",
   providers: "/providers",
   mcps: "/mcps",
+  integrations: "/integrations",
   packages: "/packages",
   devices: "/devices",
   pins: "/pins",
@@ -23,6 +24,7 @@ export function parseRoute(hash) {
   if (h === "/system") return "system";
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
   if (h === "/mcps") return "mcps";
+  if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
   if (h === "/packages") return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
