@@ -29,7 +29,7 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    Do not edit `main` in the primary checkout in parallel with another
    agent. After merge, remove the worktree and the branch.
 5. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
-   and `packages/pi-compact/` is MIT; everything else is PolyForm
+   `packages/pi-compact/`, and `packages/pi-diff/` is MIT; everything else is PolyForm
    Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0028.
 
 ## The documentation contract (applies to everyone)

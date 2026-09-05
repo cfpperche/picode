@@ -66,7 +66,21 @@ Deployed and dormant without configuration. The root `.pi/compact.json` belongs
 to other work and was not evaluated. Real-compaction acceptance must still prove
 `fromHook: true`, gemini-3.6-flash pricing and no aborted turns.
 
+### Diff panel (`pi-diff`, ADR-0077)
+
+Built on `feat/pi-diff` (worktree `.worktrees/pi-diff`), not merged, not
+deployed. `/diff` in the pi TUI opens a non-capturing right-hand overlay with
+the changed files and the focused file's numbered hunks; the footer carries
+the total. Dogfooded in tmux on a scratch repository (tracked, untracked,
+binary, renamed files; scrolling, narrow-terminal hiding, close/reopen, and
+one real grok write turn that moved the focus by itself). 19 logic tests.
+The ADR is accepted (owner approval 2026-09-05).
+
 ## In flight
+
+- `pi-diff` (ADR-0077) awaits the owner's merge decision; `make test-js`
+  and `make vale` ran in the worktree. No PiCode core change; the package is
+  listed in `.pi/settings.json`, the Makefile suite, LICENSING and the guide.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
@@ -140,6 +154,15 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
   Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
   ok). Merged and deployed `2231919`.
+- **2026-09-05 — `pi-diff` package built (ADR-0077).** New MIT package
+  `packages/pi-diff` in the pi-checklist mold: pure `src/logic.ts` (numstat,
+  porcelain and unified-diff parsing, focus rules, layout) with node:test
+  coverage, and `extensions/diff.ts` (git, `tui.showOverlay` through a
+  zero-height widget slot, `tool_execution_*`/`turn_end` refresh, `/diff`
+  command with completions, `alt+n`/`alt+u`/`alt+pageUp`/`alt+pageDown`).
+  `ctx.ui.custom()` was rejected because its `ui_prompt_*` events would read
+  as "waiting for user" to the guest-TUI sensors. Guide at
+  `www/guide/diff-panel.md`. Branch `feat/pi-diff`, unmerged.
 
 - **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
   host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`

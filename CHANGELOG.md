@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- `packages/pi-diff` (ADR-0077): a side diff panel for the pi TUI. `/diff`
+  opens a right-hand overlay with every file changed against `HEAD` and the
+  numbered hunks of the file the agent touched last, refreshed after each
+  edit and at the end of every turn; the editor keeps focus, the footer
+  carries the running total, `alt+n`/`alt+u` scroll. An extension, not
+  core — installed like the other `packages/`.
+
 ### Fixed
 
 - Mobile chat wraps its controls when space is tight, keeping Send visible

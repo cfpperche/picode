@@ -79,3 +79,4 @@ subcommand
 summarizer
 gmail
 Gmail
+untracked
