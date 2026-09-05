@@ -30,6 +30,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Managed agents stop again. `Stop agent`, `Open terminal` and automation
+  run teardown all hang forever when the real `pi` (running behind the
+  intercept shell wrapper) outlives its killed parent as an orphan holding
+  the rpc client's stdout pipe: `Runtime.Stop` waited on the pipe EOF that
+  never came (the 2026-09-05 `pi-diff` hang). The rpc client now spawns the
+  agent in its own process group, SIGKILLs the whole group on `Close`, and
+  closes stdin/stdout so the pump unblocks even if a stray descriptor
+  survives. The pi intercept wrapper additionally `exec`s the real pi
+  directly for managed `--mode rpc`/`--mode json` runs, dropping the shell
+  middleman outright.
+
 - Mobile chat wraps its controls when space is tight, keeping Send visible
   alongside Stop during execution.
 

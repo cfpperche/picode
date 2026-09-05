@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,10 +17,39 @@ import (
 // in init() below.
 
 func init() {
+	if os.Getenv("PICODE_FAKE_RPC_HOLDER") == "1" {
+		// The grandchild in the Close regression test: holds the inherited
+		// stdout pipe open and ignores the world, like the real pi behind
+		// the intercept wrapper does.
+		time.Sleep(60 * time.Second)
+		os.Exit(0)
+	}
+	if os.Getenv("PICODE_FAKE_RPC_WRAPPER") == "1" {
+		// The intercept wrapper double: spawns a grandchild that inherits
+		// the client's stdout pipe, then serves the protocol itself — the
+		// exact shape ~/.picode/bin/pi gives managed runs.
+		fakeWrapperMain()
+	}
 	if os.Getenv("PICODE_FAKE_RPC") == "1" {
 		fakeMain()
 		os.Exit(0)
 	}
+}
+
+// fakeWrapperMain spawns the holder grandchild (inheriting stdout), records
+// its pid for the test, and then behaves as the plain rpc double.
+func fakeWrapperMain() {
+	holder := exec.Command(os.Args[0])
+	holder.Env = append(os.Environ(), "PICODE_FAKE_RPC_HOLDER=1")
+	holder.Stdout = os.Stdout // the whole point: hold the client's stdout pipe
+	holder.Stdin = os.Stdin
+	if err := holder.Start(); err == nil {
+		if path := os.Getenv("PICODE_HOLDER_PID_FILE"); path != "" {
+			_ = os.WriteFile(path, []byte(strconv.Itoa(holder.Process.Pid)), 0o600)
+		}
+	}
+	fakeMain()
+	os.Exit(0)
 }
 
 // fakeMain speaks a minimal subset of pi's rpc protocol on stdio.
@@ -286,5 +318,93 @@ func TestProcessExitFailsPendingAndDone(t *testing.T) {
 	defer sendCancel()
 	if _, err := c.Send(sendCtx, Command{Type: "get_state"}); err == nil {
 		t.Fatal("Send after exit should fail")
+	}
+}
+
+// closeWithin fails the test if Close does not return before timeout — the
+// shape of the 2026-09-05 pi-diff hang, where Stop never came back.
+func closeWithin(t *testing.T, c *Client, timeout time.Duration) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { c.Close(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		t.Fatal("Close hung: the process tree survived the kill and is holding the pipe")
+	}
+}
+
+// TestCloseKillsGrandchildHoldingStdout pins the stop-agent hang: a real
+// deployment starts the real pi BEHIND a shell intercept wrapper, and the
+// wrapper's child inherits the client's stdout pipe. Killing only the
+// direct child leaves that grandchild alive, pump never sees EOF, and
+// Close — reached from Runtime.Stop by both "Stop agent" and "Open
+// terminal" — waits forever. The kill must reach the whole group, and the
+// pipe must not be the only thing Close waits on.
+//
+//	Conditions                    | Action expected
+//	------------------------------|----------------------------------
+//	wrapper + grandchild on pipe  | both die, Close returns
+//	process already self-exited   | Close returns immediately
+//	second Close (Stop races All) | returns immediately, no panic
+func TestCloseKillsGrandchildHoldingStdout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process-group kill and grandchild liveness are unix-only")
+	}
+	dir := t.TempDir()
+	pidFile := dir + "/holder.pid"
+	c, err := Start(os.Args[0], []string{"--mode", "rpc"}, dir,
+		"PICODE_FAKE_RPC=1", "PICODE_FAKE_RPC_WRAPPER=1", "PICODE_HOLDER_PID_FILE="+pidFile)
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	var holderPID int
+	for i := 0; i < 50 && holderPID == 0; i++ { // wait for the grandchild to exist
+		if b, readErr := os.ReadFile(pidFile); readErr == nil {
+			holderPID, _ = strconv.Atoi(strings.TrimSpace(string(b)))
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if holderPID == 0 {
+		c.Close()
+		t.Fatal("wrapper double never reported the grandchild pid")
+	}
+	closeWithin(t, c, 5*time.Second)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if !processAlive(holderPID) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("grandchild %d survived Close: it still holds the stdout pipe", holderPID)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func TestCloseAfterProcessExited(t *testing.T) {
+	c := startClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := c.Send(ctx, Command{Type: "die"}); err != nil {
+		t.Fatalf("die: %v", err)
+	}
+	select {
+	case <-c.Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("Done not closed after process exit")
+	}
+	closeWithin(t, c, 3*time.Second) // group kill on a dead group must be a no-op
+}
+
+func TestCloseIdempotent(t *testing.T) {
+	c := startClient(t)
+	closeWithin(t, c, 5*time.Second)
+	finished := make(chan struct{})
+	go func() { c.Close(); close(finished) }() // Stop racing StopAll: second Close
+	select {
+	case <-finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("second Close blocked")
 	}
 }
