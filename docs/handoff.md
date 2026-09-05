@@ -6,15 +6,19 @@
 
 ## Current state (read this first)
 
-**Repository:** Docker v3 is implemented on `feat/docker-v3`, based on
-`ce860aa9`. Local integration/deployment is the final acceptance step.
-Preserve the unrelated `.pi/compact.json`; commits remain local and unpushed.
-ADRs 0067/0068 implement resources, opt-in health and supervised maintenance,
-including v2's existing-project operations. Compose deployment remains proposed.
+**Repository:** local `main` includes Docker v3 (`7029b041`, ADRs 0067/0068),
+including v2's existing-project operations. Tracked files are clean; commits
+remain local and unpushed. Preserve the unrelated `.pi/compact.json`.
+Compose registration/deployment remains proposed.
 
-**Deployment:** the installed service still runs `0.1.0+ea756cc` until the v3
-quality gates and local integration finish. Isolated QA uses the rebuilt v3
-binary and separate data, with no changes to the user's Docker projects.
+**Deployment:** `0.1.0+7029b04`, health `ok`, boot `00c5867e6f1aacb0`. Installed
+binary and served assets match the tested build. Real groups are bidwar (12),
+cognixse (11), hull (9), pgtenant (2); cards fill the main canvas at 1920px.
+Resources and Health were checked in the deployed browser; monitoring is off.
+All 124 sessions still present at deployment were preserved. The earlier
+125-session baseline included `terminal-8-e0d7f1`, deleted via a recorded Store
+event at 00:25:14 UTC, before service restart at 00:25:44 UTC. No replacement
+session was created. QA servers, browsers and their resources were cleaned up.
 
 **Quality:** `make ci` passed (Go, 480 frontend tests, package checks/builds,
 docs parity and Vale), as did Docker/Store race tests.
@@ -59,32 +63,18 @@ on desktop/mobile. Curated evidence: `docs/screenshots/docker-v3-*.png`.
 
 ### ADR-0061 compaction policy package (`pi-compact`)
 
-Shipped, deployed, then amended after the first real compaction (owner
-directive: **no defaults, ever**). The primary checkout now has an untracked
-`.pi/compact.json` from other local work; its configuration and live dogfood
-were not evaluated in this session:
-
-- **Dormant until configured.** Without `.pi/compact.json` (or a per-agent
-  overlay) Pi's stock compaction and summarizer run untouched; the status
-  line reads `compact: not configured · /compact-edit`. Any config file is
-  the opt-in.
-- **Commands are `/compact-edit|model|on|off` (second amendment).** Pi's
-  TUI dispatches `/compact …` to its built-in command before extension
-  commands run, so `/compact edit` compacted instead of opening the wizard.
-  Bare `/compact` stays native; the summarizer hook still applies to it.
-- **Trigger on `agent_settled`, never `turn_end`.** `ctx.compact()` starts
-  with `abort()`, so the old mid-run trigger killed active runs ("This
-  operation was aborted"); `agent_settled` is Pi's own post-run compaction
-  boundary, plus an `isIdle()` guard.
-- **The summarizer chain retries link by link** (error stops, throws, empty
-  or length-capped summaries fall through; Pi's summarizer is the last
-  resort). Auto chain: `gemini-3.6-flash` → `claude-haiku-4-5` — 2.5-flash
-  now 404s for newer Google accounts. 54 package tests; `make ci` green.
+Deployed and dormant until configured: no defaults without `.pi/compact.json`
+(or a per-agent overlay). The untracked root config belongs to other work and
+was not evaluated here. Commands are `/compact-edit|model|on|off`; bare
+`/compact` remains Pi's native command. Trigger on `agent_settled` plus idle,
+never `turn_end`, which aborts active work. Auto summarizer fallback remains
+`gemini-3.6-flash` → `claude-haiku-4-5` → Pi; 54 package tests pass. A configured
+real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- Docker v3 final integration/deployment is in progress. Compose file
-  registration/deployment remains a separate proposal extending ADR-0065.
+- Compose file registration/deployment remains a separate proposal extending
+  ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
   acceptance remain open; real Linux Engine operation QA passed. No model
   turn was used to validate the 11-tool extension.
@@ -145,7 +135,8 @@ were not evaluated in this session:
 - **2026-09-04 — Docker v3 resources, health and supervised maintenance.**
   Added reviewed project actions, shared locks, durable steps, opt-in monitoring
   and Inbox review links. Real disposable Engine QA and Pi tool loading passed;
-  visual-review: PASS (screenshots read; overlay audits ok). CI passed; deploy pending.
+  visual-review: PASS (screenshots read; overlay audits ok). CI passed; deployed
+  as `0.1.0+7029b04`. Installed assets/binary and real inventory verified.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
