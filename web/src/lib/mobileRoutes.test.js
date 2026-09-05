@@ -11,6 +11,7 @@ describe("mobileRoute", () => {
     assert.equal(mobileHash("app", "docker"), "#/app/docker");
     assert.equal(mobileRoute("#/more/apps").section, "apps");
     assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
+    assert.deepEqual(mobileRoute("#/app/docker/plan/qa%20review"), { screen: "app", id: "docker", section: "", path: "plan/qa review" });
   });
   it("parses the four tabs and the two pushed screens", () => {
     assert.deepEqual(mobileRoute("#/"), { screen: "now", id: "", section: "" });

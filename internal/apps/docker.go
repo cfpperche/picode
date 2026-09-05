@@ -29,11 +29,20 @@ func (dockerApp) Badge(ctx context.Context, h Host) (Badge, error) {
 			return Badge{Dot: true}, nil
 		}
 	}
+	jobs, err := h.Store.DockerJobs()
+	if err != nil {
+		return Badge{}, err
+	}
+	for _, job := range jobs {
+		if job.State == "running" {
+			return Badge{Dot: true}, nil
+		}
+	}
 	return Badge{}, nil
 }
 
 func dockerTabs() []Tab {
-	return []Tab{{ID: "containers", Label: "Containers", Path: ""}, {ID: "history", Label: "History", Path: "history"}}
+	return []Tab{{ID: "containers", Label: "Containers", Path: ""}, {ID: "resources", Label: "Resources", Path: "resources"}, {ID: "health", Label: "Health", Path: "health"}, {ID: "history", Label: "History", Path: "history"}}
 }
 func dockerView() View {
 	return View{APIVersion: APIVersion, Title: "Docker", Tabs: dockerTabs(), Blocks: []Block{}}
@@ -44,29 +53,33 @@ func dockerRetry() Block {
 }
 
 func (a dockerApp) View(ctx context.Context, h Host, path string) (View, error) {
+	if path == "containers" {
+		path = ""
+	}
 	v := dockerView()
 	if h.Store == nil {
 		return v, fmt.Errorf("Docker history is unavailable")
+	}
+	if v3, handled, err := a.maintenanceView(ctx, h, path); handled {
+		return v3, err
 	}
 	ops, err := h.Store.DockerOperations(50)
 	if err != nil {
 		return v, err
 	}
-	if path == "history" {
-		items := []ListItem{}
-		for _, op := range ops {
-			tone := "ok"
-			if op.State == "running" {
-				tone = "info"
-			} else if op.State == "unknown" {
-				tone = "warn"
-			} else if op.State == "failed" {
-				tone = "danger"
-			}
-			items = append(items, ListItem{ID: op.ID, Title: actionLabel(op.Action) + " · " + op.ContainerName, Subtitle: op.Message, Meta: []string{op.Actor}, At: op.CreatedAt, Badge: op.State, Tone: tone, Busy: op.State == "running", Path: "item/" + op.ContainerID})
+	jobs, err := h.Store.DockerJobs()
+	if err != nil {
+		return v, err
+	}
+	for _, job := range jobs {
+		if job.State != "running" {
+			continue
 		}
-		v.Blocks = append(v.Blocks, Block{Type: "list", Title: "Recent operations", Empty: "No Docker operations yet.", Items: items})
-		return v, nil
+		for _, step := range job.Steps {
+			if step.Kind == "container" {
+				ops = append(ops, store.DockerOperation{ID: job.ID, Endpoint: job.Endpoint, ContainerID: step.Target, ContainerName: step.Name, Action: step.Action, State: "running", Actor: job.Actor, CreatedAt: job.CreatedAt})
+			}
+		}
 	}
 	if h.Docker == nil {
 		v.Blocks = []Block{dockerText("", "Docker integration is unavailable."), dockerRetry()}
@@ -178,6 +191,7 @@ func dockerContainerGroups(inv docker.Inventory, ops []store.DockerOperation) []
 			// refreshes and connection changes without sharing fold preferences.
 			key, _ := json.Marshal([]string{inv.Endpoint, c.Project})
 			g = &group{block: Block{Type: "list", ID: "docker-group:" + string(key), Title: title, Collapsible: true, Items: []ListItem{}}, states: map[string]int{}}
+			g.block.Actions = []Action{{ID: "open-project", Label: "Manage project", Args: map[string]string{"project": c.Project, "endpoint": inv.Endpoint}}, {ID: "open-health", Label: "Project health", Args: map[string]string{"project": c.Project, "endpoint": inv.Endpoint}}}
 			groups[c.Project] = g
 		}
 		state := c.State
@@ -248,6 +262,16 @@ func actionLabel(action string) string {
 		return "Stop"
 	case "restart":
 		return "Restart"
+	case "remove":
+		return "Remove"
+	case "stop-restart-loop":
+		return "Verify stopped state"
+	case "restart-unhealthy":
+		return "Verify health check"
+	case "start-stopped-service":
+		return "Verify service state"
+	case "restart-high-memory":
+		return "Verify memory usage"
 	}
 	return action
 }
@@ -259,6 +283,9 @@ func (a dockerApp) Action(ctx context.Context, h Host, req ActionRequest) (Actio
 	}
 	if h.Docker == nil {
 		return ActionResult{}, fmt.Errorf("Docker integration is unavailable")
+	}
+	if result, handled, err := a.maintenanceAction(ctx, h, req); handled {
+		return result, err
 	}
 	op, err := h.Docker.Start(ctx, docker.Request{Action: req.Action, ContainerID: req.Args["containerId"], RequestKey: req.Args["requestKey"], Actor: h.Actor})
 	if err != nil {

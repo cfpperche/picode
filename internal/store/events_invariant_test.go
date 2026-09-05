@@ -213,6 +213,30 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.RecoverDockerOperations()
 		}, []string{"docker.operation"}},
+		{"CreateDockerPlan", func(s *Store) { _, _ = s.CreateDockerPlan(DockerPlan{Input: json.RawMessage(`{}`)}) }, []string{"docker.plan"}},
+		{"RequestDockerReview", func(s *Store) {
+			p, _ := s.CreateDockerPlan(DockerPlan{Input: json.RawMessage(`{}`)})
+			s.OnEvent = recorder(s)
+			_, _ = s.RequestDockerReview(p.ID)
+		}, []string{"inbox.created", "docker.plan"}},
+		{"BeginDockerJob", func(s *Store) { _, _, _ = s.BeginDockerJob(testDockerJob("request-job", "plan", "a")) }, []string{"docker.job"}},
+		{"UpdateDockerJob", func(s *Store) {
+			j, _, _ := s.BeginDockerJob(testDockerJob("request-job", "plan", "a"))
+			s.OnEvent = recorder(s)
+			j.State = "succeeded"
+			_ = s.UpdateDockerJob(j)
+		}, []string{"docker.job"}},
+		{"RecoverDockerJobs", func(s *Store) {
+			_, _, _ = s.BeginDockerJob(testDockerJob("request-job", "plan", "a"))
+			s.OnEvent = recorder(s)
+			_ = s.RecoverDockerJobs()
+		}, []string{"docker.job"}},
+		{"SaveDockerMonitor", func(s *Store) { _, _ = s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo")) }, []string{"docker.monitor"}},
+		{"RecordDockerHealth", func(s *Store) {
+			m, _ := s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo"))
+			s.OnEvent = recorder(s)
+			_ = s.RecordDockerHealth(m.Endpoint, m.Project, m.Revision, json.RawMessage(`{}`), nil, time.Now())
+		}, []string{"docker.health"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

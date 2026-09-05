@@ -1,8 +1,27 @@
 # Docker v3: visibility and supervised maintenance
 
-**Status:** proposed plan, 2026-09-04. Requested by the owner; no v3 feature
-is implemented by this document. [V2](docker-v2.md) is also still proposed.
-The current delivery is grouped container inventory and individual operations.
+**Status:** owner-authorized implementation, 2026-09-04. The three increments
+below are implemented in ADRs [0067](../decisions/0067-docker-maintenance-plans.md)
+and [0068](../decisions/0068-docker-health-monitoring.md), with final acceptance
+recorded in [handoff](../handoff.md). V2's project-operation foundation ships
+with this work; Compose registration/deployment remains a separate proposal.
+The original scope and acceptance criteria below remain the design reference.
+
+### Delivery choices
+
+- Resources use full-width disclosure groups and search within the App.
+  Project resources show actual consumer references, not guessed ownership of
+  unused resources. Only selected images/custom local networks can be removed.
+- Monitoring stores one latest snapshot plus deduplicated incidents. Cadence is
+  30/60/300 seconds; thresholds, consecutive samples and 7/30-day closed incident
+  retention are chosen in Health. No historical metrics chart is implemented.
+- Diagnosis uses named, deterministic procedures with observations and possible
+  causes. The optional Pi agent can reason over that structured evidence; no new
+  model runtime is embedded in PiCode. No automatic repair policy is enabled.
+- Inbox holds a deduplicated review link when Pi lacks confirmation UI. Triage
+  is not execution. Expired or changed plans require a new review in Docker.
+- Deferred scope remains Compose deployment, volume deletion, backup/restore,
+  automatic repair policies and remote Docker engines.
 
 ## Outcome and sequence
 

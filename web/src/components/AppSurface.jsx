@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, humanizeError } from "../lib/api.js";
-import { normalizeView, supportedApp, SUPPORTED_API } from "../lib/appPrimitives.js";
+import { normalizeView, supportedApp, SUPPORTED_API, activeAppTab } from "../lib/appPrimitives.js";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import { relTime, absTime } from "../lib/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -13,6 +13,7 @@ import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, Ico
 import { subscribeFeed } from "../lib/feed.js";
 import { touches } from "../lib/feedReducers.js";
 import { createRefreshQueue } from "../lib/appRefreshQueue.js";
+import { appFormSchema, parseForm } from "../lib/schemas.js";
 import { readGroupPreferences, writeGroupPreferences, groupIsOpen, resetGroupSearch, toggleGroup } from "../lib/appGroups.js";
 
 const SKELETON_ROWS = 5;
@@ -39,7 +40,7 @@ const LIST_KEY = "picode-app-split-w";
 // keeps the desktop's split. onGoto receives an action's goto directive
 // ("agent:<id>"); each shell opens its
 // own agent terminal surface.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, refreshKey, paneMode, onOpenItem, onGoto }) {
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -48,6 +49,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   // on that item instead of the list. Later changes to it navigate too.
   const [path, setPath] = useState(initialPath || "");
   useEffect(() => { if (initialPath != null) setPath(initialPath); }, [initialPath]);
+  const changePath = (next) => { setPath(next); setQuery(""); if (onPathChange) onPathChange(next); };
   const [view, setView] = useState(null); // normalized tree
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
@@ -197,7 +199,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
         if (v) { setView(v); setUnsupported(false); }
         else setUnsupported(true);
       } else if (res && typeof res.path === "string" && res.path !== path) {
-        setPath(res.path);
+        changePath(res.path);
       } else if (res && typeof res.path === "string") {
         await load(res.path);
       }
@@ -216,7 +218,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const detailBlocks = split ? view.blocks.filter((b) => b.pane !== "list") : [];
   const navigate = (p) => {
     if (paneMode === "list" && onOpenItem && typeof p === "string" && p.startsWith("item/")) { onOpenItem(p); return; }
-    setPath(p);
+    changePath(p);
   };
   const groupKey = (id) => JSON.stringify([appId, id]);
   const ctx = {
@@ -271,28 +273,28 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
     <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
       <header className="ft-head">
         {path && !split ? (
-          <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => setPath("")}>
+          <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => changePath("")}>
             <IconChevronLeft size={13} />
           </button>
         ) : null}
         <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : ""} label={title} size={14} /></span>
         <h2 className="ft-title" title={title}>{title}</h2>
         <div className="app-head-left" data-align-row>
-          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={setPath} name={tabsName} />
-          {totalItems > 0 ? (
-            <span className="app-search-wrap">
-              <input
-                type="search"
-                className="app-search"
-                placeholder={`Filter ${title.toLowerCase()}`}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); setQuery(""); } }}
-                aria-label={`Filter ${title} by title or details`}
-              />
-            </span>
-          ) : null}
+          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={changePath} name={tabsName} />
         </div>
+        {totalItems > 0 ? (
+          <span className="app-search-wrap">
+            <input
+              type="search"
+              className="app-search"
+              placeholder={`Filter ${title.toLowerCase()}`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); setQuery(""); } }}
+              aria-label={`Filter ${title} by title or details`}
+            />
+          </span>
+        ) : null}
         <span className="ft-spacer" />
         <div className="app-head-right" data-align-row>
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
@@ -377,11 +379,12 @@ function PaneBlocks({ blocks, ctx, badge }) {
 // a list row's Path already drives, so no new wiring exists just for tabs.
 function TabStrip({ tabs, path, onNavigate, name }) {
   if (!tabs || tabs.length === 0) return null;
+  const active = activeAppTab(tabs, path);
   return (
     <div className="app-tabs" role="radiogroup" aria-label="Filter" data-align-row>
       {tabs.map((t) => (
         <label className="app-tab-opt" key={t.id}>
-          <input type="radio" name={name} checked={t.path === path} onChange={() => onNavigate(t.path)} />
+          <input type="radio" name={name} checked={t.id === active} onChange={() => onNavigate(t.path)} onClick={() => { if (t.id === active && path !== t.path) onNavigate(t.path); }} />
           <span className="app-tab-face">
             {t.label}
             {t.badge ? <span className="app-tab-badge">{t.badge}</span> : null}
@@ -480,6 +483,9 @@ function AppBlock({ block, onNavigate, onAction, selected, extraActions, badge, 
             <Row key={it.id} item={it} onNavigate={onNavigate} onAction={onAction} pending={pending} active={!!it.path && it.path === selected} />
           ))}
         </ul>
+        {block.actions.length ? <div className="app-actions app-list-actions">
+          {block.actions.map((action) => <ActionButton key={action.id} action={action} onAction={onAction} pending={pending} />)}
+        </div> : null}
       </>;
     if (block.collapsible) {
       const open = groupOpen(block.id);
@@ -580,7 +586,7 @@ function Row({ item, onNavigate, onAction, active, pending }) {
   };
   return (
     <li
-      className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "") + (item.busy ? " app-row-busy" : "")}
+      className={"app-row" + (active ? " app-row-on" : "") + (item.unread ? " app-row-unread" : "") + (swiped ? " app-row-swiped" : "") + (item.busy ? " app-row-busy" : "") + (item.wrap ? " app-row-wrap" : "")}
       style={item.actions.length ? { "--swipe-w": reveal + "px" } : undefined}
       onTouchStart={item.actions.length ? onTouchStart : undefined}
       onTouchMove={item.actions.length ? onTouchMove : undefined}
@@ -631,6 +637,7 @@ function Row({ item, onNavigate, onAction, active, pending }) {
 }
 
 function AppForm({ form, onAction, extraActions, pending }) {
+  const [error, setError] = useState("");
   const [values, setValues] = useState(() => {
     const v = {};
     for (const f of form.fields) v[f.name] = f.method === "confirm" ? "no" : (f.prefill || (f.method === "select" ? f.options[0] || "" : ""));
@@ -638,9 +645,12 @@ function AppForm({ form, onAction, extraActions, pending }) {
   });
   const set = (name, val) => setValues((cur) => ({ ...cur, [name]: val }));
   const submit = async () => {
+    const parsed = parseForm(appFormSchema(form.fields), values);
+    setError(parsed.error);
+    if (!parsed.ok) return;
     // A TUI reply lands in the agent's running terminal (ADR-0060); the
     // host owns delivery and durable proof, so the form just submits.
-    return onAction({ id: form.id, label: form.submit || "Submit", args: {} }, values);
+    return onAction({ id: form.id, label: form.submit || "Submit", args: {} }, parsed.value);
   };
   const fireExtra = (action) => onAction(action);
   const hasEditor = form.fields.some((f) => f.method === "editor");
@@ -681,6 +691,7 @@ function AppForm({ form, onAction, extraActions, pending }) {
           {f.message ? <span className="app-field-msg">{f.message}</span> : null}
         </label>
       ))}
+      {error ? <p className="app-form-error" role="alert">{error}</p> : null}
       <div className="app-actions">
         {/* Only one filled button per row: if the app marked a decision as
             primary, submitting the reply is the side channel. */}

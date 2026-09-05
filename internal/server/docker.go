@@ -12,6 +12,7 @@ import (
 )
 
 func registerDockerRoutes(mux Registrar, deps Deps) {
+	registerDockerV3Routes(mux, deps)
 	mux.HandleFunc("GET /api/docker/containers", func(w http.ResponseWriter, r *http.Request) {
 		if deps.Docker == nil {
 			writeErr(w, 503, "Docker integration is unavailable")

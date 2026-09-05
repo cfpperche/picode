@@ -4,6 +4,20 @@ import { cronError } from "./cron.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
+// Server-driven App forms still validate with the same browser-independent
+// schema layer. Select/confirm values must come from the offered choices;
+// free-form replies retain their existing optional, literal text semantics.
+export function appFormSchema(fields) {
+  const shape = {};
+  for (const field of fields) {
+    const choices = field.method === "confirm" ? ["yes", "no"] : field.options;
+    shape[field.name] = field.method === "select" || field.method === "confirm"
+      ? z.string().refine((value) => choices.includes(value), "Choose an available option for " + (field.title || field.name) + ".")
+      : z.string();
+  }
+  return z.object(shape);
+}
+
 const modelPick = z.object({
   provider: required("Provider"),
   model: required("Model"),

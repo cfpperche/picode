@@ -24,7 +24,7 @@ func TestDockerRoutesRequirePairing(t *testing.T) {
 	if err := st.SetSetting(auth.ModeSettingKey, auth.ModeAll); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/api/docker/containers", "/api/docker/operations", "/api/apps/docker/view"} {
+	for _, path := range []string{"/api/docker/containers", "/api/docker/operations", "/api/apps/docker/view", "/api/docker/resources", "/api/docker/plans/qa", "/api/docker/jobs", "/api/docker/monitors", "/api/docker/health"} {
 		res, err := http.Get(ts.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -41,6 +41,16 @@ func TestDockerRoutesRequirePairing(t *testing.T) {
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("POST status %d", res.StatusCode)
+	}
+	for _, path := range []string{"/api/docker/plans", "/api/docker/plans/qa/review", "/api/docker/jobs", "/api/docker/monitors", "/api/docker/health/check", "/api/docker/diagnosis"} {
+		res, err := http.Post(ts.URL+path, "application/json", strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("%s status %d", path, res.StatusCode)
+		}
 	}
 }
 

@@ -53,3 +53,9 @@ Docker width correction: `docker-width-desktop.png` (1920px) and
 `docker-width-mobile.png` (390px) show cards filling the app canvas up to
 its padding. Both use synthetic data. Empty/blocked/error and confirmation
 states were also recaptured and read in `/tmp/picode-docker-width-*.png`.
+
+Docker v3 (ADRs 0067/0068): `docker-v3-*.png` covers full-width groups, resource
+consumers, reviewed project/procedure plans, running/completed/failed jobs,
+empty/blocked resources and mobile confirmation/monitoring. These are synthetic
+Engine fixtures. Separate real Engine QA used only disposable project members,
+an image, a network and a volume; all were removed afterward.

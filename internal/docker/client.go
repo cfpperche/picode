@@ -41,17 +41,25 @@ type APIError struct {
 func (e *APIError) Error() string { return e.Message }
 
 type Container struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Image      string `json:"image"`
-	State      string `json:"state"`
-	Status     string `json:"status"`
-	Project    string `json:"project,omitempty"`
-	Service    string `json:"service,omitempty"`
-	WorkingDir string `json:"workingDir,omitempty"`
-	StartedAt  string `json:"startedAt,omitempty"`
-	Health     string `json:"health,omitempty"`
-	TTY        bool   `json:"-"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	Image          string   `json:"image"`
+	ImageID        string   `json:"imageId,omitempty"`
+	State          string   `json:"state"`
+	Status         string   `json:"status"`
+	Project        string   `json:"project,omitempty"`
+	Service        string   `json:"service,omitempty"`
+	WorkingDir     string   `json:"workingDir,omitempty"`
+	StartedAt      string   `json:"startedAt,omitempty"`
+	Health         string   `json:"health,omitempty"`
+	HasHealthCheck bool     `json:"hasHealthCheck"`
+	RestartCount   int      `json:"restartCount"`
+	ExitCode       int      `json:"exitCode"`
+	OOMKilled      bool     `json:"oomKilled"`
+	Mounts         []Mount  `json:"mounts,omitempty"`
+	Networks       []string `json:"networks,omitempty"`
+	Secrets        []string `json:"-"`
+	TTY            bool     `json:"-"`
 }
 
 type Stats struct {
@@ -199,6 +207,9 @@ func (c *Client) Containers(ctx context.Context) ([]Container, error) {
 		ID                   string `json:"Id"`
 		Names                []string
 		Image, State, Status string
+		ImageID              string
+		Mounts               []Mount
+		NetworkSettings      struct{ Networks map[string]networkAttachment }
 		Labels               map[string]string
 	}
 	if err := c.get(ctx, "/v"+apiVersion+"/containers/json?all=true", &rows); err != nil {
@@ -207,6 +218,7 @@ func (c *Client) Containers(ctx context.Context) ([]Container, error) {
 	out := []Container{}
 	for _, r := range rows {
 		v := Container{ID: r.ID, Image: r.Image, State: r.State, Status: r.Status, Name: r.ID[:min(12, len(r.ID))]}
+		v.ImageID, v.Mounts, v.Networks = r.ImageID, r.Mounts, networkIDs(r.NetworkSettings.Networks)
 		if len(r.Names) > 0 {
 			v.Name = strings.TrimPrefix(r.Names[0], "/")
 		}
@@ -222,24 +234,37 @@ func (c *Client) Inspect(ctx context.Context, id string) (Container, error) {
 		return Container{}, errors.New("Select a container using its full ID")
 	}
 	var r struct {
-		ID     string `json:"Id"`
-		Name   string
-		Config struct {
-			Image  string
-			Tty    bool
-			Labels map[string]string
+		ID              string `json:"Id"`
+		Name            string
+		Image           string
+		RestartCount    int
+		Mounts          []Mount
+		NetworkSettings struct{ Networks map[string]networkAttachment }
+		Config          struct {
+			Image       string
+			Tty         bool
+			Labels      map[string]string
+			Env         []string
+			Healthcheck *struct{ Test []string }
 		}
 		State struct {
 			Status, StartedAt string
 			Health            *struct{ Status string }
+			ExitCode          int
+			OOMKilled         bool
 		}
 	}
 	if err := c.get(ctx, "/v"+apiVersion+"/containers/"+id+"/json", &r); err != nil {
 		return Container{}, err
 	}
 	v := Container{ID: r.ID, Name: strings.TrimPrefix(r.Name, "/"), Image: r.Config.Image, State: r.State.Status, Status: r.State.Status, StartedAt: r.State.StartedAt, TTY: r.Config.Tty}
+	v.ImageID, v.RestartCount, v.ExitCode, v.OOMKilled = r.Image, r.RestartCount, r.State.ExitCode, r.State.OOMKilled
+	v.Mounts, v.Networks = r.Mounts, networkIDs(r.NetworkSettings.Networks)
+	v.Secrets = sensitiveValues(r.Config.Env)
+	v.HasHealthCheck = r.Config.Healthcheck != nil && len(r.Config.Healthcheck.Test) > 0 && r.Config.Healthcheck.Test[0] != "NONE"
 	if r.State.Health != nil {
 		v.Health = r.State.Health.Status
+		v.HasHealthCheck = true
 	}
 	labels(&v, r.Config.Labels)
 	if v.ID != id {
@@ -264,13 +289,16 @@ func (c *Client) Stats(ctx context.Context, id string) (Stats, error) {
 	var r struct {
 		CPU    json.RawMessage `json:"cpu_stats"`
 		Prev   json.RawMessage `json:"precpu_stats"`
-		Memory struct {
+		Memory *struct {
 			Usage, Limit uint64
 			Stats        map[string]uint64
 		} `json:"memory_stats"`
 	}
 	if err := c.get(ctx, "/v"+apiVersion+"/containers/"+id+"/stats?stream=false", &r); err != nil {
 		return Stats{}, err
+	}
+	if r.Memory == nil {
+		return Stats{}, errors.New("Docker did not report a resource sample")
 	}
 	parseCPU := func(raw json.RawMessage) cpu {
 		var x struct {
@@ -293,6 +321,9 @@ func (c *Client) Stats(ctx context.Context, id string) (Stats, error) {
 	n := a.OnlineCPUs
 	if n == 0 {
 		n = uint64(len(a.CPUUsage.PercpuUsage))
+	}
+	if n == 0 || a.SystemCPUUsage <= b.SystemCPUUsage || a.CPUUsage.TotalUsage < b.CPUUsage.TotalUsage {
+		return Stats{}, errors.New("Docker did not report a usable CPU sample")
 	}
 	s := Stats{MemoryBytes: r.Memory.Usage, LimitBytes: r.Memory.Limit, SampledAt: time.Now().UTC().Format(time.RFC3339)}
 	cache := r.Memory.Stats["inactive_file"]
@@ -318,6 +349,10 @@ func (c *Client) Logs(ctx context.Context, container Container) (Logs, error) {
 	}
 	defer res.Body.Close()
 	text, truncated, err := ReadLogs(res.Body, container.TTY)
+	text = Redact(text, container.Secrets)
+	if len(text) > MaxLogBytes {
+		text, truncated = strings.ToValidUTF8(text[:MaxLogBytes], ""), true
+	}
 	return Logs{Text: text, Truncated: truncated, SampledAt: time.Now().UTC().Format(time.RFC3339)}, err
 }
 

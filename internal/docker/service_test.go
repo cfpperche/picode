@@ -122,7 +122,7 @@ func TestActionStateMatrix(t *testing.T) {
 			t.Run(action+"_"+state, func(t *testing.T) {
 				s, f := testService(t, state, "")
 				op, err := s.Start(context.Background(), Request{Action: action, ContainerID: testID, RequestKey: "request-123"})
-				want := (action == "start" && (state == "created" || state == "exited")) || (action != "start" && state == "running")
+				want := (action == "start" && (state == "created" || state == "exited")) || (action != "start" && state == "running") || (action == "stop" && state == "restarting")
 				if !want {
 					if err == nil {
 						t.Fatal("incompatible action accepted")

@@ -1,4 +1,4 @@
-import { agentRoute, workspaceHash, termRoute, termHash } from "./routes.js";
+import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./routes.js";
 
 // Mobile hash routes (ADR-0044). Four tabs plus three pushed screens. The
 // agent and terminal screens share the desktop's `#/agent/<id>` and
@@ -65,7 +65,7 @@ export function mobileRoute(hash) {
     return { screen: "more", id: "", section: MORE_SECTIONS.includes(sec) ? sec : "" };
   }
   if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: "", section: "" };
-  if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "" };
+  if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "", ...(appPath("#" + h) ? { path: appPath("#" + h) } : {}) };
   if (head === "sessions" || head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };
   }

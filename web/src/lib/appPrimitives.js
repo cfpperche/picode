@@ -101,10 +101,11 @@ function normalizeBlock(b) {
         tone: TONES.has(it.tone) ? str(it.tone) : "",
         unread: !!it.unread,
         busy: !!it.busy,
+        wrap: !!it.wrap,
         path: str(it.path),
         actions: normalizeActions(it.actions),
       }));
-    return { type: "list", ...head, items, empty: str(b.empty), collapsible: b.collapsible === true && !!head.id && !!head.title };
+    return { type: "list", ...head, items, actions: normalizeActions(b.actions), empty: str(b.empty), collapsible: b.collapsible === true && !!head.id && !!head.title };
   }
   if (b.type === "detail") {
     if (typeof b.text === "string") return { type: "detail", ...head, text: b.text };
@@ -144,6 +145,12 @@ export function normalizeView(view) {
     apiVersion: SUPPORTED_API, title: str(view.title), layout,
     empty: str(view.empty), tabs: normalizeTabs(view.tabs), blocks,
   };
+}
+
+export function activeAppTab(tabs, path) {
+  const candidates = tabs.filter((tab) => tab.path === path || (tab.path && path.startsWith(tab.path + "/")));
+  candidates.sort((a, b) => b.path.length - a.path.length);
+  return candidates[0]?.id || tabs.find((tab) => tab.path === "")?.id || "";
 }
 
 // aggregateBadge folds every app badge into the sidebar tab pill:

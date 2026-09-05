@@ -2120,6 +2120,183 @@
         ]
       }
     },
+    "/api/docker/diagnosis": {
+      "post": {
+        "operationId": "postApiDockerDiagnosis",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/health": {
+      "get": {
+        "operationId": "getApiDockerHealth",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/health/check": {
+      "post": {
+        "operationId": "postApiDockerHealthCheck",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/jobs": {
+      "get": {
+        "operationId": "getApiDockerJobs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      },
+      "post": {
+        "operationId": "postApiDockerJobs",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/jobs/{id}": {
+      "get": {
+        "operationId": "getApiDockerJobs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/monitors": {
+      "get": {
+        "operationId": "getApiDockerMonitors",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      },
+      "post": {
+        "operationId": "postApiDockerMonitors",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
     "/api/docker/operations": {
       "get": {
         "operationId": "getApiDockerOperations",
@@ -2174,6 +2351,110 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/plans": {
+      "post": {
+        "operationId": "postApiDockerPlans",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/plans/{id}": {
+      "get": {
+        "operationId": "getApiDockerPlans",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/plans/{id}/review": {
+      "post": {
+        "operationId": "postApiDockerPlansReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "docker"
+        ]
+      }
+    },
+    "/api/docker/resources": {
+      "get": {
+        "operationId": "getApiDockerResources",
+        "parameters": null,
         "responses": {
           "200": {
             "description": "Success"

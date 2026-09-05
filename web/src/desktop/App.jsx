@@ -35,7 +35,7 @@ import ContextMenu from "../components/ContextMenu.jsx";
 import SessionTree from "../components/SessionTree.jsx";
 import SessionInfo from "../components/SessionInfo.jsx";
 import CreateForm from "../components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appTabId, isAppTab, tabAppId } from "../lib/routes.js";
+import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "../lib/routes.js";
 import AppSurface from "../components/AppSurface.jsx";
 import { normalizeManifests } from "../lib/appPrimitives.js";
 const PinStudio = lazy(() => import("../components/PinStudio.jsx"));
@@ -790,7 +790,7 @@ export default function App() {
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : isAppTab(selectedId)
-        ? appHash(tabAppId(selectedId))
+        ? appHash(tabAppId(selectedId), appRoute(location.hash) === tabAppId(selectedId) ? appPath(location.hash) : "")
         : gitOwner
         ? gitHash(gitOwner.kind, gitOwner.id)
         : treeOwner
@@ -2248,6 +2248,12 @@ export default function App() {
             <AppSurface
               key={id}
               appId={tabAppId(id)}
+              initialPath={appRoute(hash) === tabAppId(id) ? appPath(hash) : undefined}
+              onPathChange={(path) => {
+                if (selectedId !== id) return;
+                const next = appHash(tabAppId(id), path);
+                if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+              }}
               hidden={selectedId !== id}
               manifest={apps.find((a) => a.id === tabAppId(id)) || null}
               onClose={() => closeTab(id)}

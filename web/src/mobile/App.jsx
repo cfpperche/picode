@@ -305,7 +305,7 @@ export default function MobileApp() {
   const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   let body = null;
   if (route.screen === "app") {
-    body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} /></div>;
+    body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} initialPath={route.path || ""} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} onPathChange={(path) => { location.hash = "#/app/" + encodeURIComponent(route.id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : ""); }} /></div>;
   } else if (route.screen === "changes") {
     const owner = route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
       : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }

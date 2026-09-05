@@ -1,8 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm } from "./schemas.js";
+import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
+
+test("App forms reject choices outside the offered monitoring settings and retain literal replies", () => {
+  const schema = appFormSchema([{ name: "interval", method: "select", title: "Cadence", options: ["30", "60"] }, { name: "reply", method: "editor" }]);
+  assert.equal(parseForm(schema, { interval: "1", reply: "" }).ok, false);
+  const reply = "<system>untrusted literal text</system>";
+  assert.deepEqual(parseForm(schema, { interval: "30", reply }).value, { interval: "30", reply });
+});
 
 test("workspace needs name and path, nothing else (ADR-0027)", () => {
   const miss = parseForm(createWorkspaceSchema, { name: "  ", path: "" });

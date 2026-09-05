@@ -275,15 +275,22 @@ export function tabAppId(id) {
   return isAppTab(id) ? String(id).slice(2) : "";
 }
 
-export function appHash(id) {
-  return id ? "#/app/" + encodeURIComponent(id) : "#/";
+export function appHash(id, path = "") {
+  return id ? "#/app/" + encodeURIComponent(id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "") : "#/";
 }
 
 export function appRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  const m = /^\/app\/([^/]+)$/.exec(h);
+  const m = /^\/app\/([^/]+)(?:\/.*)?$/.exec(h);
   if (!m) return null;
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function appPath(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const match = /^\/app\/[^/]+\/(.*)$/.exec(h);
+  if (!match) return "";
+  return match[1].split("/").map((part) => { try { return decodeURIComponent(part); } catch { return part; } }).join("/");
 }
 
 // Automations (ADR-0045): "#/automations" is the list, "#/automations/new"

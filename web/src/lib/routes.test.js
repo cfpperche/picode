@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { appPath } from "./routes.js";
 import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
@@ -139,6 +140,11 @@ test("app tabs (ADR-0036) are self-describing", () => {
   assert.equal(appRoute("#/app/a%20b"), "a b");
   assert.equal(appRoute("#/agent/demo"), null);
   assert.equal(parseRoute("#/app/demo"), "workspace");
+  const review = appHash("docker", "plan/qa review");
+  assert.equal(appRoute(review), "docker");
+  assert.equal(appPath(review), "plan/qa review");
+  assert.equal(appPath("#/app/docker"), "");
+  assert.equal(appPath("#/agent/qa"), "");
 });
 
 test("app tabs are distinct from every other tab family", () => {

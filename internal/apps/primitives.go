@@ -62,6 +62,7 @@ type ListItem struct {
 	Tone     string   `json:"tone,omitempty"`  // "" | "info" | "ok" | "warn" | "danger"
 	Unread   bool     `json:"unread,omitempty"`
 	Busy     bool     `json:"busy,omitempty"`
+	Wrap     bool     `json:"wrap,omitempty"` // preserve complete observations and reviewed identifiers
 	Path     string   `json:"path,omitempty"`
 	Actions  []Action `json:"actions,omitempty"`
 }
@@ -167,6 +168,9 @@ func (v View) Validate() error {
 		}
 		switch b.Type {
 		case "list":
+			if err := validActions(b.Actions); err != nil {
+				return fmt.Errorf("view: block %d: %w", i, err)
+			}
 			for j, it := range b.Items {
 				if it.ID == "" || it.Title == "" {
 					return fmt.Errorf("view: block %d item %d needs id and title", i, j)

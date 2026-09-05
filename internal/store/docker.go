@@ -80,6 +80,9 @@ func (s *Store) BeginDockerOperation(op DockerOperation) (DockerOperation, bool,
 		return op, false, err
 	}
 	op.ID, op.State, op.CreatedAt = newID("docker", "op"), "running", nowUTC()
+	if err = reserveDocker(tx, op.Endpoint, "container", op.ContainerID, op.ID); err != nil {
+		return op, false, err
+	}
 	_, err = tx.Exec(`INSERT INTO docker_operations (`+dockerColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
 		op.ID, op.RequestKey, op.Endpoint, op.ContainerID, op.ContainerName, op.Action, op.Actor, op.AgentID, op.State, "", op.CreatedAt, "")
 	if err != nil {
@@ -114,6 +117,9 @@ func (s *Store) FinishDockerOperation(id, state, message string) error {
 		return nil
 	}
 	op.State, op.Message, op.FinishedAt = state, message, nowUTC()
+	if _, err = tx.Exec(`DELETE FROM docker_locks WHERE owner = ?`, id); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(`UPDATE docker_operations SET state = ?, message = ?, finished_at = ? WHERE id = ? AND state = 'running'`, state, message, op.FinishedAt, id); err != nil {
 		return err
 	}

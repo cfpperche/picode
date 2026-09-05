@@ -3,6 +3,13 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 during Docker v3)
+
+- **2026-09-04 — Docker width fix deployed as `0.1.0+ea756cc`.** Removed
+  the fixed 960px limit and checked wide/narrow/mobile viewports. The v3 plan
+  sequences resources, health and assisted maintenance after v2.
+  `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
+
 ## Recent activity (archived 2026-09-04 during Docker width correction)
 
 - **2026-09-04 — Docker groups deployed as `0.1.0+900ac98` (ADR-0066).** Native

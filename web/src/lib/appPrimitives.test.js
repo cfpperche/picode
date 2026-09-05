@@ -6,7 +6,20 @@ import {
   supportedApp,
   normalizeView,
   aggregateBadge,
+  activeAppTab,
 } from "./appPrimitives.js";
+
+test("group controls remain separate from container counts and preserve confirmation", () => {
+  const view = normalizeView({ apiVersion: 1, blocks: [{ type: "list", id: "project:demo", title: "demo", collapsible: true, items: [{ id: "qa", title: "database" }], actions: [{ id: "review", label: "Review", confirm: "Review exact targets?", args: { project: "demo" } }] }] });
+  assert.equal(view.blocks[0].items.length, 1);
+  assert.equal(view.blocks[0].actions[0].confirm, "Review exact targets?");
+  assert.deepEqual(view.blocks[0].actions[0].args, { project: "demo" });
+});
+
+test("nested App routes keep their parent tab selected", () => {
+  const tabs = [{ id: "containers", path: "" }, { id: "resources", path: "resources" }, { id: "health", path: "health" }, { id: "history", path: "history" }];
+  for (const [path, expected] of [["", "containers"], ["project/qa", "containers"], ["health/diagnosis/qa", "health"], ["resources/image/qa", "resources"], ["history/job/qa", "history"]]) assert.equal(activeAppTab(tabs, path), expected);
+});
 
 test("only identified, named list blocks become collapsible groups", () => {
   const v = normalizeView({ apiVersion: 1, blocks: [

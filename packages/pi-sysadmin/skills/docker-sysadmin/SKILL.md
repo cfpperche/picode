@@ -1,6 +1,6 @@
 ---
 name: docker-sysadmin
-description: Inspect and operate local Docker containers through PiCode. Use for container failures, resource samples, recent logs, or a requested start, stop, or restart.
+description: Inspect local Docker projects, resources and health through PiCode; review exact maintenance plans and verify their results. Use for failures, resource cleanup, incidents or requested project operations.
 ---
 
 # Docker sysadmin
@@ -22,5 +22,20 @@ requires inspecting Docker before deciding whether to retry. A running
 container alone does not prove that the application is healthy.
 
 Report observations, action, recorded outcome, and remaining uncertainty.
+For project work, use `docker_health` or `docker_diagnose`, then `docker_plan`
+with a named project action or procedure. For cleanup, inspect `docker_resources`
+and preview only a selected removable image or network. Stopped consumers count
+as references; reported image size is not reclaimable space.
+
+Use `docker_execute_plan` to present the complete plan for human review. Missing
+confirmation UI files an Inbox link and returns waiting; it is not approval.
+Expired or changed plans need a fresh preview. Read `docker_jobs` before reporting
+completion; partial and unknown results require explaining each affected step.
+Never automatically replay an unknown result or infer dependency order from names.
+
+`docker_monitors` reads settings. The owner enables/disables monitoring in the
+Docker App. Monitoring and diagnosis never authorize repair. No-health-check,
+stopped, stale and unreachable states do not establish application health.
+
 Container creation/deletion, volume cleanup, Compose deployment, and remote
 Docker engines are outside this package's current operation set.

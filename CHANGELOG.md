@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Docker v3 resources, health and supervised maintenance** (ADRs 0067/0068).
+  Inspect images, volumes and networks with all container consumers, including
+  stopped services. Review selected image/custom-network removal and project
+  start/stop/restart with exact targets, shared reservations and per-step history.
+  Enable monitoring per project with cadence, thresholds, incident hysteresis
+  and retention. Diagnose restart loops, failed health checks, stopped services
+  and memory pressure, then confirm a named procedure with result verification.
+  The optional Sysadmin tools share these APIs and can file an Inbox review link
+  when confirmation is unavailable. App links preserve internal views; long
+  review identifiers and outcomes remain readable. Logs mask recognized secrets.
+
 - **Docker App and optional `pi-sysadmin` tools** (ADR-0065). Inspect local
   containers, resource samples and recent logs; start, stop and restart through
   one backend with operation history, duplicate-request protection and

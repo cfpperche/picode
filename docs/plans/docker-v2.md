@@ -1,8 +1,9 @@
 # Docker v2: project operations and Compose deployment
 
-**Status:** proposed implementation plan, 2026-09-04. The owner requested v2
-and a grouped v1 inventory. Grouping is implemented in ADR-0066; the project
-operations below are not implemented yet.
+**Status:** project-operation foundation implemented with Docker v3
+(ADR-0067), 2026-09-04. Exact previews, shared reservations, parent/step
+results and shared tools are present. Compose registration/deployment below
+remains proposed. Grouped inventory is implemented in ADR-0066.
 
 ## Product outcome
 

@@ -6,25 +6,26 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes the Docker full-width correction
-(`ea756cc1`). Tracked files are clean; commits remain local and unpushed.
-Preserve the unrelated `.pi/compact.json`. V2 and v3 remain proposals in
-`docs/plans/docker-v2.md` and `docs/plans/docker-v3.md`.
+**Repository:** Docker v3 is implemented on `feat/docker-v3`, based on
+`ce860aa9`. Local integration/deployment is the final acceptance step.
+Preserve the unrelated `.pi/compact.json`; commits remain local and unpushed.
+ADRs 0067/0068 implement resources, opt-in health and supervised maintenance,
+including v2's existing-project operations. Compose deployment remains proposed.
 
-**Deployment:** the installed service runs `0.1.0+ea756cc` (`release: false`),
-health `ok`, boot `f2a2e7ed88d02e06`. Served assets and installed binary match
-the tested build; all 125 pre-deploy tmux sessions were preserved. Real
-project cards reach the padded app edge at 1920px, expanded and closed.
-The deployed screenshot `/tmp/picode-docker-width-deployed.png` was read;
-overlay audit passed. QA servers and browser sessions were stopped.
+**Deployment:** the installed service still runs `0.1.0+ea756cc` until the v3
+quality gates and local integration finish. Isolated QA uses the rebuilt v3
+binary and separate data, with no changes to the user's Docker projects.
 
-**Quality:** `make ci` passed (Go, 477 frontend tests, packages, build,
-docs parity and Vale). Browser checks proved
-cards reach the padded app edge at 1920px, 1280px and 390px. Expanded/closed
-states, reload persistence, both themes, empty/blocked/error and confirmation
-screenshots were captured and read. visual-review: PASS; overlay audit `ok`.
-Curated width evidence: `docs/screenshots/docker-width-*.png`. No new unit
-test/decision table was added for this width-only correction.
+**Quality:** `make ci` passed (Go, 480 frontend tests, package checks/builds,
+docs parity and Vale), as did Docker/Store race tests.
+Real Linux Engine QA passed reviewed project start/restart/stop, selected image
+and network removal, stopped-consumer protection and honest health samples.
+All disposable resources were removed; existing container states/start times
+were preserved. Pi 0.85.0 loaded all 11 Sysadmin tools and exercised the new
+read APIs without a model turn. Desktop/mobile, full-width cards, review and
+confirmation, pending/results, empty/blocked/error and monitoring forms were
+captured and read; overlay audits passed. Inbox links/cancel were also verified
+on desktop/mobile. Curated evidence: `docs/screenshots/docker-v3-*.png`.
 
 ### Product and platform
 
@@ -45,8 +46,8 @@ test/decision table was added for this width-only correction.
   as agent rows, with no chip; the compact text mark is only an asset-load
   fallback.
 - Apps now provide literal output, progress, empty lists and generic mobile
-  navigation. Docker exposes inventory, details, sampled resources/logs,
-  start/stop/restart and durable history. Inventory groups exact Compose
+  navigation. Docker exposes inventory, resources/consumers, health/incident sampling,
+  reviewed project operations and maintenance procedures with durable history. Inventory groups exact Compose
   projects inside the app, with saved folds and search (ADR-0066). Optional
   `pi-sysadmin` tools share the same service, existing authentication and
   local Unix socket access.
@@ -82,15 +83,11 @@ were not evaluated in this session:
 
 ## In flight
 
-- V3 resources, health and supervised maintenance are proposed after v2.
-  No v2/v3 capability was implemented by the deployed width correction.
-- V2 project operations, Compose registration/deployment and shared tools
-  are proposed in `docs/plans/docker-v2.md`; no project-level action is
-  implemented yet. Grouped inventory is merged and deployed.
-- Docker v1 is merged and deployed. The real Pi 0.85.0 runtime loaded all
-  four tools and executed inventory/detail against the shared API without a
-  model turn. Autonomous model-driven dogfood and Docker Desktop/rootless
-  acceptance remain open; the Linux Engine path passed real operation QA.
+- Docker v3 final integration/deployment is in progress. Compose file
+  registration/deployment remains a separate proposal extending ADR-0065.
+- Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
+  acceptance remain open; real Linux Engine operation QA passed. No model
+  turn was used to validate the 11-tool extension.
 - **ADR-0061's amendment is deployed in the current service.** A configured
   real-compaction re-dogfood remains pending; without a config it stays dormant
   as designed, and the run must record `fromHook: true` plus gemini-3.6-flash
@@ -107,10 +104,9 @@ were not evaluated in this session:
 
 ## Next up
 
-1. Implement Docker v2 project actions from `docs/plans/docker-v2.md`: exact
-   target preview, shared locks, parent/child results and partial failure QA.
-   Compose deployment follows in a separate ADR extending ADR-0065.
-   Then sequence v3 using `docs/plans/docker-v3.md`.
+1. Design the separate Compose registration/deployment increment from
+   `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
+   deployment preview and recovery. Existing-project operations are implemented.
 2. Review current local `main` and decide when to push/promote it.
 3. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
@@ -122,6 +118,10 @@ were not evaluated in this session:
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
+
+- Docker v3 deliberately leaves volume deletion, backup/restore, remote engines,
+  historical metrics charts and automatic repair policies for future decisions.
+  Secret masking is best effort; arbitrary unlabeled secrets are not detectable.
 
 - Wrapper presence is strongest for instrumented sessions. Legacy sessions
   get only exact command/PID fallback; Linux process identity has stronger
@@ -142,10 +142,10 @@ were not evaluated in this session:
 
 ## Recent activity
 
-- **2026-09-04 — Docker width fix deployed as `0.1.0+ea756cc`.** Removed
-  the fixed 960px limit and checked wide/narrow/mobile viewports. The v3 plan
-  sequences resources, health and assisted maintenance after v2.
-  `make ci` passed. visual-review: PASS (screenshots read, overlay audit ok).
+- **2026-09-04 — Docker v3 resources, health and supervised maintenance.**
+  Added reviewed project actions, shared locks, durable steps, opt-in monitoring
+  and Inbox review links. Real disposable Engine QA and Pi tool loading passed;
+  visual-review: PASS (screenshots read; overlay audits ok). CI passed; deploy pending.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

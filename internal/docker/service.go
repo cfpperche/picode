@@ -26,17 +26,25 @@ type Service struct {
 	closed        bool
 	watchEndpoint string
 	watchCancel   context.CancelFunc
+	monitorWake   chan struct{}
+	collecting    map[string]collection
 }
 
 func NewService(ctx context.Context, st *store.Store, resolve Resolver, changed func()) (*Service, error) {
 	if err := st.RecoverDockerOperations(); err != nil {
 		return nil, err
 	}
+	if err := st.RecoverDockerJobs(); err != nil {
+		return nil, err
+	}
 	if resolve == nil {
 		resolve = LocalClient
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	return &Service{Store: st, Resolve: resolve, changed: changed, ctx: ctx, cancel: cancel}, nil
+	s := &Service{Store: st, Resolve: resolve, changed: changed, ctx: ctx, cancel: cancel, monitorWake: make(chan struct{}, 1), collecting: map[string]collection{}}
+	s.wg.Add(1)
+	go func() { defer s.wg.Done(); s.monitorLoop() }()
+	return s, nil
 }
 
 func (s *Service) Close() { s.mu.Lock(); s.closed = true; s.cancel(); s.mu.Unlock(); s.wg.Wait() }
@@ -135,7 +143,7 @@ func (s *Service) Detail(ctx context.Context, id string) (Detail, error) {
 		defer wg.Done()
 		l, err := c.Logs(ctx, container)
 		if err != nil {
-			d.LogsError = err.Error()
+			d.LogsError = Redact(err.Error(), container.Secrets)
 		} else {
 			d.Logs = &l
 		}
@@ -146,7 +154,7 @@ func (s *Service) Detail(ctx context.Context, id string) (Detail, error) {
 			defer wg.Done()
 			stats, err := c.Stats(ctx, id)
 			if err != nil {
-				d.StatsError = err.Error()
+				d.StatsError = Redact(err.Error(), container.Secrets)
 			} else {
 				d.Stats = &stats
 			}
@@ -170,7 +178,9 @@ func ValidAction(action, state string) bool {
 	switch action {
 	case "start":
 		return state == "created" || state == "exited"
-	case "stop", "restart":
+	case "stop":
+		return state == "running" || state == "restarting"
+	case "restart":
 		return state == "running"
 	}
 	return false
@@ -241,7 +251,7 @@ func (s *Service) run(c *Client, before Container, op store.DockerOperation) {
 		if errors.As(err, &apiErr) {
 			state = "failed"
 		}
-		message = err.Error()
+		message = Redact(err.Error(), before.Secrets)
 	} else {
 		after, verifyErr := c.Inspect(ctx, op.ContainerID)
 		ok := verifyErr == nil && ((op.Action == "stop" && after.State == "exited") || (op.Action != "stop" && after.State == "running"))
@@ -252,7 +262,7 @@ func (s *Service) run(c *Client, before Container, op store.DockerOperation) {
 			state = "unknown"
 			message = "Docker accepted the action, but its resulting state could not be verified. Refresh before retrying."
 			if verifyErr != nil {
-				message += " " + verifyErr.Error()
+				message += " " + Redact(verifyErr.Error(), before.Secrets)
 			}
 		}
 	}

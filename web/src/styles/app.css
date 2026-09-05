@@ -39,7 +39,7 @@
 @media (max-width: 767px) {
   .m-app-screen .ft-head { flex-wrap: wrap; height: auto; padding: 8px; gap: 8px; }
   .m-app-screen .app-head-left { order: 3; flex: 1 0 100%; min-width: 0; }
-  .m-app-screen .app-search-wrap { min-width: 0; flex: 1; }
+  .m-app-screen .app-search-wrap { order: 4; min-width: 0; flex: 1 0 100%; }
   .m-app-screen .app-search { width: 100%; min-width: 0; }
 }
 .app-operation { margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--border); color: var(--text-secondary); animation: app-operation-enter 160ms var(--ease-out); }
@@ -3895,6 +3895,8 @@ img.ws-face.term-cli-face {
 .app-group-count { grid-column: 4; font-size: 11px; color: var(--text-secondary); align-self: center; }
 .app-group-meta { grid-column: 3 / -1; font-size: 11px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .app-group-items { padding: 2px 8px 4px 32px; }
+.app-list-actions { padding: 8px 0 4px; }
+.app-form-error { color: var(--danger); margin: 0; }
 .app-group[aria-busy="true"] .app-group-icon { color: var(--accent); animation: app-operation-pulse 1s ease-in-out infinite alternate; }
 .app-group::details-content { overflow: clip; block-size: 0; opacity: 0; interpolate-size: allow-keywords; transition: block-size 160ms var(--ease-out), opacity 160ms, content-visibility 160ms allow-discrete; }
 .app-group[open]::details-content { block-size: auto; opacity: 1; }
@@ -4015,6 +4017,8 @@ img.ws-face.term-cli-face {
 
 /* Detail header: the item's own title, then its meta strip. */
 .app-detail-head { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.app-detail-head .app-meta { flex-wrap: wrap; row-gap: 4px; }
+.app-detail-head .app-meta > * { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
 .app-detail-title {
   font-size: 15px; font-weight: 600; line-height: 1.3;
   letter-spacing: -0.01em; text-wrap: balance;
@@ -4034,6 +4038,11 @@ img.ws-face.term-cli-face {
   background-image: linear-gradient(var(--border), var(--border));
   background-size: 1px 10px; background-position: left center; background-repeat: no-repeat;
 }
+.app-row-wrap .app-row-title { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.app-row-wrap .app-row-line2 { align-items: flex-start; }
+.app-row-wrap .app-meta { flex-direction: column; align-items: flex-start; gap: 3px; }
+.app-row-wrap .app-meta > * { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.app-row-wrap .app-meta > * + * { margin-left: 0; padding-left: 0; background-image: none; }
 /* The timestamp is deliberately the quietest ink in a row. */
 .app-when {
   flex: none; font-family: var(--mono); font-size: 10.5px;

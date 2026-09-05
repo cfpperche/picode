@@ -71,3 +71,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0064](0064-release-cadence.md) | Official release cadence and source/Stable release lanes | proposed |
 | [0065](0065-docker-sysadmin.md) | Local Docker App and optional sysadmin tools share bounded, audited operations | accepted |
 | [0066](0066-docker-project-groups.md) | Docker project groups inside the App, with saved disclosures and search | accepted |
+| [0067](0067-docker-maintenance-plans.md) | Reviewed project operations, selected resource removal, shared jobs and supervised procedures | accepted |
+| [0068](0068-docker-health-monitoring.md) | Opt-in project sampling, deduplicated incidents and supervised diagnosis | accepted |

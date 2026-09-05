@@ -55,3 +55,18 @@ export async function confirmOperation(action: string, name: string, ctx: { hasU
   if (!ctx?.hasUI || !ctx.ui) throw new Error("Open this container in the Docker App to confirm a disruptive operation");
   return ctx.ui.confirm(`${action === "stop" ? "Stop" : "Restart"} ${name}?`, "Connections to this container may be interrupted.");
 }
+
+type ConfirmContext = { hasUI?: boolean; ui?: { confirm: (title: string, message: string) => Promise<boolean> } };
+type ReviewedPlan = { id: string; title: string; impact: string; steps: { action: string; name: string; target: string; state: string }[] };
+
+// No UI means a durable review link, never implicit approval. A declined
+// dialog makes no write at all. The server revalidates every approved plan.
+export async function reviewAndExecute(plan: ReviewedPlan, ctx: ConfirmContext, requestKey: string, agentId: string, send: (method: string, path: string, body: unknown) => Promise<any>) {
+  if (!ctx?.hasUI || !ctx.ui) {
+    const review = await send("POST", "/api/docker/plans/" + encodeURIComponent(plan.id) + "/review", {});
+    return { waitingForReview: true, planId: plan.id, inboxId: review.inboxId, message: "Review this plan in the Docker App. No Docker operation has started." };
+  }
+  const steps = plan.steps.map((step, index) => `${index + 1}. ${step.action} ${step.name} (${step.target}) — ${step.state}`).join("\n");
+  if (!await ctx.ui.confirm(plan.title, plan.impact + "\n\n" + steps)) return { cancelled: true, message: "No Docker operation was requested." };
+  return send("POST", "/api/docker/jobs", { planId: plan.id, requestKey, approved: true, agentId });
+}
