@@ -3,6 +3,14 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-05 during Rename icon)
+
+- **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
+  process/task running, with no service restart. Policy update blocked by
+  Windows permissions; duration/battery settings remain pending. Original XML:
+  `var/PiCodeDesktop-before-20260905T125140Z.xml`. `make ci` passed (log:
+  `var/desktop-logon-settings-ci.log`); no product/UI changes or deployment.
+
 ## Local Windows tray recovery checks (2026-09-05)
 
 Machine-local operation, not an installer fix. The task already had an enabled

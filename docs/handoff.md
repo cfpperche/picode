@@ -11,12 +11,10 @@ v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
 not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Last application deployment:** `0.1.0+9393c14`, health `ok`, boot
-`920ca74e6f1f752d`; served HTML/assets match the freshly built build.
-Ships the workspace row first-line alignment fix (see activity below):
-the live sidebar re-measured on real data shows status/menu to title
-center delta 0.6px on every row. Deployment retained all pre-restart
-terminal records (tmux-backed sessions survive service restarts).
+**Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
+`70c3e75648358c41`; served HTML references the freshly built `index-_7SLKl4D.js`
+bundle. Ships the Rename menu icon on top of the row alignment fix. All ten
+sidebar rows kept their menu triggers after the restart.
 
 **Local Windows tray (2026-09-05):** restarted through the existing enabled
 `PiCodeDesktop` logon task; one tray process observed. Server boot
@@ -150,18 +148,22 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
+- **2026-09-05 — Rename menu icon.** `IconPencil` (existing) now leads the
+  Rename entry in agent and terminal row menus; previously the only entry
+  without one. visual-review: PASS (term-menu / agent-menu captures at
+  1280×900 on the deployed service; overlay audit ok; card 5/5). First
+  `make ci` failed only at `docs-check` (fleet/mobile capture inputs changed);
+  `make docs-shots` regenerated three `www/img` captures and `ci-docs`+`vale`
+  then passed; every earlier stage had passed. Process deviation: committed
+  on the primary `main` checkout and deployed before this docs commit; no
+  worktree was used. The public site captures are not part of the binary.
+
 - **2026-09-05 — Workspace row first-line alignment fix.** Agent and terminal
   rows centered the status chip and overflow button against the two-line
   title block, so the right column rendered on the subtitle line; `.ws-row-*`
   now top-align with the name (title center delta 0.6px, measured). Visual
   review read agent, terminal and menu-overlay captures at desktop and 550px
   widths; overlay audit ok. Deployed after merge.
-
-- **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
-  process/task running, with no service restart. Policy update blocked by
-  Windows permissions; duration/battery settings remain pending. Original XML:
-  `var/PiCodeDesktop-before-20260905T125140Z.xml`. `make ci` passed (log:
-  `var/desktop-logon-settings-ci.log`); no product/UI changes or deployment.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
