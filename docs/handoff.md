@@ -69,18 +69,22 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ### Diff panel (`pi-diff`, ADR-0077)
 
-Merged (`32b9c24f`) and deployed as `0.1.0+bd9f28b`. `/diff` in the pi TUI
-opens a non-capturing right-hand overlay with the changed files and the
-focused file's numbered hunks; the footer carries the total. Listed in the
-root `.pi/settings.json`, so project agents load it on their next start.
-Dogfooded in tmux on a scratch repository (tracked, untracked, binary,
-renamed files; scrolling, narrow-terminal hiding, close/reopen, one real
-grok write turn that moved the focus by itself). 19 logic tests.
+Deployed. `/diff` in the pi TUI opens a right-hand panel with the changed
+files and the focused file's numbered hunks; the footer carries the total.
+In pi's fullscreen TUI mode (`--tui-mode fullscreen` or `/settings`) the
+panel is a real layout column: full height, fixed while the transcript
+scrolls, chat and editor wrapping left, mouse wheel scrolls the hunks. In
+regular mode it is a full-height overlay that scrolls with the terminal and
+the first `/diff` says so once (owner refinement 2026-09-05, ADR amendment).
+Dogfooded in tmux in both modes, including a real grok write turn that
+refreshed and refocused the column. 20 logic tests. Listed in the root
+`.pi/settings.json`, so project agents load it on their next start.
 
 ## In flight
 
-- `pi-diff` (ADR-0077) is deployed; model-driven dogfood inside a PiCode
-  terminal tab (not a scratch `pi`) is still to be observed.
+- `pi-diff` (ADR-0077): whether PiCode should spawn terminal TUIs with
+  `--tui-mode fullscreen` so the panel is always a fixed column is an owner
+  decision not yet taken; in regular mode the panel scrolls with the terminal.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
@@ -151,6 +155,12 @@ grok write turn that moved the focus by itself). 19 logic tests.
 
 ## Recent activity
 
+- **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
+  owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
+  fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
+  (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
+  a full-height overlay plus a one-time hint. Widget slot re-set per refresh
+  because a mode switch replaces the TUI instance. Dogfooded both modes.
 - **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
   Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
   ok). Merged and deployed `2231919`.

@@ -76,3 +76,24 @@ git, never to the daemon.
 - **Extending PiCode's Files/Changes pane to terminal tabs**: refused;
   a web pane next to an xterm does not follow the agent's focus or the
   TUI's theme, and it cannot exist for a `pi` run outside PiCode.
+
+## Amendment (2026-09-05): a layout column in fullscreen mode
+
+The first deploy drew the panel as an overlay in every mode. In pi's
+default *regular* TUI mode the terminal owns the scrollback, so the overlay
+scrolled away with the chat and sat wherever the TUI's working area
+happened to start — the owner asked for a panel that fills the screen and
+stays put. Pi's *fullscreen* mode (`--tui-mode fullscreen`, `tuiMode` in
+settings) owns the viewport and lays the screen out from a layout root
+(`ViewportTUI.setLayoutRoot`). The extension now wraps that root in an
+`HStack` — chat and dock on the left, the panel on the right, weights
+55/45, hidden under 100 columns — so the panel is a full-height column
+that never moves and the editor wraps at the narrower width instead of
+being covered. Regular mode keeps the overlay, now full height, and the
+first `/diff` points at fullscreen mode once. Because a TUI mode switch
+replaces pi's TUI instance, the widget slot is re-set on every refresh.
+Cost accepted: reading `layoutRoot` is a private field of the alt-screen
+TUI; if pi renames it the panel falls back to the overlay path. Whether
+PiCode should spawn its terminal TUIs with `--tui-mode fullscreen` is a
+separate owner decision, not taken here.
+

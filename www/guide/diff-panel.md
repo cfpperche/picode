@@ -16,6 +16,16 @@ targets: [Packages](/guide/packages).
 pi install /path/to/picode/packages/pi-diff
 ```
 
+## Use fullscreen mode
+
+Pi has two TUI modes. In **fullscreen** (`pi --tui-mode fullscreen`, or
+*TUI mode* in `/settings`) pi owns the screen, and the panel is a real
+column: the chat and the editor take the left part, the panel the right,
+full height, fixed while the transcript scrolls. In pi's default
+**regular** mode the terminal owns the scrollback, so the panel is drawn
+over the chat and scrolls away with it; the first `/diff` says so once.
+Close the panel (`/diff off`) before switching from regular to fullscreen.
+
 ## Using it
 
 | You type | What happens |
@@ -26,6 +36,7 @@ pi install /path/to/picode/packages/pi-diff
 | `/diff top` | Back to the first hunk |
 | `alt+n` / `alt+u` | Scroll the hunks three lines |
 | `alt+pageDown` / `alt+pageUp` | Scroll a page |
+| Mouse wheel over the panel | Scroll the hunks (fullscreen mode) |
 
 The list has one row per tracked change (staged or not) and per untracked
 file, with `+added -removed`, `+n new` or `bin`. The focus follows the
@@ -40,7 +51,8 @@ with the panel closed.
 
 | | What you get |
 |---|---|
-| **Pi TUI** (terminal, PiCode terminal tabs included) | The panel, the commands, the shortcuts, the footer total |
+| **Pi TUI, fullscreen mode** (PiCode terminal tabs included) | The panel as a fixed full-height column, the commands, the shortcuts, the footer total |
+| **Pi TUI, regular mode** | The same as a full-height overlay that scrolls with the terminal |
 | **PiCode chat** (`--mode rpc`) | The footer total only; use the Files and Changes pane for the diff |
 | **Narrow terminals** (under 100 columns) | The panel hides itself and comes back when there is room |
 

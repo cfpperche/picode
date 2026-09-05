@@ -8,17 +8,31 @@
  * call and at the end of every turn. `/diff` again hides it. The footer
  * always carries the running total (`diff +12 -3`).
  *
- * The overlay is shown straight through the TUI (`tui.showOverlay`), not
- * through `ctx.ui.custom()`: a custom component is a UI prompt for pi's
- * lifecycle events, and a panel that stays open all session would report
- * "waiting for user" to every host watching those events (ADR-0056).
+ * Two ways to draw, picked by pi's TUI mode:
+ *
+ * - **fullscreen** (`--tui-mode fullscreen`, or TUI mode in /settings): the
+ *   panel is a real column of pi's layout — an HStack wraps the transcript
+ *   and dock on the left and the panel on the right, full height, fixed
+ *   while the transcript scrolls, and the editor wraps at the narrower
+ *   width instead of being covered.
+ * - **regular** (pi's default): the terminal owns the scrollback, so nothing
+ *   can stay put while it scrolls. The panel is a full-height non-capturing
+ *   overlay over the TUI's working area, and a one-time hint points at
+ *   fullscreen mode.
+ *
+ * Neither goes through `ctx.ui.custom()`: a custom component is a UI prompt
+ * for pi's lifecycle events, and a panel that stays open all session would
+ * report "waiting for user" to every host watching those events (ADR-0056).
+ * The widget slot `pi-diff` is the handle pi owns for us: setting it mounts
+ * the panel on the current TUI, clearing it unmounts. The slot is re-set on
+ * every refresh because a TUI mode switch replaces the TUI instance.
  */
 
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type Component, type OverlayHandle, type TUI } from "@earendil-works/pi-tui";
+import { HStack, isViewportTUI, truncateToWidth, visibleWidth, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import {
 	MAX_COUNT_BYTES,
 	clampScroll,
@@ -47,6 +61,14 @@ import {
 const KEY = "pi-diff";
 const REFRESH_DELAY_MS = 150;
 const SCROLL_STEP = 3;
+/** Terminals narrower than this hide the panel; the chat keeps the whole width. */
+const MIN_COLUMNS = 100;
+/** Column split in fullscreen mode, as flex grow weights. */
+const CHAT_GROW = 55;
+const PANEL_GROW = 45;
+const PANEL_MIN_COLUMNS = 44;
+const FULLSCREEN_HINT =
+	"pi-diff: in regular TUI mode the panel scrolls with the terminal. Set TUI mode to fullscreen in /settings (or start pi with --tui-mode fullscreen) for a fixed side column.";
 
 type UI = ExtensionContext["ui"];
 
@@ -162,29 +184,35 @@ function painter(theme: Theme): Paint {
 }
 
 class DiffPanel implements Component {
-	maxScroll = 0;
 	constructor(
 		private readonly tui: TUI,
 		private readonly paint: Paint,
-		private readonly state: { model: Model | null; scroll: number },
+		private readonly state: { model: Model | null; scroll: number; maxScroll: number },
 	) {}
 
 	render(width: number): string[] {
 		const inner = Math.max(10, width - 2);
-		// Leave the editor and footer visible under the panel.
-		const height = Math.max(8, this.tui.terminal.rows - 7);
+		// The whole terminal height: a column in fullscreen, a full-height overlay in regular mode.
+		const height = Math.max(8, this.tui.terminal.rows);
 		const model = this.state.model ?? { files: [], focus: undefined, diff: [], unavailable: false };
-		const out = layout({ model, scroll: this.state.scroll, width: inner, height }, this.paint, visibleWidth);
-		this.maxScroll = out.maxScroll;
+		const out = layout({ model, scroll: this.state.scroll, width: inner, height, fill: true }, this.paint, visibleWidth);
+		this.state.maxScroll = out.maxScroll;
 		this.state.scroll = clampScroll(this.state.scroll, out.maxScroll);
 		const border = this.paint("border", "│");
 		return out.lines.map((line) => `${border} ${truncateToWidth(line, inner)}`);
 	}
 
+	/** Fullscreen mode routes the wheel to the component under the pointer. */
+	handleMouse(event: TuiMouseEvent) {
+		if (event.type !== "wheel" || !event.wheelDelta) return undefined;
+		this.state.scroll = clampScroll(this.state.scroll + event.wheelDelta * SCROLL_STEP, this.state.maxScroll);
+		return { handled: true };
+	}
+
 	invalidate(): void {}
 }
 
-/** The widget pi owns for us: zero lines above the editor, and the hook that hides the overlay when pi removes it. */
+/** The widget pi owns for us: zero lines above the editor, and the hook that unmounts the panel when pi removes it. */
 class Anchor implements Component {
 	constructor(private readonly onDispose: () => void) {}
 	render(): string[] {
@@ -197,13 +225,12 @@ class Anchor implements Component {
 }
 
 export default function piDiff(pi: ExtensionAPI) {
-	const state = { model: null as Model | null, scroll: 0 };
+	const state = { model: null as Model | null, scroll: 0, maxScroll: 0 };
 	let ui: UI | null = null;
 	let cwd = process.cwd();
 	let open = false;
 	let tui: TUI | null = null;
-	let handle: OverlayHandle | null = null;
-	let panel: DiffPanel | null = null;
+	let hinted = false;
 	let preferred: string | undefined; // the file the agent touched last
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	let running: Promise<void> | null = null;
@@ -220,6 +247,48 @@ export default function piDiff(pi: ExtensionAPI) {
 		if (open && tui) tui.requestRender();
 	};
 
+	/** Mount the panel on the TUI pi hands us; returns the unmount hook. */
+	const mount = (t: TUI, theme: Theme): (() => void) => {
+		tui = t;
+		const panel = new DiffPanel(t, painter(theme), state);
+		if (isViewportTUI(t)) {
+			// Fullscreen: wrap pi's layout root so the panel is a column beside the chat.
+			const holder = t as unknown as { layoutRoot?: Component };
+			const original = holder.layoutRoot;
+			if (original) {
+				const column = new HStack([
+					{ component: original, basis: 0, grow: CHAT_GROW, shrink: 1, minSize: 40 },
+					{ component: panel, basis: 0, grow: PANEL_GROW, shrink: 1, minSize: PANEL_MIN_COLUMNS, visible: (v) => v.width >= MIN_COLUMNS },
+				]);
+				t.setLayoutRoot(column);
+				return () => {
+					if (holder.layoutRoot === column) t.setLayoutRoot(original);
+				};
+			}
+		}
+		// Regular mode: a full-height overlay over the TUI's working area.
+		const handle = t.showOverlay(panel, {
+			nonCapturing: true,
+			anchor: "top-right",
+			width: "45%",
+			minWidth: PANEL_MIN_COLUMNS,
+			maxHeight: "100%",
+			margin: 0,
+			visible: (termWidth) => termWidth >= MIN_COLUMNS,
+		});
+		if (!hinted && ui) {
+			hinted = true;
+			ui.notify(FULLSCREEN_HINT, "info");
+		}
+		return () => handle.hide();
+	};
+
+	/** (Re)attach the panel: pi calls the factory with the current TUI, which a mode switch replaces. */
+	const remount = () => {
+		if (!ui) return;
+		ui.setWidget(KEY, (t, theme) => new Anchor(mount(t, theme)));
+	};
+
 	async function refresh(): Promise<void> {
 		if (running) {
 			again = true;
@@ -231,6 +300,7 @@ export default function piDiff(pi: ExtensionAPI) {
 			} catch {
 				state.model = { files: [], focus: undefined, diff: [], unavailable: true };
 			}
+			if (open) remount();
 			redraw();
 		})();
 		try {
@@ -258,26 +328,10 @@ export default function piDiff(pi: ExtensionAPI) {
 			ctx.ui.notify("pi-diff: the side panel needs the terminal TUI; the footer total still updates.", "warning");
 			return;
 		}
-		ctx.ui.setWidget(KEY, (t, theme) => {
-			tui = t;
-			panel = new DiffPanel(t, painter(theme), state);
-			handle = t.showOverlay(panel, {
-				nonCapturing: true,
-				anchor: "top-right",
-				width: "45%",
-				minWidth: 44,
-				maxHeight: "100%",
-				margin: { top: 1, right: 0 },
-				visible: (termWidth) => termWidth >= 100,
-			});
-			return new Anchor(() => {
-				handle?.hide();
-				handle = null;
-				panel = null;
-			});
-		});
+		ui = ctx.ui;
 		open = true;
 		state.scroll = 0;
+		remount();
 		void refresh();
 	};
 
@@ -289,8 +343,8 @@ export default function piDiff(pi: ExtensionAPI) {
 	};
 
 	const scrollBy = (delta: number) => {
-		if (!open || !panel) return;
-		state.scroll = clampScroll(state.scroll + delta, panel.maxScroll);
+		if (!open) return;
+		state.scroll = clampScroll(state.scroll + delta, state.maxScroll);
 		tui?.requestRender();
 	};
 

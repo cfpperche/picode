@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- `pi-diff` (ADR-0077 amendment): in pi's fullscreen TUI mode the panel is
+  now a real layout column — full height, fixed while the transcript
+  scrolls, chat and editor wrapping to the left — with mouse-wheel
+  scrolling; in regular mode the overlay fills the whole height and the
+  first `/diff` points at fullscreen mode once.
+
 ### Added
 
 - `packages/pi-diff` (ADR-0077): a side diff panel for the pi TUI. `/diff`
