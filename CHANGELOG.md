@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
+  entry in the agent and terminal row menus without an icon; every entry now
+  carries one.
+
 ### Fixed
 
 - **Windows tray startup and normal Quit** (ADR-0071). The installer now

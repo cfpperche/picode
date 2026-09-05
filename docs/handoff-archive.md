@@ -5,6 +5,17 @@ state is always `docs/handoff.md`. Do not treat this file as current.
 
 ## Recent activity (archived 2026-09-05 during desktop task reliability)
 
+- **2026-09-05 — Pushed `main` to `origin` (`83124956..a160739e`).** Owner
+  decision; fast-forward, no force. This preceded the desktop task increment.
+- **2026-09-05 — Rename menu icon.** `IconPencil` (existing) now leads the
+  Rename entry in agent and terminal row menus; previously the only entry
+  without one. visual-review: PASS (term-menu / agent-menu captures at
+  1280×900 on the deployed service; overlay audit ok; card 5/5). First
+  `make ci` failed only at `docs-check` (fleet/mobile capture inputs changed);
+  `make docs-shots` regenerated three `www/img` captures and `ci-docs`+`vale`
+  then passed; every earlier stage had passed. Process deviation: committed
+  on the primary `main` checkout and deployed before its docs commit; no
+  worktree was used. The public site captures are not part of the binary.
 - **2026-09-05 — Workspace row first-line alignment fix.** Status and menu
   now top-align with the name (title center delta 0.6px, measured). Visual
   review read agent, terminal and menu-overlay captures at desktop and 550px;

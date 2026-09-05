@@ -8,13 +8,15 @@
 
 **Repository:** local `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
 v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
-not agent runtimes. Nothing was pushed. Preserve the unrelated root
+not agent runtimes. `origin/main` is at `a160739e` (pushed 2026-09-05,
+80 commits). The desktop task reliability increment is local-only. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
 **Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
-`70c3e75648358c41`. This concurrent deployment added the Rename pencil icon
-on top of the earlier row alignment fix. The tray increment did not restart
-the server; the observed service restart at 14:52 UTC installed that build.
+`70c3e75648358c41`; served HTML references the freshly built `index-_7SLKl4D.js`
+bundle. Ships the Rename menu icon on top of the row alignment fix. All ten
+sidebar rows kept their menu triggers after the restart. This concurrent
+deployment restarted the service at 14:52 UTC; the tray increment did not.
 
 **Windows desktop (ADR-0071):** explicit resident-task installer policy,
 read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
@@ -110,14 +112,13 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 2. Design the separate Compose registration/deployment increment from
    `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
    deployment preview and recovery. Existing-project operations are implemented.
-3. Review current local `main` and decide when to push/promote it.
-4. Review ADR-0064 and choose the official cadence/pilot window; no release
+3. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-5. Verify the local `pi-compact` configuration and re-dogfood its policy.
-6. Inspect the exact historical Inbox rows before any real TUI reply test.
-7. Run the owner-controlled remote-mode acceptance matrix.
-8. Continue the Browser preview panel and ADR-0054 dogfood.
-9. Decide whether selective docs-video capture/render should be scheduled;
+4. Verify the local `pi-compact` configuration and re-dogfood its policy.
+5. Inspect the exact historical Inbox rows before any real TUI reply test.
+6. Run the owner-controlled remote-mode acceptance matrix.
+7. Continue the Browser preview panel and ADR-0054 dogfood.
+8. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
