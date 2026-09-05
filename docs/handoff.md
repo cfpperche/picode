@@ -6,10 +6,11 @@
 ## Current state (read this first)
 
 **Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
-owner accepts the shipped result) is complete on `feat/inspector`: Changes and
-Files beside the center, per-file counts on `gitstatus`, the file tab's Diff
-view, the `Ctrl+.` toggle, the seeded docs fixture and `app-inspector` public
-capture. Merge and deployment are recorded under Recent activity. 
+owner accepts the shipped result) is merged into main and locally deployed as
+`9a8e15a7`: Changes and Files beside the center, per-file counts on
+`gitstatus`, the file tab's Diff view, the `Ctrl+.` toggle, the seeded docs
+fixture and the `app-inspector` public capture. Feature worktree and branch
+are removed.
 
 **Repository:** the managed-stop hang is fixed and locally deployed. Clicking
 `Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
@@ -35,8 +36,7 @@ Known debts / open questions from this fix:
 - The regressions in this fix are process-tree tests; the UI itself is
   unchanged, so no visual-review pass applies.
 
-Before it,
-main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
+Before it, main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
 fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
 user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
@@ -47,17 +47,21 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+d93b4af` (merge of this fix into
-main), health `ok`, boot `7eabde8ec1b5430f`, desktop bundle
-`index-BEI43Y05.js` (served bundle equals the built one). `make deploy`
-restarted systemd; the terminal records survived. This deploy carries the
-managed-stop hang fix above; the previous deploy (`0.1.0+df45db0`) carried
-the `pi-diff` fullscreen column (ADR-0077 amendment).
-
-**Quality:** fmt/vet/Go tests/frontend tests/`make web` passed for the icon
-swap. visual-review: PASS on Vite `:5174` and live `:8445` (`overlayAudit` ok).
-Gmail `make ci` from the previous deploy still stands. Feature worktree and
-branch are removed after merge.
+**Last application deployment:** `0.1.0+9a8e15a`, health `200`, desktop bundle
+`index-DYuuKYrY.js` (served and built hashes match). `make deploy` restarted
+systemd (new pid); the seven terminal records survived. The live `gitstatus`
+already answers with `branch`, per-file counts and `totals`, and the rail
+renders beside the live `glm5` agent at 1440px (Changes 1 · `+7`, overlay
+audit ok). A fresh browser profile at 1280px keeps it closed by default, as
+designed.
+**Quality:** `make ci` passed three times — on the feature tree, after the
+first main merge (with regenerated captures) and on the final merged tree —
+including Go tests, 700 frontend/package tests, both UI builds, the embedded
+binary, docs parity (`app-inspector` added) and Vale. Browser acceptance:
+`scripts/qa-inspector.mjs` 11/11 groups on an isolated fixture
+(`docs/screenshots/inspector-qa.json`), 11 screenshots plus the live shell
+read, overlay/row audits ok. visual-review: PASS. The docs fixture and QA
+browser sessions are closed.
 
 ### Product and platform
 
@@ -220,7 +224,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   11 screenshots read, overlay/row audits ok. visual-review: PASS. Two defects
   found and fixed in review: the blocked line named the stale cwd (now read live
   from `…/cwd`), and the Diff view's header row was misaligned outside the
-  folder tab.
+  folder tab. Merged `9a8e15a7` after three catch-up merges of main
+  (pi-diff, Gmail, managed-stop) and deployed; served bundle
+  `index-DYuuKYrY.js`, seven terminals survived. No push.
 - **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
   owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
   fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
