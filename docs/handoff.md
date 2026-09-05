@@ -11,14 +11,12 @@ v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
 not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Last application deployment:** `0.1.0+c326537`, health `ok`, boot `88294e9107a7ccef`.
-Installed binary/process hashes and served HTML/assets match the tested build.
-All 134 pre-deploy tmux sessions retained their exact pane IDs/PIDs; the seven
-terminal records and all four CLI configurations/reporting switches are unchanged.
-Live desktop/mobile summaries and launch details passed screenshot review;
-the read-only preview route also passed. Captures: `var/screenshots/cli-v2-deployed-*.png`;
-comparison/CI logs: `var/cli-v2-validation/`. Disposable QA daemons, browser
-sessions, profiles, terminals and fixture data are cleaned up.
+**Last application deployment:** `0.1.0+9393c14`, health `ok`, boot
+`920ca74e6f1f752d`; served HTML/assets match the freshly built build.
+Ships the workspace row first-line alignment fix (see activity below):
+the live sidebar re-measured on real data shows status/menu to title
+center delta 0.6px on every row. Deployment retained all pre-restart
+terminal records (tmux-backed sessions survive service restarts).
 
 **Local Windows tray (2026-09-05):** restarted through the existing enabled
 `PiCodeDesktop` logon task; one tray process observed. Server boot
