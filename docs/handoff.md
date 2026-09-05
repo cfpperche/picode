@@ -17,10 +17,11 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+2231919`, health `ok`, boot
-`d0d9dff723d5f8fa`. `make deploy` restarted systemd; 33 tmux panes remain.
-Served desktop asset `index-UlgaKnlT.js`. Live user menu shows Agent CLIs as
-the terminal glyph and Preferences as sliders.
+**Last application deployment:** `0.1.0+bd9f28b`, health `ok`, boot
+`ca34d21d4fc3495d`, desktop bundle `index-UlgaKnlT.js` (served bundle equals
+the built one). `make deploy` restarted systemd; the existing terminal
+records survived. This deploy carries `pi-diff` (ADR-0077) and refreshed UI
+captures; no PiCode core behavior changed.
 
 **Quality:** fmt/vet/Go tests/frontend tests/`make web` passed for the icon
 swap. visual-review: PASS on Vite `:5174` and live `:8445` (`overlayAudit` ok).
@@ -68,19 +69,18 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ### Diff panel (`pi-diff`, ADR-0077)
 
-Built on `feat/pi-diff` (worktree `.worktrees/pi-diff`), not merged, not
-deployed. `/diff` in the pi TUI opens a non-capturing right-hand overlay with
-the changed files and the focused file's numbered hunks; the footer carries
-the total. Dogfooded in tmux on a scratch repository (tracked, untracked,
-binary, renamed files; scrolling, narrow-terminal hiding, close/reopen, and
-one real grok write turn that moved the focus by itself). 19 logic tests.
-The ADR is accepted (owner approval 2026-09-05).
+Merged (`32b9c24f`) and deployed as `0.1.0+bd9f28b`. `/diff` in the pi TUI
+opens a non-capturing right-hand overlay with the changed files and the
+focused file's numbered hunks; the footer carries the total. Listed in the
+root `.pi/settings.json`, so project agents load it on their next start.
+Dogfooded in tmux on a scratch repository (tracked, untracked, binary,
+renamed files; scrolling, narrow-terminal hiding, close/reopen, one real
+grok write turn that moved the focus by itself). 19 logic tests.
 
 ## In flight
 
-- `pi-diff` (ADR-0077) awaits the owner's merge decision; `make test-js`
-  and `make vale` ran in the worktree. No PiCode core change; the package is
-  listed in `.pi/settings.json`, the Makefile suite, LICENSING and the guide.
+- `pi-diff` (ADR-0077) is deployed; model-driven dogfood inside a PiCode
+  terminal tab (not a scratch `pi`) is still to be observed.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
@@ -162,7 +162,9 @@ The ADR is accepted (owner approval 2026-09-05).
   command with completions, `alt+n`/`alt+u`/`alt+pageUp`/`alt+pageDown`).
   `ctx.ui.custom()` was rejected because its `ui_prompt_*` events would read
   as "waiting for user" to the guest-TUI sensors. Guide at
-  `www/guide/diff-panel.md`. Branch `feat/pi-diff`, unmerged.
+  `www/guide/diff-panel.md`. Merged `32b9c24f` (ADR renumbered 0076→0077 on
+  merge), UI captures refreshed after `docs-check`, full `make ci` green,
+  deployed `bd9f28b`; worktree and branch removed.
 
 - **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
   host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
