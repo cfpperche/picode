@@ -16,16 +16,16 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+974780b`, health `ok`, boot
-`1429ba9cb49904d5`. `make deploy` restarted systemd; all six terminal records
-and 28 baseline tmux pane identities survived. Installed/build binary hashes
-and served desktop/mobile assets match (`index-BRF94S2P.js` / `index-Beff3F6q.js`).
-Live screenshots were read, including dashboard scrolling; audits passed and
-no browser errors were reported. Receipts: `var/capture-merge/`; private SQLite
-and previous-binary backups remain in its `recovery/` folder.
+**Last application deployment:** `0.1.0+9284cd1`, health `ok`, boot
+`0d4dfa2f9f46b517`. `make deploy` restarted systemd; all 32 baseline tmux pane
+identities survived. Live check: `/api/mcp` serves the `gmail` preset, the
+catalog card renders, and the pre-existing `context7` service stayed untouched
+— read-only verification, no production integration mutations. Read evidence:
+`var/gmail-connector-deploy/`; private SQLite and previous-binary backups are
+in its `recovery/` folder.
 
 **Quality:** combined main `make ci` passed (668 frontend tests plus Go,
-package/build/docs/Vale gates). Ten combined-host screenshots were read;
+package/build/docs/Vale gates), repeated on the merged Gmail tree. Ten combined-host screenshots were read;
 viewer audits passed. Preexisting mobile Send clipping was fixed with wrapping
 and checked at 320/390px, including the running state. This is host QA, not a
 real emitter verdict. Fixture and QA browser are stopped; feature worktree and
@@ -141,6 +141,11 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - Branch protection and CODEOWNERS require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
+  host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
+  serves the `gmail` preset and the card renders with `context7` untouched;
+  32/32 panes survived. visual-review: PASS. No integration mutations or push.
 
 - **2026-09-05 — Gmail connector across all three add paths.** Catalog gains a
   Gmail card (community `@gongrzhe/server-gmail-autoauth-mcp`, credentials stay
