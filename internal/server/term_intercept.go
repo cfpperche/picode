@@ -366,14 +366,21 @@ func writePiIntercept(dataDir, hook string) error {
 	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
+	piArgs := quotedCLIArgs(cliIntegrationPlan("pi", dataDir, hook).Branches[0].Args)
 	wrapper := "#!/bin/sh\n# PiCode intercept — Pi TUI. Session PATH only.\nname=pi\n" +
 		wrapperFindReal +
 		"# Pi dispatches subcommands only when they are argv[1]. Do not move them.\n" +
 		"case \"${1-}\" in\n" +
 		"  " + strings.Join(piPassthrough, "|") + ") exec \"$real\" \"$@\" ;;\n" +
 		"esac\n" +
+		"# Managed rpc runs exec the real pi: a shell middleman between PiCode\n" +
+		"# and the agent process is the orphaned-child class the runtime's\n" +
+		"# process-group kill exists for — drop the middleman outright.\n" +
+		"case \"pi:${1-}:${2-}\" in\n" +
+		"  pi:--mode:rpc|pi:--mode:json) exec \"$real\"" + piArgs + " \"$@\" ;;\n" +
+		"esac\n" +
 		wrapperLifecycle(hook) +
-		"\"$real\"" + quotedCLIArgs(cliIntegrationPlan("pi", dataDir, hook).Branches[0].Args) + " \"$@\"\n" +
+		"\"$real\"" + piArgs + " \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
 }

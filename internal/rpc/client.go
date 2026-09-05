@@ -45,10 +45,11 @@ func (e Event) EventType() string {
 
 // Client is a live `pi --mode rpc` subprocess.
 type Client struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	done   chan struct{}
+	cmd       *exec.Cmd
+	stdin     io.WriteCloser
+	stdout    io.ReadCloser
+	done      chan struct{}
+	closeOnce sync.Once
 
 	writeMu sync.Mutex // serializes stdin writes
 
@@ -64,6 +65,7 @@ type Client struct {
 func Start(command string, args []string, cwd string, extraEnv ...string) (*Client, error) {
 	cmd := exec.Command(command, args...)
 	cmd.Dir = cwd
+	setPgroup(cmd)
 	if len(extraEnv) > 0 {
 		cmd.Env = append(os.Environ(), extraEnv...)
 	}
@@ -247,8 +249,18 @@ func (c *Client) SendRaw(v any) error {
 	return err
 }
 
-// Close kills the process and fails pending Send callers.
+// Close kills the process tree, fails pending Send callers, and waits for
+// the pump to finish. The kill is group-wide (killProcessTree): the real
+// pi runs behind an intercept wrapper and inherits the stdout pipe, so a
+// child-only kill left pump waiting on EOF forever — and with it, every
+// stop and open that touches Runtime.Stop. Closing stdin parks any
+// survivor on an rpc-stdin read; closing the stdout read end unblocks
+// pump even then. Idempotent: Stop may race StopAll on shutdown.
 func (c *Client) Close() {
-	_ = c.cmd.Process.Kill()
-	<-c.done
+	c.closeOnce.Do(func() {
+		killProcessTree(c.cmd.Process)
+		_ = c.stdin.Close()
+		_ = c.stdout.Close()
+		<-c.done
+	})
 }

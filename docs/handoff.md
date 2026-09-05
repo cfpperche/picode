@@ -9,7 +9,33 @@
 owner accepts the shipped result) is complete on `feat/inspector`: Changes and
 Files beside the center, per-file counts on `gitstatus`, the file tab's Diff
 view, the `Ctrl+.` toggle, the seeded docs fixture and `app-inspector` public
-capture. Merge and deployment are recorded under Recent activity. Before it,
+capture. Merge and deployment are recorded under Recent activity. 
+
+**Repository:** the managed-stop hang is fixed and locally deployed. Clicking
+`Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
+hang forever: the intercept wrapper's real `pi` survived its killed parent
+holding the rpc stdout pipe, `Runtime.Stop` waited on an EOF that never came,
+and every later stop/open queued behind it. The rpc client now spawns the
+agent in its own process group, SIGKILLs the group on `Close` and closes
+stdin/stdout as a second net; the pi wrapper `exec`s the real pi for managed
+rpc/json runs so there is no middleman to orphan. Regression test spawns a
+wrapper+grandchild double and fails on the old code (`Close hung`). Verified
+live: managed start → close round-trip completes in ~50ms, final agent state
+`stopped`. main meanwhile absorbed the pi-diff fullscreen column fix
+(ADR-0077 amendment); this branch sits on it.
+
+Known debts / open questions from this fix:
+
+- `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
+  managed start is in flight waits for the start, then returns true without
+  stopping the just-started agent. Not exercised by tests; unfixed.
+- Windows `Close` kills only the direct child (no posix process groups;
+  Job Objects would be the faithful equivalent). The managed server does
+  not run on Windows today.
+- The regressions in this fix are process-tree tests; the UI itself is
+  unchanged, so no visual-review pass applies.
+
+Before it,
 main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
 fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
 user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because

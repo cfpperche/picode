@@ -455,6 +455,15 @@ persistent run mode stays `interactive`. Closing the browser tab does not kill
 anything: the interactive agent lives inside tmux; an ordinary RPC agent is
 detached from the browser entirely.
 
+Stopping a managed agent kills the **whole spawned process tree**. The rpc
+client starts `pi` in its own process group and `Close` SIGKILLs the group
+before closing stdin/stdout, so a child that inherits the stdout pipe (the
+real `pi` behind the intercept wrapper) can never outlive its parent and
+wedge `Runtime.Stop` — the 2026-09-05 pi-diff hang, where `Stop agent` and
+`Open terminal` stopped answering entirely. Defense in depth: the pi
+intercept wrapper `exec`s the real pi for managed `--mode rpc|json` runs,
+so managed runs have no shell middleman to orphan in the first place.
+
 ## Key subsystems
 
 ### Data & persistence (ADR-0005)
