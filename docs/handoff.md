@@ -148,7 +148,8 @@ and fallback detail is archived; the implementation is unchanged here.
 - **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
   entries, copied mobile UI, shared contracts/tokens, explicit app paths and
   stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
-  optional previews remain lazy. Incorporated concurrent Rename/task work.
+  optional previews remain lazy. Incorporated concurrent Rename/task work
+  and the Windows/macOS test portability fixes.
   visual-review: PASS; public captures refreshed. No application deployment.
 
 Older activity and retired implementation detail are in

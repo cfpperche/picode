@@ -3,14 +3,27 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
-## Desktop publication follow-up (archived 2026-09-05)
+## Cross-platform test portability (archived 2026-09-05 during web decoupling)
+
+- **2026-09-05 — Cross-platform test portability.** Publication `385329ab`
+  passed local CI and hosted Pages (run `33974331763`); hosted CI exposed
+  pre-existing Windows test compilation and macOS socket-path failures
+  (run `33974331748`). Moved Linux `/proc` process-group fixtures into a
+  Linux-only test file; portable runtime tests remain shared. Docker socket
+  fixtures now use short private temporary directories, with a long-test-name
+  regression test. Windows cross-vet, all-package test cross-compilation,
+  focused Linux race tests and full local `make ci` passed. Hosted CI
+  `33975160712` passed on `e707fac6`, including all three OS jobs. No
+  application, tray or task policy changes; next-logon acceptance remains
+  deferred by the owner.
+
+## Desktop publication (archived 2026-09-05 during CI follow-up)
 
 - **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
   the completed increment and deferred Windows login acceptance. Removed
   stale remote-state prose; no further task, tray or service changes.
 
-
-## Prior state detail archived during web decoupling (2026-09-05)
+## Desktop delivery (archived 2026-09-05 during publication)
 
 - **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
   scoped repair and Quit exit-code fix validated on Linux and Windows.
@@ -19,6 +32,8 @@ state is always `docs/handoff.md`. Do not treat this file as current.
   no app/tray layout or overlay changed. Installed locally, verified one task
   instance and unchanged baseline panes. Backups/evidence are in the plan.
 
+
+## Prior state detail archived during web decoupling (2026-09-05)
 
 **Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
 parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
