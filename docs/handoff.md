@@ -5,8 +5,13 @@
 
 ## Current state (read this first)
 
-**Repository:** bounded captures (ADR-0076), history reconciliation and mobile
-composer wrapping are merged into main and locally deployed as `974780ba`.
+**Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
+owner accepts the shipped result) is complete on `feat/inspector`: Changes and
+Files beside the center, per-file counts on `gitstatus`, the file tab's Diff
+view, the `Ctrl+.` toggle, the seeded docs fixture and `app-inspector` public
+capture. Merge and deployment are recorded under Recent activity. Bounded
+captures (ADR-0076), history reconciliation and mobile composer wrapping were
+merged and deployed as `974780ba` before it.
 The capture ADR was renumbered because Integrations took 0075. The opt-in native
 emitter and real end-to-end acceptance remain pending: deployment does not
 enable browser capture emission. Integrations and the current provider favicons
@@ -34,6 +39,17 @@ Previous Integrations/File Tree/mobile gate details are archived.
 
 ### Product and platform
 
+- The desktop Inspector rail (ADR-0078) follows the selected tab's owner
+  (agent, terminal, workspace; apps keep the last anchor) and shows **Changes**
+  — a folder-grouped working tree with `+N −M` per file and folder, an
+  `Uncommitted` total, branch and worktree, and an `All | This agent` scope
+  beside an agent — and **Files**, the lazy project tree with a filter over
+  loaded rows. It opens files and diffs as center tabs (the file tab gained a
+  Diff view), pins the owner's root and turns a background 409 into "This
+  terminal moved to … Follow". Width/open/tab are per-viewer localStorage;
+  open by default at ≥1440px; shrinks before it hides and never leaves the
+  conversation under 640px. `gitstatus` now carries `add`/`del`/`binary`,
+  `totals`, `branch` and `worktree`.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -106,6 +122,10 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
+9. After a few days of Inspector dogfood, decide its later phases (ADR-0078
+   designs both, neither approved): a read-only **PR** tab through the host's
+   `gh`, and **Commit / Commit & Push** — pre-typed into the owner's terminal,
+   or server-side behind an interlock. Accept or amend ADR-0078 then.
 
 ## Known debts / open questions
 
@@ -137,9 +157,29 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - Tutorial integrity passes, but all three strict freshness audits remain stale
   after source relocation. Recapture/render is explicit; hashes were not relabeled.
 - Branch protection and CODEOWNERS require owner action on GitHub.
+- Inspector debts (ADR-0078): no complete filename search yet — the Files
+  filter covers loaded rows only (`/files?q=` is agent-only and stops at 200
+  files; `git ls-files` for all three owner kinds is the planned fix); free
+  terminals outside a watched folder refresh on focus/visibility and their row's
+  live facts, not on a watcher (a per-anchor watch lease is the fallback);
+  the This-agent scope chips show only while the agent's own tab is selected;
+  the sizer idiom is still copied in Sidebar and FileTreeSurface; the per-turn
+  `+N −M` footer beside the conversation is not drawn. ADR-0078 may be
+  renumbered at merge — `feat/pi-diff` also holds an unmerged 0076.
 
 ## Recent activity
 
+- **2026-09-05 — Inspector rail (ADR-0078).** Study
+  `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
+  and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;
+  `lib/inspector.js` + `lib/resizeEdge.js` (17 node tests); `Inspector.jsx`
+  mounted after `<main>`; file-tab Diff view; fixture seeds a dirty repository;
+  `app-inspector` docs capture. Browser QA on an isolated fixture:
+  `scripts/qa-inspector.mjs` passed 11/11 groups (`docs/screenshots/inspector-qa.json`);
+  11 screenshots read, overlay/row audits ok. visual-review: PASS. Two defects
+  found and fixed in review: the blocked line named the stale cwd (now read live
+  from `…/cwd`), and the Diff view's header row was misaligned outside the
+  folder tab.
 - **2026-09-05 — Capture host merged and deployed.** Reconciled main and
   renumbered the capture ADR to 0076; corrected mobile toolbar clipping found
   in QA. Combined `make ci`, refreshed host states, 320/390px geometry and live

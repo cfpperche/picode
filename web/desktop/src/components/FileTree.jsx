@@ -4,7 +4,7 @@ import { IconChevronRight, IconFile, IconFolder } from "./Icons.jsx";
 
 // Rows come from lib/fileTree.flattenTree and decoration from gitstatus.
 // Only keyboard focus is local; document selection belongs to the surface.
-export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggle, onOpen, onRefresh }) {
+export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggle, onOpen, onRefresh, trailing, ariaLabel = "Project files" }) {
   const [focused, setFocused] = useState("");
   const listRef = useRef(null);
   const active = rows.some((r) => r.path === focused) ? focused : rows.find((r) => r.path === selectedPath)?.path || rows[0]?.path;
@@ -16,7 +16,7 @@ export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggl
     if (action.focus) listRef.current?.querySelector(`[data-path="${CSS.escape(action.focus)}"]`)?.focus();
   }
   return (
-    <ul className="ft-list" role="tree" aria-label="Project files" ref={listRef}>
+    <ul className="ft-list" role="tree" aria-label={ariaLabel} ref={listRef}>
       {rows.map((row, index) => (
         <li key={row.path} role="none">
           <button
@@ -40,11 +40,12 @@ export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggl
             </span>
             <span className="ft-icon">{row.isDir ? <IconFolder /> : <IconFile />}</span>
             <span className="ft-name">{row.name}</span>
-            {!row.isDir && kinds.has(row.path) ? (
+            {!row.isDir && kinds && kinds.has(row.path) ? (
               <span className={"ft-dot ft-dot-" + kinds.get(row.path)} title={kinds.get(row.path)} />
             ) : null}
-            {row.isDir && dirtyDirs.has(row.path) ? <span className="ft-dot ft-dot-dir" title="contains changes" /> : null}
+            {row.isDir && dirtyDirs && dirtyDirs.has(row.path) ? <span className="ft-dot ft-dot-dir" title="contains changes" /> : null}
             {row.isDir && row.open && !row.loaded ? <span className="ft-loading">…</span> : null}
+            {trailing ? trailing(row) : null}
           </button>
           {row.empty ? <p className="ft-empty" style={{ paddingLeft: 30 + row.depth * 14 }}>Empty folder. <button type="button" className="btn btn-sm btn-ghost" onClick={onRefresh}>Refresh</button></p> : null}
         </li>

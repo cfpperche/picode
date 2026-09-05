@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/cfpperche/picode/internal/apps"
@@ -58,6 +59,12 @@ func main() {
 			log.Fatalf("fixture: mkdir %s: %v", d, err)
 		}
 	}
+
+	// The picode workspace is a small git repository with a commit behind it
+	// and a dirty working tree, so the Inspector rail's Changes list (counts,
+	// branch, totals) photographs real data. Without git on PATH the folder
+	// stays plain and the rail shows its non-git state instead.
+	seedRepo(filepath.Join(dataDir, "work", "picode"))
 
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {
@@ -177,4 +184,61 @@ func seed(st *store.Store) error {
 	}
 
 	return nil
+}
+
+// seedRepo turns dir into a synthetic repository: one commit of invented
+// files, then an edit, a deletion and an untracked file, so a working-tree
+// reader has something to count. Synthetic author, no signing, no global
+// config — the capture must not depend on the machine's git identity.
+func seedRepo(dir string) {
+	if _, err := exec.LookPath("git"); err != nil {
+		log.Printf("fixture: git missing, %s stays a plain folder", dir)
+		return
+	}
+	files := map[string]string{
+		"README.md":                 "# picode\n\nSynthetic fixture project for the docs captures.\n",
+		"cmd/picode/main.go":        "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"picode\")\n}\n",
+		"web/desktop/src/App.jsx":   "export default function App() {\n  return <main id=\"main\" />;\n}\n",
+		"web/desktop/src/app.css":   "#app { display: flex; }\n",
+		"docs/handoff.md":           "# Handoff\n\nNothing in flight.\n",
+		"internal/server/server.go": "package server\n",
+	}
+	for name, body := range files {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			log.Printf("fixture: seed repo: %v", err)
+			return
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			log.Printf("fixture: seed repo: %v", err)
+			return
+		}
+	}
+	git := func(args ...string) bool {
+		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=PiCode Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false"}, args...)...)
+		cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("fixture: git %v: %v\n%s", args, err, out)
+			return false
+		}
+		return true
+	}
+	if !git("init", "-q", "-b", "main") || !git("add", ".") || !git("commit", "-q", "-m", "seed: synthetic project") {
+		return
+	}
+	// The dirty tree the rail lists: an edited file, a deletion and a new one.
+	edits := map[string]string{
+		"README.md":               "# picode\n\nSynthetic fixture project for the docs captures.\n\nThe Inspector rail lists this edit.\n",
+		"web/desktop/src/App.jsx": "export default function App() {\n  return (\n    <div id=\"app\">\n      <main id=\"main\" />\n      <aside id=\"inspector\" />\n    </div>\n  );\n}\n",
+		"docs/inspector-notes.md": "# Inspector\n\nUntracked notes the fixture leaves behind.\n",
+	}
+	for name, body := range edits {
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), []byte(body), 0o644); err != nil {
+			log.Printf("fixture: seed repo: %v", err)
+			return
+		}
+	}
+	if err := os.Remove(filepath.Join(dir, "internal", "server", "server.go")); err != nil {
+		log.Printf("fixture: seed repo: %v", err)
+	}
 }

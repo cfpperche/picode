@@ -44,6 +44,11 @@ const base = process.argv.includes("--base")
 // screens render the seeded question's title, so the container decides).
 const surfaces = [
   { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/desktop/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
+  // The Inspector rail beside Atlas's conversation: the fixture seeds a dirty
+  // repository under the picode workspace, so Changes lists real counts. The
+  // agent id is minted per run, so the hash is set from the fleet after load.
+  { name: "app-inspector", profile: DOC_SCREENSHOT_SURFACES["app-inspector"], path: "/desktop/", w: 1440, h: 900, settle: 4000, waitText: "Uncommitted", scope: "#inspector",
+    hashEval: "fetch('/api/workspaces').then(r => r.json()).then(j => { const a = (Array.isArray(j) ? j : j.workspaces).flatMap(w => w.agents || []).find(x => x.name === 'Atlas'); if (a) location.hash = '#/agent/' + a.id; return a ? 'HASH_OK' : 'HASH_NO'; })" },
   // app-automations is off the list for now: a cold deep link to
   // #/automations mounts the workspace dashboard (app deep-link bug,
   // handoff 2026-09-03) — the surface returns once that is fixed.
@@ -119,6 +124,13 @@ async function main() {
         if (s.rehash && !ab([...sess, "eval", `location.hash === ${JSON.stringify(s.rehash)}`]).includes("true")) {
           ab([...sess, "eval", `location.hash = ${JSON.stringify(s.rehash)}`]);
           await sleep(1500);
+        }
+        // A surface that needs an id minted by the seed resolves it in the
+        // page and navigates there itself (a promise the CLI awaits).
+        if (s.hashEval) {
+          const went = ab([...sess, "eval", s.hashEval]);
+          console.log(`    [${s.name} r${round}] ${went.trim().slice(0, 60)}`);
+          await sleep(2500);
         }
         const scopeSel = s.scope
           ? `(document.querySelector('${s.scope}') || document.body).innerText`

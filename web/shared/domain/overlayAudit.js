@@ -10,6 +10,7 @@ const SELECTORS = [
   ".rail-pop",
   ".pkg-job",
   ".img-lite",
+  "#inspector",
 ];
 
 export function overlayAudit(win = globalThis) {

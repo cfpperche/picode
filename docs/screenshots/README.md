@@ -17,6 +17,14 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
+Inspector rail (ADR-0078): `inspector-*` (dark unless named `-light`, 1440×900
+plus the 1200 and 700px layouts) covers Changes with counts, a change opened
+as a center Diff tab, Files with the light theme and the empty filter, the
+empty This-agent scope, the blocked terminal with Follow, the non-git folder,
+the no-anchor line, the More menu and the shrunk/narrow layouts. All were read;
+overlay and row audits passed. The data is the seeded docs fixture; the
+acceptance groups are recorded in `inspector-qa.json`.
+
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector
 catalog. `integrations-mobile-*` covers installed package metadata, the scrolled

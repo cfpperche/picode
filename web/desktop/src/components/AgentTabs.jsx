@@ -8,7 +8,7 @@ import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot }) {
   const terms = terminals || [];
   const appList = apps || [];
   return (
@@ -96,6 +96,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
           );
         })}
       </div>
+      {endSlot ? <div className="main-tabs-end">{endSlot}</div> : null}
     </div>
     {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}
     </>

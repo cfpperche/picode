@@ -39,6 +39,8 @@ import {
   Minimize2,
   Monitor,
   Moon,
+  PanelRight,
+  PanelRightClose,
   Paperclip,
   PenLine,
   Package,
@@ -96,6 +98,8 @@ export const IconPaste = lucide(ClipboardPaste, 13);
 export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
+export const IconPanelRight = lucide(PanelRight, 16);
+export const IconPanelRightClose = lucide(PanelRightClose, 16);
 export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);

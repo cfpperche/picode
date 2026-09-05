@@ -4402,7 +4402,7 @@ img.ws-face.term-cli-face {
 .ft-detail-closing { animation: ft-detail-exit 150ms var(--ease-out) forwards; pointer-events: none; }
 .ft-detail .gg-detail-head { flex-wrap: wrap; }
 .ft-detail .gg-detail-subject { min-width: 0; }
-.ft-detail .gg-detail-meta { display: inline-flex; align-items: center; gap: 4px; height: var(--ctl-h); }
+.ft-detail .gg-detail-meta, .ft-diff-actions > .gg-detail-meta { display: inline-flex; align-items: center; gap: 4px; height: var(--ctl-h); }
 .ft-sizer { touch-action: none; }
 .ft-sizer:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ft-split-open .ft-body { transition: width 150ms var(--ease-out); }
@@ -4429,3 +4429,114 @@ img.ws-face.term-cli-face {
 .ft-row-ignored .ft-name { font-style: italic; }
 .ft-row-ignored:not(.ft-row-on) .ft-name,
 .ft-row-ignored:not(.ft-row-on) .ft-icon { color: var(--text-secondary); }
+
+/* A file tab in Diff view (ADR-0078) hosts WorkingDiff where FilePane
+   otherwise sits: same column, same scroll, no detail-pane border. */
+.file-surface-diff { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.file-surface-diff .gg-detail { flex: 1; min-height: 0; border: 0; }
+
+/* ============ inspector rail ============ */
+/* A third flex child of #app, after <main>: navigation and review beside the
+   center, mirroring #sidebar's frame with the sizer on its left edge. It
+   hosts lists only — content opens as center tabs — so its rows reuse the
+   file tree's .ft-* idiom and its tabs the .ft-tab pair. */
+#inspector {
+  flex: none; width: 320px;
+  background: var(--bg-panel); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  min-height: 0; min-width: 0; overflow: hidden; position: relative;
+  font-family: var(--mono);
+  container-type: inline-size;
+}
+#inspector[hidden] { display: none !important; }
+#inspector button, #inspector input { font-family: inherit; }
+.insp-sizer {
+  position: absolute; top: 0; left: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 6; touch-action: none;
+}
+.insp-sizer:hover, #inspector.resizing .insp-sizer { background: var(--accent); opacity: .45; }
+.insp-sizer:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.insp-head {
+  display: flex; align-items: center; gap: 8px;
+  height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
+}
+.insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
+.insp-face .ws-face { width: 18px; height: 18px; margin: 0; }
+.insp-face img.ws-face { border: 0; padding: 0; }
+.insp-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
+.insp-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; flex: none; }
+.insp-path { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.insp-actions { display: flex; align-items: center; gap: 2px; flex: none; }
+.insp-btn, .insp-toggle {
+  width: 28px; height: 28px; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-ctl); background: none;
+  color: var(--text-secondary); cursor: pointer; flex: none;
+}
+.insp-btn:hover, .insp-btn[data-state="open"], .insp-toggle:hover { color: var(--text-primary); background: var(--bg-hover); }
+.insp-btn:disabled { opacity: .6; cursor: default; }
+.insp-btn:focus-visible, .insp-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.insp-toggle[aria-pressed="true"] { color: var(--accent); }
+.insp-spin { animation: insp-spin 900ms linear infinite; }
+@keyframes insp-spin { to { transform: rotate(360deg); } }
+.insp-tabs-row {
+  display: flex; align-items: center; gap: 8px; padding: 0 8px;
+  border-bottom: 1px solid var(--border); background: var(--bg-panel);
+  flex: none; min-width: 0;
+}
+.insp-tabs { display: flex; gap: 2px; flex: none; }
+.insp-tabs .ft-tab { margin-bottom: -1px; }
+.insp-branch {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  min-width: 0; font-size: 11px; color: var(--text-secondary);
+}
+.insp-branch-name, .insp-branch-wt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-branch-wt { color: var(--accent); }
+.insp-branch-wt::before { content: "·"; margin-right: 4px; color: var(--text-secondary); }
+.insp-branch-none { font-style: italic; }
+/* One control height (AGENTS.md): the scope chips and the filter input share
+   --ctl-h, the same rule the file pane's toolbar applies to its chip group. */
+.insp-sub { display: flex; align-items: center; gap: 8px; padding: 6px 4px 4px; flex: none; }
+.insp-sub .chip-group { height: var(--ctl-h); }
+.insp-stat {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--ctl-h); min-width: 0; flex: 1; padding: 0 4px;
+  font-size: 12px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden;
+}
+.insp-stat-label { font-weight: 600; color: var(--text-primary); }
+/* Shrunk rails (down to 260px) keep the counts and the scope chips on one
+   aligned row by dropping the word the counts already imply. */
+@container (max-width: 300px) {
+  .insp-stat-label { display: none; }
+}
+.insp-stat-counts { display: inline-flex; gap: 6px; }
+.insp-scope { flex: none; }
+.insp-filter {
+  height: var(--ctl-h); width: 100%; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary);
+  font: inherit; font-size: 13px; outline: none;
+}
+.insp-filter:focus { border-color: var(--accent); }
+.insp-filter::placeholder { color: var(--text-secondary); }
+.insp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 2px; }
+.insp-body > .ft-list:first-child, .insp-body > .insp-msg:first-child, .insp-body > .ft-skeleton:first-child { margin-top: 6px; }
+.insp-msg { padding: 10px 8px; margin: 0; color: var(--text-secondary); font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.insp-notice {
+  margin: 0; padding: 8px 12px; display: flex; align-items: center; gap: 12px;
+  color: var(--text-secondary); font-size: 12.5px;
+  border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
+}
+.insp-notice > span { flex: 1; min-width: 0; }
+#inspector .ft-name { flex: 1 1 auto; min-width: 0; }
+.insp-count { display: inline-flex; gap: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
+.insp-count-bin { color: var(--text-secondary); font-style: italic; }
+.main-tabs-end { margin-left: auto; display: flex; align-items: center; padding: 0 6px; flex: none; border-left: 1px solid var(--border); }
+@media (max-width: 767px) {
+  #inspector { display: none !important; }
+  .main-tabs-end { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .insp-spin { animation: none; }
+}

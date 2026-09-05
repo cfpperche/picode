@@ -517,41 +517,19 @@ func Show(dir, hash string) *CommitDetail {
 	return d
 }
 
-// applyNumstat fills Add/Del from `--numstat -z` output. -z is what makes a
-// rename parseable: instead of the brace shorthand (`dir/{old => new}/f`) the
-// record ends with an empty path and the two names follow as their own
-// NUL-separated tokens, old then new.
+// applyNumstat fills Add/Del from `--numstat -z` output through walkNumstat
+// (status.go), which owns the rename-aware token walk. A binary file counts
+// as "-": Add/Del stay 0, and Binary says why.
 func applyNumstat(files []FileDiff, out string) {
 	idx := make(map[string]int, len(files))
 	for i := range files {
 		idx[files[i].Path] = i
 	}
-	tok := strings.Split(out, "\x00")
-	for i := 0; i < len(tok); i++ {
-		f := strings.SplitN(tok[i], "\t", 3)
-		if len(f) != 3 {
-			continue
+	walkNumstat(out, func(path string, add, del int, _ bool) {
+		if j, ok := idx[path]; ok {
+			files[j].Add, files[j].Del = add, del
 		}
-		path := f[2]
-		if path == "" {
-			if i+2 >= len(tok) {
-				break
-			}
-			path = tok[i+2]
-			i += 2
-		}
-		j, ok := idx[path]
-		if !ok {
-			continue
-		}
-		// A binary file counts as "-": Add/Del stay 0, and Binary says why.
-		if n, err := strconv.Atoi(f[0]); err == nil {
-			files[j].Add = n
-		}
-		if n, err := strconv.Atoi(f[1]); err == nil {
-			files[j].Del = n
-		}
-	}
+	})
 }
 
 // splitPatch cuts a unified diff into one entry per file. The `diff --git`

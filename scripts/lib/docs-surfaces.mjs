@@ -40,7 +40,7 @@ const SHELLS = {
   desktop: {
     shallow: ["web/desktop/index.html", "web/desktop/package.json", "web/desktop/vite.config.js", "web/desktop/src/App.jsx"],
     logic: ["web/desktop/src/App.jsx", "web/desktop/src/main.jsx"],
-    entries: ["web/desktop/src/components/Sidebar.jsx"],
+    entries: ["web/desktop/src/components/Sidebar.jsx", "web/desktop/src/components/Inspector.jsx"],
   },
   mobile: {
     shallow: ["web/mobile/index.html", "web/mobile/package.json", "web/mobile/vite.config.js", "web/mobile/src/App.jsx", "web/mobile/src/mobile.css"],
@@ -75,6 +75,22 @@ export const SURFACE_PROFILES = Object.freeze({
       "internal/server/roles_state.go",
       "internal/server/slash_ops.go",
       "internal/server/slash_res.go",
+    ],
+  },
+  "desktop-inspector": {
+    shell: "desktop",
+    entries: [
+      "web/desktop/src/components/Inspector.jsx",
+      "web/desktop/src/components/InspectorChanges.jsx",
+      "web/desktop/src/components/InspectorFiles.jsx",
+      "web/desktop/src/components/AgentTabs.jsx",
+      "web/desktop/src/components/ChatSurface.jsx",
+    ],
+    files: [
+      "internal/server/agents.go",
+      "internal/server/agent_files.go",
+      "internal/server/gitstatus.go",
+      "internal/gitgraph/status.go",
     ],
   },
   "desktop-automations": {
@@ -135,6 +151,7 @@ export const SURFACE_PROFILES = Object.freeze({
 
 export const DOC_SCREENSHOT_SURFACES = Object.freeze({
   "app-fleet": "desktop-dashboard",
+  "app-inspector": "desktop-inspector",
   "app-mobile-inbox": "mobile-inbox",
   "app-mobile": "mobile-now",
 });
