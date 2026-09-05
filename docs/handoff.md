@@ -11,7 +11,7 @@ v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
 not agent runtimes. Nothing was pushed. Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Deployment:** `0.1.0+c326537`, health `ok`, boot `88294e9107a7ccef`.
+**Last application deployment:** `0.1.0+c326537`, health `ok`, boot `88294e9107a7ccef`.
 Installed binary/process hashes and served HTML/assets match the tested build.
 All 134 pre-deploy tmux sessions retained their exact pane IDs/PIDs; the seven
 terminal records and all four CLI configurations/reporting switches are unchanged.
@@ -19,6 +19,11 @@ Live desktop/mobile summaries and launch details passed screenshot review;
 the read-only preview route also passed. Captures: `var/screenshots/cli-v2-deployed-*.png`;
 comparison/CI logs: `var/cli-v2-validation/`. Disposable QA daemons, browser
 sessions, profiles, terminals and fixture data are cleaned up.
+
+**Local Windows tray (2026-09-05):** restarted through the existing enabled
+`PiCodeDesktop` logon task; one tray process observed. Server boot
+`97d7ca348df4a75a` and all six observed tmux pane IDs/PIDs stayed unchanged.
+Task settings still need administrator approval; no installer code changed.
 
 **Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
 parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
@@ -76,6 +81,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
+- Local tray policy repair: `Set-ScheduledTask` returned `0x80070005`
+  (access denied). Removing `PT72H` and both battery restrictions awaits
+  owner-approved elevation; those settings remain unchanged.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -115,6 +123,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Known debts / open questions
 
+- Desktop installer task creation still inherits Windows duration/battery
+  defaults. An installer fix and next-logon acceptance are separate work.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
@@ -140,12 +150,11 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-05 — Agent CLIs v2.** Added visible launch plans, copied profiles,
-  persistent setup checks, explicit repair, pending comparison and safer restart
-  preparation. Fixed workspace artifact cleanup, context selection and mobile
-  sheet scrolling. visual-review: PASS (screenshots read; overlay audits ok).
-  CI and focused race tests passed; merged/deployed as `0.1.0+c326537` with all
-  134 sessions/PIDs and CLI settings unchanged. Native lifecycle acceptance stays open.
+- **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
+  process/task running, with no service restart. Policy update blocked by
+  Windows permissions; duration/battery settings remain pending. Original XML:
+  `var/PiCodeDesktop-before-20260905T125140Z.xml`. `make ci` passed (log:
+  `var/desktop-logon-settings-ci.log`); no product/UI changes or deployment.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

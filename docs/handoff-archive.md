@@ -3,6 +3,35 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Local Windows tray recovery checks (2026-09-05)
+
+Machine-local operation, not an installer fix. The task already had an enabled
+logon trigger, interactive limited-user principal, and the installed executable
+with `--tray`. A settings-only update was denied by Windows (`0x80070005`);
+`PT72H`, `DisallowStartIfOnBatteries=true`, and `StopIfGoingOnBatteries=true`
+were verified unchanged afterward. `schtasks /run /tn PiCodeDesktop` succeeded;
+the task became Running and one tray process was observed. No service restart,
+agent lifecycle action, executable swap, or direct WSL-backgrounded exe launch
+was performed. All six observed tmux panes retained their IDs/PIDs and server
+health retained boot `97d7ca348df4a75a`. Icon placement and next-logon behavior
+were not visually/live tested. The earlier tray exit cause is not confirmed.
+
+| Conditions | Action and evidence |
+|---|---|
+| Existing task enabled, tray stopped | Run the same task; observed Running and one process. |
+| Normal-user settings update denied | Stop policy changes; verified all three original values remain. |
+| Logon trigger and limited interactive principal present | Preserve them; no task replacement or alternate startup entry. |
+| Elevated update or next Windows login | Untested/pending owner interaction; no success claim. |
+
+## Agent CLIs v2 validation (archived 2026-09-05 during tray recovery)
+
+- **2026-09-05 — Agent CLIs v2.** Added visible launch plans, copied profiles,
+  persistent setup checks, explicit repair, pending comparison and safer restart
+  preparation. Fixed workspace artifact cleanup, context selection and mobile
+  sheet scrolling. visual-review: PASS (screenshots read; overlay audits ok).
+  CI and focused race tests passed; merged/deployed as `0.1.0+c326537` with all
+  134 sessions/PIDs and CLI settings unchanged. Native lifecycle acceptance stays open.
+
 ## Agent CLIs v1 validation (archived 2026-09-05 during v2)
 
 - **2026-09-04 — Agent CLIs v1.** Moved Terminal status out of Preferences;
