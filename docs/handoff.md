@@ -17,11 +17,11 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+bd9f28b`, health `ok`, boot
-`ca34d21d4fc3495d`, desktop bundle `index-UlgaKnlT.js` (served bundle equals
-the built one). `make deploy` restarted systemd; the existing terminal
-records survived. This deploy carries `pi-diff` (ADR-0077) and refreshed UI
-captures; no PiCode core behavior changed.
+**Last application deployment:** `0.1.0+df45db0`, health `ok`, boot
+`0cdfb7d6bf676a7b`, desktop bundle `index-UlgaKnlT.js` (unchanged: no web
+change in this deploy). `make deploy` restarted systemd; the seven terminal
+records survived. This deploy carries the `pi-diff` fullscreen column
+(ADR-0077 amendment); no PiCode core behavior changed.
 
 **Quality:** fmt/vet/Go tests/frontend tests/`make web` passed for the icon
 swap. visual-review: PASS on Vite `:5174` and live `:8445` (`overlayAudit` ok).
