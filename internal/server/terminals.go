@@ -288,7 +288,10 @@ func handleGetTerminalBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		cwd := liveTermCwd(deps, r, term)
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}

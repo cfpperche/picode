@@ -72,7 +72,11 @@ func TestWorktreeScopedEndpoints(t *testing.T) {
 	}
 
 	st := testStore(t)
-	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	ws, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminalIn(ws.ID, "sh", repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,21 +122,71 @@ func TestWorktreeScopedEndpoints(t *testing.T) {
 		t.Fatalf("a file the sibling does not have = %d, want 404: %s", code, body)
 	}
 
-	// A committed asset in the sibling, previewable by the git-blob route.
+	// A committed asset in the sibling, previewable by the git-blob route,
+	// plus an untracked one only the working-tree blob route can reach —
+	// a brand-new screenshot's "After" side is exactly that. The owner's
+	// own copy proves a wrong-tree read would answer instead of 404.
 	if err := os.WriteFile(filepath.Join(side, "dot.png"), pngBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	gitRun(t, side, "add", "dot.png")
 	gitRun(t, side, "commit", "-m", "asset")
-
-	code, body = getBody(t, ts, base+"/git/blob?worktree=side&hash=HEAD&path=dot.png")
-	if code != http.StatusOK || len(body) == 0 {
-		t.Fatalf("scoped git blob = %d: %s", code, body)
+	if err := os.WriteFile(filepath.Join(side, "new.png"), pngBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "owner.png"), pngBytes, 0o644); err != nil {
+		t.Fatal(err)
 	}
 
-	code, body = getBody(t, ts, base+"/blob?worktree=side&path=dot.png")
-	if code != http.StatusOK || len(body) == 0 {
-		t.Fatalf("scoped work blob = %d: %s", code, body)
+	// Every owner kind must read the sibling through every read route the
+	// graph's panels use — status, patch, committed blob, working blob —
+	// and every one of them must refuse a worktree no ref answers for.
+	// Reading the owner's own tree instead (a 200 here) is the bug this
+	// table pins: the preview then shows the wrong picture or, for a file
+	// the owner lacks, "Can't load this image."
+	for _, tc := range []struct {
+		name string
+		url  string
+		want int
+	}{
+		{"agent git blob", base + "/git/blob?worktree=side&hash=HEAD&path=dot.png", http.StatusOK},
+		{"agent work blob", base + "/blob?worktree=side&path=dot.png", http.StatusOK},
+		{"terminal git blob", "/api/terminals/" + term.ID + "/git/blob?worktree=side&hash=HEAD&path=dot.png", http.StatusOK},
+		{"terminal work blob", "/api/terminals/" + term.ID + "/blob?worktree=side&path=dot.png", http.StatusOK},
+		{"terminal untracked blob", "/api/terminals/" + term.ID + "/blob?worktree=side&path=new.png", http.StatusOK},
+		{"terminal bad worktree", "/api/terminals/" + term.ID + "/blob?worktree=nosuch&path=owner.png", http.StatusNotFound},
+		{"workspace gitstatus", "/api/workspaces/" + ws.ID + "/gitstatus?worktree=side", http.StatusOK},
+		{"workspace gitdiff", "/api/workspaces/" + ws.ID + "/gitdiff?worktree=side&path=messy.txt", http.StatusOK},
+		{"workspace git blob", "/api/workspaces/" + ws.ID + "/git/blob?worktree=side&hash=HEAD&path=dot.png", http.StatusOK},
+		{"workspace work blob", "/api/workspaces/" + ws.ID + "/blob?worktree=side&path=dot.png", http.StatusOK},
+		{"workspace untracked blob", "/api/workspaces/" + ws.ID + "/blob?worktree=side&path=new.png", http.StatusOK},
+		{"workspace bad status", "/api/workspaces/" + ws.ID + "/gitstatus?worktree=nosuch", http.StatusNotFound},
+		{"workspace bad gitdiff", "/api/workspaces/" + ws.ID + "/gitdiff?worktree=nosuch&path=owner.png", http.StatusNotFound},
+		{"workspace bad git blob", "/api/workspaces/" + ws.ID + "/git/blob?worktree=nosuch&hash=HEAD&path=dot.png", http.StatusNotFound},
+		{"workspace bad work blob", "/api/workspaces/" + ws.ID + "/blob?worktree=nosuch&path=owner.png", http.StatusNotFound},
+	} {
+		code, body := getBody(t, ts, tc.url)
+		if code != tc.want {
+			t.Fatalf("%s = %d, want %d: %s", tc.name, code, tc.want, body)
+		}
+		if tc.want == http.StatusOK && strings.Contains(tc.url, "blob") && len(body) == 0 {
+			t.Fatalf("%s = 200 with an empty body", tc.name)
+		}
+	}
+
+	// The workspace-owner reads must carry the sibling's state, not the
+	// owner's — the phone's Changes screen leans on this shape.
+	code, page = getGitStatus(t, ts, "/api/workspaces/"+ws.ID+"/gitstatus?worktree=side")
+	paths := map[string]bool{}
+	for _, c := range page.Changes {
+		paths[c.Path] = true
+	}
+	if !page.Git || !paths["messy.txt"] || !paths["new.png"] || paths["mine.txt"] || paths["owner.png"] {
+		t.Fatalf("scoped workspace status must list the sibling's files, never the owner's: %d %+v", code, page.Changes)
+	}
+	code, body = getBody(t, ts, "/api/workspaces/"+ws.ID+"/gitdiff?worktree=side&path=messy.txt")
+	if want := "+sibling work"; !strings.Contains(body, want) {
+		t.Fatalf("scoped workspace diff must show the sibling's patch, want %q in:\n%s", want, body)
 	}
 }
 

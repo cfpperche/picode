@@ -5,6 +5,21 @@
 
 ## Current state (read this first)
 
+**Repository (branch `fix/worktree-blob-preview`, not yet merged/deployed):**
+the git graph's uncommitted panels now preview a sibling worktree's static
+assets. The "After" side of an untracked PNG/video/PDF is a working-tree
+`/blob` read, but the terminal variant ignored `?worktree=` and every
+workspace git read (`gitstatus`, `gitdiff`, `git/blob`, `blob`) skipped the
+narrowing entirely — the read hit the owner's own checkout and the card
+rendered "Can't load this image." (reproduced live on the `claude-d8c849`
+terminal graph before the fix). All four scoped reads now resolve
+`?worktree=<branch|head>` through the same ref lookup for every owner kind;
+an unresolvable ref stays 404, never a silent fallback. Decision table
+(owner × route × worktree param) pinned by `TestWorktreeScopedEndpoints`;
+ADR-0073 amended, architecture.md bullets corrected. Merge and `make deploy`
+still pending; until then deployed `9a8e15a` keeps showing the broken
+previews.
+
 **Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
 owner accepts the shipped result) is merged into main and locally deployed as
 `9a8e15a7`: Changes and Files beside the center, per-file counts on
@@ -128,6 +143,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
+  running instance predates the fix (see Current state). Mobile keeps no
+  worktree concept in its Changes screen, so nothing to ship there.
 - `pi-diff` (ADR-0077): whether PiCode should spawn terminal TUIs with
   `--tui-mode fullscreen` so the panel is always a fixed column is an owner
   decision not yet taken; in regular mode the panel scrolls with the terminal.
@@ -214,6 +232,14 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Worktree-scoped asset previews fixed (ADR-0073 amendment).**
+  Terminal `/blob` ignored `?worktree=` and workspace git reads skipped it,
+  so uncommitted panels showed "Can't load this image." for a sibling
+  worktree's untracked screenshots. All four scoped reads (`gitstatus`,
+  `gitdiff`, `git/blob`, `blob`) now narrow by ref for all three owner
+  kinds; decision-table test added, no UI change needed. Server-only fix;
+  visual-review: UNVERIFIED (needs deploy; the failure and its fix are
+  endpoint-level). Branch `fix/worktree-blob-preview`.
 - **2026-09-05 — Inspector rail (ADR-0078).** Study
   `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
   and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;

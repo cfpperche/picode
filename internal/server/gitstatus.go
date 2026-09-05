@@ -61,6 +61,10 @@ func handleWorkspaceGitStatus(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		cwd, ok = resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}

@@ -113,3 +113,15 @@ Decision table — every row is covered by tests
 | Keep one uncommitted row, add a per-worktree dropdown to it | the rows are positional history; a dropdown hides the very state the graph exists to show |
 | `git status --porcelain` piped per worktree lazily on click only | the row must carry its count to be visible at all; a "check each worktree" click sequence is the current pain, not the cure |
 | Count via `for-each-ref %(worktreepath)` alone | gives the branch→worktree link (already derivable from `worktree list`), says nothing about dirtiness |
+
+## Amendment (2026-09-05): workspace owners read siblings too
+
+§5 shipped for agent and terminal owners only in code: the workspace
+handlers skipped `resolveGitWorktree` entirely, and the terminal `/blob`
+route ignored the parameter. A sibling worktree's untracked screenshot —
+whose "After" side is by definition a working-`blob` read — fetched the
+owner's own tree, found nothing, and rendered "Can't load this image."
+in the graph's uncommitted panel. All four read routes (`gitstatus`,
+`gitdiff`, `git/blob`, `blob`) now narrow through the same ref resolution
+for every owner kind — agents, terminals and workspaces alike; an
+unresolvable ref stays 404, never a silent fallback to the owner's tree.

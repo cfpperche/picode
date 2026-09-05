@@ -376,6 +376,10 @@ func handleWorkspaceGitBlob(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		cwd, ok = resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		writeGitBlob(w, r, cwd)
 	}
 }

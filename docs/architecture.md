@@ -700,7 +700,7 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/{agents|terminals|workspaces}/{id}/gitstatus` — the working-tree
   changes of the owner's repository, `git status --porcelain -z -uall`
   re-anchored from the repo toplevel to the owner's cwd (what falls outside
-  is dropped). Agents and terminals accept `?worktree=<branch|head hash>` to
+  is dropped). All three owner kinds accept `?worktree=<branch|head hash>` to
   read a sibling worktree of the same repository instead: the value is a ref
   resolved through `git worktree list`, never a path from the URL, and an
   unresolvable ref is 404 (ADR-0073). No repository is a state, not an error:
@@ -712,7 +712,10 @@ HTTP API (Go 1.22 method patterns):
 - `GET /api/{agents|terminals|workspaces}/{id}/gitdiff?path=` — one file's
   working-tree-vs-HEAD patch (ADR-0032), confined by the same cwd rules;
   untracked files arrive as whole-file additions, binary and truncation
-  flagged like the commit route. 404 when there is no difference.
+  flagged like the commit route. 404 when there is no difference. The same
+  `?worktree=` narrowing covers the working-tree `blob` and revision
+  `git/blob` reads for every owner kind, so any owner previews a sibling
+  worktree's assets, committed or not (ADR-0073 as amended).
 - `POST /api/{agents|terminals|workspaces}/{id}/reveal` — opens the owner's
   folder (optional confined `{"path"}` body) in the host file manager via
   `internal/osopen` (WSL → explorer.exe, darwin → open, else xdg-open).

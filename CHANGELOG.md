@@ -30,6 +30,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Git graph previews of a sibling worktree's static assets** (ADR-0073
+  amendment). The uncommitted panel fetches a new screenshot, recording or
+  PDF through the owner's working-tree `/blob` route — but the terminal
+  variant ignored `?worktree=` and every workspace git read skipped the
+  narrowing, so the read hit the owner's own checkout and the card rendered
+  "Can't load this image." All four scoped reads (`gitstatus`, `gitdiff`,
+  `git/blob`, `blob`) now resolve `?worktree=<branch|head>` the same way
+  for every owner kind; an unresolvable ref stays 404, never the owner's
+  tree.
 - Managed agents stop again. `Stop agent`, `Open terminal` and automation
   run teardown all hang forever when the real `pi` (running behind the
   intercept shell wrapper) outlives its killed parent as an orphan holding
