@@ -2631,3 +2631,13 @@ The existing test cleanup context/lifetime needs review; no test code changed.
 - **2026-08-23** — M1 complete: screenshot tooling, tmux, WS↔PTY, terminal
   grid, ADR-0004.
 - **2026-08-23** — Language policy: English is the repository language.
+
+
+- **2026-09-05 — Mobile decoupling adversarial corrections.** Cache storage
+  failures preserve successful asset responses. Composer Settings stays above
+  the mounted conversation; both settings paths persist configuration, and
+  tool/checklist selectors remain above sheets and inside the viewport.
+  Parsed imports and resolved shared dependencies reject presentation leakage.
+  `make ci` passed (648 frontend tests on the combined tree); visual-review: PASS (light/dark,
+  small/wide, empty/error, preserved draft/image and persisted settings).
+  No model turns, push or deployment for these fixes.

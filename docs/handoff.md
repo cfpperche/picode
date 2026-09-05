@@ -12,12 +12,13 @@ Git Graph (0073), independent web apps (0072), Windows task reliability
 coding CLIs are terminals. This session has not pushed. Read Git for upstream
 status; preserve the unrelated root `.pi/compact.json`.
 Mobile review fixes are validated locally, including the combined tree.
-These fixes have not been pushed or deployed.
+These fixes are included in the latest local deployment; no push was made.
 
-**Last application deployment:** `0.1.0+469b960`, health `ok`, boot
-`59f0a9b22db1be14`. File Tree v2 is deployed; served desktop assets match
-the build. Live read-only navigation opened two files in one tab. All seven
-terminal records and 20 baseline pane identities survived the restart.
+**Last application deployment:** `0.1.0+050580f`, health `ok`, boot
+`04ceec7199555424`. Git-ignored tree entries are visibly distinct in the live
+app, and two files still open in one inline pane. All five terminal records
+and 17 baseline pane identities survived the restart. Local browser evidence:
+`var/filetree-ignored/deployed.png` and `live-check.json`.
 
 **Windows desktop (ADR-0071):** resident task policy, diagnosis, scoped repair
 and normal Quit are implemented and locally installed. Native policy/lifecycle
@@ -26,7 +27,8 @@ repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
 **Quality:** File Tree ignore refinement `make ci` passed (649 frontend tests,
 Go, packages, build, docs and Vale). Four read screenshots cover both themes,
-selection, empty and blocked states; audits passed. Evidence lives in
+selection, empty and blocked states; audits passed. The integrated code is
+commit `050580f9`; dedicated test fixtures and the QA browser are stopped. Evidence lives in
 `docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
 The preceding mobile combined `make ci` passed (648 frontend tests, Go, packages,
 build, docs and Vale), plus embedded UI/server checks. The repeatable mobile
@@ -102,8 +104,7 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Next up
 
-1. Promote the reviewed mobile fixes and validate the deployed PWA upgrade
-   and push delivery on iOS/Android.
+1. Validate the deployed PWA upgrade and push delivery on iOS/Android.
    Further mobile UI increments belong only in `web/mobile`.
 
 2. Run the version-specific CLI working/approval/settled acceptance matrix.
@@ -162,17 +163,6 @@ and fallback detail is archived; the implementation is unchanged here.
   listing in one bounded call. Tracked files, exceptions and unavailable Git
   are covered; light/dark, inline selection, empty and blocked screenshots
   were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go, build, docs and Vale).
-
-- **2026-09-05 — Mobile decoupling adversarial corrections.** Cache storage
-  failures preserve successful asset responses. Composer Settings stays above
-  the mounted conversation; both settings paths persist configuration, and
-  tool/checklist selectors remain above sheets and inside the viewport.
-  Parsed imports and resolved shared dependencies reject presentation leakage.
-  `make ci` passed (648 frontend tests on the combined tree); visual-review: PASS (light/dark,
-  small/wide, empty/error, preserved draft/image and persisted settings).
-  No model turns, push or deployment for these fixes.
-
-
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
