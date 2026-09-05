@@ -354,6 +354,8 @@ try {
     await page.setViewportSize({width:720,height:760});
     await shot('filetree-v2-preview-narrow');
     await page.setViewportSize({width:550,height:760});
+    await shot('filetree-v2-compact');
+    await page.setViewportSize({width:390,height:760});
     await shot('filetree-v2-stacked');
     await pane().getByRole('button',{name:'Close file panel'}).click();
     await surface().locator('.ft-detail').waitFor({state:'detached'});

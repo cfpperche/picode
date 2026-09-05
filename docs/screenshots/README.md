@@ -96,8 +96,8 @@ File Tree v2 (ADR-0073): `filetree-v2-editor-dark.png`,
 `filetree-v2-conflict.png`, `filetree-v2-removed.png` and
 `filetree-v2-root-changed.png` cover draft protection and recovery.
 The empty, clean-changes, blocked, unsupported and tree-error captures show
-their next actions. Narrow, preview-narrow and stacked captures cover 900,
-720 and 550px desktop windows. Screenshots were read after correcting narrow
+their next actions. Narrow, preview-narrow, compact and stacked captures cover
+900, 720, 550 and 390px desktop windows. Screenshots were read after correcting narrow
 preview controls; overlay and toolbar-boundary audits passed.
 
 `filetree-v2-qa.json` records all 15 browser acceptance groups. Reproduce with

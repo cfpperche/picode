@@ -30,6 +30,7 @@
     "filetree-v2-editor-light.png",
     "filetree-v2-narrow.png",
     "filetree-v2-preview-narrow.png",
+    "filetree-v2-compact.png",
     "filetree-v2-stacked.png",
     "filetree-v2-empty.png",
     "filetree-v2-clean-changes.png",
@@ -440,9 +441,9 @@
             36
           ],
           "tops": [
-            78,
-            78,
-            78
+            97,
+            97,
+            97
           ]
         },
         {
@@ -452,8 +453,8 @@
             34
           ],
           "tops": [
-            161,
-            161
+            181,
+            181
           ]
         },
         {
@@ -464,9 +465,54 @@
             36
           ],
           "tops": [
-            204,
-            204,
-            204
+            180,
+            180,
+            180
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-compact",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            127,
+            127,
+            127
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            34,
+            34
+          ],
+          "tops": [
+            210,
+            210
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            253,
+            253,
+            253
           ]
         }
       ],
@@ -485,9 +531,9 @@
             36
           ],
           "tops": [
-            106,
-            106,
-            106
+            127,
+            127,
+            127
           ]
         },
         {
@@ -497,8 +543,8 @@
             34
           ],
           "tops": [
-            403,
-            403
+            417,
+            417
           ]
         },
         {
@@ -509,9 +555,9 @@
             36
           ],
           "tops": [
-            446,
-            446,
-            446
+            416,
+            416,
+            416
           ]
         }
       ],

@@ -77,5 +77,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
 | [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted |
-
 | [0073](0073-file-tree-inline-details.md) | Files and Changes share a local detail pane with document guards and root preconditions | accepted |
