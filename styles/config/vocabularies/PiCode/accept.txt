@@ -77,3 +77,4 @@ groq
 zai
 subcommand
 summarizer
+untracked

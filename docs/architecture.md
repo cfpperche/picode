@@ -833,6 +833,20 @@ hook still feeds it the cheap chain. Workspace file
 when `PI_COMPACT_AGENT` is set; no machine layer. The recent-token tail
 is not dropped.
 
+### Diff panel for the pi TUI (ADR-0076)
+
+**An extension, not core.** Opt-in pi package at `packages/pi-diff/`
+(MIT). `/diff` shows a right-hand overlay in the pi TUI: every file
+changed against `HEAD` (tracked and untracked) with `+/-` counts, then
+the numbered hunks of the file the agent touched last. The overlay is
+drawn straight through `tui.showOverlay(…, { nonCapturing: true })`,
+owned by a zero-height `ctx.ui.setWidget` slot — never through
+`ctx.ui.custom()`, whose `ui_prompt_*` lifecycle would read as "waiting
+for user" to the guest-TUI sensors (ADR-0056). The package runs git
+itself and never calls the daemon; PiCode has no code path for it. In
+`--mode rpc` only the footer total survives; the Files and Changes pane
+(ADR-0074) is the diff view there.
+
 ### Model roles (ADR-0028, ADR-0033)
 
 Opt-in pi package at `packages/pi-roles/` (MIT; the rest of this tree is

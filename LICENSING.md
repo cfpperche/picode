@@ -10,6 +10,7 @@ PiCode is **source-available**, not OSI open source.
 | `packages/pi-inbox/` (the installable pi package) | [MIT](packages/pi-inbox/LICENSE) — see [ADR-0037](docs/decisions/0037-inbox-async-agent-human-messages.md) |
 | `packages/pi-checklist/` (the installable pi package) | [MIT](packages/pi-checklist/LICENSE) — see [ADR-0055](docs/decisions/0055-internal-checklist.md) |
 | `packages/pi-compact/` (the installable pi package) | [MIT](packages/pi-compact/LICENSE) — see [ADR-0061](docs/decisions/0061-compaction-policy-package.md) |
+| `packages/pi-diff/` (the installable pi package) | [MIT](packages/pi-diff/LICENSE) — see [ADR-0076](docs/decisions/0076-tui-diff-panel.md) |
 
 Copyright stays with the author. A license is a **grant of permission**,
 not a transfer of ownership. MIT/Apache would give enterprise an
@@ -36,7 +37,7 @@ Noncommercial 1.0.0 **and** grant the copyright holder the right to
 offer that contribution under a commercial license. Do not contribute
 code you cannot offer on those terms.
 
-**Exception:** contributions under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`, and `packages/pi-compact/` are licensed MIT.
+**Exception:** contributions under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`, `packages/pi-compact/`, and `packages/pi-diff/` are licensed MIT.
 Do not contribute code there you cannot offer under MIT. The same carve-out
 applies to any future installable pi extension we author in this tree
 (ADR-0028).

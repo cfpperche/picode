@@ -41,3 +41,7 @@ Compact earlier: install `packages/pi-compact` — an extension, not core —
 so long sessions summarize at 100k tokens or half the window, with a cheap
 model, instead of waiting for the edge. Dormant until a config file exists.
 Guide: [Compact earlier](/guide/compact).
+
+Diff panel: install `packages/pi-diff` — an extension, not core — so `/diff`
+in the pi TUI opens a side panel with every changed file and the hunks of the
+one the agent touched last. Guide: [Diff panel for pi](/guide/diff-panel).
