@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "../lib/tree.js";
 import { shortModel } from "../lib/chip.js";
 import { repoLine, termLine } from "../lib/repoLine.js";
@@ -145,7 +145,7 @@ export function AgentRow({
               : <RowMenuItem onSelect={() => onStop && onStop(ag.id)}><IconStop size={13} /> Stop agent</RowMenuItem>}
             <RowMenuItem onSelect={() => onChat && onChat(ag.id)}><IconChat size={14} /> Open chat</RowMenuItem>
             <RowMenuItem onSelect={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /> Open terminal</RowMenuItem>
-            <RowMenuItem onSelect={() => onRenameAgent && onRenameAgent(ag, label)}>Rename</RowMenuItem>
+            <RowMenuItem onSelect={() => onRenameAgent && onRenameAgent(ag, label)}><IconPencil size={13} /> Rename</RowMenuItem>
             <RowMenuItem danger onSelect={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={13} /> Remove agent</RowMenuItem>
           </RowMenu>
         ) : null}
@@ -188,7 +188,7 @@ export function TermRow({
         </div>
         {actions ? (
           <RowMenu label={t.name || "Terminal"}>
-            <RowMenuItem onSelect={() => onRenameTerm && onRenameTerm(t)}>Rename</RowMenuItem>
+            <RowMenuItem onSelect={() => onRenameTerm && onRenameTerm(t)}><IconPencil size={13} /> Rename</RowMenuItem>
             <RowMenuItem onSelect={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings size={14} /> Terminal settings</RowMenuItem>
             <RowMenuItem danger onSelect={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={13} /> Remove terminal</RowMenuItem>
           </RowMenu>
