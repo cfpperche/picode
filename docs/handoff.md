@@ -6,15 +6,18 @@
 
 ## Current state (read this first)
 
-**Repository:** `feat/agent-cli-terminals` adds Agent CLIs v1 (ADR-0069) on
-current local `main` (`3076b1cf`, including Docker v3). Managed agents remain
-Pi-only. This increment configures and operates coding CLI terminals, not
-other agent runtimes. Commits remain local and unpushed. Preserve the unrelated
+**Repository:** local `main` includes Agent CLIs v1 (`567280b2`, ADR-0069) and
+Docker v3. Managed agents remain Pi-only; other coding CLIs are terminals,
+not agent runtimes. Commits remain local and unpushed. Preserve the unrelated
 root `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Deployment:** the installed service is still Docker v3 `0.1.0+7029b04`;
-Agent CLIs has been checked on an isolated daemon, pending merge and deploy.
-Previous Docker deployment and acceptance details are archived below.
+**Deployment:** `0.1.0+567280b`, health `ok`, boot `6b6567e8816a5596`. Installed
+binary hash and served JS/CSS match the tested build. All 129 pre-deploy tmux
+sessions retained their exact pane IDs/PIDs; none were added or replaced.
+All four legacy integration switches migrated unchanged. The real catalog,
+terminal inventory and mobile action menu were checked without changing user
+configuration or processes. Captures: `var/screenshots/cli-v1-deployed-*.png`.
+QA daemons, browsers and disposable terminals are closed.
 
 **Quality:** `make ci` passed (Go, 486 frontend tests, packages, build, docs
 parity and Vale), along with focused CLI/Store/server race checks. The manual
@@ -27,8 +30,7 @@ Claude initial activity was observed; Codex/Grok presence was not presented as
 activity. Manual Claude adoption preserved the pane PID. Empty/blocked/error,
 desktop/mobile, light/dark, menus and confirmation screenshots were read;
 settled overlay audits passed. Evidence: `docs/screenshots/cli-v1-*.png`.
-Disposable QA terminals and private launch files were removed. Public docs
-captures were refreshed with an isolated fixture directory and browser namespace.
+Public docs captures were refreshed with an isolated fixture and browser namespace.
 
 ### Product and platform
 
@@ -76,8 +78,6 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- Agent CLIs v1 awaits final local merge/deploy verification; no non-Pi
-  JSON-RPC, packages, authentication management or orchestration was added.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -99,17 +99,20 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Next up
 
-1. Design the separate Compose registration/deployment increment from
+1. Run the version-specific CLI working/approval/settled acceptance matrix and
+   close workspace-cascade launch artifact cleanup debt. Any first-class CLI
+   agent proposal needs a separate ADR covering protocol/session/package parity.
+2. Design the separate Compose registration/deployment increment from
    `docs/plans/docker-v2.md`, with an ADR for file ownership, dependency order,
    deployment preview and recovery. Existing-project operations are implemented.
-2. Review current local `main` and decide when to push/promote it.
-3. Review ADR-0064 and choose the official cadence/pilot window; no release
+3. Review current local `main` and decide when to push/promote it.
+4. Review ADR-0064 and choose the official cadence/pilot window; no release
    date is committed yet.
-4. Verify the local `pi-compact` configuration and re-dogfood its policy.
-5. Inspect the exact historical Inbox rows before any real TUI reply test.
-6. Run the owner-controlled remote-mode acceptance matrix.
-7. Continue the Browser preview panel and ADR-0054 dogfood.
-8. Decide whether selective docs-video capture/render should be scheduled;
+5. Verify the local `pi-compact` configuration and re-dogfood its policy.
+6. Inspect the exact historical Inbox rows before any real TUI reply test.
+7. Run the owner-controlled remote-mode acceptance matrix.
+8. Continue the Browser preview panel and ADR-0054 dogfood.
+9. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
@@ -147,7 +150,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
   added launch defaults/overrides, terminal control, setup checks and honest
   applied/pending diagnostics. Pi remains the only managed agent runtime.
   Native CLI and isolated tmux acceptance passed; visual-review: PASS
-  (screenshots read, settled overlay audits ok). Public docs captures refreshed.
+  (screenshots read, settled overlay audits ok). CI passed; merged and deployed
+  as `0.1.0+567280b` with all 129 tmux sessions/PIDs and legacy switches intact.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
