@@ -13,8 +13,9 @@ coding CLIs are terminals. This session has not pushed. Read Git for upstream
 status; preserve the unrelated root `.pi/compact.json`.
 Mobile review fixes are validated locally, including the combined tree.
 Agent tabs wearing the provider favicon are merged to main and **deployed**
-(`0.1.0+b005198`, bundle `index-BvsnkzvB.js`, includes the tab icon size
-parity fix); live tab-strip evidence was re-read after restart.
+(`0.1.0+37de779`, bundle `index-CbRxsHfT.js`, includes the tab and sidebar
+icon size parity fixes); live tab-strip and sidebar evidence was re-read
+after restart.
 
 **Last application deployment:** `0.1.0+050580f`, health `ok`, boot
 `04ceec7199555424`. Git-ignored tree entries are visibly distinct in the live
