@@ -1,6 +1,6 @@
 import { fileChangeFromTool } from "./diff.js";
 import { isSearchTool } from "./searchCards.js";
-import { previewFromDetails } from "./toolPreview.js";
+import { captureState } from "./toolPreview.js";
 
 function summarizeArgs(args) {
   if (!args) return "";
@@ -32,10 +32,10 @@ export function eventsToItems(events) {
         name: e.name || "tool",
         args: e.args || summarizeArgs(args),
         toolArgs: args,
-        status: e.status === "···" ? "ok" : (e.status || "ok"),
+        status: e.status || "ok",
         detail: e.detail || "",
         result: e.result,
-        preview: previewFromDetails(e.result),
+        ...captureState(e.result),
         expanded: isSearchTool(e.name),
         change: fileChangeFromTool(e.name, args, e.result),
         ts: e.ts || 0,

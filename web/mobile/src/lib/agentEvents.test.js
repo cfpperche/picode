@@ -53,8 +53,8 @@ describe("reduceAgentEvent", () => {
 
   // ADR-0057 decision table: tool_execution_update carries preview frames
   describe("tool live preview", () => {
-    const frame = { image: "data:image/jpeg;base64,AAA", url: "https://example.com", title: "Example" };
-    const frame2 = { image: "data:image/jpeg;base64,BBB" };
+    const frame = { image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=", url: "https://example.com/", title: "Example" };
+    const frame2 = { image: frame.image, title: "Second capture" };
     const start = [
       { type: "agent_start" },
       { type: "tool_execution_start", toolCallId: "b1", toolName: "agent_browser", args: { args: ["open", "https://example.com"] } },
@@ -87,7 +87,7 @@ describe("reduceAgentEvent", () => {
       ]);
       assert.equal(item(state).preview, null);
     });
-    it("the final result details keep the last frame; no end preview keeps the live one", () => {
+    it("the final result is authoritative; no end preview clears the live one", () => {
       const { state } = run([...start,
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
         { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: { details: { preview: frame2 } }, isError: false },
@@ -99,7 +99,19 @@ describe("reduceAgentEvent", () => {
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
         { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: {}, isError: false },
       ]).state;
-      assert.equal(item(again).preview.image, frame.image);
+      assert.equal(item(again).preview, null);
+    });
+    it("duplicate starts, older captures and updates after completion cannot replace the row", () => {
+      const state = run([...start, start[1],
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: { ...frame, ts: 200 } } } },
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: { ...frame2, ts: 100 } } } },
+      ]).state;
+      assert.equal(state.items.filter((it) => it.kind === "tool").length, 1);
+      assert.equal(item(state).preview.title, "Example");
+      const ended = reduceAgentEvent(state, { type: "tool_execution_end", toolCallId: "b1", result: {}, isError: true }).state;
+      const late = reduceAgentEvent(ended, { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } }).state;
+      assert.equal(item(late).preview, null);
+      assert.equal(item(late).status, "error");
     });
   });
   it("a dialog request flips to waiting and opens a card; the answer path is the hook's", () => {

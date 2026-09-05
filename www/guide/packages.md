@@ -41,3 +41,24 @@ Compact earlier: install `packages/pi-compact` — an extension, not core —
 so long sessions summarize at 100k tokens or half the window, with a cheap
 model, instead of waiting for the edge. Dormant until a config file exists.
 Guide: [Compact earlier](/guide/compact).
+
+## Tool captures
+
+PiCode can display **Last capture** inside a tool result when a compatible
+package supplies one. Click the image to enlarge it. A capture is a still
+image, not continuous monitoring or browser control. No capture means the
+ordinary tool row remains unchanged.
+
+Image display is built in. Emission must be enabled in a compatible package
+loaded by the agent; a machine installation can serve multiple workspaces.
+The browser-package emitter is not available yet, so installing
+`pi-agent-browser-native` alone does not enable this feature today.
+
+Captures accept bounded PNG/JPEG data images, not external image URLs.
+**Capture unavailable** means the image was refused or could not load; use
+**View result**, or **Retry** after a load failure. Images omitted from a
+final result are not retained by PiCode's conversation replay.
+
+Enabling emission can save sensitive page content in Pi session files and
+backups, visible to paired devices. PiCode cannot redact secrets from pixels.
+The package and browser run on the agent's machine, not on the observing phone.

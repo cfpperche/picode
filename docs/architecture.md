@@ -787,12 +787,30 @@ Timeout on the request dismisses the card (pi auto-resolves).
 Auto-approve policy stays undecided. Track C:
 [conversation-control-roadmap.md](design/conversation-control-roadmap.md).
 
-**Tool live previews (ADR-0057):** a tool may emit
-`details.preview = { image, url?, title? }` in partial results (live) and
-the final result (persisted — the transcript already keeps `details`); the
-conversation's tool pill renders the frame inline with the lightbox one
-click away. The contract is tool-agnostic: PiCode core knows the shape,
-never the tool name (first emitter: the `agent_browser` package).
+**Tool captures (ADRs 0057/0075):** a tool may emit
+`details.preview = { image, url?, title?, ts?, source? }` in partial results
+and the final result. The host accepts only base64 PNG/JPEG captures up to
+200 KiB, 1600 pixels per side and 1.6 million pixels; remote URLs never load.
+`internal/toolpreview` bounds metadata before RPC web fan-out and transcript
+presentation; the shared browser parser checks again before rendering.
+Captions omit URL credentials/query/fragment and say **Last capture**. Invalid
+captures show an unavailable state; decode failures offer Retry. The final
+result is authoritative, including absence of a capture; completed tools
+ignore late updates. Expanded text omits preview image bytes.
+
+Desktop rejects stale selection/request/socket generations and reconciles the
+live suffix with history by tool identity. Mobile owns socket reconnection and
+history reconciliation on snapshot/settle, instead of appending an uncorrelated
+history fetch from the screen. This is not a replayable frame stream: missing
+partials are not cached server-side, and the existing slow-consumer hub can
+drop events. Emitter limits and integration acceptance remain required.
+
+The built-in renderer is tool-agnostic; capture emission must be explicitly
+enabled in a package loaded by the agent, globally or at workspace/agent scope.
+The installed browser package does not yet emit this shape. Its real emitter,
+the panel and streaming are tracked in the [delivery plan](plans/browser-preview.md).
+Pi owns raw session persistence; host validation cannot remove pixels already
+written there or bound the raw RPC input before decoding.
 
 ### Broker (M4)
 A Pi extension (`picode-extension`, TypeScript, installed per workspace)

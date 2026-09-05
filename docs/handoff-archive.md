@@ -3,6 +3,22 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## File Tree ignore and mobile review validation (archived during capture hardening)
+
+- **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
+  listing in one bounded call. Tracked files, exceptions and unavailable Git
+  are covered; light/dark, inline selection, empty and blocked screenshots
+  were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go,
+  packages, build, docs and Vale). Commit `050580f9`; evidence in
+  `docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
+- Preceding mobile combined `make ci` passed (648 frontend tests) plus embedded
+  UI/server checks. The repeatable browser runner passed draft/image retention,
+  both settings callbacks, failure rollback and model/tool/checklist persistence.
+  Light/dark, small/wide, empty/blocked/error screenshots were read; audits passed.
+  Evidence: `docs/screenshots/mobile-review-*`, `var/mobile-review-fixes-14748677/`
+  and earlier `docs/screenshots/filetree-v2-*`. No model turns were started.
+  Physical PWA/push acceptance remains in the living handoff.
+
 ## File Tree v2 delivery (archived during mobile review integration)
 
 - **2026-09-05 — File Tree v2 (ADR-0074).** Content, editing and changes share

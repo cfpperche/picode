@@ -4,18 +4,25 @@ import { reduceAgentEvent, initialAgentState, markSent, markUndelivered, markAbo
 import { answerAsk, unanswerAsk, backAsk, BACK } from "@picode/shared/domain/askForm.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { toast, toastError } from "../lib/toast.js";
+import { eventsToItems } from "@picode/shared/domain/replay.js";
+import { reconcileTranscript, liveSince, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
 
 // One WebSocket for the agent screen only (ADR-0044). Drives the pure
 // reducer in lib/agentEvents.js and executes its effects; exposes the
 // same verbs the desktop composer has — send, abort, replyAsk — with the
 // desktop's busy rules (a prompt while busy becomes a follow-up, which
 // goes straight to the server queue).
-export function useAgentSocket(agent) {
+export function useAgentSocket(agent, workspaceId = "ws_free") {
   const [state, setState] = useState(initialAgentState);
   const [scrollTick, setScrollTick] = useState(0);
   const stateRef = useRef(initialAgentState);
   const sockRef = useRef(null);
   const agentId = agent && agent.id;
+  const selectedRef = useRef(agentId);
+  selectedRef.current = agentId;
+  const historyGate = useRef(transcriptGate());
+  const historyPath = useRef("");
+  const retryRef = useRef(null);
   const managed = !!agent && agent.mode === "managed";
 
   function set(next) {
@@ -43,6 +50,8 @@ export function useAgentSocket(agent) {
   }
 
   function close() {
+    clearTimeout(retryRef.current);
+    historyGate.current.invalidate();
     const p = sockRef.current;
     if (!p) return;
     p.stopped = true;
@@ -56,17 +65,41 @@ export function useAgentSocket(agent) {
     const panel = { agentId: id, sock, stopped: false };
     sockRef.current = panel;
     sock.onmessage = (ev) => {
-      try { apply(JSON.parse(ev.data).event || {}); } catch { /* ignore */ }
+      if (sockRef.current !== panel || panel.stopped || selectedRef.current !== id) return;
+      try {
+        const event = JSON.parse(ev.data).event || {};
+        apply(event);
+        if (event.type === "snapshot" || event.type === "agent_settled") loadHistory(panel);
+      } catch { /* ignore */ }
     };
     sock.onclose = () => {
       if (sockRef.current === panel && !panel.stopped) {
         set({ ...stateRef.current, streaming: false, waiting: false, status: "disconnected" });
+        retryRef.current = setTimeout(() => {
+          if (sockRef.current === panel && !panel.stopped && selectedRef.current === id) connect(id);
+        }, 1500);
       }
       if (window.__picodeKickHealth) window.__picodeKickHealth();
     };
   }
 
+  async function loadHistory(panel) {
+    const ticket = historyGate.current.begin();
+    const baseline = stateRef.current.items;
+    try {
+      const t = await api("/api/workspaces/" + encodeURIComponent(workspaceId) +
+        "/sessions/transcript?agent=" + encodeURIComponent(panel.agentId) + "&tail=200");
+      if (!historyGate.current.current(ticket) || sockRef.current !== panel || panel.stopped || selectedRef.current !== panel.agentId) return;
+      const sameSession = !historyPath.current || historyPath.current === t.path;
+      historyPath.current = t.path || "";
+      const cur = stateRef.current;
+      const live = liveSince(cur.items, baseline, sameSession);
+      set({ ...cur, items: reconcileTranscript(eventsToItems(t.events || []), live) });
+    } catch { /* Keep live state; reconnect or settle retries the history. */ }
+  }
+
   useEffect(() => {
+    historyPath.current = "";
     set(initialAgentState);
     if (!agentId || !managed) { close(); return undefined; }
     connect(agentId);
@@ -174,21 +207,9 @@ export function useAgentSocket(agent) {
     }
   }
 
-  // seed: the transcript tail fetched on open goes under whatever the
-  // socket has already produced (a snapshot's ask card, live deltas) —
-  // the file never contains ask cards, so nothing is duplicated.
-  function seed(items) {
-    if (!items || !items.length) return;
-    const cur = stateRef.current;
-    const seeded = cur.items.length && cur.items[0].__seeded;
-    if (seeded) return;
-    const tagged = items.map((it, i) => (i === 0 ? { ...it, __seeded: true } : it));
-    set({ ...cur, items: [...tagged, ...cur.items] });
-  }
-
   function toggleTool(id) {
     set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it)) });
   }
 
-  return { state, scrollTick, send, abort, replyAsk, abortBash, toggleTool, seed };
+  return { state, scrollTick, send, abort, replyAsk, abortBash, toggleTool };
 }

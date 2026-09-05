@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/toolpreview"
 )
 
 // Event is one conversation beat for the chat surface (view-only).
@@ -186,6 +188,7 @@ func applyToolResult(out []Event, msg map[string]any, pending map[string]int) []
 		status = "error"
 	}
 	res, _ := msg["details"].(map[string]any)
+	res = toolpreview.Details(res)
 	if i, ok := pending[id]; ok && i >= 0 && i < len(out) {
 		out[i].Status = status
 		out[i].Detail = detail

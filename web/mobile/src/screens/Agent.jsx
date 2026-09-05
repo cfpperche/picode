@@ -14,7 +14,6 @@ import { shortModel } from "@picode/shared/domain/chip.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { IconGit } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
@@ -25,7 +24,7 @@ import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
 export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenChanges, onAgentConfig }) {
-  const sock = useAgentSocket(agent);
+  const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const [view, setView] = useState("chat");
@@ -51,20 +50,6 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
       .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));
   }, [id, mode]);
-
-  // History: the last 200 events of the agent's own session (the server
-  // falls back to the agent's session path when none is given), replayed
-  // under whatever the socket already showed. One fetch per agent.
-  useEffect(() => {
-    if (!id || !managed) return undefined;
-    let stale = false;
-    const wsId = workspace ? workspace.id : "ws_free";
-    api("/api/workspaces/" + encodeURIComponent(wsId) + "/sessions/transcript?agent=" + encodeURIComponent(id) + "&tail=200")
-      .then((t) => { if (!stale) sock.seed(eventsToItems(t.events || [])); })
-      .catch(() => {});
-    return () => { stale = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, managed]);
 
   usePoll(async () => {
     if (!id) return;

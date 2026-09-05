@@ -1,5 +1,6 @@
 import { Fragment, memo, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import ToolCapture from "./ToolCapture.jsx";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -596,19 +597,8 @@ function Tool({ it, onToggle, onOpenFile, agentId, onPreview }) {
         {ch ? <span className="tp-stat"><span className="add">{ch.add ? "+" + ch.add : ""}</span>{ch.add && ch.del ? " " : ""}<span className="del">{ch.del ? "−" + ch.del : ""}</span></span> : null}
         <span className="tp-status">{hits.length ? hits.length : (it.status || "···")}</span>
       </div>
-      {it.preview ? (
-        <div className="tp-preview">
-          <button type="button" className="tp-preview-pic" onClick={() => onPreview && onPreview(it.preview.image)} title="View image">
-            <img src={it.preview.image} alt={it.preview.title || "Live preview"} />
-          </button>
-          {it.preview.title || it.preview.url ? (
-            <div className="tp-preview-cap">
-              {it.preview.title ? <span className="tp-preview-title">{it.preview.title}</span> : null}
-              {it.preview.url ? <span className="tp-preview-url">{it.preview.url}</span> : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <ToolCapture key={it.preview?.image || it.previewError || "none"} preview={it.preview} error={it.previewError}
+        onPreview={onPreview} onDetails={() => { if (!it.expanded) onToggle(it.id); }} />
       <div className={"tp-detail" + (ch ? " tp-diff" : "") + (hits.length ? " tp-search" : "")}>
         {ch ? <DiffHunks hunks={ch.hunks} path={ch.path} agentId={agentId} onOpenFile={onOpenFile} /> : hits.length ? <SearchHits hits={hits} /> : it.detail}
       </div>

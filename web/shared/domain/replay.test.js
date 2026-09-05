@@ -18,9 +18,11 @@ test("maps user assistant tool", () => {
 test("replayed tool result details render the persisted preview (ADR-0057)", () => {
   const items = eventsToItems([
     { kind: "tool", id: "t1", name: "agent_browser", status: "ok", detail: "shot",
-      result: { preview: { image: "data:image/jpeg;base64,AAA", url: "https://example.com", title: "Example" } } },
+      result: { preview: { image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=", url: "https://example.com/", title: "Example" } } },
     { kind: "tool", id: "t2", name: "bash", status: "ok", detail: "a" },
   ]);
-  assert.deepEqual(items[0].preview, { image: "data:image/jpeg;base64,AAA", url: "https://example.com", title: "Example" });
+  assert.equal(items[0].preview.url, "https://example.com/");
+  assert.equal(items[0].preview.title, "Example");
+  assert.ok(items[0].preview.image.startsWith("data:image/png;base64,"));
   assert.equal(items[1].preview, null);
 });

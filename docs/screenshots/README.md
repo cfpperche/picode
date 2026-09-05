@@ -17,6 +17,17 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
+Tool captures (ADR-0075): `tool-capture-desktop-*` (light, 1280×900) and
+`tool-capture-mobile-*` (dark, 390×844) cover no capture, running capture,
+blocked source, decode failure/Retry and the existing image viewer. All ten
+images were read; overlay audits passed. The embedded docs fixture plus
+`scripts/fixtures/tool-preview-init.js` supplies synthetic socket events and
+successful history reads delayed by 1.6s, not aborted requests. This proves
+host rendering/reconciliation, **not** a real browser-package emitter.
+Mobile reconnect, rapid agent switches and final/late-update checks are local
+`var/tool-preview/*.json` evidence. See the [plan](../plans/browser-preview.md)
+for remaining integration acceptance and fixture setup.
+
 Working captures stay in `var/screenshots/`. Devices footer (list + centred Pair/Copy): `devices-foot.png`. Curated MCP: empty/blocked, Use from, Add More (url / env / error).
 Provider Usage (ADR-0031): `usage-accounts.png` (Usage on each vault row),
 `usage-windows.png`, `usage-empty.png`, `usage-error.png`, `usage-auth.png`,

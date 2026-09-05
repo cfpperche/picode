@@ -6,6 +6,12 @@
 
 ## Current state (read this first)
 
+**Capture increment:** `feat/tool-preview-hardening` implements the bounded
+host contract (ADR-0075), desktop/mobile reconciliation and fallback UI.
+Not merged, pushed or deployed. Browser emission is **not enabled**: phases
+3–4 still need an opt-in native-package change and real integration acceptance.
+See `docs/plans/browser-preview.md`; no global package settings were changed.
+
 **Repository:** HEAD includes File Tree v2 (ADR-0074), the worktree-aware
 Git Graph (0073), independent web apps (0072), Windows task reliability
 (0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
@@ -25,20 +31,13 @@ and normal Quit are implemented and locally installed. Native policy/lifecycle
 and race tests passed. UAC repair preserved action/principal/triggers; repeat
 repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
-**Quality:** File Tree ignore refinement `make ci` passed (649 frontend tests,
-Go, packages, build, docs and Vale). Four read screenshots cover both themes,
-selection, empty and blocked states; audits passed. The integrated code is
-commit `050580f9`; dedicated test fixtures and the QA browser are stopped. Evidence lives in
-`docs/screenshots/filetree-ignored-*` and `var/filetree-ignored/`.
-The preceding mobile combined `make ci` passed (648 frontend tests, Go, packages,
-build, docs and Vale), plus embedded UI/server checks. The repeatable mobile
-browser runner passed draft/image retention, both settings callbacks, save
-failure rollback and model/tool/checklist persistence. Light/dark, small/wide,
-empty/blocked/error screenshots were read; settled overlay audits passed.
-Evidence: `docs/screenshots/mobile-review-*` and
-`var/mobile-review-fixes-14748677/`. File Tree v2's earlier evidence remains
-in `docs/screenshots/filetree-v2-*`. Physical PWA/push acceptance is open;
-no model turns were started by this correction increment.
+**Quality:** capture host `make ci` passed (662 frontend tests, Go, packages,
+build, docs and Vale). Ten `docs/screenshots/tool-capture-*` images were read:
+light desktop/dark mobile, absent/blocked/broken/running capture and viewer;
+overlay audits passed. Synthetic delayed-history/socket QA is not a real
+browser-emitter verdict. Earlier File Tree/mobile gates and evidence are
+archived; physical PWA/push acceptance remains open. No model turns or
+production service restarts were used for this capture increment.
 
 ### Product and platform
 
@@ -96,7 +95,8 @@ and fallback detail is archived; the implementation is unchanged here.
   passed without model turns. The historical Inbox `[Teste 3]` and
   `mobile-6bf740` rows still need reconciliation before a new live question.
 - ADR-0054 `picode-act` still needs real model-emitted dogfood before merge;
-  the Browser preview emitter/panel remains open.
+  Browser preview phases 3–4 require native-package emission and real RPC
+  acceptance before any panel work (host increment is implemented here).
 - Second-account, container, public-OIDC, and other remote-mode acceptance
   runs require owner-controlled infrastructure.
 - ADR-0064 is proposed: the owner still needs to choose whether to accept the
@@ -118,11 +118,19 @@ and fallback detail is archived; the implementation is unchanged here.
 5. Verify the local `pi-compact` configuration and re-dogfood its policy.
 6. Inspect the exact historical Inbox rows before any real TUI reply test.
 7. Run the owner-controlled remote-mode acceptance matrix.
-8. Continue the Browser preview panel and ADR-0054 dogfood.
+8. Continue Browser preview with the opt-in native emitter, not the panel:
+   update issue #157's proposal to ADR-0075, then prove real partial/final
+   captures, cancellation and slow consumers. ADR-0054 dogfood remains separate.
 9. Decide whether selective docs-video capture/render should be scheduled;
    current explicit capture and integrity gates already pass.
 
 ## Known debts / open questions
+
+- **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or
+  slow-consumer/cancellation matrix. The hub still drops on overflow and does
+  not cache missed partials. Desktop reconnect and same-agent session replacement
+  during a pending session-changing API need dedicated acceptance; mobile
+  reconnect/selection switching passed with fixtures. See the capture plan.
 
 - Task Scheduler launch retries are not general crash recovery: a native
   exit-one probe stayed stopped for 90 seconds. Separate tray/WSL keepalive
@@ -159,10 +167,13 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Recent activity
 
-- **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
-  listing in one bounded call. Tracked files, exceptions and unavailable Git
-  are covered; light/dark, inline selection, empty and blocked screenshots
-  were read. visual-review: PASS. `make ci` passed (649 frontend tests, Go, build, docs and Vale).
+- **2026-09-05 — Bounded tool captures, host increment.** ADR-0075 and the
+  phased plan replace the loose-URL preview assumptions. Projection limits,
+  authoritative finals, duplicate/stale tool guards and successful delayed
+  history reconciliation are tested. visual-review: PASS for the host;
+  `make ci` passed. No companion or upstream patch is shipped: inspected
+  Pi 0.85.1/native browser 0.6.6 hooks do not establish companion partial
+  emission. Exact-PID fixture cleanup only; installed service untouched.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
