@@ -1,31 +1,45 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
-import { api, humanizeError } from "@picode/shared/client/api.js";
+import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
-import { previewKind, isBlobKind, fileBlobUrl } from "@picode/shared/domain/filePreview.js";
+import { previewKind } from "@picode/shared/domain/filePreview.js";
+import { createDocumentGuard, createFileDocument } from "../lib/fileDocument.js";
+import { fileMessage, ownerFileURL, readFile } from "../lib/fileIO.js";
+import { useKeptScroll } from "../lib/keepScroll.js";
 import FilePreview from "./FilePreview.jsx";
+import FileLeaveDialog from "./FileLeaveDialog.jsx";
 import { IconExpand, IconCollapse } from "./Icons.jsx";
 
 const FILE_MIN = 240;
 const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
 
-function fileTextUrl(agentId, termId, wsId, path) {
-  const base = termId
-    ? "/api/terminals/" + encodeURIComponent(termId) + "/text"
-    : wsId
-      ? "/api/workspaces/" + encodeURIComponent(wsId) + "/text"
-      : "/api/agents/" + encodeURIComponent(agentId) + "/text";
-  return base + "?path=" + encodeURIComponent(path);
-}
-
-export default function FilePane({ agentId, termId, wsId, path, onClose, variant }) {
-  const [view, setView] = useState({ kind: "load" });
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
+export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", nonce = 0, hidden = false, controllerRef, onSaved, onViewDiff, onRefreshRoot }) {
+  const ownerKind = termId ? "term" : wsId ? "workspace" : "agent";
+  const ownerId = termId || wsId || agentId;
+  const savedRef = useRef(onSaved);
+  savedRef.current = onSaved;
+  const doc = useMemo(() => {
+    const owner = { kind: ownerKind, id: ownerId };
+    return createFileDocument({
+      read: (signal) => readFile(owner, path, root, signal),
+      write: async (text, mtime) => {
+        const page = await api(ownerFileURL(owner, "text", "", root), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path, text, mtime }),
+        });
+        savedRef.current?.();
+        return page;
+      },
+      release: (page) => { if (page.src) URL.revokeObjectURL(page.src); },
+    });
+  }, [ownerKind, ownerId, path, root]);
+  const view = useSyncExternalStore(doc.subscribe, doc.getSnapshot);
+  const rootRef = useKeptScroll(hidden, [".cm-scroller", ".file-preview"]);
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(FILE_KEY) || "", 10);
     return Number.isFinite(n) ? Math.min(FILE_MAX, Math.max(FILE_MIN, n)) : 420;
@@ -34,144 +48,77 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const [expanded, setExpanded] = useState(false);
   const kind = previewKind(path);
   const [mode, setMode] = useState(kind ? "preview" : "raw");
+  const [leaving, setLeaving] = useState(false);
+  const leaveResolver = useRef(null);
   const hostRef = useRef(null);
   const cmRef = useRef(null);
-  const mtimeRef = useRef(0);
-  const dirtyRef = useRef(false);
-  const saveRef = useRef(async () => {});
-  dirtyRef.current = dirty;
+  const modeRef = useRef(mode);
+  const hiddenRef = useRef(hidden);
+  modeRef.current = mode;
+  hiddenRef.current = hidden;
+  const embedded = variant === "embedded";
+  const tab = variant === "tab";
+  const guard = useMemo(() => createDocumentGuard(doc, () => new Promise((resolve) => {
+    leaveResolver.current = resolve;
+    setLeaving(true);
+  })), [doc]);
 
-  const ownerId = termId || wsId || agentId;
-  useEffect(() => {
-    if (!ownerId || !path) return;
-    let stop = false;
-    const blobRef = { current: "" };
-    setView({ kind: "load" });
-    setDirty(false);
-    dirtyRef.current = false;
-    const name = path.split("/").pop() || path;
-    if (isBlobKind(previewKind(path))) {
-      fetch(fileBlobUrl(agentId, termId, wsId, path))
-        .then(async (res) => {
-          if (stop) return;
-          if (!res.ok) {
-            let msg = res.statusText;
-            try { msg = (await res.json()).error || msg; } catch { /* keep */ }
-            throw new Error(msg);
-          }
-          const buf = await res.blob();
-          blobRef.current = URL.createObjectURL(buf);
-          if (stop) { URL.revokeObjectURL(blobRef.current); return; }
-          setView({ kind: "bin", path, name, src: blobRef.current });
-        })
-        .catch((err) => {
-          if (stop) return;
-          const raw = err && err.message ? err.message : String(err);
-          setView({ kind: "msg", path, name, text: fileMsg(raw) });
-        });
-    } else {
-      api(fileTextUrl(agentId, termId, wsId, path))
-        .then((page) => {
-          if (stop) return;
-          mtimeRef.current = Number(page.mtime) || 0;
-          setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });
-        })
-        .catch((err) => {
-          if (stop) return;
-          const raw = err && err.message ? err.message : String(err);
-          setView({ kind: "msg", path, name, text: fileMsg(raw) });
-        });
-    }
-    return () => {
-      stop = true;
-      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
-    };
-  }, [agentId, termId, ownerId, path]);
+  useImperativeHandle(controllerRef, () => ({ beforeLeave: guard }), [guard]);
+  useEffect(() => { void doc.refresh(); }, [doc, nonce]);
+  useEffect(() => () => {
+    doc.dispose();
+    leaveResolver.current?.("cancel");
+  }, [doc]);
+  useEffect(() => { setMode(previewKind(path) ? "preview" : "raw"); }, [path]);
 
   useEffect(() => {
-    setMode(previewKind(path) ? "preview" : "raw");
-  }, [path]);
+    if (!view.dirty && !view.saving) return;
+    const protect = (event) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [view.dirty, view.saving]);
 
   useEffect(() => {
-    if (view.kind !== "text" || mode === "preview" || !hostRef.current) return;
-    const lang = languageFor(view.path || path);
-    const dark = document.documentElement.dataset.theme !== "light";
-    const state = EditorState.create({
-      doc: view.text,
-      extensions: fileEditorExtensions({
-        lang,
-        dark,
-        onDoc: () => { dirtyRef.current = true; setDirty(true); },
-        onSave: () => { saveRef.current(); },
+    if (view.kind !== "text" || !hostRef.current) return;
+    const cm = new EditorView({
+      state: EditorState.create({
+        doc: doc.getSnapshot().text,
+        extensions: fileEditorExtensions({
+          lang: languageFor(path),
+          dark: document.documentElement.dataset.theme !== "light",
+          onDoc: () => doc.edit(cm.state.doc.toString()),
+          onSave: () => { void doc.save(); },
+        }),
       }),
+      parent: hostRef.current,
     });
-    const cm = new EditorView({ state, parent: hostRef.current });
     cmRef.current = cm;
-    cm.focus();
-    return () => {
-      cm.destroy();
-      cmRef.current = null;
-    };
-  }, [view.kind, view.path, view.text, path, mode]);
+    // In the tree, selection keeps its keyboard focus in the navigation.
+    if (!embedded && !hiddenRef.current && modeRef.current === "raw") cm.focus();
+    return () => { cm.destroy(); cmRef.current = null; };
+  }, [doc, view.kind, view.revision, path, embedded]);
 
-  async function save() {
-    if (view.kind !== "text" || !dirtyRef.current || saving) return;
-    const text = cmRef.current ? cmRef.current.state.doc.toString() : view.text;
-    if (text == null) return;
-    setSaving(true);
-    try {
-      const page = await api(fileTextUrl(agentId, termId, wsId, path).split("?")[0], {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: view.path || path, text, mtime: mtimeRef.current }),
-      });
-      mtimeRef.current = Number(page.mtime) || 0;
-      dirtyRef.current = false;
-      setDirty(false);
-    } catch (err) {
-      const raw = err && err.message ? err.message : String(err);
-      if (String(raw).toLowerCase().includes("changed on disk")) {
-        const ok = await askConfirm({
-          title: "File changed",
-          message: "This file changed on disk. Open it again to see the new version.",
-          confirmLabel: "Open",
-        });
-        if (ok) reload();
-        return;
-      }
-      setView({ kind: "msg", path: view.path || path, name: view.name, text: fileMsg(raw) });
-    } finally {
-      setSaving(false);
-    }
+  useEffect(() => {
+    if (!hidden && mode === "raw") cmRef.current?.requestMeasure();
+  }, [hidden, mode]);
+
+  function pickLeave(choice) {
+    const resolve = leaveResolver.current;
+    leaveResolver.current = null;
+    setLeaving(false);
+    resolve?.(choice);
   }
-  saveRef.current = save;
 
-  function reload() {
-    setView({ kind: "load" });
-    setDirty(false);
-    dirtyRef.current = false;
-    api(fileTextUrl(agentId, termId, wsId, path))
-      .then((page) => {
-        mtimeRef.current = Number(page.mtime) || 0;
-        setView({ kind: "text", path: page.path || path, name: page.name || "", text: page.text || "" });
-      })
-      .catch((err) => {
-        const raw = err && err.message ? err.message : String(err);
-        setView({ kind: "msg", path, name: path.split("/").pop() || path, text: fileMsg(raw) });
-      });
+  async function reload() {
+    if (view.saving) return;
+    if (doc.getSnapshot().dirty && !await askConfirm({
+      title: "Reload file?", message: "Discard your edits and read the file again?", confirmLabel: "Reload", danger: true,
+    })) return;
+    await doc.refresh({ discard: true });
   }
 
   async function close() {
-    if (dirtyRef.current) {
-      const ok = await askConfirm({
-        title: "Discard changes?",
-        message: "Close without saving?",
-        confirmLabel: "Discard",
-        danger: true,
-      });
-      if (!ok) return;
-    }
-    onClose();
+    if (await guard()) onClose?.();
   }
 
   function onSizerDown(e) {
@@ -196,83 +143,62 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
 
   useEffect(() => {
     if (!expanded) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") { e.preventDefault(); setExpanded(false); }
-    };
+    const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); setExpanded(false); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  function pickMode(next) {
-    if (next === mode) return;
-    if (mode === "raw" && cmRef.current) {
-      const t = cmRef.current.state.doc.toString();
-      setView((v) => (v.kind === "text" ? { ...v, text: t } : v));
-    }
-    setMode(next);
-  }
-
-  // Like the tree header: the tab strip carries the basename, the header
-  // confirms exactly which file — so it shows the path, not just the name.
-  const title = view.path || path || "File";
   const canSave = view.kind === "text";
-  const showPreview = !!kind && (view.kind === "text" || view.kind === "bin");
-  const tab = variant === "tab";
+  const showPreview = !!kind && (canSave || view.kind === "bin");
+  const saveError = canSave && view.dirty && view.error;
+  const conflict = /changed on disk|folder changed/i.test(view.error);
+  const moved = /folder changed/i.test(view.error) && onRefreshRoot;
   return (
-    <section className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "") + (tab ? " file-pane-tab" : "")} aria-label={title} style={tab || expanded ? undefined : { width }}>
-      {tab || expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
+    <section
+      className={"file-pane" + (resizing ? " resizing" : "") + (expanded ? " expanded" : "") + (tab ? " file-pane-tab" : "") + (embedded ? " file-pane-embedded" : "")}
+      aria-label={path || "File"} ref={rootRef} aria-busy={view.kind === "load" || view.saving} style={tab || embedded || expanded ? undefined : { width }}
+    >
+      {tab || embedded || expanded ? null : <div className="file-pane-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
       <header className="file-pane-bar">
-        <span className="file-pane-name" title={view.path || path}>{title}</span>
-        {dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
-        {showPreview ? (
-          <div className="chip-group" data-align-row>
-            <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "preview"} onClick={() => pickMode("preview")}>Preview</button>
-            <button type="button" className="cockpit-chip" role="radio" aria-checked={mode === "raw"} onClick={() => pickMode("raw")}>Raw</button>
-            {canSave ? <button type="button" className="cockpit-chip" onClick={save} disabled={!dirty || saving}>Save</button> : null}
+        <span className="file-pane-name" title={path}>{path}</span>
+        {view.dirty ? <span className="file-dirty" aria-label="Unsaved" /> : null}
+        <div className="file-pane-actions">
+          {showPreview && canSave ? (
+            <div className="chip-group" role="group" aria-label="File display" data-align-row>
+              <button type="button" className="cockpit-chip" aria-pressed={mode === "preview"} onClick={() => setMode("preview")}>Preview</button>
+              {canSave ? <button type="button" className="cockpit-chip" aria-pressed={mode === "raw"} onClick={() => setMode("raw")}>Raw</button> : null}
+            </div>
+          ) : null}
+          <div className="file-pane-commands" data-align-row>
+            {onViewDiff ? <button type="button" className="btn btn-sm btn-ghost" onClick={onViewDiff}>View diff</button> : null}
+            {canSave ? <button type="button" className="btn btn-primary btn-sm" onClick={() => doc.save()} disabled={!view.dirty || view.saving}>{view.saving ? "Saving…" : "Save"}</button> : null}
+            {tab ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close} aria-label="Close file panel">Close</button>}
+            {tab || embedded ? null : (
+              <button type="button" className="file-pane-expand" title={expanded ? "Collapse" : "Expand"} aria-label={expanded ? "Collapse file pane" : "Expand file pane"} onClick={() => setExpanded((v) => !v)}>
+                {expanded ? <IconCollapse /> : <IconExpand />}
+              </button>
+            )}
           </div>
-        ) : canSave ? (
-          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!dirty || saving}>Save</button>
-        ) : null}
-        {tab ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Close</button>}
-        {tab ? null : (
-        <button
-          type="button"
-          className="file-pane-expand"
-          title={expanded ? "Collapse" : "Expand"}
-          aria-label={expanded ? "Collapse file pane" : "Expand file pane"}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? <IconCollapse /> : <IconExpand />}
-        </button>
-        )}
+        </div>
       </header>
+      {view.error ? (
+        <p className="file-pane-notice" role="status">
+          <span>{fileMessage(view.error)}</span>
+          <button type="button" className="btn btn-sm btn-ghost" disabled={view.saving || view.refreshing} onClick={moved ? onRefreshRoot : saveError && !conflict ? () => doc.save() : reload}>
+            {moved ? "Refresh tree" : saveError && !conflict ? "Retry save" : "Reload"}
+          </button>
+        </p>
+      ) : null}
       <div className="file-pane-body">
         {view.kind === "load" ? (
           <div className="file-skel" aria-hidden="true">
-            <div className="skel-line w-80" />
-            <div className="skel-line w-90" />
-            <div className="skel-line w-50" />
-            <div className="skel-line w-70" />
+            <div className="skel-line w-80" /><div className="skel-line w-90" /><div className="skel-line w-50" /><div className="skel-line w-70" />
           </div>
         ) : null}
-        {view.kind === "text" && mode === "raw" ? <div className="file-cm" ref={hostRef} /> : null}
-        {view.kind === "bin" && mode === "raw" ? <p className="file-pane-msg">Can't show this file.</p> : null}
-        {mode === "preview" && kind && (view.kind === "text" || view.kind === "bin") ? (
-          <FilePreview kind={kind} text={view.text} src={view.src} />
-        ) : null}
-        {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
+        {canSave ? <div className="file-cm" ref={hostRef} hidden={mode !== "raw"} /> : null}
+        {mode === "preview" && showPreview ? <FilePreview kind={kind} text={view.text} src={view.src} /> : null}
       </div>
+      <FileLeaveDialog open={leaving} path={path} onPick={pickLeave} />
     </section>
   );
-}
-
-function fileMsg(raw) {
-  const s = String(raw || "").toLowerCase();
-  if (s.includes("gone") || s.includes("not found") || s.includes("no such file")) return "That file is gone.";
-  if (s.includes("too large")) return "This file is too large.";
-  if (s.includes("can't show") || s.includes("can't write") || s.includes("unsupported")) return "Can't show this file.";
-  if (s.includes("folder")) return "That's a folder.";
-  if (s.includes("escapes")) return "That path is outside this project.";
-  if (s.includes("changed on disk")) return "This file changed on disk.";
-  return humanizeError(raw);
 }

@@ -99,28 +99,28 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           <p className="settings-desc" role="status">{pending ? "Saving…" : configStatus}</p>
           {configError ? <div role="alert"><p>{configError}</p><button type="button" className="btn btn-sm" onClick={() => setConfigError("")}>Dismiss</button></div> : null}
           <fieldset className="m-agent-config-fields" disabled={!!pending} aria-busy={!!pending}>
-          <div className="set-rows">
-            <div className="set-row set-row-stack">
-              <span>Model</span>
-              <ConfigFields
-                catalog={catalog}
-                provider={ag.provider}
-                model={ag.model}
-                thinking={ag.thinking}
-                onChange={changeAgent}
-                idPrefix="ag-set"
-                row
-              />
+            <div className="set-rows">
+              <div className="set-row set-row-stack">
+                <span>Model</span>
+                <ConfigFields
+                  catalog={catalog}
+                  provider={ag.provider}
+                  model={ag.model}
+                  thinking={ag.thinking}
+                  onChange={changeAgent}
+                  idPrefix="ag-set"
+                  row
+                />
+              </div>
+              <div className="set-row">
+                <span>Tools</span>
+                <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={changeAgent} />
+              </div>
+              <div className="set-row">
+                <span>Checklist</span>
+                <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={changeAgent} />
+              </div>
             </div>
-            <div className="set-row">
-              <span>Tools</span>
-              <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={changeAgent} />
-            </div>
-            <div className="set-row">
-              <span>Checklist</span>
-              <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={changeAgent} />
-            </div>
-          </div>
           </fieldset>
         </section>
       ) : null}

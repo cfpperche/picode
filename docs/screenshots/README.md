@@ -105,3 +105,25 @@ rolls back controls, and closing Settings preserves the draft and attachment.
 - [Retained draft and image](mobile-review-draft-retained.png)
 - [Tool selector above the sheet](mobile-review-mode-selector.png)
 - [Wide dark sheet](mobile-review-settings-wide-dark.png)
+
+File Tree v2 (ADR-0074): `filetree-v2-editor-dark.png`,
+`filetree-v2-editor-light.png`, `filetree-v2-diff-dark.png` and
+`filetree-v2-image.png` show one local detail panel for content and changes.
+`filetree-v2-unsaved-dialog.png`, `filetree-v2-save-error.png`,
+`filetree-v2-conflict.png`, `filetree-v2-removed.png` and
+`filetree-v2-root-changed.png` cover draft protection and recovery.
+The empty, clean-changes, blocked, unsupported and tree-error captures show
+their next actions. Narrow, preview-narrow, compact and stacked captures cover
+900, 720, 550 and 390px desktop windows. Screenshots were read after correcting narrow
+preview controls; overlay and toolbar-boundary audits passed.
+
+`filetree-v2-qa.json` records all 15 browser acceptance groups. Reproduce with
+`scripts/qa-filetree-v2.mjs` against a private `picode-docs-fixture -addr
+127.0.0.1:18746` instance, using the current UI build. Set `PICODE_QA_BASE` to
+that address, `PICODE_QA_CDP` to the CDP URL of a dedicated browser session,
+and `PICODE_PLAYWRIGHT_MODULE` to an installed Playwright module. Start the
+agent-browser session with `AGENT_BROWSER_NO_AUTO_DIALOG=1` so the test can
+observe and dismiss the native unsaved-changes dialog. The runner checks the
+synthetic workspace identity before writing fixture files and removes its
+disposable terminal afterward. Public docs use a separate unmodified fixture;
+`docs-shots.mjs` now closes only its own browser session.

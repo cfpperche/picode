@@ -174,7 +174,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
           <Sheet.Content className="dlg m-agent-settings" aria-describedby={undefined}>
             <Sheet.Title className="dlg-title">Settings · {name}</Sheet.Title>
             <div className="m-agent-settings-body">
-                <PiSettings agentOnly hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} />
+              <PiSettings agentOnly hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} />
             </div>
             <div className="dlg-actions"><Sheet.Close asChild><button type="button" className="btn btn-primary">Done</button></Sheet.Close></div>
           </Sheet.Content>

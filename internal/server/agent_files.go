@@ -114,6 +114,9 @@ func handleAgentBrowse(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		out, err := browseAgentDir(cwd, r.URL.Query().Get("dir"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -150,6 +153,9 @@ func handleAgentBlob(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
@@ -167,6 +173,9 @@ func handleAgentText(deps Deps) http.HandlerFunc {
 		cwd, err := agentCwd(deps, r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
+			return
+		}
+		if !checkFileRoot(w, r, cwd) {
 			return
 		}
 		out, code, err := readAgentText(cwd, r.URL.Query().Get("path"))
@@ -198,6 +207,9 @@ func handlePutAgentText(deps Deps) http.HandlerFunc {
 		}
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
+		}
+		if !checkFileRoot(w, r, cwd) {
+			return
 		}
 		out, code, err := writeAgentText(cwd, req.Path, req.Text, req.Mtime)
 		if err != nil {

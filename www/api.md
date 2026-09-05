@@ -31,6 +31,18 @@ curl -b "picode_session=<secret>" http://127.0.0.1:8445/api/workspaces
 A daemon started with `PICODE_INSECURE=1` (development only) skips pairing entirely — useful when scripting against a throwaway instance.
 :::
 
+## File Tree folder precondition
+
+File Tree requests can include `root`, the canonical folder returned by
+`GET /api/{agents|terminals|workspaces}/{id}/browse`. Browse, text (GET and PUT),
+`blob`, `gitstatus`, `gitdiff`, `git/blob` and `reveal` compare it with the folder
+resolved through that owner. A mismatch returns **409** before the operation.
+This prevents a terminal directory change from redirecting an open file's
+relative path. The parameter cannot select a different folder to access.
+
+Requests without `root` continue to resolve the owner's current folder.
+See [Files and changes](/guide/files) for the browser workflow.
+
 ## Why generated
 
 The spec is produced by `cmd/picode-openapi`, which walks the **same `registerAll` call the binary makes at startup**. CI re-runs the generator and byte-compares the result with the committed spec (`make docs-check`): a route added in Go without regenerating the spec fails the build, exactly like a UI change without fresh screenshots.

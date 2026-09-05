@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0070).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073/0074).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -205,7 +205,7 @@ stay on their own routes.
 | `#/` | Agent workspace | tabs, chat, terminal. Replaced by `#/agent/<id>` when an agent is open. With no tab open (or pinned via the logo): the session observability dashboard once any workspace/agent/terminal exists — spend/activity/sessions/fleet tiles, a daily chart, and spend by model / workspace, tokens, tools, reliability, top sessions (ADR-0041, ADR-0042; `GET /api/sessions/stats`, fingerprint-cached, polled every 60 s while visible) — else the first-run blank slate. Not routed, derived from `noTabs && hasData`. |
 | `#/agent/<id>` | Agent workspace | same shell; URL is the open agent (wins over saved tabs on load). An Inbox reply lands straight in this terminal (ADR-0060), so the tab never leaves the TUI. |
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
-| `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
+| `#/tree/<w\|t\|a>/<id>` | File tree tab | lazy per-level browse and a **Changes** list from `…/gitstatus`, with changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab. Files and Changes select the editor/preview or diff in one resizable local detail pane (ADR-0074). |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
@@ -223,6 +223,15 @@ offsets, loaded history, searches and the open item survive a switch and die
 only with the tab. A hidden surface takes no part in the window-focus refresh
 — revealing it refetches instead, and only when its last read is older than
 10s; the git graph refreshes on demand only, so a reveal never refetches it.
+
+The file tree's selection is local to its tab: changing Files/Changes only
+changes the navigation list. `FilePane` supplies both standalone and embedded
+layouts from one document controller (`web/src/lib/fileDocument.js`). Dirty
+replacement, switching to a diff and closing the containing tree tab share
+Save/Discard/Cancel. A failed write retains the editable draft. An unchanged
+refresh preserves editor history/scroll; dirty buffers and edits made while a
+read is pending are never overwritten. Preview/Raw keeps CodeMirror mounted.
+Hidden tabs keep drafts, and browser unload uses native unsaved protection.
 
 Composer `@` lists files in the agent cwd (`GET /api/agents/{id}/files`), plus other agents and skills (mentions in this prompt, not a message to that agent).
 Composer `/` also lists **extension commands** from the running managed agent
@@ -685,6 +694,12 @@ HTTP API (Go 1.22 method patterns):
   folder (optional confined `{"path"}` body) in the host file manager via
   `internal/osopen` (WSL → explorer.exe, darwin → open, else xdg-open).
   Host-local by design: a remote browser opens it on the server's desktop.
+
+ADR-0074 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
+blob, gitstatus, gitdiff, git/blob and reveal. The resolved owner cwd remains
+the authority: the parameter only asserts equality, and a mismatch returns
+409 before reading or writing. The tree pins these requests to its open root;
+only explicit Refresh may adopt a new terminal cwd, after its document guard.
 
 ### TerminalBridge ✅ (M1)
 One tmux session per interactive agent (`internal/tmux`: create/kill/list,

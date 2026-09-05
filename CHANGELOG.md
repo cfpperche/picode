@@ -11,24 +11,6 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
-### Added
-
-- **Git graph shows every worktree's working tree** (ADR-0073). One
-  "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
-  the graph was opened from — labelled with its branch, directory, the agents
-  living there and a "this worktree" marker on your own checkout, each joined
-  to its HEAD by a dashed trail. Clicking a sibling's row opens its files and
-  diffs inline; detached checkouts decorate their HEAD commit with a directory
-  chip; the branch picker marks which branches are checked out in a worktree.
-  Sibling reads are addressed by branch or HEAD hash — never by path — so the
-  graph stays read-only and confined.
-
-### Changed
-
-- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
-  entry in the agent and terminal row menus without an icon; every entry now
-  carries one.
-
 ### Fixed
 
 - Keep mobile drafts and attachments when opening agent Settings, and persist
@@ -53,6 +35,16 @@ to the `[Unreleased]` section. The repository's official language is English
   the subtitle line; it now top-aligns with the agent or terminal name.
 
 ### Added
+
+- **Git graph shows every worktree's working tree** (ADR-0073). One
+  "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
+  the graph was opened from — labelled with its branch, directory, the agents
+  living there and a "this worktree" marker on your own checkout, each joined
+  to its HEAD by a dashed trail. Clicking a sibling's row opens its files and
+  diffs inline; detached checkouts decorate their HEAD commit with a directory
+  chip; the branch picker marks which branches are checked out in a worktree.
+  Sibling reads are addressed by branch or HEAD hash — never by path — so the
+  graph stays read-only and confined.
 
 - **Docker v3 resources, health and supervised maintenance** (ADRs 0067/0068).
   Inspect images, volumes and networks with all container consumers, including
@@ -96,6 +88,18 @@ to the `[Unreleased]` section. The repository's official language is English
   reachable UI. Existing links and PWA identity remain compatible, with shared
   authentication, data contracts and theme tokens. Narrow desktop views gain
   a navigation disclosure, and mobile screen loading failures offer retry.
+
+- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
+  entry in the agent and terminal row menus without an icon; every entry now
+  carries one.
+
+- **File Tree v2:** selecting a file displays its editor or preview beside the
+  tree. Files and Changes share one detail pane; Open file and View diff keep
+  navigation in the same tab. The tree highlights the selection, supports
+  keyboard navigation and remembers its adjustable width. Save/Discard/Cancel
+  protects edits when replacing a document or closing its tree tab; failed
+  saves retain the draft, and a terminal directory change cannot redirect a
+  file read or save to a different folder.
 
 - **Agent CLIs launch inspection** (ADR-0070). Show detected defaults and
   PiCode-injected settings before editing; preview the next launch, protect

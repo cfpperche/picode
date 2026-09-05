@@ -64,6 +64,9 @@ func handleWorkspaceWorkDiff(deps Deps) http.HandlerFunc {
 }
 
 func writeWorkDiff(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	rel := r.URL.Query().Get("path")
 	if rel == "" {
 		writeErr(w, http.StatusBadRequest, "pass ?path=<file>")
@@ -118,6 +121,9 @@ func handleWorkspaceReveal(deps Deps) http.HandlerFunc {
 }
 
 func writeReveal(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	var req struct {
 		Path string `json:"path"`
 	}

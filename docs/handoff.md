@@ -6,38 +6,33 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD includes independent desktop/mobile web applications
-(ADR-0072), desktop task reliability (ADR-0071), the worktree-aware git
-graph (ADR-0073, merged from `feat/gitgraph-worktrees`), Agent CLIs v2 and
-Docker v3.
-The mobile review corrections are validated locally; this increment was not deployed.
-Managed agents remain Pi-only; coding CLIs are terminals. Nothing was pushed.
-Read Git for
-current upstream status. Preserve the unrelated root `.pi/compact.json`.
-Compose registration/deployment remains proposed.
+**Repository:** HEAD includes File Tree v2 (ADR-0074), the worktree-aware
+Git Graph (0073), independent web apps (0072), Windows task reliability
+(0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
+coding CLIs are terminals. This session has not pushed. Read Git for upstream
+status; preserve the unrelated root `.pi/compact.json`.
+Mobile review fixes are validated locally, including the combined tree.
+These fixes have not been pushed or deployed.
 
-**Last application deployment:** `0.1.0+ff8beb8`, health `ok`, boot
-`a78810a9a9e8cae2`; `/desktop/` serves the freshly built `index-Dxa4icCD.js`
-bundle carrying ADR-0073. Ships the worktree-aware git graph on top of the
-independent-apps split. Deployed through `make deploy` at 16:05 UTC; the
-tray was not restarted.
+**Last application deployment:** `0.1.0+469b960`, health `ok`, boot
+`59f0a9b22db1be14`. File Tree v2 is deployed; served desktop assets match
+the build. Live read-only navigation opened two files in one tab. All seven
+terminal records and 20 baseline pane identities survived the restart.
 
-**Windows desktop (ADR-0071):** explicit resident-task installer policy,
-read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
-normal Quit are implemented. Native Windows launch-retry/duplicate/Quit and
-policy-preservation tests passed, plus focused race tests and `make ci`.
-The installed tray was replaced through `make desktop-restart`; normal UAC
-repair removed `PT72H` and battery/idle/network gates. A final task launch at
-11:55:13 local time is running with one instance; all 18 baseline pane IDs/PIDs
-survived. Action/principal/triggers were preserved; repeat repair is a no-op.
+**Windows desktop (ADR-0071):** resident task policy, diagnosis, scoped repair
+and normal Quit are implemented and locally installed. Native policy/lifecycle
+and race tests passed. UAC repair preserved action/principal/triggers; repeat
+repair is a no-op. Next-logon/battery/sleep checks remain owner-deferred.
 
-**Quality:** decoupling passed `make ci` (603 frontend tests, Go/packages,
-build, docs and Vale), embedded UI/server tests, independent-build artifact
-checks, and synthetic-browser review. Empty/blocked/error, light/dark,
-narrow desktop and wide mobile sheets were read; overlay audits passed
-(`docs/screenshots/split-*.png`). Legacy links, worker upgrade, chunk retry,
-root preservation on resize and both Vite dev entries were checked. No model
-turns were started. Physical PWA/push acceptance is still open.
+**Quality:** combined `make ci` passed (648 frontend tests, Go, packages,
+build, docs and Vale), plus embedded UI/server checks. The repeatable mobile
+browser runner passed draft/image retention, both settings callbacks, save
+failure rollback and model/tool/checklist persistence. Light/dark, small/wide,
+empty/blocked/error screenshots were read; settled overlay audits passed.
+Evidence: `docs/screenshots/mobile-review-*` and
+`var/mobile-review-fixes-14748677/`. File Tree v2's earlier evidence remains
+in `docs/screenshots/filetree-v2-*`. Physical PWA/push acceptance is open;
+no model turns were started by this correction increment.
 
 ### Product and platform
 
@@ -49,6 +44,9 @@ turns were started. Physical PWA/push acceptance is still open.
   are addressed by branch or HEAD hash (`?worktree=`), never by path. The
   graph stays read-only and manually refreshed; sibling dirty states ride
   the manual Refresh, and the unused `git/head` token endpoints remain.
+- File Tree v2 keeps file content and working diffs beside the navigation.
+  One document controller protects edits on replacement, close and refresh;
+  optional root preconditions prevent a terminal cd from redirecting a draft.
 - Workspaces support multiple agents, free agents and tmux terminals. Private
   agent sessions follow ADRs 0039/0040/0053. Pi has interactive TUI and managed
   RPC modes; Inbox uses the receiver extension with a paste fallback (ADR-0060).
@@ -98,7 +96,8 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Next up
 
-1. Validate the existing PWA on iOS/Android and promote the reviewed fixes.
+1. Promote the reviewed mobile fixes and validate the deployed PWA upgrade
+   and push delivery on iOS/Android.
    Further mobile UI increments belong only in `web/mobile`.
 
 2. Run the version-specific CLI working/approval/settled acceptance matrix.
@@ -125,8 +124,8 @@ and fallback detail is archived; the implementation is unchanged here.
   and passed here. Battery/sleep/sign-in transitions remain owner-controlled;
   see `docs/plans/desktop-task-reliability.md` for the decision table/evidence.
 - Existing `TestTerminalBrowse` cleanup can leave tmux shells with deleted
-  temporary folders. Seven were observed without a worktree ownership marker;
-  retained them and recorded the cleanup context/lifetime debt.
+  temporary folders. Newly observed disposable shells were identity-checked
+  and removed; pre-existing shells were retained. Review cleanup lifetime.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
@@ -158,9 +157,11 @@ and fallback detail is archived; the implementation is unchanged here.
   the mounted conversation; both settings paths persist configuration, and
   tool/checklist selectors remain above sheets and inside the viewport.
   Parsed imports and resolved shared dependencies reject presentation leakage.
-  `make ci` passed (628 frontend tests); visual-review: PASS (light/dark,
+  `make ci` passed (648 frontend tests on the combined tree); visual-review: PASS (light/dark,
   small/wide, empty/error, preserved draft/image and persisted settings).
   No model turns, push or deployment for these fixes.
+
+
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

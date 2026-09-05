@@ -1,16 +1,36 @@
+import { useRef, useState } from "react";
+import { treeKeyAction } from "../lib/fileTree.js";
 import { IconChevronRight, IconFile, IconFolder } from "./Icons.jsx";
 
-// Pure render of the flattened tree (ADR-0030): rows come from
-// lib/fileTree.flattenTree, decoration from the gitstatus-derived maps.
-export default function FileTree({ rows, kinds, dirtyDirs, onToggle, onOpen }) {
+// Rows come from lib/fileTree.flattenTree and decoration from gitstatus.
+// Only keyboard focus is local; document selection belongs to the surface.
+export default function FileTree({ rows, kinds, dirtyDirs, selectedPath, onToggle, onOpen, onRefresh }) {
+  const [focused, setFocused] = useState("");
+  const listRef = useRef(null);
+  const active = rows.some((r) => r.path === focused) ? focused : rows.find((r) => r.path === selectedPath)?.path || rows[0]?.path;
+  function onKey(event, index) {
+    const action = treeKeyAction(rows, index, event.key);
+    if (!action) return;
+    event.preventDefault();
+    if (action.toggle) onToggle(action.toggle);
+    if (action.focus) listRef.current?.querySelector(`[data-path="${CSS.escape(action.focus)}"]`)?.focus();
+  }
   return (
-    <ul className="ft-list" role="tree">
-      {rows.map((row) => (
-        <li key={row.path} role="treeitem" aria-expanded={row.isDir ? row.open : undefined}>
+    <ul className="ft-list" role="tree" aria-label="Project files" ref={listRef}>
+      {rows.map((row, index) => (
+        <li key={row.path} role="none">
           <button
             type="button"
-            className={"ft-row" + (row.isDir ? " ft-row-dir" : "")}
+            role="treeitem"
+            aria-level={row.depth + 1}
+            aria-expanded={row.isDir ? row.open : undefined}
+            aria-selected={selectedPath === row.path}
+            tabIndex={active === row.path ? 0 : -1}
+            data-path={row.path}
+            className={"ft-row" + (row.isDir ? " ft-row-dir" : "") + (selectedPath === row.path ? " ft-row-on" : "")}
             style={{ paddingLeft: 8 + row.depth * 14 }}
+            onFocus={() => setFocused(row.path)}
+            onKeyDown={(e) => onKey(e, index)}
             onClick={() => (row.isDir ? onToggle(row.path) : onOpen(row.path))}
             title={row.path}
           >
@@ -25,6 +45,7 @@ export default function FileTree({ rows, kinds, dirtyDirs, onToggle, onOpen }) {
             {row.isDir && dirtyDirs.has(row.path) ? <span className="ft-dot ft-dot-dir" title="contains changes" /> : null}
             {row.isDir && row.open && !row.loaded ? <span className="ft-loading">…</span> : null}
           </button>
+          {row.empty ? <p className="ft-empty" style={{ paddingLeft: 30 + row.depth * 14 }}>Empty folder. <button type="button" className="btn btn-sm btn-ghost" onClick={onRefresh}>Refresh</button></p> : null}
         </li>
       ))}
     </ul>

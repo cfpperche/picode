@@ -3,7 +3,18 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
-## Recent activity (archived during mobile review fixes, 2026-09-05)
+## File Tree v2 delivery (archived during mobile review integration)
+
+- **2026-09-05 — File Tree v2 (ADR-0074).** Content, editing and changes share
+  one local panel. Draft guards, root preconditions and keyboard resizing
+  passed 15 browser groups; narrow controls were corrected and screenshots read.
+  Integrated the independent desktop app and sibling-worktree read contracts.
+  visual-review: PASS. Full `make ci` passed; merged and locally deployed as
+  `0.1.0+469b960`. Live file selection stayed in one tab; no files were edited.
+  Disposable fixtures and newly observed test shells were cleaned up.
+
+
+## Concurrent Git Graph and app split delivery (archived during File Tree v2)
 
 - **2026-09-05 — ADR-0073 merged and deployed.** `feat/gitgraph-worktrees`
   merged into `main` (renumbered 0071→0073: desktop task reliability and
@@ -31,7 +42,6 @@ state is always `docs/handoff.md`. Do not treat this file as current.
   optional previews remain lazy. Incorporated concurrent Rename/task work
   and the Windows/macOS test portability fixes.
   visual-review: PASS; public captures refreshed. No application deployment.
-
 
 ## Cross-platform test portability (archived 2026-09-05 during web decoupling)
 

@@ -268,7 +268,11 @@ func handleTerminalBrowse(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		out, err := browseAgentDir(liveTermCwd(deps, r, term), r.URL.Query().Get("dir"))
+		cwd := liveTermCwd(deps, r, term)
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
+		out, err := browseAgentDir(cwd, r.URL.Query().Get("dir"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -284,7 +288,11 @@ func handleGetTerminalBlob(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		mime, data, code, err := readAgentBlob(liveTermCwd(deps, r, term), r.URL.Query().Get("path"))
+		cwd := liveTermCwd(deps, r, term)
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
+		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return
@@ -303,7 +311,11 @@ func handleGetTerminalText(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		out, code, err := readAgentText(liveTermCwd(deps, r, term), r.URL.Query().Get("path"))
+		cwd := liveTermCwd(deps, r, term)
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
+		out, code, err := readAgentText(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return
@@ -327,7 +339,11 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
 		}
-		out, code, err := writeAgentText(liveTermCwd(deps, r, term), req.Path, req.Text, req.Mtime)
+		cwd := liveTermCwd(deps, r, term)
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
+		out, code, err := writeAgentText(cwd, req.Path, req.Text, req.Mtime)
 		if err != nil {
 			writeErr(w, code, err.Error())
 			return

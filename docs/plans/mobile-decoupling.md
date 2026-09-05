@@ -137,3 +137,10 @@ imports in the resolved graph. No new dependency was added.
 | Shared presentation import in JS/MJS/CJS/TS/MTS/CTS/JSX/TSX | Reject | Boundary tests |
 | Transitive shared dependency imports React | Reject resolved graph | Graph regression test |
 | Import syntax appears only in a string | Allow | Parser false-positive regression test |
+
+The repeatable browser regression is
+`node scripts/qa-mobile-settings.mjs http://localhost:<fixture-port>`.
+It refuses non-synthetic workspaces and running agents, writes only fixture
+configuration, verifies text/image retention and failure rollback, exercises
+model/tools/checklist controls and the More callback, and closes its own browser.
+Use a separate pristine fixture for public documentation captures.

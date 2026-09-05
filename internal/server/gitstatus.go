@@ -29,6 +29,9 @@ func handleAgentGitStatus(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		writeGitStatus(w, cwd)
 	}
 }
@@ -44,6 +47,9 @@ func handleTerminalGitStatus(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		writeGitStatus(w, cwd)
 	}
 }
@@ -52,6 +58,9 @@ func handleWorkspaceGitStatus(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
 		if !ok {
+			return
+		}
+		if !checkFileRoot(w, r, cwd) {
 			return
 		}
 		writeGitStatus(w, cwd)
