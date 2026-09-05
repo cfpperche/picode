@@ -174,6 +174,16 @@ and fallback detail is archived; the implementation is unchanged here.
   installed service reports `0.1.0+cf736d7` and the live tab strip was
   re-verified in the browser after the restart.
 
+- **2026-09-05 — Agent tab icon size parity.** Owner feedback: the agent
+  face read smaller than the terminal mark beside it — the 1.5px ring plus
+  1px padding inside a 16px box shrank the art to ~12px. Tab favicons are
+  now full-bleed at the 18px box the boxed badge already used (terminal
+  marks included); the white plate stays because the zhipu mark renders
+  black-on-black without it (measured `rgb(0,0,0)` on `rgb(22,22,28)` in
+  dark mode). Both tab types measure 18×18 in the DOM; light/dark zooms
+  read. visual-review: PASS. Evidence
+  `docs/screenshots/agent-tabs-icon-size-light.png` and `-dark.png`.
+
 - **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
   listing in one bounded call. Tracked files, exceptions and unavailable Git
   are covered; light/dark, inline selection, empty and blocked screenshots

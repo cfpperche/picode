@@ -1440,6 +1440,11 @@ img.ws-face.term-cli-face {
   width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
 }
 .mtab-term .ws-face { width: 16px; height: 16px; margin: 0; }
+/* Tab provider faces match the terminal mark's optical size: full-bleed
+   art (no ring, no padding) at the 18px box the boxed badge already uses.
+   The white plate from .ws-face stays — it is invisible on light chrome
+   and keeps currentColor marks from vanishing on the dark tab strip. */
+.mtab-term img.ws-face { width: 18px; height: 18px; border: 0; padding: 0; }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
