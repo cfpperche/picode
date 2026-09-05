@@ -8,9 +8,12 @@ events to another service. Neither changes your LLM provider account.
 
 1. Open **Integrations → Connectors**.
 2. If prompted, open **Packages** and install `npm:pi-mcp-adapter`.
-3. Choose a service, enter a custom server, or import a JSON definition
-   containing one `mcpServers` entry. Review the destination and scope before
-   confirming **Add connector**.
+3. Pick a service from the catalog tabs. The fixed **Catalog** tab lists
+   cataloged services plus **Custom**, which opens the server form (URL or
+   local command). The other tabs list MCP servers found in other agent CLIs'
+   configurations (Claude Code, Codex, Cursor and friends); adding one imports
+   that configuration after you confirm the destination. You can also import a
+   JSON definition containing one `mcpServers` entry.
 4. Sign in when the service requires it. Existing authentication and server
    support come from the installed adapter, not from a separate PiCode vault.
 

@@ -85,6 +85,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Connector catalog tabs.** The Add-connector card gains internal tabs: a
+  fixed **Catalog** tab (a **Custom** card opening the server form, plus the
+  cataloged services) and one tab per agent CLI whose configuration contains
+  MCP servers, replacing the Use-from dialog. Host servers carry an Added
+  state and import through a reviewed confirmation.
+
 - **Inspector rail** (ADR-0078). The desktop gains a right-hand rail beside the
   conversation or terminal with **Changes** (the working tree as a folder tree
   with `+N −M` per file and folder, an `Uncommitted` total, branch and

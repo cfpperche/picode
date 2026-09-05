@@ -17,6 +17,10 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
+Connector catalog tabs: `connector-tabs-catalog.png` shows the fixed Catalog
+Custom card plus presets; `-custom-dialog.png` the moved server form;
+`-host-added.png` / `-mobile-added.png` the Claude Code tab with an imported
+server's Added state (desktop and mobile).
 Inspector rail (ADR-0078): `inspector-*` (dark unless named `-light`, 1440×900
 plus the 1200 and 700px layouts) covers Changes with counts, a change opened
 as a center Diff tab, Files with the light theme and the empty filter, the

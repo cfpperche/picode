@@ -100,6 +100,10 @@ browser sessions are closed.
   Installed connector packages are distinct from configured/live services.
   The catalog ships a Gmail card backed by a community MCP server; its Google
   credentials stay outside PiCode in `~/.gmail-mcp/` (recipe in the public guide).
+  The Add-connector card has catalog tabs: a fixed Catalog tab (Custom card
+  opens the server form) plus one tab per agent CLI with found MCP servers;
+  host imports use a reviewed confirmation with an Added state. The Use-from
+  dialog and inline form are retired (branch pending merge).
 - Webhooks persist cursors, retry deadlines and revision-guarded acknowledgements.
   Only durable events are eligible; retention gaps are recorded. Secrets appear
   only on creation/rotation. No redirects/environment proxy; metadata addresses
@@ -240,6 +244,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   kinds; decision-table test added, no UI change needed. Server-only fix;
   visual-review: UNVERIFIED (needs deploy; the failure and its fix are
   endpoint-level). Branch `fix/worktree-blob-preview`.
+- **2026-09-05 — Connector catalog tabs (branch).** Add-connector card gains
+  a fixed Catalog tab (Custom card opens the former inline form as a dialog)
+  and one tab per scanned agent CLI with found servers; host imports confirm
+  destination and show an Added state; Use-from dialog and inline form retired
+  on desktop and mobile. Domain helper `connectorTabs` unit-tested; `make ci`
+  passed. Isolated-daemon browser E2E: custom add, host import and Added state
+  on both apps; screenshots read, settled audits ok. visual-review: PASS
+  (`connector-tabs-*.png`).
+
 - **2026-09-05 — Inspector rail (ADR-0078).** Study
   `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
   and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;
@@ -259,6 +272,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
   a full-height overlay plus a one-time hint. Widget slot re-set per refresh
   because a mode switch replaces the TUI instance. Dogfooded both modes.
+
 - **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
   Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
   ok). Merged and deployed `2231919`.
@@ -273,19 +287,5 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `www/guide/diff-panel.md`. Merged `32b9c24f` (ADR renumbered 0076→0077 on
   merge), UI captures refreshed after `docs-check`, full `make ci` green,
   deployed `bd9f28b`; worktree and branch removed.
-
-- **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
-  host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
-  serves the `gmail` preset and the card renders with `context7` untouched;
-  32/32 panes survived. visual-review: PASS. No integration mutations or push.
-
-- **2026-09-05 — Gmail connector across all three add paths.** Catalog gains a
-  Gmail card (community `@gongrzhe/server-gmail-autoauth-mcp`, credentials stay
-  in `~/.gmail-mcp/`), `connectors/gmail.json` is importable, and optional
-  `packages/pi-connector-gmail` documents install/sign-in/revocation. Preset
-  completeness test added; guide recipe and changelog updated. Isolated-daemon
-  browser check: one catalog click created the `gmail` server entry with the
-  exact command; desktop/mobile screenshots read, audits ok. visual-review:
-  PASS (`integrations-catalog-before/gmail-added.png`). `make ci` passed.
 
 Older activity lives in `docs/handoff-archive.md`.

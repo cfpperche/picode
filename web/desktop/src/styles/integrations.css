@@ -35,3 +35,9 @@
 @keyframes integration-pulse { from { opacity: .5; } to { opacity: 1; } }
 @media (max-width: 480px) { .integration-catalog { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .integration-row, .integration-row[aria-busy="true"] .integration-status { animation: none; } }
+
+.catalog-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.integration-custom { border-style: dashed; }
+.integration-added { opacity: .75; cursor: default; }
+.integration-added:hover { border-color: var(--border); }
+.integration-added span { color: var(--accent); }
