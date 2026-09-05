@@ -20,6 +20,8 @@ test("webhook form validates and normalizes", () => {
 test("external definition imports without a provider-specific branch", () => {
   const deepwiki = readFileSync(new URL("../../../connectors/deepwiki.json", import.meta.url), "utf8");
   assert.equal(readConnectorDefinition(deepwiki).url,"https://mcp.deepwiki.com/mcp");
+  const gmail = readConnectorDefinition(readFileSync(new URL("../../../connectors/gmail.json", import.meta.url), "utf8"));
+  assert.deepEqual(gmail,{name:"gmail",command:"npx",args:["-y","@gongrzhe/server-gmail-autoauth-mcp"]});
   const arbitrary = {mcpServers:{"custom-vendor":{command:"node",args:["/opt/my connector/server.js","--readonly"],env:{API_TOKEN:"example"}}}};
   assert.deepEqual(readConnectorDefinition(JSON.stringify(arbitrary)),{name:"custom-vendor",...arbitrary.mcpServers["custom-vendor"]});
   const remote = {mcpServers:{vendor:{url:"https://example.com/mcp",auth:"bearer",bearerToken:"example",headers:{"X-Read-Only":"true"}}}};

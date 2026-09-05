@@ -42,6 +42,8 @@ Previous File Tree/mobile evidence and gate details are archived.
   delivery lives in core; service-specific tools stay in external MCP packages
   or services. Native configuration import is reviewed, not implicit execution.
   Installed connector packages are distinct from configured/live services.
+  The catalog ships a Gmail card backed by a community MCP server; its Google
+  credentials stay outside PiCode in `~/.gmail-mcp/` (recipe in the public guide).
 - Webhooks persist cursors, retry deadlines and revision-guarded acknowledgements.
   Only durable events are eligible; retention gaps are recorded. Secrets appear
   only on creation/rotation. No redirects/environment proxy; metadata addresses
@@ -131,6 +133,15 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - Branch protection and CODEOWNERS require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Gmail connector across all three add paths.** Catalog gains a
+  Gmail card (community `@gongrzhe/server-gmail-autoauth-mcp`, credentials stay
+  in `~/.gmail-mcp/`), `connectors/gmail.json` is importable, and optional
+  `packages/pi-connector-gmail` documents install/sign-in/revocation. Preset
+  completeness test added; guide recipe and changelog updated. Isolated-daemon
+  browser check: one catalog click created the `gmail` server entry with the
+  exact command; desktop/mobile screenshots read, audits ok. visual-review:
+  PASS (`integrations-catalog-before/gmail-added.png`). `make ci` passed.
 
 - **2026-09-05 — Integrations merged and deployed.** Reconciled current main,
   refreshed the changed docs capture and passed combined `make ci`. Deployed

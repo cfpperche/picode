@@ -6,6 +6,7 @@ standard MCP configuration, not Go plugins or another package manager.
 | Definition | External implementation | Access |
 |---|---|---|
 | [deepwiki.json](deepwiki.json) | `https://mcp.deepwiki.com/mcp` | Public GitHub repository documentation, no account required |
+| [gmail.json](gmail.json) | `@gongrzhe/server-gmail-autoauth-mcp` (community, ISC) | Read, draft and send Gmail; needs a one-time Google sign-in first (see the [Integrations guide](https://cfpperche.github.io/picode/guide/integrations)) |
 
 Open **Integrations → Connectors**, install the MCP adapter through Packages
 if needed, then **Import a connector definition**. Choose a JSON file, review
@@ -27,7 +28,10 @@ trusted definitions. Removing configuration is not equivalent to revoking
 credentials at the service; use Sign out when available and revoke provider
 tokens separately. Running agents may need a restart to reload configuration.
 
-The initial connector validates the existing MCP path. Vendor-specific
+The initial connectors validate the existing MCP path. The Gmail definition
+shows a command-based local server whose credentials stay outside PiCode; it
+is still third-party software — review it before granting mailbox access.
+Vendor-specific
 non-MCP adapters and a marketplace are not required to add another MCP
 service; they can be developed separately when an actual integration needs
 capabilities beyond this contract.

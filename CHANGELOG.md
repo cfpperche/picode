@@ -39,6 +39,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Gmail connector recipe** across all three add paths: a **Gmail** catalog
+  card, an importable `connectors/gmail.json`, and an optional
+  `packages/pi-connector-gmail` package. Credentials stay outside PiCode in
+  `~/.gmail-mcp/`; the public guide documents the one-time Google sign-in and
+  revocation steps.
+
 - **Integrations** has its own desktop/mobile route, with signed outbound
   webhooks, event selection, durable retry/cursor state, secret replacement
   and receiver tests. Connector setup reuses the MCP adapter and native
