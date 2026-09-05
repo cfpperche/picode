@@ -12,10 +12,9 @@ Git Graph (0073), independent web apps (0072), Windows task reliability
 coding CLIs are terminals. This session has not pushed. Read Git for upstream
 status; preserve the unrelated root `.pi/compact.json`.
 Mobile review fixes are validated locally, including the combined tree.
-These fixes are included in the latest local deployment; no push was made.
-Branch `feat/agent-tab-provider-favicon` (worktree
-`.worktrees/agent-tab-favicon`) adds provider favicons to desktop agent
-tabs; gates and visual review passed, not yet merged or deployed.
+Agent tabs wearing the provider favicon are merged to main and **deployed**
+(`0.1.0+cf736d7`, bundle `index-wsUglV3_.js`); live tab-strip evidence was
+re-read after restart.
 
 **Last application deployment:** `0.1.0+050580f`, health `ok`, boot
 `04ceec7199555424`. Git-ignored tree entries are visibly distinct in the live
@@ -171,6 +170,9 @@ and fallback detail is archived; the implementation is unchanged here.
   evidence `docs/screenshots/agent-tabs-provider-favicon-light.png` and
   `-dark.png` (working captures in `var/screenshots/`). Waiting-state dot is
   code-reviewed only — no live waiting agent existed to capture.
+  Merged fast-forward to main as `cf736d7d` and deployed via `make deploy`;
+  installed service reports `0.1.0+cf736d7` and the live tab strip was
+  re-verified in the browser after the restart.
 
 - **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
   listing in one bounded call. Tracked files, exceptions and unavailable Git
