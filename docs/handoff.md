@@ -5,16 +5,30 @@
 
 ## Current state (read this first)
 
-**Repository:** bounded captures (ADR-0076), history reconciliation and mobile
-composer wrapping are merged into main and locally deployed as `974780ba`.
-The capture ADR was renumbered because Integrations took 0075. The opt-in native
-emitter and real end-to-end acceptance remain pending: deployment does not
-enable browser capture emission. Integrations and the current provider favicons
-and tab/sidebar size fixes remain included. Desktop user menu Agent CLIs now
-uses the terminal icon so it no longer matches Preferences (sliders).
-HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
-web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
-Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
+**Repository:** the managed-stop hang is fixed and locally deployed. Clicking
+`Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
+hang forever: the intercept wrapper's real `pi` survived its killed parent
+holding the rpc stdout pipe, `Runtime.Stop` waited on an EOF that never came,
+and every later stop/open queued behind it. The rpc client now spawns the
+agent in its own process group, SIGKILLs the group on `Close` and closes
+stdin/stdout as a second net; the pi wrapper `exec`s the real pi for managed
+rpc/json runs so there is no middleman to orphan. Regression test spawns a
+wrapper+grandchild double and fails on the old code (`Close hung`). Verified
+live: managed start → close round-trip completes in ~50ms, final agent state
+`stopped`. main meanwhile absorbed the pi-diff fullscreen column fix
+(ADR-0077 amendment); this branch sits on it.
+
+Known debts / open questions from this fix:
+
+- `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
+  managed start is in flight waits for the start, then returns true without
+  stopping the just-started agent. Not exercised by tests; unfixed.
+- Windows `Close` kills only the direct child (no posix process groups;
+  Job Objects would be the faithful equivalent). The managed server does
+  not run on Windows today.
+- The regressions in this fix are process-tree tests; the UI itself is
+  unchanged, so no visual-review pass applies.
+
 Preserve the unrelated root `.pi/compact.json`.
 
 **Last application deployment:** `0.1.0+df45db0`, health `ok`, boot
