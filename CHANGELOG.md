@@ -107,6 +107,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **User menu: Agent CLIs uses the terminal icon.** Preferences keeps the
+  sliders mark so the two adjacent items are no longer identical.
+
 - **Agent tabs wear the agent's provider favicon** (desktop). The tab strip
   now mirrors terminal tabs: identity leads as the favicon — the same
   provider face the sidebar renders, full-bleed at the terminal mark's 18px

@@ -10,7 +10,9 @@ composer wrapping are merged into main and locally deployed as `974780ba`.
 The capture ADR was renumbered because Integrations took 0075. The opt-in native
 emitter and real end-to-end acceptance remain pending: deployment does not
 enable browser capture emission. Integrations and the current provider favicons
-and tab/sidebar size fixes remain included.
+and tab/sidebar size fixes remain included. Desktop user menu Agent CLIs now
+uses the terminal icon so it no longer matches Preferences (sliders); that
+change is in this tree and not yet deployed.
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
@@ -25,12 +27,13 @@ catalog card renders, and the pre-existing `context7` service stayed untouched
 in its `recovery/` folder.
 
 **Quality:** combined main `make ci` passed (668 frontend tests plus Go,
-package/build/docs/Vale gates), repeated on the merged Gmail tree. Ten combined-host screenshots were read;
-viewer audits passed. Preexisting mobile Send clipping was fixed with wrapping
-and checked at 320/390px, including the running state. This is host QA, not a
-real emitter verdict. Fixture and QA browser are stopped; feature worktree and
-branch are removed. Original receipts remain in `var/tool-preview/`.
-Previous Integrations/File Tree/mobile gate details are archived.
+package/build/docs/Vale gates), repeated on the merged Gmail tree. User-menu
+icon swap visual-review PASS on Vite `:5174` (`overlayAudit` ok; Agent CLIs
+`>_` vs Preferences sliders). Live `:8445` still serves the Gmail binary.
+Ten combined-host screenshots were read; viewer audits passed. Preexisting
+mobile Send clipping was fixed with wrapping and checked at 320/390px,
+including the running state. This is host QA, not a real emitter verdict.
+Original receipts remain in `var/tool-preview/`.
 
 ### Product and platform
 
@@ -141,6 +144,10 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - Branch protection and CODEOWNERS require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
+  Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
+  ok). Not yet deployed.
 
 - **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
   host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
