@@ -7,18 +7,19 @@
 ## Current state (read this first)
 
 **Repository:** HEAD includes independent desktop/mobile web applications
-(ADR-0072), desktop task reliability (ADR-0071), Agent CLIs v2 and Docker v3.
-Managed agents remain Pi-only; coding CLIs are terminals. This merge adds the
-worktree-aware git graph (ADR-0073) from `feat/gitgraph-worktrees`; no push
-or application deployment yet. Read Git for
+(ADR-0072), desktop task reliability (ADR-0071), the worktree-aware git
+graph (ADR-0073, merged from `feat/gitgraph-worktrees`), Agent CLIs v2 and
+Docker v3.
+Managed agents remain Pi-only; coding CLIs are terminals. Nothing was pushed.
+Read Git for
 current upstream status. Preserve the unrelated root `.pi/compact.json`.
 Compose registration/deployment remains proposed.
 
-**Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
-`70c3e75648358c41`; served HTML references the freshly built `index-_7SLKl4D.js`
-bundle. Ships the Rename menu icon on top of the row alignment fix. All ten
-sidebar rows kept their menu triggers after the restart. This concurrent
-deployment restarted the service at 14:52 UTC; the tray increment did not.
+**Last application deployment:** `0.1.0+ff8beb8`, health `ok`, boot
+`a78810a9a9e8cae2`; `/desktop/` serves the freshly built `index-Dxa4icCD.js`
+bundle carrying ADR-0073. Ships the worktree-aware git graph on top of the
+independent-apps split. Deployed through `make deploy` at 16:05 UTC; the
+tray was not restarted.
 
 **Windows desktop (ADR-0071):** explicit resident-task installer policy,
 read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
@@ -150,6 +151,14 @@ and fallback detail is archived; the implementation is unchanged here.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — ADR-0073 merged and deployed.** `feat/gitgraph-worktrees`
+  merged into `main` (renumbered 0071→0073: desktop task reliability and
+  independent web applications took the earlier numbers), worktree and branch
+  removed, `make deploy` restarted the service — `0.1.0+ff8beb8`, health
+  `ok`, `/desktop/` bundle carries the feature. Merge resolved handoff/
+  changelog/decisions text and regenerated the three app captures
+  (`make docs-shots`); full `make ci` green on the merged tree.
 
 - **2026-09-05 — Git graph shows every worktree's working tree (ADR-0073),**
   merged from `feat/gitgraph-worktrees`. One uncommitted row per dirty
