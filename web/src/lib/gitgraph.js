@@ -7,7 +7,7 @@
 // registerUnavailablePoint) so this stays diffable against the original.
 //
 // What is dropped: the original's isCommitted/numUncommitted plumbing. Its
-// "Uncommitted Changes" row came back in ADR-0038 as a wrapper, and ADR-0071
+// "Uncommitted Changes" row came back in ADR-0038 as a wrapper, and ADR-0073
 // generalized it: layoutUncommitted prepends one pseudo-commit per dirty
 // worktree, each anchored at that worktree's own HEAD, runs the ordinary
 // layout, and splits every pseudo's trail out for dashed drawing.
@@ -279,7 +279,7 @@ export function isUncommittedHash(hash) {
 }
 
 // layoutUncommitted lays out the history with one "Uncommitted Changes" row
-// per dirty worktree (ADR-0071): each anchor gets a pseudo-commit whose only
+// per dirty worktree (ADR-0073): each anchor gets a pseudo-commit whose only
 // parent is that worktree's own HEAD, and every pseudo goes through the
 // ordinary allocator — exactly how the original handled the single row. Each
 // pseudo's trail down to its anchor row comes back separately so the caller

@@ -13,7 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Git graph shows every worktree's working tree** (ADR-0071). One
+- **Git graph shows every worktree's working tree** (ADR-0073). One
   "Uncommitted Changes (N)" row per dirty worktree — not just the checkout
   the graph was opened from — labelled with its branch, directory, the agents
   living there and a "this worktree" marker on your own checkout, each joined

@@ -23,7 +23,7 @@ var pngBytes = func() []byte {
 }()
 
 // The sibling worktree's dirty state must reach the graph loaded through the
-// owner's checkout — that is ADR-0071's whole point — and the owner's own
+// owner's checkout — that is ADR-0073's whole point — and the owner's own
 // entry must be marked self so the UI can label it "this worktree".
 func TestGraphCarriesPerWorktreeUncommitted(t *testing.T) {
 	repo := gitRepo(t)

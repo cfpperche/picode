@@ -70,7 +70,7 @@ export default function GitGraph({
     if (row) row.scrollIntoView({ block: "center" });
   }, [activeMatch]);
 
-  // One dirty row per worktree with changes of its own (ADR-0071): each is a
+  // One dirty row per worktree with changes of its own (ADR-0073): each is a
   // pseudo-commit anchored at that worktree's own HEAD, joined to it by a
   // dashed trail. `rows` is the single source for every index: dots, head dot,
   // selection, expandAt — never commits[i] with a scattered +N.

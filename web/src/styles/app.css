@@ -3393,7 +3393,7 @@ img.ws-face.term-cli-face {
   font-size: 12px; text-align: left;
 }
 /* The dirty working tree as the first row (ADR-0038; one row per dirty
-   worktree since ADR-0071): a hollow dot in the SVG, a dashed trail down to
+   worktree since ADR-0073): a hollow dot in the SVG, a dashed trail down to
    that worktree's HEAD, and a labelled row instead of commit columns. */
 .gg-line-dashed { stroke-dasharray: 4 3; }
 .gg-row-uncommitted {

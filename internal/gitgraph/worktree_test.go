@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Decision table the graph draws from (ADR-0071). One row per condition:
+// Decision table the graph draws from (ADR-0073). One row per condition:
 //
 //	checkout    health     dirty   → Uncommitted set?  flags?
 //	branch      ok         no      → nil

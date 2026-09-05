@@ -219,7 +219,7 @@ test("expanding at the last row is a no-op for every line", () => {
 });
 
 // The Uncommitted Changes rows (ADR-0038, generalized per worktree in
-// ADR-0071): pseudo-commits through the ordinary allocator, trails split out
+// ADR-0073): pseudo-commits through the ordinary allocator, trails split out
 // for dashed drawing.
 
 test("a dirty tree over HEAD at the top yields a one-row dashed trail", () => {

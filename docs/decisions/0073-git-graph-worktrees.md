@@ -1,4 +1,4 @@
-# ADR-0071: The git graph shows every worktree's working tree
+# ADR-0073: The git graph shows every worktree's working tree
 
 - **Status**: accepted
 - **Date**: 2026-09-05

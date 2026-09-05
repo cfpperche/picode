@@ -93,7 +93,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
   useEffect(() => { setMatchIdx(0); }, [debouncedQuery]);
   const activeMatch = searching && matchList.length ? matchList[matchIdx % matchList.length] : "";
 
-  // One dirty row per worktree with changes of its own (ADR-0071). Anchors
+  // One dirty row per worktree with changes of its own (ADR-0073). Anchors
   // only survive when the worktree's HEAD is inside the loaded window — the
   // pseudo-row index in its hash (`*3`) indexes exactly this filtered list.
   const anchors = useMemo(() => {

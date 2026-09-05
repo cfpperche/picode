@@ -6,7 +6,7 @@ import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 
 // The dirty working tree behind the graph's Uncommitted Changes rows
-// (ADR-0038; sibling worktrees since ADR-0071). The file list comes from
+// (ADR-0038; sibling worktrees since ADR-0073). The file list comes from
 // gitstatus and each patch is fetched lazily from gitdiff on expand — the
 // same owner-scoped endpoints the file tree's diff reads, narrowed to a
 // sibling worktree by `?worktree=<branch|head>` when one is open. Read-only,
