@@ -5,20 +5,23 @@
 
 ## Current state (read this first)
 
-**Repository:** Integrations (ADR-0075) is complete on `feat/outbound-webhooks`,
-not merged, pushed or deployed. HEAD also includes File Tree v2 (0074),
-worktree-aware Git Graph (0073), independent web apps (0072), Windows task
-reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain Pi-only;
-coding CLIs are terminals. Preserve the unrelated root `.pi/compact.json`.
-The current main's provider favicons and tab/sidebar icon-size parity are
-included; merge and deployment of Integrations are now owner-authorized.
+**Repository:** Integrations (ADR-0075) is merged into main and locally deployed
+as `ea193466`, including the current provider favicons and tab/sidebar size fixes.
+HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
+web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
+Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
+Preserve the unrelated root `.pi/compact.json`.
 
-**Last recorded application deployment:** `0.1.0+37de779`, desktop bundle
-`index-CbRxsHfT.js`. Provider favicons and tab/sidebar size parity were verified
-live after that restart. Integrations is being revalidated against current main
-before the authorized deployment.
+**Last application deployment:** `0.1.0+ea19346`, health `ok`, boot
+`2e28c5e4e68caf19`, desktop bundle `index--D0Yzfl2.js`. `make deploy` restarted
+systemd successfully. All six terminal records and 27 baseline tmux panes
+survived. Live desktop/mobile Integrations, the existing Context7 configuration
+and the validation overlay were checked without creating production webhooks.
+Read screenshots and API/identity receipts: `var/integrations-deploy/`.
+Private pre-deploy SQLite/binary backups are retained there for recovery.
 
-**Quality:** Integrations `make ci` passed: Go formatting/vet/tests, frontend
+**Quality:** Combined main + Integrations `make ci` passed before deployment:
+Go formatting/vet/tests, frontend
 and package tests, both UI builds, embedded binary, generated docs, screenshot
 freshness and Vale. Store/webhooks/server/MCP/URL-policy tests also passed with
 `-race`. Real isolated HTTP receipts include durable events and ordered retries;
@@ -69,9 +72,9 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ## In flight
 
-- Integrations awaits branch integration/deployment. OAuth-provider acceptance,
-  model-driven connector usage and first-class non-Pi agents are not certified
-  by the public/no-auth DeepWiki protocol check.
+- OAuth-provider acceptance, model-driven connector usage and first-class
+  non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
+  Integrations itself is merged and deployed.
 - Physical iOS/Android PWA upgrade and push need device acceptance. The browser
   migration, shared worker matrix and mobile review fixes passed locally.
 - Windows next-logon, battery and sleep/resume acceptance is owner-deferred;
@@ -89,8 +92,8 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ## Next up
 
-1. Complete the authorized Integrations merge/deployment after combined gates;
-   provider OAuth/marketplace work still needs separate scope approval.
+1. Scope provider OAuth/marketplace acceptance only if the owner requests it;
+   generic Integrations and external connector setup are already deployed.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
    belong only in `web/mobile`.
 3. Run the version-specific CLI working/approval/settled acceptance matrix.
@@ -128,6 +131,12 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 - Branch protection and CODEOWNERS require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Integrations merged and deployed.** Reconciled current main,
+  refreshed the changed docs capture and passed combined `make ci`. Deployed
+  `ea193466`; live health, asset parity, six terminal records and 27 panes passed.
+  Desktop/mobile screenshots were read, audits and browser diagnostics passed.
+  visual-review: PASS. No production integration mutations or push.
 
 - **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,
   independent desktop/mobile management, reviewed MCP import and an external
