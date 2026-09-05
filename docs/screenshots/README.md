@@ -88,3 +88,25 @@ shows responsive desktop navigation at 390px. All were read, using an isolated
 embedded fixture; overlay audits passed. Package-chunk failure was injected
 and Try again recovered after the interception was removed. No model turns
 were started. Physical PWA installation/push delivery remains separate QA.
+
+File Tree v2 (ADR-0073): `filetree-v2-editor-dark.png`,
+`filetree-v2-editor-light.png`, `filetree-v2-diff-dark.png` and
+`filetree-v2-image.png` show one local detail panel for content and changes.
+`filetree-v2-unsaved-dialog.png`, `filetree-v2-save-error.png`,
+`filetree-v2-conflict.png`, `filetree-v2-removed.png` and
+`filetree-v2-root-changed.png` cover draft protection and recovery.
+The empty, clean-changes, blocked, unsupported and tree-error captures show
+their next actions. Narrow, preview-narrow and stacked captures cover 900,
+720 and 550px desktop windows. Screenshots were read after correcting narrow
+preview controls; overlay and toolbar-boundary audits passed.
+
+`filetree-v2-qa.json` records all 15 browser acceptance groups. Reproduce with
+`scripts/qa-filetree-v2.mjs` against a private `picode-docs-fixture -addr
+127.0.0.1:18746` instance, using the current UI build. Set `PICODE_QA_BASE` to
+that address, `PICODE_QA_CDP` to the CDP URL of a dedicated browser session,
+and `PICODE_PLAYWRIGHT_MODULE` to an installed Playwright module. Start the
+agent-browser session with `AGENT_BROWSER_NO_AUTO_DIALOG=1` so the test can
+observe and dismiss the native unsaved-changes dialog. The runner checks the
+synthetic workspace identity before writing fixture files and removes its
+disposable terminal afterward. Public docs use a separate unmodified fixture;
+`docs-shots.mjs` now closes only its own browser session.

@@ -7,12 +7,37 @@ import {
   flattenTree,
   changeKinds,
   changedDirs,
+  fitTreeWidth,
+  treeKeyAction,
 } from "./fileTree.js";
 
 test("treeApiBase picks the owner's route family", () => {
   assert.equal(treeApiBase("term"), "/api/terminals/");
   assert.equal(treeApiBase("workspace"), "/api/workspaces/");
   assert.equal(treeApiBase("agent"), "/api/agents/");
+});
+
+test("tree width reserves space for the file on narrow desktops", () => {
+  assert.equal(fitTreeWidth(320, 1000), 320);
+  assert.equal(fitTreeWidth(720, 700), 440);
+  assert.equal(fitTreeWidth(320, 450), 190);
+  assert.equal(fitTreeWidth(320, 300), 160);
+});
+
+test("tree keyboard follows the visible hierarchy, not hidden descendants", () => {
+  const rows = [
+    { path: "src", isDir: true, open: true, depth: 0 },
+    { path: "src/a.go", depth: 1 },
+    { path: "test", isDir: true, open: false, depth: 0 },
+    { path: "README.md", depth: 0 },
+  ];
+  for (const [index, key, want] of [
+    [0, "ArrowDown", { focus: "src/a.go" }], [0, "ArrowUp", { focus: "src" }],
+    [3, "Home", { focus: "src" }], [0, "End", { focus: "README.md" }],
+    [0, "ArrowRight", { focus: "src/a.go" }], [0, "ArrowLeft", { toggle: "src" }],
+    [1, "ArrowLeft", { focus: "src" }], [2, "ArrowRight", { toggle: "test" }],
+    [3, "ArrowRight", null], [3, "ArrowLeft", null],
+  ]) assert.deepEqual(treeKeyAction(rows, index, key), want, `${index} ${key}`);
 });
 
 test("provisionalTreeKey names the owner until the root arrives", () => {
@@ -46,6 +71,12 @@ test("flattenTree marks an expanded-but-unfetched dir as not loaded", () => {
   const rows = flattenTree(levels, new Set(["src"]));
   assert.equal(rows[0].loaded, false);
   assert.equal(rows.length, 1);
+});
+
+test("an expanded empty directory is distinguishable from a pending read", () => {
+  const levels = { "": { dirs: [{ name: "src", path: "src" }], files: [] }, src: { dirs: [], files: [] } };
+  assert.equal(flattenTree(levels, new Set(["src"]))[0].empty, true);
+  assert.equal(flattenTree(levels, new Set())[0].empty, false);
 });
 
 test("changeKinds maps path to kind with a modified fallback", () => {

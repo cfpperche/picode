@@ -33,7 +33,8 @@ export function flattenTree(levels, expanded) {
     if (!level) return;
     for (const d of level.dirs) {
       const open = expanded.has(d.path);
-      out.push({ path: d.path, name: d.name, depth, isDir: true, open, loaded: !open || !!levels[d.path] });
+      const children = levels[d.path];
+      out.push({ path: d.path, name: d.name, depth, isDir: true, open, loaded: !open || !!children, empty: open && !!children && !children.dirs.length && !children.files.length });
       if (open) walk(d.path, depth + 1);
     }
     for (const f of level.files) {
@@ -64,4 +65,28 @@ export function changedDirs(changes) {
     }
   }
   return out;
+}
+
+export function fitTreeWidth(width, available) {
+  const preferred = Math.min(720, Math.max(220, width));
+  return Math.min(preferred, Math.max(160, available - 260));
+}
+
+export function treeKeyAction(rows, index, key) {
+  const row = rows[index];
+  if (!row) return null;
+  if (key === "Home") return { focus: rows[0].path };
+  if (key === "End") return { focus: rows[rows.length - 1].path };
+  if (key === "ArrowDown") return { focus: rows[Math.min(rows.length - 1, index + 1)].path };
+  if (key === "ArrowUp") return { focus: rows[Math.max(0, index - 1)].path };
+  if (key === "ArrowRight" && row.isDir) {
+    if (!row.open) return { toggle: row.path };
+    if (rows[index + 1]?.depth > row.depth) return { focus: rows[index + 1].path };
+  }
+  if (key === "ArrowLeft") {
+    if (row.isDir && row.open) return { toggle: row.path };
+    const parent = rows.slice(0, index).findLast((r) => r.depth < row.depth);
+    if (parent) return { focus: parent.path };
+  }
+  return null;
 }

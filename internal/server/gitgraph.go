@@ -358,6 +358,9 @@ func handleWorkspaceGitBlob(deps Deps) http.HandlerFunc {
 // extension allowlist the working-tree /blob endpoint uses, so a hand-written
 // URL gets 415 for anything the UI would not render anyway.
 func writeGitBlob(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
 	path := r.URL.Query().Get("path")
 	if hash == "" || path == "" {

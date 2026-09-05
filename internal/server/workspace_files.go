@@ -41,6 +41,9 @@ func handleWorkspaceBrowse(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		out, err := browseAgentDir(cwd, r.URL.Query().Get("dir"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -71,6 +74,9 @@ func handleWorkspaceText(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		out, code, err := readAgentText(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, code, err.Error())
@@ -94,6 +100,9 @@ func handlePutWorkspaceText(deps Deps) http.HandlerFunc {
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
 		}
+		if !checkFileRoot(w, r, cwd) {
+			return
+		}
 		out, code, err := writeAgentText(cwd, req.Path, req.Text, req.Mtime)
 		if err != nil {
 			writeErr(w, code, err.Error())
@@ -107,6 +116,9 @@ func handleWorkspaceBlob(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
 		if !ok {
+			return
+		}
+		if !checkFileRoot(w, r, cwd) {
 			return
 		}
 		mime, data, code, err := readAgentBlob(cwd, r.URL.Query().Get("path"))

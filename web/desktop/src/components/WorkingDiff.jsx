@@ -2,94 +2,56 @@ import { useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { hunksFromDiff, countOf } from "@picode/shared/domain/diff.js";
 import { treeApiBase } from "../lib/fileTree.js";
+import { ownerFileURL } from "../lib/fileIO.js";
 import DiffLine from "./DiffLine.jsx";
 import GitAssetPreview from "./GitAssetPreview.jsx";
 
-// One file's working-tree diff — what a change dot in the file tree expands
-// into (ADR-0032). Rendered with the commit pane's classes: same lines, same
-// counts, a different question (vs HEAD, not vs a parent commit). `nonce`
-// re-fetches when the surface refreshes.
-export default function WorkingDiff({ owner, path, nonce, onClose, onOpenFile }) {
-  const [diff, setDiff] = useState(null);
-  const [error, setError] = useState("");
-
-  const base = treeApiBase(owner ? owner.kind : "agent");
-  const ownerId = owner ? owner.id : "";
+export default function WorkingDiff({ owner, path, root = "", nonce, onClose, onOpenFile }) {
+  const [result, setResult] = useState(null);
+  const [failure, setFailure] = useState(null);
+  const [retry, setRetry] = useState(0);
+  const base = treeApiBase(owner?.kind);
+  const ownerId = owner?.id || "";
+  const key = JSON.stringify([base, ownerId, root, path]);
+  const diff = result?.key === key ? result.diff : null;
+  const error = failure?.key === key ? failure.message : "";
+  const clean = error === "no difference for this path";
 
   useEffect(() => {
     if (!ownerId || !path) return;
-    let stop = false;
-    setDiff(null);
-    setError("");
-    api(`${base}${encodeURIComponent(ownerId)}/gitdiff?path=${encodeURIComponent(path)}`)
-      .then((d) => { if (!stop) setDiff(d); })
-      .catch((e) => { if (!stop) setError(e.message || "Could not read this diff."); });
-    return () => { stop = true; };
-  }, [base, ownerId, path, nonce]);
+    const request = new AbortController();
+    setFailure(null);
+    api(ownerFileURL(owner, "gitdiff", path, root), { signal: request.signal })
+      .then((data) => { if (!request.signal.aborted) setResult({ key, diff: data }); })
+      .catch((e) => {
+        if (!request.signal.aborted) {
+          setFailure({ key, message: e.message || "Could not read this diff." });
+          if (e.message === "no difference for this path") setResult(null);
+        }
+      });
+    return () => request.abort();
+  }, [key, nonce, retry]); // key includes owner, root and path
 
   if (!path) return null;
-
-  if (error) {
-    return (
-      <section className="gg-detail" aria-label="Working diff">
-        <p className="gg-msg">
-          {error}{" "}
-          <button type="button" className="btn btn-sm" onClick={onClose}>Close</button>
-        </p>
-      </section>
-    );
-  }
-
-  if (!diff) {
-    return (
-      <section className="gg-detail" aria-label="Working diff" aria-busy="true">
-        <header className="gg-detail-head">
-          <span className="gg-skel gg-skel-title" />
-        </header>
-        <div className="gg-detail-body">
-          <span className="gg-skel gg-skel-line" style={{ width: "55%" }} />
-          <span className="gg-skel gg-skel-line" style={{ width: "35%" }} />
-        </div>
-      </section>
-    );
-  }
-
-  const { add, del } = countOf(diff.patch);
-
+  const { add, del } = countOf(diff?.patch || "");
   return (
-    <section className="gg-detail" aria-label={`Changes to ${path}`}>
+    <section className="gg-detail" aria-label={`Changes to ${path}`} aria-busy={!diff && !error}>
       <header className="gg-detail-head">
-        <h3 className="gg-detail-subject" title={diff.oldPath ? `${diff.oldPath} → ${path}` : path}>{path}</h3>
+        <h3 className="gg-detail-subject" title={diff?.oldPath ? `${diff.oldPath} → ${path}` : path}>{path}</h3>
         <span className="gg-spacer" />
-        <span className="gg-detail-meta">
-          {diff.binary ? "binary" : <><span className="gg-add">+{add}</span> <span className="gg-del">−{del}</span></>}
-        </span>
-        {onOpenFile ? (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenFile(path)}>
-            Open file
-          </button>
-        ) : null}
-        <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Close</button>
+        <div className="ft-diff-actions" data-align-row>
+          {diff ? <span className="gg-detail-meta">{diff.binary ? "binary" : <><span className="gg-add">+{add}</span> <span className="gg-del">−{del}</span></>}</span> : null}
+          {onOpenFile && diff?.status !== "deleted" ? <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenFile(path)}>Open file</button> : null}
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close diff panel">Close</button>
+        </div>
       </header>
-
+      {error ? <p className="file-pane-notice" role="status"><span>{clean ? "No changes in this file." : error}</span>{!clean ? <button type="button" className="btn btn-sm" onClick={() => setRetry((n) => n + 1)}>Try again</button> : null}</p> : null}
       <div className="gg-detail-body">
-        {diff.truncated ? (
-          <p className="gg-warn">This diff is too large to show in full — the rest is cut off.</p>
-        ) : null}
-        {diff.binary ? (
-          <GitAssetPreview
-            base={base}
-            ownerId={ownerId}
-            path={path}
-            oldPath={diff.oldPath}
-            status={diff.status}
-            fallback={<p className="diff-empty">Binary file — no text diff.</p>}
-          />
-        ) : (
-          <div className="diff">
-            {hunksFromDiff(diff.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}
-          </div>
-        )}
+        {!diff && !error ? <div className="file-skel"><span className="skel-line w-80" /><span className="skel-line w-50" /></div> : null}
+        {diff?.truncated ? <p className="gg-warn">This diff is too large to show in full — the rest is cut off.</p> : null}
+        {diff?.binary ? (
+          <GitAssetPreview base={base} ownerId={ownerId} path={path} root={root} oldPath={diff.oldPath} status={diff.status} fallback={<p className="diff-empty">Binary file — no text diff.</p>} />
+        ) : diff ? <div className="diff">{hunksFromDiff(diff.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}</div> : null}
       </div>
     </section>
   );

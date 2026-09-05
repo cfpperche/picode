@@ -2,6 +2,7 @@ import { useState } from "react";
 import FilePreview from "./FilePreview.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import { assetKind, assetSides, gitRevBlobUrl, gitWorkBlobUrl } from "@picode/shared/domain/gitAsset.js";
+import { withFileRoot } from "../lib/fileIO.js";
 
 // One binary asset's visual preview inside a git diff card — the answer to
 // "Binary file — no text diff." for screenshots, renders and recordings.
@@ -11,7 +12,7 @@ import { assetKind, assetSides, gitRevBlobUrl, gitWorkBlobUrl } from "@picode/sh
 // With `hash` set the card reads a commit (before = parentHash, after =
 // hash); without it, uncommitted changes (before = HEAD, after = the working
 // tree). `fallback` renders when the extension has no visual answer.
-export default function GitAssetPreview({ base, ownerId, path, oldPath, status, hash, parentHash, fallback }) {
+export default function GitAssetPreview({ base, ownerId, path, oldPath, status, hash, parentHash, fallback, root = "" }) {
   const [zoom, setZoom] = useState("");
   const kind = assetKind(path);
   if (!kind) return fallback || null;
@@ -19,18 +20,18 @@ export default function GitAssetPreview({ base, ownerId, path, oldPath, status, 
   const sides = assetSides(status);
   const beforePath = oldPath || path;
   // A deleted asset's "before" lives at its old name; a renamed one's too.
-  const beforeUrl = sides.includes("before")
+  const beforeUrl = withFileRoot(sides.includes("before")
     ? hash
       ? parentHash
         ? gitRevBlobUrl(base, ownerId, parentHash, beforePath)
         : ""
       : gitRevBlobUrl(base, ownerId, "HEAD", beforePath)
-    : "";
-  const afterUrl = sides.includes("after")
+    : "", root);
+  const afterUrl = withFileRoot(sides.includes("after")
     ? hash
       ? gitRevBlobUrl(base, ownerId, hash, path)
       : gitWorkBlobUrl(base, ownerId, path)
-    : "";
+    : "", root);
 
   if (kind === "image") {
     if (sides.includes("before") && !beforeUrl) {

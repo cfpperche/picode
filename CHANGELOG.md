@@ -11,12 +11,6 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
-### Changed
-
-- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
-  entry in the agent and terminal row menus without an icon; every entry now
-  carries one.
-
 ### Fixed
 
 - **Windows tray startup and normal Quit** (ADR-0071). The installer now
@@ -78,6 +72,18 @@ to the `[Unreleased]` section. The repository's official language is English
   reachable UI. Existing links and PWA identity remain compatible, with shared
   authentication, data contracts and theme tokens. Narrow desktop views gain
   a navigation disclosure, and mobile screen loading failures offer retry.
+
+- **Workspace row menus: Rename shows a pencil icon.** Rename was the only
+  entry in the agent and terminal row menus without an icon; every entry now
+  carries one.
+
+- **File Tree v2:** selecting a file displays its editor or preview beside the
+  tree. Files and Changes share one detail pane; Open file and View diff keep
+  navigation in the same tab. The tree highlights the selection, supports
+  keyboard navigation and remembers its adjustable width. Save/Discard/Cancel
+  protects edits when replacing a document or closing its tree tab; failed
+  saves retain the draft, and a terminal directory change cannot redirect a
+  file read or save to a different folder.
 
 - **Agent CLIs launch inspection** (ADR-0070). Show detected defaults and
   PiCode-injected settings before editing; preview the next launch, protect

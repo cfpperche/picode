@@ -198,6 +198,11 @@ export default function App() {
   // it, so remember which owner opened each one (ADR-0022).
   const [gitOwners, setGitOwners] = useState(() => readGitOwners());
   const [treeOwners, setTreeOwners] = useState(() => readTreeOwners());
+  const treeCloseGuards = useRef(new Map());
+  const registerTreeCloseGuard = useCallback((id, guard) => {
+    treeCloseGuards.current.set(id, guard);
+    return () => { if (treeCloseGuards.current.get(id) === guard) treeCloseGuards.current.delete(id); };
+  }, []);
   const [termError, setTermError] = useState("");
   const convRef = useRef(null);
   const nearBottom = useRef(true);
@@ -968,7 +973,9 @@ export default function App() {
     setSelectedId((s) => (s === fromId ? real : s));
   }
 
-  function closeTab(id) {
+  async function closeTab(id) {
+    const guard = treeCloseGuards.current.get(id);
+    if (guard && !await guard()) return;
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -991,7 +998,7 @@ export default function App() {
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
     if (ws && ws.agent) closeShellTerm(ws.agent.id);
     if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
-    if (selectedId === id) {
+    if (selectedRef.current === id) {
       setTabs((t) => {
         const next = t[t.length - 1];
         if (next) {
@@ -2254,10 +2261,11 @@ export default function App() {
             return (
               <FileTreeSurface
                 key={id}
+                tabId={id}
                 owner={o}
                 hidden={selectedId !== id}
                 onKey={(root) => onTreeKey(id, root)}
-                onOpenFile={(p) => openFileTab(o.kind, o.id, p)}
+                registerCloseGuard={registerTreeCloseGuard}
                 onClose={() => closeTab(id)}
               />
             );

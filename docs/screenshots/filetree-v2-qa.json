@@ -1,0 +1,608 @@
+{
+  "checks": [
+    "files share one detail, selection is idempotent, keyboard navigation works",
+    "changes, file and diff use the same pane; switching lists preserves it",
+    "cancel, discard and save cover document replacement",
+    "Preview/Raw retains unsaved text and its editor instance",
+    "failed save and external conflict preserve draft, selection and retry",
+    "hide/reveal retains drafts and scroll; outer tab close is guarded",
+    "pending saves defer selection; clean refresh preserves editor identity",
+    "removed files retain drafts and browser reload is protected",
+    "previews, deleted/renamed changes and unavailable files have usable states",
+    "late reads cannot replace a more recent file selection",
+    "failed tree refresh retains the open file and exposes retry",
+    "resizing, light theme, narrow layout and animated close remain usable",
+    "empty and non-Git folders expose a next action",
+    "a clean Changes list and clean diff expose a useful next action",
+    "agent and terminal owners open files; terminal cd requires explicit refresh"
+  ],
+  "screenshots": [
+    "filetree-v2-editor-dark.png",
+    "filetree-v2-diff-dark.png",
+    "filetree-v2-unsaved-dialog.png",
+    "filetree-v2-save-error.png",
+    "filetree-v2-conflict.png",
+    "filetree-v2-removed.png",
+    "filetree-v2-image.png",
+    "filetree-v2-unsupported.png",
+    "filetree-v2-blocked.png",
+    "filetree-v2-tree-error.png",
+    "filetree-v2-editor-light.png",
+    "filetree-v2-narrow.png",
+    "filetree-v2-preview-narrow.png",
+    "filetree-v2-stacked.png",
+    "filetree-v2-empty.png",
+    "filetree-v2-clean-changes.png",
+    "filetree-v2-root-changed.png"
+  ],
+  "audits": [
+    {
+      "name": "filetree-v2-editor-dark",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-diff-dark",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            99,
+            99,
+            99
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-unsaved-dialog",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 310,
+          "bottom": 446,
+          "height": 135
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101,
+            101
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            395,
+            395,
+            395
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-save-error",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-conflict",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-removed",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-image",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-unsupported",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-blocked",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-tree-error",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            154,
+            154,
+            154
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-editor-light",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-narrow",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            131,
+            131,
+            131
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-preview-narrow",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            78,
+            78,
+            78
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            34,
+            34
+          ],
+          "tops": [
+            161,
+            161
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            204,
+            204,
+            204
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-stacked",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            106,
+            106,
+            106
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            34,
+            34
+          ],
+          "tops": [
+            403,
+            403
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            446,
+            446,
+            446
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-empty",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-clean-changes",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            99,
+            99
+          ]
+        }
+      ],
+      "clippedControls": []
+    },
+    {
+      "name": "filetree-v2-root-changed",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36,
+            36
+          ],
+          "tops": [
+            48,
+            48,
+            48
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            101,
+            101
+          ]
+        }
+      ],
+      "clippedControls": []
+    }
+  ],
+  "runtimeErrors": [],
+  "status": "PASS"
+}

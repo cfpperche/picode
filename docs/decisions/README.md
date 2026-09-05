@@ -34,9 +34,9 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0027](0027-workspaces-start-empty.md) | Workspaces start empty | accepted |
 | [0028](0028-model-roles.md) | Model roles as an opt-in MIT pi package (`packages/pi-roles`) | accepted |
 | [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |
-| [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted, diff refusal amended by 0032, graph-refresh precedent superseded by 0038 |
+| [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted, diff refusal amended by 0032, graph-refresh precedent superseded by 0038, file navigation amended by 0073 |
 | [0031](0031-provider-usage-dialog.md) | Live provider usage dialog on `#/providers` | accepted |
-| [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted |
+| [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted, Open file navigation amended by 0073 |
 | [0033](0033-roles-per-agent-overlay.md) | Model roles per-agent overlay (`PI_ROLES_AGENT` → `.pi/roles/<id>.json`) | accepted |
 | [0034](0034-clone-remote-repository-workspace.md) | Clone a remote repository into a new workspace | accepted |
 | [0035](0035-remove-workspace-delete-local-data.md) | Remove workspace can delete the local folder — opt-in, typed confirmation | accepted |
@@ -77,3 +77,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
 | [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted |
+
+| [0073](0073-file-tree-inline-details.md) | Files and Changes share a local detail pane with document guards and root preconditions | accepted |
