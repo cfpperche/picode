@@ -16,6 +16,12 @@ was performed. All six observed tmux panes retained their IDs/PIDs and server
 health retained boot `97d7ca348df4a75a`. Icon placement and next-logon behavior
 were not visually/live tested. The earlier tray exit cause is not confirmed.
 
+Repository `make ci` passed. Its `TestTerminalBrowse` left disposable session
+`picode-sh-terminal-e52b65`, pane `%35`, PID `115411`, rooted in the test's
+deleted temporary directory. After checking the exact process/rcfile identity,
+only that session was removed; the original six pane IDs/PIDs remained intact.
+The existing test cleanup context/lifetime needs review; no test code changed.
+
 | Conditions | Action and evidence |
 |---|---|
 | Existing task enabled, tray stopped | Run the same task; observed Running and one process. |

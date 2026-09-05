@@ -125,6 +125,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 - Desktop installer task creation still inherits Windows duration/battery
   defaults. An installer fix and next-logon acceptance are separate work.
+- `TestTerminalBrowse` left one disposable tmux session after passing CI;
+  identity-checked cleanup removed it. Review test cleanup context/lifetime.
 - CLI lifecycle coverage remains version-specific. Run the explicit
   working/approval/settled acceptance matrix before claiming full coverage
   for a vendor; setup checks only prove executable response and prerequisites.
