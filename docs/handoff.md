@@ -5,44 +5,32 @@
 
 ## Current state (read this first)
 
-**Capture integration:** owner authorized merge and deployment of the host
-increment. Current branch combines main with bounded captures (ADR-0076;
-renumbered because Integrations took 0075), history reconciliation and both
-apps' fallback UI. Combined `make ci` passed (668 frontend tests plus Go,
-package/build/docs/Vale gates). Ten combined-host screenshots were read;
-overlay audits passed. Mobile Send was clipped in the preexisting toolbar:
-wrapping the controls fixes it at 320/390px, including the running state.
-Deployment verification is next; evidence: `var/capture-merge/`.
-The opt-in native emitter and real end-to-end acceptance remain pending;
-deployment does not enable browser capture emission.
-
-**Repository:** Integrations (ADR-0075) is merged into main and locally deployed
-as `ea193466`, including the current provider favicons and tab/sidebar size fixes.
+**Repository:** bounded captures (ADR-0076), history reconciliation and mobile
+composer wrapping are merged into main and locally deployed as `974780ba`.
+The capture ADR was renumbered because Integrations took 0075. The opt-in native
+emitter and real end-to-end acceptance remain pending: deployment does not
+enable browser capture emission. Integrations and the current provider favicons
+and tab/sidebar size fixes remain included.
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+ea19346`, health `ok`, boot
-`2e28c5e4e68caf19`, desktop bundle `index--D0Yzfl2.js`. `make deploy` restarted
-systemd successfully. All six terminal records and 27 baseline tmux panes
-survived. Live desktop/mobile Integrations, the existing Context7 configuration
-and the validation overlay were checked without creating production webhooks.
-Read screenshots and API/identity receipts: `var/integrations-deploy/`.
-Private pre-deploy SQLite/binary backups are retained there for recovery.
+**Last application deployment:** `0.1.0+974780b`, health `ok`, boot
+`1429ba9cb49904d5`. `make deploy` restarted systemd; all six terminal records
+and 28 baseline tmux pane identities survived. Installed/build binary hashes
+and served desktop/mobile assets match (`index-BRF94S2P.js` / `index-Beff3F6q.js`).
+Live screenshots were read, including dashboard scrolling; audits passed and
+no browser errors were reported. Receipts: `var/capture-merge/`; private SQLite
+and previous-binary backups remain in its `recovery/` folder.
 
-**Quality:** Combined main + Integrations `make ci` passed before deployment:
-Go formatting/vet/tests, frontend
-and package tests, both UI builds, embedded binary, generated docs, screenshot
-freshness and Vale. Store/webhooks/server/MCP/URL-policy tests also passed with
-`-race`. Real isolated HTTP receipts include durable events and ordered retries;
-a fresh durable receipt was independently HMAC-verified in Python. The external
-DeepWiki package passed native adapter discovery and a real public-repository
-MCP call, not a model turn. Read desktop/mobile empty, blocked, validation,
-retry, catalog and editor screenshots; settled overlay/row audits passed.
-Evidence: `docs/screenshots/integrations-*`; matrix and observed results:
-`docs/plans/integrations.md`. Disposable fixtures are stopped at session close.
-Previous File Tree/mobile evidence and gate details are archived.
+**Quality:** combined main `make ci` passed (668 frontend tests plus Go,
+package/build/docs/Vale gates). Ten combined-host screenshots were read;
+viewer audits passed. Preexisting mobile Send clipping was fixed with wrapping
+and checked at 320/390px, including the running state. This is host QA, not a
+real emitter verdict. Fixture and QA browser are stopped; feature worktree and
+branch are removed. Original receipts remain in `var/tool-preview/`.
+Previous Integrations/File Tree/mobile gate details are archived.
 
 ### Product and platform
 
@@ -114,7 +102,9 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
    dependency order, deployment preview and recovery need an ADR.
 5. Review ADR-0064 and choose the cadence/pilot window.
 6. Re-dogfood configured compaction; inspect historical Inbox rows before replies.
-7. Run owner-controlled remote-mode acceptance and continue Browser preview/0054.
+7. Run owner-controlled remote-mode acceptance. Continue Browser preview with
+   opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
+   not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
 
 ## Known debts / open questions
@@ -150,15 +140,10 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
 
 ## Recent activity
 
-- **2026-09-05 — Integrations merged and deployed.** Reconciled current main,
-  refreshed the changed docs capture and passed combined `make ci`. Deployed
-  `ea193466`; live health, asset parity, six terminal records and 27 panes passed.
-  Desktop/mobile screenshots were read, audits and browser diagnostics passed.
-  visual-review: PASS. No production integration mutations or push.
-
-- **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,
-  independent desktop/mobile management, reviewed MCP import and an external
-  connector example. Real HTTP/MCP checks, `make ci` and targeted race tests
-  passed. visual-review: PASS. Feature branch only; no deployment or push.
+- **2026-09-05 — Capture host merged and deployed.** Reconciled main and
+  renumbered the capture ADR to 0076; corrected mobile toolbar clipping found
+  in QA. Combined `make ci`, refreshed host states, 320/390px geometry and live
+  deployment checks passed. visual-review: PASS. Deployed `974780ba`; emitter
+  remains pending. No push or package-setting changes.
 
 Older activity lives in `docs/handoff-archive.md`.

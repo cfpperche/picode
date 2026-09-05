@@ -3,6 +3,25 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Integrations delivery (archived during capture-host deployment)
+
+- **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,
+  independent desktop/mobile management, reviewed MCP import and an external
+  connector example. Combined `make ci` and targeted store/webhooks/server/MCP/
+  URL-policy race tests passed. Real HTTP receipts covered durable events and
+  ordered retries; a fresh signature was independently HMAC-verified in Python.
+  DeepWiki passed native discovery and a real public-repository MCP call, not
+  a model turn. Empty/blocked/validation/retry/catalog/editor screenshots were
+  read; overlay/row audits passed. Evidence: `docs/screenshots/integrations-*`
+  and `docs/plans/integrations.md`.
+- **2026-09-05 — Integrations merged and deployed.** Reconciled main, refreshed
+  changed docs captures and passed combined `make ci`. Deployed `ea193466` as
+  `0.1.0+ea19346`, boot `2e28c5e4e68caf19`, bundle `index--D0Yzfl2.js`.
+  Six terminal records and 27 panes survived. Live Integrations, existing
+  Context7 configuration and validation overlay were read/audited without
+  creating production webhooks. visual-review: PASS. No push. Evidence and
+  private recovery backups remain in `var/integrations-deploy/`.
+
 ## Provider favicon deployment (archived during Integrations merge)
 
 - **2026-09-05 — Provider favicons and icon-size parity.** Agent tabs use
