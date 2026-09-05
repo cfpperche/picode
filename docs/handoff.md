@@ -5,27 +5,20 @@
 
 ## Current state (read this first)
 
-**Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
-owner accepts the shipped result) is merged into main and locally deployed as
-`9a8e15a7`: Changes and Files beside the center, per-file counts on
-`gitstatus`, the file tab's Diff view, the `Ctrl+.` toggle, the seeded docs
-fixture and the `app-inspector` public capture. Feature worktree and branch
-are removed.
+**Repository:** HEAD (deployed as `0.1.0+075f6cc`) carries today's
+Integrations rollout (ADR-0075) with connector catalog tabs and the Gmail
+recipe, the desktop Inspector rail (ADR-0078, proposed until the owner
+accepts), bounded captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with
+the fullscreen amendment) and the managed-stop process-group fix, plus File
+Tree v2 (0074), worktree-aware Git Graph (0073), independent web apps (0072),
+Windows task reliability (0071), Agent CLIs v2 and Docker v3. Managed agents
+remain Pi-only; coding CLIs are terminals. No push was made. Preserve the
+unrelated root `.pi/compact.json`. The capture ADR was renumbered because
+Integrations took 0075; the opt-in native emitter and real end-to-end
+capture acceptance remain pending, so deployment does not enable browser
+capture emission.
 
-**Repository:** the managed-stop hang is fixed and locally deployed. Clicking
-`Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
-hang forever: the intercept wrapper's real `pi` survived its killed parent
-holding the rpc stdout pipe, `Runtime.Stop` waited on an EOF that never came,
-and every later stop/open queued behind it. The rpc client now spawns the
-agent in its own process group, SIGKILLs the group on `Close` and closes
-stdin/stdout as a second net; the pi wrapper `exec`s the real pi for managed
-rpc/json runs so there is no middleman to orphan. Regression test spawns a
-wrapper+grandchild double and fails on the old code (`Close hung`). Verified
-live: managed start → close round-trip completes in ~50ms, final agent state
-`stopped`. main meanwhile absorbed the pi-diff fullscreen column fix
-(ADR-0077 amendment); this branch sits on it.
-
-Known debts / open questions from this fix:
+Managed-stop fix debts (living):
 
 - `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
   managed start is in flight waits for the start, then returns true without
@@ -33,27 +26,19 @@ Known debts / open questions from this fix:
 - Windows `Close` kills only the direct child (no posix process groups;
   Job Objects would be the faithful equivalent). The managed server does
   not run on Windows today.
-- The regressions in this fix are process-tree tests; the UI itself is
-  unchanged, so no visual-review pass applies.
 
-Before it, main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
-fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
-user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because
-Integrations took 0075; the opt-in native emitter and real end-to-end
-acceptance remain pending, so deployment does not enable browser capture
-emission.
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+9a8e15a`, health `200`, desktop bundle
-`index-DYuuKYrY.js` (served and built hashes match). `make deploy` restarted
-systemd (new pid); the seven terminal records survived. The live `gitstatus`
-already answers with `branch`, per-file counts and `totals`, and the rail
-renders beside the live `glm5` agent at 1440px (Changes 1 · `+7`, overlay
-audit ok). A fresh browser profile at 1280px keeps it closed by default, as
-designed.
+**Last application deployment:** `0.1.0+075f6cc`, health `ok`, boot
+`6020b8eed79d6e22`. `make deploy` restarted systemd; all 44 baseline tmux pane
+identities survived. Live Integrations: the catalog tabs render and the
+**Claude Code** tab shows the real `context7` server as "Added from Claude
+Code" while the existing service row stayed untouched — read-only checks, no
+production mutations. Read evidence: `var/connector-tabs-deploy/`; private
+SQLite and previous-binary backups are in its `recovery/` folder.
 **Quality:** `make ci` passed three times — on the feature tree, after the
 first main merge (with regenerated captures) and on the final merged tree —
 including Go tests, 700 frontend/package tests, both UI builds, the embedded
@@ -88,7 +73,7 @@ browser sessions are closed.
   The Add-connector card has catalog tabs: a fixed Catalog tab (Custom card
   opens the server form) plus one tab per agent CLI with found MCP servers;
   host imports use a reviewed confirmation with an Added state. The Use-from
-  dialog and inline form are retired (branch pending merge).
+  dialog and inline form are retired.
 - Webhooks persist cursors, retry deadlines and revision-guarded acknowledgements.
   Only durable events are eligible; retention gaps are recorded. Secrets appear
   only on creation/rotation. No redirects/environment proxy; metadata addresses
@@ -218,6 +203,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Connector catalog tabs merged and deployed.** Reconciled the
+  Inspector rail work and passed combined `make ci`; deployed `075f6cce`. Live
+  catalog tabs render with the real Claude Code host; `context7` shows "Added
+  from Claude Code" and its service row stayed untouched; 44/44 panes
+  survived. visual-review: PASS. No integration mutations or push.
+
 - **2026-09-05 — Connector catalog tabs (branch).** Add-connector card gains
   a fixed Catalog tab (Custom card opens the former inline form as a dialog)
   and one tab per scanned agent CLI with found servers; host imports confirm
@@ -240,26 +231,5 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   folder tab. Merged `9a8e15a7` after three catch-up merges of main
   (pi-diff, Gmail, managed-stop) and deployed; served bundle
   `index-DYuuKYrY.js`, seven terminals survived. No push.
-- **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
-  owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
-  fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
-  (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
-  a full-height overlay plus a one-time hint. Widget slot re-set per refresh
-  because a mode switch replaces the TUI instance. Dogfooded both modes.
-
-- **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
-  Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
-  ok). Merged and deployed `2231919`.
-- **2026-09-05 — `pi-diff` package built (ADR-0077).** New MIT package
-  `packages/pi-diff` in the pi-checklist mold: pure `src/logic.ts` (numstat,
-  porcelain and unified-diff parsing, focus rules, layout) with node:test
-  coverage, and `extensions/diff.ts` (git, `tui.showOverlay` through a
-  zero-height widget slot, `tool_execution_*`/`turn_end` refresh, `/diff`
-  command with completions, `alt+n`/`alt+u`/`alt+pageUp`/`alt+pageDown`).
-  `ctx.ui.custom()` was rejected because its `ui_prompt_*` events would read
-  as "waiting for user" to the guest-TUI sensors. Guide at
-  `www/guide/diff-panel.md`. Merged `32b9c24f` (ADR renumbered 0076→0077 on
-  merge), UI captures refreshed after `docs-check`, full `make ci` green,
-  deployed `bd9f28b`; worktree and branch removed.
 
 Older activity lives in `docs/handoff-archive.md`.

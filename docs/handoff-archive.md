@@ -3,6 +3,73 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Inspector/managed-stop deploy prose (condensed during catalog tabs deploy)
+
+**Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
+owner accepts the shipped result) is merged into main and locally deployed as
+`9a8e15a7`: Changes and Files beside the center, per-file counts on
+`gitstatus`, the file tab's Diff view, the `Ctrl+.` toggle, the seeded docs
+fixture and the `app-inspector` public capture. Feature worktree and branch
+are removed.
+
+**Repository:** the managed-stop hang is fixed and locally deployed. Clicking
+`Stop agent` or `Open terminal` on a managed agent (e.g. `pi-diff`) used to
+hang forever: the intercept wrapper's real `pi` survived its killed parent
+holding the rpc stdout pipe, `Runtime.Stop` waited on an EOF that never came,
+and every later stop/open queued behind it. The rpc client now spawns the
+agent in its own process group, SIGKILLs the group on `Close` and closes
+stdin/stdout as a second net; the pi wrapper `exec`s the real pi for managed
+rpc/json runs so there is no middleman to orphan. Regression test spawns a
+wrapper+grandchild double and fails on the old code (`Close hung`). Verified
+live: managed start → close round-trip completes in ~50ms, final agent state
+`stopped`. main meanwhile absorbed the pi-diff fullscreen column fix
+(ADR-0077 amendment); this branch sits on it.
+
+Known debts / open questions from this fix:
+
+- `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
+  managed start is in flight waits for the start, then returns true without
+  stopping the just-started agent. Not exercised by tests; unfixed.
+- Windows `Close` kills only the direct child (no posix process groups;
+  Job Objects would be the faithful equivalent). The managed server does
+  not run on Windows today.
+- The regressions in this fix are process-tree tests; the UI itself is
+  unchanged, so no visual-review pass applies.
+
+Before it, main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
+fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
+user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because
+Integrations took 0075; the opt-in native emitter and real end-to-end
+acceptance remain pending, so deployment does not enable browser capture
+emission.
+
+## Icon and pi-diff package (archived during catalog tabs deploy)
+
+
+- **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
+  owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
+  fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
+  (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
+  a full-height overlay plus a one-time hint. Widget slot re-set per refresh
+  because a mode switch replaces the TUI instance. Dogfooded both modes.
+
+- **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
+  Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
+  ok). Merged and deployed `2231919`.
+- **2026-09-05 — `pi-diff` package built (ADR-0077).** New MIT package
+  `packages/pi-diff` in the pi-checklist mold: pure `src/logic.ts` (numstat,
+  porcelain and unified-diff parsing, focus rules, layout) with node:test
+  coverage, and `extensions/diff.ts` (git, `tui.showOverlay` through a
+  zero-height widget slot, `tool_execution_*`/`turn_end` refresh, `/diff`
+  command with completions, `alt+n`/`alt+u`/`alt+pageUp`/`alt+pageDown`).
+  `ctx.ui.custom()` was rejected because its `ui_prompt_*` events would read
+  as "waiting for user" to the guest-TUI sensors. Guide at
+  `www/guide/diff-panel.md`. Merged `32b9c24f` (ADR renumbered 0076→0077 on
+  merge), UI captures refreshed after `docs-check`, full `make ci` green,
+  deployed `bd9f28b`; worktree and branch removed.
+
+Older activity lives in `docs/handoff-archive.md`.
+
 ## Gmail connector (archived during catalog tabs)
 
 - **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
