@@ -13,6 +13,9 @@ coding CLIs are terminals. This session has not pushed. Read Git for upstream
 status; preserve the unrelated root `.pi/compact.json`.
 Mobile review fixes are validated locally, including the combined tree.
 These fixes are included in the latest local deployment; no push was made.
+Branch `feat/agent-tab-provider-favicon` (worktree
+`.worktrees/agent-tab-favicon`) adds provider favicons to desktop agent
+tabs; gates and visual review passed, not yet merged or deployed.
 
 **Last application deployment:** `0.1.0+050580f`, health `ok`, boot
 `04ceec7199555424`. Git-ignored tree entries are visibly distinct in the live
@@ -158,6 +161,16 @@ and fallback detail is archived; the implementation is unchanged here.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Agent tabs wear the provider favicon.** Desktop agent tabs
+  now mirror terminal tabs: the sidebar's `ProviderFace` leads the tab and
+  activity moved to a trailing dot (working green, needs-you accent),
+  replacing the anonymous leading dot. Light/dark screenshots of two live
+  agent tabs (zai → zhipu mark) were read; overlay audit `ok`.
+  visual-review: PASS. `make fmt-check vet test test-js build` passed;
+  evidence `docs/screenshots/agent-tabs-provider-favicon-light.png` and
+  `-dark.png` (working captures in `var/screenshots/`). Waiting-state dot is
+  code-reviewed only — no live waiting agent existed to capture.
 
 - **2026-09-05 — File Tree ignore decoration.** Git classifies each directory
   listing in one bounded call. Tracked files, exceptions and unavailable Git

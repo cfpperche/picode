@@ -85,6 +85,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Agent tabs wear the agent's provider favicon** (desktop). The tab strip
+  now mirrors terminal tabs: identity leads as the favicon — the same
+  provider face the sidebar renders — while activity moves to a trailing
+  dot after the name (green working, accent needs-you), matching the
+  terminal-tab state vocabulary.
+
 - **Independent desktop and mobile web apps** (ADR-0072). `/desktop/` keeps
   the responsive workstation; `/mobile/` owns its screens, styles, sheets and
   build. Mobile loads secondary screens on demand and includes only its

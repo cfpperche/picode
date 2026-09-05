@@ -5,6 +5,7 @@ import { repoNameFromKey } from "../lib/gitgraph.js";
 import { IconFile, IconGit, IconFolders } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
+import { ProviderFace } from "./ProviderFaces.jsx";
 import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 
 export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot }) {
@@ -78,11 +79,19 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
           }
           const loc = locate(workspaces, freeAgents, id);
           if (!loc || !loc.agent) return null;
-          const mode = loc.agent.mode || "stopped";
+          const ag = loc.agent;
+          const mode = ag.mode || "stopped";
           return (
             <Tab key={id} id={id} active={id === selectedId} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle="Close tab (agent keeps running)">
-              <span className={"mtab-dot" + (mode !== "stopped" ? " running" : "")} />
-              <span>{displayAgentName(loc.agent, loc.workspace)}</span>
+              {/* Agent tabs mirror terminal tabs (ADR-0056/0060): identity
+                  leads as the favicon — the agent's provider face, the same
+                  mark the sidebar wears — and the trailing dot carries
+                  activity: needs-you is the user's move (accent), running
+                  gets the green working dot. */}
+              <span className="mtab-term"><ProviderFace agent={ag} /></span>
+              <span>{displayAgentName(ag, loc.workspace)}</span>
+              {ag.waiting ? <span className="mtab-dot attn" title="Needs you" /> : null}
+              {!ag.waiting && mode !== "stopped" ? <span className="mtab-dot running" title="Working" /> : null}
             </Tab>
           );
         })}
