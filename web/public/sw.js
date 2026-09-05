@@ -20,13 +20,19 @@ self.addEventListener("fetch", event => {
     event.respondWith(fetch(event.request, { cache: "no-store" }));
     return;
   }
-  event.respondWith(caches.open(CACHE_PREFIX + app).then(async cache => {
-    const hit = await cache.match(event.request);
-    if (hit) return hit;
+  event.respondWith((async () => {
+    let cache;
+    try {
+      cache = await caches.open(CACHE_PREFIX + app);
+      const hit = await cache.match(event.request);
+      if (hit) return hit;
+    } catch { /* Storage is optional; the network can still serve the app. */ }
     const response = await fetch(event.request);
-    if (response.ok) await cache.put(event.request, response.clone());
+    if (response.ok && cache) {
+      event.waitUntil(cache.put(event.request, response.clone()).catch(() => {}));
+    }
     return response;
-  }));
+  })());
 });
 
 self.addEventListener("push", event => {

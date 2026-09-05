@@ -93,3 +93,15 @@ shows responsive desktop navigation at 390px. All were read, using an isolated
 embedded fixture; overlay audits passed. Package-chunk failure was injected
 and Try again recovered after the interception was removed. No model turns
 were started. Physical PWA installation/push delivery remains separate QA.
+
+### Mobile review corrections (2026-09-05)
+
+Synthetic embedded fixture, no model turns. Screenshots were read; settled
+sheet/popover audits passed. Light phone and wide dark sheet; save failure
+rolls back controls, and closing Settings preserves the draft and attachment.
+
+- [Agent Settings](mobile-review-settings-light.png)
+- [Save failure](mobile-review-settings-error.png)
+- [Retained draft and image](mobile-review-draft-retained.png)
+- [Tool selector above the sheet](mobile-review-mode-selector.png)
+- [Wide dark sheet](mobile-review-settings-wide-dark.png)

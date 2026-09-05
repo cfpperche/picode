@@ -13,8 +13,23 @@ import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent, workspace, catalog, onAgentConfig }) {
+export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false }) {
   const [rep, setRep] = useState(null);
+  const [pending, setPending] = useState(null);
+  const [configError, setConfigError] = useState("");
+  const [configStatus, setConfigStatus] = useState("");
+  const agent = originalAgent && { ...originalAgent, ...(pending || {}) };
+  async function changeAgent(cfg) {
+    if (pending) return;
+    setPending(cfg);
+    setConfigError("");
+    setConfigStatus("");
+    try {
+      await onAgentConfig(cfg);
+      setConfigStatus("Saved.");
+    } catch (error) { setConfigError(error.message || "Could not save agent settings."); }
+    finally { setPending(null); }
+  }
 
   useEffect(() => {
     if (hidden) return;
@@ -50,8 +65,8 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
   const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
-    <PageFrame id="pi-settings-view" title="Settings" context={agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
-      <section className="settings-section" data-layer="global">
+    <PageFrame id="pi-settings-view" title="Settings" context={!agentOnly && agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
+      {!agentOnly ? <section className="settings-section" data-layer="global">
         <h3>Global</h3>
         <p className="settings-desc">This machine</p>
         <LayerKnobs
@@ -60,8 +75,8 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
           catalog={catalog}
           onSave={(patch) => save("global", patch, "Saved for every pi on this machine.")}
         />
-      </section>
-      {workspace ? (
+      </section> : null}
+      {!agentOnly && workspace ? (
         <section className="settings-section" data-layer="workspace">
           <h3>Workspace</h3>
           <p className="settings-desc">{workspace.name}</p>
@@ -81,7 +96,10 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
         <section className="settings-section" data-layer="agent">
           <h3>Agent</h3>
           <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
-          <div className="set-rows" data-align-row>
+          <p className="settings-desc" role="status">{pending ? "Saving…" : configStatus}</p>
+          {configError ? <div role="alert"><p>{configError}</p><button type="button" className="btn btn-sm" onClick={() => setConfigError("")}>Dismiss</button></div> : null}
+          <fieldset className="m-agent-config-fields" disabled={!!pending} aria-busy={!!pending}>
+          <div className="set-rows">
             <div className="set-row set-row-stack">
               <span>Model</span>
               <ConfigFields
@@ -89,23 +107,24 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
                 provider={ag.provider}
                 model={ag.model}
                 thinking={ag.thinking}
-                onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)}
+                onChange={changeAgent}
                 idPrefix="ag-set"
                 row
               />
             </div>
             <div className="set-row">
               <span>Tools</span>
-              <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
+              <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={changeAgent} />
             </div>
             <div className="set-row">
               <span>Checklist</span>
-              <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={(cfg) => onAgentConfig && onAgentConfig(cfg)} />
+              <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={changeAgent} />
             </div>
           </div>
+          </fieldset>
         </section>
       ) : null}
-      <PiKeys />
+      {!agentOnly ? <PiKeys /> : null}
     </PageFrame>
   );
 }
@@ -113,7 +132,7 @@ export default function PiSettings({ hidden, agent, workspace, catalog, onAgentC
 function LayerKnobs({ prefix, values, catalog, onSave }) {
   if (!values) {
     return (
-      <div className="set-rows" data-align-row aria-busy="true">
+      <div className="set-rows" aria-busy="true">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="set-row" aria-hidden="true">
             <span className="skel-line w-50" />
@@ -124,7 +143,7 @@ function LayerKnobs({ prefix, values, catalog, onSave }) {
     );
   }
   return (
-    <div className="set-rows" data-align-row>
+    <div className="set-rows">
       <div className="set-row">
         <label htmlFor={prefix + "-compact"}>Auto-compact</label>
         <Switch.Root
@@ -170,7 +189,7 @@ function LayerKnobs({ prefix, values, catalog, onSave }) {
       </div>
       <div className="set-row set-row-stack">
         <span>Tools</span>
-        <div className="set-tools" data-align-row>
+        <div className="set-tools">
           {PI_TOOLS.map((t) => {
             const on = (values.defaultTools || []).includes(t);
             return (

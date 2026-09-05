@@ -177,13 +177,18 @@ composer, terminal, settings and preview components are mobile-owned copies;
 secondary screens load on demand and offer retry on loading failure. Mobile
 has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
 are always sheets, including wide previews; desktop keeps responsive dialogs.
+The composer opens agent Settings over the mounted conversation, preserving
+unsent text and attachments. Both mobile settings paths save via the agent
+PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
 consume the change feed; presence follows the mounted app rather than width.
 
 The PWA keeps the root worker registration and scope. Manifest identity
 `/?mobile=1` preserves existing installations while `/mobile/` becomes the
 start URL. Hashed assets have separate launcher/desktop/mobile caches; HTML
-and APIs remain fresh. See the [migration inventory and decision table](plans/mobile-decoupling.md).
+and APIs remain fresh. Cache failures fall back to the network; persistence
+never blocks a successful asset response. Parsed source imports and transitive
+shared build dependencies enforce the headless package boundary. See the [migration inventory and decision table](plans/mobile-decoupling.md).
 **Web Push (ADR-0047):** `internal/push` (stdlib VAPID + RFC 8291) posts
 encrypted messages to each subscribed browser's push service; the store
 holds subscriptions (`/api/push/*`), `sw.js` shows them and routes a tap

@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 
 const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
-function worker({ hit, ok = true, windows = [], keys = [] } = {}) {
+function worker({ hit, ok = true, windows = [], keys = [], storageError = "" } = {}) {
   const handlers = {}, calls = [];
   const response = { ok, clone() { return this; } };
   runInNewContext(source, {
@@ -21,16 +21,19 @@ function worker({ hit, ok = true, windows = [], keys = [] } = {}) {
     fetch: async (request, options) => { calls.push(["fetch", request.url, options?.cache]); return response; },
     caches: {
       keys: async () => keys, delete: async key => calls.push(["delete", key]),
-      open: async key => { calls.push(["cache", key]); return {
-        match: async () => hit,
-        put: async request => calls.push(["put", request.url]),
+      open: async key => { if (storageError === "open") throw Error("Storage unavailable"); calls.push(["cache", key]); return {
+        match: async () => { if (storageError === "match") throw Error("Read failed"); return hit; },
+        put: async request => { if (storageError === "put") throw Error("QuotaExceededError"); calls.push(["put", request.url]); },
       }; },
     },
   });
   async function event(type, fields = {}) {
-    let pending;
-    handlers[type]({ ...fields, waitUntil: p => { pending = p; }, respondWith: p => { pending = p; } });
-    await pending;
+    let response;
+    const background = [];
+    handlers[type]({ ...fields, waitUntil: p => background.push(p), respondWith: p => { response = p; } });
+    const result = await response;
+    await Promise.all(background);
+    return result;
   }
   return { calls, event };
 }
@@ -89,4 +92,11 @@ test("the installed app identity and registration scope survive the new start UR
   assert.equal(manifest.id, "/?mobile=1");
   assert.equal(manifest.scope, "/");
   assert.equal(manifest.start_url, "/mobile/");
+});
+
+for (const storageError of ["open", "match", "put"]) test(`storage ${storageError} failure preserves the network response`, async () => {
+  const sw = worker({ storageError });
+  const response = await sw.event("fetch", { request: { url: "https://picode.test/mobile/assets/a.js", method: "GET" } });
+  assert.equal(response.ok, true);
+  assert.equal(sw.calls.filter(call => call[0] === "fetch").length, 1);
 });

@@ -10,6 +10,7 @@
 (ADR-0072), desktop task reliability (ADR-0071), the worktree-aware git
 graph (ADR-0073, merged from `feat/gitgraph-worktrees`), Agent CLIs v2 and
 Docker v3.
+The mobile review corrections are validated locally; this increment was not deployed.
 Managed agents remain Pi-only; coding CLIs are terminals. Nothing was pushed.
 Read Git for
 current upstream status. Preserve the unrelated root `.pi/compact.json`.
@@ -97,7 +98,7 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Next up
 
-1. Validate the existing PWA on iOS/Android, then promote the decoupled build.
+1. Validate the existing PWA on iOS/Android and promote the reviewed fixes.
    Further mobile UI increments belong only in `web/mobile`.
 
 2. Run the version-specific CLI working/approval/settled acceptance matrix.
@@ -152,32 +153,14 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Recent activity
 
-- **2026-09-05 — ADR-0073 merged and deployed.** `feat/gitgraph-worktrees`
-  merged into `main` (renumbered 0071→0073: desktop task reliability and
-  independent web applications took the earlier numbers), worktree and branch
-  removed, `make deploy` restarted the service — `0.1.0+ff8beb8`, health
-  `ok`, `/desktop/` bundle carries the feature. Merge resolved handoff/
-  changelog/decisions text and regenerated the three app captures
-  (`make docs-shots`); full `make ci` green on the merged tree.
-
-- **2026-09-05 — Git graph shows every worktree's working tree (ADR-0073),**
-  merged from `feat/gitgraph-worktrees`. One uncommitted row per dirty
-  worktree (branch + directory chip + agents + "this worktree"), dashed
-  trails anchored at each worktree's HEAD, detached checkouts decorate their
-  HEAD commit, branch picker marks checked-out branches, and
-  `gitstatus`/`gitdiff`/`git/blob`/`blob` accept `?worktree=<branch|hash>`
-  for sibling reads — refs, never paths. Benchmarks: Conductor, GitButler,
-  mhutchie Git Graph, herdr/Crystal. `make ci` passed including regenerated
-  docs captures; visual-review: PASS (`docs/screenshots/adr0073-*.png`,
-  overlay audit ok, light + dark read; a pseudo-hash index bug was caught and
-  fixed in QA).
-
-- **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
-  entries, copied mobile UI, shared contracts/tokens, explicit app paths and
-  stable PWA identity. Initial mobile JS: 562 kB vs 2,557 kB at `522844a2`;
-  optional previews remain lazy. Incorporated concurrent Rename/task work
-  and the Windows/macOS test portability fixes.
-  visual-review: PASS; public captures refreshed. No application deployment.
+- **2026-09-05 — Mobile decoupling adversarial corrections.** Cache storage
+  failures preserve successful asset responses. Composer Settings stays above
+  the mounted conversation; both settings paths persist configuration, and
+  tool/checklist selectors remain above sheets and inside the viewport.
+  Parsed imports and resolved shared dependencies reject presentation leakage.
+  `make ci` passed (628 frontend tests); visual-review: PASS (light/dark,
+  small/wide, empty/error, preserved draft/image and persisted settings).
+  No model turns, push or deployment for these fixes.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

@@ -339,3 +339,13 @@
 #m-app .app-split { flex-direction: column; overflow-y: auto; }
 #m-app .app-pane-list { flex: none; width: auto; max-height: 45vh; }
 #m-app .app-pane-detail { min-height: 180px; overflow: visible; }
+/* Settings stays above the mounted conversation, preserving unsent content. */
+.dlg.dlg-sheet.m-agent-settings { display: flex; flex-direction: column; overflow: hidden; }
+.m-agent-settings > .dlg-title, .m-agent-settings > .dlg-actions { flex: none; }
+.m-agent-settings-body { min-height: 0; overflow-y: auto; }
+.m-agent-settings-body .pane-view { overflow: visible; }
+.m-agent-settings-body .settings-wrap.wide { padding: 12px 0; }
+.m-agent-settings-body .settings-card { padding: 12px 14px; }
+.m-agent-config-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.m-agent-settings .cfg-fields select { width: 100%; max-width: 100%; }

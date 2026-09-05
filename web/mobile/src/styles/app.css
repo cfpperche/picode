@@ -1590,8 +1590,12 @@ img.ws-face.term-cli-face {
 .cockpit-opt:hover, .cockpit-opt.active, .cockpit-opt.selected { background: var(--bg-hover); }
 .cockpit-opt.disabled { opacity: 0.45; cursor: default; }
 .cockpit-combo-pop {
-  min-width: 260px; max-height: none; overflow: hidden;
-  padding: 6px; z-index: 40;
+  /* Radix owns placement/collision detection, including above a sheet. */
+  position: relative; left: auto; bottom: auto;
+  min-width: min(260px, calc(100vw - 16px));
+  max-width: var(--radix-popover-content-available-width);
+  max-height: var(--radix-popover-content-available-height); overflow: hidden;
+  padding: 6px; z-index: 80;
   display: flex; flex-direction: column;
 }
 [cmdk-root] { display: flex; flex-direction: column; }

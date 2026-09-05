@@ -30,7 +30,7 @@ const SECTIONS = [
 const TITLES = Object.fromEntries(SECTIONS.map(([id, t]) => [id, t]));
 
 // Mobile-owned settings, loaded only when their section opens.
-export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack }) {
+export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig }) {
   if (!section) {
     return (
       <div className="m-screen">
@@ -82,7 +82,7 @@ export default function More({ section, apps, catalog, system, version, themeMod
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
-      {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} /> : null}
+      {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
       {section === "providers" ? <Providers hidden={false} catalog={catalog} onRefresh={onRefreshCatalog} /> : null}
       {section === "mcps" ? (

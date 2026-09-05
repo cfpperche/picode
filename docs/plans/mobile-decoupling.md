@@ -104,3 +104,36 @@ Physical Safari/Android installation and real push delivery remain separate
 owner-device acceptance. The strict video freshness audit reports three old
 captures stale after source relocation; their integrity still passes, and
 no old input hashes were rewritten to imply a fresh render.
+
+## Adversarial review corrections
+
+The composer opens an agent-only Settings sheet above the mounted conversation;
+closing it preserves text, attachments and the connection. More keeps the full
+settings page. Both paths persist agent configuration through the existing
+PATCH endpoint and refresh the fleet. Controls update optimistically, prevent
+concurrent edits and report failures inline. As on desktop, changing tool mode
+restarts an active agent in its original managed/interactive mode; other edits
+do not restart it. A failed restart is reported as a saved setting with failed
+application, rather than pretending the save was rolled back.
+
+Asset cache reads and writes are optional: storage failure must not turn an
+HTTP success into an app load failure. Writes run under worker `waitUntil`
+without delaying delivery. Boundary validation parses JavaScript/TypeScript
+imports using Vite's existing parser/transformer and checks transitive shared
+imports in the resolved graph. No new dependency was added.
+
+| Conditions | Action | Regression evidence |
+|---|---|---|
+| Cache open/read/write rejects | Return successful network response | Worker tests, three injected storage failures |
+| Cache hit / failed HTTP response | Use hit / do not persist failure | Existing worker tests |
+| Tool/checklist selector inside Settings | Above sheet, within viewport | Browser overlay audit and screenshots |
+| Composer text and image, open/close Settings | Same composer and unsent content | Browser acceptance |
+| Agent configuration save succeeds | PATCH exact agent, refresh and retain values | Configuration tests and browser acceptance |
+| Save fails | No restart; rollback optimistic controls and show error | Configuration tests and browser acceptance |
+| Tool mode unchanged or agent stopped | Save without lifecycle calls | Configuration table tests |
+| Tool mode changes on managed/interactive agent | Stop/start same runtime; close interactive view | Configuration table tests |
+| Stop/start fails after save | Stop sequence; report saved configuration and failed restart | Configuration failure tests |
+| No agent | No mutation | Configuration test; missing-agent browser state |
+| Shared presentation import in JS/MJS/CJS/TS/MTS/CTS/JSX/TSX | Reject | Boundary tests |
+| Transitive shared dependency imports React | Reject resolved graph | Graph regression test |
+| Import syntax appears only in a string | Allow | Parser false-positive regression test |

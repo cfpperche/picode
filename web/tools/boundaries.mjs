@@ -1,32 +1,46 @@
 import { readFileSync, readdirSync, realpathSync, existsSync } from "node:fs";
 import { resolve, relative, dirname, extname } from "node:path";
+import { parseAst, transformWithEsbuild } from "vite";
 import { fileURLToPath } from "node:url";
 
 export function sourceFiles(root) {
   return readdirSync(root, { withFileTypes: true }).flatMap(entry => {
     if (entry.name === "node_modules") return [];
     const path = resolve(root, entry.name);
-    return entry.isDirectory() ? sourceFiles(path) : /\.(?:jsx?|css)$/.test(path) && !path.endsWith(".test.js") ? [path] : [];
+    return entry.isDirectory() ? sourceFiles(path) : /\.(?:[cm]?[jt]sx?|css)$/.test(path) && !/\.test\.[cm]?[jt]sx?$/.test(path) ? [path] : [];
   });
 }
 
-export function importSpecifiers(source) {
-  const patterns = [
-    /(?:^|\n)\s*(?:import|export)\s+(?:[^;'"`]*?\s+from\s*)?["']([^"']+)["']/g,
-    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
-    /@import\s+(?:url\(\s*)?["']([^"']+)["']/g,
-  ];
-  return [...new Set(patterns.flatMap(pattern => [...source.matchAll(pattern)].map(match => match[1])))];
+export async function importSpecifiers(source, filename = "module.js") {
+  if (filename.endsWith(".css")) return [...source.matchAll(/@import\s+(?:url\(\s*)?["']([^"']+)["']/g)].map(match => match[1]);
+  const code = /\.(?:jsx|tsx|[cm]?ts)$/.test(filename)
+    ? (await transformWithEsbuild(source, filename, { jsx: "preserve", tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } } })).code
+    : source;
+  // JSX must be lowered before Rollup's parser; retain every import.
+  const js = /\.(?:jsx|tsx)$/.test(filename)
+    ? (await transformWithEsbuild(code, "module.jsx", { jsx: "transform" })).code : code;
+  const found = new Set();
+  function visit(node) {
+    if (!node || typeof node !== "object") return;
+    if (["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "ImportExpression"].includes(node.type) && typeof node.source?.value === "string") found.add(node.source.value);
+    if (node.type === "CallExpression" && node.callee?.name === "require" && typeof node.arguments?.[0]?.value === "string") found.add(node.arguments[0].value);
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(visit);
+      else if (value && typeof value === "object") visit(value);
+    }
+  }
+  visit(parseAst(js));
+  return [...found];
 }
 
 function resolveFile(path) {
-  for (const candidate of [path, ...[".js", ".jsx", ".css", ".json"].map(ext => path + ext)]) {
+  for (const candidate of [path, ...[".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".css", ".json"].map(ext => path + ext)]) {
     if (existsSync(candidate)) return realpathSync(candidate);
   }
   return path;
 }
 
-export function checkBoundaries(webRoot, applications = ["desktop", "mobile", "shared"]) {
+export async function checkBoundaries(webRoot, applications = ["desktop", "mobile", "shared"]) {
   const root = realpathSync(webRoot);
   const shared = JSON.parse(readFileSync(resolve(root, "shared/package.json"), "utf8"));
   const errors = [];
@@ -40,8 +54,8 @@ export function checkBoundaries(webRoot, applications = ["desktop", "mobile", "s
     const directory = resolve(root, app, app === "shared" ? "." : "src");
     for (const path of sourceFiles(directory)) {
       const name = relative(root, path).replaceAll("\\", "/");
-      if (app === "shared" && extname(path) === ".jsx") errors.push(`${name}: shared must not contain JSX`);
-      for (const spec of importSpecifiers(readFileSync(path, "utf8"))) {
+      if (app === "shared" && [".jsx", ".tsx"].includes(extname(path))) errors.push(`${name}: shared must not contain JSX`);
+      for (const spec of await importSpecifiers(readFileSync(path, "utf8"), path)) {
         if (spec.startsWith(".")) {
           const target = relative(resolve(root, app), resolveFile(resolve(dirname(path), spec))).replaceAll("\\", "/");
           if (target.startsWith("../") || target === "..") errors.push(`${name}: cross-application import ${spec}`);
@@ -61,7 +75,26 @@ export function checkBoundaries(webRoot, applications = ["desktop", "mobile", "s
   if (errors.length) throw new Error(errors.join("\n"));
 }
 
+export function assertResolvedBoundaries(root, app, graph) {
+  const ids = [...graph.getModuleIds()];
+  for (const id of ids) {
+    if (!id.startsWith(root) || id.includes("/node_modules/")) continue;
+    const path = relative(root, id).replaceAll("\\", "/");
+    if (!path.startsWith(app + "/") && !path.startsWith("shared/")) throw new Error(`${app} imports code outside its boundary: ${path}`);
+    if (!path.startsWith("shared/")) continue;
+    const pending = [id], seen = new Set();
+    while (pending.length) {
+      const dependency = pending.pop();
+      if (seen.has(dependency)) continue;
+      seen.add(dependency);
+      if (/\/node_modules\/(?:react|react-dom|vaul|sonner)(?:\/|$)/.test(dependency)) throw new Error(`Presentation dependency in shared graph: ${dependency}`);
+      const info = graph.getModuleInfo(dependency);
+      if (info) pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
+    }
+  }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  checkBoundaries(fileURLToPath(new URL("../", import.meta.url)));
+  await checkBoundaries(fileURLToPath(new URL("../", import.meta.url)));
   console.log("Application boundaries: PASS");
 }

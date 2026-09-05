@@ -2,8 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
-import { relative } from "node:path";
-import { checkBoundaries } from "./boundaries.mjs";
+import { assertResolvedBoundaries, checkBoundaries } from "./boundaries.mjs";
 
 const webRoot = fileURLToPath(new URL("../", import.meta.url));
 
@@ -12,16 +11,10 @@ const webRoot = fileURLToPath(new URL("../", import.meta.url));
 function applicationBoundary(application) {
   return {
     name: "picode-application-boundary",
-    buildStart() { checkBoundaries(webRoot, [application, "shared"]); },
+    async buildStart() { await checkBoundaries(webRoot, [application, "shared"]); },
     buildEnd(error) {
       if (error) return;
-      for (const id of this.getModuleIds()) {
-        if (!id.startsWith(webRoot) || id.includes("/node_modules/")) continue;
-        const path = relative(webRoot, id).replaceAll("\\", "/");
-        if (!path.startsWith(application + "/") && !path.startsWith("shared/")) {
-          this.error(`${application} imports code outside its boundary: ${path}`);
-        }
-      }
+      assertResolvedBoundaries(webRoot, application, this);
     },
   };
 }

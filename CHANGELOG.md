@@ -31,6 +31,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- Keep mobile drafts and attachments when opening agent Settings, and persist
+  model, tool and checklist changes from both mobile settings entry points.
+  Selectors stay above settings sheets and within the phone viewport.
+- Keep web assets available when browser cache storage fails; reject shared
+  presentation dependencies across supported JavaScript/TypeScript modules.
+
 - **Windows tray startup and normal Quit** (ADR-0071). The installer now
   registers an explicit resident task: no time/battery/idle/network gates,
   limited interactive user, duplicate-task suppression and three launch

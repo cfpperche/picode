@@ -35,6 +35,7 @@ import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
 import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } from "./lib/whatsNew.js";
 import ScreenBoundary, { ScreenLoading } from "./components/ScreenBoundary.jsx";
+import { saveAgentConfig } from "./lib/agentConfig.js";
 import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
@@ -301,6 +302,11 @@ export default function MobileApp() {
     });
   }
 
+  async function patchAgent(agent, cfg) {
+    try { await saveAgentConfig(agent, cfg, api, closeTerm); }
+    finally { await reload().catch(toastError); }
+  }
+
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
@@ -329,6 +335,7 @@ export default function MobileApp() {
         onStart={startAgent}
         onStop={stopAgent}
         onOpenChanges={openChanges}
+        onAgentConfig={patchAgent}
       />
     );
   } else if (route.screen === "inbox" && route.id) {
@@ -346,6 +353,7 @@ export default function MobileApp() {
   } else if (route.screen === "more") {
     body = (
       <More section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode}
+        onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />
     );

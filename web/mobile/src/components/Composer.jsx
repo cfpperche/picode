@@ -29,6 +29,7 @@ export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, onSlash, statusBar, onCompact, sessionBar, lastReply,
   slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking,
+  onSettings,
 }) {
   const appKeyOverrides = readAppKeyOverrides();
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
@@ -695,7 +696,7 @@ export default function Composer({
             </div>
           ) : (
             <div className="composer-left chip-group">
-              <a className="cockpit-chip" href="#/more/settings">Settings</a>
+              <button type="button" className="cockpit-chip" onClick={onSettings}>Settings</button>
               <KindChip value={kind} onChange={onKind} />
             </div>
           )}

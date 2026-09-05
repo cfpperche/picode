@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import * as Sheet from "../components/MobileSheet.jsx";
+import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
 import Conversation from "../components/Conversation.jsx";
@@ -22,11 +24,12 @@ import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenChanges }) {
+export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenChanges, onAgentConfig }) {
   const sock = useAgentSocket(agent);
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState("prompt");
   const [view, setView] = useState("chat");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
   const convRef = useRef(null);
@@ -160,10 +163,23 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
               agentId={id}
               slashExtra={slashExtra}
               statusBar={bar}
+              onSettings={() => setSettingsOpen(true)}
             />
           </div>
         </div>
       )}
+      <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <Sheet.Portal>
+          <Sheet.Overlay className="dlg-overlay" />
+          <Sheet.Content className="dlg m-agent-settings" aria-describedby={undefined}>
+            <Sheet.Title className="dlg-title">Settings · {name}</Sheet.Title>
+            <div className="m-agent-settings-body">
+                <PiSettings agentOnly hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} />
+            </div>
+            <div className="dlg-actions"><Sheet.Close asChild><button type="button" className="btn btn-primary">Done</button></Sheet.Close></div>
+          </Sheet.Content>
+        </Sheet.Portal>
+      </Sheet.Root>
     </div>
   );
 }
