@@ -3,6 +3,15 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Desktop delivery (archived 2026-09-05 during publication)
+
+- **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
+  scoped repair and Quit exit-code fix validated on Linux and Windows.
+  `make ci` passed; regenerated/read the three already-stale public captures.
+  visual-review: PASS for the Windows guide at desktop/mobile widths;
+  no app/tray layout or overlay changed. Installed locally, verified one task
+  instance and unchanged baseline panes. Backups/evidence are in the plan.
+
 ## Recent activity (archived 2026-09-05 during desktop task reliability)
 
 - **2026-09-05 — Pushed `main` to `origin` (`83124956..a160739e`).** Owner

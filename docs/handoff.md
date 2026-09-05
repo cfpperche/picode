@@ -6,10 +6,12 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
-v1 and Docker v3. Managed agents remain Pi-only; coding CLIs are terminals,
-not agent runtimes. `origin/main` is at `a160739e` (pushed 2026-09-05,
-80 commits). The desktop task reliability increment is local-only. Preserve the unrelated root
+**Repository:** `main` includes Agent CLIs v2 (`c3265377`, ADR-0070),
+v1, Docker v3 and desktop task reliability (ADR-0071). Managed agents remain
+Pi-only; coding CLIs are terminals, not agent runtimes. The owner approved
+publication of the desktop increment on 2026-09-05. Read Git's current
+upstream status rather than treating a stored remote SHA as live state.
+Preserve the unrelated root
 `.pi/compact.json`. Compose registration/deployment remains proposed.
 
 **Last application deployment:** `0.1.0+7964d4d`, health `ok`, boot
@@ -83,8 +85,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- Windows next-logon, battery and sleep/resume acceptance remains
-  owner-controlled. Installer and local task repair are complete.
+- Windows next-logon, battery and sleep/resume acceptance is explicitly
+  deferred by the owner. Installer and local task repair are complete;
+  do not interrupt the current Windows session for these tests.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -156,12 +159,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
-  scoped repair and Quit exit-code fix validated on Linux and Windows.
-  `make ci` passed; regenerated/read the three already-stale public captures.
-  visual-review: PASS for the Windows guide at desktop/mobile widths;
-  no app/tray layout or overlay changed. Installed locally, verified one task
-  instance and unchanged baseline panes. Backups/evidence are in the plan.
+- **2026-09-05 — Desktop publication follow-up.** Owner approved publishing
+  the completed increment and deferred Windows login acceptance. Removed
+  stale remote-state prose; no further task, tray or service changes.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.
