@@ -152,6 +152,13 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
+- **2026-09-05 — Workspace row first-line alignment fix.** Agent and terminal
+  rows centered the status chip and overflow button against the two-line
+  title block, so the right column rendered on the subtitle line; `.ws-row-*`
+  now top-align with the name (title center delta 0.6px, measured). Visual
+  review read agent, terminal and menu-overlay captures at desktop and 550px
+  widths; overlay audit ok. Deployed after merge.
+
 - **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
   process/task running, with no service restart. Policy update blocked by
   Windows permissions; duration/battery settings remain pending. Original XML:

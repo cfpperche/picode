@@ -1015,9 +1015,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   box-shadow: inset 2px 0 0 var(--accent);
 }
 .ws-item.is-needs-you { box-shadow: inset 2px 0 0 var(--accent); }
-.ws-row-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* First-line alignment: title, status and row menu share the title line;
+   only the copy block (title + subtitle) sets the row height. */
+.ws-row-main { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
 .ws-row-hit {
-  display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;
+  display: flex; align-items: flex-start; gap: 7px; min-width: 0; flex: 1;
   border-radius: 6px; cursor: pointer; outline: none;
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
@@ -1060,6 +1062,8 @@ img.ws-face.term-cli-face {
   width: 26px; height: 26px; padding: 0; display: grid; place-items: center;
   flex: none; border: 1px solid transparent; border-radius: 6px;
   background: transparent; color: var(--text-secondary); cursor: pointer;
+  /* Center the icon on the title line (18.75px) rather than the whole row. */
+  margin-top: -3px;
 }
 .ws-row-menu-trigger:hover, .ws-row-menu-trigger[aria-expanded="true"] {
   color: var(--text-primary); background: var(--bg-base); border-color: var(--border);

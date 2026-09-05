@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Workspace cards: status and the actions button sit on the name line.**
+  In agent and terminal rows the right-hand column (status chip, overflow
+  menu) centered against the two-line title block and visually dropped onto
+  the subtitle line; it now top-aligns with the agent or terminal name.
+
 ### Added
 
 - **Docker v3 resources, health and supervised maintenance** (ADRs 0067/0068).
