@@ -92,6 +92,12 @@ to the `[Unreleased]` section. The repository's official language is English
   while activity moves to a trailing dot after the name (green working,
   accent needs-you), matching the terminal-tab state vocabulary.
 
+- **Sidebar identity marks match at full bleed** (desktop). Agent rows kept
+  a 1.5px ring plus 1px padding that shrank their provider art to ~18px
+  beside full 22px terminal marks; both now render full-bleed in the 22px
+  identity slot. The white plate stays for dark-mode contrast and remains
+  invisible on light chrome.
+
 - **Independent desktop and mobile web apps** (ADR-0072). `/desktop/` keeps
   the responsive workstation; `/mobile/` owns its screens, styles, sheets and
   build. Mobile loads secondary screens on demand and includes only its

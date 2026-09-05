@@ -161,6 +161,16 @@ and fallback detail is archived; the implementation is unchanged here.
 
 ## Recent activity
 
+- **2026-09-05 — Sidebar icon size parity.** Same failure as the tabs, in
+  the sidebar: agent rows kept the 1.5px ring plus 1px padding, shrinking
+  their provider art to ~18px inside the 22px identity slot while terminal
+  marks were full-bleed 22px. `.ws-identity-mark img.ws-face` now drops ring
+  and padding (plate stays for dark contrast); DOM measures 22px full-bleed
+  for both row types. Light/dark zooms read; overlay audit `ok` (the one
+  hit is the pre-existing full-height `.pkg-job` bar, nothing clipped).
+  visual-review: PASS. Evidence
+  `docs/screenshots/sidebar-icon-size-light.png` and `-dark.png`.
+
 - **2026-09-05 — Agent tabs wear the provider favicon.** Desktop agent tabs
   now mirror terminal tabs: the sidebar's `ProviderFace` leads the tab and
   activity moved to a trailing dot (working green, needs-you accent),

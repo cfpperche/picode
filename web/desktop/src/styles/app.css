@@ -977,6 +977,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
+/* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
+   plus 1px padding shrank the agent art to ~18px beside a full 22px terminal
+   mark. The white plate stays — dark currentColor marks need it on the dark
+   sidebar, and it is invisible on light chrome. */
+.ws-identity-mark img.ws-face { border: 0; padding: 0; }
 .ws-activity-dot {
   position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
   border: 2px solid var(--bg-panel); border-radius: 50%; background: var(--accent);
