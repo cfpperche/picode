@@ -3307,11 +3307,11 @@ img.ws-face.term-cli-face {
   padding: 8px 12px; color: var(--text-secondary);
   font-size: 12px; text-align: left;
 }
-/* The dirty working tree as the first row (ADR-0038): a hollow dot in the
-   SVG, a dashed trail down to HEAD, and a label instead of commit columns. */
+/* The dirty working tree as the first row (ADR-0038; one row per dirty
+   worktree since ADR-0073): a hollow dot in the SVG, a dashed trail down to
+   that worktree's HEAD, and a labelled row instead of commit columns. */
 .gg-line-dashed { stroke-dasharray: 4 3; }
 .gg-row-uncommitted {
-  display: flex; align-items: center;
   font-style: italic; color: var(--text-secondary);
 }
 .gg-row-uncommitted.gg-row-on { color: var(--text-primary); }
@@ -3357,6 +3357,27 @@ img.ws-face.term-cli-face {
   font-size: 10.5px; padding: 1px 5px; border-radius: 3px;
   background: var(--bg-elevated); color: var(--text-primary);
   border: 1px solid var(--border);
+}
+.gg-occupant-self {
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+/* A worktree chip: the checkout behind a dirty row or a detached HEAD. The
+   path — the part a basename hides — is the tooltip. */
+.gg-ref-wt {
+  color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--border) 80%, var(--text-secondary));
+  border-style: dashed;
+  font-style: italic;
+}
+.gg-detail-wt {
+  margin-left: 8px; font-size: 11px; font-weight: 400;
+  font-style: italic; color: var(--text-secondary);
+}
+/* The picker marks local branches that are checked out in a worktree. */
+.gg-branch-wt {
+  margin-left: auto; padding-left: 12px;
+  font-size: 11px; font-style: italic; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* Skeleton: chrome only — never invented rows or names. */

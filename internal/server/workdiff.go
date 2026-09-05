@@ -30,6 +30,10 @@ func handleAgentWorkDiff(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		writeWorkDiff(w, r, cwd)
 	}
 }
@@ -41,7 +45,11 @@ func handleTerminalWorkDiff(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		writeWorkDiff(w, r, liveTermCwd(deps, r, term))
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
+		writeWorkDiff(w, r, cwd)
 	}
 }
 

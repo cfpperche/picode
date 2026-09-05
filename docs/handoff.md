@@ -8,8 +8,9 @@
 
 **Repository:** HEAD includes independent desktop/mobile web applications
 (ADR-0072), desktop task reliability (ADR-0071), Agent CLIs v2 and Docker v3.
-Managed agents remain Pi-only; coding CLIs are terminals. This decoupling
-increment is local-only: no push or application deployment. Read Git for
+Managed agents remain Pi-only; coding CLIs are terminals. This merge adds the
+worktree-aware git graph (ADR-0073) from `feat/gitgraph-worktrees`; no push
+or application deployment yet. Read Git for
 current upstream status. Preserve the unrelated root `.pi/compact.json`.
 Compose registration/deployment remains proposed.
 
@@ -41,6 +42,11 @@ turns were started. Physical PWA/push acceptance is still open.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Desktop
   stays responsive; mobile owns copied UI and lazy screens. Shared contracts
   and tokens have explicit exports; HTTPS defaults to `:8445`.
+- The git graph (ADR-0022/0038/0073) draws one dirty row per worktree with
+  its branch, directory, agents and a "this worktree" marker; sibling reads
+  are addressed by branch or HEAD hash (`?worktree=`), never by path. The
+  graph stays read-only and manually refreshed; sibling dirty states ride
+  the manual Refresh, and the unused `git/head` token endpoints remain.
 - Workspaces support multiple agents, free agents and tmux terminals. Private
   agent sessions follow ADRs 0039/0040/0053. Pi has interactive TUI and managed
   RPC modes; Inbox uses the receiver extension with a paste fallback (ADR-0060).
@@ -144,6 +150,18 @@ and fallback detail is archived; the implementation is unchanged here.
 - Branch protection and CODEOWNERS still require owner action on GitHub.
 
 ## Recent activity
+
+- **2026-09-05 — Git graph shows every worktree's working tree (ADR-0073),**
+  merged from `feat/gitgraph-worktrees`. One uncommitted row per dirty
+  worktree (branch + directory chip + agents + "this worktree"), dashed
+  trails anchored at each worktree's HEAD, detached checkouts decorate their
+  HEAD commit, branch picker marks checked-out branches, and
+  `gitstatus`/`gitdiff`/`git/blob`/`blob` accept `?worktree=<branch|hash>`
+  for sibling reads — refs, never paths. Benchmarks: Conductor, GitButler,
+  mhutchie Git Graph, herdr/Crystal. `make ci` passed including regenerated
+  docs captures; visual-review: PASS (`docs/screenshots/adr0073-*.png`,
+  overlay audit ok, light + dark read; a pseudo-hash index bug was caught and
+  fixed in QA).
 
 - **2026-09-05 — Independent web applications (ADR-0072).** Own npm/Vite
   entries, copied mobile UI, shared contracts/tokens, explicit app paths and

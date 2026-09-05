@@ -25,6 +25,10 @@ func handleAgentGitStatus(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		writeGitStatus(w, cwd)
 	}
 }
@@ -36,7 +40,11 @@ func handleTerminalGitStatus(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		writeGitStatus(w, liveTermCwd(deps, r, term))
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
+		writeGitStatus(w, cwd)
 	}
 }
 
