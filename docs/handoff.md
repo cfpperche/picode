@@ -5,14 +5,15 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+075f6cc`) carries today's
-Integrations rollout (ADR-0075) with connector catalog tabs and the Gmail
-recipe, the desktop Inspector rail (ADR-0078, proposed until the owner
-accepts), bounded captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with
-the fullscreen amendment) and the managed-stop process-group fix, plus File
-Tree v2 (0074), worktree-aware Git Graph (0073), independent web apps (0072),
-Windows task reliability (0071), Agent CLIs v2 and Docker v3. Managed agents
-remain Pi-only; coding CLIs are terminals. No push was made. Preserve the
+**Repository:** HEAD (deployed as `0.1.0+07cc806`) carries today's
+worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
+rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
+desktop Inspector rail (ADR-0078, proposed until the owner accepts), bounded
+captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
+amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
+worktree-aware Git Graph (0073), independent web apps (0072), Windows task
+reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
+Pi-only; coding CLIs are terminals. No push was made. Preserve the
 unrelated root `.pi/compact.json`. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
 capture acceptance remain pending, so deployment does not enable browser
@@ -32,9 +33,13 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+075f6cc`, health `ok`, boot
-`6020b8eed79d6e22`. `make deploy` restarted systemd; all 44 baseline tmux pane
-identities survived. Live Integrations: the catalog tabs render and the
+**Last application deployment:** `0.1.0+07cc806`, health `ok`. `make
+deploy` restarted systemd; the terminal records survived. Live verification
+of the worktree-blob fix: the previously-404 request answers `200 image/png`
+and the uncommitted panel renders the sibling's PNG previews (screenshots
+read). Earlier deploy `0.1.0+075f6cc` had carried the connector-tabs
+rollout with health `ok`, boot `6020b8eed79d6e22`, 44/44 panes survived.
+Live Integrations: the catalog tabs render and the
 **Claude Code** tab shows the real `context7` server as "Added from Claude
 Code" while the existing service row stayed untouched — read-only checks, no
 production mutations. Read evidence: `var/connector-tabs-deploy/`; private
@@ -206,14 +211,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
-- **2026-09-05 — Worktree-scoped asset previews fixed (ADR-0073 amendment).**
-  Terminal `/blob` ignored `?worktree=` and workspace git reads skipped it,
-  so uncommitted panels showed "Can't load this image." for a sibling
-  worktree's untracked screenshots. All four scoped reads (`gitstatus`,
-  `gitdiff`, `git/blob`, `blob`) now narrow by ref for all three owner
-  kinds; decision-table test added, no UI change needed. Server-only fix;
-  visual-review: UNVERIFIED (needs deploy; the failure and its fix are
-  endpoint-level). Branch `fix/worktree-blob-preview`.
+- **2026-09-05 — Worktree-scoped asset previews fixed and deployed
+  (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and
+  workspace git reads skipped it, so uncommitted panels showed "Can't load
+  this image." for a sibling worktree's untracked screenshots. All four
+  scoped reads (`gitstatus`, `gitdiff`, `git/blob`, `blob`) now narrow by
+  ref for all three owner kinds; decision-table test
+  (`TestWorktreeScopedEndpoints`) added, no UI change needed. Reproduced
+  live pre-fix (404 on `claude-d8c849`'s terminal graph), verified live
+  post-deploy: the same request returns the PNG and the panel renders the
+  previews (screenshots read: desktop-live and mobile-replay both paint).
+  visual-review: PASS. Merged and deployed `07cc806`.
 - **2026-09-05 — Connector catalog tabs merged and deployed.** Reconciled the
   Inspector rail work and passed combined `make ci`; deployed `075f6cce`. Live
   catalog tabs render with the real Claude Code host; `context7` shows "Added
