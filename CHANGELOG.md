@@ -24,6 +24,12 @@ to the `[Unreleased]` section. The repository's official language is English
   when confirmation is unavailable. App links preserve internal views; long
   review identifiers and outcomes remain readable. Logs mask recognized secrets.
 
+- **Agent CLIs central manager** (ADR-0069). Configure Pi, Claude Code, Codex
+  and Grok terminal launches with executable, argument, environment and PATH
+  defaults plus per-terminal overrides. Check installations, see pending
+  changes, and open, stop, restart or remove individual CLI terminals.
+  Managed agents, structured chat and packages remain Pi-only.
+
 - **Docker App and optional `pi-sysadmin` tools** (ADR-0065). Inspect local
   containers, resource samples and recent logs; start, stop and restart through
   one backend with operation history, duplicate-request protection and
@@ -42,6 +48,12 @@ to the `[Unreleased]` section. The repository's official language is English
   the sidebar line, cards and per-agent Level are PiCode's.
 
 ### Changed
+
+- **Terminal status moves out of Preferences into Agent CLIs.** Existing
+  switches migrate without resetting choices; the old address redirects.
+  Activity reporting remains invocation-scoped, and live launch files stay
+  intact when settings change. Terminal lifecycle actions require confirmation
+  before interrupting live work.
 
 - **Docker containers are grouped by Compose project inside the app**
   (ADR-0066). Expand a project to inspect its containers; headings summarize

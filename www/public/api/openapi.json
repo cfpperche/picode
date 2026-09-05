@@ -2034,6 +2034,128 @@
         ]
       }
     },
+    "/api/clis": {
+      "get": {
+        "operationId": "getApiClis",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}": {
+      "put": {
+        "operationId": "putApiClis",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/check": {
+      "post": {
+        "operationId": "postApiClisCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/terminals": {
+      "post": {
+        "operationId": "postApiClisTerminals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
     "/api/devices": {
       "get": {
         "operationId": "getApiDevices",
@@ -5067,6 +5189,205 @@
         ]
       }
     },
+    "/api/terminals/{id}/launch": {
+      "get": {
+        "operationId": "getApiTerminalsLaunch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      },
+      "put": {
+        "operationId": "putApiTerminalsLaunch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/launch/remove": {
+      "post": {
+        "operationId": "postApiTerminalsLaunchRemove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/launch/restart": {
+      "post": {
+        "operationId": "postApiTerminalsLaunchRestart",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/launch/start": {
+      "post": {
+        "operationId": "postApiTerminalsLaunchStart",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/launch/stop": {
+      "post": {
+        "operationId": "postApiTerminalsLaunchStop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/open": {
       "post": {
         "operationId": "postApiTerminalsOpen",
@@ -6184,6 +6505,9 @@
     },
     {
       "name": "checklists"
+    },
+    {
+      "name": "clis"
     },
     {
       "name": "devices"

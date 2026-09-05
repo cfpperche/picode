@@ -6,30 +6,29 @@
 
 ## Current state (read this first)
 
-**Repository:** local `main` includes Docker v3 (`7029b041`, ADRs 0067/0068),
-including v2's existing-project operations. Tracked files are clean; commits
-remain local and unpushed. Preserve the unrelated `.pi/compact.json`.
-Compose registration/deployment remains proposed.
+**Repository:** `feat/agent-cli-terminals` adds Agent CLIs v1 (ADR-0069) on
+current local `main` (`3076b1cf`, including Docker v3). Managed agents remain
+Pi-only. This increment configures and operates coding CLI terminals, not
+other agent runtimes. Commits remain local and unpushed. Preserve the unrelated
+root `.pi/compact.json`. Compose registration/deployment remains proposed.
 
-**Deployment:** `0.1.0+7029b04`, health `ok`, boot `00c5867e6f1aacb0`. Installed
-binary and served assets match the tested build. Real groups are bidwar (12),
-cognixse (11), hull (9), pgtenant (2); cards fill the main canvas at 1920px.
-Resources and Health were checked in the deployed browser; monitoring is off.
-All 124 sessions still present at deployment were preserved. The earlier
-125-session baseline included `terminal-8-e0d7f1`, deleted via a recorded Store
-event at 00:25:14 UTC, before service restart at 00:25:44 UTC. No replacement
-session was created. QA servers, browsers and their resources were cleaned up.
+**Deployment:** the installed service is still Docker v3 `0.1.0+7029b04`;
+Agent CLIs has been checked on an isolated daemon, pending merge and deploy.
+Previous Docker deployment and acceptance details are archived below.
 
-**Quality:** `make ci` passed (Go, 480 frontend tests, package checks/builds,
-docs parity and Vale), as did Docker/Store race tests.
-Real Linux Engine QA passed reviewed project start/restart/stop, selected image
-and network removal, stopped-consumer protection and honest health samples.
-All disposable resources were removed; existing container states/start times
-were preserved. Pi 0.85.0 loaded all 11 Sysadmin tools and exercised the new
-read APIs without a model turn. Desktop/mobile, full-width cards, review and
-confirmation, pending/results, empty/blocked/error and monitoring forms were
-captured and read; overlay audits passed. Inbox links/cancel were also verified
-on desktop/mobile. Curated evidence: `docs/screenshots/docker-v3-*.png`.
+**Quality:** `make ci` passed (Go, 486 frontend tests, packages, build, docs
+parity and Vale), along with focused CLI/Store/server race checks. The manual
+adoption regression preserves observed versus saved launch identity. Real tmux QA
+covers exact arguments/environment/PATH, concurrent Start, pending settings,
+confirmation, stop/restart/remove, browser restoration and daemon reconnect.
+Installed Pi 0.85.0, Claude Code 2.1.261, Codex 0.153.2 and Grok 1.0.13 opened
+their native TUIs without model turns; native trust was not bypassed. Pi and
+Claude initial activity was observed; Codex/Grok presence was not presented as
+activity. Manual Claude adoption preserved the pane PID. Empty/blocked/error,
+desktop/mobile, light/dark, menus and confirmation screenshots were read;
+settled overlay audits passed. Evidence: `docs/screenshots/cli-v1-*.png`.
+Disposable QA terminals and private launch files were removed. Public docs
+captures were refreshed with an isolated fixture directory and browser namespace.
 
 ### Product and platform
 
@@ -49,6 +48,10 @@ on desktop/mobile. Curated evidence: `docs/screenshots/docker-v3-*.png`.
   CLI is never promoted to an Agent. CLI favicons fill the same 22px face slot
   as agent rows, with no chip; the compact text mark is only an asset-load
   fallback.
+- Agent CLIs is available from the desktop user menu/palette and mobile More.
+  It owns launch defaults, per-terminal overrides, setup checks and lifecycle
+  actions. The old Terminal status preference redirects to `#/clis`. Saving
+  settings never restarts a process; a stopped configured terminal needs Start.
 - Apps now provide literal output, progress, empty lists and generic mobile
   navigation. Docker exposes inventory, resources/consumers, health/incident sampling,
   reviewed project operations and maintenance procedures with durable history. Inventory groups exact Compose
@@ -73,6 +76,8 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
+- Agent CLIs v1 awaits final local merge/deploy verification; no non-Pi
+  JSON-RPC, packages, authentication management or orchestration was added.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -82,9 +87,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
   real-compaction re-dogfood remains pending; without a config it stays dormant
   as designed, and the run must record `fromHook: true` plus gemini-3.6-flash
   pricing with no aborted turns.
-- Real CLI dogfood was intentionally not run. The historical Inbox `[Teste 3]`
-  and `mobile-6bf740` rows still need deliberate reconciliation before a new
-  live question is filed.
+- Model-driven CLI/Inbox dogfood remains pending; native CLI launch acceptance
+  passed without model turns. The historical Inbox `[Teste 3]` and
+  `mobile-6bf740` rows still need reconciliation before a new live question.
 - ADR-0054 `picode-act` still needs real model-emitted dogfood before merge;
   the Browser preview emitter/panel remains open.
 - Second-account, container, public-OIDC, and other remote-mode acceptance
@@ -109,6 +114,12 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Known debts / open questions
 
+- CLI lifecycle coverage remains version-specific. Run the explicit
+  working/approval/settled acceptance matrix before claiming full coverage
+  for a vendor; setup checks only prove executable response and prerequisites.
+- Workspace-level cascade removes stored launch settings but does not collect
+  private `cli-launch/<terminal>` files yet. Use the central Remove action for
+  complete terminal cleanup; workspace cascade artifact cleanup is follow-up debt.
 - Docker v3 deliberately leaves volume deletion, backup/restore, remote engines,
   historical metrics charts and automatic repair policies for future decisions.
   Secret masking is best effort; arbitrary unlabeled secrets are not detectable.
@@ -132,11 +143,11 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-04 — Docker v3 resources, health and supervised maintenance.**
-  Added reviewed project actions, shared locks, durable steps, opt-in monitoring
-  and Inbox review links. Real disposable Engine QA and Pi tool loading passed;
-  visual-review: PASS (screenshots read; overlay audits ok). CI passed; deployed
-  as `0.1.0+7029b04`. Installed assets/binary and real inventory verified.
+- **2026-09-04 — Agent CLIs v1.** Moved Terminal status out of Preferences;
+  added launch defaults/overrides, terminal control, setup checks and honest
+  applied/pending diagnostics. Pi remains the only managed agent runtime.
+  Native CLI and isolated tmux acceptance passed; visual-review: PASS
+  (screenshots read, settled overlay audits ok). Public docs captures refreshed.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

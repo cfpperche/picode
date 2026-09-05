@@ -59,3 +59,12 @@ consumers, reviewed project/procedure plans, running/completed/failed jobs,
 empty/blocked resources and mobile confirmation/monitoring. These are synthetic
 Engine fixtures. Separate real Engine QA used only disposable project members,
 an image, a network and a volume; all were removed afterward.
+
+Agent CLIs v1 (ADR-0069): `cli-v1-*.png` covers the desktop catalog, terminal
+inventory, empty/missing-executable/network-error states, mobile light/dark
+layouts and a named Stop confirmation. `cli-v1-adopt-terminal.png` shows a
+manual Claude terminal adopting launch defaults without restarting its process.
+All terminals and configuration changes belong to an isolated QA daemon;
+native installed CLIs opened without model turns. Screenshots were read and
+settled menu/dialog audits passed. QA terminals and their private launch files
+were removed afterward; native CLI data was retained.

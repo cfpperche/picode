@@ -1,4 +1,4 @@
-# Terminal status for coding CLIs
+# Activity reporting for coding CLIs
 
 A coding CLI running inside a PiCode terminal can identify itself and
 report its lifecycle, so the sidebar shows **which CLI is present**, when it
@@ -10,9 +10,11 @@ your `~/.claude`, `~/.codex`, `~/.grok`, or `~/.pi`. You type `claude`,
 wrapper on that session's PATH launches the real binary with the flags,
 extension, or overlay that CLI accepts.
 
-Turn it on in **Preferences → Terminal status**. New terminals after
-that pick up the intercept; terminals that already existed need to be
-recreated.
+Turn on **Activity reporting** in **Agent CLIs**, opened from the desktop
+user menu or mobile **More**. The old Preferences address redirects there.
+Configured terminals use the switch on their next launch. Existing plain
+shells may need a new terminal to pick up the wrapper PATH; changing a switch
+does not interrupt them. See [Agent CLIs](agent-clis) for launch settings.
 
 ## States
 
@@ -35,10 +37,14 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 
 | CLI | How PiCode injects (session only) | Coverage |
 |---|---|---|
-| Claude Code | `claude --settings <picode json>` | working / needs-you / idle |
-| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | prompt, needs-you, idle, interrupt |
-| Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | session start, prompt, needs-you, idle |
-| Pi | `pi -e <picode extension>` | session start, prompt, needs-you, settled |
+| Claude Code | `claude --settings <picode json>` | maps prompt, notification and completion hooks |
+| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
+| Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
+| Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |
+
+Hook coverage depends on the installed CLI version. **Check setup** verifies
+the executable and reporter prerequisites, not login or every lifecycle event.
+An enabled switch is not evidence that the CLI has reported activity.
 
 Outside PiCode, `which claude` and `which pi` still resolve to your real
 binaries. Codex hooks are passed with `-c` for that invocation and trusted

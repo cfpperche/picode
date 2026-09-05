@@ -1,6 +1,7 @@
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import Devices from "../../components/Devices.jsx";
 import Settings from "../../components/Settings.jsx";
+import AgentClis from "../../components/AgentClis.jsx";
 import PiSettings from "../../components/PiSettings.jsx";
 import System from "../../components/System.jsx";
 import Providers from "../../components/Providers.jsx";
@@ -13,6 +14,7 @@ import { IconChevronRight, IconMonitor, IconQR, IconSparkles } from "../../compo
 import { setShell } from "../../lib/shell.js";
 
 const SECTIONS = [
+  ["clis", "Agent CLIs", "Launch settings and terminals"],
   ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
   ["providers", "Providers", "Accounts, keys, usage"],
@@ -79,6 +81,7 @@ export default function More({ section, apps, catalog, system, version, themeMod
       <ScreenHeader title={TITLES[section] || "More"} onBack={onBack} />
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
+      {section === "clis" ? <AgentClis /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}

@@ -11,7 +11,8 @@ import { IconKeyboard, IconGit } from "../../components/Icons.jsx";
 // The pushed terminal screen (#/term/<id>, the desktop's route): the same
 // xterm the desktop attaches to the tmux session. The keys a soft keyboard
 // lacks live behind a floating button so the pane keeps the whole screen
-// until they are wanted. Opening (re)creates the tmux session if closed.
+// until they are wanted. Plain shells reopen; configured CLIs need an
+// explicit Start in Agent CLIs, never a browser restoration side effect.
 export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenChanges }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
@@ -165,7 +166,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
       </div>
     );
   }
-  const live = page ? { ...term, ...page } : term;
+  const live = page ? { ...term, ...page, ...(term.launchCli ? term : {}) } : term;
   const line = termLine(live);
   return (
     <div className="m-screen m-term-screen" ref={screenRef}>
@@ -178,7 +179,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
             {live.git && live.git.dirty ? (
               <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("term", term.id, live.name || "Terminal")}><IconGit size={13} /> {live.git.dirty}</button>
             ) : null}
-            {page && !error ? (
+            {page && !error && !(live.launchCli && !live.running) ? (
               <button type="button" className={"btn btn-sm m-keys-btn" + (keys ? " on" : "")} title="Terminal keys" aria-label={keys ? "Hide terminal keys" : "Show terminal keys"} aria-pressed={keys} onPointerDown={(e) => e.preventDefault()} onClick={() => { setHardKeyboard(false); setKeys((k) => !k); }}>
                 <IconKeyboard size={16} />
               </button>
@@ -196,7 +197,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
           <p className="m-empty-line m-pad">Attaching…</p>
         )}
       </div>
-      {page && !error && keys && !hardKeyboard ? <KeyBar armed={armed} onArm={armKey} onKey={sendKey} /> : null}
+      {page && !error && !(live.launchCli && !live.running) && keys && !hardKeyboard ? <KeyBar armed={armed} onArm={armKey} onKey={sendKey} /> : null}
     </div>
   );
 }

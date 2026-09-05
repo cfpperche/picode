@@ -3,6 +3,24 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-04 during Agent CLIs v1)
+
+- **2026-09-04 — Docker v3 resources, health and supervised maintenance.**
+  Added reviewed project actions, shared locks, durable steps, opt-in monitoring
+  and Inbox review links. Real disposable Engine QA and Pi tool loading passed;
+  visual-review: PASS (screenshots read; overlay audits ok). CI passed, including
+  480 frontend tests and Docker/Store race tests; deployed as `0.1.0+7029b04`,
+  boot `00c5867e6f1aacb0`. Installed assets/binary and real inventory verified.
+  Real groups were bidwar (12), cognixse (11), hull (9), pgtenant (2); cards
+  filled the main canvas at 1920px. Resources/Health were checked; monitoring
+  remained off. All 124 sessions present at deployment survived. The earlier
+  125-session baseline included `terminal-8-e0d7f1`, deleted via a Store event
+  at 00:25:14 UTC before service restart at 00:25:44 UTC. No replacement was
+  created. Engine QA covered project lifecycle, image/network removal,
+  stopped-consumer protection and honest health samples. Pi 0.85.0 loaded all
+  11 Sysadmin tools and exercised read APIs without a model turn. Disposable
+  Engine resources, QA servers and browser sessions were cleaned up.
+
 ## Recent activity (archived 2026-09-04 during Docker v3)
 
 - **2026-09-04 — Docker width fix deployed as `0.1.0+ea756cc`.** Removed

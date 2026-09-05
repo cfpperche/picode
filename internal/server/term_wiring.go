@@ -118,15 +118,12 @@ func ensureHookScript(dataDir string) (string, error) {
 	if strings.TrimSpace(dataDir) == "" {
 		return "", errors.New("data directory unknown")
 	}
-	if err := os.WriteFile(filepath.Join(dataDir, "picode-hook-map.py"), []byte(hookMapPy), 0o644); err != nil {
+	if err := writeInterceptFile(filepath.Join(dataDir, "picode-hook-map.py"), []byte(hookMapPy), 0o644); err != nil {
 		return "", err
 	}
 	path := hookScriptPath(dataDir)
 	body := fmt.Sprintf(hookScriptTmpl, dataDir, dataDir)
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(path, 0o755); err != nil {
+	if err := writeExecutable(path, body); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -247,6 +244,20 @@ func handleWiringStatus(deps Deps) http.HandlerFunc {
 func handleWiringEnable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
+		unlock := terminalLock(deps, "cli-config")
+		defer unlock()
+		if deps.Store != nil {
+			c, err := cliConfig(deps, cli)
+			if err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
+			c.Integration = true
+			if err := deps.Store.SetCLIConfig(cli, c); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+		}
 		if err := installIntercept(deps.DataDir, cli); err != nil {
 			if strings.Contains(err.Error(), "unknown CLI") {
 				writeErr(w, http.StatusBadRequest, err.Error())
@@ -262,7 +273,21 @@ func handleWiringEnable(deps Deps) http.HandlerFunc {
 func handleWiringDisable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
-		if err := uninstallIntercept(deps.DataDir, cli); err != nil {
+		unlock := terminalLock(deps, "cli-config")
+		defer unlock()
+		if deps.Store != nil {
+			c, err := cliConfig(deps, cli)
+			if err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
+			c.Integration = false
+			if err := deps.Store.SetCLIConfig(cli, c); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+		}
+		if err := syncCLIIntegration(deps, cli, false); err != nil {
 			if strings.Contains(err.Error(), "unknown CLI") {
 				writeErr(w, http.StatusBadRequest, err.Error())
 				return

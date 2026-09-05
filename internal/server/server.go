@@ -25,6 +25,7 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/presence"
@@ -61,6 +62,7 @@ type Deps struct {
 	Replies      *TuiReplies     // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates     // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes   // authoritative CLI presence (ADR-0062); lazy-init in New
+	CLIs         *CLITerminals   // terminal launch settings and operation locks (ADR-0069)
 	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
@@ -68,6 +70,12 @@ type Deps struct {
 // (cmd/picode) so tests can bind :0.
 func New(addr string, deps Deps) *http.Server {
 	mux := http.NewServeMux()
+	if deps.CLIs == nil {
+		deps.CLIs = newCLITerminals()
+	}
+	if deps.Store != nil {
+		_ = deps.Store.ImportCLIConfigs(loadInterceptEnabled(deps.DataDir))
+	}
 
 	// Coding-CLI state and presence (ADRs 0056/0062): tests and minimal
 	// embeddings construct Deps without registries — both endpoints still
@@ -83,9 +91,9 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.DataDir != "" {
 		_, _ = ensureHookScript(deps.DataDir)
 		_, _ = ensurePiReplyExtension(deps.DataDir) // ADR-0060 receiver: fresh on every boot
-		for id, on := range loadInterceptEnabled(deps.DataDir) {
-			if on {
-				_ = installIntercept(deps.DataDir, id)
+		for _, cli := range clilaunch.Catalog() {
+			if c, err := cliConfig(deps, cli.ID); err == nil {
+				_ = syncCLIIntegration(deps, cli.ID, c.Integration)
 			}
 		}
 	}
@@ -136,6 +144,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerAgentFileRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
 	registerTerminalWiringRoutes(mux, deps)
+	registerCLIRoutes(mux, deps)
 	registerTerminalSettingsRoutes(mux, deps)
 	mux.HandleFunc("GET /api/tui-working", handleTuiWorking(deps))
 	registerGitGraphRoutes(mux, deps)

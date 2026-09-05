@@ -12,7 +12,6 @@ import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "..
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
 import AccessSection from "./AccessSection.jsx";
-import TermWiring from "./TermWiring.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
@@ -128,7 +127,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["status", "Terminal status"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
           <a
             key={id}
             href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
@@ -160,11 +159,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
         </div>
       </section>
       <AppKeys hidden={sec !== "shortcuts"} />
-
-      <section className="settings-section" hidden={sec !== "status"}>
-        <h3>Terminal status</h3>
-        <TermWiring hidden={sec !== "status"} />
-      </section>
 
       <section className="settings-section" hidden={sec !== "notifications"}>
         <h3 className="sr-only">Notifications</h3>
@@ -534,5 +528,3 @@ function BackupJob({ job, onClose }) {
     </div>
   );
 }
-
-

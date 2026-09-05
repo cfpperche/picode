@@ -21,10 +21,13 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [OpenWiki / docs platforms](2026-09-03-docs-harness.md) | Docs harness study: Diátaxis, Scalar, Vale, Mintlify, Remotion license, HyperFrames, D2 | Public docs completeness/beauty: theme, screenshots pipeline, API reference, prose gate, tutorial videos | Live pages + local receipts, 2026-09-03 |
 | [Provider/account managers](2026-09-03-providers-view-v2.md) | Providers-view study: agent IDEs (Kilo, Roo, Zed, Cursor), account switchers (cc-switch, claude-swap), quota monitors (ccusage, CodexBar), credential dashboards (OpenRouter, Vercel, Stripe, Zapier) | Roster row spec, quota inline, credential origin, Verify, blast radius, fallback order | Open repos + live docs, 2026-09-03 |
 
-**Adaptation rule** (same as Cursor): borrow a pattern only if it makes
-*Pi agent control* better. We are not a multi-runtime harness (t3code)
-and not a pairing-relay fleet (paseo). ADR-0003 stands: user-installed
-`pi`, no vendored agent SDKs.
+**Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
+or CLI-terminal control. ADR-0069 records the owner's multi-CLI direction:
+managed agents remain Pi, while other CLIs get managed terminal launches.
+Their protocols and packages need a separate decision before first-class
+agent support. ADR-0003 still governs managed Pi agents: user-installed `pi`,
+no vendored agent SDKs. The current terminal manager adapts the dedicated
+configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 

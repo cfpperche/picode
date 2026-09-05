@@ -13,6 +13,11 @@ avoid terminals entirely. The moat: **users control their agents from the
 moment of creation**. Read [README.md](README.md) and
 [docs/architecture.md](docs/architecture.md) before substantial work.
 
+The direction is a multi-CLI ADE. For the current v1, managed agents remain
+Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex and Grok
+(ADR-0069). Other CLI protocols, packages and first-class agent support are
+future work, not capabilities to infer from a terminal integration.
+
 ## The non-negotiables
 
 1. **Documentation is a living system.** Code changes and documentation

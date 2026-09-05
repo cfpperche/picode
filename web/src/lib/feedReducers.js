@@ -134,6 +134,13 @@ export function applyFleet(state, ev) {
       return { ...state, terminals: [...terminals, d] };
     case "terminal.updated":
       return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...t, ...d } : t)) } : null;
+    case "terminal.changed":
+      // A lifecycle response is a complete live view, not a partial patch.
+      // Stop must clear the prior CLI lease and activity as well as running.
+      return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...d } : t)) } : null;
+    case "terminal.launch":
+    case "cli.updated":
+      return null;
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
     case "terminal.runtime": {

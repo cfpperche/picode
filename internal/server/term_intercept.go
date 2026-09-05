@@ -45,7 +45,7 @@ func saveInterceptEnabled(dataDir string, m map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(interceptEnabledPath(dataDir), append(raw, '\n'), 0o600)
+	return writeInterceptFile(interceptEnabledPath(dataDir), append(raw, '\n'), 0o600)
 }
 
 func wrapperPath(dataDir, binName string) string {
@@ -158,13 +158,32 @@ exit $rc
 `
 
 func writeExecutable(path, body string) error {
+	return writeInterceptFile(path, []byte(body), 0o755)
+}
+
+// Replace complete files atomically: running wrappers and hook reporters must
+// never read a half-written script while another terminal is being launched.
+func writeInterceptFile(path string, body []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+	f, err := os.CreateTemp(filepath.Dir(path), ".picode-write-")
+	if err != nil {
 		return err
 	}
-	return os.Chmod(path, 0o755)
+	defer os.Remove(f.Name())
+	if _, err := f.Write(body); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Chmod(mode); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
 }
 
 func claudeSettingsFile(dataDir string) string {
@@ -189,7 +208,7 @@ func writeClaudeIntercept(dataDir, hook string) error {
 	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(claudeSettingsFile(dataDir), append(raw, '\n'), 0o600); err != nil {
+	if err := writeInterceptFile(claudeSettingsFile(dataDir), append(raw, '\n'), 0o600); err != nil {
 		return err
 	}
 	body := "#!/bin/sh\n# PiCode intercept — Claude Code. Session PATH only.\nname=claude\n" +
@@ -348,7 +367,7 @@ func writePiIntercept(dataDir, hook string) error {
 	}
 	extension := piTerminalStateExtensionFile(dataDir)
 	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook))
-	if err := os.WriteFile(extension, []byte(body), 0o600); err != nil {
+	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
 	wrapper := "#!/bin/sh\n# PiCode intercept — Pi TUI. Session PATH only.\nname=pi\n" +
@@ -395,7 +414,7 @@ func writeGrokIntercept(dataDir, hook string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(home, "hooks", "picode.json"), append(raw, '\n'), 0o600); err != nil {
+	if err := writeInterceptFile(filepath.Join(home, "hooks", "picode.json"), append(raw, '\n'), 0o600); err != nil {
 		return err
 	}
 	refresh := `user_grok="${HOME}/.grok"

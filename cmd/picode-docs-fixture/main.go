@@ -12,6 +12,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -27,24 +28,26 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-const (
-	// 18740: outside the daemon own port-climb range (8445+, seen at 8490
-	// on this machine), so the fixture never collides with a real one.
-	addr    = "127.0.0.1:18740"
-	dataDir = "/tmp/picode-docs-fixture"
-)
+var dataDir string
 
 func main() {
+	addr := flag.String("addr", "127.0.0.1:18740", "fixture listen address; use a separate port for concurrent worktrees")
+	flag.Parse()
+	// Never erase another worktree's fixture database. Each invocation owns
+	// a fresh synthetic directory; only this exact directory is disposable.
+	var err error
+	dataDir, err = os.MkdirTemp("", "picode-docs-fixture-")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(dataDir)
 	// Synthetic HOME before anything resolves a path: the app reads real pi
 	// sessions (~/.pi/agent/sessions) for usage stats, and the fixture must
 	// never publish the user's real spend — parity means synthetic data only.
 	if err := os.Setenv("HOME", filepath.Join(dataDir, "home")); err != nil {
 		log.Fatalf("fixture: home: %v", err)
 	}
-	// Deterministic: every run seeds the same synthetic world.
-	if err := os.RemoveAll(dataDir); err != nil {
-		log.Fatalf("fixture: clean %s: %v", dataDir, err)
-	}
+	// Every run seeds the same synthetic world.
 	for _, d := range []string{
 		dataDir,
 		filepath.Join(dataDir, "home", ".pi", "agent"),
@@ -96,9 +99,11 @@ func main() {
 		Apps: apps.NewRegistry(apps.BuiltIns(false)...),
 	}
 
-	srv := server.New(addr, deps)
-	log.Printf("fixture: synthetic PiCode on http://%s (data: %s)", addr, dataDir)
-	log.Fatal(http.ListenAndServe(addr, srv.Handler))
+	srv := server.New(*addr, deps)
+	log.Printf("fixture: synthetic PiCode on http://%s (data: %s)", *addr, dataDir)
+	if err := http.ListenAndServe(*addr, srv.Handler); err != nil {
+		log.Printf("fixture: %v", err)
+	}
 }
 
 // seed fills the store with a fixed, synthetic world. Names, states and

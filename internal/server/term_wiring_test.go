@@ -239,10 +239,15 @@ func TestInterceptPi(t *testing.T) {
 	if res := postJSON(t, ts, "/api/terminals/wiring/pi/disable", map[string]any{}); res.StatusCode != http.StatusOK {
 		t.Fatalf("pi disable = %d", res.StatusCode)
 	}
-	for _, path := range []string{wrapper, extension} {
+	// ADR-0069 keeps generated support files for existing processes; future
+	// manual launches lose their wrapper entry point.
+	for _, path := range []string{wrapper} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("%s should be gone after disable: %v", path, err)
 		}
+	}
+	if _, err := os.Stat(extension); err != nil {
+		t.Fatalf("existing process extension removed: %v", err)
 	}
 	if got, err := os.ReadFile(sentinel); err != nil || string(got) != "user-owned\n" {
 		t.Fatalf("disable changed ~/.pi sentinel: %q, %v", got, err)

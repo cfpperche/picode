@@ -51,6 +51,7 @@ function buildActions(workspaces, apps) {
     { id: "whats-new", label: "What’s new in PiCode", group: "app", kind: "whats-new" },
     { id: "settings", label: "Settings", group: "app", kind: "settings" },
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
+    { id: "clis", label: "Agent CLIs", group: "app", kind: "clis" },
     { id: "system", label: "System", group: "app", kind: "system" },
     { id: "providers", label: "Providers", group: "app", kind: "providers" },
     { id: "mcps", label: "MCPs", group: "app", kind: "mcps" },

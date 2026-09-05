@@ -61,6 +61,9 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             <span className="um-item-name">What’s new{whatsNewUnread ? <span className="um-dot" aria-label="New release notes" /> : null}</span>
             <IconChevronRight />
           </DropdownMenu.Item>
+          <DropdownMenu.Item className="um-item" id="um-clis" onSelect={() => onNavigate("clis")}>
+            <IconMode className="um-item-ico" /><span className="um-item-name">Agent CLIs</span><IconChevronRight />
+          </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-preferences" onSelect={() => onNavigate("preferences")}>
             <IconMode className="um-item-ico" />
             <span className="um-item-name">Preferences</span>

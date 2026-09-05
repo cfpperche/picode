@@ -73,6 +73,15 @@ test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
   assert.equal(applyFleet(s, { type: "terminal.state", data: {} }), s);
 });
 
+test("fleet: terminal lifecycle clears stale presence; launch defaults invalidate", () => {
+  const state = { workspaces: [], freeAgents: [], terminals: [{ id: "t", running: true, cli: "pi", tui: { runId: "old" }, state: "working" }] };
+  const stopped = { id: "t", running: false, launchCli: "pi" };
+  const next = applyFleet(state, { type: "terminal.changed", data: stopped });
+  assert.deepEqual(next.terminals, [stopped]);
+  assert.equal(applyFleet(next, { type: "terminal.launch", data: { id: "t" } }), null);
+  assert.equal(applyFleet(next, { type: "cli.updated", data: { id: "pi" } }), null);
+});
+
 test("fleet: terminal.runtime keeps run identities and rejects stale ends", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "started", cli: "pi", source: "wrapper", runId: "new", startedAt: "2026-09-04T10:00:00Z" } });

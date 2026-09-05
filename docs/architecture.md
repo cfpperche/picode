@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0061).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-04 (ADR-0069).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -14,6 +14,12 @@ channel for one correlated turn while a holder preserves the same tmux pane;
 there is still only one session writer. A broker routes messages between
 agents through a Pi extension, so agents talk to each other using Pi's own
 tool-calling protocol.
+
+Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
+Code, Codex and Grok commands. It reuses terminal records, tmux, invocation
+wrappers and the event feed. These are not Agent records: structured chat,
+JSON-RPC, packages, orchestration and session ownership remain Pi-only until
+a future decision supplies those contracts for another CLI.
 
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
@@ -169,6 +175,7 @@ stay on their own routes.
 | `#/tree/<w\|t\|a>/<id>` | File tree tab | read-only tree of the owner's folder (ADR-0030): lazy per-level browse, a **Changes** section from `…/gitstatus` on top, changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab; a click opens the normal file tab. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
+| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More share this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
@@ -267,10 +274,54 @@ file just stays large".
 fetches older turns on demand. **From a Pi session** copies a JSONL
 and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
-Entry: user menu (Settings, Preferences, Providers, MCPs) and `Ctrl+K`.
+Entry: user menu (Settings, Agent CLIs, Preferences, Providers, MCPs) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):
 HTTPS + bind + reachable IP + cert SAN + mkcert CA. Missing checks
 list the action; a QR is only drawn when every check passes.
+
+### CLI terminal launch settings (ADR-0069)
+
+`internal/clilaunch` holds a small catalog and configuration resolution; it
+does not implement an agent runtime. SQLite tables `cli_configs` and
+`terminal_launches` store defaults and terminal overrides. First boot imports
+the old intercept switches once; stored settings always win thereafter.
+The legacy wiring API updates the same store. Mutators commit `cli.updated`
+or `terminal.launch` invalidation events in their own transaction.
+
+The launcher resolves process environment → CLI defaults → terminal overrides.
+Environment keys merge (a null override removes a default), argument/PATH arrays
+replace defaults, and an explicit empty array clears them. PATH entries prepend
+the service's inherited PATH. PiCode correlation variables, HOME, SHELL and
+GROK_HOME cannot be overridden through the environment field. An executable
+may be a command name or absolute path; resolution skips PiCode's own wrappers.
+Argument and environment values are individually shell-quoted, never evaluated.
+
+Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
+Integration uses the existing CLI adapter with the resolved executable pinned
+in that generation. Shared executable reporters are replaced atomically.
+Saving configuration never modifies a live generation. The last-applied
+snapshot records CLI identity, executable, fingerprint, redacted common secret
+arguments and environment key names, not environment values. Terminal events
+carry that diagnostic view or an ID, never the full environment configuration.
+Pending changes compare effective settings and CLI identity, not activity.
+Old generations are reclaimed after a successful new launch; Remove deletes
+only that terminal's private launch files, not native CLI data.
+
+`GET /api/clis` resolves installation without starting a conversation;
+`POST /api/clis/<cli>/check` explicitly runs bounded `--version` and checks
+reporter prerequisites. It does not certify authentication or every hook.
+`POST /api/clis/<cli>/terminals` saves and opens a configured terminal.
+`/api/terminals/<id>/launch` reads/writes overrides; its `start`, `stop`,
+`restart` and `remove` POST routes serialize per terminal. Start is idempotent
+while live, Stop retains configuration, and active destructive actions require
+confirmation. Restart validates the next executable and directory before
+ending the current session. A CLI exit returns to an interactive shell;
+browser/daemon reconnect only reconciles, never restarts work automatically.
+
+Manual CLI commands in ordinary terminals retain session-local wrapper
+instrumentation. Launch defaults apply to the central manager, not to commands
+typed in a shell. Configured CLI, observed presence, observed activity and
+installation/setup checks are separate facts in the UI.
 
 ## Component diagram
 

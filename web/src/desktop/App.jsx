@@ -23,6 +23,7 @@ import FileSurface from "../components/FileSurface.jsx";
 import GitGraphSurface from "../components/GitGraphSurface.jsx";
 import FileTreeSurface from "../components/FileTreeSurface.jsx";
 import Settings from "../components/Settings.jsx";
+import AgentClis from "../components/AgentClis.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import System from "../components/System.jsx";
 import Providers from "../components/Providers.jsx";
@@ -656,7 +657,7 @@ export default function App() {
       if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
       return;
     }
-    if (!touches(ev, ["workspace", "agent", "terminal", "git"])) return;
+    if (!touches(ev, ["workspace", "agent", "terminal", "cli", "git"])) return;
     const next = applyFleet(fleetRef.current, ev);
     if (next === null) { loadWorkspaces().catch(() => {}); return; }
     if (next === fleetRef.current) return;
@@ -2484,6 +2485,7 @@ export default function App() {
         </div>
 
         <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
+        <AgentClis hidden={route !== "clis"} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -2552,7 +2554,7 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);

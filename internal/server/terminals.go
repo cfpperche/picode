@@ -62,6 +62,7 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	// The runtime is applied first, then a state report may add activity.
 	applyTermRuntime(deps, view, t.ID)
 	applyTermState(deps, view, t.ID)
+	applyTerminalLaunch(deps, view, t.ID)
 	return view
 }
 
@@ -127,6 +128,8 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 
 func handleOpenTerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		unlock := terminalLock(deps, r.PathValue("id"))
+		defer unlock()
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "That terminal is gone.")
@@ -141,6 +144,24 @@ func handleOpenTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		name := tmux.ShellSessionName(t.ID)
+		launch, err := deps.Store.TerminalLaunch(t.ID)
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		if launch != nil {
+			live, err := deps.Tmux.HasSession(r.Context(), name)
+			if err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
+			if !live {
+				// Browser restoration uses /open too. Only an explicit Start
+				// may relaunch a configured coding CLI after it was stopped.
+				writeJSON(w, 200, liveTermView(deps, r, t, name, false))
+				return
+			}
+		}
 		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -183,6 +204,8 @@ func handleRenameTerminal(deps Deps) http.HandlerFunc {
 func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		unlock := terminalLock(deps, id)
+		defer unlock()
 		if _, err := deps.Store.GetTerminal(id); errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "That terminal is gone.")
 			return
@@ -191,7 +214,10 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		if deps.Tmux != nil && deps.Tmux.Available() {
-			_ = deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(id))
+			if err := deps.Tmux.KillSession(r.Context(), tmux.ShellSessionName(id)); err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
 		}
 		if deps.TermStates != nil {
 			deps.TermStates.Drop(id)
@@ -201,6 +227,10 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 			// event is needed, but the in-memory lease must not linger until the
 			// next reconciliation tick.
 			deps.TermRuntimes.Drop(id)
+		}
+		if err := cleanCLILaunches(deps.DataDir, id, ""); deps.DataDir != "" && err != nil {
+			writeErr(w, 500, err.Error())
+			return
 		}
 		if err := deps.Store.DeleteTerminal(id); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
@@ -313,6 +343,18 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 	has, err := deps.Tmux.HasSession(r.Context(), name)
 	if err != nil {
 		return err
+	}
+	if !has && deps.Store != nil {
+		launch, err := deps.Store.TerminalLaunch(termID)
+		if err != nil {
+			return err
+		}
+		if launch != nil {
+			if err := launchCLITerminal(deps, r, name, cwd, launch); err != nil {
+				return err
+			}
+			has = true
+		}
 	}
 	if !has {
 		// CLI lifecycle sensors correlate to this terminal through the session

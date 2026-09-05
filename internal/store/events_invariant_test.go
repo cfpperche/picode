@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,6 +25,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
+		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
+		{"SetTerminalLaunch", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "cli", proj)
+			s.OnEvent = recorder(s)
+			_ = s.SetTerminalLaunch(tm.ID, "pi", clilaunch.Overrides{})
+		}, []string{"terminal.launch"}},
+		{"SetTerminalLaunchApplied", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "cli", proj)
+			_ = s.SetTerminalLaunch(tm.ID, "pi", clilaunch.Overrides{})
+			s.OnEvent = recorder(s)
+			_ = s.SetTerminalLaunchApplied(tm.ID, clilaunch.Snapshot{Executable: "/bin/pi"})
+		}, []string{"terminal.launch"}},
 		{"AddWorkspace", func(s *Store) { _, _ = s.AddWorkspace("W", proj) }, []string{"workspace.added"}},
 		{"RemoveWorkspace", func(s *Store) {
 			w, _ := s.AddWorkspace("W", proj)

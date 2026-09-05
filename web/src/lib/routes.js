@@ -2,6 +2,7 @@
 export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
+  clis: "/clis",
   settings: "/settings",
   system: "/system",
   providers: "/providers",
@@ -16,6 +17,7 @@ export const ROUTES = {
 
 export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (h === "/settings") return "settings";
   if (h === "/system") return "system";
@@ -146,7 +148,7 @@ export function pinRoute(hash) {
 // "terminal" left this list on 2026-08-30: terminal appearance lives on the
 // terminal settings page now (#/termset), beside the behaviour it belongs
 // with. An old #/preferences/terminal link falls back to Appearance.
-const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "status", "server", "backup"];
+const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup"];
 
 export function prefSection(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");

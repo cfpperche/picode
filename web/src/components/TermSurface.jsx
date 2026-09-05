@@ -16,6 +16,8 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
           {error}{" "}
           <a href="#/system">Open System</a>
         </p>
+      ) : term?.launchCli && !term.running ? (
+        <p className="file-pane-msg">This CLI terminal is stopped. <a href="#/clis/terminals">Start from Agent CLIs</a></p>
       ) : (
         <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
       )}

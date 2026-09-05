@@ -18,6 +18,35 @@ export function appFormSchema(fields) {
   return z.object(shape);
 }
 
+export const cliLaunchSchema = z.object({
+  executable: z.string().max(8192),
+  argsText: z.string().max(32768),
+  pathText: z.string().max(8192),
+  envText: z.string().max(32768),
+  integration: z.boolean(),
+}).superRefine((v, ctx) => {
+  const fail = (message) => ctx.addIssue({ code: "custom", message });
+  if (Object.values(v).some((x) => typeof x === "string" && /[\0\r]/.test(x))) fail("Launch settings contain an invalid character.");
+  if (v.executable.includes("\n")) fail("Executable must be one path or command name.");
+  for (const p of v.pathText.split("\n").filter((x) => x.trim())) {
+    if (!p.trim().startsWith("/") || p.includes(":")) { fail("PATH entries must be absolute directories without colons."); break; }
+  }
+  const keys = new Set();
+  for (const line of v.envText.split("\n").filter((x) => x.trim())) {
+    const i = line.indexOf("="); const key = line.slice(0, i).trim();
+    if (i < 1 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) { fail("Use NAME=value for each environment variable."); break; }
+    if (key.startsWith("PICODE_") || ["PATH", "HOME", "SHELL", "GROK_HOME"].includes(key)) { fail(`${key} is managed by the launcher.`); break; }
+    if (keys.has(key)) { fail(`${key} appears more than once.`); break; }
+    keys.add(key);
+  }
+});
+
+export const cliTerminalSchema = z.object({
+  name: required("Name").max(80, "Use up to 80 characters for the name."),
+  workspaceId: z.string(),
+  cwd: z.string(),
+});
+
 const modelPick = z.object({
   provider: required("Provider"),
   model: required("Model"),
