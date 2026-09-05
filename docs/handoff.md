@@ -78,7 +78,7 @@ the changed files and the focused file's numbered hunks; the footer carries
 the total. Dogfooded in tmux on a scratch repository (tracked, untracked,
 binary, renamed files; scrolling, narrow-terminal hiding, close/reopen, and
 one real grok write turn that moved the focus by itself). 19 logic tests.
-The ADR is proposed: the owner has not yet accepted the overlay route.
+The ADR is accepted (owner approval 2026-09-05).
 
 ## In flight
 

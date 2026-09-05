@@ -1,6 +1,6 @@
 # ADR-0076: Side diff panel for the pi TUI — an extension, drawn as a non-capturing overlay
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-09-05
 
 ## Context
