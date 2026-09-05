@@ -33,6 +33,7 @@ const outPath = outIdx >= 0 ? argv[outIdx + 1] : join(www, "public", "llms.txt")
 const CURATED = [
   ["Start", "index.md", "What is PiCode"],
   ["Start", "guide/getting-started.md", "Getting started"],
+  ["Run it somewhere", "guide/windows-desktop.md", "On Windows"],
   ["Run it somewhere", "guide/security.md", "Security and pairing"],
   ["Run it somewhere", "guide/remote-server.md", "On a server"],
   ["Run it somewhere", "guide/shared-server.md", "Share one server"],

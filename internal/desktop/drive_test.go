@@ -262,21 +262,6 @@ func TestServerURL(t *testing.T) {
 	}
 }
 
-// The tray must not run elevated: an administrator tray cannot talk to
-// Explorer's notification area, and the browser it opens would inherit
-// administrator rights.
-func TestTaskCreateArgsRegisterAnUnelevatedLogonTask(t *testing.T) {
-	got := strings.Join(TaskCreateArgs(`C:\PiCode\picode-desktop.exe`), " ")
-	for _, want := range []string{"/create", "/tn " + TaskName, "/sc onlogon", "/rl limited", "/f"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("args %q missing %q", got, want)
-		}
-	}
-	if strings.Contains(got, "/rl highest") {
-		t.Error("the tray task must not be elevated")
-	}
-}
-
 // The lookup has to run as the owner through a login shell. Running it as root,
 // or without -l, finds nothing — which is exactly the bug that shipped: the
 // root pass received a bare "picode" and died with "command not found".

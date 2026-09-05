@@ -62,6 +62,7 @@ export default defineConfig({
       {
         text: "Run it somewhere",
         items: [
+          { text: "On Windows", link: "/guide/windows-desktop" },
           { text: "Security and pairing", link: "/guide/security" },
           { text: "On a server", link: "/guide/remote-server" },
           { text: "Share one server", link: "/guide/shared-server" },

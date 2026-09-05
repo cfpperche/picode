@@ -14,7 +14,7 @@ import (
 // `requireAdministrator` manifest applies to the whole executable, and this one
 // is also the tray — which must stay unelevated, or it cannot reach Explorer's
 // notification area and would hand the browser administrator rights. So only
-// `install` asks, and only when it does not already have it.
+// installation asks up front; startup repair asks only after access denied.
 
 var (
 	shell32          = syscall.NewLazyDLL("shell32.dll")

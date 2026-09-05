@@ -3,6 +3,18 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Recent activity (archived 2026-09-05 during desktop task reliability)
+
+- **2026-09-05 — Workspace row first-line alignment fix.** Status and menu
+  now top-align with the name (title center delta 0.6px, measured). Visual
+  review read agent, terminal and menu-overlay captures at desktop and 550px;
+  overlay audit passed. Deployed as `0.1.0+9393c14`, boot `920ca74e6f1f752d`.
+- **2026-09-05 — Local Windows tray recovery.** Ran the existing task without
+  restarting the service. Policy repair was denied; duration/battery settings
+  remained pending. Original XML: `var/PiCodeDesktop-before-20260905T125140Z.xml`.
+  CI passed (`var/desktop-logon-settings-ci.log`); no installer code changed
+  in that earlier operation. Details follow.
+
 ## Local Windows tray recovery checks (2026-09-05)
 
 Machine-local operation, not an installer fix. The task already had an enabled

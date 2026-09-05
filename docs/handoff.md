@@ -18,10 +18,12 @@ the live sidebar re-measured on real data shows status/menu to title
 center delta 0.6px on every row. Deployment retained all pre-restart
 terminal records (tmux-backed sessions survive service restarts).
 
-**Local Windows tray (2026-09-05):** restarted through the existing enabled
-`PiCodeDesktop` logon task; one tray process observed. Server boot
-`97d7ca348df4a75a` and all six observed tmux pane IDs/PIDs stayed unchanged.
-Task settings still need administrator approval; no installer code changed.
+**Windows desktop (ADR-0071):** explicit resident-task installer policy,
+read-only `startup-check`, scoped/backup-first `startup-repair`, and successful
+normal Quit are implemented. Native Windows launch-retry/duplicate/Quit and
+policy-preservation tests passed, plus focused race tests and `make ci`.
+The installed tray/task still awaits replacement and policy repair; its
+earlier `PT72H`/battery settings remain. No server restart was performed.
 
 **Quality:** `make ci` passed (Go, 495 frontend tests, packages, build, docs
 parity and Vale), plus focused CLI/Store/runtime race tests. Real tmux tests cover
@@ -79,9 +81,9 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## In flight
 
-- Local tray policy repair: `Set-ScheduledTask` returned `0x80070005`
-  (access denied). Removing `PT72H` and both battery restrictions awaits
-  owner-approved elevation; those settings remain unchanged.
+- Local tray delivery: replace through `make desktop-restart`, then apply and
+  verify `startup-repair` (normal UAC if needed). Recheck task/health/pane IDs
+  after the controlled launch. Physical next-logon acceptance stays open.
 - Compose file registration/deployment remains a separate proposal extending
   ADR-0065; existing-project operations and Docker v3 are merged and deployed.
 - Autonomous model-driven Sysadmin dogfood and Docker Desktop/rootless
@@ -121,8 +123,12 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Known debts / open questions
 
-- Desktop installer task creation still inherits Windows duration/battery
-  defaults. An installer fix and next-logon acceptance are separate work.
+- Task Scheduler launch retries are not general crash recovery: a native
+  exit-one probe stayed stopped for 90 seconds. Separate tray/WSL keepalive
+  lifetime and runtime supervision need a new owner-approved design.
+- Windows native lifecycle acceptance is opt-in in ordinary CI; it was run
+  and passed here. Battery/sleep/sign-in transitions remain owner-controlled;
+  see `docs/plans/desktop-task-reliability.md` for the decision table/evidence.
 - `TestTerminalBrowse` left one disposable tmux session after passing CI;
   identity-checked cleanup removed it. Review test cleanup context/lifetime.
 - CLI lifecycle coverage remains version-specific. Run the explicit
@@ -150,18 +156,11 @@ real-compaction run must still prove `fromHook: true` and no aborted turns.
 
 ## Recent activity
 
-- **2026-09-05 — Workspace row first-line alignment fix.** Agent and terminal
-  rows centered the status chip and overflow button against the two-line
-  title block, so the right column rendered on the subtitle line; `.ws-row-*`
-  now top-align with the name (title center delta 0.6px, measured). Visual
-  review read agent, terminal and menu-overlay captures at desktop and 550px
-  widths; overlay audit ok. Deployed after merge.
-
-- **2026-09-05 — Local Windows tray recovery.** Ran the existing logon task;
-  process/task running, with no service restart. Policy update blocked by
-  Windows permissions; duration/battery settings remain pending. Original XML:
-  `var/PiCodeDesktop-before-20260905T125140Z.xml`. `make ci` passed (log:
-  `var/desktop-logon-settings-ci.log`); no product/UI changes or deployment.
+- **2026-09-05 — Desktop task reliability (ADR-0071).** Installer, diagnosis,
+  scoped repair and Quit exit-code fix validated on Linux and Windows.
+  `make ci` passed; regenerated/read the three already-stale public captures.
+  visual-review: PASS for the Windows guide at desktop/mobile widths;
+  no app/tray layout or overlay changed. Local application is still pending.
 
 Older activity and retired implementation detail are in
 `docs/handoff-archive.md`.

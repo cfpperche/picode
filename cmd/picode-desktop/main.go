@@ -49,6 +49,10 @@ func main() {
 	switch cmd := command(); {
 	case cmd == "doctor":
 		exit(runDoctor(*distro, *user))
+	case cmd == "startup-check":
+		exit(runStartupCheck())
+	case cmd == "startup-repair":
+		exit(runStartupRepair())
 	case cmd == "install":
 		exit(runInstall(*distro, *user))
 	case cmd == "uninstall":
@@ -102,6 +106,8 @@ func usage() {
 Usage:
   picode-desktop                 run in the notification area
   picode-desktop doctor          report what setup would change, touch nothing
+  picode-desktop startup-check   inspect Windows startup without starting WSL
+  picode-desktop startup-repair  repair the existing task, without restarting anything
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
   picode-desktop update          replace this program with a newer release
@@ -122,6 +128,7 @@ func exit(err error) {
 		fmt.Fprintln(os.Stderr, "picode-desktop:", err)
 		os.Exit(1)
 	}
+	os.Exit(0)
 }
 
 // resolve settles which distro and account this run is about. Doing it once,
@@ -185,7 +192,7 @@ func runDoctor(distroFlag, userFlag string) error {
 	case runtime.GOOS != "windows":
 		fmt.Println("The distro is ready. Run `picode-desktop install` on Windows to finish.")
 	case !windowsReady:
-		fmt.Println("The distro is ready. Run `picode-desktop install` to start with Windows.")
+		fmt.Println("The distro is ready. Follow the Windows startup checks above.")
 	default:
 		fmt.Println("Everything is set up — PiCode starts with Windows.")
 	}
@@ -274,10 +281,10 @@ func installWindowsSide(a app) error {
 	if err != nil {
 		return err
 	}
-	if err := a.runner.Run("schtasks", desktop.TaskCreateArgs(exe)...); err != nil {
+	if _, err := desktop.InstallTask(a.runner, exe); err != nil {
 		return fmt.Errorf("register the logon task: %w", err)
 	}
-	fmt.Println("  ok     starts with Windows")
+	fmt.Println("  ok     starts at sign-in; no time limit; launch retry policy configured")
 	return nil
 }
 
@@ -309,14 +316,9 @@ func printWindowsSteps(a app) (ready bool) {
 		fmt.Printf("  %-6s %-44s %s\n", "todo", "certificate authority trusted by Windows", "not imported yet")
 	}
 
-	taskExists := a.runner.Run("schtasks", desktop.TaskQueryArgs()...) == nil
-	if taskExists {
-		fmt.Printf("  %-6s %-44s %s\n", "ok", "starts with Windows", desktop.TaskName)
-	} else {
-		fmt.Printf("  %-6s %-44s %s\n", "todo", "starts with Windows", "logon task not registered")
-	}
-
-	return caTrusted && taskExists
+	task, taskErr := desktop.InspectTask(a.runner)
+	taskReady := printStartupStatus(os.Stdout, task, taskErr)
+	return caTrusted && taskReady
 }
 
 func printSteps(steps []provision.Result) {

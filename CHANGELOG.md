@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Windows tray startup and normal Quit** (ADR-0071). The installer now
+  registers an explicit resident task: no time/battery/idle/network gates,
+  limited interactive user, duplicate-task suppression and three launch
+  retries one minute apart. A normal Quit exits successfully instead of
+  falling through to an unknown-command error. `startup-check` and doctor
+  inspect the actual policy and runtime state; `startup-repair` backs up and
+  repairs an existing owned task without restarting processes or provisioning
+  WSL. Disabled startup remains disabled, and access errors stay explicit.
+  Launch retries are not a guarantee of recovery after a runtime crash.
+
 - **Workspace cards: status and the actions button sit on the name line.**
   In agent and terminal rows the right-hand column (status chip, overflow
   menu) centered against the two-line title block and visually dropped onto

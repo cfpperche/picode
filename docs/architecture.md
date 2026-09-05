@@ -57,12 +57,33 @@ lingering, then `-u <owner>` for the unit, certificate and data dir, because
 installing those as root would put PiCode in `/root`. The merged view keeps
 whichever pass resolved each step. Windows-side it owns only what cannot live
 in the distro: trusting the mkcert CA (already elevated at install, so no UAC
-dance), the `onlogon` scheduled task (`/rl limited` — an elevated tray cannot
-reach Explorer's notification area), and a `sleep infinity` child that stops
+dance), an interactive user-logon task with limited privileges, and a
+`sleep infinity` child that stops
 WSL's idle timeout from reclaiming the VM. It learns the address from
 `server.json` once, then polls `/api/health` over HTTP rather than spawning
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
+
+Desktop startup policy (ADR-0071) is explicit: no execution-time, battery,
+idle or network gates; duplicate task starts are ignored; launch failures have
+three retries one minute apart. `internal/desktop/task.ps1` is embedded and called
+through Windows PowerShell's Task Scheduler COM API with literal, UTF-16
+encoded arguments. Registration applies the full definition in one write and
+verifies the result. No new runtime dependency is added to Go.
+
+`startup-check` inspects the Windows task without starting WSL. Doctor shares
+its configured/disabled/stopped/running/error distinctions and reports the
+registered executable and last result without inventing an exit cause.
+`startup-repair` backs up an existing owned definition and changes only its
+policy, preserving action, principal, triggers and enabled/disabled choice.
+It does not start/stop a process or touch the distro, certificates or agents;
+only access denied may request UAC. Missing or unexpected task definitions are
+refused. A normal tray Quit exits zero, including after setup resolution failed.
+The scheduler is not a general crash supervisor: an already-started process
+that later exits nonzero may remain stopped. Even a successful launch retry's
+one-minute gap does not guarantee WSL/session survival; separating keepalive
+from the tray remains future work. Upgrade the tray executable before repairing
+an old installation.
 
 On a machine without WSL, `install` first walks a stage machine derived from
 what it observes — never from saved progress, so an interrupted run resumes

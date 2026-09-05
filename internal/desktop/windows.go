@@ -12,34 +12,9 @@ import (
 	"time"
 )
 
-// TaskName is the scheduled task that starts the tray at logon. The trigger is
-// logon and not boot because WSL needs a user session — there is no way to
-// bring a distro up before someone signs in (ADR-0020).
-const TaskName = "PiCodeDesktop"
-
-// TaskCreateArgs registers the logon task. /rl limited is deliberate: the tray
-// must run unelevated, or it cannot talk to Explorer's notification area and
-// the browser it opens would inherit administrator rights. Elevation is only
-// for install. /f makes re-registering idempotent.
-func TaskCreateArgs(exePath string) []string {
-	return []string{
-		"/create",
-		"/tn", TaskName,
-		"/tr", `"` + exePath + `" --tray`,
-		"/sc", "onlogon",
-		"/rl", "limited",
-		"/f",
-	}
-}
-
 // TaskDeleteArgs removes the logon task.
 func TaskDeleteArgs() []string {
 	return []string{"/delete", "/tn", TaskName, "/f"}
-}
-
-// TaskQueryArgs asks whether the logon task exists.
-func TaskQueryArgs() []string {
-	return []string{"/query", "/tn", TaskName}
 }
 
 // KeepaliveArgs holds the distro open. WSL shuts an idle VM down (vmIdleTimeout
