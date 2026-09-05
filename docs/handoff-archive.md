@@ -3,6 +3,26 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+## Capture host deployment (archived during Gmail connector deploy)
+
+- **2026-09-05 — Capture host merged and deployed.** Reconciled main and
+  renumbered the capture ADR to 0076; corrected mobile toolbar clipping found
+  in QA. Combined `make ci`, refreshed host states, 320/390px geometry and live
+  deployment checks passed. visual-review: PASS. Deployed `974780ba`; emitter
+  remains pending. No push or package-setting changes.
+
+## Integrations rollout (archived during Gmail connector deploy)
+
+- **2026-09-05 — Integrations merged and deployed.** Reconciled current main,
+  refreshed the changed docs capture and passed combined `make ci`. Deployed
+  `ea193466`; live health, asset parity, six terminal records and 27 panes passed.
+  Desktop/mobile screenshots were read, audits and browser diagnostics passed.
+  visual-review: PASS. No production integration mutations or push.
+- **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,
+  independent desktop/mobile management, reviewed MCP import and an external
+  connector example. Real HTTP/MCP checks, `make ci` and targeted race tests
+  passed. visual-review: PASS. Feature branch only; no deployment or push.
+
 ## Integrations delivery (archived during capture-host deployment)
 
 - **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,

@@ -11,6 +11,23 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- `pi-diff` (ADR-0077 amendment): in pi's fullscreen TUI mode the panel is
+  now a real layout column — full height, fixed while the transcript
+  scrolls, chat and editor wrapping to the left — with mouse-wheel
+  scrolling; in regular mode the overlay fills the whole height and the
+  first `/diff` points at fullscreen mode once.
+
+### Added
+
+- `packages/pi-diff` (ADR-0077): a side diff panel for the pi TUI. `/diff`
+  opens a right-hand overlay with every file changed against `HEAD` and the
+  numbered hunks of the file the agent touched last, refreshed after each
+  edit and at the end of every turn; the editor keeps focus, the footer
+  carries the running total, `alt+n`/`alt+u` scroll. An extension, not
+  core — installed like the other `packages/`.
+
 ### Fixed
 
 - Mobile chat wraps its controls when space is tight, keeping Send visible
@@ -61,6 +78,11 @@ to the `[Unreleased]` section. The repository's official language is English
   squeezes the conversation under 640px. Toggle with the tab-strip button,
   `Ctrl+.` / `Cmd+.` or the command palette. `…/gitstatus` now reports per-file
   added/removed lines, totals and the branch.
+- **Gmail connector recipe** across all three add paths: a **Gmail** catalog
+  card, an importable `connectors/gmail.json`, and an optional
+  `packages/pi-connector-gmail` package. Credentials stay outside PiCode in
+  `~/.gmail-mcp/`; the public guide documents the one-time Google sign-in and
+  revocation steps.
 
 - **Integrations** has its own desktop/mobile route, with signed outbound
   webhooks, event selection, durable retry/cursor state, secret replacement
@@ -114,6 +136,9 @@ to the `[Unreleased]` section. The repository's official language is English
   the sidebar line, cards and per-agent Level are PiCode's.
 
 ### Changed
+
+- **User menu: Agent CLIs uses the terminal icon.** Preferences keeps the
+  sliders mark so the two adjacent items are no longer identical.
 
 - **Agent tabs wear the agent's provider favicon** (desktop). The tab strip
   now mirrors terminal tabs: identity leads as the favicon — the same

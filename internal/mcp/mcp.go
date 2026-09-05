@@ -102,6 +102,7 @@ func Presets() []Preset {
 		{ID: "notion", Name: "Notion", Summary: "Search and work with your Notion workspace.", Entry: Entry{URL: "https://mcp.notion.com/mcp", Auth: "oauth"}},
 		{ID: "github", Name: "GitHub", Summary: "Work with GitHub through your Copilot account.", Entry: Entry{URL: "https://api.githubcopilot.com/mcp", Auth: "oauth"}},
 		{ID: "chrome-devtools", Name: "Chrome DevTools", Summary: "Inspect and automate a local Chrome browser.", Entry: Entry{Command: "npx", Args: []string{"-y", "chrome-devtools-mcp@1.6.0"}}},
+		{ID: "gmail", Name: "Gmail", Summary: "Read, draft and send email. Needs a one-time Google sign-in before first use.", Entry: Entry{Command: "npx", Args: []string{"-y", "@gongrzhe/server-gmail-autoauth-mcp"}}},
 	}
 }
 

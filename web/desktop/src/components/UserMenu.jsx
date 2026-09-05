@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession, IconClock, IconSparkles } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconSession, IconClock, IconSparkles, IconTerminal } from "./Icons.jsx";
 import { readShellPref, setShell } from "@picode/shared/client/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
@@ -62,7 +62,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             <IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-clis" onSelect={() => onNavigate("clis")}>
-            <IconMode className="um-item-ico" /><span className="um-item-name">Agent CLIs</span><IconChevronRight />
+            <IconTerminal className="um-item-ico" /><span className="um-item-name">Agent CLIs</span><IconChevronRight />
           </DropdownMenu.Item>
           <DropdownMenu.Item className="um-item" id="um-preferences" onSelect={() => onNavigate("preferences")}>
             <IconMode className="um-item-ico" />

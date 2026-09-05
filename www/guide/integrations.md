@@ -26,9 +26,7 @@ package-manifest loading was verified with adapter 2.32.1. It is not published
 to npm. **Connector packages** reports installation, not successful sign-in or
 live tool access. Use **Manage package** to remove it, then restart affected
 agents. Alternatively, import `connectors/deepwiki.json` for a directly managed
-connection; do not use both unless you want two configurations.
-
-Only import trusted definitions. Local commands run with the agent's system
+connection; do not use both unless you want two configurations.Only import trusted definitions. Local commands run with the agent's system
 permissions. Import does not install their dependencies. Remote definitions
 cannot embed executable credential commands; configure those explicitly in
 MCP settings if needed. Removing configuration does not revoke a provider
@@ -40,6 +38,35 @@ credential. Use **Sign out** where available and revoke tokens at the service.
 | MCP configuration and execution | Provided by [pi-mcp-adapter](https://github.com/nicobailon/pi-mcp-adapter), not native Pi |
 | Integrations UI | PiCode-specific; native configuration remains authoritative |
 | Supported managed agents | Pi; terminal integrations do not imply connector support for other CLIs |
+
+### Example: Gmail
+
+Gmail has no official MCP server; the catalog features the community
+`@gongrzhe/server-gmail-autoauth-mcp`. Its design keeps credentials **outside
+PiCode**: nothing is stored in the connector configuration or the PiCode
+database.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a
+   project, enable the **Gmail API**, and create an **OAuth client ID**
+   (application type *Desktop app*). Download the client secret JSON.
+2. From a terminal, prepare the one-time sign-in:
+
+   ```bash
+   mkdir -p ~/.gmail-mcp
+   mv <downloaded-client-secret>.json ~/.gmail-mcp/gcp-oauth.keys.json
+   npx -y @gongrzhe/server-gmail-autoauth-mcp auth
+   ```
+
+   A browser opens for Google consent; tokens land in `~/.gmail-mcp/`.
+3. Add the connector through any one path: the **Gmail** card in the catalog,
+   **Import a connector definition** with `connectors/gmail.json`, or install
+   `packages/pi-connector-gmail` through **Packages**.
+4. Restart the agent so the adapter loads the tools.
+
+The connector can read, draft and send mail — grant it like you would grant a
+delegate access. To revoke: remove the connector, delete `~/.gmail-mcp/`, and
+revoke the application at your
+[Google account permissions page](https://myaccount.google.com/permissions).
 
 ## Add an outbound webhook
 

@@ -1,0 +1,12 @@
+{
+  "name": "pi-connector-gmail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional Gmail connector through pi-mcp-adapter; credentials stay outside PiCode",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": [],
+    "mcp": "./mcp.json"
+  }
+}

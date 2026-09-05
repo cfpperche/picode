@@ -77,3 +77,8 @@ groq
 zai
 subcommand
 summarizer
+gmail
+Gmail
+untracked
+fullscreen
+scrollback

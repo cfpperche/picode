@@ -9,33 +9,28 @@
 owner accepts the shipped result) is complete on `feat/inspector`: Changes and
 Files beside the center, per-file counts on `gitstatus`, the file tab's Diff
 view, the `Ctrl+.` toggle, the seeded docs fixture and `app-inspector` public
-capture. Merge and deployment are recorded under Recent activity. Bounded
-captures (ADR-0076), history reconciliation and mobile composer wrapping were
-merged and deployed as `974780ba` before it.
-The capture ADR was renumbered because Integrations took 0075. The opt-in native
-emitter and real end-to-end acceptance remain pending: deployment does not
-enable browser capture emission. Integrations and the current provider favicons
-and tab/sidebar size fixes remain included.
+capture. Merge and deployment are recorded under Recent activity. Before it,
+main carried bounded captures (ADR-0076), the `pi-diff` TUI panel (ADR-0077,
+fullscreen column amendment), the Gmail connector recipe and the Agent CLIs
+user-menu icon, deployed as `df45db05`. The capture ADR was renumbered because
+Integrations took 0075; the opt-in native emitter and real end-to-end
+acceptance remain pending, so deployment does not enable browser capture
+emission.
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+974780b`, health `ok`, boot
-`1429ba9cb49904d5`. `make deploy` restarted systemd; all six terminal records
-and 28 baseline tmux pane identities survived. Installed/build binary hashes
-and served desktop/mobile assets match (`index-BRF94S2P.js` / `index-Beff3F6q.js`).
-Live screenshots were read, including dashboard scrolling; audits passed and
-no browser errors were reported. Receipts: `var/capture-merge/`; private SQLite
-and previous-binary backups remain in its `recovery/` folder.
+**Last application deployment:** `0.1.0+df45db0`, health `ok`, boot
+`0cdfb7d6bf676a7b`, desktop bundle `index-UlgaKnlT.js` (unchanged: no web
+change in this deploy). `make deploy` restarted systemd; the seven terminal
+records survived. This deploy carries the `pi-diff` fullscreen column
+(ADR-0077 amendment); no PiCode core behavior changed.
 
-**Quality:** combined main `make ci` passed (668 frontend tests plus Go,
-package/build/docs/Vale gates). Ten combined-host screenshots were read;
-viewer audits passed. Preexisting mobile Send clipping was fixed with wrapping
-and checked at 320/390px, including the running state. This is host QA, not a
-real emitter verdict. Fixture and QA browser are stopped; feature worktree and
-branch are removed. Original receipts remain in `var/tool-preview/`.
-Previous Integrations/File Tree/mobile gate details are archived.
+**Quality:** fmt/vet/Go tests/frontend tests/`make web` passed for the icon
+swap. visual-review: PASS on Vite `:5174` and live `:8445` (`overlayAudit` ok).
+Gmail `make ci` from the previous deploy still stands. Feature worktree and
+branch are removed after merge.
 
 ### Product and platform
 
@@ -57,6 +52,8 @@ Previous Integrations/File Tree/mobile gate details are archived.
   delivery lives in core; service-specific tools stay in external MCP packages
   or services. Native configuration import is reviewed, not implicit execution.
   Installed connector packages are distinct from configured/live services.
+  The catalog ships a Gmail card backed by a community MCP server; its Google
+  credentials stay outside PiCode in `~/.gmail-mcp/` (recipe in the public guide).
 - Webhooks persist cursors, retry deadlines and revision-guarded acknowledgements.
   Only durable events are eligible; retention gaps are recorded. Secrets appear
   only on creation/rotation. No redirects/environment proxy; metadata addresses
@@ -85,7 +82,24 @@ Deployed and dormant without configuration. The root `.pi/compact.json` belongs
 to other work and was not evaluated. Real-compaction acceptance must still prove
 `fromHook: true`, gemini-3.6-flash pricing and no aborted turns.
 
+### Diff panel (`pi-diff`, ADR-0077)
+
+Deployed. `/diff` in the pi TUI opens a right-hand panel with the changed
+files and the focused file's numbered hunks; the footer carries the total.
+In pi's fullscreen TUI mode (`--tui-mode fullscreen` or `/settings`) the
+panel is a real layout column: full height, fixed while the transcript
+scrolls, chat and editor wrapping left, mouse wheel scrolls the hunks. In
+regular mode it is a full-height overlay that scrolls with the terminal and
+the first `/diff` says so once (owner refinement 2026-09-05, ADR amendment).
+Dogfooded in tmux in both modes, including a real grok write turn that
+refreshed and refocused the column. 20 logic tests. Listed in the root
+`.pi/settings.json`, so project agents load it on their next start.
+
 ## In flight
+
+- `pi-diff` (ADR-0077): whether PiCode should spawn terminal TUIs with
+  `--tui-mode fullscreen` so the panel is always a fixed column is an owner
+  decision not yet taken; in regular mode the panel scrolls with the terminal.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
@@ -180,10 +194,39 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
   found and fixed in review: the blocked line named the stale cwd (now read live
   from `…/cwd`), and the Diff view's header row was misaligned outside the
   folder tab.
-- **2026-09-05 — Capture host merged and deployed.** Reconciled main and
-  renumbered the capture ADR to 0076; corrected mobile toolbar clipping found
-  in QA. Combined `make ci`, refreshed host states, 320/390px geometry and live
-  deployment checks passed. visual-review: PASS. Deployed `974780ba`; emitter
-  remains pending. No push or package-setting changes.
+- **2026-09-05 — `pi-diff` fullscreen column (ADR-0077 amendment).** The
+  owner saw the overlay scroll away mid-screen in a PiCode terminal tab. In
+  fullscreen TUI mode the panel now wraps pi's layout root in an `HStack`
+  (chat 55 / panel 45, full height, fixed, wheel scroll); regular mode keeps
+  a full-height overlay plus a one-time hint. Widget slot re-set per refresh
+  because a mode switch replaces the TUI instance. Dogfooded both modes.
+- **2026-09-05 — User menu Agent CLIs icon.** Preferences kept sliders;
+  Agent CLIs now uses the terminal glyph. visual-review: PASS (`overlayAudit`
+  ok). Merged and deployed `2231919`.
+- **2026-09-05 — `pi-diff` package built (ADR-0077).** New MIT package
+  `packages/pi-diff` in the pi-checklist mold: pure `src/logic.ts` (numstat,
+  porcelain and unified-diff parsing, focus rules, layout) with node:test
+  coverage, and `extensions/diff.ts` (git, `tui.showOverlay` through a
+  zero-height widget slot, `tool_execution_*`/`turn_end` refresh, `/diff`
+  command with completions, `alt+n`/`alt+u`/`alt+pageUp`/`alt+pageDown`).
+  `ctx.ui.custom()` was rejected because its `ui_prompt_*` events would read
+  as "waiting for user" to the guest-TUI sensors. Guide at
+  `www/guide/diff-panel.md`. Merged `32b9c24f` (ADR renumbered 0076→0077 on
+  merge), UI captures refreshed after `docs-check`, full `make ci` green,
+  deployed `bd9f28b`; worktree and branch removed.
+
+- **2026-09-05 — Gmail connector merged and deployed.** Reconciled the capture
+  host work and passed combined `make ci`; deployed `9284cd1`. Live `/api/mcp`
+  serves the `gmail` preset and the card renders with `context7` untouched;
+  32/32 panes survived. visual-review: PASS. No integration mutations or push.
+
+- **2026-09-05 — Gmail connector across all three add paths.** Catalog gains a
+  Gmail card (community `@gongrzhe/server-gmail-autoauth-mcp`, credentials stay
+  in `~/.gmail-mcp/`), `connectors/gmail.json` is importable, and optional
+  `packages/pi-connector-gmail` documents install/sign-in/revocation. Preset
+  completeness test added; guide recipe and changelog updated. Isolated-daemon
+  browser check: one catalog click created the `gmail` server entry with the
+  exact command; desktop/mobile screenshots read, audits ok. visual-review:
+  PASS (`integrations-catalog-before/gmail-added.png`). `make ci` passed.
 
 Older activity lives in `docs/handoff-archive.md`.

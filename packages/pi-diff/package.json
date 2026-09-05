@@ -1,0 +1,28 @@
+{
+  "name": "pi-diff",
+  "version": "0.1.0",
+  "description": "Side diff panel for the pi TUI: /diff opens a right-hand overlay with every file changed against HEAD and the hunks of the file the agent touched last, refreshed after each edit (ADR-0077).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "diff"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/diff.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-diff"
+  }
+}

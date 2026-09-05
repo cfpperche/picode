@@ -50,6 +50,7 @@ export default defineConfig({
           { text: "Docker and sysadmin", link: "/guide/docker" },
           { text: "Checklist", link: "/guide/checklist" },
           { text: "Compact earlier", link: "/guide/compact" },
+          { text: "Diff panel for pi", link: "/guide/diff-panel" },
           { text: "Model roles", link: "/guide/roles" },
           { text: "Inbox tools for pi", link: "/guide/inbox-tools" },
           { text: "MCP", link: "/guide/mcp" },
