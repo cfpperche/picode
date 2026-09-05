@@ -162,15 +162,4 @@ to other work and was not evaluated. Real-compaction acceptance must still prove
   deployment checks passed. visual-review: PASS. Deployed `974780ba`; emitter
   remains pending. No push or package-setting changes.
 
-- **2026-09-05 — Integrations merged and deployed.** Reconciled current main,
-  refreshed the changed docs capture and passed combined `make ci`. Deployed
-  `ea193466`; live health, asset parity, six terminal records and 27 panes passed.
-  Desktop/mobile screenshots were read, audits and browser diagnostics passed.
-  visual-review: PASS. No production integration mutations or push.
-
-- **2026-09-05 — Integrations (ADR-0075).** Signed durable outbound webhooks,
-  independent desktop/mobile management, reviewed MCP import and an external
-  connector example. Real HTTP/MCP checks, `make ci` and targeted race tests
-  passed. visual-review: PASS. Feature branch only; no deployment or push.
-
 Older activity lives in `docs/handoff-archive.md`.
