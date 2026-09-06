@@ -14,6 +14,24 @@ type TerminalLaunch struct {
 	Overrides  clilaunch.Overrides `json:"overrides"`
 	Applied    *clilaunch.Snapshot `json:"applied,omitempty"`
 	Attempt    *clilaunch.Attempt  `json:"attempt,omitempty"`
+	// LastSession pins the native CLI conversation this terminal was last
+	// running (ADR-0084), so a stopped terminal can offer one-click resume
+	// after a deploy, a crash or a daemon restart.
+	LastSession *TerminalLastSession `json:"lastSession,omitempty"`
+}
+
+// TerminalLastSession is the pinned native session of one CLI terminal.
+// It mirrors the identifying fields of a clisession.Summary without the
+// store importing that package.
+type TerminalLastSession struct {
+	CLI        string   `json:"cli"`
+	SessionID  string   `json:"sessionId"`
+	Path       string   `json:"path,omitempty"`
+	Cwd        string   `json:"cwd,omitempty"`
+	Name       string   `json:"name,omitempty"`
+	UpdatedAt  string   `json:"updatedAt"`
+	Preview    string   `json:"preview,omitempty"`
+	ResumeArgs []string `json:"resumeArgs,omitempty"`
 }
 
 func (s *Store) CLIConfig(id string) (clilaunch.Config, bool, error) {
@@ -80,8 +98,8 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 func (s *Store) TerminalLaunch(id string) (*TerminalLaunch, error) {
 	v := &TerminalLaunch{TerminalID: id}
 	var raw string
-	var applied, attempt sql.NullString
-	err := s.db.QueryRow(`SELECT cli,overrides,applied,attempt FROM terminal_launches WHERE terminal_id=?`, id).Scan(&v.CLI, &raw, &applied, &attempt)
+	var applied, attempt, lastSession sql.NullString
+	err := s.db.QueryRow(`SELECT cli,overrides,applied,attempt,last_session FROM terminal_launches WHERE terminal_id=?`, id).Scan(&v.CLI, &raw, &applied, &attempt, &lastSession)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -101,7 +119,53 @@ func (s *Store) TerminalLaunch(id string) (*TerminalLaunch, error) {
 			return nil, err
 		}
 	}
+	if lastSession.Valid && lastSession.String != "" {
+		ls := &TerminalLastSession{}
+		if err := json.Unmarshal([]byte(lastSession.String), ls); err != nil {
+			return nil, err
+		}
+		v.LastSession = ls
+	}
 	return v, nil
+}
+
+// SetTerminalLastSession pins (or refreshes) the native session a terminal
+// was last running (ADR-0084). Writing the same session twice is a no-op:
+// state reports arrive per turn and must not flood the feed.
+func (s *Store) SetTerminalLastSession(id string, v TerminalLastSession) error {
+	if v.CLI == "" || v.SessionID == "" {
+		return fmt.Errorf("cli and sessionId are required")
+	}
+	if _, err := s.GetTerminal(id); err != nil {
+		return err
+	}
+	current, err := s.TerminalLaunch(id)
+	if err != nil {
+		return err
+	}
+	if current == nil {
+		return ErrNotFound
+	}
+	if cur := current.LastSession; cur != nil && cur.SessionID == v.SessionID && cur.UpdatedAt == v.UpdatedAt {
+		return nil
+	}
+	raw, _ := json.Marshal(v)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer s.rollback(tx)
+	res, err := tx.Exec(`UPDATE terminal_launches SET last_session=?,updated_at=? WHERE terminal_id=?`, string(raw), nowUTC(), id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	if err = s.AppendEventTx(tx, "terminal.last_session", nil, nil, map[string]any{"id": id, "termId": id, "sessionId": v.SessionID, "cli": v.CLI}); err != nil {
+		return err
+	}
+	return s.commit(tx)
 }
 
 func (s *Store) SetTerminalLaunch(id, cli string, v clilaunch.Overrides) error {

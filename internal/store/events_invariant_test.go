@@ -38,6 +38,15 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.SetTerminalLaunchAttempt(tm.ID, clilaunch.Attempt{Error: "failed"})
 		}, []string{"terminal.launch"}},
+		{"SetTerminalLastSession", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "cli", proj)
+			_ = s.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{})
+			s.OnEvent = recorder(s)
+			ls := TerminalLastSession{CLI: "claude-code", SessionID: "s1", UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+			_ = s.SetTerminalLastSession(tm.ID, ls)
+			// Same session+updatedAt pins again without a second event.
+			_ = s.SetTerminalLastSession(tm.ID, ls)
+		}, []string{"terminal.last_session"}},
 		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
 		{"AddWebhook", func(s *Store) {
 			s.OnEvent = recorder(s)

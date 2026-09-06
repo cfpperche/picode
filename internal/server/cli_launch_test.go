@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -248,4 +249,130 @@ func TestCLITerminalWithoutTmuxKeepsConfigurationAvailable(t *testing.T) {
 	if len(terms["terminals"].([]any)) != 0 {
 		t.Fatal("blocked launch created a terminal")
 	}
+}
+
+// ADR-0084 decision table: start-with-resume recovers the pinned native
+// conversation of a stopped CLI terminal; every other condition refuses
+// cleanly, and a plain start keeps the CLI defaults.
+func TestCLITerminalResumeDecisionTable(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, _, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	toolDir := filepath.Join(home, "tools")
+	if err := os.MkdirAll(toolDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(home, "out")
+	binary := filepath.Join(toolDir, "fake-cli")
+	script := `#!/bin/sh
+if [ "$1" = --version ]; then printf 'fixture-cli 1.0\n'; exit 0; fi
+printf '%s\000' "$@" > "$QA_OUTPUT.args"
+exec cat
+`
+	if err := os.WriteFile(binary, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	base := clilaunch.Config{Executable: binary, Args: []string{"--default"}, Env: map[string]string{"QA_OUTPUT": output}, Path: []string{toolDir}}
+	cliRequest(t, ts, "PUT", "/api/clis/claude-code", base, 200)
+
+	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "Resume fixture", "cwd": home}, 201)
+	id := created["id"].(string)
+	name := tmux.ShellSessionName(id)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
+	endpoint := "/api/terminals/" + id + "/launch"
+	waitCLIFile(t, filepath.Join(output+".args")) // creation launches the CLI
+
+	// Stop it: the terminal is stopped, no conversation pinned yet.
+	cliRequest(t, ts, "POST", endpoint+"/stop", map[string]any{"confirm": true}, 200)
+	resume := func() map[string]any {
+		return cliRequestFull(t, ts, "POST", endpoint+"/start", map[string]any{"resume": true})
+	}
+	if res := resume(); res["status"] != "400" {
+		t.Fatalf("resume without pin: %v", res)
+	}
+
+	// The wrapper reports a run; its end pins the newest native session
+	// written during that run.
+	runtime := "/api/terminals/" + id + "/runtime"
+	cliRequest(t, ts, "POST", runtime, map[string]any{"action": "start", "cli": "claude-code", "runId": "run-1", "pid": os.Getpid()}, 200)
+	seed := filepath.Join(home, ".claude", "projects", "fixture", "sess-1.jsonl")
+	if err := os.MkdirAll(filepath.Dir(seed), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"user","message":{"role":"user","content":[{"text":"incident work","type":"text"}]},"timestamp":"` + time.Now().Add(2*time.Second).UTC().Format(time.RFC3339) + `","cwd":"` + home + `","session_id":"sess-1"}`
+	if err := os.WriteFile(seed, []byte(line+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", runtime, map[string]any{"action": "end", "runId": "run-1"}, 200)
+
+	terms := cliRequest(t, ts, "GET", "/api/terminals", map[string]any{}, 200)
+	list := terms["terminals"].([]any)
+	var view map[string]any
+	for _, raw := range list {
+		if m := raw.(map[string]any); m["id"] == id {
+			view = m
+		}
+	}
+	if view == nil || view["lastSession"] == nil {
+		t.Fatalf("no pinned lastSession after runtime end: %v", view)
+	}
+
+	// Resume restarts the CLI with the session's verified resume args,
+	// replacing the defaults for this one launch.
+	res := resume()
+	if res["status"] != "200" {
+		t.Fatalf("resume with pin: %v", res)
+	}
+	if got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, filepath.Join(output+".args"))), "\x00"), "\x00"); !reflect.DeepEqual(got, []string{"--resume", "sess-1"}) {
+		t.Fatalf("resume argv=%q", got)
+	}
+	if live, _ := tmux.New().HasSession(context.Background(), name); !live {
+		t.Fatal("resumed terminal is not live")
+	}
+
+	// Already live: refuse instead of double-launching.
+	if res := resume(); res["status"] != "409" {
+		t.Fatalf("resume while live: %v", res)
+	}
+
+	// Plain start stays opt-in: stop, then start without resume — defaults.
+	cliRequest(t, ts, "POST", endpoint+"/stop", map[string]any{"confirm": true}, 200)
+	_ = os.Remove(output + ".args")
+	cliRequest(t, ts, "POST", endpoint+"/start", map[string]any{}, 200)
+	if got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, filepath.Join(output+".args"))), "\x00"), "\x00"); !reflect.DeepEqual(got, []string{"--default"}) {
+		t.Fatalf("plain start argv=%q", got)
+	}
+
+	// A terminal without a CLI launch has nothing to resume.
+	plain := cliRequest(t, ts, "POST", "/api/terminals", map[string]any{"name": "plain", "cwd": home}, 201)
+	plainID := plain["id"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(plainID)) })
+	res = cliRequestFull(t, ts, "POST", "/api/terminals/"+plainID+"/launch/start", map[string]any{"resume": true})
+	if res["status"] != "400" {
+		t.Fatalf("resume without launch: %v", res)
+	}
+}
+
+// cliRequestFull is cliRequest without the fatal status check: resume has a
+// decision table, so non-2xx statuses carry the expected branch.
+func cliRequestFull(t *testing.T, ts *httptest.Server, method, path string, body any) map[string]any {
+	t.Helper()
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, _ := http.NewRequest(method, ts.URL+path, bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	res := do(t, ts.Client(), req)
+	b, _ := io.ReadAll(res.Body)
+	out := map[string]any{"status": strconv.Itoa(res.StatusCode)}
+	if len(b) > 0 {
+		var parsed map[string]any
+		if json.Unmarshal(b, &parsed) == nil {
+			out["body"] = parsed
+		}
+	}
+	return out
 }

@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **CLI terminal session recovery** (ADR-0084): every CLI terminal now pins
+  the native conversation it is running (claude, codex, grok, pi) and a
+  stopped terminal offers "Resume last session" — one click relaunches the
+  CLI with its verified resume arguments. A deploy, crash or daemon restart
+  no longer costs the conversation; the pin is stored (`terminal.last_session`
+  event) so it survives the process. Plain start is unchanged; nothing
+  auto-restarts. Desktop and mobile terminal surfaces both carry the button.
+
 - **Checklist disclosure on sidebar cards** (`docs/plans/sidebar-checklist-
   expand.md`). Clicking a card's plan line expands the full list in place:
   ☑ on finished steps, the braille spinner on the one being executed, ☐ on

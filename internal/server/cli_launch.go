@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -467,6 +468,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 		}
 		var v struct {
 			Confirm bool `json:"confirm"`
+			Resume  bool `json:"resume"`
 		}
 		if !readCLIJSON(w, r, &v) {
 			return
@@ -492,6 +494,46 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			writeErr(w, 409, "Confirm the action on this terminal.")
 			return
 		}
+		launch, err := deps.Store.TerminalLaunch(id)
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		if action == "start" && v.Resume {
+			// One-click recovery of the pinned native conversation (ADR-0084).
+			if launch == nil {
+				writeErr(w, 400, "This terminal has no CLI launch to resume.")
+				return
+			}
+			if live {
+				writeErr(w, 409, "This terminal is already running.")
+				return
+			}
+			ls := launch.LastSession
+			if ls == nil || ls.SessionID == "" {
+				writeErr(w, 400, "No previous session recorded for this terminal yet.")
+				return
+			}
+			resumeLaunch := *launch
+			args := append([]string{}, ls.ResumeArgs...)
+			resumeLaunch.Overrides.Args = &args
+			prepared, perr := prepareCLITerminal(deps, t.Cwd, &resumeLaunch)
+			if perr != nil {
+				recordCLILaunchAttempt(deps, id, perr)
+				writeErr(w, 400, perr.Error())
+				return
+			}
+			defer prepared.discard()
+			if serr := prepared.start(deps, r, name, t.Cwd); serr != nil {
+				recordCLILaunchAttempt(deps, id, serr)
+				publishTerminalState(deps, r, t, false)
+				writeErr(w, 400, serr.Error())
+				return
+			}
+			publishTerminalState(deps, r, t, true)
+			writeJSON(w, 200, liveTermView(deps, r, t, name, true))
+			return
+		}
 		var prepared *preparedCLILaunch
 		if action == "restart" {
 			launch, err := deps.Store.TerminalLaunch(id)
@@ -514,6 +556,13 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			}
 		}
 		if action != "start" {
+			// Last chance to pin the native conversation before the pane goes
+			// away (ADR-0084).
+			if deps.TermRuntimes != nil && action != "remove" {
+				if rt, ok := deps.TermRuntimes.Get(id); ok && rt.CLI != "" {
+					pinTerminalLastSession(deps, id, rt)
+				}
+			}
 			if err := deps.Tmux.KillSession(r.Context(), name); err != nil {
 				writeErr(w, 500, err.Error())
 				return
@@ -563,6 +612,43 @@ func publishTerminalState(deps Deps, r *http.Request, t store.Terminal, live boo
 	if deps.Feed != nil {
 		deps.Feed.Ephemeral("terminal.changed", liveTermView(deps, r, t, tmux.ShellSessionName(t.ID), live))
 	}
+	// Pin the native session while the CLI reports in (ADR-0084): a deploy
+	// or crash never announces itself, so the pin has to be current BEFORE
+	// the terminal dies, not reconstructed after.
+	if live && deps.Store != nil && deps.TermRuntimes != nil {
+		if rt, ok := deps.TermRuntimes.Get(t.ID); ok && rt.Source == "wrapper" {
+			pinTerminalLastSession(deps, t.ID, rt)
+		}
+	}
+}
+
+// pinTerminalLastSession resolves the native CLI session this terminal is
+// running and pins it on the launch record (ADR-0084). Sessions last
+// written before the run's start never win, so one terminal cannot steal
+// another's conversation in a shared folder. Best effort by design: a
+// failed pin only costs the resume shortcut, never the terminal.
+func pinTerminalLastSession(deps Deps, termID string, runtime TermRuntime) {
+	if deps.Store == nil || runtime.CLI == "" {
+		return
+	}
+	t, err := deps.Store.GetTerminal(termID)
+	if err != nil {
+		return
+	}
+	s, err := clisession.Latest(runtime.CLI, t.Cwd, runtime.StartedAt)
+	if err != nil || s == nil {
+		return
+	}
+	_ = deps.Store.SetTerminalLastSession(termID, store.TerminalLastSession{
+		CLI:        s.CLI,
+		SessionID:  s.ID,
+		Path:       s.Path,
+		Cwd:        s.Cwd,
+		Name:       s.Name,
+		UpdatedAt:  s.UpdatedAt,
+		Preview:    s.Preview,
+		ResumeArgs: s.ResumeArgs,
+	})
 }
 
 func shellQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "'\"'\"'") + "'" }
@@ -752,6 +838,9 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 	view["launchCli"] = v.CLI
 	view["launchApplied"] = v.Applied
 	view["launchAttempt"] = v.Attempt
+	if v.LastSession != nil {
+		view["lastSession"] = v.LastSession
+	}
 	c, err := cliConfig(deps, v.CLI)
 	if err == nil && v.Applied != nil {
 		effective := clilaunch.Resolve(c, v.Overrides)
