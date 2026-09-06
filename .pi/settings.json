@@ -1,5 +1,6 @@
 {
   "$schema": "https://pi.dev/schemas/settings.json",
+  "tuiMode": "fullscreen",
   "packages": [
     "../packages/pi-inbox",
     "../packages/pi-roles",
