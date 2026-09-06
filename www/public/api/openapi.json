@@ -2302,6 +2302,32 @@
         ]
       }
     },
+    "/api/clis/{cli}/sessions": {
+      "get": {
+        "operationId": "getApiClisSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
     "/api/clis/{cli}/terminals": {
       "post": {
         "operationId": "postApiClisTerminals",

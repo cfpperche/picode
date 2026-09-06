@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
-import { toast } from "../lib/toast.js";
+import { toast, toastError } from "../lib/toast.js";
+import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
 
 function fmtAge(iso) {
@@ -26,7 +27,13 @@ const CLEANUP_OPTIONS = [
   { v: 90, label: "90 days" },
 ];
 
-function SessionRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
+// Catalog ids with a session source (ADR-0079). Names resolve from the
+// /api/clis catalog via cliNames; the order is the picker order.
+export const SESSION_CLIS = ["pi", "claude-code", "codex", "grok"];
+
+const CLI_FALLBACK_NAMES = { pi: "Pi", "claude-code": "Claude Code", codex: "Codex", grok: "Grok" };
+
+function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
   const canOpen = agentsForOpen.length > 0;
   return (
     <li className={"mcp-row sess-row" + (s.inUseBy ? "" : " orphan")}>
@@ -72,40 +79,91 @@ function SessionRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
   );
 }
 
-// Two scopes, one view (ADR-0079): a workspace folder (#/clis/sessions/<id>)
-// or every Pi session on this machine (#/clis/sessions), grouped by folder.
-// Orphan = not the current session of any agent; only orphans can be deleted.
-export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false }) {
+function CliRow({ s, cliName, busy, onOpenTerminal }) {
+  return (
+    <li className="mcp-row sess-row orphan">
+      <div className="mcp-row-main">
+        <strong className="sess-name" title={s.name || s.path}>{s.name || s.id}</strong>
+        {s.workspace ? <span className="sess-badge in-use">{s.workspace}</span> : null}
+        {s.model ? <span className="sess-meta">{s.model}</span> : null}
+      </div>
+      <div className="sess-facts">
+        <span title="Last update">{fmtAge(s.updatedAt)}</span>
+        <span>{fmtBytes(s.size)}</span>
+        <span>{s.messages ? s.messages.toLocaleString() + " msgs" : "—"}</span>
+      </div>
+      <div className="mcp-row-actions" data-align-row>
+        {s.preview ? <span className="sess-preview" title={s.preview}>{s.preview}</span> : null}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => onOpenTerminal(s)}
+          disabled={busy}
+          title={"Launch a " + cliName + " terminal in this session's folder with " + (s.resumeArgs || []).join(" ")}
+        >
+          Open in terminal
+        </button>
+      </div>
+    </li>
+  );
+}
+
+// Sessions surface (ADR-0079): one view per CLI. Pi keeps its management
+// actions (open with, compact, delete, auto-clean); other CLIs list their
+// on-disk sessions and open them in a terminal with the CLI's verified
+// resume arguments — nothing is written, deleted or replayed for them.
+export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", onCliChange, cliNames = {}, wsReady = true }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [openPick, setOpenPick] = useState(null); // { session, resumeWsId }
   const [pickAgent, setPickAgent] = useState("");
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
   const all = !wsId;
+  const isPi = cli === "pi";
+  const cliName = cliNames[cli] || CLI_FALLBACK_NAMES[cli] || cli;
 
   const load = useCallback(async () => {
     setError("");
     try {
-      setData(all ? await api("/api/sessions/all") : await api("/api/workspaces/" + encodeURIComponent(wsId) + "/sessions/manage"));
+      if (isPi) {
+        setData(all ? await api("/api/sessions/all") : await api("/api/workspaces/" + encodeURIComponent(wsId) + "/sessions/manage"));
+      } else {
+        // Non-Pi scoping filters by folder, so the workspace must have
+        // resolved first; a scope that never resolves is an honest error,
+        // never a silently unfiltered list.
+        if (!all && !(workspace && workspace.path)) {
+          if (wsReady) { setError("That workspace is gone."); setData({ sessions: [] }); }
+          return;
+        }
+        const q = workspace && workspace.path ? "?cwd=" + encodeURIComponent(workspace.path) : "";
+        setData(await api("/api/clis/" + encodeURIComponent(cli) + "/sessions" + q));
+      }
     } catch (e) {
       setError(e && e.message ? e.message : "Could not load sessions.");
       setData(null);
     }
-  }, [wsId, all]);
+  }, [wsId, all, isPi, cli, workspace, wsReady]);
 
-  useEffect(() => { setData(null); load(); }, [load]);
+  useEffect(() => { setData(null); setQuery(""); load(); }, [load]);
 
   const sessions = useMemo(() => (data && data.sessions) || [], [data]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) => [s.name, s.preview, s.cwd, s.path, s.id, s.model].some((v) => String(v || "").toLowerCase().includes(q)));
+  }, [sessions, query]);
 
   // All mode: group by folder, tag workspace membership; Open with… uses the
   // agents of the workspace owning that folder (when there is one).
   const groups = useMemo(() => {
     if (!all) {
-      return [{ key: "ws", label: "", items: sessions, agentsForOpen: agents || [], resumeWsId: wsId }];
+      return [{ key: "ws", label: "", items: filtered, agentsForOpen: agents || [], resumeWsId: wsId }];
     }
     const wsByPath = new Map((workspaces || []).map((w) => [w.path, w]));
     const byCwd = new Map();
-    for (const s of sessions) {
+    for (const s of filtered) {
       const k = s.cwd || "(unknown folder)";
       if (!byCwd.has(k)) byCwd.set(k, []);
       byCwd.get(k).push(s);
@@ -121,7 +179,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
         resumeWsId: ws ? ws.id : "",
       };
     }).sort((a, b) => (a.ws ? 0 : 1) - (b.ws ? 0 : 1) || b.items.length - a.items.length);
-  }, [all, sessions, agents, wsId, workspaces]);
+  }, [all, filtered, agents, wsId, workspaces]);
 
   async function onDelete(s) {
     const ok = await askConfirm({
@@ -184,26 +242,63 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     }
   }
 
+  // Non-Pi resume: a CLI terminal born in the session's folder, launched
+  // with the server-verified resume arguments for that session. Launch
+  // argument overrides replace the CLI defaults for this one terminal.
+  async function onOpenTerminal(s) {
+    setBusy(true);
+    try {
+      const t = await api("/api/clis/" + encodeURIComponent(cli) + "/terminals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cliName + " · " + (s.name || s.id).slice(0, 40),
+          cwd: s.cwd,
+          workspaceId: s.workspaceId || "",
+          overrides: { args: s.resumeArgs || [] },
+        }),
+      });
+      if (t && t.launchError) toastError(new Error(t.launchError));
+      else { toast.ok(cliName + " opening in this session's folder."); location.hash = termHash(t.id); }
+      await load();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const total = data ? data.totalBytes : 0;
 
   return (
     <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} wide embedded={embedded}>
       <div className="sessions-toolbar" data-align-row>
-        <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{sessions.length} {sessions.length === 1 ? "session" : "sessions"} · {fmtBytes(total)} on disk</span>
+        <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{filtered.length}{query ? " of " + sessions.length : ""} {filtered.length === 1 ? "session" : "sessions"}{isPi ? " · " + fmtBytes(total) + " on disk" : ""}</span>
         <div className="sessions-actions" data-align-row>
           {!all ? (
-            <a className="sessions-scope-link" href="#/clis/sessions" title="Every Pi session on this machine, grouped by folder">All folders →</a>
+            <a className="sessions-scope-link" href={"#/clis/sessions" + (cli !== "pi" ? "?cli=" + encodeURIComponent(cli) : "")} title={"Every " + cliName + " session on this machine, grouped by folder"}>All folders →</a>
           ) : null}
-          <label className="sessions-cleanup" title="Orphan sessions (not the current session of any agent) are deleted after this many days.">
-            Auto-clean orphans
-            <select
-              value={data ? String(data.cleanupDays) : "0"}
-              disabled={!data || busy}
-              onChange={(e) => onCleanup(Number(e.target.value))}
-            >
-              {CLEANUP_OPTIONS.map((o) => <option key={o.v} value={String(o.v)}>{o.label}</option>)}
+          <label className="sessions-cleanup" title="Which CLI's sessions are listed">
+            CLI
+            <select value={cli} onChange={(e) => onCliChange && onCliChange(e.target.value)}>
+              {SESSION_CLIS.map((id) => <option key={id} value={id}>{cliNames[id] || id}</option>)}
             </select>
           </label>
+          {sessions.length > 6 ? (
+            <input className="sessions-search" aria-label="Search sessions" placeholder="Find a session…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          ) : null}
+          {isPi ? (
+            <label className="sessions-cleanup" title="Orphan sessions (not the current session of any agent) are deleted after this many days.">
+              Auto-clean orphans
+              <select
+                value={data ? String(data.cleanupDays) : "0"}
+                disabled={!data || busy}
+                onChange={(e) => onCleanup(Number(e.target.value))}
+              >
+                {CLEANUP_OPTIONS.map((o) => <option key={o.v} value={String(o.v)}>{o.label}</option>)}
+              </select>
+            </label>
+          ) : null}
           <button type="button" className="btn btn-sm" onClick={load} disabled={busy}>Refresh</button>
         </div>
       </div>
@@ -212,10 +307,10 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
         <p className="file-pane-msg">{error} <button type="button" className="btn btn-sm" onClick={load}>Retry</button></p>
       ) : !data ? (
         <p className="file-pane-msg">Loading sessions…</p>
-      ) : sessions.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="empty-card">
-          <h2>No Pi sessions yet</h2>
-          <p>Sessions appear here as agents chat{all ? " in each folder" : " in this folder"}.</p>
+          <h2>{query ? "No matching sessions" : "No " + cliName + " sessions yet"}</h2>
+          <p>{query ? "Try a different search." : "Sessions appear here as " + cliName + " runs" + (all ? " in each folder" : " in this folder") + "."}</p>
         </div>
       ) : (
         groups.map((g) => (
@@ -227,8 +322,8 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
               </header>
             ) : null}
             <ul className="mcp-list sessions-list">
-              {g.items.map((s) => (
-                <SessionRow
+              {g.items.map((s) => isPi ? (
+                <PiRow
                   key={s.path}
                   s={s}
                   agentsForOpen={g.agentsForOpen}
@@ -237,6 +332,8 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
                   onDelete={onDelete}
                   onCompact={onCompactAgent}
                 />
+              ) : (
+                <CliRow key={s.cli + ":" + s.id + ":" + s.path} s={s} cliName={cliName} busy={busy} onOpenTerminal={onOpenTerminal} />
               ))}
             </ul>
           </section>

@@ -1,0 +1,111 @@
+// Package clisession is a read-only index of coding-CLI session files
+// (ADR-0079 phase 2): pi JSONL under ~/.pi/agent/sessions, Claude Code
+// transcripts under ~/.claude/projects, Codex rollouts under
+// ~/.codex/sessions and Grok prompt history under ~/.grok/sessions.
+// Nothing here writes, deletes or resumes; it only lists what is on disk.
+package clisession
+
+import (
+	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
+
+// Summary is one session of one CLI, enough for the sessions picker.
+// Cost is intentionally pi-only: the Claude Code, Codex and Grok formats
+// found on real machines carry no per-session spend, and inventing one is
+// worse than omitting it.
+type Summary struct {
+	CLI        string   `json:"cli"`
+	ID         string   `json:"id"`
+	Path       string   `json:"path,omitempty"`
+	ResumeArgs []string `json:"resumeArgs,omitempty"`
+	Name       string   `json:"name,omitempty"`
+	Cwd        string   `json:"cwd,omitempty"`
+	CreatedAt  string   `json:"createdAt"`
+	UpdatedAt  string   `json:"updatedAt"`
+	Preview    string   `json:"preview,omitempty"`
+	Messages   int      `json:"messages"`
+	Size       int64    `json:"size"`
+	Model      string   `json:"model,omitempty"`
+	Cost       float64  `json:"cost,omitempty"`
+}
+
+// Source lists one CLI's sessions. cwd filters to one folder; "" lists
+// every folder on the machine. Missing roots are simply empty, never an
+// error — a CLI that never ran here still renders a sane empty state.
+type Source interface {
+	CLI() string
+	List(cwd string) ([]Summary, error)
+}
+
+// Sources returns every registered source keyed by catalog CLI id.
+func Sources() map[string]Source {
+	out := map[string]Source{}
+	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}} {
+		out[s.CLI()] = s
+	}
+	return out
+}
+
+// Get returns the source for a catalog CLI id.
+func Get(cli string) (Source, bool) {
+	s, ok := Sources()[cli]
+	return s, ok
+}
+
+// sortNewest orders summaries by UpdatedAt, newest first, and is the
+// single ordering every source applies.
+func sortNewest(out []Summary) {
+	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt > out[j].UpdatedAt })
+}
+
+// jsonlFiles walks root for *.jsonl files, newest-mtime first is NOT
+// guaranteed — callers sort summaries themselves. A missing root yields
+// no files and no error.
+func jsonlFiles(root string) []string {
+	if root == "" {
+		return nil
+	}
+	var out []string
+	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // unreadable subtree: skip, never fail the listing
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".jsonl") {
+			out = append(out, p)
+		}
+		return nil
+	})
+	return out
+}
+
+// mtime is a file's modification time in RFC3339 UTC, or the zero string.
+func mtime(path string) string {
+	if st, err := os.Stat(path); err == nil {
+		return st.ModTime().UTC().Format(time.RFC3339)
+	}
+	return ""
+}
+
+// clip mirrors pi's preview clipping so every CLI's rows stay one line.
+func clip(s string, n int) string {
+	s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " "))
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}
+
+// decodePathDir undoes an URL-escaped directory name (Grok encodes the
+// cwd as one path segment: %2Fhome%2Fgoat). A malformed name decodes to "".
+func decodePathDir(name string) string {
+	d, err := url.PathUnescape(name)
+	if err != nil {
+		return ""
+	}
+	return d
+}

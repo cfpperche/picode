@@ -156,14 +156,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Sessions phase 2 (ADR-0079)**: per-CLI session sources —
-   `internal/clisession` with a `Source` per CLI (pi wraps the existing
-   package; claude-code reads `~/.claude/projects`; codex reads
-   `~/.codex/sessions`; grok needs verified evidence first),
-   `GET /api/clis/{id}/sessions(+transcript)`, per-CLI filter and search on
-   `#/clis/sessions`, and "Open in terminal" resume actions for non-Pi
-   sessions. Chat replay stays Pi-only. Decide then whether
-   `/api/sessions/all` and `/api/pi-sessions` become deprecated aliases.
+1. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
+   (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
+   preview skips injected instruction blocks by a narrow heuristic
+   (`# `/`<` prefixes). Decide whether `/api/sessions/all` and
+   `/api/pi-sessions` become deprecated aliases of the per-CLI endpoint
+   (owner call). Grok sessions are prompt-history summaries — no
+   transcripts exist in that format.
 2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
@@ -227,6 +226,21 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079).**
+  `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
+  (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt
+  history) alongside pi, read-only with defensive parsers (fixtures from
+  real installations, 2026-09). `GET /api/clis/{id}/sessions?cwd=` serves
+  them with server-verified resume args (`claude --resume <id>`, `codex
+  resume <id>` positional, `grok --resume <id>`); the `#/clis/sessions`
+  surface gains a CLI picker (`?cli=`) and search; non-Pi rows offer
+  **Open in terminal** (resume args as launch-arg overrides through the
+  ADR-0069 terminal launch) — no replay, writes or deletes for non-Pi
+  sessions, and a gone-workspace scope errors instead of silently
+  unfiltering. Real-machine smoke: 347 pi / 351 claude / 907 codex / 202
+  grok sessions parsed. visual-review: PASS (claude/codex/grok loaded,
+  grok scoped empty, gone-workspace error, search, open-in-terminal
+  click-through; overlayAudit ok after fixing the preview row height).
 - **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079); merged and
   deployed.** Desktop
   `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as

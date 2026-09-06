@@ -11,6 +11,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Sessions for every agent CLI** (ADR-0079 phase 2): the `#/clis/sessions`
+  surface gains a CLI picker (Pi, Claude Code, Codex, Grok) with search.
+  Pi keeps its management actions; the other CLIs list their on-disk
+  sessions read-only (`internal/clisession`, `GET /api/clis/{id}/sessions`)
+  with server-verified resume arguments, and **Open in terminal** launches
+  that CLI in the session's folder via the existing terminal launch —
+  no transcript replay, no writes or deletes for non-Pi sessions. Formats
+  verified against real installations; empty state when a CLI never ran.
+
 ### Changed
 
 - **Sessions moved under Agent CLIs** (ADR-0079): the desktop surface now

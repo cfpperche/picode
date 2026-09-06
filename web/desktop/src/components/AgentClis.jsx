@@ -85,6 +85,7 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
   };
 
   const sessionsWs = route.view === "sessions" && route.id && data ? data.workspaces.find((w) => w.id === route.id) : undefined;
+  const sessionsCli = route.cli || "pi";
 
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
     <nav className="cli-tabs" aria-label="Agent CLIs">
@@ -102,6 +103,10 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
       workspaces={data ? data.workspaces : []}
       onOpenAgent={onOpenAgent}
       onCompactAgent={onCompactAgent}
+      cli={sessionsCli}
+      wsReady={!!data}
+      onCliChange={(id) => navigate("/sessions" + (route.id ? "/" + encodeURIComponent(route.id) : "") + "?cli=" + encodeURIComponent(id))}
+      cliNames={Object.fromEntries((data ? data.clis : []).map((c) => [c.id, c.name]))}
     /> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">

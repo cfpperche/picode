@@ -11,6 +11,8 @@ test("CLI manager parses launch routes", () => {
 test("sessions view takes an optional workspace scope (ADR-0079)", () => {
   assert.deepEqual(cliLocation("#/clis/sessions"), { view: "sessions", id: "" });
   assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "sessions", id: "ws-9" });
+  assert.deepEqual(cliLocation("#/clis/sessions?cli=codex"), { view: "sessions", id: "" , cli: "codex" });
+  assert.deepEqual(cliLocation("#/clis/sessions/ws-9?cli=claude-code"), { view: "sessions", id: "ws-9", cli: "claude-code" });
 });
 
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {
