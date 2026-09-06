@@ -5,18 +5,9 @@
 
 ## Current state (read this first)
 
-**Repository:** `feat/cli-resume-recovery` (worktree
-`.worktrees/cli-resume-recovery`, based on `57f0dca7` + main `c951d674`)
-adds CLI terminal session recovery (ADR-0084): every CLI terminal with a
-launch pins the native conversation it is running
-(`terminal_launches.last_session`, feed event `terminal.last_session`) and
-a stopped terminal accepts `POST /api/terminals/{id}/launch/start
-{"resume":true}` plus a "Resume last session" button on the desktop and
-mobile terminal surfaces. Awaiting merge to `main` and one final deploy —
-that deploy will end live CLI sessions one last time (the pre-fix
-behavior); from the next restart on, pins survive deploys.
-
-`main` itself includes llama.cpp delivery 2 (ADR-0083), merged as
+**Repository:** `main` includes the checklist compact-view alignment
+(owner refinement, merged `08e9ee62`, deployed `0.1.0+08e9ee6`) on top of
+llama.cpp delivery 2 (ADR-0083), merged as
 `70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
 refinements + expand-on-click disclosure (ADR-0082, merged `e2cdc61f`,
 deployed `0.1.0+1af83f4`). Models, Server and
@@ -40,7 +31,34 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `1af83f4d`, version `0.1.0+1af83f4`, via
+**Last application deployment:** `f4ea75eb`, version `0.1.0+f4ea75e`, via
+`make deploy` from the root checkout (identity-favicon refactor, merged
+from `feat/favicon-refactor` as `020804f8`; worktree and branch removed).
+Agent and terminal identity favicons now wear the workspace favicon's
+treatment — 16px box, 3px radius, natural image shape, no forced circular
+crop — across sidebar identity marks, the collapsed face strip, editor-tab
+faces and terminal CLI badges (boxed fallbacks 22→16px, `ws-meta` indent
+31→23px). `make ci` required a `make docs-shots` refresh (desktop fleet +
+inspector screenshots re-taken, `f4ea75eb`). Verified live: health `ok`,
+systemd active, tab face and six row faces computed 16×16/3px, screenshots
+read (light and dark), `overlayAudit` ok. visual-review: PASS.
+
+Previous deployment: `08e9ee62`, version `0.1.0+08e9ee6`, via
+`make deploy` from the root checkout (checklist compact-view alignment,
+owner refinement — no ADR, see `docs/plans/sidebar-checklist-expand.md`
+addendum). Health `ok`, systemd active. Verified live: the served CSS
+bundle carries the new `.ws-check-line.is-done` rule (absent from the
+previous bundle), and the production sidebar renders real agent rows with
+the fix — `glm5`'s `2/2` and `Pi`'s `8/8` (dimmed, `is-done`) both flush
+right with no parens, aligned under the folder/branch line. Pre-deploy
+browser QA on an isolated scratch daemon (seeded via the checklist API
+for an in-progress plan, a fully-completed plan and a terminal plan)
+covered collapsed alignment, expand/collapse, real-keyboard focus ring,
+the terminal pane strip, and dark theme on desktop, plus the mobile
+sub-line format. `overlayAudit` clean, no console errors. visual-review:
+PASS.
+
+Previous deployment: `1af83f4d`, version `0.1.0+1af83f4`, via
 serialized `make deploy` from the root checkout (checklist refinements +
 expand-on-click disclosure merged, ADR-0082). Health `ok`, systemd active,
 8 terminals survived, `POST /api/terminals/nope/checklist` 404s live. The
@@ -237,14 +255,10 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Merge `feat/cli-resume-recovery` (ADR-0084) and deploy once the owner's
-   live CLI terminals are at a turn boundary — that deploy ends live CLI
-   sessions one last time (pre-fix behavior); from then on pins survive
-   deploys. Then extend the deploy guard (glm5's `fix/deploy-guards` work)
-   to log the deployer and warn when CLI terminals are mid-turn.
-1. Integrate validated llama delivery 2 after reconciling current main, then
-   validate the deployed Activity route. Delivery 3 adds model guidance/readiness;
-   delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Validate the deployed llama delivery 3 guidance dialog on the live service.
+   Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Extend the deploy guard (glm5's `fix/deploy-guards` work) to log the
+   deployer and warn when CLI terminals are mid-turn (ADR-0084 follow-up).
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
@@ -381,6 +395,23 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   surface (desktop+mobile), migration 031, event `terminal.last_session`.
   Gates green; visual-review PASS (scratch instance 8460, stopped →
   resume → running, overlayAudit ok). visual-review: PASS.
+- **2026-09-06 — Checklist compact-view alignment merged and deployed
+  (`08e9ee62`, `0.1.0+08e9ee6`).** Owner flagged the `(x/n)` parens and the
+  line's misalignment with the rest of the card while reviewing agent/
+  terminal screenshots. Researched web-UX references (VS Code chat todo
+  list, Cursor Agents window, Linear/GitHub sub-issue counters, PatternFly
+  progress guidance), proposed a refinement, owner approved. No parens
+  anywhere the counter appears; `.ws-check`/`.ws-check-disclosure` share
+  `.ws-context`'s 31px column; counter is a fixed end column, not a
+  prefix; disclosure chevron reuses `.ws-chev`; focus ring matches the
+  row's own `box-shadow` instead of an inset outline; a fully-completed
+  plan dims via a new `is-done` class; plan line moved above folder/
+  branch on agent and terminal cards; mobile sub-line drops its parens.
+  No server/domain change. `make ci` green (docs-shots regenerated for
+  app-fleet/app-inspector). Browser-QA'd pre-deploy on an isolated scratch
+  daemon; deploy verified by the served CSS carrying the new `is-done`
+  rule and by the live sidebar rendering real agent rows correctly. No
+  push (local main now 7 commits ahead of origin).
 - **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
   commits: everything since the last push — checklists terminal+disclosure,
   Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,

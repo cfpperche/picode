@@ -442,6 +442,8 @@ in jobs. Cancel is available for downloads on the verified b10809 build family.
 `#/llama/activity` follows `llama.job` feed events and refreshes on reconnect;
 its history survives navigation. Service ownership remains delivery 4 in
 [the plan](plans/llama-manager.md).
+Hugging Face GGUF metadata also exposes file size and a conservative runtime
+memory estimate with contextual guidance; missing size data remains unknown.
 
 ## Component diagram
 

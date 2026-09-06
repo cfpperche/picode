@@ -18,7 +18,7 @@ export function ProviderFace({ agent, id }) {
 // Terminal in the collapsed strip: the CLI's own favicon when one loads,
 // otherwise the vendor mark (π, Cl, Cx, G) — plain shells wear ">_".
 // Deliberately the plain ws-face, no term-cli-face override: in the strip
-// agents and terminals are one visual family (same 18px plate, ring and
+// agents and terminals are one visual family (same 16px plate, ring and
 // contained art); the full-bleed look stays a row-identity treatment.
 export function TermFace({ term }) {
   const cli = terminalCli(term);

@@ -18,6 +18,7 @@
 .llama-model-name { min-width:0; flex:1; overflow-wrap:anywhere; }
 .llama-model-name small { display:block; color:var(--text-secondary); margin-top:4px; }
 .llama-models .prov-row { gap:12px; }
+.llama-guidance { flex-basis: 100%; margin: -4px 0 8px; padding-left: 0; }
 .llama-working { border-left:3px solid var(--accent); padding:8px 12px; animation:llama-pulse 1s ease-in-out infinite alternate; overflow-wrap:anywhere; }
 .llama-skeleton div { height:36px; background:var(--border); margin:8px 0; border-radius:6px; animation:llama-pulse 1s ease-in-out infinite alternate; }
 @keyframes llama-pulse { from { opacity:.5; } to { opacity:1; } }

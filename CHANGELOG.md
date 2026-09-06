@@ -20,6 +20,8 @@ to the `[Unreleased]` section. The repository's official language is English
   no longer costs the conversation; the pin is stored (`terminal.last_session`
   event) so it survives the process. Plain start is unchanged; nothing
   auto-restarts. Desktop and mobile terminal surfaces both carry the button.
+- **Contextual llama.cpp model guidance**: GGUF choices show file size,
+  estimated runtime memory and a hardware-oriented starting recommendation.
 
 - **Checklist disclosure on sidebar cards** (`docs/plans/sidebar-checklist-
   expand.md`). Clicking a card's plan line expands the full list in place:
@@ -36,6 +38,46 @@ to the `[Unreleased]` section. The repository's official language is English
   remain visible rather than being reported as success.
 
 ### Changed
+
+- **Sidebar text column corrected for the smaller identity mark.** The
+  runtime-favicon resize shrank agent/terminal identity marks from 24px to
+  16px without updating the folder/branch line's (and, transitively, the
+  checklist line's) left inset, so every row's `.ws-context` sub-line sat
+  8px right of its own title in production. Found while re-verifying the
+  checklist chevron fix below against the deployed favicon change; the
+  inset is now 23px (16px mark + 7px row gap) everywhere it is used.
+
+- **Checklist chevron moved to its own gutter** (owner refinement, follow-up
+  to the compact-view alignment below). The disclosure's chevron sat in the
+  same 31px column as the title/folder text, but a rendered icon's ink
+  rarely touches its own bounding box the way plain text does — the owner
+  spotted the chevron reading as offset from the title above it even though
+  the boxes lined up. The chevron now sits in a dedicated gutter *before*
+  that column (the tree-view convention: a leading disclosure mark, then
+  the label), so the **text** of the checklist line and its expanded steps
+  lands on the exact same column as the title, subtitle and folder/branch
+  line, independent of the chevron icon's own inset. No JSX change.
+
+- **Checklist compact-view alignment** (owner refinement, `docs/plans/
+  sidebar-checklist-expand.md`). The counter drops its parentheses (`5/8`,
+  not `(5/8)`) and moves to a fixed column at the row's end, the Linear/
+  GitHub sub-issue idiom, instead of prefixing the step text. The line and
+  its expanded list now sit in the same 31px text column as the card's
+  folder/branch line below it — previously flush left, out of the card's
+  grid. The disclosure line's focus ring matches the row's own selection
+  style (`box-shadow`) instead of a text-field-like inset outline. A
+  finished plan (every step completed) dims to the same weight as a
+  completed step, so it stops reading as open activity. The plan line
+  moves above the folder/branch line on agent and terminal cards, matching
+  identity → activity → location. Mobile's sub-line drops its parens too
+  (`5/8 · text`). No server or domain change.
+
+- **Identity favicons match the workspace favicon**. Agent faces (sidebar
+  rows, collapsed strips, editor tabs, inspector) and terminal CLI badges
+  now render at the workspace favicon's 16px box with its 3px radius —
+  natural image shape, no forced circular crop. Letter/glyph fallbacks keep
+  the white plate for sidebar contrast; image faces stay full-bleed. Row
+  indent (`ws-meta`) re-aligned to the smaller identity mark.
 
 - **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter
   no longer wears the accent color — the operator line is one muted line.
