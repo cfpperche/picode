@@ -7,7 +7,8 @@
 # working tree is clean, and nothing under it (outside node_modules) was
 # written in the last hour — a session that just created a tree from main
 # has a merged, clean, but freshly written tree. FORCE=1 drops the idle
-# check. Dirty or unmerged trees are listed, never touched.
+# check; DRY=1 only lists what would go. Dirty or unmerged trees are listed,
+# never touched.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 root=$(pwd)
@@ -26,6 +27,10 @@ git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{print p, $2}'
   fi
   if [ -z "${FORCE:-}" ] && [ -n "$(find "$path" -path '*/node_modules' -prune -o -type f -newermt '-60 minutes' -print 2>/dev/null | head -1)" ]; then
     echo "keep   $path  ($branch: written in the last hour; FORCE=1 to remove)"
+    continue
+  fi
+  if [ -n "${DRY:-}" ]; then
+    echo "would remove $path  ($branch merged, clean, idle)"
     continue
   fi
   if git worktree remove "$path" 2>/dev/null; then

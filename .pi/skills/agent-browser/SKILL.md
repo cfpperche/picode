@@ -61,6 +61,9 @@ into the same path, then `eval location.reload()`).
   error. Use `localhost`.
 - Never `pkill -f <pattern>` — the pattern matches your own shell. Stop
   daemons by port (`fuser -k <port>/tcp`) or with `qa-scratch.sh stop`.
+- Never kill tmux sessions by prefix: every real session is `picode-…` too.
+  A `grep '^picode-' | xargs kill-session` sweep killed 29 sessions on
+  2026-09-06. Kill only exact names your own scratch instance's API returned.
 - Other sessions restart production and kill processes by name; a scratch
   daemon that dies mid-run was probably hit — check `journalctl --user -u
   picode` before blaming the code.

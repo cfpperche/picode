@@ -54,8 +54,9 @@
    decision; docs-video recapture policy.
 8. Configured compaction re-dogfood; reconcile historical Inbox rows before
    live replies; remote-mode and browser-preview acceptance (owner infra).
-9. Inspector stage 3 follow-ups: full filename search (`git ls-files`),
-   per-anchor watch lease for free terminals, per-turn `+N −M` footer.
+9. Inspector follow-ups: merge/rebase/branch switch wait for a picker
+   (reset, force push, stash drop stay refused); full filename search
+   (`git ls-files`); per-anchor watch lease; per-turn `+N −M` footer.
 
 ## Known debts / open questions
 
@@ -76,6 +77,10 @@
 - Task Scheduler retries are not crash recovery (exit-one probe stayed down
   90 s); battery/sleep/sign-in acceptance is owner-controlled.
 - `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
+- 2026-09-06 incident: a `tmux ls | grep '^picode-' | xargs kill-session`
+  sweep killed 29 sessions, six production ones; `orca-tasks` did not come
+  back. Never kill by shared prefix — only exact names from an isolated
+  fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
