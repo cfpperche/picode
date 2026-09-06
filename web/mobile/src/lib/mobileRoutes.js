@@ -9,7 +9,7 @@ import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./route
 //   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
 //   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
 //   read-only (ADR-0044 phase 3); section carries the owner kind.
-export const MORE_SECTIONS = ["devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations"];
+export const MORE_SECTIONS = ["llama", "devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
 
@@ -22,6 +22,7 @@ export function writeWorkSection(v) {
 
 const DESKTOP_TO_MORE = {
   clis: "clis",
+  llama: "llama",
   preferences: "preferences",
   providers: "providers",
   devices: "devices",
@@ -44,6 +45,7 @@ function dec(s) {
 
 export function mobileRoute(hash) {
   const h = strip(hash);
+  if (h === "/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };
   const agentId = agentRoute("#" + h);
   if (agentId) return { screen: "agent", id: agentId, section: "" };

@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp manager** (ADR-0080): dedicated Models and Server pages on
+  desktop and mobile, with connection diagnosis, saved-key preservation and
+  a Providers shortcut. Canceling a model replacement does not load it;
+  unload and download failures no longer report success.
 - **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
   menu gains a per-viewer checkbox, "Run when no agent is working here". With
   it on, PiCode types the command into your terminal and presses Enter itself,
@@ -92,7 +96,9 @@ to the `[Unreleased]` section. The repository's official language is English
   terminals. The header's face strip now lists terminals after managed
   agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
   Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
-  mark, capped at five with a `+N` overflow like agent faces. The docs
+  mark, capped at five with a `+N` overflow like agent faces. Terminal
+  faces render in exactly the agent-face style — same 18px plate, ring
+  and contained art — so the strip reads as one visual family. The docs
   fixture seeds project terminals (a shell plus CLI terminals with live
   runtime leases) and a terminals-only workspace, so captures photograph
   the real states.

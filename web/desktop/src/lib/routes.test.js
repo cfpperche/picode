@@ -160,3 +160,8 @@ test("app tabs are distinct from every other tab family", () => {
   assert.ok(!isAppTab(gitTabId("/repo/.git")));
   assert.ok(!isAppTab(treeTabId("/home/u/proj")));
 });
+
+test("llama manager owns its routes and the legacy link", () => {
+ for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
+ assert.equal(parseRoute("#/providers/new"), "providers");
+});

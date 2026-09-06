@@ -1,0 +1,192 @@
+{
+  "checks": [
+    "desktop: legacy routing, empty/download/search, blocked/error, validation, credential save, cancel without mutation, load keeping others, light theme",
+    "desktop: Providers entry opens manager",
+    "mobile: legacy routing, empty/download/search, blocked/error, validation, credential save, cancel without mutation, load keeping others, light theme",
+    "mobile: Providers entry opens manager"
+  ],
+  "screenshots": [
+    "llama-desktop-empty.png",
+    "llama-desktop-download.png",
+    "llama-desktop-blocked.png",
+    "llama-desktop-error.png",
+    "llama-desktop-models.png",
+    "llama-desktop-replace.png",
+    "llama-desktop-light.png",
+    "llama-desktop-providers.png",
+    "llama-mobile-empty.png",
+    "llama-mobile-download.png",
+    "llama-mobile-blocked.png",
+    "llama-mobile-error.png",
+    "llama-mobile-models.png",
+    "llama-mobile-replace.png",
+    "llama-mobile-light.png",
+    "llama-mobile-providers.png"
+  ],
+  "audits": [
+    {
+      "file": "llama-desktop-empty.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-download.png",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 274,
+          "bottom": 482,
+          "height": 208
+        }
+      ],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-blocked.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-error.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            404,
+            404
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-models.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-replace.png",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 285,
+          "bottom": 471,
+          "height": 186
+        }
+      ],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-light.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-desktop-providers.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-empty.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-download.png",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 613,
+          "bottom": 844,
+          "height": 231
+        }
+      ],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-blocked.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-error.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            448,
+            448
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-models.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-replace.png",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 635,
+          "bottom": 844,
+          "height": 209
+        }
+      ],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-light.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    },
+    {
+      "file": "llama-mobile-providers.png",
+      "ok": true,
+      "hits": [],
+      "rows": []
+    }
+  ]
+}

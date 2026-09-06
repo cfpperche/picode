@@ -30,13 +30,18 @@ Gated Hugging Face repos: export `HF_TOKEN` **in the llama-server process**.
 
 ## 3. In PiCode
 
-`/llama` (or Providers → llama.cpp):
+Open **Providers → llama.cpp → Manage**, or use `/llama` on desktop.
+For a new connection, choose **Set up llama.cpp** in Providers.
+The manager has **Models** and **Server** pages on desktop and mobile:
 
-1. URL `http://127.0.0.1:8080` → Save → Retry.
-2. **Download** a GGUF, or drop files in `--models-dir` and restart the router.
+1. **Server** → enter the URL and optional API key → **Save connection**.
+   Leaving the key blank keeps the saved key. **Test connection** checks the
+   saved connection; the result distinguishes authentication, timeout and
+   unsupported model management.
+2. **Models → Download model** to download a GGUF, or drop files in `--models-dir` and restart the router.
 3. **Load**, then pick the model on the agent chip.
 
 | | pi TUI | PiCode |
 |---|---|---|
 | Login | URL + optional key | same |
-| Manage | `/llama` | dialog + Providers panel |
+| Manage | `/llama` | dedicated Models and Server pages |

@@ -176,3 +176,14 @@ observe and dismiss the native unsaved-changes dialog. The runner checks the
 synthetic workspace identity before writing fixture files and removes its
 disposable terminal afterward. Public docs use a separate unmodified fixture;
 `docs-shots.mjs` now closes only its own browser session.
+
+
+llama.cpp manager (ADR-0080): `llama-desktop-*` and `llama-mobile-*` capture
+empty, blocked, authentication error, download, model replacement, model list,
+light theme and Providers entry states. All 16 images were read; overlay
+and alignment audits pass (`llama-qa.json`). Reproduce with
+`scripts/qa-llama.mjs`, `PICODE_QA_BASE` pointing to a private docs fixture and
+`PICODE_PLAYWRIGHT_MODULE` pointing to an installed Playwright module.
+`PICODE_QA_CHROME` optionally selects an existing Chromium executable. The
+runner refuses non-fixture workspaces and mocks only llama API responses;
+real model/runtime acceptance remains pending in the plan.

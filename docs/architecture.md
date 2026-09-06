@@ -424,6 +424,19 @@ Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
 
+### llama.cpp manager (ADR-0080)
+
+`#/llama/models` and `#/llama/server` own model operations and connection
+settings on desktop and mobile. Providers links to this surface; legacy
+`#/providers/llama` and the desktop `/llama` command reach it. URL and
+optional key still live in Pi auth.json; an empty key preserves the saved key.
+`GET /api/llama` adds a safe `connection` code/message distinguishing ready,
+authentication, timeout, unreachable, unsupported and server errors.
+Load/replace stops on unload failure; unload waits must succeed; failed or
+unknown download states are not treated as completion. Requests still block
+until completion in delivery 1. Durable jobs, SSE and managed-service ownership
+belong to later deliveries in [the plan](plans/llama-manager.md).
+
 ## Component diagram
 
 ```
