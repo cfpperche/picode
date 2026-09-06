@@ -31,6 +31,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-06 — The editor tab strip when tabs overflow (VS Code, Zed, JetBrains, Firefox, Chrome, UI kits)](2026-09-06-tab-strip-overflow.md)
 - [2026-09-05 — The right-hand inspector rail (Paseo, Orca, t3code)](2026-09-05-inspector-rail.md)
 - [2026-09-05 — Desktop/mobile decoupling](2026-09-05-mobile-decoupling.md)
 

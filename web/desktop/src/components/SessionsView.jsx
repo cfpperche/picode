@@ -44,7 +44,7 @@ function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
         ) : (
           <span className="sess-badge">free</span>
         )}
-        {s.model ? <span className="sess-meta">{s.provider}/{s.model}</span> : null}
+        {s.model ? <span className="sess-meta">{s.model}</span> : null}
       </div>
       <div className="sess-facts">
         <span title="Last update">{fmtAge(s.updatedAt)}</span>
@@ -127,7 +127,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     setError("");
     try {
       if (isPi) {
-        setData(all ? await api("/api/sessions/all") : await api("/api/workspaces/" + encodeURIComponent(wsId) + "/sessions/manage"));
+        setData(all ? await api("/api/clis/pi/sessions") : await api("/api/clis/pi/sessions?workspace=" + encodeURIComponent(wsId)));
       } else {
         // Non-Pi scoping filters by folder, so the workspace must have
         // resolved first; a scope that never resolves is an honest error,
@@ -190,8 +190,8 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     if (!ok) return;
     setBusy(true);
     try {
-      await api(all ? "/api/sessions/all" : "/api/workspaces/" + encodeURIComponent(wsId) + "/sessions/manage", {
-        method: "DELETE",
+      await api("/api/clis/pi/sessions/delete", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: s.path }),
       });
@@ -207,7 +207,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   async function onCleanup(days) {
     setBusy(true);
     try {
-      const res = await api("/api/session-cleanup", {
+      const res = await api("/api/clis/pi/sessions/cleanup", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ days }),

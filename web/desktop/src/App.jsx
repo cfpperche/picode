@@ -2782,13 +2782,13 @@ export default function App() {
           setFormError("");
           if (k === "session") {
             setPiSessions(null);
-            api("/api/pi-sessions").then((p) => setPiSessions((p && p.sessions) || [])).catch(() => setPiSessions([]));
+            api("/api/clis/pi/sessions").then((p) => setPiSessions((p && p.sessions) || [])).catch(() => setPiSessions([]));
           }
         }}
         onAdopt={async (path) => {
           setFormError("");
           try {
-            const ag = await api("/api/pi-sessions/adopt", {
+            const ag = await api("/api/clis/pi/sessions/adopt", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ path }),
