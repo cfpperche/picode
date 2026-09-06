@@ -8,10 +8,10 @@
 **Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and,
-complete on `feat/inspector-git`, the **Git actions** stage (branch chip with
-ahead/behind, a Git menu preparing fetch/pull/push/commit/PR commands in the
-owner's terminal — see Recent activity), bounded
+desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and
+the **Git actions** stage (branch chip with ahead/behind, a Git menu preparing
+fetch/pull/push/commit/PR commands in the owner's terminal), merged and
+deployed as `aa9beea4`, bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
@@ -36,21 +36,21 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+a8a201b`, health `ok`, boot
-`b4d360ead0b24276`. First deploy under the new serialized target: the lock
-was functionally proven (a second holder blocked while the first slept).
-Live checks passed; previous deploys of the day remain ancestors of this
-merge. Evidence: `var/custom-dialog-deploy/`, `var/mcp-disable-deploy/`;
-private SQLite and previous-binary backups live in their `recovery/` folders.
-
-**Quality:** `make ci` passed on the PR-tab tree (Go tests including the
-scripted-gh suite, 700 frontend/package tests, both UI builds, embedded
-binary, docs parity with regenerated captures, Vale after fixing one
-repetition). Browser acceptance: `scripts/qa-inspector.mjs` 13/13 groups on a
-fixture whose PATH carried a scripted `gh` (`docs/screenshots/inspector-qa.json`);
-`inspector-pr-*` screenshots read, overlay/row audits ok, the pre-typed
-command's prompt echo fixed and re-read. visual-review: PASS. Fixtures and
-QA browser sessions are closed; the feature worktree and branch are removed.
+**Last application deployment:** `0.1.0+aa9beea`, health `200`, desktop bundle
+`index-DAL01ZST.js` (served and built hashes match). `make deploy` restarted
+systemd; the seven terminal records survived. Live: the `glm5` agent's rail
+reads `main ↑89` (upstream `origin/main`, nothing pushed — as this file has
+recorded all along), the Git menu opens with its six actions and the overlay
+audit passes; nothing was typed into a production terminal.
+**Quality:** `make ci` passed on the Git-actions tree (Go tests including the
+bare-remote ahead/behind case, 690 frontend/package tests, both UI builds,
+embedded binary, docs parity with regenerated captures, Vale). Browser
+acceptance: `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
+fixture (`docs/screenshots/inspector-qa.json`), commands proven typed and
+never run through `tmux capture-pane -J`; `inspector-git-*` and
+`inspector-commit-*` screenshots plus the live menu read, overlay/row audits
+ok. visual-review: PASS. Fixtures and QA browser sessions are closed; the
+feature worktree and branch are removed.
 
 ### Product and platform
 
@@ -245,6 +245,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   fixture (`tmux capture-pane -J` proves the commands are typed, never run;
   `gitstatus` keeps its four changes); `inspector-git-*` and
   `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
+  Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
+  `index-DAL01ZST.js`, seven terminals survived. No push.
 - **2026-09-06 — Deploy serialization + living-docs guards merged and
   deployed.** Fast-forwarded after reconciling three interleaved main moves;
   combined `make ci` passed; deployed `a8a201b` under the new lock (lock
