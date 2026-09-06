@@ -34,19 +34,12 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+c2231801`, health `200` (menu-item removal on top of the sessions phase-2 merge). `make
-deploy` restarted systemd with the sessions phase-2 merge; the live API
-answers `GET /api/clis/codex/sessions` with 907 real sessions and the
-desktop serves the per-CLI sessions picker. Previous deployment
-`0.1.0+8470ef5` (boot `52711c61a951d299`, 53/53 panes preserved): the
-imported-row MCP toggle flipped both ways with a workspace in context —
-ON unmasks the Claude Code import, OFF writes the user-layer stub and the
-adapter resolves `context7` as `disabled: true` (verified with the
-adapter's own config loader). End state: context7 Off, as the owner
-intended. Evidence: `var/mcp-disable-deploy/`; private SQLite and
-previous-binary backups are in its `recovery/` folder. Note: two parallel
-sessions deployed between gate and deploy that round (9a41241, abdf771);
-both are ancestors of the deployed merge.
+**Last application deployment:** `0.1.0+a8a201b`, health `ok`, boot
+`b4d360ead0b24276`. First deploy under the new serialized target: the lock
+was functionally proven (a second holder blocked while the first slept).
+Live checks passed; previous deploys of the day remain ancestors of this
+merge. Evidence: `var/custom-dialog-deploy/`, `var/mcp-disable-deploy/`;
+private SQLite and previous-binary backups live in their `recovery/` folders.
 
 **Quality:** `make ci` passed on the PR-tab tree (Go tests including the
 scripted-gh suite, 700 frontend/package tests, both UI builds, embedded
@@ -230,6 +223,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-06 — Deploy serialization + living-docs guards merged and
+  deployed.** Fast-forwarded after reconciling three interleaved main moves;
+  combined `make ci` passed; deployed `a8a201b` under the new lock (lock
+  proven to block a second holder). Service healthy. No push.
 
 - **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
   two rounds of parallel-session interference, `make deploy`/`restart` now
