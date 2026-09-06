@@ -1,5 +1,7 @@
 #agent-clis-view .settings-wrap.wide { width: 100%; max-width: 1240px; }
 #agent-clis-view .settings-card { padding: 0; overflow: visible; }
+/* Sessions (ADR-0079) render inside the paddingless Agent CLIs card. */
+#agent-clis-view > .settings-wrap > .settings-card > #sessions-view { padding: 16px 24px 24px; }
 .cli-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); padding: 0 24px; }
 .cli-tabs a { padding: 16px 0 12px; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; }
 .cli-tabs a[aria-current] { color: var(--text-primary); border-color: var(--accent); }

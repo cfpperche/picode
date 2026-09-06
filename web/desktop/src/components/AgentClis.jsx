@@ -10,6 +10,7 @@ import { cliLocation, launchDraft, launchConfig, editLaunchOverrides, resolveLau
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
+import SessionsView from "./SessionsView.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
@@ -23,7 +24,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false }) {
+export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -47,7 +48,10 @@ export default function AgentClis({ hidden = false }) {
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (!hidden && hash === "#/preferences/status") location.replace("#/clis");
+    if (hidden) return;
+    if (hash === "#/preferences/status") location.replace("#/clis");
+    // ADR-0079: the old top-level sessions route moved under Agent CLIs.
+    if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash]);
   useEffect(() => {
     if (hidden) return;
@@ -80,13 +84,25 @@ export default function AgentClis({ hidden = false }) {
     } catch { /* toast from run */ }
   };
 
+  const sessionsWs = route.view === "sessions" && route.id && data ? data.workspaces.find((w) => w.id === route.id) : undefined;
+
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
     <nav className="cli-tabs" aria-label="Agent CLIs">
-      <a href="#/clis" aria-current={route.view !== "terminals" ? "page" : undefined}>CLIs</a>
+      <a href="#/clis" aria-current={route.view !== "terminals" && route.view !== "sessions" ? "page" : undefined}>CLIs</a>
       <a href="#/clis/terminals" aria-current={route.view === "terminals" ? "page" : undefined}>Terminals</a>
+      <a href="#/clis/sessions" aria-current={route.view === "sessions" ? "page" : undefined}>Sessions</a>
     </nav>
-    {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
-    {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
+    {error && route.view !== "sessions" ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
+    {!data && !error && route.view !== "sessions" ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
+    {route.view === "sessions" ? <SessionsView
+      embedded
+      wsId={route.id || ""}
+      workspace={sessionsWs}
+      agents={(sessionsWs && sessionsWs.agents) || []}
+      workspaces={data ? data.workspaces : []}
+      onOpenAgent={onOpenAgent}
+      onCompactAgent={onCompactAgent}
+    /> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
       <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={"#/clis/" + c.id} aria-current={c.id === selected.id ? "page" : undefined}>

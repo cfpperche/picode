@@ -255,7 +255,7 @@ export function readInspectorPrefs(storage = safeStorage()) {
     const w = parseInt((storage && storage.getItem(WIDTH_KEY)) || "", 10);
     if (Number.isFinite(w)) width = clampInspectorWidth(w);
     const t = storage && storage.getItem(TAB_KEY);
-    tab = t === "files" ? "files" : "changes";
+    tab = t === "files" || t === "pr" ? t : "changes";
   } catch { /* private mode, quota — defaults are fine */ }
   return { open, width, tab };
 }
@@ -265,6 +265,59 @@ export function writeInspectorPrefs(prefs, storage = safeStorage()) {
   try {
     if (prefs.open === true || prefs.open === false) storage.setItem(OPEN_KEY, prefs.open ? "1" : "0");
     if (Number.isFinite(Number(prefs.width))) storage.setItem(WIDTH_KEY, String(clampInspectorWidth(prefs.width)));
-    if (prefs.tab === "files" || prefs.tab === "changes") storage.setItem(TAB_KEY, prefs.tab);
+    if (prefs.tab === "files" || prefs.tab === "changes" || prefs.tab === "pr") storage.setItem(TAB_KEY, prefs.tab);
   } catch { /* preference is optional */ }
+}
+
+// --- Pull request tab (ADR-0078, phase 2) --------------------------------
+
+// prTabLabel: the tab names the number once gh has answered (Paseo's
+// "PR #3981"); every other state stays a plain "PR".
+export function prTabLabel(page) {
+  const n = page && page.status === "ok" && page.pr && page.pr.number;
+  return n ? `PR #${n}` : "PR";
+}
+
+// prStateLabel: one word for the pill — Draft wins over Open.
+export function prStateLabel(pr) {
+  if (!pr) return "";
+  if (pr.draft) return "Draft";
+  const s = String(pr.state || "").toLowerCase();
+  return s === "open" ? "Open" : s === "merged" ? "Merged" : s === "closed" ? "Closed" : s ? s[0].toUpperCase() + s.slice(1) : "";
+}
+
+// prChecksLabel: "2 passed · 1 failed · 1 pending" — zero groups are silent,
+// and no checks at all says so instead of printing a row of zeros.
+export function prChecksLabel(checks) {
+  if (!checks || !Number(checks.total)) return "No checks";
+  const parts = [];
+  if (checks.failed) parts.push(`${checks.failed} failed`);
+  if (checks.pending) parts.push(`${checks.pending} pending`);
+  if (checks.passed) parts.push(`${checks.passed} passed`);
+  if (checks.skipped) parts.push(`${checks.skipped} skipped`);
+  return parts.join(" · ");
+}
+
+// prReviewLabel: GitHub's reviewDecision in the words a person uses.
+export function prReviewLabel(decision) {
+  switch (String(decision || "").toUpperCase()) {
+    case "APPROVED": return "Approved";
+    case "CHANGES_REQUESTED": return "Changes requested";
+    case "REVIEW_REQUIRED": return "Review required";
+    default: return "No review yet";
+  }
+}
+
+// prBlockedAction: which single action a blocked state offers. gh missing →
+// the install page; not logged in → a terminal with the login typed; a
+// folder without a GitHub remote has nothing PiCode can do; anything else
+// retries.
+export function prBlockedAction(reason) {
+  switch (reason) {
+    case "gh-missing": return "install";
+    case "gh-unauth": return "login";
+    case "no-remote":
+    case "no-git": return "";
+    default: return "retry";
+  }
 }

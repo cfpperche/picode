@@ -1,8 +1,8 @@
 # ADR-0078: An Inspector rail follows the selected tab's owner and opens content in the center
 
-- **Status**: proposed (the owner approved the plan on 2026-09-05: docs and
-  the read-only rail ship now; the PR and Commit phases below are designed,
-  not approved)
+- **Status**: accepted (the owner accepted the shipped rail on 2026-09-05 and
+  approved the PR tab; the Commit phase below is designed, with the owner's
+  decision pending)
 - **Date**: 2026-09-05
 - **Amends**: ADR-0074's placement of the inspector inside the folder tab;
   the visual anatomy's "one center surface, one dock"
@@ -77,9 +77,30 @@ under 640 px; the wish to have it open survives the squeeze. `Ctrl+.`
 (`Cmd+.`), a tab-strip button and a palette action toggle it. The ≤767 px
 column shell never shows it; mobile is untouched.
 
-The rail is the host for later right-hand panels — PR, the browser
-preview's last capture, search, tasks. One rail, never two asides. With
-four or more tabs it switches to the sidebar's icon idiom.
+A third tab, **PR**, reads the pull request of the anchor's branch through
+the host's `gh`: `GET /api/{agents|terminals|workspaces}/{id}/pr?root=`
+resolves the cwd through the owner, keeps the root precondition, and answers
+200 with one of `ok` (number, title, state, draft, review decision, checks
+folded into passed/failed/pending/skipped with the failing names, head and
+base, `+N −M`, files, author, updated), `none` (no pull request for the
+branch) or `blocked` (`gh-missing`, `gh-unauth`, `no-remote`, `no-git`,
+`gh-timeout`, `gh-error`) — states, as `gitstatus` treats "no repository".
+Answers are cached for a minute per folder and branch; the rail's Refresh
+bypasses the cache; nothing polls GitHub in the background. PiCode never
+holds a token (ADR-0034): gh's own login is the credential, and the tab
+label carries the number (`PR #3981`) once gh has answered.
+
+Creating a pull request or logging in stays a terminal act. The empty and
+not-logged-in states offer one action that pre-types `gh pr create --fill`
+or `gh auth login` into the owner's terminal — the terminal itself when the
+anchor is one, otherwise a new terminal born in the anchored folder —
+through `POST /api/terminals/{id}/type`, which sends literal keystrokes
+(`tmux send-keys -l`) and never Enter. Control characters, newlines,
+leading dashes and long texts are refused. The human reads and submits.
+
+The rail is the host for later right-hand panels — the browser preview's
+last capture, search, tasks. One rail, never two asides. With four or more
+tabs it switches to the sidebar's icon idiom.
 
 ## Decision table and acceptance
 
@@ -110,6 +131,12 @@ four or more tabs it switches to the sidebar's icon idiom.
 | Drag or arrow keys on the sizer | Width clamped to 260–max and persisted on release | `resizeEdge.test.js`; browser QA |
 | Reload | Open state, width and tab restored | browser QA |
 | Overlay audit, aligned rows, both themes | `ok: true`; screenshots read | browser QA |
+| PR: gh answers a pull request | Card with number, state, review, checks, `+N −M`; tab reads `PR #n` | `TestPRPageStatesThroughFakeGh`; browser QA (fake gh) |
+| PR: no pull request for the branch | "No pull request for `branch`. Create in terminal" pre-types `gh pr create --fill` | `TestPRPageStatesThroughFakeGh`; browser QA |
+| PR: gh missing / not logged in / no GitHub remote | One line each; Get gh · Log in from a terminal · no action | `TestPRPageWithoutGhOrGit`, `TestPRPageStatesThroughFakeGh`; browser QA |
+| PR: same folder and branch within a minute | Cached answer; Refresh asks gh again | `TestPRPageStatesThroughFakeGh` |
+| PR: root mismatch | 409, like every other owner read | `TestPRRouteThroughOwnersWithRoot` |
+| Type into a terminal | Literal keystrokes, no Enter; control characters, newlines, leading dash, >2000 chars refused | `TestTypeTextProblem`, `TestTerminalTypeRouteRefusesBadInput`; browser QA |
 
 Browser acceptance runs against an isolated fixture whose picode workspace
 is a seeded dirty repository. Evidence lands in `docs/screenshots/`
@@ -152,32 +179,42 @@ and the per-turn `+N −M` footer beside the conversation.
 | Mobile | ADR-0044/0072: supervision surfaces only |
 | A hash route for the rail | Per-viewer state, like the sidebar width and `termView` |
 
-## Later phases, designed and pending the owner's decision
+## Commit / Commit & Push — designed, pending the owner's decision
 
-**Phase 2 — PR, read-only through the host's `gh`.**
-`GET /api/{agents|terminals|workspaces}/{id}/pr?root=` resolves the cwd
-through the owner, checks the root, then: no `gh` on PATH →
-`{status:"blocked", reason:"gh-missing"}`; `gh auth status` failing →
-`{status:"blocked", reason:"gh-unauth"}`; `gh pr view --json …` in that
-cwd → `{status:"ok", pr}` or `{status:"none", branch}`. States are 200, as
-`gitstatus` treats "no repository". A 60 s cache per repository and branch;
-no background poller against GitHub. The tab reads `PR #n`; the empty state
-offers "Create in terminal", which types `gh pr create --fill` into the
-owner's terminal without pressing Enter (a literal `tmux send-keys -l`
-route, new). PiCode never stores a token and never creates a PR itself
-(door, not cage).
+What the benchmarks do, and why it is easy for them: Paseo puts `Commit ▾`
+in the top bar, t3code puts `Stage all / Unstage all`, a message box and
+`Commit` / `Commit & Push` in the rail, Orca keeps git behind its Git tab,
+and Cursor ships VS Code's source-control panel (observations of shipped
+UI; the internals are inference). In all of them the unit of isolation is
+**one worktree per task or workspace** — the "checkout-flow-v2 ·
+feature/checkout-flow-v2" rows in Orca, "main (unpublished)" in t3code —
+so "who else is writing this tree right now" has a trivial answer: nobody.
+A one-click app-side commit is safe there by construction. PiCode's unit is
+an agent that *has* a cwd (ADR-0011, ADR-0073): several agents and
+terminals may share one folder, which is exactly why ADR-0022, 0032, 0038
+and 0073 refused writes with one sentence — nothing interlocks a write
+against an agent mid-turn.
 
-**Phase 3 — Commit / Commit & Push.** Two designs. (a) The rail types
-`git add -A && git commit -m '…'` (and `&& git push`) into the owner's
-terminal, unsubmitted: the human presses Enter where they can see it, PiCode
-writes no git, and the four ADRs' sentence stays true. (b) A server-side
-commit behind an interlock: refused with 409 while any agent whose cwd
-resolves to the same repository is mid-turn (runtime streaming, TUI
-working, automation run) or a terminal there is working; then `git add -A`,
-`git commit`, optional push behind a second confirmation, a `git.updated`
-publish and a toast naming the exact command. Honest limit: the interlock
-is advisory over the commit's own duration and sees only PiCode-known
-agents. The mechanics are chosen after the first dogfood.
+Three ways to add a commit action, from least to most change:
+
+| | (a) Pre-typed in the terminal | (b) Server-side commit with an interlock | (c) Typed and submitted in the terminal, gated by the interlock |
+|---|---|---|---|
+| Who runs git | The user's shell, on Enter | The PiCode service process | The user's shell, Enter pressed by PiCode when idle |
+| One click | No — form, then Enter in the terminal | Yes | Yes when idle; falls back to (a) when an agent is mid-turn |
+| Interlock | The human, looking at the terminal | Advisory 409 over PiCode-known agents and terminals; a race of milliseconds remains | Same interlock, but only gates the Enter — a busy tree still gets the command typed |
+| Hooks, signing, credentials | Whatever the user's shell has: gpg pinentry, ssh-agent, credential helpers | The systemd service's environment — no ssh-agent socket, no pinentry, prompts must be disabled (`GIT_TERMINAL_PROMPT=0`); push is the first thing to fail here | The user's shell again |
+| Inspectable | The command sits in the prompt | A toast names the command after the fact | The command scrolls by in the terminal |
+| ADRs superseded | None | 0022:111, 0032:76, 0038:106, 0073:106 for this one write | None superseded; the refusals' sentence is answered by the interlock |
+| New server surface | `type` route (shipped with the PR tab) | `POST …/git/commit` and the interlock | `type` route plus an Enter variant behind the interlock |
+| Benchmark parity | Paseo/t3code have one click; this has two steps | Full | Full when idle |
+
+Recommendation: (c) if one-click parity matters, (a) if not. (b) is the
+only design that moves git writes into the service process, and the
+environment gap (ssh-agent, pinentry) makes push fail precisely where the
+terminal succeeds. Whichever is chosen, staging stays "all" in the first
+version, the message is a Zod-validated form, push sits behind a second
+confirmation, and the interlock's limits are written into the ADR that
+adopts it.
 
 ## Alternatives considered
 

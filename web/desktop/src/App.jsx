@@ -80,8 +80,7 @@ import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
 import { anchorFor, readInspectorPrefs, writeInspectorPrefs } from "./lib/inspector.js";
-import { sessionsHash, sessionsRoute } from "./lib/routes.js";
-import SessionsView from "./components/SessionsView.jsx";
+import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
 import WhatsNew from "./components/WhatsNew.jsx";
@@ -971,6 +970,35 @@ export default function App() {
     setGoneId("");
     setSelectedId(id);
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
+  }
+
+  // The Inspector's PR tab pre-fills a gh command in a terminal the human
+  // submits themselves (ADR-0078): the owner's own terminal when it is one,
+  // otherwise a new terminal born in the anchored folder.
+  async function typeIntoTerminal(owner, root, command) {
+    if (!owner || !command) return;
+    try {
+      let tid = owner.kind === "term" ? owner.id : "";
+      if (!tid) {
+        const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
+        const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
+        const page = await api("/api/terminals", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "gh", cwd: root || "", workspaceId: wsId }),
+        });
+        setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
+        tid = page.id;
+      }
+      const fresh = owner.kind !== "term";
+      await openTermTab(tid);
+      // A shell born this instant has not drawn its prompt yet; keystrokes
+      // that arrive before it echo twice. Give it a beat before typing.
+      if (fresh) await new Promise((resolve) => setTimeout(resolve, 900));
+      await api("/api/terminals/" + encodeURIComponent(tid) + "/type", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: command }),
+      });
+    } catch (err) { toastError(err); }
   }
 
   function provisionalGitId(kind, ownerId) {
@@ -2185,8 +2213,6 @@ export default function App() {
   }
 
   const onPane = route !== "workspace";
-  const sessionsWsId = route === "sessions" ? sessionsRoute() : null;
-  const sessionsWs = sessionsWsId ? workspaces.find((w) => w.id === sessionsWsId) : null;
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
@@ -2599,23 +2625,13 @@ export default function App() {
         </div>
 
         <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
-        <AgentClis hidden={route !== "clis"} />
+        <AgentClis hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
-        {route === "sessions" ? (
-          <SessionsView
-            wsId={sessionsWsId}
-            workspace={sessionsWs}
-            agents={(sessionsWs && sessionsWs.agents) || []}
-            workspaces={workspaces}
-            onOpenAgent={(id) => revealAgent(id)}
-            onCompactAgent={compactAgentById}
-          />
-        ) : null}
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}
@@ -2689,6 +2705,7 @@ export default function App() {
         onOpenDiff={(o, path) => openFileTab(o.kind, o.id, path, "diff")}
         onOpenGraph={(o, name) => openGitTab(o.kind, o.id, name)}
         onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
+        onOpenTerminal={typeIntoTerminal}
         onChanges={setInspectorChanged}
       />
 

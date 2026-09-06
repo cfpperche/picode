@@ -4,7 +4,9 @@
 // and an installed Playwright module via PICODE_QA_CDP / PICODE_PLAYWRIGHT_MODULE.
 // No app dependency added. Refuses real workspace paths: the fixture's
 // synthetic picode workspace is a seeded dirty repository, and this runner
-// only edits files there and only starts one disposable fixture terminal.
+// only edits files there and only starts disposable fixture terminals. Set
+// PICODE_QA_GH_MODE_FILE when the fixture runs with the scripted gh (see
+// docs/screenshots/README.md) to drive every PR state.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -208,6 +210,75 @@ try {
     await page.getByRole('menuitem', { name: 'Reveal folder' }).waitFor({ state: 'hidden' });
     await page.getByRole('menuitem', { name: 'Open as tab' }).waitFor({ state: 'hidden' }).catch(() => {});
   });
+  // PR tab (ADR-0078 phase 2). The fixture's gh decides the state: with
+  // PICODE_QA_GH_MODE_FILE the runner drives a scripted gh through ok → none
+  // → unauth; otherwise it asserts that the rail mirrors whatever the server
+  // answers for this machine's gh.
+  const modeFile = process.env.PICODE_QA_GH_MODE_FILE || '';
+  const setMode = async (mode) => {
+    writeFileSync(modeFile, mode + '\n');
+    await rail().getByRole('button', { name: 'Refresh', exact: true }).click();
+    await delay(400);
+  };
+  const prTab = () => rail().getByRole('tab', { name: /^PR/ });
+  await check('g12 the PR tab mirrors gh: card, no-PR action or the blocked line', async () => {
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await prTab().waitFor();
+    if (modeFile) await setMode('ok');
+    await prTab().click();
+    const expected = await api(`/api/agents/${atlas.id}/pr`);
+    if (expected.status === 'ok') {
+      await rail().locator('.insp-pr').waitFor();
+      assert.equal(await prTab().innerText(), `PR #${expected.pr.number}`);
+      assert.match(await rail().locator('.insp-pr-title').innerText(), new RegExp(expected.pr.title.slice(0, 16)));
+      assert.match(await rail().locator('.insp-pr-facts').innerText(), /failed|passed|No checks/);
+      await shot('inspector-pr-open-dark');
+    } else if (expected.status === 'none') {
+      await rail().getByText(/No pull request for/).waitFor();
+      await rail().getByRole('button', { name: 'Create in terminal', exact: true }).waitFor();
+      await shot('inspector-pr-none-dark');
+    } else {
+      await rail().getByText(expected.message).waitFor();
+      assert.equal(await prTab().innerText(), 'PR');
+      await shot('inspector-pr-blocked-dark');
+    }
+  });
+  if (modeFile) {
+    await check('g13 "Create in terminal" pre-types the gh command and never submits it', async () => {
+      await setMode('none');
+      await rail().getByText(/No pull request for/).waitFor();
+      assert.equal(await prTab().innerText(), 'PR');
+      await shot('inspector-pr-none-dark');
+      const termList = (j) => (Array.isArray(j) ? j : (j && j.terminals) || []);
+      const before = new Set(termList(await api('/api/terminals')).map((t) => t.id));
+      await rail().getByRole('button', { name: 'Create in terminal', exact: true }).click();
+      await page.waitForFunction(() => /^#\/term\//.test(location.hash));
+      const created = termList(await api('/api/terminals')).find((t) => !before.has(t.id));
+      assert.ok(created, 'a terminal was created in the anchored folder');
+      assert.equal(created.cwd, root);
+      let pane = '';
+      for (let i = 0; i < 20 && !pane.includes('gh pr create --fill'); i++) {
+        await delay(300);
+        pane = execFileSync('tmux', ['capture-pane', '-p', '-t', created.session + ':'], { encoding: 'utf8' });
+      }
+      assert.match(pane, /gh pr create --fill/);
+      assert.ok(!/Creating pull request|error|not found/i.test(pane), 'the command was typed, not run');
+      await shot('inspector-pr-create-typed-dark');
+      await fetch(base + '/api/terminals/' + created.id, { method: 'DELETE' });
+      await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+      await prTab().waitFor();
+      await setMode('unauth');
+      await prTab().click();
+      await rail().getByText('GitHub CLI is not logged in.').waitFor();
+      await rail().getByRole('button', { name: 'Log in from a terminal', exact: true }).waitFor();
+      await shot('inspector-pr-unauth-dark');
+      await setMode('noremote');
+      await rail().getByText('This folder has no GitHub remote.').waitFor();
+      assert.equal(await rail().locator('.insp-msg button').count(), 0, 'no remote offers nothing PiCode can do');
+      await shot('inspector-pr-noremote-dark');
+      await setMode('ok');
+    });
+  }
   assert.deepEqual(errors, [], 'no page errors');
   evidence.result = 'PASS';
 } catch (error) {

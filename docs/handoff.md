@@ -5,15 +5,18 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+07cc806`) carries today's
+**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, proposed until the owner accepts), bounded
+desktop Inspector rail (ADR-0078, accepted by the owner) with its **PR tab**
+(phase 2, merged and deployed as `9a7691a5`), bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
 reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
-Pi-only; coding CLIs are terminals. No push was made. Preserve the
+Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
+(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
+No push was made. Preserve the
 unrelated root `.pi/compact.json`. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
 capture acceptance remain pending, so deployment does not enable browser
@@ -33,20 +36,25 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+39eb181`, health `ok`, boot
-`d11bb0fd6c75f608`. `make deploy` restarted systemd; all 48 baseline tmux pane
-identities survived. Live check: the redesigned custom-connector dialog renders
-its labeled groups (transport, sign-in, headers) with no hidden controls —
-verified read-only, nothing created. Evidence: `var/custom-dialog-deploy/`;
-private SQLite and previous-binary backups are in its `recovery/` folder.
-**Quality:** `make ci` passed three times — on the feature tree, after the
-first main merge (with regenerated captures) and on the final merged tree —
-including Go tests, 700 frontend/package tests, both UI builds, the embedded
-binary, docs parity (`app-inspector` added) and Vale. Browser acceptance:
-`scripts/qa-inspector.mjs` 11/11 groups on an isolated fixture
-(`docs/screenshots/inspector-qa.json`), 11 screenshots plus the live shell
-read, overlay/row audits ok. visual-review: PASS. The docs fixture and QA
-browser sessions are closed.
+**Last application deployment:** `0.1.0+9a41241`, health `200`. `make
+deploy` restarted systemd with the ADR-0079 sessions merge; the live
+desktop serves the Agent CLIs surface with the new **Sessions** tab —
+`#/clis/sessions` renders the machine-wide view (345 sessions grouped by
+folder, in-use badges, Open with…/Compact/Delete) and old `#/sessions*`
+links redirect (screenshots read). Earlier `0.1.0+9a7691a` deployment
+notes: desktop bundle `index-BZJ2lZOW.js` (served and built hashes match);
+the seven terminal records survived; the live `…/pr` route, through
+the machine's real `gh`, answers `none` for the `glm5` agent on `main`, and
+the rail's PR tab shows "No pull request for main" with **Create in
+terminal**; nothing was typed into a production terminal.
+**Quality:** `make ci` passed on the PR-tab tree (Go tests including the
+scripted-gh suite, 700 frontend/package tests, both UI builds, embedded
+binary, docs parity with regenerated captures, Vale after fixing one
+repetition). Browser acceptance: `scripts/qa-inspector.mjs` 13/13 groups on a
+fixture whose PATH carried a scripted `gh` (`docs/screenshots/inspector-qa.json`);
+`inspector-pr-*` screenshots read, overlay/row audits ok, the pre-typed
+command's prompt echo fixed and re-read. visual-review: PASS. Fixtures and
+QA browser sessions are closed; the feature worktree and branch are removed.
 
 ### Product and platform
 
@@ -60,7 +68,10 @@ browser sessions are closed.
   terminal moved to … Follow". Width/open/tab are per-viewer localStorage;
   open by default at ≥1440px; shrinks before it hides and never leaves the
   conversation under 640px. `gitstatus` now carries `add`/`del`/`binary`,
-  `totals`, `branch` and `worktree`.
+  `totals`, `branch` and `worktree`. The **PR** tab reads the branch's pull
+  request through the host's `gh` (`GET …/pr`, states in 200, a minute cache,
+  no background poller, no token in PiCode) and pre-types `gh pr create --fill`
+  / `gh auth login` into the owner's terminal for the human to submit.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -145,7 +156,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Scope provider OAuth/marketplace acceptance only if the owner requests it;
+1. **Sessions phase 2 (ADR-0079)**: per-CLI session sources —
+   `internal/clisession` with a `Source` per CLI (pi wraps the existing
+   package; claude-code reads `~/.claude/projects`; codex reads
+   `~/.codex/sessions`; grok needs verified evidence first),
+   `GET /api/clis/{id}/sessions(+transcript)`, per-CLI filter and search on
+   `#/clis/sessions`, and "Open in terminal" resume actions for non-Pi
+   sessions. Chat replay stays Pi-only. Decide then whether
+   `/api/sessions/all` and `/api/pi-sessions` become deprecated aliases.
+2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
    belong only in `web/mobile`.
@@ -159,10 +178,10 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
-9. After a few days of Inspector dogfood, decide its later phases (ADR-0078
-   designs both, neither approved): a read-only **PR** tab through the host's
-   `gh`, and **Commit / Commit & Push** — pre-typed into the owner's terminal,
-   or server-side behind an interlock. Accept or amend ADR-0078 then.
+9. Decide the Inspector's **Commit / Commit & Push** mechanics. ADR-0078
+   compares three designs against the benchmarks (pre-typed in the terminal;
+   server-side behind an interlock; typed and submitted in the terminal, gated
+   by the interlock) and recommends the third if one-click parity matters.
 
 ## Known debts / open questions
 
@@ -201,8 +220,10 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   live facts, not on a watcher (a per-anchor watch lease is the fallback);
   the This-agent scope chips show only while the agent's own tab is selected;
   the sizer idiom is still copied in Sidebar and FileTreeSurface; the per-turn
-  `+N −M` footer beside the conversation is not drawn. ADR-0078 may be
-  renumbered at merge — `feat/pi-diff` also holds an unmerged 0076.
+  `+N −M` footer beside the conversation is not drawn. PR tab: `gh pr view`
+  runs with a 15 s timeout and answers are cached a minute per folder and
+  branch, so a merge on GitHub shows on the next Refresh or anchor change,
+  not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
 
@@ -214,7 +235,31 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   adapter's own config loader was verified to resolve `disabled: true` after
   OFF and the enabled entry after ON. `make ci` passed.
 
-
+- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079); merged and
+  deployed.** Desktop
+  `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as
+  the third tab of the Agent CLIs surface; sidebar icon, dashboard top
+  sessions and user menu emit the new hashes and old deep links redirect.
+  UI-only phase 1: no API change. `make ci` green on the feature tree, on
+  main after the merge (main had moved — reconciled with the Inspector PR
+  tab and connector-dialog commits) and on the final tree; docs captures
+  regenerated twice through the pipeline. Live check after deploy: the real
+  instance renders the tab with 345 real sessions, in-use badges and
+  working redirects. visual-review: PASS (empty, loaded, workspace-scoped,
+  error and Open-with overlay states read; overlayAudit ok).
+- **2026-09-05 — Inspector PR tab (ADR-0078 phase 2).** `internal/server/pr.go`
+  (`GET …/pr` for agents/terminals/workspaces through the host's `gh`, states
+  in 200, minute cache, `?refresh=1`; `POST /api/terminals/{id}/type` literal
+  keystrokes) with Go tests on a scripted `gh` (unauth, none, no remote, ok
+  with folded checks, cache/refresh, missing gh, plain folder, owner routes
+  with root, type refusals); `tmux.TypeText`; `InspectorPR.jsx` +
+  `usePullRequest`; PR label helpers in `lib/inspector.js` (16 node tests).
+  Browser QA on a fixture whose PATH carries a scripted `gh`:
+  `scripts/qa-inspector.mjs` 13/13 groups; `inspector-pr-*` screenshots read,
+  audits ok. visual-review: PASS. ADR-0078 marked accepted with the owner's
+  approval; its Commit section now compares three designs with the benchmarks.
+  Fast-forwarded main (no drift this time) and deployed `9a7691a5`; served
+  bundle `index-BZJ2lZOW.js`, seven terminals survived. No push.
 - **2026-09-05 — Custom connector dialog redesign merged and deployed.**
   Reconciled clean (main had not moved); combined `make ci` passed; deployed
   `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48
@@ -227,6 +272,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   apps. `make ci` passed. Isolated-daemon E2E: URL variant groups, OAuth hint,
   Command variant with env pair added a real server; desktop/mobile screenshots
   read, audits ok. visual-review: PASS (`custom-dialog-*.png`).
+
 
 - **2026-09-05 — Worktree-scoped asset previews fixed and deployed
   (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and

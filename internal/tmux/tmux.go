@@ -287,6 +287,20 @@ func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) err
 	return err
 }
 
+// TypeText types text into the session's pane as literal keystrokes — no key
+// names, no Enter (ADR-0078): the rail pre-fills a command that the human
+// reads and submits in a terminal they can see.
+func (m *Manager) TypeText(ctx context.Context, name, text string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("tmux type: empty session name")
+	}
+	if text == "" {
+		return nil
+	}
+	_, err := m.run(ctx, "send-keys", "-l", "-t", name+":", text)
+	return err
+}
+
 // PasteText inserts text into the session's pane as a bracketed paste
 // (ADR-0060 reply fallback): the target editor inserts it wholesale, so no
 // keybinding fires and newlines stay literal, then presses Enter to submit.

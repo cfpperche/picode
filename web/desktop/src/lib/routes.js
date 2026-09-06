@@ -1,4 +1,6 @@
 // Hash routes. Preferences is PiCode-the-product. Settings is pi (ADR-0012).
+// Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
+// cliLocation in @picode/shared/domain/cliLaunch.js.
 export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
@@ -13,7 +15,6 @@ export const ROUTES = {
   pins: "/pins",
   termset: "/termset",
   automations: "/automations",
-  sessions: "/sessions/:id",
 };
 
 export function parseRoute(hash) {
@@ -30,7 +31,9 @@ export function parseRoute(hash) {
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
-  if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "sessions";
+  // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
+  // redirects the hash to #/clis/sessions* (ADR-0079).
+  if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
@@ -61,13 +64,15 @@ export function termHash(id) {
   return id ? "#/term/" + encodeURIComponent(id) : "#/";
 }
 
+// Sessions live under Agent CLIs (ADR-0079): machine-wide is
+// #/clis/sessions, one folder's view is #/clis/sessions/<workspaceId>.
 export function sessionsHash(wsId) {
-  return wsId ? "#/sessions/" + encodeURIComponent(wsId) : "#/";
+  return wsId ? "#/clis/sessions/" + encodeURIComponent(wsId) : "#/clis/sessions";
 }
 
 export function sessionsRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  const m = /^\/sessions\/([^/]+)$/.exec(h);
+  const m = /^\/clis\/sessions\/([^/]+)$/.exec(h);
   if (!m) return null;
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
@@ -171,8 +176,8 @@ export function providersLlama(hash) {
 
 export function go(name, agentId) {
   if (name === "sessions") {
-    // Machine-wide view; the per-workspace one is #/sessions/<id>.
-    location.hash = "#/sessions";
+    // Machine-wide view (ADR-0079); the per-workspace one is #/clis/sessions/<id>.
+    location.hash = "#/clis/sessions";
     return;
   }
   if (typeof name === "string" && name.startsWith("preferences")) {

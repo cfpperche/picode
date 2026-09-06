@@ -1,5 +1,5 @@
 {
-  "base": "http://127.0.0.1:18752",
+  "base": "http://127.0.0.1:18753",
   "checks": [
     "g1 agent anchor lists the working tree with counts and totals",
     "g2 a change opens the file tab in Diff view; Open file swaps to the editor",
@@ -11,7 +11,9 @@
     "g8 the rail shrinks before it hides and never squeezes the conversation under 640px",
     "g9 a terminal anchor pins its root; a cd elsewhere is a blocked line with Follow",
     "g10 a folder without git keeps Files and says so; no anchor is one line",
-    "g11 the More menu opens inside the viewport and lists its actions"
+    "g11 the More menu opens inside the viewport and lists its actions",
+    "g12 the PR tab mirrors gh: card, no-PR action or the blocked line",
+    "g13 \"Create in terminal\" pre-types the gh command and never submits it"
   ],
   "screenshots": [
     "inspector-changes-dark.png",
@@ -24,7 +26,12 @@
     "inspector-blocked-terminal-moved-dark.png",
     "inspector-nongit-dark.png",
     "inspector-no-anchor-dark.png",
-    "inspector-more-menu-dark.png"
+    "inspector-more-menu-dark.png",
+    "inspector-pr-open-dark.png",
+    "inspector-pr-none-dark.png",
+    "inspector-pr-create-typed-dark.png",
+    "inspector-pr-unauth-dark.png",
+    "inspector-pr-noremote-dark.png"
   ],
   "audits": [
     {
@@ -538,6 +545,223 @@
           "tops": [
             82,
             82
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-pr-open-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-pr-none-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-pr-create-typed-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-pr-unauth-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-pr-noremote-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6
           ]
         }
       ],

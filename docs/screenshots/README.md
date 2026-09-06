@@ -27,7 +27,13 @@ as a center Diff tab, Files with the light theme and the empty filter, the
 empty This-agent scope, the blocked terminal with Follow, the non-git folder,
 the no-anchor line, the More menu and the shrunk/narrow layouts. All were read;
 overlay and row audits passed. The data is the seeded docs fixture; the
-acceptance groups are recorded in `inspector-qa.json`.
+acceptance groups are recorded in `inspector-qa.json`. `inspector-pr-*` adds
+the PR tab (ADR-0078 phase 2): the open pull request card, the no-PR line with
+**Create in terminal**, the terminal with `gh pr create --fill` pre-typed and
+unsubmitted, the not-logged-in and no-remote lines. Those states come from a
+scripted `gh` first on the fixture's PATH (`FAKE_GH_MODE_FILE` selects `ok`,
+`none`, `unauth`, `noremote`; `FAKE_GH_JSON` is the `pr view` answer); the
+runner drives it when `PICODE_QA_GH_MODE_FILE` names that file.
 
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector
