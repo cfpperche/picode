@@ -19,7 +19,7 @@ import InspectorChanges from "./InspectorChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
 import InspectorCommitDialog from "./InspectorCommitDialog.jsx";
-import { IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
+import { IconCheck, IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 
@@ -83,6 +83,7 @@ export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
   tab, onTab, width, maxWidth, onWidth, onToggle, activePath,
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
+  runMode, onRunMode,
 }) {
   const anchorKind = anchor ? anchor.kind : "";
   const anchorId = anchor ? anchor.id : "";
@@ -313,7 +314,7 @@ export default function Inspector({
   // submits it there (ADR-0078). Nothing here runs git.
   const runGit = (action) => {
     if (!onOpenTerminal || !owner) return;
-    onOpenTerminal(owner, root, gitActionCommand(action, { branch: status.branch, upstream: status.upstream }));
+    onOpenTerminal(owner, root, gitActionCommand(action, { branch: status.branch, upstream: status.upstream }), { run: !!runMode });
   };
   function onTabKey(e) {
     if (order.length < 2 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
@@ -360,6 +361,16 @@ export default function Inspector({
                   {pull.page && pull.page.status !== "ok" ? <>
                     <DropdownMenu.Separator className="um-divider" />
                     <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pr")}><span>Create pull request</span><span className="insp-menu-cmd">gh pr create --fill</span></DropdownMenu.Item>
+                  </> : null}
+                  {onRunMode ? <>
+                    <DropdownMenu.Separator className="um-divider" />
+                    {/* Stage 2 (ADR-0078): PiCode presses Enter only when the
+                        interlock finds nobody else writing this repository;
+                        otherwise the command is prepared as before. */}
+                    <DropdownMenu.CheckboxItem className="composer-more-item insp-menu-check" checked={!!runMode} onCheckedChange={(v) => onRunMode(!!v)}>
+                      <span className="insp-menu-tick" aria-hidden="true"><DropdownMenu.ItemIndicator><IconCheck size={12} /></DropdownMenu.ItemIndicator></span>
+                      <span>Run when no agent is working here</span>
+                    </DropdownMenu.CheckboxItem>
                   </> : null}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
@@ -455,9 +466,9 @@ export default function Inspector({
         )}
       </div>
       <InspectorCommitDialog
-        open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={status}
+        open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={status} run={!!runMode}
         onClose={() => setCommitDialog(null)}
-        onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, root, command); }}
+        onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, root, command, { run: !!runMode }); }}
       />
     </aside>
   );

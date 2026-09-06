@@ -7,7 +7,7 @@ import { gitActionCommand } from "../lib/inspector.js";
 // git: it composes `git add -A && git commit -m '…'` (and a push) from a
 // one-line, Zod-validated message and hands the exact command to the
 // owner's terminal, where the human reads it and presses Enter.
-export default function InspectorCommitDialog({ open, push, status, onClose, onPrepare }) {
+export default function InspectorCommitDialog({ open, push, status, run = false, onClose, onPrepare }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef(null);
@@ -35,7 +35,7 @@ export default function InspectorCommitDialog({ open, push, status, onClose, onP
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg insp-commit-dlg" onOpenAutoFocus={(e) => { e.preventDefault(); inputRef.current?.focus(); }}>
           <Dialog.Title className="dlg-title">{push ? "Commit and push" : "Commit"}</Dialog.Title>
-          <Dialog.Description className="dlg-body">The command opens in your terminal with this message; you press Enter to run it.</Dialog.Description>
+          <Dialog.Description className="dlg-body">{run ? "The command runs in your terminal when no agent is working here; otherwise it is prepared for you to press Enter." : "The command opens in your terminal with this message; you press Enter to run it."}</Dialog.Description>
           <form noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
             <input
               ref={inputRef}
@@ -52,7 +52,7 @@ export default function InspectorCommitDialog({ open, push, status, onClose, onP
             <p className="insp-commit-preview"><code className="insp-code">{preview}</code></p>
             <div className="dlg-actions">
               <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm">Prepare in terminal</button>
+              <button type="submit" className="btn btn-primary btn-sm">{run ? "Run in terminal" : "Prepare in terminal"}</button>
             </div>
           </form>
         </Dialog.Content>

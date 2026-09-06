@@ -13,6 +13,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
+  menu gains a per-viewer checkbox, "Run when no agent is working here". With
+  it on, PiCode types the command into your terminal and presses Enter itself,
+  but only when no agent in that repository is mid-turn, no automation is
+  running there, and no other terminal there is working or holding a program;
+  otherwise the command is prepared as before and a note says who is busy.
+  Git still runs in your own shell with your credentials and hooks. Typing
+  now also refuses a terminal that moved away from the folder or whose pane
+  is not at a shell prompt, and takes a fresh terminal instead. Right-hand
+  toasts step left of the rail while it is open, so a note never covers its
+  buttons.
+
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
   `detached`), and a Git menu in the rail's header prepares Fetch, Pull, Push,

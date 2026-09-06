@@ -1,5 +1,5 @@
 {
-  "base": "http://127.0.0.1:18754",
+  "base": "http://127.0.0.1:18764",
   "checks": [
     "g1 agent anchor lists the working tree with counts and totals",
     "g2 a change opens the file tab in Diff view; Open file swaps to the editor",
@@ -15,7 +15,8 @@
     "g12 the PR tab mirrors gh: card, no-PR action or the blocked line",
     "g13 \"Create in terminal\" pre-types the gh command and never submits it",
     "g14 the branch chip shows the distance to upstream; Fetch and Pull are typed into one idle terminal",
-    "g15 the commit form validates one line and prepares the command without running it"
+    "g15 the commit form validates one line and prepares the command without running it",
+    "g16 run mode presses Enter only when nobody is working in the repository"
   ],
   "screenshots": [
     "inspector-changes-dark.png",
@@ -37,7 +38,10 @@
     "inspector-git-fetch-typed-dark.png",
     "inspector-commit-dialog-error-dark.png",
     "inspector-commit-dialog-dark.png",
-    "inspector-commit-typed-dark.png"
+    "inspector-commit-typed-dark.png",
+    "inspector-run-busy-fallback-dark.png",
+    "inspector-run-commit-dialog-dark.png",
+    "inspector-run-commit-dark.png"
   ],
   "audits": [
     {
@@ -982,6 +986,168 @@
     },
     {
       "name": "inspector-commit-typed-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-run-busy-fallback-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-run-commit-dialog-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 244,
+          "bottom": 512,
+          "height": 267
+        },
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-run-commit-dark",
       "ok": true,
       "hits": [
         {

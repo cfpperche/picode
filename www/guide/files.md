@@ -65,8 +65,15 @@ the rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
 Create pull request: each one types the exact command into a terminal of that
 folder, reusing an idle one or opening a new one, and leaves it for you to
 press Enter. Commit asks for a one-line message and shows the command it will
-prepare. PiCode never runs git for you; your shell, your credentials and your
-hooks do the work, in a terminal you can see.
+prepare. Your shell, your credentials and your hooks do the work, in a
+terminal you can see.
+
+The menu's last item, **Run when no agent is working here**, lets PiCode press
+Enter for you. It does so only when no agent in that repository is in the
+middle of a turn, no automation is running there, and no other terminal there
+is working or has a program in the foreground. Otherwise the command is left
+ready in the terminal and a note tells you who is busy. The choice is
+remembered in your browser and is off by default.
 
 If a terminal moves to another folder, the rail keeps what it showed and says
 so; **Follow** reads the new folder. **Refresh** rereads the current one. The

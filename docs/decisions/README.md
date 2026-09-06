@@ -26,7 +26,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted, explorer refusal amended by 0030 |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
-| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038 |
+| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038; write refusal amended by 0078 for the Inspector's Git actions (user's shell, behind an interlock) |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
 | [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
 | [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
@@ -36,13 +36,13 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0029](0029-composer-extension-commands.md) | Composer `/` lists commands from the running agent | accepted |
 | [0030](0030-file-tree-per-owner.md) | File tree per folder, read-only, changed files highlighted | accepted, diff refusal amended by 0032, graph-refresh precedent superseded by 0038, file navigation amended by 0074 |
 | [0031](0031-provider-usage-dialog.md) | Live provider usage dialog on `#/providers` | accepted |
-| [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted, Open file navigation amended by 0074 |
+| [0032](0032-working-tree-diff-and-reveal.md) | Change dots expand into working-tree diffs; Reveal in the host file manager | accepted, Open file navigation amended by 0074; write refusal amended by 0078 |
 | [0033](0033-roles-per-agent-overlay.md) | Model roles per-agent overlay (`PI_ROLES_AGENT` → `.pi/roles/<id>.json`) | accepted |
 | [0034](0034-clone-remote-repository-workspace.md) | Clone a remote repository into a new workspace | accepted |
 | [0035](0035-remove-workspace-delete-local-data.md) | Remove workspace can delete the local folder — opt-in, typed confirmation | accepted |
 | [0036](0036-extensions-host-and-apps-tab.md) | Extensions host — apps on schema-driven primitives, Apps sidebar tab | accepted, amended 2026-08-31 (iframe first-class in marketplace era; primitives frozen) |
 | [0037](0037-inbox-async-agent-human-messages.md) | Inbox — async agent↔human messages; core data plane, view as first app | accepted |
-| [0038](0038-git-graph-v2.md) | Git graph v2 — inline detail, uncommitted row, search, token auto-refresh | accepted, amends 0022, supersedes 0030 on refresh for the graph |
+| [0038](0038-git-graph-v2.md) | Git graph v2 — inline detail, uncommitted row, search, token auto-refresh | accepted, amends 0022, supersedes 0030 on refresh for the graph; write refusal amended by 0078 |
 | [0039](0039-per-agent-session-ownership.md) | Per-agent session ownership, tracked in PiCode (`--session-id` for chat attribution; 0040 adds a private dir for pi's own TUI) | accepted, amends 0006, amended by 0040 |
 | [0040](0040-per-agent-session-dir.md) | Per-agent `--session-dir` — extends ownership into pi's own native TUI picker | accepted, amends 0039 |
 | [0041](0041-session-observability-dashboard.md) | Session observability dashboard (spend/activity/fleet) replaces the no-tabs-open home | accepted, amended by 0042 |
@@ -77,10 +77,10 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
 | [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted |
-| [0073](0073-git-graph-worktrees.md) | The git graph shows every worktree's working tree — one dirty row per worktree, ref-addressed sibling reads, detached chips | accepted |
+| [0073](0073-git-graph-worktrees.md) | The git graph shows every worktree's working tree — one dirty row per worktree, ref-addressed sibling reads, detached chips | accepted; write refusal amended by 0078 |
 | [0074](0074-file-tree-inline-details.md) | Files and Changes share a local detail pane with document guards and root preconditions | accepted |
 | [0075](0075-integrations.md) | Integrations: generic outbound webhooks and externally implemented MCP connectors | accepted |
 | [0076](0076-bounded-tool-captures.md) | Bounded historical tool captures and transcript reconciliation | accepted |
 | [0077](0077-tui-diff-panel.md) | Side diff panel for the pi TUI — an MIT extension drawn as a non-capturing overlay, never bytes into the PTY | accepted |
-| [0078](0078-inspector-rail.md) | An Inspector rail follows the selected tab's owner and opens content in the center; PR read through the host's gh | accepted |
+| [0078](0078-inspector-rail.md) | An Inspector rail follows the selected tab's owner and opens content in the center; PR through the host's gh; Git actions in the user's shell, run behind an interlock | accepted, amends the write refusals of 0022/0032/0038/0073 for the rail's Git actions |
 | [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/sessions(/<wsId>)` replaces the top-level route; old links redirect | accepted, extends 0069 |
