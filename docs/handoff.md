@@ -5,16 +5,18 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (`dcbaa316`, deployed) carries the tab-strip phase 1
+**Repository:** HEAD (`50df07f7`, deployed) carries the Inspector
+run-when-idle stage (ADR-0078 stage 2, merged as `2da0ba15`), terminal faces
+styled like agent faces, the tab-strip phase 1
 (no scrollbar under the editor tabs, active tab revealed by code; study
 `docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 2–4 under Next
 up), today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
 desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab,
-the Git actions stage (deployed as `aa9beea4`) and, complete on
-`feat/inspector-run`, the **run-when-idle** stage (PiCode presses Enter behind
-an interlock — see Recent activity), bounded
+the Git actions stage (deployed as `aa9beea4`) and the **run-when-idle**
+stage (PiCode presses Enter behind an advisory interlock, deployed as
+`0.1.0+2da0ba1` — see Recent activity), bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
@@ -47,8 +49,25 @@ exactly the agent-face style — computed parity (white plate, 1px ring,
 1px padding, 18px) across agent and terminal imgs; COGNIXSE wears
 claude + openai, PiCode's strip is uniform with `+5`; screenshot read
 (visual-review: PASS), console clean, overlay audit ok. Nothing was
-typed into a production terminal. Previous deploy `dcbaa316` (tab
-strip phase 1), before that `0.1.0+db12b097` — the sessions-endpoints
+typed into a production terminal. Previous deploy `0.1.0+2da0ba1`
+(Inspector run-when-idle, ADR-0078 stage 2) via `make deploy` from the root
+checkout at 11:54:36: health `200`, served bundle `index-W52Xj5hY.js` equal
+to the built index, 10 terminals restored, the new
+`POST /api/terminals/{id}/run` answers 404 for an unknown id, journal clean.
+Live smoke in a Playwright Chromium with `ignoreHTTPSErrors` (agent-browser's
+Chromium does not trust the mkcert CA) on the terminal anchored at
+`~/picode`: the Git menu lists Fetch, Pull, Push, Commit…, Commit and push…
+and the unchecked "Run when no agent is working here"; toggling stores
+`picode-inspector-run=1`, reopening shows it checked, toggled back off;
+overlay audit ok; no Git action clicked, nothing typed into a production
+terminal (visual-review: PASS, both menu states read). Incident: at 11:49
+the service was found `inactive` — terminated at 11:48:46 by another
+session, two seconds before a sidecar instance on `:18097` started from a
+production terminal — and a diagnostics probe `picode --version` from the
+Inspector session fell through to server mode and served the production
+data dir on 8445 for about four minutes until killed (clean shutdown); the
+stage 2 deploy brought the service back. Before that `dcbaa316` (tab strip
+phase 1), then `0.1.0+db12b097` — the sessions-endpoints
 fold (which includes the terminal-faces tree, `fa97e8cf`, and the
 menu-item removal).
 Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
@@ -58,15 +77,20 @@ deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
 **PiCode** showed a capped strip (`+5`); expand/collapse cycles and
 reload persistence verified in-browser; console clean, overlay audit ok.
 Nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the terminal-faces tree (Go tests,
-frontend suites including `collapseFaces.test.js`, both UI builds,
-embedded binary, docs parity with regenerated captures, Vale). Browser
-acceptance: `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
-fixture (`docs/screenshots/inspector-qa.json`), commands proven typed and
-never run through `tmux capture-pane -J`; `inspector-git-*` and
-`inspector-commit-*` screenshots plus the live menu read, overlay/row audits
-ok. visual-review: PASS. Fixtures and QA browser sessions are closed; the
-feature worktree and branch are removed.
+**Quality:** `make ci` passed on the terminal-faces tree and on the stage 2
+tree merged with main `dcbaa316` (Go tests including `TestTerminalRunRefusals`
+and `TestTerminalRunTypesAndSubmits`, frontend suites including
+`collapseFaces.test.js`, both UI builds, embedded binary, docs parity with
+regenerated captures, Vale); the handoff-only merge of `0d346348` re-ran
+`docs-check` and Vale before the fast-forward. Browser acceptance:
+`scripts/qa-inspector.mjs` 16/16 groups on the scripted-gh fixture
+(`docs/screenshots/inspector-qa.json`), commands proven typed and never run
+through `tmux capture-pane -J`, and g16 proving run mode: the busy fallback
+toast names the other terminal, a real commit lands through "Run in
+terminal", then the fixture repo is reset. `inspector-git-*`,
+`inspector-commit-*` and `inspector-run-*` screenshots plus the live menu
+read, overlay/row audits ok. visual-review: PASS. Fixtures and QA browser
+sessions are closed; the feature worktrees and branches are removed.
 
 ### Product and platform
 
@@ -273,6 +297,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - Tutorial integrity passes, but all three strict freshness audits remain stale
   after source relocation. Recapture/render is explicit; hashes were not relabeled.
 - Branch protection and CODEOWNERS require owner action on GitHub.
+- The desktop requests `/desktop/favicon.svg` at runtime and gets 404 while
+  the static `<link rel=icon href="/favicon.svg">` answers 200 — seen in the
+  live console during the stage 2 smoke; probably the dynamic tab-favicon
+  code resolving a relative path. Not touched here; the `runtime-favicon`
+  worktree may own it.
 - QA fixtures for the Inspector died twice mid-run (wrapper exit 144, no
   panic, data dir left behind) when started as harness background tasks; a
   `setsid` fixture survived a full 16-group run, and one detached fixture still
@@ -306,7 +335,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
   with fallback note and a fresh-terminal retry, dialog reads "Run in
   terminal". ADR-0078 now states the amendment to the write refusals of
-  0022/0032/0038/0073, and the ADR index says so on each of them.
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).
 - **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
   Measured on the live instance with seven tabs: the strip's classic
   scrollbar took 10 of 39 px (Windows drew arrow buttons because
