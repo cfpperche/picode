@@ -36,13 +36,16 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+fa97e8c`, health `200`, desktop
-bundle from the terminal-faces tree. `make deploy` restarted systemd.
-Live: collapsed **COGNIXSE** (terminals-only) now wears its agent-CLI
-favicons (claude + openai) instead of "— empty"; **PiCode** shows a
-capped strip (`+5`); expand/collapse cycles and reload persistence
-verified in-browser; console clean, overlay audit ok. Nothing was typed
-into a production terminal.
+**Last application deployment:** `0.1.0+db12b097`, health `200` — the
+sessions-endpoints fold (which includes the terminal-faces tree,
+`fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
+Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
+`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
+deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
+(terminals-only) wore its agent-CLI favicons instead of "— empty";
+**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
+reload persistence verified in-browser; console clean, overlay audit ok.
+Nothing was typed into a production terminal.
 **Quality:** `make ci` passed on the terminal-faces tree (Go tests,
 frontend suites including `collapseFaces.test.js`, both UI builds,
 embedded binary, docs parity with regenerated captures, Vale). Browser
@@ -275,6 +278,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   worktree's Vite build against the live server: gutter 0, tab 39 px,
   active tab gap 0 on either clipped side. visual-review: PASS
   (tabs-after.png read; no overlay in this change; card 5/5).
+- **2026-09-05 — Session management API folded into the per-CLI namespace
+  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
+  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
+  removed; desktop and mobile use `GET /api/clis/pi/sessions
+  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
+  `cleanupDays` on pi rows and — the semantic gap closed — scope by
+  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
+  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
+  the profiles routes), same guards: in-use → 409, outside root → 400.
+  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
+  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
+  workspace scope, delete overlay + file removed, auto-clean persisted,
+  adopt created an agent with the copied session).
 - **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
   with only terminals (shell / agent CLI) collapsed to "— empty"; the
   strip now renders terminals after managed agents — CLI favicons
@@ -302,6 +319,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
   Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
   `index-DAL01ZST.js`, seven terminals survived. No push.
+
 - **2026-09-06 — Deploy serialization + living-docs guards merged and
   deployed.** Fast-forwarded after reconciling three interleaved main moves;
   combined `make ci` passed; deployed `a8a201b` under the new lock (lock
