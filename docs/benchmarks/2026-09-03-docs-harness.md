@@ -52,7 +52,10 @@ by hand today; the harness should make the *right* artifact the cheap artifact.
 **Parity principle (owner directives, 2026-09-03 and 2026-09-04):** images,
 videos and animations are generated from the codebase, never hand-placed and
 never reused from `docs/screenshots/` (that directory is agent work evidence,
-not user docs). Current screenshot parity stays blocking. Tutorial video
+not user docs). Current screenshot parity stays blocking. *Amended
+2026-09-06 (ADR-0086): the fingerprint check is advisory in `make ci` and
+blocking in `make close` and the deploy batch, which recapture; a hand-edited
+image or a stale generated file still fails everywhere.* Tutorial video
 freshness is temporarily an explicit maintenance audit: CI proves the
 committed compositions, referenced stills and MP4s agree, but it never captures
 or renders them. Screenshots and video stills declare named surface profiles.

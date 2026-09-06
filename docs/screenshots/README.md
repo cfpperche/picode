@@ -4,6 +4,12 @@ This directory holds **curated screenshots that document the UI's evolution**.
 GitHub renders them inline in PRs and Markdown — they are how visual review
 verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
+> **Frozen since 2026-09-06 (ADR-0086).** New evidence is not committed
+> here: working captures stay in gitignored `var/screenshots/`, and the
+> reply's `visual-review:` line plus the session's `docs/handoff/` note are
+> the audit trail. The 391 files below remain as the visual history they
+> already are. The four public images are generated into `www/img/`.
+
 ## Rules
 
 - Naming: `<milestone>-<view>-<state>.png` — e.g. `m1-termgrid-home-empty.png`,

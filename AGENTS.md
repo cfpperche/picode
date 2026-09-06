@@ -10,31 +10,52 @@ PiCode is a browser-based Agent Development Environment (ADE) for Pi coding
 agents. One Go binary serves a rich web UI that lets users **create, configure
 and orchestrate Pi agents** across multiple workspaces — including people who
 avoid terminals entirely. The moat: **users control their agents from the
-moment of creation**. Read [README.md](README.md) and
-[docs/architecture.md](docs/architecture.md) before substantial work.
+moment of creation**. Read [README.md](README.md) before substantial work;
+[docs/architecture.md](docs/architecture.md) is 90 KB — read the section the
+table below names, not the file.
 
 The direction is a multi-CLI ADE. For the current v1, managed agents remain
 Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex and Grok
 (ADR-0069). Other CLI protocols, packages and first-class agent support are
 future work, not capabilities to infer from a terminal integration.
 
+## What to read for which change (ADR-0086)
+
+Reading is a cost. Start from `docs/handoff.md` (≤ 100 lines) and this file;
+add only what the change needs:
+
+| Change | Read before the first edit |
+|---|---|
+| CSS / copy / one component | `.pi/skills/uiux-review/SKILL.md`; the component and its CSS |
+| New or redesigned surface | above + `docs/benchmarks.md` (UI/UX section) + the one `docs/benchmarks/` note it adapts |
+| Handler / store / RPC | the `docs/architecture.md` section for that component; the ADRs its comments cite |
+| Protocol, persistence, security model, process | the ADRs it touches (index in `docs/decisions/README.md`); `docs/decisions/template.md` |
+| Docs site (`www/`) | `docs/guidelines.md` |
+
+Do not read `docs/handoff-archive.md`, `docs/handoff/`, or the ADR corpus
+to "get context"; `git log` and `make close-summary` are cheaper and current.
+
 ## The non-negotiables
 
-1. **Documentation is a living system.** Code changes and documentation
-   changes travel together, in the same commit. User-facing command help
-   lives in `www/` (VitePress → GitHub Pages), not in the app — see
-   [docs/guidelines.md](docs/guidelines.md). Specifically:
-   - Behavior/architecture changed → update `docs/architecture.md` **and**
-     add/revise an ADR in `docs/decisions/` if the decision is architectural.
-   - Anything user-visible changed → add an entry to `[Unreleased]` in
+1. **Documentation is a living system.** Code and docs travel in the same
+   commit. User-facing command help lives in `www/` (VitePress → GitHub
+   Pages), not in the app — see [docs/guidelines.md](docs/guidelines.md).
+   - Behavior/architecture changed → update `docs/architecture.md`; add an
+     ADR only for a **boundary**: protocol, persistence, security model,
+     process. A UI refinement never needs one.
+   - Anything user-visible changed → an entry under `[Unreleased]` in
      `CHANGELOG.md` (Keep a Changelog style).
-   - **Every session that changes state MUST end by updating
-     `docs/handoff.md`** so it matches HEAD (current state, in flight, next
-     steps, debts). Listing shipped work under *Next up* is FAIL. Archive
-     old *Recent activity* to `docs/handoff-archive.md` past ~150 lines.
-2. **Never break the build.** Before ending work, run the quality gates
-   (below). `make ci` must pass. If you can't finish something, leave the
-   tree compiling and tests green, and record the gap in `docs/handoff.md`.
+   - **Every session that changes state leaves one note in
+     `docs/handoff/<date>-<branch>.md`** (≤ 25 lines, written from
+     `make close-summary`) and keeps `docs/handoff.md` true: current state,
+     in flight, next up, debts — **at most 100 lines**; the pre-commit hook
+     refuses more. Deployment history is `var/deploy-log.jsonl` and
+     `git log`, never prose. Listing shipped work under *In flight* or
+     *Next up* is FAIL.
+2. **Never break the build.** A worktree iterates with `make ci-scoped` and
+   ends with `make close` (below); the merge on `main` runs `make ci` once.
+   If you can't finish, leave the tree compiling and green and record the
+   gap in `docs/handoff.md`.
 3. **Simplicity and modularity are product features.** Prefer the Go standard
    library. Every new dependency is a decision that deserves a line of
    justification in the PR description. UI follows the bars in
@@ -46,27 +67,23 @@ future work, not capabilities to infer from a terminal integration.
    **Seeing a visual defect and shipping it as done is a violation.**
    Fix it or say FAIL. `eval` / DOM JSON is not a visual verdict.
 5. **Isolated git worktree.** Two agents must not share a working tree.
-   Never commit feature work on `main` in the primary checkout. Start from
-   current `main`:
-   `git worktree add .worktrees/<name> -b feat/<name>`
-   After the branch merges: `git worktree remove .worktrees/<name>` and
-   delete the branch. Leave `main` clean for the next session. A dirty
-   shared tree that blocks another agent is FAIL.
+   Never commit feature work on `main` in the primary checkout. Start with
+   `make worktree NAME=<name>` (a tree with hardlinked `node_modules`,
+   ready to build in a second; never symlink them). After the branch
+   merges: `make worktree-gc` (or `git worktree remove` + `git branch -d`).
+   Leave `main` clean for the next session. A dirty shared tree that blocks
+   another agent is FAIL.
    This is **enforced by git, not by trust**: `.githooks/reference-transaction`
    aborts any `git switch`/`git checkout` that would move the root checkout
    off `main` (switching back to `main` is always allowed), and
-   `.githooks/pre-commit` refuses feature commits made there. The guards are
-   tool-agnostic — they hold for every agent runtime, editor and script.
-   `make hooks` (implied by `make dev` and `make ci`) points git at them and
-   **fails** if `core.hooksPath` was redirected elsewhere; `make hooks-check`
-   (in `make ci` and in GitHub CI) runs `scripts/hooks-selftest.sh`, which
-   proves the whole policy on a throwaway repo — refusals *and* the flows
-   that must keep working. A clone that never ran make has no guard.
-   Deliberate one-off: `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
+   `.githooks/pre-commit` refuses feature commits made there, clobbered
+   living docs, and a handoff over 100 lines. `make hooks` (implied by
+   `make dev` and `make ci`) points git at them; `make hooks-check` proves
+   the whole policy on a throwaway repo. A clone that never ran make has no
+   guard. Deliberate one-off: `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
    **Never run `git clean -fdx` (or `-fdX`) in the primary checkout:**
    `.worktrees/` is git-ignored, so clean deletes every agent's working
-   tree in one stroke. Untracked leftovers are removed by name, or not at all.
-
+   tree in one stroke.
 6. **Decisions are provisional.** Every ADR, "Refuse" table and architectural
    constraint here records a choice that was right when it was made — not a
    law. Never answer a request with "that is impossible" or "that is
@@ -76,63 +93,70 @@ future work, not capabilities to infer from a terminal integration.
    that alters a documented decision, or declares something permanently
    refused, is the owner's call. A constraint nobody has re-measured is a
    candidate for re-measuring, not a fact.
+7. **Deploy is not part of finishing a branch (ADR-0086).** A branch is done
+   when `main` can fast-forward to it and `make ci` is green there. `main`
+   ships in batches — `make deploy-batch`, by the owner or by the
+   `picode-deploy.timer` (12:00, 18:00, 23:00). `picode deploy` refuses
+   while any agent or terminal is mid-turn; `--force` is the owner's
+   deliberate one-off, never an agent's shortcut. Verify UI work on a
+   scratch instance (`scripts/qa-scratch.sh`), not on production.
 
-## Quality gates (before you say "done")
+## Closing a session (the rite, in one command)
 
 ```bash
-make fmt-check    # gofmt clean
-make vet          # go vet clean
-make test         # Go tests pass
-make test-js      # frontend tests pass
-make build        # UI (npm) + binary builds
+make ci-scoped     # while iterating: the gates this diff can break
+make close         # at the end: scoped gates, regenerated artifacts
+                   # (OpenAPI, llms.txt, captures if web/ changed),
+                   # fast-forward check, and the closing summary
 ```
 
-Use the skill: `/skill:quality-gate` (interactive checklist).
-When a change has **interacting conditions that change the outcome**
+Write `CHANGELOG.md` and `docs/handoff/<date>-<branch>.md` from the
+summary — in a fresh, small context if the session is long. Then, from the
+root: `git merge --ff-only <branch> && make ci`. If `main` moved, merge
+`main` into the branch and run `make close` again. Use the skills:
+`/skill:quality-gate` (review checklist), `/skill:handoff-update` (the
+note). When a change has **interacting conditions that change the outcome**
 (delete, restore, auth, cascade, run mode, permissions), write a
 **decision table** before claiming done: each row is conditions → action.
-Tests must cover every row, or the untested row is named as FAIL/debt in
-`docs/handoff.md`. Two happy-path clicks are not coverage. Skip the table
-for polish, copy, and single-path fixes.
+Tests must cover every row, or the untested row is named as debt in
+`docs/handoff.md`. Skip the table for polish, copy, and single-path fixes.
 **Motion and optimistic UI** are the default for state that takes time
-(jobs, overlays, lists). Enter / step / exit must move. A static flash
-then “all done” is FAIL. Prefer showing the next state immediately and
-reconciling when the server answers.
+(jobs, overlays, lists). A static flash then "all done" is FAIL.
 
 For any UI work:
 1. `read` `.pi/skills/uiux-review/SKILL.md` **before** the first JSX/CSS edit.
 2. Empty / blocked / error states are first-class: one line + one action.
-   A lecture, npm spec, or blank well is FAIL.
-3. Before done, `read` `.pi/skills/visual-review/SKILL.md`. Screenshot of
-   those states must be `read`. After overlays, `window.__picodeOverlayAudit()`
-   must be `ok`. Answer the 5-question visual-card in the reply.
+3. Before done, `read` `.pi/skills/visual-review/SKILL.md`. Screenshots of
+   those states must be `read` (they stay in `var/screenshots/`, never
+   committed). After overlays, `window.__picodeOverlayAudit()` must be `ok`.
+   Answer the 5-question visual-card in the reply.
 4. Skip or FAIL on visual-review → do not commit, do not say shipped.
-   `eval` / DOM JSON is not a visual verdict.
-At session end, run `/skill:handoff-update`.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
+| `make worktree NAME=x` | Isolated tree on `feat/x` with hardlinked node_modules |
 | `make dev` | Run the Go server — reads the UI from disk; run `make web` once first (ADR-0023) |
 | `make ui` | Vite HMR on :5173 (proxies API to the Go server) |
-| `make web` | Build React UI → `internal/web/public` |
-| `make build` | UI + `bin/picode` |
-| `make install` | Copy to `~/.local/bin` and enable systemd --user |
-| `make deploy` | Rebuild + restart the installed service |
-| `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch the tray via the logon task — the only supported restart; never background a Windows exe from WSL |
-| `make test` / `make test-js` / `make vet` / `make fmt` | Quality gates (Go tests, frontend tests) |
-| `make ci` | Everything CI runs |
+| `make web` / `make build` | Build React UI → `internal/web/public` / UI + `bin/picode` |
+| `make ci-scoped` / `make close` | Gates for this diff / end-of-session rite |
+| `make ci` | Everything CI runs — the gate for the merge on `main` |
+| `make deploy-batch` | Ship `main` when nobody is mid-turn (what the timer runs) |
+| `make deploy` | Rebuild + restart the installed service; refuses while agents work |
+| `make worktree-gc` | Remove merged, clean, idle worktrees |
+| `make timers` | Install the deploy and cert timers (systemd --user) |
+| `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch via the logon task — the only supported restart; never background a Windows exe from WSL |
 
 ## Repo map
 
 ```
 AGENTS.md          this contract
-docs/              living documentation (handoff.md = project state; guidelines.md = how to write docs)
+docs/              living documentation (handoff.md = project state; handoff/ = session notes)
 www/               public docs (VitePress Markdown → GitHub Pages)
 docs/decisions/    ADRs — one decision per file, immutable once accepted
-docs/screenshots/  committed visual evidence (see its README)
-.pi/               Pi harness: skills, project settings
+docs/screenshots/  frozen visual history (ADR-0086); new evidence stays in var/screenshots/
+.pi/               Pi harness: skills, project settings, roles
 cmd/picode/        entrypoint
 ext/               Chrome MV3 extension, sideload (ADR-0043)
 internal/browserhost/  native-messaging host + Chrome install
@@ -140,15 +164,17 @@ internal/server/   HTTP server + API
 internal/web/      UI loader: from disk by default, embedded with `-tags embedui` (ADR-0023).
                    public/ is Vite output and is NOT committed
 web/               Independent desktop/mobile apps + shared contracts/tokens (ADR-0072)
+scripts/           gates, close, worktree, deploy batch, QA scratch instance
 .github/           CI
 ```
 
 ## Architectural decisions
 
-Significant choices (frameworks, protocols, persistence, security model) go
-through an **ADR**: copy `docs/decisions/template.md`, number it, argue
-context → decision → consequences. Never silently contradict an ADR —
-supersede it with a new one instead.
+Significant choices (frameworks, protocols, persistence, security model,
+process) go through an **ADR**: copy `docs/decisions/template.md`, check
+`ls docs/decisions .worktrees/*/docs/decisions` for the next free number at
+the moment you write it, argue context → decision → consequences, add the
+index row. Never silently contradict an ADR — supersede it with a new one.
 
 ## Style
 

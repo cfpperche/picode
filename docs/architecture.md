@@ -25,7 +25,11 @@ a future decision supplies those contracts for another CLI.
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
 terminals alive across daemon restarts; transient RPC children are separately
 parent-bound and pane holders restore the TUI. `picode deploy` / `make deploy`
-copies a repo build and restarts that unit. The supervised daemon does not
+copies a repo build and restarts that unit — but first asks the daemon
+`GET /api/deploy/readiness` and refuses while any agent or terminal is
+mid-turn (ADR-0086; `--force` overrides). `main` ships in batches through
+`make deploy-batch` and the `picode-deploy.timer`, not per merged branch.
+The supervised daemon does not
 re-exec when the binary on disk changes — that same-PID `Exec` used to
 swallow systemd's SIGTERM and sit in `stop-sigterm` until `TimeoutStopSec=30`.
 SIGTERM now cancels the binary watcher, drains HTTP for at most 8s, and

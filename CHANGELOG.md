@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Deploy refuses while agents work** (ADR-0086). `picode deploy` asks the
+  running daemon who is mid-turn and stops before touching the installed
+  binary when anyone is — the refusal names each agent or terminal and why.
+  `picode deploy --force` (or `PICODE_DEPLOY_FORCE=1 make deploy`) is the
+  deliberate override. `make deploy-batch` and the `picode-deploy.timer`
+  (12:00, 18:00, 23:00; `make timers` installs it) ship `main` in batches,
+  refreshing stale public screenshots first. New loopback-only route
+  `GET /api/deploy/readiness`.
+
 - **Inspector: ask a running agent to do a Git action** (ADR-0078). For every
   agent running in the rail's repository — managed or in its own terminal —
   the Git menu now lists an "Ask &lt;name&gt;" submenu with the same actions.
@@ -71,6 +80,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Development process** (ADR-0086, owner-approved after the 2026-09-06
+  cost review): `make ci-scoped` runs only the gates a branch's diff can
+  break; `make close` ends a worktree session (scoped gates, regenerated
+  OpenAPI/llms/captures, fast-forward check, closing summary); `make
+  worktree NAME=x` hardlinks `node_modules` instead of `npm ci`; `make
+  worktree-gc` removes merged, clean, idle trees; `make docs-check` warns
+  on stale capture fingerprints instead of failing (`--strict` for the
+  old gate); `docs/handoff.md` is capped at 100 lines by the pre-commit
+  hook and per-session notes move to `docs/handoff/`; `docs/screenshots/`
+  is frozen (evidence stays in `var/screenshots/`).
+
 - **Sidebar text column corrected for the smaller identity mark.** The
   runtime-favicon resize shrank agent/terminal identity marks from 24px to
   16px without updating the folder/branch line's (and, transitively, the
@@ -117,6 +137,13 @@ to the `[Unreleased]` section. The repository's official language is English
   now renders as silence: no line, no "No checklist", on agent cards,
   terminal cards, the terminal pane strip and mobile rows. The data plane
   is unchanged — the absent marker is still published and stored.
+
+### Fixed
+
+- **GitHub CI on macOS**: the worktree test compares symlink-resolved
+  paths (`/var` → `/private/var`), and the terminal run/type routes
+  validate the request (404/409) before asking for tmux (503), so the
+  matrix is green without tmux installed.
 
 ## [0.1.0] - 2026-08-23
 
