@@ -32,6 +32,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Sidebar text column corrected for the smaller identity mark.** The
+  runtime-favicon resize shrank agent/terminal identity marks from 24px to
+  16px without updating the folder/branch line's (and, transitively, the
+  checklist line's) left inset, so every row's `.ws-context` sub-line sat
+  8px right of its own title in production. Found while re-verifying the
+  checklist chevron fix below against the deployed favicon change; the
+  inset is now 23px (16px mark + 7px row gap) everywhere it is used.
+
 - **Checklist chevron moved to its own gutter** (owner refinement, follow-up
   to the compact-view alignment below). The disclosure's chevron sat in the
   same 31px column as the title/folder text, but a rendered icon's ink

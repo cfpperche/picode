@@ -1054,7 +1054,13 @@ img.ws-face.term-cli-face {
 .ws-row-menu-item svg { flex: none; color: currentColor; }
 .ws-context {
   display: flex; align-items: center; gap: 5px; min-width: 0;
-  margin: 3px 31px 0 31px; overflow: hidden;
+  /* Left inset = identity-mark (16px) + row-hit gap (7px), so this line
+     starts under the title above it. Was 31px against a 24px identity
+     mark; the runtime-favicon resize (2026-09-06) shrank the mark to
+     16px without updating this constant, so every row's folder/branch
+     line drifted 8px right of its own title — caught while chasing a
+     related checklist-line alignment report the same day. */
+  margin: 3px 31px 0 23px; overflow: hidden;
 }
 .ws-context-btn {
   display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
@@ -2588,14 +2594,16 @@ img.ws-face.term-cli-face {
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
-/* The agent's checklist as one operator line (ADR-0055). Same 31px text
+/* The agent's checklist as one operator line (ADR-0055). Same left text
    column as .ws-context below it (owner refinement,
    docs/plans/sidebar-checklist-expand.md) — no more flush-left padding
-   that put it out of the card's grid. The counter is a fixed column at
-   the row's end, not a prefix (Linear/GitHub sub-issue idiom): the step
-   text is flex:1 with an ellipsis, so the counter always lands at the
-   right edge instead of trailing ragged text. */
-.ws-check { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 3px 31px 0; font-size: 11.5px; color: var(--text-secondary); }
+   that put it out of the card's grid. 23px = identity-mark (16px) + the
+   row-hit gap (7px); kept as one constant with .ws-context, both updated
+   together when the runtime-favicon resize was caught (see there). The
+   counter is a fixed column at the row's end, not a prefix (Linear/GitHub
+   sub-issue idiom): the step text is flex:1 with an ellipsis, so the
+   counter always lands at the right edge instead of trailing ragged text. */
+.ws-check { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 3px 31px 0 23px; font-size: 11.5px; color: var(--text-secondary); }
 .ws-check-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 /* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
@@ -2603,14 +2611,15 @@ img.ws-face.term-cli-face {
    on the one being executed, ☐ pending. Live over the feed, no fetch. The
    chevron reuses .ws-chev (the workspace group header's own disclosure
    affordance) so the same rotate-on-open language reads across the sidebar.
-   The chevron sits in its own gutter *before* the 31px text column instead
-   of sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
+   The chevron sits in its own gutter *before* the text column instead of
+   sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
    touches its box edge the way the title's plain text does, so aligning the
-   chevron's box to 31px still reads as offset from the title above it. The
-   gutter is exactly the chevron's box (16px, --tree-chev) plus the button's
-   gap (5px) so the *text* — not the icon — lands on the same 31px column as
-   the title, folder and branch lines, whatever the icon's own inset is. */
-.ws-check-disclosure { margin: 3px 31px 0 10px; min-width: 0; }
+   chevron's box to the column still reads as offset from the title above
+   it. The gutter is exactly the chevron's box (16px, --tree-chev) plus the
+   button's gap (5px) = 21px, so the *text* — not the icon — lands on the
+   same 23px column as the title, folder and branch lines (23 − 21 = 2px
+   left margin here), whatever the icon's own inset is. */
+.ws-check-disclosure { margin: 3px 31px 0 2px; min-width: 0; }
 button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
@@ -2624,7 +2633,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* Step glyphs (☑ ◐ ☐) start in the same gutter as the collapsed line's
    chevron (padding-left: 0, the container is already inset by the gutter);
    the 7px li gap plus the 14px glyph width match the chevron's own 21px
-   gutter, so step text lands on the same 31px column as the chevron line's
+   gutter, so step text lands on the same column as the chevron line's
    text above it. */
 .ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .ws-check-list li { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }

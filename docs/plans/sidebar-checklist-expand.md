@@ -159,11 +159,16 @@ owner's screenshot showed: title, checklist text and step text all at
 58px; the chevron and step glyphs sit at ~37–39px, inside the gutter.
 `make ci` green (docs-shots regenerated for app-fleet/app-inspector).
 
-Note for whoever next touches `.ws-identity-mark`: that same-day favicon
-change shrank the identity mark from 24px to 16px width, which — checked
-in passing, not fixed here, out of this fix's scope — will put `.ws-context`
-(the folder/branch line, unchanged since ADR-0055) 8px off the title once
-it reaches production, by the same box-vs-text-column arithmetic this
-addendum just walked through. Left for that feature's own session; a
-`fix/runtime-favicon-alignment` worktree already existed at the time of
-this note, which may already own it.
+**Update, same day, minutes later:** the favicon resize this note flagged
+had already deployed (`f4ea75e`) by the time this fix was ready to merge
+— production was live with the 8px gap this note predicted, on every row
+with a folder/branch line, not just checklist cards. Fixed in the same
+change rather than left open: `.ws-context`'s and `.ws-check`'s left
+margin moved from 31px to 23px (16px identity mark + 7px row-hit gap),
+and `.ws-check-disclosure`'s gutter margin recomputed to match (2px = 23
+− 21). Verified live on an isolated daemon built from the actual merged
+tree: title, checklist text and folder text all land on the same 50px
+column (this scratch's own viewport; the exact number moves with
+viewport/sidebar width, only the *match* matters). `fix/runtime-favicon-
+alignment` was a stale worktree (last commit two days prior, a different
+concern) — not a parallel fix for this regression.
