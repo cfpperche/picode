@@ -133,13 +133,14 @@ case "$name:${1-}:${2-}" in
   codex:exec:*|codex:app-server:*|codex:mcp-server:*) picode_tui=0 ;;
   pi:--mode:rpc|pi:--mode:json) picode_tui=0 ;;
 esac
-# Hermes: interactive entry points (bare, chat, flags) keep the lease.
-# Subcommands (setup, model, auth, sessions, …) do not.
-case "$name:${1-}" in
-  hermes:|hermes:chat) ;;
-  hermes:-*|hermes:--*) ;;
-  hermes:*) picode_tui=0 ;;
-esac
+# Hermes: interactive entry points (bare, chat, flags, a prompt) keep the lease.
+# Named maintenance subcommands do not.
+if [ "$name" = hermes ]; then
+  case "${1-}" in
+    ""|chat|-*) ;;
+    HERMES_MAINT) picode_tui=0 ;;
+  esac
+fi
 for picode_arg in "$@"; do
   case "$picode_arg" in
     -p|--print|--json|--headless|--non-interactive|--version|-V|--help|-h) picode_tui=0 ;;
@@ -154,8 +155,14 @@ fi
 `
 
 func wrapperLifecycle(hook string) string {
-	return fmt.Sprintf(wrapperLifecycleTmpl, hook)
+	s := strings.Replace(wrapperLifecycleTmpl, "HERMES_MAINT", hermesMaintenanceCommands, 1)
+	return fmt.Sprintf(s, hook)
 }
+
+// hermesMaintenanceCommands is the first positional after flags that means
+// "not an interactive chat/TUI". Kept in one place so the presence lease and
+// PYTHONPATH passthrough skip the same names.
+const hermesMaintenanceCommands = `setup|model|moa|fallback|secrets|migrate|gateway|proxy|lsp|postinstall|whatsapp|whatsapp-cloud|slack|send|login|logout|auth|status|cron|webhook|portal|kanban|project|hooks|doctor|security|dump|debug|backup|checkpoints|import|config|console|pairing|skills|bundles|plugins|curator|pets|journey|learning|memory-graph|memory|tools|computer-use|mcp|sessions|insights|claw|version|update|uninstall|acp|profile|completion|dashboard|serve|desktop|gui|logs|prompt-size`
 
 const wrapperLifecycleEnd = `rc=$?
 if [ "$picode_tui" = 1 ] && [ -n "${PICODE_TUI_RUN_ID-}" ]; then
@@ -443,14 +450,150 @@ if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/
 	return writeExecutable(wrapperPath(dataDir, "grok"), body)
 }
 
+func hermesPythonDir(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "hermes-python")
+}
+
+// hermesSitecustomizePy registers PiCode activity hooks through Hermes'
+// shell-hook bridge. It patches agent.shell_hooks.register_from_config
+// with a deepcopy so load_config/save_config never see the extra entries —
+// nothing here writes ~/.hermes/config.yaml. Hermes may still record the
+// hook command in its own shell-hooks-allowlist.json when auto-accepting.
+// The official `hermes` trampoline unsets PYTHONPATH, so the wrapper execs
+// the inner venv console script first. sitecustomize then strips its own
+// directory from PYTHONPATH so child Python tools do not inherit the patch.
+const hermesSitecustomizePy = `import copy
+import os
+import sys
+
+HOOK = os.environ.get("PICODE_HERMES_HOOK", "")
+EVENTS = (
+    "on_session_start", "on_session_end", "on_session_finalize", "on_session_reset",
+    "pre_llm_call", "post_llm_call",
+    "pre_approval_request", "post_approval_response",
+    "subagent_stop",
+)
+
+def _merge(cfg):
+    if not HOOK:
+        return cfg
+    if not isinstance(cfg, dict):
+        cfg = {}
+    hooks = cfg.get("hooks")
+    if not isinstance(hooks, dict):
+        hooks = {}
+        cfg["hooks"] = hooks
+    entry = {"command": HOOK, "timeout": 5}
+    for ev in EVENTS:
+        lst = hooks.get(ev)
+        if not isinstance(lst, list):
+            lst = []
+            hooks[ev] = lst
+        if not any(isinstance(x, dict) and x.get("command") == HOOK for x in lst):
+            lst.append(dict(entry))
+    cfg["hooks_auto_accept"] = True
+    return cfg
+
+def _patch(mod):
+    if getattr(mod, "_picode_hooks", False):
+        return
+    orig = getattr(mod, "register_from_config", None)
+    if callable(orig):
+        def register_from_config(cfg=None, *args, **kwargs):
+            base = copy.deepcopy(cfg) if isinstance(cfg, dict) else {}
+            return orig(_merge(base), *args, **kwargs)
+        mod.register_from_config = register_from_config
+    mod._picode_hooks = True
+
+try:
+    import importlib._bootstrap as _b
+    _orig_find = _b._find_and_load
+    def _find_and_load(name, import_):
+        mod = _orig_find(name, import_)
+        if name == "agent.shell_hooks":
+            try:
+                _patch(mod)
+            except Exception:
+                pass
+        return mod
+    _b._find_and_load = _find_and_load
+except Exception:
+    pass
+
+if "agent.shell_hooks" in sys.modules:
+    try:
+        _patch(sys.modules["agent.shell_hooks"])
+    except Exception:
+        pass
+
+_dir = os.path.dirname(os.path.abspath(__file__))
+_pp = os.environ.get("PYTHONPATH", "")
+_kept = [p for p in _pp.split(os.pathsep) if p and os.path.abspath(p) != os.path.abspath(_dir)]
+if _kept:
+    os.environ["PYTHONPATH"] = os.pathsep.join(_kept)
+else:
+    os.environ.pop("PYTHONPATH", None)
+`
+
 func writeHermesIntercept(dataDir, hook string) error {
-	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+	pyDir := hermesPythonDir(dataDir)
+	if err := os.MkdirAll(pyDir, 0o755); err != nil {
 		return err
 	}
-	body := "#!/bin/sh\n# PiCode intercept — Hermes Agent. Session PATH only. Presence lease; no vendor hooks.\nname=hermes\n" +
+	if err := writeInterceptFile(filepath.Join(pyDir, "sitecustomize.py"), []byte(hermesSitecustomizePy), 0o600); err != nil {
+		return err
+	}
+	plan := cliIntegrationPlan("hermes", dataDir, hook)
+	py := plan.Environment["PYTHONPATH"]
+	hookCmd := plan.Environment["PICODE_HERMES_HOOK"]
+	unwrap := `# The public hermes command is often a bash trampoline that unsets
+# PYTHONPATH before exec'ing the venv console script. Follow it so
+# sitecustomize can load. pip/console-script installs skip this.
+if [ -f "$real" ] && head -n 8 "$real" | grep -q "unset PYTHONPATH"; then
+  inner=$(sed -n 's/^exec "\([^"]*\)".*/\1/p' "$real" | head -n 1)
+  if [ -z "$inner" ]; then
+    inner=$(sed -n "s/^exec '\\([^']*\\)'.*/\\1/p" "$real" | head -n 1)
+  fi
+  if [ -n "$inner" ] && [ -x "$inner" ]; then
+    real=$inner
+  fi
+fi
+`
+	passthrough := strings.Replace(`# Named maintenance subcommands skip the session patch, even when flags
+# precede them (hermes -p NAME setup). Session ids after --resume/-r/-c
+# and extra launch arguments are not subcommands.
+picode_take=
+for picode_arg in "$@"; do
+  if [ -n "$picode_take" ]; then
+    picode_take=
+    continue
+  fi
+  case "$picode_arg" in
+    -p|--profile|--resume|-r|-c|--provider|--model|-m|--skills|-t|--toolsets|--session)
+      picode_take=1
+      continue
+      ;;
+    --profile=*|--resume=*|--provider=*|--model=*|--skills=*|--toolsets=*|--session=*)
+      continue
+      ;;
+    --|-*) continue ;;
+    chat) break ;;
+    HERMES_MAINT)
+      exec "$real" "$@"
+      ;;
+    *) break ;;
+  esac
+done
+`, "HERMES_MAINT", hermesMaintenanceCommands, 1)
+	body := "#!/bin/sh\n# PiCode intercept — Hermes Agent. Session PATH only. PYTHONPATH hooks; no HERMES_HOME overlay.\nname=hermes\n" +
 		wrapperFindReal +
+		unwrap +
+		passthrough +
+		"export PYTHONPATH=" + shellQuote(py) + "\n" +
+		"export HERMES_ACCEPT_HOOKS=1\n" +
+		"export PICODE_HERMES_HOOK=" + shellQuote(hookCmd) + "\n" +
 		wrapperLifecycle(hook) +
-		"\"$real\" \"$@\"\n" +
+		"\"$real\"" + quotedCLIArgs(plan.Branches[0].Args) + " \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "hermes"), body)
 }

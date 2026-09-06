@@ -58,9 +58,9 @@ typ = str(d.get("type") or "")
 if typ == "agent-turn-complete":
     print("idle")
     sys.exit(0)
-working = {"UserPromptSubmit", "user_prompt_submit"}
-idle = {"SessionStart", "session_start", "Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled"}
-needs_you = {"PermissionRequest", "permission_request"}
+working = {"UserPromptSubmit", "user_prompt_submit", "pre_llm_call", "post_approval_response"}
+idle = {"SessionStart", "session_start", "Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call", "subagent_stop", "on_session_finalize"}
+needs_you = {"PermissionRequest", "permission_request", "pre_approval_request"}
 if ev in working:
     print("working")
 elif ev in idle:
@@ -230,7 +230,7 @@ func wiringRows(dataDir string) []wiringRow {
 			ID: "hermes", Label: "Hermes Agent", Bin: "hermes",
 			Installed: installedOnPath("hermes"),
 			Wired:     interceptWired(dataDir, "hermes", "hermes"),
-			Note:      "Presence lease only. Auth stays yours. Add --tui for the Ink TUI.",
+			Note:      "Session PYTHONPATH hooks; no HERMES_HOME overlay. Auth stays yours.",
 		},
 		{
 			ID: "pi", Label: "Pi", Bin: "pi",

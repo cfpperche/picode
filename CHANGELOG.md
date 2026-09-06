@@ -16,9 +16,12 @@ to the `[Unreleased]` section. The repository's official language is English
 - **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
   command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
   read-only, and resumes with `hermes --resume <id>`. Activity reporting is
-  a presence lease only (no vendor hooks yet). Check setup keeps the first
-  `--version` line so Hermes' install dump does not wrap the heading.
-  PiCode does not write `~/.hermes`.
+  a presence lease plus session-only activity hooks (LLM start/end and
+  approval prompts) injected through `PYTHONPATH` sitecustomize — not a
+  `HERMES_HOME` overlay and not by writing `config.yaml`. Hermes may still
+  record PiCode's hook command in its own `shell-hooks-allowlist.json` when
+  auto-accepting. Check setup keeps the first `--version` line so Hermes'
+  install dump does not wrap the heading.
 
 - **CLI terminal session recovery** (ADR-0084): every CLI terminal now pins
   the native conversation it is running (claude, codex, grok, pi) and a

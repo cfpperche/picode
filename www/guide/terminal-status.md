@@ -5,10 +5,12 @@ report its lifecycle, so the sidebar shows **which CLI is present**, when it
 is **working**, and when it **needs you** (ADRs 0056 and 0062).
 
 PiCode does not read the terminal's pixels, and it does **not** write
-your `~/.claude`, `~/.codex`, `~/.grok`, `~/.hermes`, or `~/.pi`. You type `claude`,
-`codex`, `grok`, `hermes`, or `pi` as usual. Inside a PiCode terminal only, a
-wrapper on that session's PATH launches the real binary with the flags,
-extension, or overlay that CLI accepts.
+your `~/.claude`, `~/.codex`, `~/.grok`, `~/.hermes/config.yaml`, or `~/.pi`.
+You type `claude`, `codex`, `grok`, `hermes`, or `pi` as usual. Inside a
+PiCode terminal only, a wrapper on that session's PATH launches the real
+binary with the flags, extension, or overlay that CLI accepts. Hermes may
+still record PiCode's hook command in its own `shell-hooks-allowlist.json`
+when it auto-accepts session hooks.
 
 Turn on **Activity reporting** in **Agent CLIs**, opened from the desktop
 user menu or mobile **More**. The old Preferences address redirects there.
@@ -40,7 +42,7 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 | Claude Code | `claude --settings <picode json>` | maps prompt, notification and completion hooks |
 | Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
 | Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
-| Hermes Agent | session PATH wrapper only; no `HERMES_HOME` overlay | presence lease (`runtime-start`/`runtime-end`); no vendor hooks yet |
+| Hermes Agent | session `PYTHONPATH` sitecustomize; follows the venv trampoline; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
 | Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |
 
 Hook coverage depends on the installed CLI version. **Check setup** verifies

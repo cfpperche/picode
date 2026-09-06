@@ -822,7 +822,8 @@ the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
 Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
-scoped wrappers inject Claude, Codex, Grok, Hermes Agent, or manual Pi TUI hooks; a wrapper
+scoped wrappers inject Claude, Codex, Grok, Hermes Agent (PYTHONPATH
+sitecustomize, no `HERMES_HOME` overlay), or manual Pi TUI hooks; a wrapper
 lease becomes `terminal.runtime`, while lifecycle reports become
 `terminal.state` feed events. The lease carries a canonical CLI, run id, PID,
 and process start token when available. The server watcher removes a lease
@@ -848,8 +849,28 @@ is executable in `TestPiTerminalStateExtensionDecisionTable`:
 | present | TUI | `ui_prompt_end`, `ctx.isIdle() == true` | publish `idle` |
 
 The two guards keep managed RPC agents, `pi -p`, JSON streams, and inherited
-sub-processes out of terminal state. PTY input closes the gap left by a CLI
-that omits its interruption callback:
+sub-processes out of terminal state.
+
+Hermes Agent does not get a `HERMES_HOME` overlay: its `state.db` is SQLite
+with WAL files beside the home path, so relocating the home would split the
+user's sessions. The session wrapper unwraps the official trampoline (which
+`unset`s `PYTHONPATH`), sets a session `PYTHONPATH` sitecustomize, and execs
+`--accept-hooks`. sitecustomize patches `agent.shell_hooks.register_from_config`
+with a deepcopy so `load_config` / `save_config` never see PiCode's entries
+and `~/.hermes/config.yaml` is not written. Hermes itself may still record
+the hook command in `shell-hooks-allowlist.json` when auto-accepting.
+Maintenance subcommands (`setup`, `model`, `auth`, …), including after
+`-p`/`--profile`, skip the patch. `pre_tool_call` is not registered (it is a
+gate, not a status signal). The map is executable in `TestHookMapPy`:
+
+| Hermes shell-hook event | Lifecycle action |
+|---|---|
+| `pre_llm_call`, `post_approval_response` | publish `working` |
+| `on_session_start`, `on_session_end`, `on_session_reset`, `on_session_finalize`, `post_llm_call`, `subagent_stop` | publish `idle` |
+| `pre_approval_request` | publish `needs-you` |
+| `pre_tool_call` (not injected) | no report |
+
+PTY input closes the gap left by a CLI that omits its interruption callback:
 
 | Input | Current terminal state | Session | Lifecycle action |
 |---|---|---|---|
