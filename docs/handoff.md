@@ -5,7 +5,13 @@
 
 ## Current state (read this first)
 
-**Repository:** `main` includes two same-day follow-up fixes to the
+**Repository:** `main` (`255b2d11`, deployed) adds the Inspector's stage 3
+Git action, asking a running agent through its own prompt channel
+(ADR-0078; see Recent activity and Last application deployment), on top of
+session forensics (ADR-0085), CLI terminal session recovery (ADR-0084) and
+contextual llama.cpp model guidance — merged since the paragraph below was
+last rewritten; see Recent activity for those. It also includes two
+same-day follow-up fixes to the
 checklist compact-view alignment (chevron gutter `a79c576b`, sidebar
 column correction `d64f4623`; merged `1b08aa2a`, deployed `0.1.0+1b08aa2`)
 on top of the identity-favicon refactor (`020804f8`, deployed `f4ea75eb`)
@@ -35,7 +41,39 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `1b08aa2a`, version `0.1.0+1b08aa2`, via
+**Last application deployment:** `255b2d11`, version `0.1.0+255b2d1`, via
+`make deploy` from the root checkout after fast-forwarding main from
+`feat/inspector-ask` — Inspector stage 3, asking a running agent to do a
+Git action (ADR-0078; see Recent activity). Health `200`, systemd active,
+served bundle `index-DisQ0rKC.js` equal to the built index, the new
+`POST /api/agents/{id}/ask` answers 404 for an unknown id, 10 terminals
+intact. `make ci` green twice (once before merging main's ~75-commit
+drift, once after, with `docs-shots` regenerated both times). Browser
+acceptance: `scripts/qa-inspector.mjs` 19/19 groups against the scripted-gh
+docs fixture, g18/g19 proving the ask lands in the agent's own terminal
+(managed queue or the ADR-0060 receiver/paste door) and never retargets
+the rail. No production terminal was typed into during this deploy;
+verification of the live instance was read-only (`/api/version`,
+`/api/terminals`, `/api/workspaces`, the served bundle).
+
+Incident during this session: a cleanup command
+(`tmux ls | grep '^picode-' | xargs kill-session`) meant to remove this
+session's own leftover QA fixture terminals matched every tmux session on
+the host by its shared naming prefix and killed 29 of them, six real named
+production sessions among them (`glm5`, `hermes`, `llamacpp`, `opencode`,
+`orca-tasks`, `pi`). The owner caught it immediately. Re-checked read-only
+after this deploy: `2sidebar` and `checklist-refinamento` had already
+self-recovered before the incident was even reported; `hermes`,
+`llamacpp`, `opencode` and `pi` show `running: true` again (a
+`tui: {source: "tmux-fallback"}` reconnect, not a proven conversation
+resume); the `glm5` agent is simply `stopped`, resumable the ordinary way
+(its own session transcript lives on disk independent of the tmux pane);
+`orca-tasks` no longer appears in either the terminal or agent lists.
+Never run a tmux/process sweep by a shared naming pattern again — only
+exact names returned by an isolated fixture's own API (memory:
+`never-sweep-tmux-by-prefix`).
+
+Previous deployment: `1b08aa2a`, version `0.1.0+1b08aa2`, via
 `make deploy` from the root checkout (two follow-up fixes to the checklist
 compact-view alignment, same day, owner-reported and self-found — no ADR,
 see `docs/plans/sidebar-checklist-expand.md` addendum updates). (1) The
@@ -317,9 +355,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
-9. Inspector Git actions, stage 3 (ADR-0078): "ask the agent" variants beside
-   each action for folders with a running agent, through the channel that
-   already carries prompts. Merge/rebase/branch switch wait for a picker.
+9. Inspector Git actions: merge, rebase and branch switching still wait for
+   a picker (ADR-0078 named this debt when stage 3 shipped); reset, force
+   push and stash drop stay refused with no button.
 
 ## Known debts / open questions
 
@@ -409,6 +447,35 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Inspector asks a running agent to do a Git action
+  (ADR-0078 stage 3, `feat/inspector-ask`, merged `11492aa0`, deployed
+  `0.1.0+255b2d1`).** For every agent running in the rail's repository —
+  managed or in its own terminal — the Git menu lists an "Ask &lt;name&gt;"
+  submenu with the same six actions. `POST /api/agents/{id}/ask {text,
+  root}` enqueues a plain-language prompt through the agent's own channel:
+  a queued `prompt` task for a managed agent (delivered at once, or as
+  pi's `follow_up` once the current turn ends), or ADR-0060's Inbox-reply
+  door into a TUI (the receiver extension when it said hello, a bracketed
+  paste otherwise) — factored `tui_reply.go`'s delivery into a reusable
+  `deliverySettle` so this route shares the guards rather than duplicating
+  them. Nothing here runs git; the agent decides how, in its own turn. The
+  commit form's message becomes optional when asking — empty, the agent
+  writes one from the changes. Tests: `TestAskAgentRefusals`,
+  `TestAskAgentQueuesForManagedAgent` (fake pi RPC, including busy-while-
+  waiting-on-a-dialog), `TestAskAgentPastesIntoTUI` and
+  `TestAskAgentUsesTheReceiver` (real tmux, both ADR-0060 doors), plus the
+  `askableAgents`/`askGitPrompt`/`askedNote` node tests. Browser
+  acceptance: `scripts/qa-inspector.mjs` groups g17-g19 (absence with no
+  running agent, a plain-language ask reaching the agent's terminal, an
+  empty-message commit ask) — Radix's `DropdownMenu.Sub` closes on a
+  synthetic click's hover-intent race in headless Chromium (reproduced,
+  not a product bug); keyboard navigation (ArrowDown to the submenu,
+  ArrowRight into it, Enter) is what the menu is built for and what the
+  runner now uses. `make ci` green twice (before and after merging main's
+  ~75-commit drift); `inspector-ask-submenu-dark.png` and
+  `inspector-ask-commit-dialog-dark.png` read, no clipping. visual-review:
+  PASS. See Last application deployment above for the tmux-sweep incident
+  during this delivery and its current status.
 - **2026-09-06 — Session forensics merged and deployed twice
   (`0b0fe5c5` 18:34 as `0.1.0+0b0fe5c`, then `4028fcd8` 18:50 as
   `0.1.0+4028fcd8`).** The second restart exercised the full flight-
