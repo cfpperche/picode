@@ -160,6 +160,41 @@
         ]
       }
     },
+    "/api/agents/{id}/ask": {
+      "post": {
+        "operationId": "postApiAgentsAsk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/bash": {
       "post": {
         "operationId": "postApiAgentsBash",

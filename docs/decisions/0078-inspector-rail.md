@@ -1,9 +1,10 @@
 # ADR-0078: An Inspector rail follows the selected tab's owner and opens content in the center
 
 - **Status**: accepted (the owner accepted the shipped rail on 2026-09-05,
-  approved the PR tab, and on 2026-09-06 chose the first two stages of the
-  Commit design below: git actions prepared in the terminal, then an opt-in
-  mode that runs them behind an interlock)
+  approved the PR tab, and on 2026-09-06 chose the three stages of the
+  Commit design below: git actions prepared in the terminal, an opt-in
+  mode that runs them behind an interlock, and asking a running agent
+  through its own prompt channel)
 - **Amends**: for the Inspector's Git actions only, the write refusals of
   ADR-0022 (graph is read-only), ADR-0032 (hunk stage/discard), ADR-0038
   (stage/discard/commit from the uncommitted row) and ADR-0073 (worktree
@@ -188,6 +189,13 @@ tabs it switches to the sidebar's icon idiom.
 | Run mode, folder idle | Command typed and submitted in the user's shell; the file it creates proves it | `TestTerminalRunTypesAndSubmits`; browser QA (commit runs, `gitstatus` empties) |
 | Run mode, an agent mid-turn / a terminal working or holding a program | 409 naming who; the command is prepared instead and a note says why | `TestTerminalRunRefusals`; browser QA (`sleep` in a second terminal) |
 | Run or type into a terminal that moved, or whose pane is not at a shell | 409 `moved` / `foreground`; the rail takes a fresh terminal in the folder | `TestTerminalRunRefusals`; browser QA |
+| Running agents in the repository | One "Ask <name>" submenu per agent (anchored first, at most three) with the same actions | `askableAgents` tests; browser QA |
+| No running agent, a stopped agent, a CLI terminal | No ask variant | `askableAgents` tests; browser QA |
+| Ask, managed agent idle / mid-turn | `prompt` task delivered at once / as pi's follow_up after the turn; the answer says which | `TestAskAgentQueuesForManagedAgent`; `askedNote` tests |
+| Ask, TUI agent with a fresh receiver and a known session | Reply file + `pi.sendUserMessage`; the JSONL row settles the task | `TestAskAgentUsesTheReceiver` |
+| Ask, TUI agent without a receiver | Bracketed paste + Enter into its pane; recorded as typed | `TestAskAgentPastesIntoTUI`; browser QA (`tmux capture-pane`) |
+| Ask an agent that stopped, works in another repository, or is already receiving | 409 `stopped` / `moved` / `busy`, naming the agent | `TestAskAgentRefusals` |
+| Ask to commit without a message | The agent is asked to write the message from the changes | `askGitPrompt` tests; browser QA |
 
 Browser acceptance runs against an isolated fixture whose picode workspace
 is a seeded dirty repository. Evidence lands in `docs/screenshots/`
@@ -208,6 +216,14 @@ kept. The folder tab (`d:`) stays as the deep-review host with its editor and
 draft guards; the rail links to it ("Open as tab"). A viewer now has two
 places to read the same working tree; they agree because both read the
 same routes with the same precondition.
+
+Asking an agent adds a third door beside the two terminal ones and changes
+nothing about who writes: the agent that receives the prompt runs git as it
+would for any prompt, in its own turn, under its own rules. The task queue
+gains a `source` value, `inspector`, so a delivered task's provenance stays
+readable. The paste path inherits ADR-0060's accepted tradeoff — a paste can
+land in an open draft — and the TUI-side proof exists only when the current
+session file is known.
 
 Debts named rather than hidden: a complete filename search for all three
 owner kinds (`git ls-files`), a watch lease for terminals if free terminals
@@ -231,6 +247,9 @@ and the per-turn `+N −M` footer beside the conversation.
 | Virtualized lists | Bounded by `-uall` status size; revisit past ~2k changes |
 | Mobile | ADR-0044/0072: supervision surfaces only |
 | A hash route for the rail | Per-viewer state, like the sidebar width and `termView` |
+| Steering or interrupting an agent's turn from the Git menu | A Git action is never urgent enough to cut into a turn; mid-turn asks queue (pi's follow_up, or the receiver's native queue) |
+| Starting a stopped agent to run git | Booting a model session for `git fetch` hides a cost and a wait; the terminal door is the stopped agent's door |
+| Asking a terminal that hosts a coding CLI | ADR-0062: those are terminals; PiCode never types into a CLI's input |
 
 ## Commit / Commit & Push — designed, pending the owner's decision
 
@@ -281,6 +300,49 @@ the four refusals, because PiCode then triggers a write, even if inside the
 user's shell; stage 3 adds the "ask the agent" variants beside each action.
 Merge, rebase and branch switching wait for a picker; reset, force push
 and stash drop get no button.
+
+### Stage 3 — ask the agent (shipped 2026-09-06)
+
+The owner's own flow is agents committing, pushing, merging and deploying.
+The Git menu therefore offers, for every agent that is **running in this
+repository**, an **Ask <name>** submenu with the same six actions. Asking
+sends a prompt through the channel that already carries prompts to that
+agent — nothing new runs git, and the agent stays the writer, with its own
+judgment and its own repository rules:
+
+- **Managed agents** (RPC): `POST /api/agents/{id}/ask {text, root}`
+  enqueues a `prompt` task (`source: inspector`); the runtime's delivery
+  loop sends it at once when the agent is idle and as pi's native
+  `follow_up` when a turn is streaming (`EffectiveTurnKind`). The answer
+  says which (`busy`), so the toast reads "Asked Atlas to push" or
+  "Queued for Atlas — it runs after the current turn".
+- **Interactive agents** (a pi TUI in its tmux session): the same route
+  takes ADR-0060's door. When the receiver extension said hello within its
+  TTL and the agent's current session file is known, the prompt travels as a
+  one-shot reply file and the TUI submits it through `pi.sendUserMessage`
+  (queued natively mid-turn); otherwise it is a bracketed paste plus Enter
+  into the pane. A known session file gives the durable proof (the JSONL
+  user row); without one the paste is recorded as typed the moment tmux
+  accepts it. ADR-0060's guards hold: one send per agent at a time, none
+  during a session mutation.
+- **Stopped agents** are not offered — the terminal door (stages 1 and 2)
+  is theirs. Terminals hosting a coding CLI are terminals (ADR-0062): they
+  have no prompt channel and get no ask variant.
+
+The text the agent receives is the text the menu and the commit form
+preview (`askGitPrompt`): the folder, the branch, the action and its rules
+— fast-forward only, never force, set the upstream when there is none, no
+push after a commit unless asked — and, where a command would be blind, a
+request for judgment ("if it cannot fast-forward, stop and tell me why").
+Commit asks for the same one-line message as stage 1 but makes it optional:
+without one, the agent is asked to write it from the changes it can read.
+
+The request carries the rail's pinned `root` as the equality precondition
+of ADR-0074: the agent's folder must belong to the same repository (git
+common dir), else 409 `moved`; 409 `stopped` when the agent no longer runs;
+409 `busy` when a reply or a session mutation is already in flight; 503 when
+tmux is unavailable for a TUI agent. The rail never retargets the user's
+view after asking; the agent's own tab shows the turn.
 
 ## Alternatives considered
 

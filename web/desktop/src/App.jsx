@@ -79,7 +79,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, askedNote, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -975,6 +975,24 @@ export default function App() {
   // The Inspector's PR tab pre-fills a gh command in a terminal the human
   // submits themselves (ADR-0078): the owner's own terminal when it is one,
   // otherwise a new terminal born in the anchored folder.
+  // Stage 3 (ADR-0078): the Inspector asks a running agent through the
+  // channel that already carries prompts to it. The server picks the door
+  // (task queue for a managed agent, receiver or paste for a TUI) and says
+  // which, so the note is honest about when the agent acts. The view is not
+  // retargeted: the agent's own tab shows the turn.
+  async function askAgentGit(who, text, root, action) {
+    try {
+      const res = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, root }),
+      });
+      toast.info(askedNote(who.name, action, res));
+    } catch (e) {
+      toastError(e);
+    }
+  }
+
   async function typeIntoTerminal(owner, root, command, { run = false } = {}) {
     if (!owner || !command) return;
     const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
@@ -2746,6 +2764,7 @@ export default function App() {
         onChanges={setInspectorChanged}
         runMode={!!inspectorPrefs.run}
         onRunMode={(run) => rememberInspector({ run })}
+        onAskAgent={askAgentGit}
       />
 
       <Palette

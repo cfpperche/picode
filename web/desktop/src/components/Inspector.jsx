@@ -13,18 +13,18 @@ import { useEdgeResize } from "../lib/resizeEdge.js";
 import {
   INSPECTOR_MIN, blockedMessage, changeTotals, defaultOpen, describeAnchor,
   inspectorLayout, maxInspectorWidth, normalizeTouched, prTabLabel, scopeChanges,
-  branchChip, gitActionCommand, gitActions,
+  branchChip, gitActionCommand, gitActions, askableAgents, askChannelHint, askGitPrompt,
 } from "../lib/inspector.js";
 import InspectorChanges from "./InspectorChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
 import InspectorCommitDialog from "./InspectorCommitDialog.jsx";
-import { IconCheck, IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
+import { IconCheck, IconChevronRight, IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 
 const REVEAL_STALE_MS = 10_000;
-const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "", upstream: "", ahead: 0, behind: 0, detached: false };
+const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "", upstream: "", ahead: 0, behind: 0, detached: false, repoRoot: "" };
 
 // useInspectorLayout measures the shell and decides whether the rail fits.
 // The left sidebar's width is read from the DOM rather than lifted out of
@@ -83,7 +83,7 @@ export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
   tab, onTab, width, maxWidth, onWidth, onToggle, activePath,
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
-  runMode, onRunMode,
+  runMode, onRunMode, onAskAgent,
 }) {
   const anchorKind = anchor ? anchor.kind : "";
   const anchorId = anchor ? anchor.id : "";
@@ -175,6 +175,7 @@ export default function Inspector({
             git: true, changes: st.changes || [], totals: st.totals || changeTotals(st.changes),
             branch: st.branch || "", worktree: st.worktree || "", upstream: st.upstream || "",
             ahead: Number(st.ahead) || 0, behind: Number(st.behind) || 0, detached: !!st.detached,
+            repoRoot: st.repoRoot || "",
           }
           : EMPTY_STATUS);
       } catch (e) {
@@ -316,6 +317,16 @@ export default function Inspector({
     if (!onOpenTerminal || !owner) return;
     onOpenTerminal(owner, root, gitActionCommand(action, { branch: status.branch, upstream: status.upstream }), { run: !!runMode });
   };
+  // Stage 3 (ADR-0078): agents running in this repository can be asked
+  // instead — a prompt through their own channel. Nothing here runs git.
+  const askable = useMemo(
+    () => (onAskAgent && status.git ? askableAgents({ workspaces, freeAgents }, { root, repoRoot: status.repoRoot, anchor }) : []),
+    [onAskAgent, status.git, status.repoRoot, workspaces, freeAgents, root, anchor],
+  );
+  const askGit = (who, action) => {
+    if (!onAskAgent) return;
+    onAskAgent(who, askGitPrompt(action, { root, branch: status.branch, upstream: status.upstream }), root, action);
+  };
   function onTabKey(e) {
     if (order.length < 2 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
@@ -371,6 +382,32 @@ export default function Inspector({
                       <span className="insp-menu-tick" aria-hidden="true"><DropdownMenu.ItemIndicator><IconCheck size={12} /></DropdownMenu.ItemIndicator></span>
                       <span>Run when no agent is working here</span>
                     </DropdownMenu.CheckboxItem>
+                  </> : null}
+                  {askable.length ? <>
+                    <DropdownMenu.Separator className="um-divider" />
+                    {askable.map((who) => (
+                      <DropdownMenu.Sub key={who.id}>
+                        <DropdownMenu.SubTrigger className="composer-more-item insp-menu-sub">
+                          <span>Ask {who.name}</span>
+                          <span className="insp-menu-hint">{askChannelHint(who)}</span>
+                          <IconChevronRight className="insp-menu-chev" />
+                        </DropdownMenu.SubTrigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.SubContent className="composer-more-pop insp-git-pop" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                            <DropdownMenu.Item className="composer-more-item" onSelect={() => askGit(who, "fetch")}>Fetch</DropdownMenu.Item>
+                            {actions.includes("pull") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => askGit(who, "pull")}>Pull</DropdownMenu.Item> : null}
+                            {actions.includes("push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => askGit(who, "push")}>Push</DropdownMenu.Item> : null}
+                            <DropdownMenu.Separator className="um-divider" />
+                            <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: false, ask: who })}>Commit…</DropdownMenu.Item>
+                            {actions.includes("commit-push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: true, ask: who })}>Commit and push…</DropdownMenu.Item> : null}
+                            {pull.page && pull.page.status !== "ok" ? <>
+                              <DropdownMenu.Separator className="um-divider" />
+                              <DropdownMenu.Item className="composer-more-item" onSelect={() => askGit(who, "pr")}>Create pull request</DropdownMenu.Item>
+                            </> : null}
+                          </DropdownMenu.SubContent>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Sub>
+                    ))}
                   </> : null}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
@@ -467,8 +504,10 @@ export default function Inspector({
       </div>
       <InspectorCommitDialog
         open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={status} run={!!runMode}
+        ask={(commitDialog && commitDialog.ask) || null} root={root}
         onClose={() => setCommitDialog(null)}
         onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, root, command, { run: !!runMode }); }}
+        onAsk={(text, action) => { const who = commitDialog && commitDialog.ask; setCommitDialog(null); if (who && onAskAgent) onAskAgent(who, text, root, action); }}
       />
     </aside>
   );

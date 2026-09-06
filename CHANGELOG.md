@@ -13,6 +13,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inspector: ask a running agent to do a Git action** (ADR-0078). For every
+  agent running in the rail's repository — managed or in its own terminal —
+  the Git menu now lists an "Ask &lt;name&gt;" submenu with the same actions.
+  Asking sends the agent a plain-language message through the channel that
+  already carries its prompts: a queued turn for a managed agent (delivered
+  at once, or as a follow-up once its current turn ends) or the Inbox
+  reply's own door into a TUI (the receiver extension, or a bracketed
+  paste). The agent decides how and runs it in its own turn; PiCode never
+  runs git here. The commit form's message becomes optional when asking —
+  left empty, the agent writes one from the changes. A stopped agent, or a
+  terminal hosting a coding CLI, is not offered.
+
 - **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
   menu gains a per-viewer checkbox, "Run when no agent is working here". With
   it on, PiCode types the command into your terminal and presses Enter itself,

@@ -44,6 +44,13 @@ from the seeded upstream. `inspector-run-*` adds the run-when-idle mode
 was prepared instead (the toast steps left of the rail), the commit form in
 "Run in terminal" wording, and the terminal after the commit ran with
 `gitstatus` at zero changes before the runner restores the seed.
+`inspector-ask-*` adds stage 3, asking an agent: the Git menu's "Ask
+&lt;name&gt;" submenu open for a second, TUI-mode agent sharing the
+repository (an idle tmux session standing in for a real login, since the
+fixture has no real pi), and the commit form addressing that agent with its
+message optional and the prompt preview showing what it will read. QA group
+g18 proves the prompt lands in the agent's own terminal and the toast names
+the door taken; g19 proves an empty message asks the agent to write its own.
 
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector
