@@ -1,9 +1,10 @@
 # Agent CLIs
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
-phone. It manages terminals for your installed Pi, Claude Code, Codex and Grok
-commands. Managed agents, structured chat, packages and automations still use
-Pi; a CLI terminal is not a new type of managed agent.
+phone. It manages terminals — and lists each CLI's session history — for
+your installed Pi, Claude Code, Codex and Grok commands. Managed agents,
+structured chat, packages and automations still use Pi; a CLI terminal is
+not a new type of managed agent.
 
 ## Open a terminal
 
@@ -54,6 +55,19 @@ hidden in previews and terminal events. The editor can display saved values:
 this is configuration storage,
 not a credential vault. Prefer the native CLI's authentication mechanism.
 Native model, permission and session settings are not part of this preview.
+
+## Find a session
+
+The **Sessions** tab lists the sessions each CLI left on disk, grouped by
+folder. Pick the CLI in the toolbar and search by name, preview or folder.
+**Open in terminal** starts that CLI again in the session's folder; the
+exact arguments come from the CLI itself (for example `claude --resume`).
+
+Pi sessions add management actions: **Open with…** moves one of the
+folder's agents to that session, **Compact** summarizes its older turns,
+**Delete** removes the file, and **Auto-clean orphans** removes abandoned
+sessions after the chosen number of days. Sessions are read from disk,
+deleting is permanent, and sessions in use by an agent refuse deletion.
 
 ## Reuse launch profiles
 
