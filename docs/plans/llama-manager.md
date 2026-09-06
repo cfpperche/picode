@@ -44,6 +44,37 @@ into a dedicated, compact manager rather than a long Providers footer.
 - Acceptance: navigate away/reconnect during each operation and verify its
   actual final state, concurrency and cancellation behavior.
 
+### Delivery 2 execution matrix
+
+Implementation and acceptance are pending. A job records the normalized server
+identity, model, operation, request key, observed state and timestamps; secrets
+stay outside the job. Replacing other models reserves the whole server while
+ordinary operations reserve their model. A connection edit cannot retarget an
+existing job. Store transitions append feed events in the same transaction.
+
+| Conditions | Required action | Acceptance |
+|---|---|---|
+| Same request key and identical operation | Return existing job; never repeat POST | Pending |
+| Same key with different input | Conflict; no remote mutation | Pending |
+| Active operation on the same model | Conflict until reconciled | Pending |
+| Replace requested while any model job is active | Conflict before unloading anything | Pending |
+| SSE responds with the expected content type | Observe events, reconcile final catalog | Pending |
+| SSE unavailable or disconnected | Bounded server-side catalog polling; preserve progress | Pending |
+| Progress has multiple files | Keep done/total per file; unknown totals remain indeterminate | Pending |
+| Browser leaves or reconnects | Read durable job and feed; never replay mutation | Pending |
+| PiCode restarts after accepting a job | Reconcile without replay; ambiguous result is interrupted/unknown | Pending |
+| Server URL or credential changes during work | Keep the original target; no silent retargeting | Pending |
+| Download cancel supported and download still active | Request unload; confirm observed terminal state | Pending |
+| Cancel races with successful completion | Reconcile; never label completed download as canceled | Pending |
+| Cancel unsupported, load/unload active, or remote state uncertain | Explain limitation; no false cancellation success | Pending |
+| Server unreachable after accepting a mutation | Unknown outcome; retain evidence and reconcile | Pending |
+
+Use `scripts/qa-llama-runtime.py` against an explicitly selected disposable,
+unloaded model for real router load, streaming, tool-protocol and unload checks.
+The optional `--pi` executable adds an isolated Pi read-tool round trip. It does
+not replace the job matrix or certify model quality, GPU performance, or the
+browser workflow. It changes neither production Pi configuration nor services.
+
 ## Delivery 3 — Choose and use a model
 
 - Catalog: model source, size, quantization, license/gated access and search states.
@@ -138,3 +169,37 @@ health ok, deployed desktop bundle verified, 9/9 pre-deploy terminal IDs
 preserved. Live desktop/mobile legacy links, Models/Server pages and Test
 connection passed; screenshots read and audits ok. The pre-existing llama
 endpoint timeout remains, so real-model acceptance is still pending.
+
+## Real runtime investigation (2026-09-06)
+
+No listener on WSL port 8080 and no matching Windows llama.cpp/Ollama/LM
+Studio process were found. Windows networking is mirrored. No standalone
+llama-server or completed GGUF was found in the searched user folders;
+`~/ollama` exists, with only partial model blobs. This does not identify the
+network component dropping connections to the unused production endpoint.
+
+A disposable upstream Linux CPU router was run on loopback ports 18080/18081,
+without changing production configuration. Build `b10809-5266f24da` was
+obtained from the official v0.4.0 release's nightly pointer. SHA-256 verified:
+
+- Server archive: `5e34434ddc6d03cd1584f403201aff0d4bd1a5793a72ff7e286532dfd1e4b941`.
+- Qwen3-0.6B-Q8_0 GGUF: `361cc68159042c36ebff7715dc5a2e4612153e88f3e9c9c234820849d6dc9e1d`.
+- Model repository revision: `b5f37287796e5be0ea3dab2e7430873fb3f73e49`.
+
+The runtime test passed router detection, SSE subscription and load events,
+load/unload, four streaming content chunks and a forced function call with
+validated arguments. The isolated real Pi read-tool round trip **FAILED**:
+Pi exited zero but the model invented file content without executing `read`.
+The test correctly returns failure despite that exit code. This model is not
+certified for coding-agent use. The nonexistent-model refusal also passed
+without a mutation. Evidence: [runtime report](llama-runtime-qa.json).
+
+`make ci` passed (902 JS/package tests and Go/build/docs gates). No application
+code or UI changed. Delivery 2 remains unimplemented; the matrix above is the
+next implementation contract, not acceptance evidence. Real router download,
+cancellation, GPU execution, durable jobs and a successful Pi model remain
+pending. The disposable servers were stopped; downloaded test artifacts remain
+under `/tmp/picode-llama-runtime`, outside the repository and production cache.
+
+Pinned protocol reference:
+[llama-server b10809 API](https://github.com/ggml-org/llama.cpp/blob/5266f24da/tools/server/README.md).

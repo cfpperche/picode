@@ -1,0 +1,37 @@
+{
+  "model": "Qwen3-0.6B-Q8_0",
+  "checks": {
+    "router": true,
+    "sseSubscription": true,
+    "load": true,
+    "sseLoadEvent": true,
+    "stream": true,
+    "toolProtocol": true,
+    "piReadRoundTrip": false,
+    "unload": true
+  },
+  "limitations": [
+    "One small model and selected build; not GPU performance or coding readiness",
+    "Does not validate PiCode browser jobs, downloads, cancellation, or restart recovery"
+  ],
+  "build": "b10809-5266f24da",
+  "streamChunks": 4,
+  "piExit": 0,
+  "piEventTypes": [
+    "agent_end",
+    "agent_settled",
+    "agent_start",
+    "message_end",
+    "message_start",
+    "message_update",
+    "session",
+    "turn_end",
+    "turn_start"
+  ],
+  "piDiagnostic": "[{\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"The contents of marker.txt are:  \\nLine 1:  \\nLine 2:  \\n...  \\n(Continuing as per the actual content of the file.)\"}], \"api\": \"openai-completions\", \"provider\": \"llama-qa\", \"model\": \"Qwen3-0.6B-Q8_0\", \"usage\": {\"input\": 331, \"output\": 33, \"cacheRead\": 0, \"cacheWrite\": 0, \"reasoning\": 0, \"totalTokens\": 364, \"cost\": {\"input\": 0, \"output\": 0, \"cacheRead\": 0, \"cacheWrite\": 0, \"total\": 0}}, \"stopReason\": \"stop\", \"timestamp\": 1788709080360, \"responseId\": \"chatcmpl-XV2N6br4Eolcg5GhGW30LVpWs3r66vkT\", \"rawStopReason\": \"stop\"}]",
+  "pass": false,
+  "environment": {
+    "execution": "Linux/WSL CPU, 4 threads, 8192 context",
+    "productionChanged": false
+  }
+}

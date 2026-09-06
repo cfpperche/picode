@@ -3076,3 +3076,28 @@ terminal", then the fixture repo is reset. `inspector-git-*`,
 `inspector-commit-*` and `inspector-run-*` screenshots plus the live menu
 read, overlay/row audits ok. visual-review: PASS. Fixtures and QA browser
 sessions are closed; the feature worktrees and branches are removed.
+
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
+
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).

@@ -28,7 +28,11 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
+**Live version observed at investigation end:** `0.1.0+d1f1e9f`; another
+session deployed while this isolated investigation ran. This session did not
+deploy or certify that build.
+
+**Last llama delivery deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
 serialized `make deploy` from the validated worktree after fast-forwarding
 main. Health `ok`, systemd active, desktop bundle `index-B_QAIkue.js` matches
 the deployed build. All 9 pre-deploy terminal IDs survived the restart.
@@ -129,6 +133,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- llama runtime investigation: disposable build b10809 passed router/SSE,
+  load/unload, streaming and forced tool protocol. Qwen3-0.6B-Q8_0 failed
+  the real Pi read-tool test (fabricated content, no tool execution).
+  Production still has no reachable server at port 8080. Delivery 2 has a
+  detailed decision matrix and reusable runtime QA script, but no job code.
+  See [runtime evidence](plans/llama-runtime-qa.json) and the manager plan.
+
 
 
 
@@ -162,7 +173,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
+1. llama: select and validate a model that actually uses Pi tools; then
+   delivery 2 capability detection, durable jobs, progress and reconnect.
    Deliveries 3–4 remain planned; see the approved llama manager plan.
 
 1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
@@ -213,8 +225,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   rows, and the in-use/409 and root/400 guards are unchanged.
 
 
-- llama: browser/HTTP-fixture acceptance is synthetic; real installed-build,
-  GPU and model inference acceptance remains pending. Synchronous operations
+- llama: browser acceptance remains synthetic. Disposable real CPU router,
+  SSE and inference passed; Pi tool use failed on the tested 0.6B model. GPU,
+  production runtime and router download/cancel remain unverified. Synchronous operations
   remain in delivery 1; recovery/concurrency/cancellation belongs to delivery 2.
   Model guidance/readiness is delivery 3; service ownership and cache deletion
   require delivery 4's concrete follow-up ADR. No llama service lifecycle or
@@ -274,29 +287,10 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
-- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
-  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
-  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
-  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
-  captures read and audits ok; visual-review: PASS. The existing llama
-  connection times out; real-model acceptance remains pending. No push.
-
-- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
-  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
-  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
-  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
-  terminals by CLI state or foreground program via `PaneCommand`, the target
-  pane at a shell; repository identity by git common dir); 409 `moved` /
-  `foreground` / `busy` naming who; the `type` route shares the root and
-  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
-  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
-  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
-  with fallback note and a fresh-terminal retry, dialog reads "Run in
-  terminal". ADR-0078 now states the amendment to the write refusals of
-  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
-  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
-  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
-  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
-  live Git menu read in both checkbox states).
+- **2026-09-06 — llama real-runtime investigation.** Added reproducible
+  runtime QA and delivery 2 decision matrix. Build b10809 passed basic
+  protocol; Qwen3-0.6B failed real Pi tool use. make ci passed (902 JS tests).
+  No app changes or deployment; visual-review: not applicable. Test servers
+  stopped; temporary downloads retained outside production.
 
 Older activity lives in `docs/handoff-archive.md`.
