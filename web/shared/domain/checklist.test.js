@@ -1,8 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checklistLine, applyChecklists, indexChecklists, checklistItems, checklistRefusal, currentStep } from "./checklist.js";
+import { checklistLine, checklistRows, applyChecklists, indexChecklists, checklistItems, checklistRefusal, currentStep } from "./checklist.js";
 import { summarizeArgs } from "./toolArgs.js";
 import { stepLabel } from "./turns.js";
+
+test("rows: glyph + current per step; unknown status is pending; junk dropped", () => {
+  assert.deepEqual(checklistRows([
+    { text: "a", status: "completed" },
+    { text: "b", status: "in-progress" },
+    { text: "c" },
+    { text: "d", status: "weird" },
+    { nope: true },
+    { text: "   " },
+  ]), [
+    { key: "0", glyph: "☑", status: "completed", text: "a", current: false },
+    { key: "1", glyph: "◐", status: "in-progress", text: "b", current: true },
+    { key: "2", glyph: "☐", status: "pending", text: "c", current: false },
+    { key: "3", glyph: "☐", status: "pending", text: "d", current: false },
+  ]);
+  // No in-progress step → no spinner row, pending or done.
+  assert.deepEqual(checklistRows([{ text: "a" }]).map((r) => r.current), [false]);
+  assert.deepEqual(checklistRows([{ text: "a", status: "completed" }]).map((r) => r.current), [false]);
+  assert.deepEqual(checklistRows(undefined), []);
+  assert.deepEqual(checklistRows([]), []);
+});
 
 test("line: in-progress step, else first pending, else n/n, else absent, else nothing", () => {
   assert.deepEqual(checklistLine({ items: [{ text: "a", status: "completed" }, { text: "b", status: "in-progress" }, { text: "c" }] }), { kind: "step", text: "b", position: 2, total: 3 });

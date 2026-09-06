@@ -6,7 +6,9 @@
 ## Current state (read this first)
 
 **Repository:** `main` includes llama.cpp delivery 2 (ADR-0083), merged as
-`70edb214` and deployed as `0.1.0+70edb21`. Models, Server and
+`70edb214` and deployed as `0.1.0+70edb21` — and the checklist sidebar
+refinements + expand-on-click disclosure (ADR-0082,
+`feat/checklist-sidebar-refine`) merge next. Models, Server and
 Activity work on desktop/mobile. Load, unload and download now create durable
 jobs, show per-file progress and recover observation after reconnect/restart
 without replaying a mutation. Cancellation is enabled only for verified b10809.
@@ -151,6 +153,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 `.pi/settings.json`, so project agents load it on their next start.
 
 ## In flight
+
+- `feat/checklist-sidebar-refine` is merged into main; the next `make
+  deploy` ships it. Contents: the checklist counter `(x/n)` muted, an
+  **absent** checklist rendering as silence everywhere (ADR-0082, owner
+  call; data plane unchanged), and the **expand-on-click disclosure**
+  (`checklistRows` pure + node-tested; `ChecklistDisclosure` on agent and
+  terminal cards — ☑ dimmed, braille `PiSpinner` on the step being
+  executed, ☐ pending; real button with `aria-expanded`, Enter/Escape,
+  never navigates; 150ms grid-rows motion behind reduced-motion; live over
+  the feed, no fetch). Browser QA on an isolated daemon: both cards expand,
+  live flip mid-expansion, URL unchanged, `overlayAudit ok`. visual-review:
+  PASS. `make ci` green.
 
 - llama delivery 2 is complete in `feat/llama-jobs`; integration/deployment
   remains separate. Keep real validation sequential with four CPU threads
@@ -312,6 +326,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Checklist refinements + disclosure reconciled with llama
+  delivery 2 (branch).** CHANGELOG/ADR-index/handoff conflicts resolved
+  keeping both sides (llama ADR-0083 vs my ADR-0082); captures taken on
+  main's side pending regeneration. Content unchanged from the two prior
+  branch commits: muted counter, absent-silence (ADR-0082), and the
+  expand-on-click disclosure (☑ / braille spinner / ☐), browser-QA'd on an
+  isolated daemon. visual-review: PASS.
 
 - **2026-09-06 — Dead `go("sessions")` branch removed.** The user menu was
   its last caller; the sessions debt note shrinks accordingly (routes.test

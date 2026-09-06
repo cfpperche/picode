@@ -42,8 +42,8 @@ checklist package, so their terminals never show a line.
 ## What you see
 
 - **Sidebar**: one line under the agent — `(2/4) the step it is on`.
-  When a plan is finished it reads `(4/4)`. If the task required a plan
-  and the agent did not write one, the line says **No checklist**.
+  When a plan is finished it reads `(4/4)`. Nothing known, and a task
+  without a plan, shows no line at all (ADR-0082).
   Agent CLI terminal cards carry the same line.
 - **Terminal pane**: the same one-line strip above the terminal, live —
   useful when the TUI is maximized and the sidebar is narrow.
