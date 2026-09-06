@@ -149,6 +149,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- `feat/checklist-sidebar-refine` awaits merge and deploy. Shipped on the
+  branch: the checklist counter `(x/n)` loses its accent color and an
+  **absent** checklist renders as silence — no line, no "No checklist" —
+  on agent cards, terminal cards, the pane strip and mobile rows
+  (ADR-0082, owner call amending 0055/0081; data plane unchanged). The
+  expand-on-click disclosure (☑ done / braille spinner on current / ☐
+  pending) is architected, not built:
+  `docs/plans/sidebar-checklist-expand.md` — awaiting the owner's go.
+  Visual review: PASS (muted counter + absent-silence screenshots read on
+  an isolated daemon, `overlayAudit ok`); `make ci` green.
+
 - Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
   branch removed. The study's adoption list is complete; its debts sit
   under Next up.
@@ -305,6 +316,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Checklist line refinement (branch).** Counter `(x/n)`
+  muted; an absent checklist renders as silence everywhere (ADR-0082,
+  owner call — data plane untouched). Mobile fallback no longer says
+  "No checklist". Guide updated; stale comments fixed. Expand-on-click
+  disclosure architected in `docs/plans/sidebar-checklist-expand.md`
+  (pure-logic `checklistRows`, `ChecklistDisclosure` on Agent/TermRow,
+  braille via the existing `PiSpinner`, live updates need no fetch).
+  visual-review: PASS (muted counter, absent-silence; audits ok).
+  Awaits merge + deploy with the expansion go-ahead.
 - **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
   `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
   and sessions work (ADR number collision resolved: terminal checklists took
