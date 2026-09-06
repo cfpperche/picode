@@ -80,6 +80,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile extra keys no longer leave a black strip, and hide the TUI
+  behind them.** The phone shell fills the screen while the keyboard is
+  closed. Opening it shrinks the terminal (and refits xterm) so the
+  prompt stays above the extra-keys row; that row is opaque. Safari's
+  undo/Done pill above the keyboard is the system IME — a web app cannot
+  remove it.
+
 - **Mobile extra keys sit above the phone keyboard.** The terminal key
   bar is one horizontally scrolling row (esc, tab, ctrl, alt, arrows,
   Ctrl+C, then Home/End/pages and `| ~ / -`) that opens and closes with

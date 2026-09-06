@@ -5,9 +5,10 @@ import {
   HARD_KEYBOARD_WAIT_MS,
   extraKeysVisible,
   hardKeyboardLikely,
+  inputIsFocused,
   keyboardInset,
   sendTermSeq,
-  shellVars,
+  shellLayout,
 } from "./keyboardInset.js";
 
 test("keyboardInset is innerHeight minus visual viewport minus offsetTop", () => {
@@ -35,22 +36,50 @@ test("decision table: hardware hide is conservative", () => {
   assert.equal(hardKeyboardLikely({ ...focused, termFocused: false }), false);
   assert.equal(hardKeyboardLikely({ ...focused, elapsedMs: HARD_KEYBOARD_WAIT_MS - 1 }), false);
   assert.equal(hardKeyboardLikely({ ...focused, inset: 300, finePointer: true }), false);
-  // Phone: coarse pointer, even with a 0 inset we failed to measure.
   assert.equal(hardKeyboardLikely({ ...focused, finePointer: false }), false);
-  // Chrome Android resizes-content: inset ≈ 0, coarse pointer, stay visible.
   assert.equal(extraKeysVisible({ termFocused: true, hardKeyboard: false }), true);
 });
 
-test("shellVars follow the visual viewport; pinch-zoom is ignored", () => {
-  assert.deepEqual(
-    shellVars({ innerHeight: 800, vvHeight: 480, vvOffsetTop: 12, scale: 1 }),
-    { height: 480, offsetTop: 12, inset: 308 },
-  );
-  assert.equal(shellVars({ innerHeight: 800, vvHeight: 400, vvOffsetTop: 0, scale: 2 }), null);
-  assert.deepEqual(
-    shellVars({ innerHeight: 800, vvHeight: 800, vvOffsetTop: 0 }),
-    { height: 800, offsetTop: 0, inset: 0 },
-  );
+test("decision table: pin the shell only while the IME covers pixels", () => {
+  const rest = shellLayout({
+    innerHeight: 844, vvHeight: 800, vvOffsetTop: 0, scale: 1,
+    restHeight: 800, inputFocused: false,
+  });
+  assert.equal(rest.keyboardOpen, false);
+
+  const attachFocus = shellLayout({
+    innerHeight: 844, vvHeight: 800, vvOffsetTop: 0, scale: 1,
+    restHeight: 800, inputFocused: true,
+  });
+  assert.equal(attachFocus.keyboardOpen, false);
+
+  const iosOverlay = shellLayout({
+    innerHeight: 844, vvHeight: 500, vvOffsetTop: 0, scale: 1,
+    restHeight: 800, inputFocused: true,
+  });
+  assert.equal(iosOverlay.keyboardOpen, true);
+  assert.equal(iosOverlay.height, 500);
+  assert.equal(iosOverlay.inset, 344);
+
+  const classic = shellLayout({
+    innerHeight: 800, vvHeight: 480, vvOffsetTop: 12, scale: 1,
+    restHeight: 800, inputFocused: true,
+  });
+  assert.equal(classic.keyboardOpen, true);
+  assert.equal(classic.height, 480);
+  assert.equal(classic.offsetTop, 12);
+
+  assert.equal(shellLayout({
+    innerHeight: 800, vvHeight: 400, vvOffsetTop: 0, scale: 2, inputFocused: true,
+  }), null);
+});
+
+test("inputIsFocused recognises xterm's helper textarea", () => {
+  assert.equal(inputIsFocused(null), false);
+  assert.equal(inputIsFocused({ tagName: "DIV" }), false);
+  assert.equal(inputIsFocused({ tagName: "TEXTAREA" }), true);
+  assert.equal(inputIsFocused({ tagName: "INPUT" }), true);
+  assert.equal(inputIsFocused({ tagName: "DIV", isContentEditable: true }), true);
 });
 
 test("sendTermSeq applies sticky modifiers and refocuses only when the host had focus", () => {

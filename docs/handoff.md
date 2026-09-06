@@ -36,6 +36,8 @@
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/mobile-keybar-refine` — no black strip at rest; opaque extra keys;
+  terminal refits above the IME. Safari's undo/Done pill cannot be hidden.
 
 ## Next up
 

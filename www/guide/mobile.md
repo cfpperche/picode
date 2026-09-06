@@ -83,6 +83,8 @@ The hide button stays pinned on the right.
   seconds if nothing uses it.
 - A key on the row never opens the phone keyboard; tapping the terminal
   does. The row rises above the keyboard so the prompt stays visible.
+- The small undo/Done bar just above the phone keyboard is Safari's,
+  not PiCode's — a web app cannot hide it.
 - With a hardware keyboard attached, the row steps aside (the header
   icon brings it back).
 
