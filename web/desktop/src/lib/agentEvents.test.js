@@ -51,6 +51,47 @@ describe("reduceAgentEvent", () => {
     assert.equal(tool.name, "bash");
   });
 
+  // ADR-0082 decision table: live sidecar frames ride capture_frame events
+  describe("sidecar capture frames", () => {
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=";
+    const frame = (seq, extra = {}) => ({ toolCallId: "s1", seq, ts: 1000 + seq, image: png, url: "http://127.0.0.1:9/p", title: "P", ...extra });
+    const start = [
+      { type: "agent_start" },
+      { type: "tool_execution_start", toolCallId: "s1", toolName: "agent_browser", args: { args: ["open", "http://127.0.0.1:9/"] } },
+    ];
+    const item = (state, id = "s1") => state.items.find((it) => it.kind === "tool" && it.id === id);
+
+    it("a running tool shows the newest frame and keeps its sequence", () => {
+      const { state } = run([...start, { type: "capture_frame", ...frame(3) }, { type: "capture_frame", ...frame(4) }]);
+      assert.equal(item(state).preview.image, png);
+      assert.equal(item(state).captureSeq, 4);
+      assert.equal(item(state).status, "···");
+    });
+    it("an out-of-order frame is ignored", () => {
+      const { state } = run([...start, { type: "capture_frame", ...frame(5) }, { type: "capture_frame", ...frame(4) }]);
+      assert.equal(item(state).captureSeq, 5);
+    });
+    it("a frame for another tool call never lands", () => {
+      const { state } = run([...start, { type: "capture_frame", ...frame(1), toolCallId: "other" }]);
+      assert.equal(item(state).preview, null);
+    });
+    it("a final frame lands even after the tool result settled", () => {
+      const { state } = run([...start,
+        { type: "capture_frame", ...frame(2) },
+        { type: "tool_execution_end", toolCallId: "s1", isError: false, result: { content: [] } },
+        { type: "capture_frame", ...frame(3, { final: true }) },
+      ]);
+      const it2 = item(state);
+      assert.equal(it2.status, "ok");
+      assert.equal(it2.captureSeq, 3);
+      assert.equal(it2.preview.image, png);
+    });
+    it("an invalid frame never touches the item", () => {
+      const { state } = run([...start, { type: "capture_frame", toolCallId: "s1", seq: 1, image: "https://example.com/not-data" }]);
+      assert.equal(item(state).preview, null);
+    });
+  });
+
   // ADR-0057 decision table: tool_execution_update carries preview frames
   describe("tool live preview", () => {
     const frame = { image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=", url: "https://example.com/", title: "Example" };
@@ -87,19 +128,28 @@ describe("reduceAgentEvent", () => {
       ]);
       assert.equal(item(state).preview, null);
     });
-    it("the final result is authoritative; no end preview clears the live one", () => {
+    it("the final result is authoritative: an end preview replaces the live one", () => {
       const { state } = run([...start,
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
         { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: { details: { preview: frame2 } }, isError: false },
       ]);
       assert.equal(item(state).status, "ok");
       assert.equal(item(state).preview.image, frame2.image);
-      const again = run([
-        ...start,
+    });
+    it("an explicit unavailable marker on end clears the live frame (ADR-0057)", () => {
+      const { state } = run([...start,
+        { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
+        { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: { details: { preview: { unavailable: true } } }, isError: false },
+      ]);
+      assert.equal(item(state).preview, null);
+      assert.equal(item(state).previewError, "Capture unavailable");
+    });
+    it("a silent end result keeps the live frame — the sidecar owns it (ADR-0082)", () => {
+      const { state } = run([...start,
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
         { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: {}, isError: false },
-      ]).state;
-      assert.equal(item(again).preview, null);
+      ]);
+      assert.equal(item(state).preview.image, frame.image);
     });
     it("duplicate starts, older captures and updates after completion cannot replace the row", () => {
       const state = run([...start, start[1],
@@ -110,7 +160,7 @@ describe("reduceAgentEvent", () => {
       assert.equal(item(state).preview.title, "Example");
       const ended = reduceAgentEvent(state, { type: "tool_execution_end", toolCallId: "b1", result: {}, isError: true }).state;
       const late = reduceAgentEvent(ended, { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } }).state;
-      assert.equal(item(late).preview, null);
+      assert.equal(item(late).preview.title, "Example");
       assert.equal(item(late).status, "error");
     });
   });

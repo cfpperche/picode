@@ -64,6 +64,17 @@ to the `[Unreleased]` section. The repository's official language is English
   Tab focuses the current tab, arrows / Home / End move between tabs,
   Enter or Space selects. Phase 3 of
   `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+- `packages/pi-browser-capture` (ADR-0082): a standalone pi extension that
+  streams opt-in live browser frames while `agent_browser` runs — without
+  patching pi-agent-browser-native. Frames mirror to
+  `<pi-session-file>.capture/` (bounded JPEG, latest wins) and the final frame
+  persists as a session entry for replay; `/browser-captures on|off|status`
+  consent is branch-persisted. Proven end to end against an unpatched upstream
+  0.6.6 checkout: real-model RPC (17 intra-call frames, final marker, kill
+  switch), the daemon capture-directory bridge (`capture_frame` events,
+  re-validated before fan-out) and live/replay rendering on desktop and
+  mobile. The pinned in-package patch idea is superseded and was removed.
+
 
 ### Changed
 

@@ -1,6 +1,6 @@
 {
   "fingerprintVersion": 1,
-  "capturedAt": "2026-09-06T16:03:11.850Z",
+  "capturedAt": "2026-09-06T16:08:39.025Z",
   "gitSha": "24e135ac9cc13fb605f0de20b3176d26b9174f6f",
   "base": "http://127.0.0.1:18740",
   "tool": "agent-browser",
@@ -8,23 +8,23 @@
   "surfaces": {
     "app-fleet": {
       "profile": "desktop-dashboard",
-      "inputHash": "80c7e102f43747fdc8f4de773c6c2d0e79ea8b794db3bfa8cdb8a3aa9a15e4da",
+      "inputHash": "fd5db9a0d8462989163b1821d7cf495e2e74bfe720d0c74c525aada9c932d1a9",
       "file": "app-fleet.png",
       "url": "/desktop/",
       "viewport": "1440x900",
-      "sha256": "1920c2f8d005b58c4a709b907eaaae1486c8f3976078c37ec876c0ff8374b948"
+      "sha256": "b9a63fcafbd277d653c15d8c787be91f244e26a47e3ad3bce3bd60b13891ebbc"
     },
     "app-inspector": {
       "profile": "desktop-inspector",
-      "inputHash": "012b90c420c9537c5b72875b0f9acaeec152246f2144e25645f7738b386f3278",
+      "inputHash": "8bb7cbca0bf8f70c815a05c5d6af94c37f3cef072a5b9e3271288a2a0095d623",
       "file": "app-inspector.png",
       "url": "/desktop/",
       "viewport": "1440x900",
-      "sha256": "e35fb4155b9bb9ad018074eba20c6dbf394c2c377f690150f1c966fcaf708c64"
+      "sha256": "09b3ab08f7f9a118d8ee63241071666426c32990b1d5ea5c145587bc04e844c3"
     },
     "app-mobile-inbox": {
       "profile": "mobile-inbox",
-      "inputHash": "66c61522ccee04eed91ef1600d4a4f15c54d9355a03b6cf300f5a347ecf8e3c8",
+      "inputHash": "39074b77a9f597cc6e5633610345a10ce725d574f2c224bb9d4eebafc57682d0",
       "file": "app-mobile-inbox.png",
       "url": "/mobile/#/app/inbox",
       "viewport": "390x844",
@@ -32,7 +32,7 @@
     },
     "app-mobile": {
       "profile": "mobile-now",
-      "inputHash": "73560c998bcabbcda8d0c01df20bfc1c84f94624bd335904fcaaf4e28b48af80",
+      "inputHash": "844180b38d9ac7b19db569fee8674a751bb8a55ed9a041ae966ab4e7cdb0de90",
       "file": "app-mobile.png",
       "url": "/mobile/",
       "viewport": "390x844",
