@@ -182,10 +182,14 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
   async function toggle(s) {
     if (!installed) return;
     const turningOn = !!s.disabled;
+    // Servers PiCode does not own (host imports and shared files) toggle a
+    // user-layer override stub so OFF/ON is scope-proof: both directions
+    // always land in the same file the adapter reads last.
+    const toggleScope = s.owned ? writeScope(s, scope) : "user";
     const next = await runJob("toggle", s.name, () => api("/api/mcp", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body({ name: s.name, scope: writeScope(s, scope), disabled: !s.disabled })),
+      body: JSON.stringify(body({ name: s.name, scope: toggleScope, disabled: !s.disabled })),
     }));
     if (!next) return;
     if (turningOn) await signIn({ ...s, disabled: false }, { quiet: true });

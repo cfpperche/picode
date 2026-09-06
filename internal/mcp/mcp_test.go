@@ -270,6 +270,17 @@ func TestToggleStubDoesNotCopyURL(t *testing.T) {
 	if len(rep.Servers) != 1 || !rep.Servers[0].Disabled || rep.Servers[0].URL != "https://secret.example/mcp" {
 		t.Fatalf("merged = %+v", rep.Servers)
 	}
+	// Re-enabling must delete the stub so the import is unmasked again.
+	if err := Toggle(p, "user", "ext", false); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(p.PiGlobal()); err == nil && containsAny(string(b), "ext") {
+		t.Fatalf("stub survived re-enable: %s", b)
+	}
+	rep, _ = List(p)
+	if len(rep.Servers) != 1 || rep.Servers[0].Disabled {
+		t.Fatalf("re-enabled merged = %+v", rep.Servers)
+	}
 }
 
 func TestImportHosts(t *testing.T) {

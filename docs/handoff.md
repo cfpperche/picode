@@ -206,6 +206,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Imported MCP disable fix (branch).** The Configured Services
+  toggle for servers PiCode does not own followed the page scope, so an
+  imported host server (e.g. context7 from Claude Code) could not be reliably
+  disabled. Non-owned rows now always toggle the user-layer override stub;
+  re-enabling removes it. Go test covers the OFF→ON stub lifecycle; the
+  adapter's own config loader was verified to resolve `disabled: true` after
+  OFF and the enabled entry after ON. `make ci` passed.
+
+
 - **2026-09-05 — Custom connector dialog redesign merged and deployed.**
   Reconciled clean (main had not moved); combined `make ci` passed; deployed
   `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48

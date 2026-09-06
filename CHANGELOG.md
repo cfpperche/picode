@@ -83,6 +83,15 @@ to the `[Unreleased]` section. The repository's official language is English
   menu) centered against the two-line title block and visually dropped onto
   the subtitle line; it now top-aligns with the agent or terminal name.
 
+### Fixed
+
+- **Imported MCP servers can actually be disabled from the panel.** The row
+  toggle for servers PiCode does not own (host imports, shared files) now
+  always writes its enable/disable override to This machine instead of
+  following the page scope, so the choice can never get stranded in a project
+  file and silently re-enable. Re-enabling removes the override and unmasks
+  the import; the adapter-resolved config was verified both ways.
+
 ### Added
 
 - **Custom connector dialog redesign.** Every field is now visible in labeled
