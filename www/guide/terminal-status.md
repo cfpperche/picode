@@ -42,7 +42,7 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 | Claude Code | `claude --settings <picode json>` | maps prompt, notification and completion hooks |
 | Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
 | Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
-| Hermes Agent | session `PYTHONPATH` sitecustomize; follows the venv trampoline; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
+| Hermes Agent | session Python path injection; follows the official launcher; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
 | Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |
 
 Hook coverage depends on the installed CLI version. **Check setup** verifies
