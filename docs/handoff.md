@@ -131,9 +131,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
-- `pi-diff` (ADR-0077): whether PiCode should spawn terminal TUIs with
-  `--tui-mode fullscreen` so the panel is always a fixed column is an owner
-  decision not yet taken; in regular mode the panel scrolls with the terminal.
+- `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
+  the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
+  so every pi opened here starts fullscreen with the panel as a fixed column.
+  Still open: a first look at the panel inside a live PiCode terminal tab
+  (the dogfood so far ran in tmux), and an upstream ask for
+  `ctx.ui.setTuiMode` so the extension could switch modes itself.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
