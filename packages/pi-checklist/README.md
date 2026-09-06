@@ -34,7 +34,7 @@ never awaited by the turn. The target comes from the environment PiCode
 stamps on the process: a managed agent posts to
 `/api/agents/<PICODE_AGENT_ID>/checklist`; a pi running inside a PiCode
 terminal (Agent CLIs) posts to `/api/terminals/<PICODE_TERM_ID>/checklist`,
-so the terminal's card shows the same line an agent's does (ADR-0080). With
+so the terminal's card shows the same line an agent's does (ADR-0081). With
 no reachable PiCode and neither variable the tool, the gate and the TUI card
 still work; only the sidebar stays quiet.
 
