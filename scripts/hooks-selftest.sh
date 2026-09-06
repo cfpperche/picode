@@ -57,6 +57,13 @@ if (cd "$repo/wt" && date > f.txt && git add f.txt && git commit -q -m "feature 
 if (date > root.txt && git add root.txt && git commit -q -m "main commit" 2>/dev/null); then ok "commit on main in root allowed"; else bad "commit on main in root allowed" "pre-commit blocks the documented flow"; fi
 if git checkout -q -- . 2>/dev/null; then ok "checkout -- <path> allowed"; else bad "checkout -- <path> allowed" "file checkout must not be refused"; fi
 
+# 2b. Content integrity for the living docs (parallel-session clobbering).
+#     A CHANGELOG.md whose first line is the handoff header (or the reverse)
+#     means another session wrote into this worktree — the commit must die.
+if (cd "$repo/wt" && printf '# Handoff — living project state\n\nbody\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m clobber 2>/dev/null); then bad "clobbered CHANGELOG refused" "a handoff copy was committed as the changelog"; else ok "clobbered CHANGELOG refused"; fi
+if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > CHANGELOG.md && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add CHANGELOG.md docs/handoff.md && git commit -q -m "restore and log" 2>/dev/null); then ok "restored docs commit allowed"; else bad "restored docs commit allowed" "the guard must not block honest docs edits"; fi
+if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m clobber2 2>/dev/null); then bad "clobbered handoff refused" "a changelog copy was committed as the handoff"; else ok "clobbered handoff refused"; fi
+
 # 3. Escape hatch, return home, and the pre-commit belt when off main.
 if PICODE_ALLOW_SWITCH=1 git switch -q feat/existing 2>/dev/null; then ok "PICODE_ALLOW_SWITCH override works"; else bad "PICODE_ALLOW_SWITCH override works" "override refused"; fi
 date > off.txt && git add off.txt

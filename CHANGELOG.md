@@ -114,6 +114,16 @@ to the `[Unreleased]` section. The repository's official language is English
   menu) centered against the two-line title block and visually dropped onto
   the subtitle line; it now top-aligns with the agent or terminal name.
 
+### Changed
+
+- **Deploys are serialized and the living docs are commit-guarded.**
+  `make deploy`/`make restart` hold a lock for the whole build+restart, so
+  parallel sessions can no longer interleave builds and ship the wrong tree.
+  The pre-commit hook (and its selftest) now refuse commits where a staged
+  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
+  signature of a parallel session writing into the wrong worktree — and the
+  handoff-update skill starts by verifying the working directory.
+
 ### Fixed
 
 - **Imported MCP servers can actually be disabled from the panel.** The row

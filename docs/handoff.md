@@ -232,6 +232,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
+  two rounds of parallel-session interference, `make deploy`/`restart` now
+  hold a lock across build+restart (a gate-to-restart race shipped the wrong
+  tree once), and the pre-commit hook refuses commits where a staged
+  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
+  signature of a session writing into the wrong worktree. Selftest grew three
+  cases (15/15); the handoff-update skill starts by verifying the working
+  directory. Root cause of the clobbering (a parallel session's stale cwd)
+  remains behavioral — the guards catch it at commit time.
+
 - **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079); merged and deployed.**
   `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
   (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt

@@ -8,6 +8,23 @@
 
 [ -n "$PICODE_ALLOW_SWITCH" ] && exit 0
 
+# Content integrity for the two living docs: a parallel session writing from
+# a stale worktree path has clobbered them before (a handoff landed inside
+# CHANGELOG.md and vice versa). Refuse the commit when a staged version lost
+# its shape, whatever branch or worktree this is.
+check_shape() { # <path> <first-line prefix>
+  git diff --cached --name-only 2>/dev/null | grep -qx "$1" || return 0
+  first=$(git show ":$1" 2>/dev/null | head -n 1)
+  case "$first" in "$2"*) return 0 ;; esac
+  printf '\n  %s no longer starts with %q.\n' "$1" "$2" >&2
+  printf '  The staged content belongs to the wrong file — a parallel session\n' >&2
+  printf '  likely wrote into this worktree (AGENTS.md §5).\n' >&2
+  printf '  Recover with: git restore --staged --worktree %s   then re-apply your edit.\n' "$1" >&2
+  exit 1
+}
+check_shape CHANGELOG.md "# Changelog"
+check_shape docs/handoff.md "# Handoff"
+
 gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 cd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
 [ "$gd" = "$cd" ] || exit 0  # linked worktree: any branch is fine

@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy install test test-js fmt fmt-check vet ci-docs ci clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy install test test-js fmt fmt-check vet ci-docs ci clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -107,7 +107,13 @@ cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 	./bin/picode install
 
-deploy: build ## Rebuild UI+binary and restart the installed service
+deploy: ## Rebuild UI+binary and restart the installed service (serialized)
+	flock -x /tmp/picode-deploy.lock $(MAKE) --no-print-directory _deploy
+
+# Body of deploy, held under the lock: parallel sessions deploying between
+# one agent's gate and its restart have shipped the wrong tree (2026-09-05).
+_deploy: web
+	go build -tags embedui -o bin/picode ./cmd/picode
 	./bin/picode deploy
 
 build: web ## Build UI + bin/picode (embeds the UI — ADR-0023)
