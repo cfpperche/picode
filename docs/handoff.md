@@ -39,16 +39,18 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** HEAD `dcbaa316` (tab strip phase 1) via
-`make deploy` from the root checkout; systemd restarted, desktop answered
-after reload. Verified on the live instance with seven terminal tabs:
-strip gutter 0 px (was 10), tabs 39 px tall, computed `scrollbar-width:
-none`, active tab fully inside the strip at either clipped side; screenshot
-read (visual-review: PASS). The `/api/version` label was not read from the
-browser session — the served bundle is proven by behaviour the previous
-bundle lacked. Previous deploy `0.1.0+db12b097`, health `200` — the
-sessions-endpoints fold (which includes the terminal-faces tree,
-`fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
+**Last application deployment:** HEAD `50df07f7` (terminal faces in
+strips match agent faces, on top of the tab-strip phase 1 tree) via
+`make deploy` from the root checkout; systemd restarted. Verified on
+the live instance: terminal favicons in collapsed strips render in
+exactly the agent-face style — computed parity (white plate, 1px ring,
+1px padding, 18px) across agent and terminal imgs; COGNIXSE wears
+claude + openai, PiCode's strip is uniform with `+5`; screenshot read
+(visual-review: PASS), console clean, overlay audit ok. Nothing was
+typed into a production terminal. Previous deploy `dcbaa316` (tab
+strip phase 1), before that `0.1.0+db12b097` — the sessions-endpoints
+fold (which includes the terminal-faces tree, `fa97e8cf`, and the
+menu-item removal).
 Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
 `cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
 deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
