@@ -3,7 +3,7 @@
 A standalone pi extension: opt-in **live browser frames** while any
 `agent_browser` tool call runs, plus a persisted final frame for replay —
 **without patching** [pi-agent-browser-native](https://github.com/fitchmultz/pi-agent-browser-native)
-(ADR-0080).
+(ADR-0082).
 
 ## How it works
 

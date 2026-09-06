@@ -51,7 +51,7 @@ describe("reduceAgentEvent", () => {
     assert.equal(tool.name, "bash");
   });
 
-  // ADR-0080 decision table: live sidecar frames ride capture_frame events
+  // ADR-0082 decision table: live sidecar frames ride capture_frame events
   describe("sidecar capture frames", () => {
     const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=";
     const frame = (seq, extra = {}) => ({ toolCallId: "s1", seq, ts: 1000 + seq, image: png, url: "http://127.0.0.1:9/p", title: "P", ...extra });
@@ -144,7 +144,7 @@ describe("reduceAgentEvent", () => {
       assert.equal(item(state).preview, null);
       assert.equal(item(state).previewError, "Capture unavailable");
     });
-    it("a silent end result keeps the live frame — the sidecar owns it (ADR-0080)", () => {
+    it("a silent end result keeps the live frame — the sidecar owns it (ADR-0082)", () => {
       const { state } = run([...start,
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },
         { type: "tool_execution_end", toolCallId: "b1", toolName: "agent_browser", result: {}, isError: false },

@@ -887,7 +887,7 @@ drop events. Emitter limits and integration acceptance remain required.
 The built-in renderer is tool-agnostic; capture emission must be explicitly
 enabled in a package loaded by the agent, globally or at workspace/agent scope.
 Emission is moving to `packages/pi-browser-capture`, a standalone sidecar
-extension (ADR-0080): it mirrors bounded frames to
+extension (ADR-0082): it mirrors bounded frames to
 `<pi-session-file>.capture/` during `agent_browser` calls and persists the
 final frame as a session entry, instead of patching pi-agent-browser-native.
 Real-RPC proof, the daemon capture-directory bridge and live/replay UI

@@ -80,7 +80,7 @@ func transcriptAll(path string) ([]Event, int, error) {
 
 	var out []Event
 	pending := map[string]int{}
-	finals := map[string]map[string]any{} // toolCallId → sidecar final frame (ADR-0080)
+	finals := map[string]map[string]any{} // toolCallId → sidecar final frame (ADR-0082)
 	boundary := 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -133,7 +133,7 @@ func transcriptAll(path string) ([]Event, int, error) {
 			out = applyToolResult(out, msg, pending)
 		}
 	}
-	// Sidecar final frames (ADR-0080): attach the persisted capture to its
+	// Sidecar final frames (ADR-0082): attach the persisted capture to its
 	// tool event when the tool result carries none. Entries may precede or
 	// follow their result row, so this runs after the scan.
 	for i := range out {

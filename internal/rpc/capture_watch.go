@@ -1,6 +1,6 @@
 package rpc
 
-// Live browser-capture bridge (ADR-0080): while an `agent_browser` tool call
+// Live browser-capture bridge (ADR-0082): while an `agent_browser` tool call
 // runs, watch the sidecar's capture directory beside the pi session file and
 // forward the newest bounded frame to the UI hub as a `capture_frame` event.
 // The daemon owns no pixels: frames originate from the pi-browser-capture

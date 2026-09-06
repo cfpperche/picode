@@ -152,7 +152,7 @@ func Event(raw []byte) []byte {
 
 // EncodeJPEG validates a raw sidecar frame against the capture bounds and
 // returns its data URI, or "" when the bytes are not a bounded JPEG
-// (ADR-0080: the daemon re-checks before web fan-out).
+// (ADR-0082: the daemon re-checks before web fan-out).
 func EncodeJPEG(raw []byte) string {
 	if len(raw) == 0 || len(raw) > MaxBytes || len(raw) < 12 ||
 		raw[0] != 0xff || raw[1] != 0xd8 || raw[len(raw)-2] != 0xff || raw[len(raw)-1] != 0xd9 {

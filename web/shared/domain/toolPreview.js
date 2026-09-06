@@ -77,7 +77,7 @@ export function toolResultDetail(result) {
     ? { ...value, image: value.image == null ? undefined : "[capture omitted]" } : value, 2);
 }
 
-// ADR-0080: a live sidecar frame arrives outside the tool stream
+// ADR-0082: a live sidecar frame arrives outside the tool stream
 // (`capture_frame` events). Latest sequence wins while running; a `final`
 // frame lands after the tool result and must win even on a settled item.
 export function applyCaptureFrame(item, frame) {
@@ -93,7 +93,7 @@ export function applyCaptureFrame(item, frame) {
 // On tool end, the result of a sidecar-driven tool carries no preview while
 // live `capture_frame` events may have delivered frames (even a final one
 // that races the end event). Only a capture present in the result may
-// replace what the live channel showed (ADR-0080).
+// replace what the live channel showed (ADR-0082).
 export function captureOnEnd(item, details) {
   const next = captureState(details);
   if (next.preview || next.previewError) return next;

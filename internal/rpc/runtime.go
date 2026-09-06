@@ -86,7 +86,7 @@ type ManagedAgent struct {
 	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
 	onUsage       func(agentID string, u Usage)
 	cost          float64       // sum of usage.cost.total over assistant message_end events
-	capture       *captureState // live browser-capture bridge (ADR-0080)
+	capture       *captureState // live browser-capture bridge (ADR-0082)
 }
 
 // RunObserver is set by an owner that files its own Inbox items for the
@@ -549,7 +549,7 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 		ma.hub.Broadcast(env)
 	})
 	close(ready)
-	ma.refreshCaptureSessionFile() // prime the capture bridge while idle (ADR-0080)
+	ma.refreshCaptureSessionFile() // prime the capture bridge while idle (ADR-0082)
 	<-ma.client.Done()
 	unsub()
 

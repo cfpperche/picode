@@ -17,7 +17,7 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
 ## Current state
 
-Browser-capture sidecar (ADR-0080): `capture-sidecar-mobile-live.png` shows the
+Browser-capture sidecar (ADR-0082): `capture-sidecar-mobile-live.png` shows the
 running pill with a live "Last capture" during a real agent_browser call;
 `capture-sidecar-mobile-replay.png` and `capture-sidecar-desktop-replay.png`
 show the persisted final frame rendered from session history. All were read
@@ -184,7 +184,7 @@ disposable terminal afterward. Public docs use a separate unmodified fixture;
 `docs-shots.mjs` now closes only its own browser session.
 
 
-llama.cpp manager (ADR-0080): `llama-desktop-*` and `llama-mobile-*` capture
+llama.cpp manager (ADR-0082): `llama-desktop-*` and `llama-mobile-*` capture
 empty, blocked, authentication error, download, model replacement, model list,
 light theme and Providers entry states. All 16 images were read; overlay
 and alignment audits pass (`llama-qa.json`). Reproduce with
