@@ -245,9 +245,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   URLs and is field-compatible with the new shape (code-verified) but has
   had no mobile visual pass; the `session_deleted` feed event regained
   workspace attribution in the review pass and is exercised by every delete
-  test though no test asserts the payload itself; `go("sessions")` in
-  routes.js has no in-app caller left (kept as a public helper with a test).
-  Conscious broadening, recorded in architecture.md: the unified delete
+  test though no test asserts the payload itself; Conscious broadening, recorded in architecture.md: the unified delete
   accepts any orphan under the pi root — the old workspace-scoped route
   confined deletes to that workspace's dirs; the UI only lists in-scope
   rows, and the in-use/409 and root/400 guards are unchanged.
@@ -315,6 +313,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Dead `go("sessions")` branch removed.** The user menu was
+  its last caller; the sessions debt note shrinks accordingly (routes.test
+  drops the branch's own test with it).
 - **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
   jobs, capability detection, file progress, cancellation and recovery with
   no mutation replay; decision-table tests and isolated real CPU acceptance.
