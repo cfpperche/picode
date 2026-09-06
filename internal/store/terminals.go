@@ -165,6 +165,9 @@ func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
 }
 
 func (s *Store) DeleteTerminal(id string) error {
+	// Same disposal as agent_checklists on DeleteAgent: the row is keyed by
+	// this id and nothing else refers to it, so it goes with the terminal.
+	_, _ = s.db.Exec(`DELETE FROM terminal_checklists WHERE terminal_id = ?`, id)
 	res, err := s.db.Exec(`DELETE FROM terminals WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("store: delete terminal: %w", err)

@@ -13,21 +13,19 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **llama.cpp manager** (ADR-0080): dedicated Models and Server pages on
-  desktop and mobile, with connection diagnosis, saved-key preservation and
-  a Providers shortcut. Canceling a model replacement does not load it;
-  unload and download failures no longer report success.
-- **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
-  menu gains a per-viewer checkbox, "Run when no agent is working here". With
-  it on, PiCode types the command into your terminal and presses Enter itself,
-  but only when no agent in that repository is mid-turn, no automation is
-  running there, and no other terminal there is working or holding a program;
-  otherwise the command is prepared as before and a note says who is busy.
-  Git still runs in your own shell with your credentials and hooks. Typing
-  now also refuses a terminal that moved away from the folder or whose pane
-  is not at a shell prompt, and takes a fresh terminal instead. Right-hand
-  toasts step left of the rail while it is open, so a note never covers its
-  buttons.
+
+
+- **Checklists in agent CLI terminal cards and panes** (ADR-0080, extends
+  ADR-0055). A pi running inside a PiCode terminal — Agent CLI or a manual
+  launch — now reports its internal checklist under the terminal, so the
+  terminal's sidebar card shows the same `(2/4) current step` line managed
+  agents show, and a one-line strip above the terminal pane mirrors it live.
+  New routes `POST/GET /api/terminals/{id}/checklist` (pi-checklist 0.2.0
+  publishes there when `PICODE_AGENT_ID` is absent), durable
+  `terminal.checklist` events, and a `terminal_checklists` store row that
+  dies with the terminal. Reset, absent and blocked semantics match the
+  agent-side behavior; no checklist published means no line, as before.
+
 
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
@@ -47,7 +45,38 @@ to the `[Unreleased]` section. The repository's official language is English
   no transcript replay, no writes or deletes for non-Pi sessions. Formats
   verified against real installations; empty state when a CLI never ran.
 
+### Added
+
+- **Every open tab, one list away.** While tabs overflow, a list button at
+  the strip's end opens all open tabs — the ones out of view first, each
+  with its face, name and status dot, the current one marked — and picking
+  one selects and reveals it. When a tab that needs you sits beyond an
+  arrow, that arrow wears the needs-you dot. Tabs cycle with `Alt+[` /
+  `Alt+]` from anywhere (browsers keep Ctrl+Tab and Ctrl+PgUp/PgDn for
+  themselves), rebindable under Settings → Keys; terminals hand these
+  chords — and the other global ones such as `Ctrl+K` — back to the app
+  instead of writing them to the shell. The strip is a proper tablist:
+  Tab focuses the current tab, arrows / Home / End move between tabs,
+  Enter or Space selects. Phase 3 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 ### Changed
+
+- A tab's name stops at 200 px with an ellipsis, so one long terminal or
+  file name cannot swallow the strip; the tooltip carries the full name
+  and, for terminals and files, the CLI or path. Tabs never shrink to make
+  room — the strip scrolls instead. Phase 4 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
+- **Editor tabs show where the rest of them are.** While tabs overflow, the
+  strip gets `‹ ›` arrows at its ends (the one at a reached edge is
+  disabled), the edge that still hides tabs fades out, and a thin
+  indicator under the tabs shows the visible span while the pointer is over
+  the strip or it moves, fading half a second later; it takes no clicks.
+  A vertical mouse wheel over the tabs scrolls them sideways; trackpad
+  gestures and pinch-zoom are left to the browser. Nothing appears when
+  every tab fits. Phase 2 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
 
 - The editor tab strip no longer shows a scrollbar under the tabs. The
   classic bar (with arrow buttons on Windows) took 10 of the bar's 40 px

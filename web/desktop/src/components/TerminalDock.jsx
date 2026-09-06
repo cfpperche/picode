@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
 import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
+import { matchGlobalAction } from "../lib/appKeys.js";
 import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks, resolvePath, underCwd, relPath } from "@picode/shared/domain/termLinks.js";
 import { api, wsURL } from "@picode/shared/client/api.js";
@@ -74,7 +75,7 @@ export default function TerminalDock({
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
     wireTermWheel(term, sendBytes);
-    wireTermKeys(term, sendBytes);
+    wireTermKeys(term, sendBytes, matchGlobalAction);
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
     const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));

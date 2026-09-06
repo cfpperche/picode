@@ -20,3 +20,55 @@ export function revealLeft(strip, tab) {
   if (right > scrollLeft + clientWidth) return clamp(right - clientWidth);
   return null;
 }
+
+// Phase 2 — what the strip shows around its content. `overflow` decides
+// whether arrows and the indicator exist at all; `atStart` / `atEnd`
+// disable one arrow and drop one edge fade (Firefox `scrolledtostart` /
+// `scrolledtoend`); `thumb` is the overlay indicator's box as fractions
+// of the strip's width. A 1 px tolerance absorbs fractional layout.
+export function stripState({ scrollLeft, clientWidth, scrollWidth }) {
+  const overflow = scrollWidth - clientWidth > 1;
+  if (!overflow) return { overflow, atStart: true, atEnd: true, thumb: { left: 0, width: 1 } };
+  const max = scrollWidth - clientWidth;
+  return {
+    overflow,
+    atStart: scrollLeft <= 1,
+    atEnd: scrollLeft >= max - 1,
+    thumb: { left: scrollLeft / scrollWidth, width: clientWidth / scrollWidth },
+  };
+}
+
+// A vertical wheel over the strip scrolls it sideways (VS Code
+// `scrollYToX`, Firefox arrowscrollbox, Ant dominant axis). Returns the
+// horizontal distance in px, or 0 when the event is not ours: a trackpad
+// already sending deltaX (the browser scrolls natively), a pinch
+// (ctrlKey), or a gesture that is mostly horizontal. Line and page deltas
+// are scaled the way Firefox does before reaching the scroller.
+export function wheelToScroll({ deltaX = 0, deltaY = 0, deltaMode = 0, ctrlKey = false }, clientWidth) {
+  if (ctrlKey || deltaX !== 0 || deltaY === 0) return 0;
+  if (Math.abs(deltaY) <= Math.abs(deltaX)) return 0;
+  if (deltaMode === 1) return deltaY * 40;
+  if (deltaMode === 2) return deltaY * clientWidth;
+  return deltaY;
+}
+
+// One arrow press moves most of a viewport so a tab clipped at the far
+// edge lands well inside it (MUI scrolls a full width; Firefox one tab).
+export function arrowStep(clientWidth) {
+  return Math.max(80, Math.round(clientWidth * 0.6));
+}
+
+// Which tabs sit outside the viewport, per side — the "All tabs" list puts
+// them first (JetBrains, Firefox "List all tabs") and an arrow wears a
+// needs-you dot when one of them wants the user. `items` are the tabs'
+// boxes relative to the content ({ id, left, width }); a tab clipped by
+// more than a pixel counts as hidden on that side.
+export function hiddenTabs({ scrollLeft, clientWidth }, items) {
+  const left = [], right = [];
+  const end = scrollLeft + clientWidth;
+  for (const t of items) {
+    if (t.left < scrollLeft - 1) left.push(t.id);
+    else if (t.left + t.width > end + 1) right.push(t.id);
+  }
+  return { left, right };
+}

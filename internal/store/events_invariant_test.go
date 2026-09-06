@@ -128,6 +128,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.ClearChecklist(a.ID)
 		}, []string{"agent.checklist"}},
+		{"SetTerminalChecklist", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "t", proj)
+			s.OnEvent = recorder(s)
+			_, _ = s.SetTerminalChecklist(tm.ID, "s1", []ChecklistItem{{Text: "x", Status: "pending"}}, false)
+		}, []string{"terminal.checklist"}},
 		{"CreateTerminal", func(s *Store) { _, _ = s.CreateTerminalIn("", "t", proj) }, []string{"terminal.created"}},
 		{"RenameTerminal", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "t", proj)

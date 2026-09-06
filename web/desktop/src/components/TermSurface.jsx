@@ -1,7 +1,8 @@
 import ShellTerm from "./ShellTerm.jsx";
+import { ChecklistLine } from "./WorkspaceRows.jsx";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 
-export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }) {
+export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, checklist }) {
   if (!term && !error) return null;
   function onKey(e) {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
@@ -11,6 +12,9 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
   }
   return (
     <section className="term-surface" hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
+      {/* The agent's plan above the pane (ADR-0055): one live line, the same
+          projection the sidebar cards use. Nothing known → nothing shown. */}
+      {checklist ? <div className="term-check"><ChecklistLine line={checklist} /></div> : null}
       {error ? (
         <p className="file-pane-msg">
           {error}{" "}

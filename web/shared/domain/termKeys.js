@@ -98,12 +98,16 @@ function trackKeydown(ev) {
   recent = { t: Date.now(), seq: newlineSeq(ev, readTermPrefs().newlineKey), sent: false };
 }
 
-export function wireTermKeys(term, send) {
+// `passthrough(ev)` names keydowns the application owns (its global
+// chords): xterm neither writes nor cancels them, the event bubbles to the
+// app's listener as it would from any other element.
+export function wireTermKeys(term, send, passthrough) {
   if (!term || typeof term.attachCustomKeyEventHandler !== "function") return;
   const ta = term.textarea || (term.element && term.element.querySelector("textarea"));
   if (ta) ta.addEventListener("keydown", trackKeydown, true);
   term.attachCustomKeyEventHandler((ev) => {
     if (!ev || (ev.type !== "keydown" && ev.type !== "keypress")) return true;
+    if (passthrough && ev.type === "keydown" && passthrough(ev)) return false;
     const prefs = readTermPrefs();
     const clip = copyPasteAction(ev, prefs);
     if (clip === "copy" || clip === "copy-if-sel") {

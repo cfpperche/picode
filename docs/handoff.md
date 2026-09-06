@@ -5,8 +5,12 @@
 
 ## Current state (read this first)
 
-**Repository:** llama.cpp delivery 1 is merged and deployed as `ac4ff1dd`
-(`0.1.0+ac4ff1d`, ADR-0080), on top of Inspector run-when-idle, terminal
+**Repository:** HEAD `139ab1ba` (deployed) completes the tab-strip study
+(`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 1–4: no
+scrollbar, arrows/fades/indicator/wheel, All-tabs list + `Alt+[`/`Alt+]` +
+tablist, 200 px label cap) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
+and the **terminal checklists** work (`d1f1e9f9`, `0.1.0+d1f1e9f`, ADR-0081)
+are merged and deployed, on top of Inspector run-when-idle, terminal
 faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
 `#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
 links to them and the old llama link redirects. Connection failures are
@@ -14,10 +18,6 @@ classified, canceled loads do not run and failed operations do not report
 success. The [four-delivery plan](plans/llama-manager.md) records deliveries
 2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
 No push was made.
-
-**llama validation:** Qwen3-4B-Q4_K_M passed the isolated real Pi read-tool
-round trip on CPU with llama.cpp b10809 and Pi 0.85.1. This establishes a
-basic runtime acceptance fixture; delivery 2 jobs remain unimplemented.
 
 Managed-stop fix debts (living):
 
@@ -32,17 +32,29 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Live version observed at investigation end:** `0.1.0+d1f1e9f`; another
-session deployed while this isolated investigation ran. This session did not
-deploy or certify that build.
-
-**Last llama delivery deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
+**Last application deployment:** `139ab1ba` (tab strip phases 2–4 merged
+with the checklists tree) via `make deploy` from the root checkout; systemd
+active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
+six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
+overflow buttons (two arrows + All tabs), `mask-image` fades, indicator
+mounted, `role=tablist`, `Alt+]` cycled the selection, label `max-width`
+200 px, tabs `flex-shrink: 0`; the All tabs menu listed 6 items with the
+"Out of view" group inside the viewport, overlay audit ok, screenshot read
+(visual-review: PASS). The `/api/version` label was again not read from the
+browser session — the bundle is proven by behaviour the previous one lacked.
+Previous deploy `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
 serialized `make deploy` from the validated worktree after fast-forwarding
-main. Health `ok`, systemd active, desktop bundle `index-B_QAIkue.js` matches
-the deployed build. All 9 pre-deploy terminal IDs survived the restart.
-Live desktop/mobile old-link navigation, Models/Server pages and Test
-connection passed; four production screenshots read, overlay/alignment
-audits ok and no JavaScript page errors. The configured llama endpoint
+main (terminal checklists, ADR-0081). Health `ok`, systemd active. All 9
+pre-deploy terminal IDs survived the restart; `GET /api/terminals` answers
+and `POST /api/terminals/nope/checklist` 404s on the live instance. Terminal
+cards show a checklist line once a terminal pi publishes (pi-checklist 0.2.0
+picks up on the process's next start; existing pi processes keep the old
+extension until restarted).
+
+Previous deployment: `ac4ff1dd`, version `0.1.0+ac4ff1d` (llama.cpp
+delivery 1) — live desktop/mobile old-link navigation, Models/Server pages
+and Test connection passed; four production screenshots read, overlay/
+alignment audits ok and no JavaScript page errors. The configured llama endpoint
 `http://127.0.0.1:8080` times out, as it was unavailable before deployment;
 no llama service was started and no model operation was executed in production.
 Evidence and previous-binary recovery copy: `var/llama-deploy/`.
@@ -137,18 +149,27 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- llama runtime investigation: Qwen3-4B-Q4_K_M on disposable build b10809
-  passed router/SSE, load/unload, streaming, forced tool protocol and a real
-  Pi 0.85.1 read-tool round trip. The earlier 0.6B failure remains recorded.
-  Production still has no reachable server at port 8080. Delivery 2 has a
-  detailed decision matrix and reusable runtime QA script, but no job code.
-  See [4B runtime evidence](plans/llama-runtime-4b-qa.json) and the manager plan.
+- llama delivery 2 is being implemented in `feat/llama-jobs`: durable jobs,
+  progress, cancellation and reconnect. Qwen3-4B/b10809 passed the isolated
+  CPU/Pi read-tool test; see `docs/plans/llama-runtime-4b-qa.json`. Keep real
+  validation sequential with four CPU threads and unload models afterwards.
 
-
-
-
-
-
+- Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
+  branch removed. The study's adoption list is complete; its debts sit
+  under Next up.
+- Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`). Full stack: publish target fallback
+  (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
+  store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
+  view fold in `liveTermView`, sidebar card line and terminal-pane strip,
+  pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
+  live-update/absent/reset states and reload persistence. Open acceptance:
+  a real pi process publishing through the extension in a live terminal (the
+  POST contract is covered by Go tests; a terminal pi linked to this repo
+  picks the new extension up on its next start — running pi processes keep
+  the old extension until restarted), light-theme screenshot of the strip,
+  mobile TermRow (server embeds `checklist` in terminal views —
+  deliberate desktop-first scope).
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -178,17 +199,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 ## Next up
 
 1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
-   Use the validated Qwen3-4B/b10809 pair for real acceptance.
    Deliveries 3–4 remain planned; see the approved llama manager plan.
 
-1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
-   owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
-   `data-at-start` / `data-at-end` from one ResizeObserver + scroll
-   listener driving edge fades and `‹ ›` arrows; 3 px non-interactive
-   overlay indicator (hover/scroll, fades after 500 ms); "All tabs" list
-   in `.main-tabs-end` with status dots, hidden tabs first, and a
-   needs-you dot on the arrow of an off-screen tab; `Alt+[` / `Alt+]`
-   plus `role=tablist` arrow-key focus; label `max-width` with ellipsis.
+1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
+   four phases shipped): the indicator covers
+   the active tab's accent underline while shown (VS Code does the same);
+   `scrollend` is the only exact "settled" signal, Safari falls back to a
+   400 ms timer; the needs-you dot on an arrow was verified for CSS
+   placement with an injected dot and by `hiddenTabs` tests, not on a
+   live needs-you tab (none existed during QA); `.mtab-close` inside a
+   `role=tab` is reachable by mouse only (tabIndex −1), close from the
+   keyboard is not offered yet.
    Separate follow-up: the global `* { scrollbar-width: thin }` makes
    Chromium ignore every `::-webkit-scrollbar` rule in the app
    (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
@@ -229,9 +250,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   rows, and the in-use/409 and root/400 guards are unchanged.
 
 
-- llama: browser acceptance remains synthetic. Disposable real CPU router,
-  SSE and inference passed; Pi read-tool use passed on 4B and failed on 0.6B. GPU,
-  production runtime and router download/cancel remain unverified. Synchronous operations
+- llama: browser/HTTP-fixture acceptance is synthetic; real installed-build,
+  GPU and model inference acceptance remains pending. Synchronous operations
   remain in delivery 1; recovery/concurrency/cancellation belongs to delivery 2.
   Model guidance/readiness is delivery 3; service ownership and cache deletion
   require delivery 4's concrete follow-up ADR. No llama service lifecycle or
@@ -290,16 +310,91 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
+  and sessions work (ADR number collision resolved: terminal checklists took
+  0081); combined `make ci` green on the reconciled tree. Deploy verified:
+  health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
+  live. No push.
 
-- **2026-09-06 — larger llama model validated.** SHA-verified Qwen3-4B-Q4_K_M
-  passed all eight runtime checks, including real Pi read-tool execution and
-  returned file contents. CPU-only; no coding/GPU certification. make ci
-  passed; no app changes or deploy; visual-review: not applicable.
+- **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
+  with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
+  after QA showed the new `overflow: hidden` letting flex shrink every tab
+  instead of scrolling (the Chrome behaviour the study refuses). Verified
+  on the worktree's Vite build with an injected 65-character name: label
+  200 px and truncated, other tabs unchanged, the strip overflowed and the
+  arrows appeared. Screenshot read. visual-review: PASS (p4-ellipsis.png).
+  During QA the owner's live service was found inactive since 12:26:50
+  (`server: terminated`, no deploy in flight, lock free, binary from a
+  12:25 deploy by another session); `systemctl --user start picode`
+  brought it back at 12:33 — the cause of the stop is unknown.
+- **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
+  tablist.** `describeTab` now feeds both the strip and a Radix
+  DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,
+  current one marked); `app.tab.prev` / `app.tab.next` join the app-keys
+  catalog (Hotkeys dialog and Settings → Keys pick them up); `wireTermKeys`
+  gained a `passthrough` predicate and both terminals pass
+  `matchGlobalAction`, so Global chords no longer reach the shell
+  (`termKeys.test.js`, `appKeys.test.js`; 37 JS tests across the three
+  files). Manual activation replaced automatic after QA showed the
+  terminal stealing focus on select. Verified on the worktree's Vite
+  build at 1000 px with six tabs: roles and tabindex, Alt chords cycle and
+  wrap with `defaultPrevented`, arrows / Home / End move focus without
+  selecting, Enter selects and reveals, the menu lists 6 items with the
+  "Out of view" group and separator inside the viewport (overlay audit
+  ok), picking an out-of-view item selects and reveals it, the active tab
+  stays visible when the overflow chrome appears. visual-review: PASS
+  (p3-list.png, p3-arrowdot.png read; card 5/5).
+- **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
+  `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
+  (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
+  `#tab-strip` (QA scripts keep matching `.main-tabs .mtab`). Verified on
+  the worktree's Vite build against the live server at 1000 px with six
+  tabs: left arrow disabled at start and right at end, `mask-image`
+  switches side and shows both in the middle, indicator 3 px with opacity
+  0 → 1 on hover and after scrolling, real wheel and dispatched wheel
+  both scrolled and were `defaultPrevented`, a `deltaX` gesture was not
+  consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
+  read for start / middle+hover / end. visual-review: PASS (p2-start.png,
+  p2-middle.png, p2-end.png; no overlay; card 5/5).
+- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
+  internal checklist now follows the agent into its terminal: `pi-checklist`
+  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
+  (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
+  shell terminal — feeds the same operator line managed agents show. New
+  `terminal_checklists` store (migration 029, dies with the terminal),
+  durable `terminal.checklist` events, `POST/GET /api/terminals/{id}/checklist`,
+  the checklist folded into every terminal view (boot fetch stays
+  `GET /api/terminals`), sidebar card line and a live strip above the
+  terminal pane (agent TUI panes get the same strip from the agent map).
+  Reset/absent/blocked semantics mirror the agent side; unknown terminal
+  404s; invariant test extended. Renumbered to 0081 after colliding with the
+  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
+  present, live-update, absent and reset states, reload persistence,
+  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
 
-- **2026-09-06 — llama real-runtime investigation.** Added reproducible
-  runtime QA and delivery 2 decision matrix. Build b10809 passed basic
-  protocol; Qwen3-0.6B failed real Pi tool use. make ci passed (902 JS tests).
-  No app changes or deployment; visual-review: not applicable. Test servers
-  stopped; temporary downloads retained outside production.
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).
 
 Older activity lives in `docs/handoff-archive.md`.
