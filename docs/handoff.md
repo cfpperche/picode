@@ -29,10 +29,10 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined `0.1.0+8b64862`; overlay-scrollbar hide merged `eae3d067`
-  (pending this deploy). Pin only while the IME is up; opaque row; xterm
-  refit. iPhone pass still owed. Managed agents remain Pi-only; coding
-  CLIs are terminals.
+  refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
+  (unguarded — readiness was empty). Pin only while the IME is up; opaque
+  row; xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
+  coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
