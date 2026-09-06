@@ -29,18 +29,16 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined and deployed `0.1.0+8b64862` (`PICODE_DEPLOY_FORCE=1` — terminal
-  "agent cli" was mid-turn). Pin only while the IME is up; opaque row;
-  xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
-  coding CLIs are terminals.
+  refined `0.1.0+8b64862`; overlay-scrollbar hide merged `eae3d067`
+  (pending this deploy). Pin only while the IME is up; opaque row; xterm
+  refit. iPhone pass still owed. Managed agents remain Pi-only; coding
+  CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/mobile-keybar-noscroll` — hide the iOS overlay scrollbar when
-  dragging the extra-keys row sideways.
 
 ## Next up
 

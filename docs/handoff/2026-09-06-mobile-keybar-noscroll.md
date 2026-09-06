@@ -6,3 +6,4 @@ extra-keys row sideways. iOS overlay scrollbar on the terminal screen
 
 Fix: `touch-action: pan-x` on the row, overflow hidden on the bar,
 overlay scrollbars off on the screen, the scroller and xterm viewport.
+Merge: fast-forwarded to `main` as `eae3d067`.
