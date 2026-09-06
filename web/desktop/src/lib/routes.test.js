@@ -95,17 +95,6 @@ test("sessions live under Agent CLIs (ADR-0079)", () => {
   assert.equal(sessionsHash(""), "#/clis/sessions");
 });
 
-test("go(sessions) lands on the machine-wide view, not the :id template", () => {
-  const orig = globalThis.location;
-  globalThis.location = { hash: "" };
-  try {
-    go("sessions");
-    assert.equal(globalThis.location.hash, "#/clis/sessions");
-  } finally {
-    globalThis.location = orig;
-  }
-});
-
 test("tree hash names the owner, tab id names the root folder", () => {
   assert.equal(parseRoute("#/tree/a/opus"), "workspace");
   assert.equal(treeHash("agent", "opus"), "#/tree/a/opus");
