@@ -131,17 +131,23 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
-  collapsed workspace header's face strip now includes terminals after
+- `feat/term-face-style` awaits merge to main and `make deploy`. Follow-up
+  to the terminal face strip: terminal favicons in the collapsed header
+  dropped the full-bleed `term-cli-face` override and render in exactly
+  the agent-face style (same 18px plate, ring, contained art) — agents
+  and terminals read as one visual family. Rows keep the full-bleed
+  identity treatment. Verified by computed-style parity in the strip and
+  screenshots; docs captures regenerated; `make ci` green.
+- `feat/term-collapse-faces` shipped in `0.1.0+fa97e8c`. The collapsed
+  workspace header's face strip includes terminals after
   managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
   wired in `Sidebar.jsx`): agent-CLI terminals wear their CLI favicon
   (vendor marks as fallback), shells the `>_` mark — a terminals-only
   workspace no longer shows "— empty", which now means truly no agents
   and no terminals. The docs fixture seeds project terminals and a
   terminals-only "sandbox" workspace (plus an empty "fresh"), so
-  `make docs-shots` captures changed and were regenerated. Verified on
-  the fixture in-browser (screenshots read, overlay audit ok, reload
-  persists); not yet deployed to the live instance.
+  `make docs-shots` captures photograph the real states. Verified live:
+  COGNIXSE wears claude + openai favicons collapsed.
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -244,6 +250,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Terminal faces match agent faces in collapsed strips.**
+  The strip's terminal favicons kept the row's full-bleed treatment
+  (`term-cli-face`), reading darker and larger than the agent faces
+  beside them. They now render as plain `ws-face` — identical plate,
+  ring and contained art (computed-style parity verified in-browser);
+  rows keep the full-bleed look. Docs captures regenerated; `make ci`
+  green on the branch. visual-review: PASS (face-style-zoom2.png read).
 - **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
   with only terminals (shell / agent CLI) collapsed to "— empty"; the
   strip now renders terminals after managed agents — CLI favicons

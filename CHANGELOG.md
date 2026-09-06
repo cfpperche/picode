@@ -37,7 +37,9 @@ to the `[Unreleased]` section. The repository's official language is English
   terminals. The header's face strip now lists terminals after managed
   agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
   Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
-  mark, capped at five with a `+N` overflow like agent faces. The docs
+  mark, capped at five with a `+N` overflow like agent faces. Terminal
+  faces render in exactly the agent-face style — same 18px plate, ring
+  and contained art — so the strip reads as one visual family. The docs
   fixture seeds project terminals (a shell plus CLI terminals with live
   runtime leases) and a terminals-only workspace, so captures photograph
   the real states.
