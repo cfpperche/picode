@@ -203,3 +203,24 @@ under `/tmp/picode-llama-runtime`, outside the repository and production cache.
 
 Pinned protocol reference:
 [llama-server b10809 API](https://github.com/ggml-org/llama.cpp/blob/5266f24da/tools/server/README.md).
+
+## Larger-model validation (2026-09-06)
+
+Qwen3-4B-Q4_K_M from the official Qwen repository passed the same runtime
+script on build b10809, CPU-only, four threads, 8192-token context and thinking
+disabled. The 2,497,280,256-byte model was pinned to revision
+`bc640142c66e1fdd12af0bd68f40445458f3869b`; its SHA-256 matched the upstream
+LFS metadata. See [the complete report](llama-runtime-4b-qa.json).
+
+Router detection, SSE subscription/load events, model load/unload, streaming,
+forced function arguments and the real Pi 0.85.1 read-tool round trip all
+passed. Pi emitted tool execution start/end events and returned the marker
+from the temporary file. The 0.6B failure remains recorded for comparison.
+This is one basic integration test, not a coding benchmark or a reliability
+rate. No GPU, production browser, download/cancel or durable-job acceptance
+is implied. The server was stopped after unloading; production configuration
+was not changed. The verified model remains in the isolated temporary cache.
+
+`make ci` passed again (902 JS/package tests plus Go/build/docs gates).
+Delivery 2 can now use this model/build pair as a real acceptance fixture;
+job implementation and its decision matrix remain outstanding.

@@ -15,6 +15,10 @@ success. The [four-delivery plan](plans/llama-manager.md) records deliveries
 2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
 No push was made.
 
+**llama validation:** Qwen3-4B-Q4_K_M passed the isolated real Pi read-tool
+round trip on CPU with llama.cpp b10809 and Pi 0.85.1. This establishes a
+basic runtime acceptance fixture; delivery 2 jobs remain unimplemented.
+
 Managed-stop fix debts (living):
 
 - `Runtime.Stop` has an unrelated start-lease race: a stop arriving while a
@@ -133,12 +137,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- llama runtime investigation: disposable build b10809 passed router/SSE,
-  load/unload, streaming and forced tool protocol. Qwen3-0.6B-Q8_0 failed
-  the real Pi read-tool test (fabricated content, no tool execution).
+- llama runtime investigation: Qwen3-4B-Q4_K_M on disposable build b10809
+  passed router/SSE, load/unload, streaming, forced tool protocol and a real
+  Pi 0.85.1 read-tool round trip. The earlier 0.6B failure remains recorded.
   Production still has no reachable server at port 8080. Delivery 2 has a
   detailed decision matrix and reusable runtime QA script, but no job code.
-  See [runtime evidence](plans/llama-runtime-qa.json) and the manager plan.
+  See [4B runtime evidence](plans/llama-runtime-4b-qa.json) and the manager plan.
 
 
 
@@ -173,8 +177,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. llama: select and validate a model that actually uses Pi tools; then
-   delivery 2 capability detection, durable jobs, progress and reconnect.
+1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
+   Use the validated Qwen3-4B/b10809 pair for real acceptance.
    Deliveries 3–4 remain planned; see the approved llama manager plan.
 
 1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
@@ -226,7 +230,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 
 - llama: browser acceptance remains synthetic. Disposable real CPU router,
-  SSE and inference passed; Pi tool use failed on the tested 0.6B model. GPU,
+  SSE and inference passed; Pi read-tool use passed on 4B and failed on 0.6B. GPU,
   production runtime and router download/cancel remain unverified. Synchronous operations
   remain in delivery 1; recovery/concurrency/cancellation belongs to delivery 2.
   Model guidance/readiness is delivery 3; service ownership and cache deletion
@@ -286,6 +290,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-06 — larger llama model validated.** SHA-verified Qwen3-4B-Q4_K_M
+  passed all eight runtime checks, including real Pi read-tool execution and
+  returned file contents. CPU-only; no coding/GPU certification. make ci
+  passed; no app changes or deploy; visual-review: not applicable.
 
 - **2026-09-06 — llama real-runtime investigation.** Added reproducible
   runtime QA and delivery 2 decision matrix. Build b10809 passed basic
