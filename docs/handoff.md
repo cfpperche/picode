@@ -36,15 +36,18 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+8470ef5`, health `ok`, boot
-`52711c61a951d299`. `make deploy` restarted systemd; 53/53 tmux pane
-identities preserved. Live check: the imported-row toggle now flips both ways
-with a workspace in context — ON unmasks the Claude Code import, OFF writes
-the user-layer stub and the adapter resolves `context7` as `disabled: true`
-(verified with the adapter's own config loader). End state: context7 Off, as
-the owner intended. Evidence: `var/mcp-disable-deploy/`; private SQLite and
+**Last application deployment:** `0.1.0+17246488`, health `200`. `make
+deploy` restarted systemd with the sessions phase-2 merge; the live API
+answers `GET /api/clis/codex/sessions` with 907 real sessions and the
+desktop serves the per-CLI sessions picker. Previous deployment
+`0.1.0+8470ef5` (boot `52711c61a951d299`, 53/53 panes preserved): the
+imported-row MCP toggle flipped both ways with a workspace in context —
+ON unmasks the Claude Code import, OFF writes the user-layer stub and the
+adapter resolves `context7` as `disabled: true` (verified with the
+adapter's own config loader). End state: context7 Off, as the owner
+intended. Evidence: `var/mcp-disable-deploy/`; private SQLite and
 previous-binary backups are in its `recovery/` folder. Note: two parallel
-sessions deployed between gate and deploy this round (9a41241, abdf771);
+sessions deployed between gate and deploy that round (9a41241, abdf771);
 both are ancestors of the deployed merge.
 
 **Quality:** `make ci` passed on the PR-tab tree (Go tests including the
@@ -229,7 +232,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
-- **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079).**
+- **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079); merged and deployed.**
   `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
   (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt
   history) alongside pi, read-only with defensive parsers (fixtures from
