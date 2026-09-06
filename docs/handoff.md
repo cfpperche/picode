@@ -204,6 +204,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    quantization guidance dialog on desktop and mobile, then run the full UI
    visual review before merging. This branch currently shows file size,
    conservative memory estimate and contextual guidance; Go and JS tests pass.
+   Desktop/mobile dialog captures were read and overlay audits passed.
+   visual-review: PASS.
    Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
@@ -320,8 +322,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - **2026-09-06 — llama delivery 3 guidance slice started.** GGUF choices now
   expose file size, conservative runtime memory estimate and contextual
   hardware guidance; fixed Q4_K_M recommendation removed. Go tests and JSX
-  build pass. Visual review of the new quantization dialog is pending because
-  the isolated fixture flow did not reach the details state.
+  build pass. Desktop/mobile quantization dialog captures were read and
+  overlay audits passed. visual-review: PASS.
 
 - **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
   jobs, capability detection, file progress, cancellation and recovery with
