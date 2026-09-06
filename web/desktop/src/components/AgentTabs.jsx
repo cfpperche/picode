@@ -192,7 +192,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
         {entries.map(({ id, d }) => (
           <Tab key={id} id={id} active={id === selectedId} attn={d.status === "attn"} onSelect={onSelect} onClose={onClose} onReorder={onReorder} closeTitle={d.closeTitle}>
             <span className="mtab-term">{d.icon}</span>
-            <span title={d.title || undefined}>{d.label}</span>
+            <span className="mtab-label" title={d.title && d.title !== d.label ? `${d.label} — ${d.title}` : d.label}>{d.label}</span>
             <StatusDot status={d.status} />
           </Tab>
         ))}

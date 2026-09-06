@@ -1482,11 +1482,19 @@ img.ws-face.term-cli-face {
 .session-rename { font-size: 11px; color: var(--accent); cursor: pointer; }
 .mtab {
   display: flex; align-items: center; gap: 6px;
+  /* Never shrink: the strip scrolls (Firefox, VS Code), tabs do not
+     collapse toward their favicons (Chrome). Needed explicitly now that
+     the label's overflow:hidden lets flex treat its min-width as 0. */
+  flex: none;
   padding: 0 8px; font-size: 12.5px;
   border-right: 1px solid var(--border);
   cursor: grab; color: var(--text-secondary); white-space: nowrap;
   user-select: none;
 }
+/* Phase 4: one long name cannot swallow the strip (Chrome caps a tab at
+   232 dip, VS Code's fixed sizing at 160 px). The tooltip carries the
+   full name or path. */
+.mtab-label { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtab:hover { color: var(--text-primary); background: var(--bg-hover); }
 .mtab.active { color: var(--text-primary); background: var(--bg-base); box-shadow: inset 0 -2px 0 var(--accent); }
 .mtab.dragging { opacity: .45; cursor: grabbing; }

@@ -129,7 +129,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/tab-strip-phase2` (phases 2 and 3 of the tab-strip study,
+- `feat/tab-strip-phase2` (phases 2, 3 and 4 of the tab-strip study,
   `docs/benchmarks/2026-09-06-tab-strip-overflow.md`) awaits merge to main
   and `make deploy`. Phase 2: `lib/useTabStrip.js` (ResizeObserver over
   strip + tabs, scroll and non-passive wheel listeners) drives `‹ ›`
@@ -138,8 +138,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   Phase 3: "All tabs" Radix menu (out-of-view first), needs-you dot on
   the arrow hiding such a tab, `Alt+[` / `Alt+]` in the app-keys catalog,
   `wireTermKeys` passthrough for Global chords, tablist roles with manual
-  activation. Phase 1 is deployed as `dcbaa316`. Phase 4 (label cap)
-  remains under Next up.
+  activation. Phase 4: `.mtab-label` capped at 200 px with ellipsis and a
+  "name — detail" tooltip, `.mtab { flex: none }`. Phase 1 is deployed as
+  `dcbaa316`; the study is complete once this branch ships.
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -171,9 +172,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
    Deliveries 3–4 remain planned; see the approved llama manager plan.
 
-1. **Tab strip phase 4** (study `2026-09-06-tab-strip-overflow.md`,
-   owner-approved): label `max-width` with ellipsis so one long name
-   cannot swallow the strip. Debts from phases 2–3: the indicator covers
+1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
+   four phases shipped): the indicator covers
    the active tab's accent underline while shown (VS Code does the same);
    `scrollend` is the only exact "settled" signal, Safari falls back to a
    400 ms timer; the needs-you dot on an arrow was verified for CSS
@@ -282,6 +282,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
+  with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
+  after QA showed the new `overflow: hidden` letting flex shrink every tab
+  instead of scrolling (the Chrome behaviour the study refuses). Verified
+  on the worktree's Vite build with an injected 65-character name: label
+  200 px and truncated, other tabs unchanged, the strip overflowed and the
+  arrows appeared. Screenshot read. visual-review: PASS (p4-ellipsis.png).
+  During QA the owner's live service was found inactive since 12:26:50
+  (`server: terminated`, no deploy in flight, lock free, binary from a
+  12:25 deploy by another session); `systemctl --user start picode`
+  brought it back at 12:33 — the cause of the stop is unknown.
 - **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
   tablist.** `describeTab` now feeds both the strip and a Radix
   DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,

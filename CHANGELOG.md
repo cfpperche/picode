@@ -64,6 +64,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- A tab's name stops at 200 px with an ellipsis, so one long terminal or
+  file name cannot swallow the strip; the tooltip carries the full name
+  and, for terminals and files, the CLI or path. Tabs never shrink to make
+  room — the strip scrolls instead. Phase 4 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 - **Editor tabs show where the rest of them are.** While tabs overflow, the
   strip gets `‹ ›` arrows at its ends (the one at a reached edge is
   disabled), the edge that still hides tabs fades out, and a thin

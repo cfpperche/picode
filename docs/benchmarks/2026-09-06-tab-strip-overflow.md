@@ -88,8 +88,11 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
    so the next arrow would reach the shell. Terminals return every Global
    app chord to the app (`wireTermKeys` passthrough) — before, `Ctrl+K`
    opened the palette *and* sent `\x0b`. Shipped in phase 3.
-8. **Label cap:** `max-width` with ellipsis on the label so one long name
-   cannot swallow the strip (Chrome 232 dip, VS Code fixed max 160).
+8. **Label cap:** `.mtab-label { max-width: 200px }` with ellipsis so one
+   long name cannot swallow the strip (Chrome 232 dip, VS Code fixed max
+   160); the tooltip carries "name — CLI or path". `.mtab { flex: none }`
+   keeps tabs from shrinking once the label may overflow — the strip
+   scrolls, tabs never collapse toward their favicon. Shipped in phase 4.
 
 ## Where PiCode improves on them
 
