@@ -32,6 +32,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Identity favicons match the workspace favicon**. Agent faces (sidebar
+  rows, collapsed strips, editor tabs, inspector) and terminal CLI badges
+  now render at the workspace favicon's 16px box with its 3px radius —
+  natural image shape, no forced circular crop. Letter/glyph fallbacks keep
+  the white plate for sidebar contrast; image faces stay full-bleed. Row
+  indent (`ws-meta`) re-aligned to the smaller identity mark.
+
 - **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter
   no longer wears the accent color — the operator line is one muted line.
   An **absent** checklist (the task required a plan and none was written)
