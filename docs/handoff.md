@@ -26,18 +26,15 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Managed agents remain Pi-only;
-  coding CLIs are terminals. `origin/main` is pushed regularly.
+  at 16 px, tab strip overflow phases 2–4. Mobile extra keys are a one-row
+  IME accessory (ADR-0044, `2ed7b7df`); iPhone IME pass still owed.
+  Managed agents remain Pi-only; coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
-- `feat/ephemeral-loopback-sessions` — loopback browser sessions (the
-  headless QA fleet) are revoked 10 min after their last request; Devices
-  stops piling up offline "Headless browser" rows (ADR-0049 amendment).
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/mobile-keybar-accessory` — one-row IME accessory + visualViewport shell.
 
 ## Next up
 
