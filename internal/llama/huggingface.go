@@ -22,8 +22,10 @@ type HFHit struct {
 
 // HFQuant is one GGUF quantization.
 type HFQuant struct {
-	Name string `json:"name"`
-	Size int64  `json:"size,omitempty"`
+	Name            string `json:"name"`
+	Size            int64  `json:"size,omitempty"`
+	EstimatedMemory int64  `json:"estimatedMemory,omitempty"`
+	Guidance        string `json:"guidance,omitempty"`
 }
 
 // HFDetails is repo metadata for download.
@@ -37,6 +39,21 @@ var (
 	quantPat = regexp.MustCompile(`(?i)(?:^|[-_.])((?:UD-)?(?:IQ\d(?:_[A-Z0-9]+)+|Q\d(?:_[A-Z0-9]+)+|BF16|F16|F32|MXFP\d(?:_[A-Z0-9]+)*))$`)
 	shardPat = regexp.MustCompile(`-\d{5}-of-\d{5}$`)
 )
+
+func quantGuidance(size int64) (int64, string) {
+	if size <= 0 {
+		return 0, ""
+	}
+	memory := size + size/5
+	switch {
+	case memory <= 4<<30:
+		return memory, "Good starting point for modest hardware"
+	case memory <= 8<<30:
+		return memory, "May need reduced context or GPU offload"
+	default:
+		return memory, "Large model; check available memory first"
+	}
+}
 
 func hfToken() string {
 	if t := strings.TrimSpace(os.Getenv("HF_TOKEN")); t != "" {
@@ -191,6 +208,8 @@ func HFInfo(id string) (HFDetails, error) {
 		item := HFQuant{Name: name}
 		if okSize[name] {
 			item.Size = sz
+			// Tensor data needs allocator and runtime overhead beyond file size.
+			item.EstimatedMemory, item.Guidance = quantGuidance(sz)
 		}
 		out.Quantizations = append(out.Quantizations, item)
 	}

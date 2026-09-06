@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Contextual llama.cpp model guidance**: GGUF choices show file size,
+  estimated runtime memory and a hardware-oriented starting recommendation.
+
 - **Checklist disclosure on sidebar cards** (`docs/plans/sidebar-checklist-
   expand.md`). Clicking a card's plan line expands the full list in place:
   ☑ on finished steps, the braille spinner on the one being executed, ☐ on

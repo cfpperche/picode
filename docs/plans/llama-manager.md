@@ -89,6 +89,16 @@ browser workflow. It changes neither production Pi configuration nor services.
 - Acceptance: download → load → test → use in a real Pi agent, including a
   failed tool-call test. Other coding CLIs remain terminal integrations.
 
+### Delivery 3 acceptance record
+
+The pinned b10809 CPU fixture passed router discovery, SSE, load/unload,
+streaming, forced tool protocol and a real Pi 0.85.1 `read` round trip with
+Qwen3-4B-Q4_K_M. The earlier Qwen3-0.6B fixture intentionally failed the
+agent read round trip while still passing protocol checks; it remains recorded
+as a negative compatibility example. Both runs used four CPU threads and
+8192-token context, with disposable servers stopped afterwards. This does not
+certify GPU performance or general coding quality.
+
 ## Delivery 4 — Execution settings and managed service
 
 Included in the approved roadmap. Before implementation, record the concrete

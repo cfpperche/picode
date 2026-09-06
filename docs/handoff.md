@@ -226,9 +226,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Integrate validated llama delivery 2 after reconciling current main, then
-   validate the deployed Activity route. Delivery 3 adds model guidance/readiness;
-   delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Validate the deployed llama delivery 3 guidance dialog on the live service.
+   Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
