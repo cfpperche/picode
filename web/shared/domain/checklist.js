@@ -19,6 +19,19 @@ export function countDone(items) {
   return (Array.isArray(items) ? items : []).filter((it) => it && it.status === "completed").length;
 }
 
+// checklistRows(items) -> the rows the sidebar disclosure renders (one per
+// step): {key, glyph, status, text, current}. Unknown status is pending;
+// rows without text are dropped; `current` marks only a real in-progress
+// step — all-pending and all-done lists show no spinner.
+export function checklistRows(items) {
+  const list = (Array.isArray(items) ? items : []).filter((it) => it && typeof it.text === "string" && it.text.trim() !== "");
+  const current = list.findIndex((it) => it && it.status === "in-progress");
+  return list.map((it, i) => {
+    const status = GLYPH[it.status] ? it.status : "pending";
+    return { key: String(i), glyph: GLYPH[status], status, text: it.text, current: i === current };
+  });
+}
+
 // checklistLine(c) -> {kind:"step", text, position, total} | {kind:"absent"} | null
 export function checklistLine(c) {
   if (!c) return null;

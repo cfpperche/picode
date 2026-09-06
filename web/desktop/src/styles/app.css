@@ -2574,6 +2574,23 @@ img.ws-face.term-cli-face {
 .ws-check { display: flex; align-items: baseline; gap: 5px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
 .ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; }
 .ws-check-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
+   a real button; opening reveals every step — ☑ dimmed, the braille spinner
+   on the one being executed, ☐ pending. Live over the feed, no fetch. */
+.ws-check-disclosure { min-width: 0; }
+button.ws-check-line { display: flex; align-items: baseline; gap: 5px; min-width: 0; width: calc(100% - 4px); font-size: 11.5px; color: var(--text-secondary); padding: 1px 2px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }
+button.ws-check-line:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
+.ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
+.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 2px 0 2px 16px; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.ws-check-list li { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
+.ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
+.ws-check-step-glyph { flex: none; width: 14px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
+.ws-check-list li.current .ws-check-step-glyph .pi-spin { width: 14px; height: auto; font-size: 11px; }
+.ws-check-step-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (prefers-reduced-motion: reduce) { .ws-check-list { transition: none; } }
 /* The checklist card in the chat. */
 .tool-pill.checklist .tp-name { color: var(--accent); }
 .tp-checklist { padding: 6px 10px; font-family: inherit; font-size: 12.5px; }

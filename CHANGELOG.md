@@ -11,6 +11,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Checklist disclosure on sidebar cards** (`docs/plans/sidebar-checklist-
+  expand.md`). Clicking a card's plan line expands the full list in place:
+  ☑ on finished steps, the braille spinner on the one being executed, ☐ on
+  the rest. The items are already in client state and arrive over the feed,
+  so opening costs no fetch and updates render live while open. Works on
+  agent and terminal cards; the line is a real button (`aria-expanded`,
+  Enter opens, Escape closes) and never navigates. No server change.
+
 ### Changed
 
 - **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter

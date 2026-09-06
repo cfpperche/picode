@@ -153,12 +153,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   branch: the checklist counter `(x/n)` loses its accent color and an
   **absent** checklist renders as silence — no line, no "No checklist" —
   on agent cards, terminal cards, the pane strip and mobile rows
-  (ADR-0082, owner call amending 0055/0081; data plane unchanged). The
-  expand-on-click disclosure (☑ done / braille spinner on current / ☐
-  pending) is architected, not built:
-  `docs/plans/sidebar-checklist-expand.md` — awaiting the owner's go.
-  Visual review: PASS (muted counter + absent-silence screenshots read on
-  an isolated daemon, `overlayAudit ok`); `make ci` green.
+  (ADR-0082, owner call amending 0055/0081; data plane unchanged). Plus
+  the **expand-on-click disclosure** built per
+  `docs/plans/sidebar-checklist-expand.md`: `checklistRows` (pure,
+  node-tested) and `ChecklistDisclosure` on Agent/TermRow — ☑ done,
+  braille `PiSpinner` on the current step, ☐ pending; a real button
+  (`aria-expanded`, Enter/Escape), stopPropagation so it never navigates,
+  150ms grid-rows motion with a reduced-motion guard; live over the feed
+  (no fetch). Browser QA on an isolated daemon: agent + terminal expand,
+  live flip while open (spinner moved steps in place), click/keyboard
+  toggle, URL unchanged, `overlayAudit ok`. visual-review: PASS.
+  `make ci` green.
 
 - Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
   branch removed. The study's adoption list is complete; its debts sit
@@ -316,6 +321,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Checklist disclosure built (branch).** `checklistRows`
+  (pure, node-tested: statuses, junk rows, no-spinner cases) +
+  `ChecklistDisclosure` on agent and terminal cards: the plan line is a
+  real button (aria-expanded, Enter opens, Escape closes, never
+  navigates); expanded it lists every step — ☑ dimmed, braille
+  `PiSpinner` on the one being executed, ☐ pending — with 150ms
+  grid-rows motion behind a reduced-motion guard. Live over the feed:
+  the spinner moved steps mid-expansion with no fetch. Browser QA on an
+  isolated daemon (agent + terminal cards, URL unchanged throughout,
+  `overlayAudit ok`). visual-review: PASS.
 - **2026-09-06 — Checklist line refinement (branch).** Counter `(x/n)`
   muted; an absent checklist renders as silence everywhere (ADR-0082,
   owner call — data plane untouched). Mobile fallback no longer says
