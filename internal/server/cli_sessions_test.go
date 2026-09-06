@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -101,5 +102,22 @@ func TestCLISessionsEndpointDecisionTable(t *testing.T) {
 	// totalBytes counts listed files only.
 	if tb, ok := got["totalBytes"].(float64); !ok || tb != float64(len(codexBody)) {
 		t.Errorf("totalBytes = %v, want %d", got["totalBytes"], len(codexBody))
+	}
+}
+
+// Pi-only guards: the delete/adopt/cleanup actions refuse every other CLI —
+// other CLIs' session files are never written, deleted or adopted by PiCode.
+func TestCLISessionsPiOnlyGuards(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	for _, row := range []struct{ method, path string }{
+		{http.MethodPost, "/api/clis/claude-code/sessions/delete"},
+		{http.MethodPost, "/api/clis/claude-code/sessions/adopt"},
+		{http.MethodPut, "/api/clis/claude-code/sessions/cleanup"},
+		{http.MethodGet, "/api/clis/claude-code/sessions/cleanup"},
+	} {
+		res := postJSONMethod(t, ts, row.method, row.path, map[string]any{"path": "x", "days": 1})
+		if res.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s %s = %d, want 400 (pi-only)", row.method, row.path, res.StatusCode)
+		}
 	}
 }
