@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { revealLeft, stripState, wheelToScroll, arrowStep } from "./tabStrip.js";
+import { revealLeft, stripState, wheelToScroll, arrowStep, hiddenTabs } from "./tabStrip.js";
 
 const strip = { scrollLeft: 0, clientWidth: 995, scrollWidth: 1049 };
 
@@ -66,5 +66,21 @@ describe("arrowStep", () => {
   it("moves most of a viewport, never less than a tab", () => {
     assert.equal(arrowStep(995), 597);
     assert.equal(arrowStep(100), 80);
+  });
+});
+
+describe("hiddenTabs", () => {
+  const items = [
+    { id: "a", left: 0, width: 100 }, { id: "b", left: 100, width: 100 },
+    { id: "c", left: 200, width: 100 }, { id: "d", left: 300, width: 100 }, { id: "e", left: 400, width: 100 },
+  ];
+  it("splits clipped tabs by side and ignores fully visible ones", () => {
+    assert.deepEqual(hiddenTabs({ scrollLeft: 150, clientWidth: 200 }, items), { left: ["a", "b"], right: ["d", "e"] });
+  });
+  it("reports nothing hidden when everything fits", () => {
+    assert.deepEqual(hiddenTabs({ scrollLeft: 0, clientWidth: 500 }, items), { left: [], right: [] });
+  });
+  it("tolerates a sub-pixel clip", () => {
+    assert.deepEqual(hiddenTabs({ scrollLeft: 0.5, clientWidth: 499.8 }, items), { left: [], right: [] });
   });
 });

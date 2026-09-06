@@ -74,11 +74,20 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
    none`, appears on hover/scroll, fades after 500 ms) so the NN/g
    "scrollbar means more content" signal survives without VS Code's
    spurious-click problem. Shipped in phase 2.
-6. **"All tabs" list** (`▾` in `.main-tabs-end`, shown only while
-   overflowing) listing every tab with its face, name and status dot,
-   the hidden ones first (JetBrains, Sublime, Firefox, VS Code).
-7. **Keyboard:** next/previous tab on a combo the browser does not
-   reserve, plus `role=tablist` / `role=tab` with arrow-key roving focus.
+6. **"All tabs" list** (a list button after the right arrow, shown only
+   while overflowing) listing every tab with its face, name and status
+   dot, the hidden ones first under "Out of view" (JetBrains, Sublime,
+   Firefox, VS Code). Radix DropdownMenu, `hiddenTabs` in `lib/tabStrip.js`.
+   Shipped in phase 3.
+7. **Keyboard:** `Alt+[` / `Alt+]` for previous / next tab (owner decision;
+   Ctrl+Tab, Ctrl+PgUp/PgDn and Ctrl+W are browser-reserved), rebindable
+   in the app-keys catalog, plus `role=tablist` / `role=tab` with
+   **manual activation** — arrows / Home / End move focus, Enter or Space
+   selects (MUI default, Radix `manual`). Automatic activation was tried
+   and dropped: selecting a terminal tab hands focus to its xterm textarea,
+   so the next arrow would reach the shell. Terminals return every Global
+   app chord to the app (`wireTermKeys` passthrough) — before, `Ctrl+K`
+   opened the palette *and* sent `\x0b`. Shipped in phase 3.
 8. **Label cap:** `max-width` with ellipsis on the label so one long name
    cannot swallow the strip (Chrome 232 dip, VS Code fixed max 160).
 

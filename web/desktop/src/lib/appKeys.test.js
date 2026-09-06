@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, matchAction, primaryChord, formatChord } from "./appKeys.js";
+import { CATALOG, matchAction, matchGlobalAction, primaryChord, formatChord } from "./appKeys.js";
 
 function ev(overrides) {
   return { key: "k", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...overrides };
@@ -61,4 +61,17 @@ test("formatChord renders a readable label", () => {
   assert.equal(formatChord("super+d"), "Cmd+D");
   assert.equal(formatChord("ctrl+`"), "Ctrl+`");
   assert.equal(formatChord(""), "");
+});
+
+test("tab cycling defaults to Alt+bracket, which browsers leave alone", () => {
+  assert.equal(matchAction("app.tab.prev", ev({ key: "[", altKey: true }), {}), true);
+  assert.equal(matchAction("app.tab.next", ev({ key: "]", altKey: true }), {}), true);
+  assert.equal(matchAction("app.tab.next", ev({ key: "]", ctrlKey: true }), {}), false);
+});
+
+test("matchGlobalAction covers every Global chord and nothing else", () => {
+  assert.equal(matchGlobalAction(ev({ key: "k", ctrlKey: true }), {}), true);
+  assert.equal(matchGlobalAction(ev({ key: "]", altKey: true }), {}), true);
+  assert.equal(matchGlobalAction(ev({ key: "d", ctrlKey: true }), {}), false); // Composer group
+  assert.equal(matchGlobalAction(ev({ key: "]" }), {}), false);
 });

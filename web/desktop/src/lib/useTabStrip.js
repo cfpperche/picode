@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { stripState, wheelToScroll, arrowStep } from "./tabStrip.js";
+import { stripState, wheelToScroll, arrowStep, hiddenTabs } from "./tabStrip.js";
 
 // Phase 2 of docs/benchmarks/2026-09-06-tab-strip-overflow.md: the strip
 // has no scrollbar, so this hook supplies what the benchmarks put around
 // the content instead — overflow / at-start / at-end flags for the arrows
-// and edge fades (Firefox, Material), a non-interactive position indicator
+// and edge fades (Firefox, Material), which tabs are out of view per side
+// (for the "All tabs" list and the arrows' needs-you dot), a non-interactive
+// position indicator
 // that shows while the pointer is over the strip or it is moving and fades
 // half a second later (VS Code's ScrollableElement HIDE_TIMEOUT), and a
 // vertical wheel that scrolls sideways (VS Code scrollYToX).
@@ -17,6 +19,7 @@ const WHEEL_SETTLE_MS = 400;
 
 export function useTabStrip(ref, deps) {
   const [state, setState] = useState(() => stripState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 }));
+  const [hidden, setHidden] = useState({ left: [], right: [] });
   const [scrolling, setScrolling] = useState(false);
   const observer = useRef(null);
   // Where the last wheel tick sent the strip. A smooth scroll is still in
@@ -30,6 +33,10 @@ export function useTabStrip(ref, deps) {
     if (!el) return;
     const next = stripState(el);
     setState((prev) => (same(prev, next) ? prev : next));
+    const items = [];
+    for (const c of el.children) if (c.dataset && c.dataset.tab) items.push({ id: c.dataset.tab, left: c.offsetLeft, width: c.offsetWidth });
+    const h = next.overflow ? hiddenTabs(el, items) : { left: [], right: [] };
+    setHidden((prev) => (prev.left.join() === h.left.join() && prev.right.join() === h.right.join() ? prev : h));
   }, [ref]);
 
   useEffect(() => {
@@ -93,7 +100,7 @@ export function useTabStrip(ref, deps) {
     el.scrollBy({ left: dir * arrowStep(el.clientWidth) });
   }, [ref]);
 
-  return { ...state, scrolling, step };
+  return { ...state, hidden, scrolling, step };
 }
 
 function same(a, b) {

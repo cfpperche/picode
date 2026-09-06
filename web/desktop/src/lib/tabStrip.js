@@ -57,3 +57,18 @@ export function wheelToScroll({ deltaX = 0, deltaY = 0, deltaMode = 0, ctrlKey =
 export function arrowStep(clientWidth) {
   return Math.max(80, Math.round(clientWidth * 0.6));
 }
+
+// Which tabs sit outside the viewport, per side — the "All tabs" list puts
+// them first (JetBrains, Firefox "List all tabs") and an arrow wears a
+// needs-you dot when one of them wants the user. `items` are the tabs'
+// boxes relative to the content ({ id, left, width }); a tab clipped by
+// more than a pixel counts as hidden on that side.
+export function hiddenTabs({ scrollLeft, clientWidth }, items) {
+  const left = [], right = [];
+  const end = scrollLeft + clientWidth;
+  for (const t of items) {
+    if (t.left < scrollLeft - 1) left.push(t.id);
+    else if (t.left + t.width > end + 1) right.push(t.id);
+  }
+  return { left, right };
+}

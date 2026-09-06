@@ -43,6 +43,21 @@ to the `[Unreleased]` section. The repository's official language is English
   no transcript replay, no writes or deletes for non-Pi sessions. Formats
   verified against real installations; empty state when a CLI never ran.
 
+### Added
+
+- **Every open tab, one list away.** While tabs overflow, a list button at
+  the strip's end opens all open tabs — the ones out of view first, each
+  with its face, name and status dot, the current one marked — and picking
+  one selects and reveals it. When a tab that needs you sits beyond an
+  arrow, that arrow wears the needs-you dot. Tabs cycle with `Alt+[` /
+  `Alt+]` from anywhere (browsers keep Ctrl+Tab and Ctrl+PgUp/PgDn for
+  themselves), rebindable under Settings → Keys; terminals hand these
+  chords — and the other global ones such as `Ctrl+K` — back to the app
+  instead of writing them to the shell. The strip is a proper tablist:
+  Tab focuses the current tab, arrows / Home / End move between tabs,
+  Enter or Space selects. Phase 3 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 ### Changed
 
 - **Editor tabs show where the rest of them are.** While tabs overflow, the

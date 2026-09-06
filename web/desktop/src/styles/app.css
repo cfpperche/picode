@@ -1421,6 +1421,18 @@ img.ws-face.term-cli-face {
 .tab-arrow:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
 .tab-arrow:disabled { opacity: .35; cursor: default; }
 .tab-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Phase 3: keyboard and the "All tabs" list. Tabs are a WAI-ARIA tablist
+   (roving tabindex, arrows / Home / End; Alt+[ and Alt+] from anywhere).
+   An arrow wears the needs-you dot when a hidden tab beyond it wants the
+   user — the one thing none of the benchmarks surface. */
+.tab-arrow { position: relative; }
+.tab-arrow-dot { position: absolute; top: 6px; right: 4px; width: 6px; height: 6px; }
+.tab-list-trigger { border-right: 0; border-left: 1px solid var(--border); }
+.mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab-list { width: 300px; }
+.tab-list-item .mtab-term { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; }
+.tab-list-item .mtab-dot { flex: none; }
+.tab-list-item[aria-current="true"] .um-name { color: var(--accent); }
 .tab-indicator {
   position: absolute; bottom: 0; height: 3px; border-radius: 2px;
   background: color-mix(in srgb, var(--text-secondary) 45%, transparent);

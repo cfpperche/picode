@@ -150,16 +150,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/tab-strip-phase2` awaits merge to main and `make deploy`. Phase 2
-  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`):
-  `lib/useTabStrip.js` (ResizeObserver over strip + tabs, scroll and
-  non-passive wheel listeners) drives `‹ ›` arrows that exist only while
-  tabs overflow, edge fades via `mask-image` on the strip, a 3 px
-  non-interactive indicator (hover / while scrolling, 500 ms fade) and
-  vertical-wheel-to-horizontal with a pending target. Phase 1 (no
-  scrollbar, active tab revealed) is deployed as `dcbaa316`. Phases 3–4
-  (all-tabs list, `Alt+[` / `Alt+]`, tablist roles, label cap) remain
-  under Next up.
+- `feat/tab-strip-phase2` (phases 2 and 3 of the tab-strip study,
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`) awaits merge to main
+  and `make deploy`. Phase 2: `lib/useTabStrip.js` (ResizeObserver over
+  strip + tabs, scroll and non-passive wheel listeners) drives `‹ ›`
+  arrows that exist only while tabs overflow, edge fades via `mask-image`,
+  a 3 px non-interactive indicator and vertical-wheel-to-horizontal.
+  Phase 3: "All tabs" Radix menu (out-of-view first), needs-you dot on
+  the arrow hiding such a tab, `Alt+[` / `Alt+]` in the app-keys catalog,
+  `wireTermKeys` passthrough for Global chords, tablist roles with manual
+  activation. Phase 1 is deployed as `dcbaa316`. Phase 4 (label cap)
+  remains under Next up.
 - `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
   collapsed workspace header's face strip now includes terminals after
   managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
@@ -202,15 +203,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Tab strip phases 3–4** (study `2026-09-06-tab-strip-overflow.md`,
-   owner-approved): "All tabs" list in `.main-tabs-end` while overflowing,
-   with faces, names and status dots, hidden tabs first; a needs-you dot
-   on the arrow of an off-screen tab; `Alt+[` / `Alt+]` for previous /
-   next tab plus `role=tablist` / `role=tab` with arrow-key focus; label
-   `max-width` with ellipsis. Phase 2 debts: the indicator covers the
-   active tab's accent underline while shown (VS Code does the same);
-   `scrollend` is the only exact "settled" signal, Safari falls back to
-   a 400 ms timer.
+1. **Tab strip phase 4** (study `2026-09-06-tab-strip-overflow.md`,
+   owner-approved): label `max-width` with ellipsis so one long name
+   cannot swallow the strip. Debts from phases 2–3: the indicator covers
+   the active tab's accent underline while shown (VS Code does the same);
+   `scrollend` is the only exact "settled" signal, Safari falls back to a
+   400 ms timer; the needs-you dot on an arrow was verified for CSS
+   placement with an injected dot and by `hiddenTabs` tests, not on a
+   live needs-you tab (none existed during QA); `.mtab-close` inside a
+   `role=tab` is reachable by mouse only (tabIndex −1), close from the
+   keyboard is not offered yet.
    Separate follow-up: the global `* { scrollbar-width: thin }` makes
    Chromium ignore every `::-webkit-scrollbar` rule in the app
    (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
@@ -290,6 +292,23 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
+  tablist.** `describeTab` now feeds both the strip and a Radix
+  DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,
+  current one marked); `app.tab.prev` / `app.tab.next` join the app-keys
+  catalog (Hotkeys dialog and Settings → Keys pick them up); `wireTermKeys`
+  gained a `passthrough` predicate and both terminals pass
+  `matchGlobalAction`, so Global chords no longer reach the shell
+  (`termKeys.test.js`, `appKeys.test.js`; 37 JS tests across the three
+  files). Manual activation replaced automatic after QA showed the
+  terminal stealing focus on select. Verified on the worktree's Vite
+  build at 1000 px with six tabs: roles and tabindex, Alt chords cycle and
+  wrap with `defaultPrevented`, arrows / Home / End move focus without
+  selecting, Enter selects and reveals, the menu lists 6 items with the
+  "Out of view" group and separator inside the viewport (overlay audit
+  ok), picking an out-of-view item selects and reveals it, the active tab
+  stays visible when the overflow chrome appears. visual-review: PASS
+  (p3-list.png, p3-arrowdot.png read; card 5/5).
 - **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
   `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
   (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
