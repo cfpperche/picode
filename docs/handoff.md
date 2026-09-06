@@ -8,8 +8,8 @@
 **Repository:** HEAD (deployed as `0.1.0+07cc806`) carries today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner; its **PR tab** is
-complete on `feat/inspector-pr` — see Recent activity), bounded
+desktop Inspector rail (ADR-0078, accepted by the owner) with its **PR tab**
+(phase 2, merged and deployed as `9a7691a5`), bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
@@ -34,20 +34,20 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+39eb181`, health `ok`, boot
-`d11bb0fd6c75f608`. `make deploy` restarted systemd; all 48 baseline tmux pane
-identities survived. Live check: the redesigned custom-connector dialog renders
-its labeled groups (transport, sign-in, headers) with no hidden controls —
-verified read-only, nothing created. Evidence: `var/custom-dialog-deploy/`;
-private SQLite and previous-binary backups are in its `recovery/` folder.
-**Quality:** `make ci` passed three times — on the feature tree, after the
-first main merge (with regenerated captures) and on the final merged tree —
-including Go tests, 700 frontend/package tests, both UI builds, the embedded
-binary, docs parity (`app-inspector` added) and Vale. Browser acceptance:
-`scripts/qa-inspector.mjs` 11/11 groups on an isolated fixture
-(`docs/screenshots/inspector-qa.json`), 11 screenshots plus the live shell
-read, overlay/row audits ok. visual-review: PASS. The docs fixture and QA
-browser sessions are closed.
+**Last application deployment:** `0.1.0+9a7691a`, health `200`, desktop bundle
+`index-BZJ2lZOW.js` (served and built hashes match). `make deploy` restarted
+systemd; the seven terminal records survived. The live `…/pr` route, through
+the machine's real `gh`, answers `none` for the `glm5` agent on `main`, and
+the rail's PR tab shows "No pull request for main" with **Create in
+terminal**; nothing was typed into a production terminal.
+**Quality:** `make ci` passed on the PR-tab tree (Go tests including the
+scripted-gh suite, 700 frontend/package tests, both UI builds, embedded
+binary, docs parity with regenerated captures, Vale after fixing one
+repetition). Browser acceptance: `scripts/qa-inspector.mjs` 13/13 groups on a
+fixture whose PATH carried a scripted `gh` (`docs/screenshots/inspector-qa.json`);
+`inspector-pr-*` screenshots read, overlay/row audits ok, the pre-typed
+command's prompt echo fixed and re-read. visual-review: PASS. Fixtures and
+QA browser sessions are closed; the feature worktree and branch are removed.
 
 ### Product and platform
 
@@ -223,6 +223,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `scripts/qa-inspector.mjs` 13/13 groups; `inspector-pr-*` screenshots read,
   audits ok. visual-review: PASS. ADR-0078 marked accepted with the owner's
   approval; its Commit section now compares three designs with the benchmarks.
+  Fast-forwarded main (no drift this time) and deployed `9a7691a5`; served
+  bundle `index-BZJ2lZOW.js`, seven terminals survived. No push.
 - **2026-09-05 — Custom connector dialog redesign merged and deployed.**
   Reconciled clean (main had not moved); combined `make ci` passed; deployed
   `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48
