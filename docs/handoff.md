@@ -5,25 +5,17 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
-terminal-checklist work (ADR-0080, on `feat/terminal-checklist` — not yet
-merged), the
-worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
-rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and
-the **Git actions** stage (branch chip with ahead/behind, a Git menu preparing
-fetch/pull/push/commit/PR commands in the owner's terminal), merged and
-deployed as `aa9beea4`, bounded
-captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
-amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
-worktree-aware Git Graph (0073), independent web apps (0072), Windows task
-reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
-Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
-(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
-No push was made. The capture ADR was renumbered because
-Integrations took 0075; the opt-in native emitter and real end-to-end
-capture acceptance remain pending, so deployment does not enable browser
-capture emission.
+**Repository:** llama.cpp delivery 1 is merged and deployed as `ac4ff1dd`
+(`0.1.0+ac4ff1d`, ADR-0080), on top of Inspector run-when-idle, terminal
+faces, tab-strip phase 1 and the unified CLI sessions endpoints — and the
+terminal-checklist work (ADR-0081, on `feat/terminal-checklist`) is merged
+next. Dedicated
+`#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
+links to them and the old llama link redirects. Connection failures are
+classified, canceled loads do not run and failed operations do not report
+success. The [four-delivery plan](plans/llama-manager.md) records deliveries
+2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
+No push was made.
 
 Managed-stop fix debts (living):
 
@@ -38,25 +30,22 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+db12b097`, health `200` — the
-sessions-endpoints fold (which includes the terminal-faces tree,
-`fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
-Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
-`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
-deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
-(terminals-only) wore its agent-CLI favicons instead of "— empty";
-**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
-reload persistence verified in-browser; console clean, overlay audit ok.
-Nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the terminal-faces tree (Go tests,
-frontend suites including `collapseFaces.test.js`, both UI builds,
-embedded binary, docs parity with regenerated captures, Vale). Browser
-acceptance: `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
-fixture (`docs/screenshots/inspector-qa.json`), commands proven typed and
-never run through `tmux capture-pane -J`; `inspector-git-*` and
-`inspector-commit-*` screenshots plus the live menu read, overlay/row audits
-ok. visual-review: PASS. Fixtures and QA browser sessions are closed; the
-feature worktree and branch are removed.
+**Last application deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
+serialized `make deploy` from the validated worktree after fast-forwarding
+main. Health `ok`, systemd active, desktop bundle `index-B_QAIkue.js` matches
+the deployed build. All 9 pre-deploy terminal IDs survived the restart.
+Live desktop/mobile old-link navigation, Models/Server pages and Test
+connection passed; four production screenshots read, overlay/alignment
+audits ok and no JavaScript page errors. The configured llama endpoint
+`http://127.0.0.1:8080` times out, as it was unavailable before deployment;
+no llama service was started and no model operation was executed in production.
+Evidence and previous-binary recovery copy: `var/llama-deploy/`.
+
+**Quality:** combined `make ci` passed (902 JS/package tests, Go tests,
+formatting/vet, desktop/mobile builds, embedded binary, docs parity/build and
+Vale). The 16-capture llama fixture matrix passed again; images and regenerated
+public captures read; visual-review: PASS. Browser/fixture sessions are closed.
+The merged feature branch/worktree are removed during session cleanup.
 
 ### Product and platform
 
@@ -78,7 +67,13 @@ feature worktree and branch are removed.
   Commit and push and Create pull request the same way — an idle shell of the
   folder is reused, a terminal hosting a CLI never receives keystrokes — and
   the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached` from
-  `gitstatus`'s new `upstream`/`ahead`/`behind`/`detached` fields.
+  `gitstatus`'s new `upstream`/`ahead`/`behind`/`detached` fields. With the
+  menu's per-viewer checkbox **Run when no agent is working here**, the `run`
+  route presses Enter itself only when its interlock finds the repository
+  idle (no agent mid-turn, no TUI working, no automation, no other terminal
+  working or holding a program, target pane at a shell); otherwise the command
+  is prepared and a note names who is busy. The `type` route now refuses a
+  moved terminal or a pane not at a shell; the rail takes a fresh terminal.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -136,39 +131,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/terminal-checklist` (ADR-0080) awaits merge to main and `make
-  deploy`; the deployed instance predates it, so live terminal cards have no
-  checklist line yet. Full stack implemented and gated: publish target
-  fallback (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`),
-  `terminal_checklists` store + `terminal.checklist` events +
-  `/api/terminals/{id}/checklist`, view fold in `liveTermView`, sidebar card
-  line and terminal-pane strip, pi-checklist 0.2.0. Verified on an isolated
-  QA daemon: present/live-update/absent/reset states and reload persistence.
-  Not covered: a real pi process publishing through the extension in a live
-  terminal (the POST contract is covered by Go tests + the TUI already
-  renders the package's card), light-theme screenshot of the strip, mobile
-  TermRow (server now embeds `checklist` in terminal views, so mobile can
-  adopt it later — deliberate desktop-first scope).
-- `feat/tab-strip-scroll` awaits merge to main and `make deploy`. Phase 1
-  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
-  approved by the owner with the 3 px overlay indicator and `Alt+[` /
-  `Alt+]`): the strip hides its layout scrollbar and reveals the active
-  tab by code (`lib/tabStrip.js`). Phases 2–4 (wheel, edge fades, arrows,
-  indicator, all-tabs list, keys, label cap) are listed under Next up.
-- `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
-  collapsed workspace header's face strip now includes terminals after
-  managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
-  wired in `Sidebar.jsx`): agent-CLI terminals wear their CLI favicon
-  (vendor marks as fallback), shells the `>_` mark — a terminals-only
-  workspace no longer shows "— empty", which now means truly no agents
-  and no terminals. The docs fixture seeds project terminals and a
-  terminals-only "sandbox" workspace (plus an empty "fresh"), so
-  `make docs-shots` captures changed and were regenerated. Verified on
-  the fixture in-browser (screenshots read, overlay audit ok, reload
-  persists); not yet deployed to the live instance.
-- `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
-  running instance predates the fix (see Current state). Mobile keeps no
-  worktree concept in its Changes screen, so nothing to ship there.
+- `feat/terminal-checklist` (ADR-0081) is merged into main; `make deploy`
+  restarts the service onto it. Full stack: publish target fallback
+  (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
+  store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
+  view fold in `liveTermView`, sidebar card line and terminal-pane strip,
+  pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
+  live-update/absent/reset states and reload persistence. Not covered: a
+  real pi process publishing through the extension in a live terminal (the
+  POST contract is covered by Go tests; a terminal pi linked to this repo
+  picks the new extension up on its next start), light-theme screenshot of
+  the strip, mobile TermRow (server embeds `checklist` in terminal views —
+  deliberate desktop-first scope).
+
+
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -197,6 +173,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
+1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
+   Deliveries 3–4 remain planned; see the approved llama manager plan.
+
 1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
    owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
    `data-at-start` / `data-at-end` from one ResizeObserver + scroll
@@ -211,9 +190,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 2. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
-   (`# `/`<` prefixes). Decide whether `/api/sessions/all` and
-   `/api/pi-sessions` become deprecated aliases of the per-CLI endpoint
-   (owner call). Grok sessions are prompt-history summaries — no
+   (`# `/`<` prefixes). Grok sessions are prompt-history summaries — no
    transcripts exist in that format.
 2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
@@ -229,13 +206,30 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
-9. Inspector Git actions, next stages (ADR-0078): an optional "run when no
-   agent is working here" mode that presses Enter behind the interlock (the
-   step that amends the write refusals), and "ask the agent" variants beside
-   each action for folders with a running agent. Merge/rebase/branch switch
-   wait for a picker.
+9. Inspector Git actions, stage 3 (ADR-0078): "ask the agent" variants beside
+   each action for folders with a running agent, through the channel that
+   already carries prompts. Merge/rebase/branch switch wait for a picker.
 
 ## Known debts / open questions
+
+- **Sessions (ADR-0079) review debts:** the mobile session picker migrated
+  URLs and is field-compatible with the new shape (code-verified) but has
+  had no mobile visual pass; the `session_deleted` feed event regained
+  workspace attribution in the review pass and is exercised by every delete
+  test though no test asserts the payload itself; `go("sessions")` in
+  routes.js has no in-app caller left (kept as a public helper with a test).
+  Conscious broadening, recorded in architecture.md: the unified delete
+  accepts any orphan under the pi root — the old workspace-scoped route
+  confined deletes to that workspace's dirs; the UI only lists in-scope
+  rows, and the in-use/409 and root/400 guards are unchanged.
+
+
+- llama: browser/HTTP-fixture acceptance is synthetic; real installed-build,
+  GPU and model inference acceptance remains pending. Synchronous operations
+  remain in delivery 1; recovery/concurrency/cancellation belongs to delivery 2.
+  Model guidance/readiness is delivery 3; service ownership and cache deletion
+  require delivery 4's concrete follow-up ADR. No llama service lifecycle or
+  model-file deletion is introduced in delivery 1.
 
 - **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or measured
   slow-consumer/cancellation matrix. The hub drops on overflow and caches no
@@ -265,6 +259,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - Tutorial integrity passes, but all three strict freshness audits remain stale
   after source relocation. Recapture/render is explicit; hashes were not relabeled.
 - Branch protection and CODEOWNERS require owner action on GitHub.
+- The desktop requests `/desktop/favicon.svg` at runtime and gets 404 while
+  the static `<link rel=icon href="/favicon.svg">` answers 200 — seen in the
+  live console during the stage 2 smoke; probably the dynamic tab-favicon
+  code resolving a relative path. Not touched here; the `runtime-favicon`
+  worktree may own it.
+- QA fixtures for the Inspector died twice mid-run (wrapper exit 144, no
+  panic, data dir left behind) when started as harness background tasks; a
+  `setsid` fixture survived a full 16-group run, and one detached fixture still
+  died 15 s after a browser opened it while another survived the same step.
+  Working hypothesis: a concurrent session's process cleanup by name. Start
+  QA fixtures detached, under a unique binary name if it recurs, and never
+  `pkill -f` a pattern that matches the calling shell.
 - Inspector debts (ADR-0078): no complete filename search yet — the Files
   filter covers loaded rows only (`/files?q=` is agent-only and stops at 200
   files; `git ls-files` for all three owner kinds is the planned fix); free
@@ -279,9 +285,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
-- **2026-09-06 — Terminal checklists (ADR-0080, branch).** The internal
-  checklist now follows the agent into its terminal: `pi-checklist` 0.2.0
-  publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
+- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
+  internal checklist now follows the agent into its terminal: `pi-checklist`
+  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
   (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
   shell terminal — feeds the same operator line managed agents show. New
   `terminal_checklists` store (migration 029, dies with the terminal),
@@ -290,78 +296,34 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `GET /api/terminals`), sidebar card line and a live strip above the
   terminal pane (agent TUI panes get the same strip from the agent map).
   Reset/absent/blocked semantics mirror the agent side; unknown terminal
-  404s; invariant test extended. Isolated-daemon QA: card + pane screenshots
-  for present, live-update, absent and reset states, reload persistence,
-  `overlayAudit ok`. visual-review: PASS. `make ci` gates green (Go tests,
-  JS tests, build, openapi and captures regenerated). No push.
+  404s; invariant test extended. Renumbered to 0081 after colliding with the
+  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
+  present, live-update, absent and reset states, reload persistence,
+  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
 
-- **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
-  Measured on the live instance with seven tabs: the strip's classic
-  scrollbar took 10 of 39 px (Windows drew arrow buttons because
-  `scrollbar-width: thin` disables the webkit rules in Chromium ≥ 121),
-  the active tab sat at 1151 px in a 995 px viewport, wheel did nothing.
-  Study written with receipts (VS Code, Zed, JetBrains, Sublime, Firefox,
-  Chrome, MUI, Ant, Radix, Mantine, NN/g). Shipped: `.tab-strip`
-  `scrollbar-width: none` + smooth `scroll-behavior` (reduced-motion
-  aware, `overscroll-behavior-x: contain`), `revealLeft` in
-  `lib/tabStrip.js` (6 tests) applied from a layout effect in
-  `AgentTabs` on selection/open (instant on first paint). Verified on the
-  worktree's Vite build against the live server: gutter 0, tab 39 px,
-  active tab gap 0 on either clipped side. visual-review: PASS
-  (tabs-after.png read; no overlay in this change; card 5/5).
-- **2026-09-05 — Session management API folded into the per-CLI namespace
-  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
-  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
-  removed; desktop and mobile use `GET /api/clis/pi/sessions
-  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
-  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
-  `cleanupDays` on pi rows and — the semantic gap closed — scope by
-  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
-  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
-  the profiles routes), same guards: in-use → 409, outside root → 400.
-  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
-  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
-  workspace scope, delete overlay + file removed, auto-clean persisted,
-  adopt created an agent with the copied session).
-- **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
-  with only terminals (shell / agent CLI) collapsed to "— empty"; the
-  strip now renders terminals after managed agents — CLI favicons
-  (Claude Code, Codex, Grok, Pi) with vendor-mark fallbacks and `>_` for
-  shells, `faceSlice`-capped at 5 (`collapseFaces.test.js`; `TermFace` in
-  `ProviderFaces.jsx`; `Sidebar.collapsedMark(agents, terms)`). Fixture
-  seeds terminals + "sandbox" (terminals-only) and "fresh" (empty)
-  workspaces; docs captures regenerated. In-browser review on the
-  fixture: all four strip states read, expand/collapse cycle and reload
-  persistence ok, console clean, overlay audit ok. visual-review: PASS
-  (collapse-zoom2.png, expand-sandbox.png). `make ci` green on the
-  branch.
-- **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
-  gains `upstream`/`ahead`/`behind`/`detached`
-  (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
-  chip shows `main ↑2 ↓1`, `unpublished` or `detached`; a Git menu in the
-  rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
-  Create pull request in an idle terminal of the folder through the `type`
-  route (`gitActionCommand`, `shellQuote`, `gitActions`, `branchChip`,
-  `commitMessageSchema`; `InspectorCommitDialog.jsx` on ResponsiveDialog with
-  Zod errors and a command preview). The fixture seeds a bare origin one
-  commit behind. `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
-  fixture (`tmux capture-pane -J` proves the commands are typed, never run;
-  `gitstatus` keeps its four changes); `inspector-git-*` and
-  `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
-  Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
-  `index-DAL01ZST.js`, seven terminals survived. No push.
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
 
-- **2026-09-06 — Deploy serialization + living-docs guards merged and
-  deployed.** Fast-forwarded after reconciling three interleaved main moves;
-  combined `make ci` passed; deployed `a8a201b` under the new lock (lock
-  proven to block a second holder). Service healthy. No push.
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).
 
-- **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
-  two rounds of parallel-session interference, `make deploy`/`restart` now
-  hold a lock across build+restart (a gate-to-restart race shipped the wrong
-  tree once), and the pre-commit hook refuses commits where a staged
-  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
-  signature of a session writing into the wrong worktree. Selftest grew three
-  cases (15/15); the handoff-update skill starts by verifying the working
-  directory. Root cause of the clobbering (a parallel session's stale cwd)
-  remains behavioral — the guards catch it at commit time.
+Older activity lives in `docs/handoff-archive.md`.

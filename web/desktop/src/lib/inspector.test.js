@@ -8,7 +8,7 @@ import {
   compactCount, totalsLabel, filterRows, blockedMessage,
   readInspectorPrefs, writeInspectorPrefs,
   prTabLabel, prStateLabel, prChecksLabel, prReviewLabel, prBlockedAction,
-  shellQuote, gitActionCommand, gitActions, branchChip,
+  shellQuote, gitActionCommand, gitActions, branchChip, runFallbackNote,
 } from "./inspector.js";
 import { flattenTree } from "./fileTree.js";
 
@@ -165,15 +165,17 @@ test("blockedMessage names the moved terminal, and only that", () => {
 test("inspector prefs round-trip through storage with safe defaults", () => {
   const mem = new Map();
   const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
-  assert.deepEqual(readInspectorPrefs(storage), { open: null, width: INSPECTOR_DEFAULT, tab: "changes" });
+  assert.deepEqual(readInspectorPrefs(storage), { open: null, width: INSPECTOR_DEFAULT, tab: "changes", run: false });
   writeInspectorPrefs({ open: false, width: 9999, tab: "files" }, storage);
-  assert.deepEqual(readInspectorPrefs(storage), { open: false, width: INSPECTOR_MAX, tab: "files" });
-  writeInspectorPrefs({ open: true, tab: "bogus" }, storage);
-  assert.deepEqual(readInspectorPrefs(storage), { open: true, width: INSPECTOR_MAX, tab: "files" });
+  assert.deepEqual(readInspectorPrefs(storage), { open: false, width: INSPECTOR_MAX, tab: "files", run: false });
+  writeInspectorPrefs({ open: true, tab: "bogus", run: true }, storage);
+  assert.deepEqual(readInspectorPrefs(storage), { open: true, width: INSPECTOR_MAX, tab: "files", run: true });
   const broken = { getItem: () => { throw new Error("quota"); }, setItem: () => { throw new Error("quota"); } };
-  assert.deepEqual(readInspectorPrefs(broken), { open: null, width: INSPECTOR_DEFAULT, tab: "changes" });
+  assert.deepEqual(readInspectorPrefs(broken), { open: null, width: INSPECTOR_DEFAULT, tab: "changes", run: false });
   assert.doesNotThrow(() => writeInspectorPrefs({ open: true }, broken));
-  assert.deepEqual(readInspectorPrefs(null), { open: null, width: INSPECTOR_DEFAULT, tab: "changes" });
+  assert.deepEqual(readInspectorPrefs(null), { open: null, width: INSPECTOR_DEFAULT, tab: "changes", run: false });
+  assert.equal(runFallbackNote("Atlas is mid-turn in this repository."), "Atlas is mid-turn in this repository. The command is ready in the terminal; press Enter to run it.");
+  assert.equal(runFallbackNote(""), "The command is ready in the terminal; press Enter to run it.");
 });
 
 test("pull request labels read like a person, not a payload", () => {

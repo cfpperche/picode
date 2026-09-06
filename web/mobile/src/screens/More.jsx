@@ -5,6 +5,7 @@ const Settings = lazy(() => import("../components/Settings.jsx"));
 const AgentClis = lazy(() => import("../components/AgentClis.jsx"));
 const PiSettings = lazy(() => import("../components/PiSettings.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
+const LlamaPanel = lazy(() => import("../components/LlamaPanel.jsx"));
 const Providers = lazy(() => import("../components/Providers.jsx"));
 const Mcps = lazy(() => import("../components/Mcps.jsx"));
 const Integrations = lazy(() => import("../components/Integrations.jsx"));
@@ -19,6 +20,7 @@ const SECTIONS = [
   ["clis", "Agent CLIs", "Launch settings and terminals"],
   ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
+  ["llama", "llama.cpp", "Models and server connection"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["settings", "Settings", "Pi: model, thinking, prompt"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
@@ -85,6 +87,7 @@ export default function More({ section, apps, catalog, system, version, themeMod
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
+      {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
       {section === "providers" ? <Providers hidden={false} catalog={catalog} onRefresh={onRefreshCatalog} /> : null}
       {section === "integrations" ? <Integrations hidden={false}
         workspaceId={workspace?.id || ""} workspaceName={workspace?.name || ""} workspacePath={workspace?.path || ""}

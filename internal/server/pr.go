@@ -322,6 +322,7 @@ func handleTerminalType(deps Deps) http.HandlerFunc {
 		}
 		var req struct {
 			Text string `json:"text"`
+			Root string `json:"root"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -335,8 +336,20 @@ func handleTerminalType(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "Need tmux to type into a terminal.")
 			return
 		}
+		// An optional root is the rail's folder: a terminal that moved away
+		// must not receive a command meant for it (ADR-0074's precondition).
+		if cwd := liveTermCwd(deps, r, t); req.Root != "" && req.Root != canonDir(cwd) {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal moved to " + cwd + ".", "reason": "moved", "cwd": cwd})
+			return
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
+		// Keystrokes go to a shell prompt, never into an editor or a
+		// running command.
+		if cmd := paneCommandFn(ctx, deps, tmux.ShellSessionName(t.ID)); cmd != "" && !isShell(cmd) {
+			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal is running " + cmd + ".", "reason": "foreground"})
+			return
+		}
 		if err := deps.Tmux.TypeText(ctx, tmux.ShellSessionName(t.ID), req.Text); err != nil {
 			writeErr(w, http.StatusConflict, "Open the terminal first, then try again.")
 			return

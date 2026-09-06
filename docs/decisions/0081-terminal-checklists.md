@@ -1,4 +1,4 @@
-# ADR-0080: The internal checklist follows the agent into its terminal
+# ADR-0081: The internal checklist follows the agent into its terminal
 
 - **Status**: accepted
 - **Date**: 2026-09-06

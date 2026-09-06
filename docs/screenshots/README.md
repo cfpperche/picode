@@ -39,7 +39,11 @@ menu (ADR-0078, Commit stage 1): Fetch typed into an idle terminal of the
 folder, the commit form refusing an empty message, the form with its command
 preview, and the prepared commit sitting unsubmitted in the prompt while
 `gitstatus` still reports the four changes; the branch chip reads `main ↑1`
-from the seeded upstream.
+from the seeded upstream. `inspector-run-*` adds the run-when-idle mode
+(stage 2): the note that a second terminal is running `sleep` and the command
+was prepared instead (the toast steps left of the rail), the commit form in
+"Run in terminal" wording, and the terminal after the commit ran with
+`gitstatus` at zero changes before the runner restores the seed.
 
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector
@@ -172,3 +176,14 @@ observe and dismiss the native unsaved-changes dialog. The runner checks the
 synthetic workspace identity before writing fixture files and removes its
 disposable terminal afterward. Public docs use a separate unmodified fixture;
 `docs-shots.mjs` now closes only its own browser session.
+
+
+llama.cpp manager (ADR-0080): `llama-desktop-*` and `llama-mobile-*` capture
+empty, blocked, authentication error, download, model replacement, model list,
+light theme and Providers entry states. All 16 images were read; overlay
+and alignment audits pass (`llama-qa.json`). Reproduce with
+`scripts/qa-llama.mjs`, `PICODE_QA_BASE` pointing to a private docs fixture and
+`PICODE_PLAYWRIGHT_MODULE` pointing to an installed Playwright module.
+`PICODE_QA_CHROME` optionally selects an existing Chromium executable. The
+runner refuses non-fixture workspaces and mocks only llama API responses;
+real model/runtime acceptance remains pending in the plan.

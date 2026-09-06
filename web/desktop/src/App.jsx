@@ -39,7 +39,7 @@ import ContextMenu from "./components/ContextMenu.jsx";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -79,7 +79,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, readInspectorPrefs, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -87,7 +87,7 @@ import WhatsNew from "./components/WhatsNew.jsx";
 import RELEASE_NOTES from "@picode/shared/data/whats-new.json";
 import { hasUnseenRelease, readSeenVersion, shouldAutoOpen, writeSeenVersion } from "./lib/whatsNew.js";
 import ShareGist from "./components/ShareGist.jsx";
-import LlamaDialog from "./components/LlamaDialog.jsx";
+import LlamaPanel from "./components/LlamaPanel.jsx";
 import TermSettingsPage from "./components/TermSettingsPage.jsx";
 import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { parentDir } from "@picode/shared/domain/cloneUrl.js";
@@ -194,7 +194,6 @@ export default function App() {
   const [slashExtra, setSlashExtra] = useState([]);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [llamaOpen, setLlamaOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
@@ -656,12 +655,12 @@ export default function App() {
 
   useEffect(() => {
     if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
-    const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || llamaOpen || shareOpen || waiting || inboxNeedsYou;
+    const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || shareOpen || waiting || inboxNeedsYou;
     if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, llamaOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
+  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {
@@ -975,11 +974,46 @@ export default function App() {
   // The Inspector's PR tab pre-fills a gh command in a terminal the human
   // submits themselves (ADR-0078): the owner's own terminal when it is one,
   // otherwise a new terminal born in the anchored folder.
-  async function typeIntoTerminal(owner, root, command) {
+  async function typeIntoTerminal(owner, root, command, { run = false } = {}) {
     if (!owner || !command) return;
+    const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    // Stage 2 (ADR-0078): with the run preference on, the server presses
+    // Enter only when its interlock finds nobody else writing the repository;
+    // a busy answer becomes a prepared command plus a note saying why.
+    const deliver = async (tid) => {
+      if (run) {
+        try {
+          await post(tid, "run", { text: command, root });
+          return;
+        } catch (err) {
+          // Only the target terminal's own refusals ("This terminal moved
+          // to…", "This terminal is running…") send the command elsewhere;
+          // a busy repository is prepared right here, with the reason.
+          const msg = (err && err.message) || "";
+          if (/^This terminal (moved to|is running)/i.test(msg)) throw err;
+          toast.info(runFallbackNote(humanizeError(msg)));
+        }
+      }
+      await post(tid, "type", { text: command, root });
+    };
+    const create = async () => {
+      const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
+      const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
+      const page = await api("/api/terminals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: command.trim().split(/\s+/)[0] || "git", cwd: root || "", workspaceId: wsId }),
+      });
+      setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
+      await openTermTab(page.id);
+      // A shell born this instant has not drawn its prompt yet; keystrokes
+      // that arrive before it echo twice. Give it a beat before typing.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      return page.id;
+    };
     try {
       let tid = owner.kind === "term" ? owner.id : "";
-      let fresh = false;
       if (!tid) {
         // Reuse a plain, idle shell already sitting in that folder; never a
         // terminal hosting a CLI (Claude Code, Codex…) whose TUI would eat
@@ -988,24 +1022,18 @@ export default function App() {
         if (idle) tid = idle.id;
       }
       if (!tid) {
-        const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
-        const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
-        const page = await api("/api/terminals", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: command.trim().split(/\s+/)[0] || "git", cwd: root || "", workspaceId: wsId }),
-        });
-        setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
-        tid = page.id;
-        fresh = true;
+        await deliver(await create());
+        return;
       }
       await openTermTab(tid);
-      // A shell born this instant has not drawn its prompt yet; keystrokes
-      // that arrive before it echo twice. Give it a beat before typing.
-      if (fresh) await new Promise((resolve) => setTimeout(resolve, 900));
-      await api("/api/terminals/" + encodeURIComponent(tid) + "/type", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: command }),
-      });
+      try {
+        await deliver(tid);
+      } catch (err) {
+        // The chosen terminal moved away or holds a foreground program:
+        // a fresh terminal in the folder takes the command instead.
+        if (!/^This terminal (moved to|is running)/i.test((err && err.message) || "")) throw err;
+        await deliver(await create());
+      }
     } catch (err) { toastError(err); }
   }
 
@@ -2455,7 +2483,7 @@ export default function App() {
               if (cmd.run === "session-clone") { cloneSession(); return; }
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "go-providers-new") { go("providers-new"); return; }
-              if (cmd.run === "llama") { setLlamaOpen(true); return; }
+              if (cmd.run === "llama") { go("llama"); return; }
               if (cmd.run === "automate") { await startAutomate(""); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
@@ -2642,11 +2670,11 @@ export default function App() {
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
+        {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}
           wantAdd={providersNew()}
-          wantLlama={providersLlama()}
           onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }}
           onSignOut={async (provider) => {
             const ok = await askConfirm({
@@ -2717,6 +2745,8 @@ export default function App() {
         onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
         onOpenTerminal={typeIntoTerminal}
         onChanges={setInspectorChanged}
+        runMode={!!inspectorPrefs.run}
+        onRunMode={(run) => rememberInspector({ run })}
       />
 
       <Palette
@@ -2791,7 +2821,7 @@ export default function App() {
         onFork={forkFrom}
         onClone={cloneSession}
       />
-      <LlamaDialog open={llamaOpen} onClose={() => setLlamaOpen(false)} onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} />
+
       <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}

@@ -1,8 +1,15 @@
 # ADR-0078: An Inspector rail follows the selected tab's owner and opens content in the center
 
 - **Status**: accepted (the owner accepted the shipped rail on 2026-09-05,
-  approved the PR tab, and on 2026-09-06 chose the first stage of the Commit
-  design below: git actions prepared in the terminal)
+  approved the PR tab, and on 2026-09-06 chose the first two stages of the
+  Commit design below: git actions prepared in the terminal, then an opt-in
+  mode that runs them behind an interlock)
+- **Amends**: for the Inspector's Git actions only, the write refusals of
+  ADR-0022 (graph is read-only), ADR-0032 (hunk stage/discard), ADR-0038
+  (stage/discard/commit from the uncommitted row) and ADR-0073 (worktree
+  writes). Their sentence — "nothing interlocks a write against an agent
+  mid-turn" — is answered by the interlock below; git still runs only in the
+  user's own shell.
 - **Date**: 2026-09-05
 - **Amends**: ADR-0074's placement of the inspector inside the folder tab;
   the visual anatomy's "one center surface, one dock"
@@ -115,9 +122,25 @@ read with `git rev-list --left-right --count @{upstream}...HEAD`.
 
 Nothing in this stage writes git from the service process: the human's
 shell runs the command on Enter, with the human's credentials, hooks and
-signing, in the terminal they are looking at. When agents are running in
-the folder, asking one of them stays the other door; the "run when idle"
-mode and the "ask the agent" variants are the next stages below.
+signing, in the terminal they are looking at.
+
+**Run when no agent is working here** (stage 2, off by default, a checkbox
+in the Git menu remembered per viewer as `picode-inspector-run`): PiCode
+types the command and presses Enter itself, through
+`POST /api/terminals/{id}/run {text, root}`, only after an interlock finds
+nobody else writing that repository — no managed agent mid-turn (runtime
+streaming), no interactive TUI working (pi's own status line), no
+automation run, no other terminal in the repository that its CLI reports
+working or that holds a foreground program, and the target pane itself
+waiting at a shell prompt. Any of those answers 409 naming who is busy, and
+the rail falls back to preparing the command with a note saying why. The
+route also asserts the rail's root against the terminal's live cwd, so a
+terminal that moved never runs a command meant for another folder; the
+`type` route shares the root and foreground guards. Repository identity is
+the git common dir, so worktrees of one repository count as one. The
+interlock is advisory: it sees only what PiCode knows, only at the moment
+it looks, and git still runs in the user's shell with the user's
+credentials — the service process never runs git.
 
 The rail is the host for later right-hand panels — the browser preview's
 last capture, search, tasks. One rail, never two asides. With four or more
@@ -162,6 +185,9 @@ tabs it switches to the sidebar's icon idiom.
 | Branch without an upstream / detached HEAD | Chip says `unpublished` / `detached`; Push uses `-u origin <branch>`; detached offers no Pull or Push | `gitActions`, `gitActionCommand` tests |
 | Git action chosen | Exact command typed into an idle shell of the folder (reused, else created), never submitted | `gitActionCommand` tests; browser QA (`tmux capture-pane`) |
 | Commit form | One line, ≤200 chars, no control characters, no leading dash; the message is single-quoted for the shell | `commitMessageSchema` test, `shellQuote` test; browser QA |
+| Run mode, folder idle | Command typed and submitted in the user's shell; the file it creates proves it | `TestTerminalRunTypesAndSubmits`; browser QA (commit runs, `gitstatus` empties) |
+| Run mode, an agent mid-turn / a terminal working or holding a program | 409 naming who; the command is prepared instead and a note says why | `TestTerminalRunRefusals`; browser QA (`sleep` in a second terminal) |
+| Run or type into a terminal that moved, or whose pane is not at a shell | 409 `moved` / `foreground`; the rail takes a fresh terminal in the folder | `TestTerminalRunRefusals`; browser QA |
 
 Browser acceptance runs against an isolated fixture whose picode workspace
 is a seeded dirty repository. Evidence lands in `docs/screenshots/`
@@ -176,7 +202,9 @@ the rail reuses the tree rows, the tab pair, the dropdown and the file
 tab. `gitstatus` runs two to three more git commands per call; calls are
 user- or event-driven, never periodic, and the fleet watcher is unchanged.
 
-The folder tab (`d:`) stays as the deep-review host with its editor and
+Right-hand toasts step left by the rail's width while it is shown, so a
+note never covers the rail's header actions; the viewer's chosen corner is
+kept. The folder tab (`d:`) stays as the deep-review host with its editor and
 draft guards; the rail links to it ("Open as tab"). A viewer now has two
 places to read the same working tree; they agree because both read the
 same routes with the same precondition.
@@ -247,10 +275,10 @@ to commit, through the channel that already carries prompts — fits that
 flow and supersedes nothing. The human's door when every agent is off is
 the terminal, made discoverable: stage 1 (shipped above) is the Git actions
 menu preparing commands in the terminal plus the upstream distance on the
-chip; stage 2 is an optional "run when no agent is working here" mode that
-presses Enter behind the interlock (the only step that amends the four
-refusals, because PiCode then triggers a write, even if inside the user's
-shell); stage 3 adds the "ask the agent" variants beside each action.
+chip; stage 2 (shipped above) is the optional "run when no agent is working
+here" mode that presses Enter behind the interlock — the step that amends
+the four refusals, because PiCode then triggers a write, even if inside the
+user's shell; stage 3 adds the "ask the agent" variants beside each action.
 Merge, rebase and branch switching wait for a picker; reset, force push
 and stash drop get no button.
 

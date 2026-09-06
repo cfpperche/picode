@@ -13,6 +13,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+
+
 - **Checklists in agent CLI terminal cards and panes** (ADR-0080, extends
   ADR-0055). A pi running inside a PiCode terminal — Agent CLI or a manual
   launch — now reports its internal checklist under the terminal, so the
@@ -23,6 +25,7 @@ to the `[Unreleased]` section. The repository's official language is English
   `terminal.checklist` events, and a `terminal_checklists` store row that
   dies with the terminal. Reset, absent and blocked semantics match the
   agent-side behavior; no checklist published means no line, as before.
+
 
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
@@ -44,6 +47,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- The editor tab strip no longer shows a scrollbar under the tabs. The
+  classic bar (with arrow buttons on Windows) took 10 of the bar's 40 px
+  and the active tab could sit out of view; tabs now use the full height
+  and the strip scrolls to reveal the selected tab on selection and on
+  open (instantly on load, smoothly afterwards, still under
+  reduced-motion). Wheel, edge cues, arrows, an all-tabs list and
+  `Alt+[` / `Alt+]` follow in later phases of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 - **Session management API folded into the per-CLI namespace** (ADR-0079):
   `/api/sessions/all`, `/api/pi-sessions(+/adopt)` and
   `/api/workspaces/{id}/sessions/manage` are gone — desktop and mobile now
@@ -57,7 +69,9 @@ to the `[Unreleased]` section. The repository's official language is English
   terminals. The header's face strip now lists terminals after managed
   agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
   Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
-  mark, capped at five with a `+N` overflow like agent faces. The docs
+  mark, capped at five with a `+N` overflow like agent faces. Terminal
+  faces render in exactly the agent-face style — same 18px plate, ring
+  and contained art — so the strip reads as one visual family. The docs
   fixture seeds project terminals (a shell plus CLI terminals with live
   runtime leases) and a terminals-only workspace, so captures photograph
   the real states.

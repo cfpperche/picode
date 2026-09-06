@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
 import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
+import { revealLeft } from "../lib/tabStrip.js";
 import { IconFile, IconGit, IconFolders } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
@@ -11,10 +12,25 @@ import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/do
 export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot }) {
   const terms = terminals || [];
   const appList = apps || [];
+  const stripRef = useRef(null);
+  const revealed = useRef(false);
+  // The strip has no scrollbar, so selecting or opening a tab must bring it
+  // into view (every benchmark does; see lib/tabStrip.js). The first reveal
+  // after mount jumps — a smooth glide from 0 on page load reads as motion
+  // nobody asked for; later reveals follow the strip's scroll-behavior.
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const el = strip.querySelector(".mtab.active");
+    if (!el) return;
+    const left = revealLeft(strip, { left: el.offsetLeft, width: el.offsetWidth });
+    if (left != null) strip.scrollTo(revealed.current ? { left } : { left, behavior: "instant" });
+    revealed.current = true;
+  }, [selectedId, tabs]);
   return (
     <>
     <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0}>
-      <div id="tab-strip" className="tab-strip">
+      <div id="tab-strip" className="tab-strip" ref={stripRef}>
         {tabs.map((id) => {
           if (isTermTab(id)) {
             const tid = tabTermId(id);

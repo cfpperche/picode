@@ -3,8 +3,10 @@ package llama
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,6 +43,26 @@ func NormalizeURL(raw string) (string, error) {
 	}
 	u.Path = p
 	return strings.TrimRight(u.String(), "/"), nil
+}
+
+// ConnectionError classifies connection failures without returning endpoint secrets.
+type ConnectionError struct {
+	Code    string
+	Message string
+}
+
+func (e *ConnectionError) Error() string { return e.Message }
+
+func ConnectionFailure(err error) *ConnectionError {
+	var failure *ConnectionError
+	if errors.As(err, &failure) {
+		return failure
+	}
+	var timeout net.Error
+	if errors.As(err, &timeout) && timeout.Timeout() {
+		return &ConnectionError{"timeout", "The server did not respond in time."}
+	}
+	return &ConnectionError{"unreachable", "Cannot reach the server from PiCode."}
 }
 
 type Client struct {
@@ -83,7 +105,13 @@ func (c *Client) do(method, path string, body any) ([]byte, error) {
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(res.Body)
 	if res.StatusCode >= 300 {
-		return nil, fmt.Errorf("llama.cpp HTTP %d", res.StatusCode)
+		if res.StatusCode == 401 || res.StatusCode == 403 {
+			return nil, &ConnectionError{"authentication", "The server rejected the API key."}
+		}
+		if res.StatusCode == 404 || res.StatusCode == 405 {
+			return nil, &ConnectionError{"unsupported", "This server does not support model management."}
+		}
+		return nil, &ConnectionError{"server_error", fmt.Sprintf("The server returned HTTP %d.", res.StatusCode)}
 	}
 	return raw, nil
 }
@@ -102,16 +130,16 @@ func (c *Client) List() ([]Model, error) {
 		} `json:"data"`
 	}
 	if json.Unmarshal(raw, &payload) != nil || payload.Data == nil {
-		return nil, fmt.Errorf("not a llama.cpp router")
+		return nil, &ConnectionError{"unsupported", "This server did not return a llama.cpp model catalog."}
 	}
 	out := make([]Model, 0, len(payload.Data))
 	for _, m := range payload.Data {
 		if m.ID == "" {
-			return nil, fmt.Errorf("not a llama.cpp router")
+			return nil, &ConnectionError{"unsupported", "This server did not return a llama.cpp model catalog."}
 		}
 		st := m.Status.Value
 		if st == "" {
-			st = "unknown"
+			return nil, &ConnectionError{"unsupported", "This server did not return model management states."}
 		}
 		out = append(out, Model{ID: m.ID, Status: st})
 	}
@@ -147,6 +175,9 @@ func (c *Client) Wait(id, want string, max time.Duration) error {
 				break
 			}
 		}
+		if st == "failed" {
+			return fmt.Errorf("model operation failed")
+		}
 		switch want {
 		case "loaded":
 			if st == "loaded" || st == "sleeping" {
@@ -160,7 +191,7 @@ func (c *Client) Wait(id, want string, max time.Duration) error {
 				return nil
 			}
 		case "downloaded":
-			if st != "" && st != "downloading" {
+			if st == "unloaded" || st == "loaded" || st == "sleeping" {
 				return nil
 			}
 		}
