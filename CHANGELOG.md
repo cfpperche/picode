@@ -32,6 +32,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Checklist chevron moved to its own gutter** (owner refinement, follow-up
+  to the compact-view alignment below). The disclosure's chevron sat in the
+  same 31px column as the title/folder text, but a rendered icon's ink
+  rarely touches its own bounding box the way plain text does — the owner
+  spotted the chevron reading as offset from the title above it even though
+  the boxes lined up. The chevron now sits in a dedicated gutter *before*
+  that column (the tree-view convention: a leading disclosure mark, then
+  the label), so the **text** of the checklist line and its expanded steps
+  lands on the exact same column as the title, subtitle and folder/branch
+  line, independent of the chevron icon's own inset. No JSX change.
+
 - **Checklist compact-view alignment** (owner refinement, `docs/plans/
   sidebar-checklist-expand.md`). The counter drops its parentheses (`5/8`,
   not `(5/8)`) and moves to a fixed column at the row's end, the Linear/

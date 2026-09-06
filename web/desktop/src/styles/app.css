@@ -2602,8 +2602,15 @@ img.ws-face.term-cli-face {
    a real button; opening reveals every step — ☑ dimmed, the braille spinner
    on the one being executed, ☐ pending. Live over the feed, no fetch. The
    chevron reuses .ws-chev (the workspace group header's own disclosure
-   affordance) so the same rotate-on-open language reads across the sidebar. */
-.ws-check-disclosure { margin: 3px 31px 0; min-width: 0; }
+   affordance) so the same rotate-on-open language reads across the sidebar.
+   The chevron sits in its own gutter *before* the 31px text column instead
+   of sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
+   touches its box edge the way the title's plain text does, so aligning the
+   chevron's box to 31px still reads as offset from the title above it. The
+   gutter is exactly the chevron's box (16px, --tree-chev) plus the button's
+   gap (5px) so the *text* — not the icon — lands on the same 31px column as
+   the title, folder and branch lines, whatever the icon's own inset is. */
+.ws-check-disclosure { margin: 3px 31px 0 10px; min-width: 0; }
 button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
@@ -2614,8 +2621,13 @@ button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--
 button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-check-pos { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
 .ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
-.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 18px; list-style: none; display: flex; flex-direction: column; gap: 2px; }
-.ws-check-list li { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
+/* Step glyphs (☑ ◐ ☐) start in the same gutter as the collapsed line's
+   chevron (padding-left: 0, the container is already inset by the gutter);
+   the 7px li gap plus the 14px glyph width match the chevron's own 21px
+   gutter, so step text lands on the same 31px column as the chevron line's
+   text above it. */
+.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.ws-check-list li { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
 .ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
 .ws-check-step-glyph { flex: none; width: 14px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
