@@ -162,6 +162,6 @@ test("app tabs are distinct from every other tab family", () => {
 });
 
 test("llama manager owns its routes and the legacy link", () => {
- for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
+ for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
  assert.equal(parseRoute("#/providers/new"), "providers");
 });

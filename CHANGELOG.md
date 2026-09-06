@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp operation activity** (ADR-0083): load, unload and download now
+  run as persistent jobs. Activity shows per-file progress, reconnect outcomes
+  and supported download cancellation on desktop/mobile. Duplicate requests
+  are deduplicated; conflicting model operations are refused. Unknown results
+  remain visible rather than being reported as success.
+
 
 
 - **Checklists in agent CLI terminal cards and panes** (ADR-0080, extends
