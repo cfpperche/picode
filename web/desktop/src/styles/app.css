@@ -948,8 +948,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-chev.open { transform: rotate(90deg); }
 .ws-faces { display: flex; align-items: center; flex: none; }
+/* Agent/terminal faces match the workspace favicon: same 16px box, same
+   3px radius, natural image shape (never forced circular). The white
+   plate + ring below only dress the letter/glyph fallbacks for contrast
+   on the dark sidebar; image faces strip both where they render full
+   bleed (identity marks, tabs). */
 .ws-face {
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 16px; height: 16px; border-radius: 3px;
   border: 1.5px solid var(--bg-panel); background: #fff;
   margin-left: -6px; object-fit: contain; padding: 1px;
   display: grid; place-items: center;
@@ -984,18 +989,18 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .ws-identity-mark {
-  position: relative; width: 24px; height: 24px; display: grid; place-items: center;
+  position: relative; width: 16px; height: 16px; display: grid; place-items: center;
   align-self: flex-start; flex: none; color: var(--text-secondary);
 }
-.ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
-/* Runtime favicons fill the same 22px slot as agent faces, but without the
+.ws-identity-mark > .ws-face { margin: 0; }
+/* Runtime favicons fill the same 16px slot as agent faces, but without the
    white plate and ring — those read as a chip around sparse marks (Claude). */
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
 /* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
-   plus 1px padding shrank the agent art to ~18px beside a full 22px terminal
-   mark. The white plate stays — dark currentColor marks need it on the dark
+   plus 1px padding shrank the agent art below the workspace favicon's 16px.
+   The white plate stays — dark currentColor marks need it on the dark
    sidebar, and it is invisible on light chrome. */
 .ws-identity-mark img.ws-face { border: 0; padding: 0; }
 .ws-activity-dot {
@@ -1066,13 +1071,13 @@ img.ws-face.term-cli-face {
   background: var(--bg-hover); color: var(--warn); text-align: center;
   font-size: 10px; line-height: 14px;
 }
-.ws-meta { display: block; margin: 2px 31px 0; font-size: 10px; color: var(--text-secondary); }
+.ws-meta { display: block; margin: 2px 23px 0; font-size: 10px; color: var(--text-secondary); }
 .term-cli-badge {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  width: 22px; height: 22px; flex: none; box-sizing: border-box;
-  border: 1px solid var(--border-strong); border-radius: 6px;
+  width: 16px; height: 16px; flex: none; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 3px;
   background: var(--bg-base); color: var(--text-primary);
-  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: 8px; font-weight: 700; line-height: 1;
 }
 .term-cli-badge.is-shell { color: var(--text-secondary); }
 .term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
@@ -1082,11 +1087,11 @@ img.ws-face.term-cli-face {
 /* Loaded favicons skip the chip (see TerminalCliBadge). Keep this after the
    cli-* color rules so they cannot restore a border on .has-favicon. */
 .term-cli-badge.has-favicon {
-  width: auto; height: 22px; padding: 0;
+  width: auto; height: 16px; padding: 0;
   border: 0; background: transparent; border-radius: 0;
 }
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
-.term-cli-favicon { width: 22px; height: 22px; display: block; object-fit: contain; }
+.term-cli-favicon { width: 16px; height: 16px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
 /* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
@@ -1518,15 +1523,13 @@ img.ws-face.term-cli-face {
 .mtab-dot.running { background: var(--ok); }
 /* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
 .mtab-dot.attn { background: var(--accent); }
+/* Tab faces wear the workspace favicon's 16px box — same size as the
+   sidebar — with no overlap margin and no ring/padding on images. */
 .mtab-term .term-cli-badge {
-  width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
+  border: 0; background: none; font-size: 8px;
 }
-.mtab-term .ws-face { width: 16px; height: 16px; margin: 0; }
-/* Tab provider faces match the terminal mark's optical size: full-bleed
-   art (no ring, no padding) at the 18px box the boxed badge already uses.
-   The white plate from .ws-face stays — it is invisible on light chrome
-   and keeps currentColor marks from vanishing on the dark tab strip. */
-.mtab-term img.ws-face { width: 18px; height: 18px; border: 0; padding: 0; }
+.mtab-term .ws-face { margin: 0; }
+.mtab-term img.ws-face { border: 0; padding: 0; }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
@@ -4571,7 +4574,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
 }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
-.insp-face .ws-face { width: 18px; height: 18px; margin: 0; }
+.insp-face .ws-face { margin: 0; }
 .insp-face img.ws-face { border: 0; padding: 0; }
 .insp-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
 .insp-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; flex: none; }

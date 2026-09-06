@@ -180,6 +180,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- **Favicon refactor** (`feat/favicon-refactor`, worktree
+  `.worktrees/favicon-refactor`): agent and terminal identity favicons now
+  wear the workspace favicon's exact treatment — 16px box, 3px radius,
+  natural image shape (no `border-radius: 50%` crop) — across sidebar
+  identity marks, the collapsed face strip, editor-tab faces and terminal
+  CLI badges (boxed fallbacks 22→16px, `.ws-meta` indent 31→23px to match).
+  Browser-QA'd on an isolated daemon: computed 16×16/3px on the tab IMG,
+  row IMG and badge SPAN; collapsed-cluster overlap preserved; screenshots
+  read; overlay audit ok. Merge and deploy remain.
+
 - Checklist refinements + disclosure are **merged and deployed**
   (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
   counter `(x/n)` muted, an **absent** checklist rendering as silence
