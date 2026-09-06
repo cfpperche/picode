@@ -154,6 +154,7 @@ func syncCLIIntegration(deps Deps, id string, on bool) error {
 
 func registerCLIRoutes(mux Registrar, deps Deps) {
 	registerCLIProfileRoutes(mux, deps)
+	registerCLISessionRoutes(mux, deps)
 	mux.HandleFunc("GET /api/clis", func(w http.ResponseWriter, r *http.Request) {
 		rows := []cliView{}
 		for _, cli := range clilaunch.Catalog() {

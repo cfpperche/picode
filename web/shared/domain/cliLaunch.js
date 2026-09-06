@@ -9,8 +9,9 @@ export function cliLocation(hash = "") {
   if (parts[1] === "terminal") return { view: "terminal", id: decode(parts[2]) };
   if (parts[1] === "terminals") return { view: "terminals", id: "" };
   // ADR-0079: sessions are a capability of a CLI, not a top-level surface.
-  // id is the optional workspace scope (empty = every folder on the machine).
-  if (parts[1] === "sessions") return { view: "sessions", id: decode(parts[2]) };
+  // id is the optional workspace scope (empty = every folder on the machine);
+  // cli selects the source (default pi) via ?cli=.
+  if (parts[1] === "sessions") return { view: "sessions", id: decode(parts[2]), ...(params.get("cli") ? { cli: params.get("cli") } : {}) };
   return { view: "clis", id: decode(parts[1]) };
 }
 

@@ -211,7 +211,7 @@ stay on their own routes.
 | *(no route)* | Inspector rail | the right-hand Changes/Files rail beside the center (ADR-0078). Per-viewer state (`picode-inspector-open`, `-w`, `-tab`), like `termView` and the sidebar width; it follows the selected tab's owner and opens content as `#/file/…` tabs. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
-| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches; `#/clis/sessions` (machine-wide) and `#/clis/sessions/<workspaceId>` (one folder) are the session housekeeping views (ADR-0079 — the old top-level `#/sessions*` addresses redirect here). Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
+| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches; `#/clis/sessions[?cli=]` (machine-wide, grouped by folder) and `#/clis/sessions/<workspaceId>` (one folder) are the per-CLI session views — pi with full management, Claude Code / Codex / Grok listing and resume-in-terminal (ADR-0079 — the old top-level `#/sessions*` addresses redirect here). Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
@@ -362,6 +362,20 @@ only that terminal's private launch files, not native CLI data.
 `GET /api/clis` resolves installation without starting a conversation;
 `POST /api/clis/<cli>/check` explicitly runs bounded `--version` and checks
 reporter prerequisites. It does not certify authentication or every hook.
+`GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
+(ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
+Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
+rollouts and Grok its `~/.grok/sessions` prompt history, each parsed
+defensively (malformed files are skipped, missing roots are an empty list).
+Rows carry the server-verified resume arguments for that CLI (verified
+2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
+<id>` positional, `grok --resume <id>`); pi's row carries none — pi resumes
+through its own chat flow. Cost is pi-only: the other formats carry no
+per-session spend. Non-Pi sessions open through
+`POST /api/clis/<cli>/terminals` with the resume arguments as launch
+argument overrides — no transcript replay, no writes, no deletes for other
+CLIs' sessions. pi's management surface (delete, auto-clean, resume,
+in-use guards) stays on its own endpoints.
 `POST /api/clis/<cli>/terminals` saves and opens a configured terminal.
 `/api/terminals/<id>/launch` reads/writes overrides; its `start`, `stop`,
 `restart` and `remove` POST routes serialize per terminal. Start is idempotent
