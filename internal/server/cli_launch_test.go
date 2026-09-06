@@ -20,6 +20,35 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
+func TestClipCLIVersion(t *testing.T) {
+	for _, tc := range []struct {
+		in, want string
+	}{
+		{"fixture-cli 1.0\n", "fixture-cli 1.0"},
+		{"\n\nHermes Agent v0.18.2 (2026.7.7.2) · upstream 2a25d53e\nInstall directory: /home/goat/.hermes/hermes-agent\nPython: 3.11.15\n", "Hermes Agent v0.18.2 (2026.7.7.2) · upstream 2a25d53e"},
+		{"", ""},
+		{strings.Repeat("x", 200), strings.Repeat("x", 160)},
+	} {
+		if got := clipCLIVersion(tc.in); got != tc.want {
+			t.Errorf("clipCLIVersion(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCLICheckUsesFirstVersionLine(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	binary := filepath.Join(home, "verbose-cli")
+	script := "#!/bin/sh\nif [ \"$1\" = --version ]; then printf 'Hermes Agent v0.18.2\\nInstall directory: /tmp\\n'; exit 0; fi\n"
+	if err := os.WriteFile(binary, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/hermes", clilaunch.Config{Executable: binary}, 200)
+	diag := cliRequest(t, ts, "POST", "/api/clis/hermes/check", map[string]any{}, 200)
+	if diag["version"] != "Hermes Agent v0.18.2" || diag["error"] != nil {
+		t.Fatalf("diagnostic: %v", diag)
+	}
+}
+
 func cliRequest(t *testing.T, ts *httptest.Server, method, path string, body any, want int) map[string]any {
 	t.Helper()
 	raw, err := json.Marshal(body)

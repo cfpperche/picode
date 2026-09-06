@@ -2,7 +2,7 @@
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
 phone. It manages terminals — and lists each CLI's session history — for
-your installed Pi, Claude Code, Codex and Grok commands. Managed agents,
+your installed Pi, Claude Code, Codex, Grok and Hermes Agent commands. Managed agents,
 structured chat, packages and automations still use Pi; a CLI terminal is
 not a new type of managed agent.
 
@@ -39,7 +39,7 @@ New launches use the saved settings; existing processes keep running.
 Use **Customize this terminal** for exceptions. Unchanged fields inherit the
 CLI defaults; changed fields override them. Clearing arguments removes the
 defaults, and removing an environment line removes that default key. HOME,
-SHELL, PATH, GROK_HOME and PiCode's correlation variables are launcher-owned;
+SHELL, PATH, GROK_HOME, HERMES_HOME and PiCode's correlation variables are launcher-owned;
 use the dedicated PATH field for extra executable directories.
 
 Settings edited after a launch show **Launch changes pending**. The terminal
@@ -61,7 +61,8 @@ Native model, permission and session settings are not part of this preview.
 The **Sessions** tab lists the sessions each CLI left on disk, grouped by
 folder. Pick the CLI in the toolbar and search by name, preview or folder.
 **Open in terminal** starts that CLI again in the session's folder; the
-exact arguments come from the CLI itself (for example `claude --resume`).
+exact arguments come from the CLI itself (for example `claude --resume`,
+`hermes --resume`).
 
 Pi sessions add management actions: **Open with…** moves one of the
 folder's agents to that session, **Compact** summarizes its older turns,

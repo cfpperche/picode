@@ -35,6 +35,13 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
+**This worktree (`feat/hermes-cli`):** Hermes Agent is a fifth Agent CLI
+(catalog id `hermes`, command `hermes`). Launch, session listing from
+`~/.hermes/state.db` (active home only, cli/tui with a folder and messages,
+resume `hermes --resume <id>` verified on v0.18.2 `--help`), and a presence-only
+wrapper. Not merged, not deployed. Vendor hooks / `HERMES_HOME` overlay are
+explicitly out of this slice.
+
 **Last application deployment:** `1b08aa2a`, version `0.1.0+1b08aa2`, via
 `make deploy` from the root checkout (two follow-up fixes to the checklist
 compact-view alignment, same day, owner-reported and self-found — no ADR,
@@ -218,6 +225,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- **Hermes Agent CLI (this branch, `feat/hermes-cli`).** Catalog, Sessions
+  picker, presence wrapper, SQLite source and docs are in the worktree.
+  Check setup clips `--version` to the first line (Hermes dumps install
+  paths otherwise). Gates: fmt/vet/Go tests/JS tests/build green.
+  visual-review PASS (scratch `http://127.0.0.1:8460`, overlayAudit ok:
+  catalog, empty sessions, new-terminal form, mobile 390px, checked
+  version). Committed screenshot refresh of `cli-v1-*` not done. Not on
+  `main`.
+
 - Checklist refinements + disclosure are **merged and deployed**
   (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
   counter `(x/n)` muted, an **absent** checklist rendering as silence
@@ -281,6 +297,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
+1. Merge `feat/hermes-cli` after visual QA of `#/clis` (catalog row,
+   missing-executable, Sessions picker including Hermes, empty state) and
+   a live `hermes` launch + `--resume` in a PiCode terminal.
+1. Hermes activity reporting (PR 2): vendor hooks without relocating
+   `HERMES_HOME`. Presence-only is honest until that lands. Do not overlay
+   the whole Hermes home.
+1. Hermes profile scan only with `-p <name>` on ResumeArgs — not in v1.
 1. Validate the deployed llama delivery 3 guidance dialog on the live service.
    Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 1. Extend the deploy guard (glm5's `fix/deploy-guards` work) to log the
@@ -302,7 +325,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
    (`# `/`<` prefixes). Grok sessions are prompt-history summaries — no
-   transcripts exist in that format.
+   transcripts exist in that format. Hermes lists titles from `state.db`
+   (no messages-table preview); `profiles/` homes are not scanned.
 2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
@@ -323,6 +347,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Known debts / open questions
 
+- **Hermes committed screenshots:** working captures are in
+  `/tmp/picode-hermes-qa/shots/`; `cli-v1-*` / `cli-v2-desktop-defaults`
+  in `docs/screenshots/` were not regenerated.
+- **Hermes vendor hooks:** presence lease only. `needs-you` and working/idle
+  from shell hooks need a non-overlay injection after a real turn.
 - **CLI session death mechanism unproven (ADR-0084):** deploys end every
   picode-managed tmux session (pane root `/bin/sh`) while interactive-bash
   terminals survive; CLI processes linger headless for minutes. The signal
@@ -407,6 +436,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-06 — Hermes Agent CLI catalog (unmerged, `feat/hermes-cli`).**
+  Fifth Agent CLI: launch `hermes`, list cli/tui sessions from
+  `~/.hermes/state.db`, resume `--resume <id>` (verified on Hermes Agent
+  v0.18.2 `--help`). Presence-only wrapper (ADR-0084 pin works when
+  Activity reporting is on). Check setup keeps the first `--version` line.
+  No `~/.hermes` writes, no profile scan, no cost/size on guest rows.
+  Gates: fmt/vet/Go tests/JS tests/build green. visual-review: PASS
+  (scratch :8460; catalog, empty sessions, new-terminal, mobile, checked
+  version; overlayAudit ok).
 - **2026-09-06 — CLI terminal session recovery built (ADR-0084,
   `feat/cli-resume-recovery`).** Root cause of the two mass-detach
   incidents (13:41, 14:08): ordinary agent-run `make deploy` restarts (the

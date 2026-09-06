@@ -123,6 +123,8 @@ func normalizeTerminalCLI(id string) string {
 		return "codex"
 	case "grok":
 		return "grok"
+	case "hermes":
+		return "hermes"
 	case "pi":
 		return "pi"
 	default:

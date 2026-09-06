@@ -227,6 +227,12 @@ func wiringRows(dataDir string) []wiringRow {
 			Note:      "GROK_HOME overlay in PiCode's data dir. Auth stays yours.",
 		},
 		{
+			ID: "hermes", Label: "Hermes Agent", Bin: "hermes",
+			Installed: installedOnPath("hermes"),
+			Wired:     interceptWired(dataDir, "hermes", "hermes"),
+			Note:      "Presence lease only. Auth stays yours. Add --tui for the Ink TUI.",
+		},
+		{
 			ID: "pi", Label: "Pi", Bin: "pi",
 			Installed: installedOnPath("pi"),
 			Wired:     interceptWired(dataDir, "pi", "pi"),

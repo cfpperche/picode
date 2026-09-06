@@ -6,9 +6,12 @@ test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
   assert.equal(normalizeTerminalCli(" Claude-Code "), "claude-code");
   assert.equal(normalizeTerminalCli("codex"), "codex");
+  assert.equal(normalizeTerminalCli("hermes"), "hermes");
   assert.equal(normalizeTerminalCli("unknown"), "");
   assert.equal(terminalCliLabel("pi"), "Pi");
+  assert.equal(terminalCliLabel("hermes"), "Hermes Agent");
   assert.equal(terminalCliMark("codex"), "Cx");
+  assert.equal(terminalCliMark("hermes"), "H");
 });
 
 test("supported runtimes use their official favicons, best first", () => {
@@ -28,6 +31,11 @@ test("supported runtimes use their official favicons, best first", () => {
   assert.deepEqual(terminalCliFaviconUrls("grok"), [
     "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/grok.svg",
     "https://grok.com/images/favicon.svg",
+  ]);
+  assert.deepEqual(terminalCliFaviconUrls("hermes"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/hermes-agent.svg",
+    "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/nousresearch.svg",
+    "https://hermes-agent.nousresearch.com/favicon.ico",
   ]);
   assert.deepEqual(terminalCliFaviconUrls("pi"), ["https://pi.dev/favicon.svg"]);
   assert.deepEqual(terminalCliFaviconUrls("shell"), []);

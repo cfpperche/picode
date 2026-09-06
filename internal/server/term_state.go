@@ -2,7 +2,7 @@ package server
 
 // Coding-CLI lifecycle state for terminals (ADR-0056, tier 1). A CLI
 // running inside a PiCode terminal reports its own state through a small
-// HTTP hook (Claude Code, Codex, Grok, or manual Pi TUI); PiCode correlates
+// HTTP hook (Claude Code, Codex, Grok, Hermes Agent, or manual Pi TUI); PiCode correlates
 // the report to the terminal via PICODE_TERM_ID — injected into the tmux
 // session environment at creation, so every hook process inherits it —
 // and republishes changes as ephemeral terminal.state events (ADR-0048,

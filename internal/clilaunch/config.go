@@ -26,6 +26,7 @@ func Catalog() []CLI {
 		{"claude-code", "Claude Code", "claude", "https://code.claude.com/docs/en/setup"},
 		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli"},
 		{"grok", "Grok", "grok", "https://grok.com/build"},
+		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation"},
 	}
 }
 
@@ -108,7 +109,7 @@ func Validate(c Config) error {
 		if !envKey.MatchString(k) || !check(v) {
 			return fmt.Errorf("Environment variables need a valid name and a single-line value.")
 		}
-		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" {
+		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" {
 			return fmt.Errorf("%s is managed by the launcher.", k)
 		}
 	}

@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
+  command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
+  read-only, and resumes with `hermes --resume <id>`. Activity reporting is
+  a presence lease only (no vendor hooks yet). Check setup keeps the first
+  `--version` line so Hermes' install dump does not wrap the heading.
+  PiCode does not write `~/.hermes`.
+
 - **CLI terminal session recovery** (ADR-0084): every CLI terminal now pins
   the native conversation it is running (claude, codex, grok, pi) and a
   stopped terminal offers "Resume last session" — one click relaunches the

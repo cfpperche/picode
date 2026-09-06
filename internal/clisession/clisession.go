@@ -1,7 +1,8 @@
 // Package clisession is a read-only index of coding-CLI session files
 // (ADR-0079 phase 2): pi JSONL under ~/.pi/agent/sessions, Claude Code
 // transcripts under ~/.claude/projects, Codex rollouts under
-// ~/.codex/sessions and Grok prompt history under ~/.grok/sessions.
+// ~/.codex/sessions, Grok prompt history under ~/.grok/sessions and
+// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db).
 // Nothing here writes, deletes or resumes; it only lists what is on disk.
 package clisession
 
@@ -16,9 +17,9 @@ import (
 )
 
 // Summary is one session of one CLI, enough for the sessions picker.
-// Cost is intentionally pi-only: the Claude Code, Codex and Grok formats
-// found on real machines carry no per-session spend, and inventing one is
-// worse than omitting it.
+// Cost is intentionally pi-only on this surface: Claude Code, Codex, Grok
+// and Hermes listings do not populate it. Hermes stores spend in state.db,
+// but the guest session row does not render cost.
 type Summary struct {
 	CLI        string   `json:"cli"`
 	ID         string   `json:"id"`
@@ -46,7 +47,7 @@ type Source interface {
 // Sources returns every registered source keyed by catalog CLI id.
 func Sources() map[string]Source {
 	out := map[string]Source{}
-	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}} {
+	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}} {
 		out[s.CLI()] = s
 	}
 	return out

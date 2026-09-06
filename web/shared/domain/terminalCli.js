@@ -3,6 +3,7 @@ const CLI_ALIASES = Object.freeze({
   "claude-code": "claude-code",
   codex: "codex",
   grok: "grok",
+  hermes: "hermes",
   pi: "pi",
 });
 
@@ -10,6 +11,7 @@ const CLI_LABELS = Object.freeze({
   "claude-code": "Claude Code",
   codex: "Codex",
   grok: "Grok",
+  hermes: "Hermes Agent",
   pi: "Pi",
 });
 
@@ -17,6 +19,7 @@ const CLI_MARKS = Object.freeze({
   "claude-code": "Cl",
   codex: "Cx",
   grok: "G",
+  hermes: "H",
   pi: "π",
 });
 
@@ -45,6 +48,12 @@ const CLI_FAVICONS = Object.freeze({
   grok: Object.freeze([
     CLI_ICON_BASE + "grok.svg",
     "https://grok.com/images/favicon.svg",
+  ]),
+  hermes: Object.freeze([
+    // hermes-agent.svg is not in the 1.73.0 pin the other marks use.
+    "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/hermes-agent.svg",
+    CLI_ICON_BASE + "nousresearch.svg",
+    "https://hermes-agent.nousresearch.com/favicon.ico",
   ]),
   // pi has no lobehub mark; pi.dev serves a transparent SVG.
   pi: Object.freeze(["https://pi.dev/favicon.svg"]),

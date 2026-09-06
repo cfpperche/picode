@@ -37,6 +37,8 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Summary = "Private activity overlay via GROK_HOME"
 		p.Environment["GROK_HOME"] = grokHomeDir(dir)
 		p.Files = append(p.Files, filepath.Join(grokHomeDir(dir), "hooks", "picode.json"))
+	case "hermes":
+		p.Summary = "Presence lease only; no vendor hooks yet"
 	}
 	return p
 }

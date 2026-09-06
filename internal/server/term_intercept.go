@@ -1,7 +1,7 @@
 package server
 
 // Terminal CLI intercept (ADR-0056, owner 2026-09-03): never write the
-// user's ~/.claude / ~/.codex / ~/.grok / ~/.pi. PiCode terminals prepend
+// user's ~/.claude / ~/.codex / ~/.grok / ~/.hermes / ~/.pi. PiCode terminals prepend
 // <dataDir>/bin to PATH at tmux session creation; wrappers there exec
 // the real binary with launch-time injection (args, extension, or overlay).
 // Lifecycle-aware wrappers remain a small shell parent so they can announce
@@ -132,6 +132,13 @@ picode_tui=1
 case "$name:${1-}:${2-}" in
   codex:exec:*|codex:app-server:*|codex:mcp-server:*) picode_tui=0 ;;
   pi:--mode:rpc|pi:--mode:json) picode_tui=0 ;;
+esac
+# Hermes: interactive entry points (bare, chat, flags) keep the lease.
+# Subcommands (setup, model, auth, sessions, …) do not.
+case "$name:${1-}" in
+  hermes:|hermes:chat) ;;
+  hermes:-*|hermes:--*) ;;
+  hermes:*) picode_tui=0 ;;
 esac
 for picode_arg in "$@"; do
   case "$picode_arg" in
@@ -436,6 +443,18 @@ if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/
 	return writeExecutable(wrapperPath(dataDir, "grok"), body)
 }
 
+func writeHermesIntercept(dataDir, hook string) error {
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return err
+	}
+	body := "#!/bin/sh\n# PiCode intercept — Hermes Agent. Session PATH only. Presence lease; no vendor hooks.\nname=hermes\n" +
+		wrapperFindReal +
+		wrapperLifecycle(hook) +
+		"\"$real\" \"$@\"\n" +
+		wrapperLifecycleEnd
+	return writeExecutable(wrapperPath(dataDir, "hermes"), body)
+}
+
 func removeWrapper(dataDir, binName string) {
 	_ = os.Remove(wrapperPath(dataDir, binName))
 }
@@ -470,6 +489,10 @@ func installIntercept(dataDir, cliID string) error {
 		if err := writeGrokIntercept(dataDir, hook); err != nil {
 			return err
 		}
+	case "hermes":
+		if err := writeHermesIntercept(dataDir, hook); err != nil {
+			return err
+		}
 	case "pi":
 		if err := writePiIntercept(dataDir, hook); err != nil {
 			return err
@@ -491,6 +514,8 @@ func uninstallIntercept(dataDir, cliID string) error {
 		removeWrapper(dataDir, "codex")
 	case "grok":
 		removeWrapper(dataDir, "grok")
+	case "hermes":
+		removeWrapper(dataDir, "hermes")
 	case "pi":
 		removeWrapper(dataDir, "pi")
 		_ = os.Remove(piTerminalStateExtensionFile(dataDir))

@@ -129,6 +129,24 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	}
 }
 
+func TestInterceptHermesPresenceOnly(t *testing.T) {
+	ts, dataDir := wiringTestServer(t)
+	if res := postJSON(t, ts, "/api/terminals/wiring/hermes/enable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("hermes enable = %d", res.StatusCode)
+	}
+	body, err := os.ReadFile(wrapperPath(dataDir, "hermes"))
+	if err != nil {
+		t.Fatalf("hermes wrapper missing: %v", err)
+	}
+	got := string(body)
+	if !strings.Contains(got, "name=hermes") || !strings.Contains(got, "runtime-start") {
+		t.Fatalf("hermes wrapper missing presence lease:\n%s", got)
+	}
+	if strings.Contains(got, "HERMES_HOME=") {
+		t.Fatalf("hermes wrapper must not overlay HERMES_HOME:\n%s", got)
+	}
+}
+
 func TestInterceptPi(t *testing.T) {
 	ts, dataDir := wiringTestServer(t)
 	home, _ := os.UserHomeDir()
@@ -477,7 +495,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	}
 	hookLog := filepath.Join(root, "hooks.log")
 	realLog := filepath.Join(root, "real.log")
-	for _, cli := range []string{"claude-code", "codex", "grok", "pi"} {
+	for _, cli := range []string{"claude-code", "codex", "grok", "hermes", "pi"} {
 		if err := installIntercept(dataDir, cli); err != nil {
 			t.Fatalf("install %s: %v", cli, err)
 		}
@@ -486,7 +504,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	if err := writeExecutable(hook, "#!/bin/sh\nprintf '%s|%s|%s|%s\\n' \"$1\" \"$2\" \"$3\" \"$4\" >> \"$PICODE_TEST_HOOK_LOG\"\n"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"claude", "codex", "grok", "pi"} {
+	for _, name := range []string{"claude", "codex", "grok", "hermes", "pi"} {
 		path := filepath.Join(root, name)
 		body := "#!/bin/sh\nprintf '%s|%s\\n' \"" + name + "\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"
 		if name == "grok" {
@@ -515,11 +533,12 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 		{cli: "claude-code", args: []string{"hello"}},
 		{cli: "codex", args: []string{"hello"}},
 		{cli: "grok", args: []string{"hello"}, wantErr: true},
+		{cli: "hermes", args: []string{"--tui"}},
 		{cli: "pi", args: []string{"hello"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.cli, func(t *testing.T) {
-			name := map[string]string{"claude-code": "claude", "codex": "codex", "grok": "grok", "pi": "pi"}[tc.cli]
+			name := map[string]string{"claude-code": "claude", "codex": "codex", "grok": "grok", "hermes": "hermes", "pi": "pi"}[tc.cli]
 			cmd := exec.Command(wrapperPath(dataDir, name), tc.args...)
 			cmd.Env = append(os.Environ(),
 				"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
@@ -536,7 +555,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, cli := range []string{"claude", "codex", "grok", "pi"} {
+	for _, cli := range []string{"claude", "codex", "grok", "hermes", "pi"} {
 		if !strings.Contains(string(got), "runtime-start|"+cli+"|") || !strings.Contains(string(got), "runtime-end|"+cli+"|") {
 			t.Fatalf("%s lifecycle = %q", cli, got)
 		}
