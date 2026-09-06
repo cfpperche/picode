@@ -3,7 +3,8 @@ import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
 import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
 import { revealLeft } from "../lib/tabStrip.js";
-import { IconFile, IconGit, IconFolders } from "./Icons.jsx";
+import { useTabStrip } from "../lib/useTabStrip.js";
+import { IconFile, IconGit, IconFolders, IconChevronLeft, IconChevronRight } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
@@ -14,6 +15,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
   const appList = apps || [];
   const stripRef = useRef(null);
   const revealed = useRef(false);
+  const strip = useTabStrip(stripRef, [tabs]);
   // The strip has no scrollbar, so selecting or opening a tab must bring it
   // into view (every benchmark does; see lib/tabStrip.js). The first reveal
   // after mount jumps — a smooth glide from 0 on page load reads as motion
@@ -30,7 +32,19 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
   return (
     <>
     <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0}>
-      <div id="tab-strip" className="tab-strip" ref={stripRef}>
+      {/* Overflow chrome (phase 2 of the tab-strip study): arrows exist
+          only while tabs overflow and stay visible then (NN/g: hover-only
+          arrows go unnoticed); the one at a reached edge is disabled, the
+          fade on that edge drops, and a 3px indicator under the tabs shows
+          where the viewport sits while the pointer is over the strip or it
+          moves — pointer-events off, so no VS Code spurious clicks. */}
+      {strip.overflow ? (
+        <button type="button" className="tab-arrow" disabled={strip.atStart} title="Scroll tabs left" aria-label="Scroll tabs left" onClick={() => strip.step(-1)}>
+          <IconChevronLeft />
+        </button>
+      ) : null}
+      <div className="tab-scroller" data-scrolling={strip.scrolling ? "" : undefined}>
+      <div id="tab-strip" className="tab-strip" ref={stripRef} data-at-start={strip.atStart} data-at-end={strip.atEnd}>
         {tabs.map((id) => {
           if (isTermTab(id)) {
             const tid = tabTermId(id);
@@ -112,6 +126,15 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
           );
         })}
       </div>
+      {strip.overflow ? (
+        <div className="tab-indicator" aria-hidden="true" style={{ left: `${strip.thumb.left * 100}%`, width: `${strip.thumb.width * 100}%` }} />
+      ) : null}
+      </div>
+      {strip.overflow ? (
+        <button type="button" className="tab-arrow right" disabled={strip.atEnd} title="Scroll tabs right" aria-label="Scroll tabs right" onClick={() => strip.step(1)}>
+          <IconChevronRight />
+        </button>
+      ) : null}
       {endSlot ? <div className="main-tabs-end">{endSlot}</div> : null}
     </div>
     {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}

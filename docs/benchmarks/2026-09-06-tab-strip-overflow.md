@@ -61,16 +61,19 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
 3. **Vertical wheel scrolls the strip** with the dominant-axis rule, only
    when the strip overflows, `preventDefault` only when it moved, no
    remap when `deltaX` is already present or `ctrlKey` (pinch) is set;
-   `overscroll-behavior-x: contain` (Firefox, VS Code, Ant).
+   `overscroll-behavior-x: contain` (Firefox, VS Code, Ant). Successive
+   ticks accumulate on a pending target so a smooth scroll in flight
+   does not swallow the distance asked for. Shipped in phase 2.
 4. **Edge cue + arrows while overflowing.** A fade mask at whichever edge
    still has content and `‹ ›` buttons at the strip ends, always visible
    while overflowing and disabled at the ends (Firefox, MUI, NN/g).
-   One `ResizeObserver` + scroll listener sets `data-overflow`,
-   `data-at-start`, `data-at-end`; CSS does the rest.
+   One `ResizeObserver` (strip + tabs) and a scroll listener feed
+   `data-at-start` / `data-at-end` on the strip; CSS does the rest
+   (`lib/useTabStrip.js`). Shipped in phase 2 with item 3.
 5. **Thin overlay position indicator** (3 px, bottom edge, `pointer-events:
    none`, appears on hover/scroll, fades after 500 ms) so the NN/g
    "scrollbar means more content" signal survives without VS Code's
-   spurious-click problem.
+   spurious-click problem. Shipped in phase 2.
 6. **"All tabs" list** (`▾` in `.main-tabs-end`, shown only while
    overflowing) listing every tab with its face, name and status dot,
    the hidden ones first (JetBrains, Sublime, Firefox, VS Code).

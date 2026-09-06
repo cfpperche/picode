@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { revealLeft } from "./tabStrip.js";
+import { revealLeft, stripState, wheelToScroll, arrowStep } from "./tabStrip.js";
 
 const strip = { scrollLeft: 0, clientWidth: 995, scrollWidth: 1049 };
 
@@ -25,5 +25,46 @@ describe("revealLeft", () => {
   });
   it("does nothing when the strip does not overflow", () => {
     assert.equal(revealLeft({ scrollLeft: 0, clientWidth: 995, scrollWidth: 600 }, { left: 500, width: 100 }), null);
+  });
+});
+
+describe("stripState", () => {
+  it("reports no overflow when content fits (with a 1px tolerance)", () => {
+    const s = stripState({ scrollLeft: 0, clientWidth: 995, scrollWidth: 995.5 });
+    assert.deepEqual(s, { overflow: false, atStart: true, atEnd: true, thumb: { left: 0, width: 1 } });
+  });
+  it("marks the start, the middle and the end", () => {
+    const box = { clientWidth: 500, scrollWidth: 1000 };
+    assert.deepEqual(stripState({ ...box, scrollLeft: 0 }).atStart, true);
+    assert.deepEqual(stripState({ ...box, scrollLeft: 0 }).atEnd, false);
+    const mid = stripState({ ...box, scrollLeft: 250 });
+    assert.equal(mid.atStart, false);
+    assert.equal(mid.atEnd, false);
+    assert.deepEqual(mid.thumb, { left: 0.25, width: 0.5 });
+    assert.equal(stripState({ ...box, scrollLeft: 499.5 }).atEnd, true);
+  });
+});
+
+describe("wheelToScroll", () => {
+  it("turns a vertical wheel into horizontal pixels", () => {
+    assert.equal(wheelToScroll({ deltaY: 120 }, 995), 120);
+    assert.equal(wheelToScroll({ deltaY: -120 }, 995), -120);
+  });
+  it("leaves trackpad horizontal gestures and pinches to the browser", () => {
+    assert.equal(wheelToScroll({ deltaX: 30, deltaY: 2 }, 995), 0);
+    assert.equal(wheelToScroll({ deltaX: -5, deltaY: 120 }, 995), 0);
+    assert.equal(wheelToScroll({ deltaY: 120, ctrlKey: true }, 995), 0);
+    assert.equal(wheelToScroll({ deltaY: 0 }, 995), 0);
+  });
+  it("scales line and page deltas", () => {
+    assert.equal(wheelToScroll({ deltaY: 3, deltaMode: 1 }, 995), 120);
+    assert.equal(wheelToScroll({ deltaY: 1, deltaMode: 2 }, 995), 995);
+  });
+});
+
+describe("arrowStep", () => {
+  it("moves most of a viewport, never less than a tab", () => {
+    assert.equal(arrowStep(995), 597);
+    assert.equal(arrowStep(100), 80);
   });
 });

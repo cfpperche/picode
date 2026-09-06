@@ -150,13 +150,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- Tab strip phase 1 is merged and deployed (`dcbaa316`); the worktree and
-  branch are removed. Phase 1
-  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
-  approved by the owner with the 3 px overlay indicator and `Alt+[` /
-  `Alt+]`): the strip hides its layout scrollbar and reveals the active
-  tab by code (`lib/tabStrip.js`). Phases 2–4 (wheel, edge fades, arrows,
-  indicator, all-tabs list, keys, label cap) are listed under Next up.
+- `feat/tab-strip-phase2` awaits merge to main and `make deploy`. Phase 2
+  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`):
+  `lib/useTabStrip.js` (ResizeObserver over strip + tabs, scroll and
+  non-passive wheel listeners) drives `‹ ›` arrows that exist only while
+  tabs overflow, edge fades via `mask-image` on the strip, a 3 px
+  non-interactive indicator (hover / while scrolling, 500 ms fade) and
+  vertical-wheel-to-horizontal with a pending target. Phase 1 (no
+  scrollbar, active tab revealed) is deployed as `dcbaa316`. Phases 3–4
+  (all-tabs list, `Alt+[` / `Alt+]`, tablist roles, label cap) remain
+  under Next up.
 - `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
   collapsed workspace header's face strip now includes terminals after
   managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
@@ -199,14 +202,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
-   owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
-   `data-at-start` / `data-at-end` from one ResizeObserver + scroll
-   listener driving edge fades and `‹ ›` arrows; 3 px non-interactive
-   overlay indicator (hover/scroll, fades after 500 ms); "All tabs" list
-   in `.main-tabs-end` with status dots, hidden tabs first, and a
-   needs-you dot on the arrow of an off-screen tab; `Alt+[` / `Alt+]`
-   plus `role=tablist` arrow-key focus; label `max-width` with ellipsis.
+1. **Tab strip phases 3–4** (study `2026-09-06-tab-strip-overflow.md`,
+   owner-approved): "All tabs" list in `.main-tabs-end` while overflowing,
+   with faces, names and status dots, hidden tabs first; a needs-you dot
+   on the arrow of an off-screen tab; `Alt+[` / `Alt+]` for previous /
+   next tab plus `role=tablist` / `role=tab` with arrow-key focus; label
+   `max-width` with ellipsis. Phase 2 debts: the indicator covers the
+   active tab's accent underline while shown (VS Code does the same);
+   `scrollend` is the only exact "settled" signal, Safari falls back to
+   a 400 ms timer.
    Separate follow-up: the global `* { scrollbar-width: thin }` makes
    Chromium ignore every `::-webkit-scrollbar` rule in the app
    (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
@@ -286,6 +290,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
+  `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
+  (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
+  `#tab-strip` (QA scripts keep matching `.main-tabs .mtab`). Verified on
+  the worktree's Vite build against the live server at 1000 px with six
+  tabs: left arrow disabled at start and right at end, `mask-image`
+  switches side and shows both in the middle, indicator 3 px with opacity
+  0 → 1 on hover and after scrolling, real wheel and dispatched wheel
+  both scrolled and were `defaultPrevented`, a `deltaX` gesture was not
+  consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
+  read for start / middle+hover / end. visual-review: PASS (p2-start.png,
+  p2-middle.png, p2-end.png; no overlay; card 5/5).
 - **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
   `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
   types and submits in the user's shell behind `repoBusy` (agents mid-turn via

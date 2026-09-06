@@ -45,6 +45,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Editor tabs show where the rest of them are.** While tabs overflow, the
+  strip gets `‹ ›` arrows at its ends (the one at a reached edge is
+  disabled), the edge that still hides tabs fades out, and a thin
+  indicator under the tabs shows the visible span while the pointer is over
+  the strip or it moves, fading half a second later; it takes no clicks.
+  A vertical mouse wheel over the tabs scrolls them sideways; trackpad
+  gestures and pinch-zoom are left to the browser. Nothing appears when
+  every tab fits. Phase 2 of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 - The editor tab strip no longer shows a scrollbar under the tabs. The
   classic bar (with arrow buttons on Windows) took 10 of the bar's 40 px
   and the active tab could sit out of view; tabs now use the full height
