@@ -1,7 +1,8 @@
 # ADR-0080: Browser capture as a standalone sidecar extension
 
 - **Status**: accepted (owner approved the sidecar direction and the phased
-  plan — prove over real RPC, integrate the UI, then drop the patch — 2026-09-05)
+  plan — prove over real RPC, integrate the UI, then drop the patch — 2026-09-05;
+  phases A and B passed the same day)
 - **Date**: 2026-09-05
 - **Supersedes**: the *emitter placement* of ADR-0076 (bounded captures emitted
   from inside pi-agent-browser-native). ADR-0076's bounded-image contract,
@@ -52,9 +53,13 @@ pi extension installed like any other package:
    while a browser tool runs and forwards frames to the UI feed keyed by
    `toolCallId`; the UI pill subscribes per ADR-0048.
 
-The pinned patch remains the interim deliverable until phase B passes the same
-real-RPC and visual acceptance; then `patches/pi-agent-browser-native/` is
-removed and `var/native-browser` returns to a clean checkout.
+Phases A and B passed acceptance on 2026-09-05: real-model RPC frames
+(17 intra-call, final marker ~10 ms after end, kill switch verified, zero
+in-tool leakage) and live/replay rendering on desktop and mobile against an
+unpatched upstream 0.6.6 checkout (`docs/screenshots/capture-sidecar-*.png`).
+Per the owner's pre-approval, the pinned patch fallback
+(`patches/pi-agent-browser-native/` on the abandoned emitter branch) is
+removed once this lands.
 
 ## Consequences
 

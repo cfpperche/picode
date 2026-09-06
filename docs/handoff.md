@@ -129,12 +129,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 ## In flight
 
 - **Browser capture sidecar (ADR-0080, branch `feat/browser-capture-sidecar`).**
-  Phase A passed: `packages/pi-browser-capture` mirrors bounded frames during
-  real `agent_browser` calls against an unpatched 0.6.6 checkout — 17
-  intra-call frames (~1 fps), final marker ~10 ms after the tool end, persisted
-  `browser-capture-final` entries, kill switch verified, zero in-tool update
-  leakage. Receipts: `var/sidecar-proof/`. Phase B (daemon watches the capture
-  dir → feed → UI pill) and phase C (remove the pinned patch) come next.
+  Phases A and B passed: the sidecar extension, the daemon capture-directory
+  bridge (`capture_frame` over the agent WS, frames re-validated before
+  fan-out) and desktop/mobile live + replay rendering all verified against an
+  unpatched 0.6.6 checkout with a real model. Phase C — removing the
+  superseded pinned patch — is authorized and done on this branch's base.
 
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
@@ -196,10 +195,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Known debts / open questions
 
-- **Capture integration: sidecar proof passed (ADR-0080); UI phases open.**
-  Live frames now flow via the sidecar over real RPC; no measured
-  slow-consumer/cancellation matrix yet. The hub drops on overflow and caches
-  no missed partials. Desktop reconnect and same-agent session replacement
+- **Capture integration: sidecar live/replay passed (ADR-0080).** No measured
+  slow-consumer/cancellation matrix yet (frames are latest-wins and dropped on
+  overflow by design). Desktop reconnect and same-agent session replacement
   during a pending session-changing API need dedicated acceptance; mobile
   reconnect and selection switching passed with fixtures. See
   `docs/plans/browser-preview.md`.
@@ -246,9 +244,14 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   (push `?maxFps=1` — URL ack pacing deadlocks a pre-browser attach), mirrors
   bounded frames beside the session and persists the final frame. Real-model
   proof against a clean 0.6.6 checkout: 17 intra-call frames, final marker
-  10 ms after end, kill switch verified, no in-tool leakage. Unit tests +
-  `scripts/verify-browser-capture-sidecar.mjs`; receipts `var/sidecar-proof/`.
-  Next: daemon feed bridge + UI (phase B), then remove the pinned patch (C).
+  10 ms after end, kill switch verified, no in-tool leakage. Phase B: the
+  daemon watches the capture dir while `agent_browser` runs and broadcasts
+  `capture_frame` on the agent WS; desktop/mobile pills render live frames
+  (newest seq wins, final survives the end event) and replay reads the
+  persisted final entries. Live + replay screenshots read
+  (`capture-sidecar-*.png`); audits ok, no page errors. One caveat fixed in
+  review: URL ack-pacing deadlocks a pre-browser attach — push `maxFps` only.
+  `make ci` green on the branch.
 
 - **2026-09-05 — Imported MCP disable fix merged and deployed.** Reconciled
   the sessions-under-CLIs and workspace tuiMode commits; combined `make ci`

@@ -76,3 +76,29 @@ export function toolResultDetail(result) {
   return JSON.stringify(result || {}, (key, value) => key === "preview" && value && typeof value === "object"
     ? { ...value, image: value.image == null ? undefined : "[capture omitted]" } : value, 2);
 }
+
+// ADR-0080: a live sidecar frame arrives outside the tool stream
+// (`capture_frame` events). Latest sequence wins while running; a `final`
+// frame lands after the tool result and must win even on a settled item.
+export function applyCaptureFrame(item, frame) {
+  if (!frame || !item || item.kind !== "tool" || item.id !== frame.toolCallId) return item;
+  const preview = previewFromDetails({ preview: frame });
+  if (!preview) return item;
+  const lastSeq = Number.isSafeInteger(item.captureSeq) ? item.captureSeq : -1;
+  const seq = Number.isSafeInteger(frame.seq) ? frame.seq : lastSeq + 1;
+  if (!frame.final && seq <= lastSeq) return item;
+  return { ...item, preview, previewError: "", captureSeq: seq };
+}
+
+// On tool end, the result of a sidecar-driven tool carries no preview while
+// live `capture_frame` events may have delivered frames (even a final one
+// that races the end event). Only a capture present in the result may
+// replace what the live channel showed (ADR-0080).
+export function captureOnEnd(item, details) {
+  const next = captureState(details);
+  if (next.preview || next.previewError) return next;
+  const keep = {};
+  if (item.preview) keep.preview = item.preview;
+  if (item.previewError) keep.previewError = item.previewError;
+  return keep;
+}

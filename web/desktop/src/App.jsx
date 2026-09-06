@@ -10,7 +10,7 @@ import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
 import { closeShellTerm } from "./components/ShellTerm.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
 import { fileChangeFromTool } from "@picode/shared/domain/diff.js";
-import { captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
+import { applyCaptureFrame, captureOnEnd, captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
 import { reconcileTranscript, liveSince, startTool, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
@@ -1261,6 +1261,10 @@ export default function App() {
         queueMicrotask(scrollConv);
         break;
       }
+      case "capture_frame": {
+        setItems((cur) => cur.map((it) => applyCaptureFrame(it, ev)));
+        break;
+      }
       case "tool_execution_update": {
         setItems((cur) => cur.map((it) => (it.kind === "tool" && it.id === ev.toolCallId
           ? updateCapture(it, ev.partialResult?.details) : it)));
@@ -1278,7 +1282,7 @@ export default function App() {
             result: ev.result,
             expanded: it.expanded || searchHits.length > 0,
             change,
-            ...captureState(ev.result?.details),
+            ...captureOnEnd(it, ev.result?.details),
           };
         }));
         break;

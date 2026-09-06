@@ -149,3 +149,19 @@ func Event(raw []byte) []byte {
 	}
 	return b
 }
+
+// EncodeJPEG validates a raw sidecar frame against the capture bounds and
+// returns its data URI, or "" when the bytes are not a bounded JPEG
+// (ADR-0080: the daemon re-checks before web fan-out).
+func EncodeJPEG(raw []byte) string {
+	if len(raw) == 0 || len(raw) > MaxBytes || len(raw) < 12 ||
+		raw[0] != 0xff || raw[1] != 0xd8 || raw[len(raw)-2] != 0xff || raw[len(raw)-1] != 0xd9 {
+		return ""
+	}
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(raw))
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 ||
+		cfg.Width > MaxSide || cfg.Height > MaxSide || cfg.Width*cfg.Height > MaxPixels {
+		return ""
+	}
+	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(raw)
+}

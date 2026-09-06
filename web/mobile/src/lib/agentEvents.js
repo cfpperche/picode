@@ -5,7 +5,7 @@ import { isSearchTool, hitsFromResult } from "@picode/shared/domain/searchCards.
 import { alertFromPi } from "@picode/shared/domain/piError.js";
 import { humanizeError } from "@picode/shared/client/api.js";
 import { summarizeArgs } from "@picode/shared/domain/toolArgs.js";
-import { captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
+import { applyCaptureFrame, captureOnEnd, captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
 import { startTool } from "@picode/shared/domain/transcriptMerge.js";
 
 // Pure reducer over the agent WebSocket stream (ADR-0044). The desktop's
@@ -84,6 +84,10 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
       };
       return { state: { ...s, items: startTool(s.items, item) }, effects: [{ type: "scroll" }] };
     }
+    case "capture_frame": {
+      const items = s.items.map((it) => applyCaptureFrame(it, e));
+      return { state: { ...s, items }, effects: [] };
+    }
     case "tool_execution_update": {
       const items = s.items.map((it) => (it.kind === "tool" && it.id === e.toolCallId
         ? updateCapture(it, e.partialResult?.details) : it));
@@ -98,7 +102,7 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
           ...it, status: e.isError ? "error" : "ok",
           detail: toolResultDetail(e.result), result: e.result,
           expanded: it.expanded || hits.length > 0, change,
-          ...captureState(e.result?.details),
+          ...captureOnEnd(it, e.result?.details),
         };
       });
       return { state: { ...s, items }, effects: [] };
