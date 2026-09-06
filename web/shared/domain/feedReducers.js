@@ -206,8 +206,8 @@ export function applyFleet(state, ev) {
     case "terminal.checklist": {
       // Durable: the pi inside this terminal published its plan (ADR-0055
       // extended to Agent CLIs). Steps render as the current step; an absent
-      // marker renders "No checklist"; the reset/cleared empty state is
-      // silence — no line, the way agent cards behave.
+      // marker renders as silence (ADR-0082); the reset/cleared empty state
+      // is silence too — no line, the way agent cards behave.
       if (!d.termId) return state;
       const term = terminals.find((t) => t.id === d.termId);
       if (!term) return state;

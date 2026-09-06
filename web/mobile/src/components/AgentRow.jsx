@@ -22,7 +22,7 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, onOp
         <span className="m-row-face"><ProviderFace agent={agent} /></span>
         <span className="m-row-text">
           <span className="m-row-title">{name}</span>
-          <span className="m-row-sub">{check && check.kind === "step" ? "(" + check.position + "/" + check.total + ") " + check.text : context || (check ? "No checklist" : "Pi agent")}</span>
+          <span className="m-row-sub">{check && check.kind === "step" ? "(" + check.position + "/" + check.total + ") " + check.text : context || "Pi agent"}</span>
           {check && check.kind === "step" ? <span className="m-row-context">{context || "Pi agent"}</span> : null}
         </span>
         <StateChip state={state} />

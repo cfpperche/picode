@@ -11,11 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter
+  no longer wears the accent color — the operator line is one muted line.
+  An **absent** checklist (the task required a plan and none was written)
+  now renders as silence: no line, no "No checklist", on agent cards,
+  terminal cards, the terminal pane strip and mobile rows. The data plane
+  is unchanged — the absent marker is still published and stored.
+
 ### Added
 
 
 
-- **Checklists in agent CLI terminal cards and panes** (ADR-0080, extends
+- **Checklists in agent CLI terminal cards and panes** (ADR-0081, extends
   ADR-0055). A pi running inside a PiCode terminal — Agent CLI or a manual
   launch — now reports its internal checklist under the terminal, so the
   terminal's sidebar card shows the same `(2/4) current step` line managed

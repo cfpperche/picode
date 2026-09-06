@@ -204,13 +204,11 @@ export function TermRow({
 }
 
 // The agent's internal checklist as one operator line (ADR-0055): the
-// current step with its position, or a discrete "No checklist" when the
-// contract was not met. Nothing known → nothing shown.
+// current step with its position. Nothing known, and an absent marker (the
+// contract was not met), both render nothing — silence is not absence and
+// absence is not worth a line (ADR-0082, owner refinement).
 export function ChecklistLine({ line }) {
-  if (!line) return null;
-  if (line.kind === "absent") {
-    return <div className="ws-check absent" title="The task required a checklist and none was written"><span className="ws-check-text">No checklist</span></div>;
-  }
+  if (!line || line.kind === "absent") return null;
   const pos = "(" + line.position + "/" + line.total + ")";
   return (
     <div className="ws-check" title={pos + " " + line.text}>
