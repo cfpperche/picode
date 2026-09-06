@@ -5,7 +5,18 @@
 
 ## Current state (read this first)
 
-**Repository:** `main` includes llama.cpp delivery 2 (ADR-0083), merged as
+**Repository:** `feat/cli-resume-recovery` (worktree
+`.worktrees/cli-resume-recovery`, based on `57f0dca7` + main `c951d674`)
+adds CLI terminal session recovery (ADR-0084): every CLI terminal with a
+launch pins the native conversation it is running
+(`terminal_launches.last_session`, feed event `terminal.last_session`) and
+a stopped terminal accepts `POST /api/terminals/{id}/launch/start
+{"resume":true}` plus a "Resume last session" button on the desktop and
+mobile terminal surfaces. Awaiting merge to `main` and one final deploy —
+that deploy will end live CLI sessions one last time (the pre-fix
+behavior); from the next restart on, pins survive deploys.
+
+`main` itself includes llama.cpp delivery 2 (ADR-0083), merged as
 `70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
 refinements + expand-on-click disclosure (ADR-0082, merged `e2cdc61f`,
 deployed `0.1.0+1af83f4`). Models, Server and
@@ -226,6 +237,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
+1. Merge `feat/cli-resume-recovery` (ADR-0084) and deploy once the owner's
+   live CLI terminals are at a turn boundary — that deploy ends live CLI
+   sessions one last time (pre-fix behavior); from then on pins survive
+   deploys. Then extend the deploy guard (glm5's `fix/deploy-guards` work)
+   to log the deployer and warn when CLI terminals are mid-turn.
 1. Integrate validated llama delivery 2 after reconciling current main, then
    validate the deployed Activity route. Delivery 3 adds model guidance/readiness;
    delivery 4 needs a concrete service-ownership/cache-deletion ADR.
@@ -267,6 +283,19 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Known debts / open questions
 
+- **CLI session death mechanism unproven (ADR-0084):** deploys end every
+  picode-managed tmux session (pane root `/bin/sh`) while interactive-bash
+  terminals survive; CLI processes linger headless for minutes. The signal
+  chain (SIGHUP-vs-bash is the structural hint) was never caught red-handed.
+  Owed: a shutdown snapshot of live sessions + boot diff (warn "N sessions
+  alive at shutdown are gone"), and a `trap '' HUP` pane-root experiment in
+  the launch script to test the SIGHUP theory on the next deploy.
+- **ADR-0084 pin gap at first deploy:** terminals stopped before the feature
+  ships have no pin; the Resume button appears only for sessions run after
+  it deploys. Recoverable today via Sessions → "Open in terminal".
+- **`docs/decisions/` has two 0082 files** (browser-capture-sidecar and
+  absent-checklist-renders-silence) — a numbering collision that merged to
+  main; needs a renumber to keep the ADR index unambiguous.
 - **Sessions (ADR-0079) review debts:** the mobile session picker migrated
   URLs and is field-compatible with the new shape (code-verified) but has
   had no mobile visual pass; the `session_deleted` feed event regained
@@ -338,6 +367,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — CLI terminal session recovery built (ADR-0084,
+  `feat/cli-resume-recovery`).** Root cause of the two mass-detach
+  incidents (13:41, 14:08): ordinary agent-run `make deploy` restarts (the
+  14:08 one executed by the llama codex itself, reflog `70edb214`,
+  daemon-reload journal line at 14:08:40); every picode-managed tmux
+  session (pane root `/bin/sh`) dies while interactive-bash terminals
+  survive; CLI processes linger headless for minutes (codex wrote its
+  rollout until 14:16:46), masking the breakage. Exact pane-death signal
+  chain still unproven — see debts. Shipped: last-session pinning
+  (runtime end / state reports / stop), `start {resume:true}` with
+  server-verified resume args, "Resume last session" on the stopped
+  surface (desktop+mobile), migration 031, event `terminal.last_session`.
+  Gates green; visual-review PASS (scratch instance 8460, stopped →
+  resume → running, overlayAudit ok). visual-review: PASS.
 - **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
   commits: everything since the last push — checklists terminal+disclosure,
   Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,
