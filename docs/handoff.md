@@ -241,6 +241,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   directory. Root cause of the clobbering (a parallel session's stale cwd)
   remains behavioral — the guards catch it at commit time.
 
+- **2026-09-05 — User menu drops the Sessions item (ADR-0079).** With
+  sessions a tab of the Agent CLIs surface, the menu keeps one entry per
+  top-level surface; Agent CLIs → Sessions, the workspace folder icon, the
+  dashboard's top sessions and old `#/sessions*` links all still reach the
+  picker. visual-review: PASS (open menu screenshot read, item gone,
+  layout intact).
 - **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079); merged and deployed.**
   `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
   (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt

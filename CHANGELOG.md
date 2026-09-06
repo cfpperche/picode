@@ -24,6 +24,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- The user menu no longer lists **Sessions** (ADR-0079): sessions are a
+  tab of the Agent CLIs surface, so the menu keeps one entry per top-level
+  surface. Reach them via **Agent CLIs → Sessions**, the workspace folder
+  icon, the dashboard's top sessions, or any old `#/sessions*` link —
+  all still redirect into the per-CLI picker.
 - **Sessions moved under Agent CLIs** (ADR-0079): the desktop surface now
   lives at `#/clis/sessions` (every Pi session, grouped by folder) and
   `#/clis/sessions/<workspaceId>` (one folder) as a third tab beside CLIs
