@@ -36,17 +36,17 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+9a41241`, health `200`. `make
-deploy` restarted systemd with the ADR-0079 sessions merge; the live
-desktop serves the Agent CLIs surface with the new **Sessions** tab —
-`#/clis/sessions` renders the machine-wide view (345 sessions grouped by
-folder, in-use badges, Open with…/Compact/Delete) and old `#/sessions*`
-links redirect (screenshots read). Earlier `0.1.0+9a7691a` deployment
-notes: desktop bundle `index-BZJ2lZOW.js` (served and built hashes match);
-the seven terminal records survived; the live `…/pr` route, through
-the machine's real `gh`, answers `none` for the `glm5` agent on `main`, and
-the rail's PR tab shows "No pull request for main" with **Create in
-terminal**; nothing was typed into a production terminal.
+**Last application deployment:** `0.1.0+8470ef5`, health `ok`, boot
+`52711c61a951d299`. `make deploy` restarted systemd; 53/53 tmux pane
+identities preserved. Live check: the imported-row toggle now flips both ways
+with a workspace in context — ON unmasks the Claude Code import, OFF writes
+the user-layer stub and the adapter resolves `context7` as `disabled: true`
+(verified with the adapter's own config loader). End state: context7 Off, as
+the owner intended. Evidence: `var/mcp-disable-deploy/`; private SQLite and
+previous-binary backups are in its `recovery/` folder. Note: two parallel
+sessions deployed between gate and deploy this round (9a41241, abdf771);
+both are ancestors of the deployed merge.
+
 **Quality:** `make ci` passed on the PR-tab tree (Go tests including the
 scripted-gh suite, 700 frontend/package tests, both UI builds, embedded
 binary, docs parity with regenerated captures, Vale after fixing one
@@ -229,6 +229,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-05 — Imported MCP disable fix merged and deployed.** Reconciled
+  the sessions-under-CLIs and workspace tuiMode commits; combined `make ci`
+  passed; deployed `8470ef5`. Live toggle proven both directions on the real
+  context7 import (adapter loader resolved `disabled: true` after OFF);
+  53/53 panes survived; end state Off as intended. visual-review: PASS.
+  No push.
 
 - **2026-09-05 — Imported MCP disable fix (branch).** The Configured Services
   toggle for servers PiCode does not own followed the page scope, so an
