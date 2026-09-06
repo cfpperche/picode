@@ -409,6 +409,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Session forensics merged and deployed twice
+  (`0b0fe5c5` 18:34 as `0.1.0+0b0fe5c`, then `4028fcd8` 18:50 as
+  `0.1.0+4028fcd8`).** The second restart exercised the full flight-
+  recorder loop live: `shutdown snapshot recorded 9 session(s)` →
+  `all 9 session(s) … are still alive` + report file. Deploy log (P4)
+  captured the deployer (`termId: pi-04f1b6`, root checkout). The
+  SIGHUP-immune pane roots apply to sessions launched from now on; the
+  next deploy that kills sessions is the mechanism experiment. Deploy
+  log now answers "who deployed" permanently. Pushed to origin.
 - **2026-09-06 — Session forensics shipped (ADR-0085,
   `feat/session-forensics`).** Flight recorder: graceful shutdowns write
   `var/shutdown-snapshot.json`; boot diffs it, logs the verdict, keeps

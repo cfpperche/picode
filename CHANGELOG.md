@@ -13,6 +13,30 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inspector: ask a running agent to do a Git action** (ADR-0078). For every
+  agent running in the rail's repository — managed or in its own terminal —
+  the Git menu now lists an "Ask &lt;name&gt;" submenu with the same actions.
+  Asking sends the agent a plain-language message through the channel that
+  already carries its prompts: a queued turn for a managed agent (delivered
+  at once, or as a follow-up once its current turn ends) or the Inbox
+  reply's own door into a TUI (the receiver extension, or a bracketed
+  paste). The agent decides how and runs it in its own turn; PiCode never
+  runs git here. The commit form's message becomes optional when asking —
+  left empty, the agent writes one from the changes. A stopped agent, or a
+  terminal hosting a coding CLI, is not offered.
+
+- **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
+  menu gains a per-viewer checkbox, "Run when no agent is working here". With
+  it on, PiCode types the command into your terminal and presses Enter itself,
+  but only when no agent in that repository is mid-turn, no automation is
+  running there, and no other terminal there is working or holding a program;
+  otherwise the command is prepared as before and a note says who is busy.
+  Git still runs in your own shell with your credentials and hooks. Typing
+  now also refuses a terminal that moved away from the folder or whose pane
+  is not at a shell prompt, and takes a fresh terminal instead. Right-hand
+  toasts step left of the rail while it is open, so a note never covers its
+  buttons.
+
 - **Session forensics** (ADR-0085): the daemon now records which tmux
   sessions were alive at a graceful shutdown and reports at boot exactly
   which ones did not survive (log + `var/restart-report-*.json`), stopped

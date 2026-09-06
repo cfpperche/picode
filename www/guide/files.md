@@ -68,12 +68,24 @@ press Enter. Commit asks for a one-line message and shows the command it will
 prepare. Your shell, your credentials and your hooks do the work, in a
 terminal you can see.
 
-The menu's last item, **Run when no agent is working here**, lets PiCode press
+The menu's **Run when no agent is working here** item lets PiCode press
 Enter for you. It does so only when no agent in that repository is in the
 middle of a turn, no automation is running there, and no other terminal there
 is working or has a program in the foreground. Otherwise the command is left
 ready in the terminal and a note tells you who is busy. The choice is
 remembered in your browser and is off by default.
+
+If an agent is running in that same folder — in a managed turn or in its own
+terminal — the menu also lists **Ask &lt;name&gt;** with the same actions.
+Asking sends the agent a plain-language message through the channel that
+already carries its prompts, with the folder, the branch, the action and its
+rules spelled out (fast-forward only on pull, never force-push, set the
+upstream when there is none). The agent decides how, in its own turn, under
+its own judgment; a toast says whether it acts now or after the turn it is
+already in. Asking to commit makes the message optional: leave it empty
+and the agent writes one from the changes it can read. A stopped agent, or a
+terminal running a coding CLI, offers no Ask entry — the terminal door above
+is theirs.
 
 If a terminal moves to another folder, the rail keeps what it showed and says
 so; **Follow** reads the new folder. **Refresh** rereads the current one. The

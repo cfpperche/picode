@@ -115,9 +115,9 @@ func BootDiffWith(ctx context.Context, dir string, src sessionSource) map[string
 
 	raw, err := os.ReadFile(filepath.Join(dir, snapshotName))
 	if err != nil {
-		if len(current) > 0 {
-			log.Printf("forensics: no shutdown snapshot (unclean exit?) — %d owned session(s) alive now", len(current))
-		}
+		// Never silent: a missing snapshot at boot is itself evidence
+		// (unclean exit, or the previous daemon was too old to record one).
+		log.Printf("forensics: no shutdown snapshot (unclean exit or pre-forensics binary) — %d owned session(s) alive now", len(current))
 		return lost
 	}
 	var snap ShutdownSnapshot

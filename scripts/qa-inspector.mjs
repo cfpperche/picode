@@ -31,6 +31,8 @@ const workspace = workspaces.find((w) => w.name === 'picode');
 assert.ok(workspace?.path && /^\/tmp\/picode-docs-fixture-[^/]+\/work\/picode$/.test(workspace.path), 'requires an isolated docs fixture');
 const atlas = workspace.agents.find((a) => a.name === 'Atlas');
 assert.ok(atlas, 'requires the synthetic Atlas agent');
+const borealis = workspace.agents.find((a) => a.name === 'Borealis');
+assert.ok(borealis, 'requires the synthetic Borealis agent, in the same repository as Atlas');
 const website = workspaces.find((w) => w.name === 'website');
 const kepler = website?.agents?.find((a) => a.name === 'Kepler');
 assert.ok(kepler, 'requires the synthetic Kepler agent on the non-git website workspace');
@@ -226,6 +228,49 @@ try {
     return pane;
   };
   const clearLine = (id) => execFileSync('tmux', ['send-keys', '-t', `picode-sh-${id}:`, 'C-u']);
+  // Matches internal/tmux.SessionName / sanitizeID: this runner drives tmux
+  // directly (same host, same tmux server) to make Borealis look like a
+  // real interactive agent, exactly what the server's own runMode() checks —
+  // no agent process, no API key, just a tmux session under that name.
+  const agentSessionName = (id) => {
+    let out = '';
+    for (const ch of String(id).toLowerCase()) {
+      if (/[a-z0-9]/.test(ch)) out += ch;
+      else if ('_-. /:'.includes(ch)) out += '-';
+    }
+    return ('picode-' + out.replace(/-+$/, '')).slice(0, 60);
+  };
+  const askMenuItem = (name) => page.getByRole('menuitem', { name });
+  // Radix's nested Sub opens on hover-intent; a synthetic .click() on its
+  // items races that timer and the item detaches before the click lands
+  // (reproduces headless, not a product bug — a real mouse stays put).
+  // Keyboard navigation is what Radix menus are built for and sidesteps it:
+  // walk the open menu down to the agent's submenu, ArrowRight into it
+  // (focus lands on its first row), then down to the named action.
+  const activeText = () => page.evaluate(() => document.activeElement?.textContent || '');
+  const selectAskAction = async (agentName, itemLabel) => {
+    await gitButton().click();
+    await page.getByRole('menu').waitFor();
+    // The submenu depends on the fleet's running state, fetched async: wait
+    // for the row to actually exist (Playwright's own poll-and-retry)
+    // before walking focus to it, rather than assuming it is there already.
+    await askMenuItem(new RegExp('^Ask ' + agentName)).waitFor({ timeout: 8000 });
+    // A short settle after each press: Radix updates the roving-tabindex
+    // focus from its own keydown handler, and back-to-back presses fired
+    // without a beat can outrun it (probe-verified: 50ms is enough).
+    for (let i = 0; i < 15 && !(await activeText()).startsWith(`Ask ${agentName}`); i++) {
+      await page.keyboard.press('ArrowDown');
+      await delay(50);
+    }
+    assert.match(await activeText(), new RegExp('^Ask ' + agentName), `keyboard nav must reach Ask ${agentName}`);
+    await page.keyboard.press('ArrowRight');
+    await delay(150);
+    for (let i = 0; i < 10 && (await activeText()) !== itemLabel; i++) {
+      await page.keyboard.press('ArrowDown');
+      await delay(50);
+    }
+    assert.equal(await activeText(), itemLabel, `keyboard nav must reach ${itemLabel} inside Ask ${agentName}`);
+  };
   const modeFile = process.env.PICODE_QA_GH_MODE_FILE || '';
   const setMode = async (mode) => {
     writeFileSync(modeFile, mode + '\n');
@@ -406,6 +451,61 @@ try {
     await page.getByRole('menuitemcheckbox', { name: 'Run when no agent is working here' }).click();
     await page.waitForFunction(() => localStorage.getItem('picode-inspector-run') === '0');
   });
+  // Stage 3 (ADR-0078): a running agent in this repository gets an "Ask"
+  // submenu instead of the terminal door. Absence first (nobody is running
+  // yet), then presence and the two channels an ask can take: a plain
+  // message that lands in Borealis's own terminal (no receiver, no known
+  // session — the ADR-0060 paste fallback), and the commit form's message
+  // becoming optional. The view never retargets away from Atlas.
+  await check('g17 no agent is running: the Git menu offers no Ask submenu', async () => {
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    await gitButton().click();
+    await page.getByRole('menu').waitFor();
+    assert.equal(await askMenuItem(/^Ask /).count(), 0, 'no running agent shares this repository yet');
+    await page.keyboard.press('Escape');
+  });
+  const borealisSession = agentSessionName(borealis.id);
+  execFileSync('tmux', ['new-session', '-d', '-s', borealisSession, '-c', root, '/bin/sh', '-c', 'sleep 300']);
+  try {
+    await check('g18 asking a running agent sends a plain-language message through its own terminal', async () => {
+      // A raw tmux session (this fixture has no real pi to log in with) is
+      // invisible to the open page until it re-asks the fleet: the same gap
+      // a real /login leaves (it answers the caller, it does not broadcast).
+      // A reload is the honest trigger a person would reach for too.
+      const list = await api('/api/workspaces');
+      const ws = (Array.isArray(list) ? list : list.workspaces).find((w) => w.id === workspace.id);
+      assert.equal(ws.agents.find((a) => a.id === borealis.id)?.running, true, 'Borealis must show running once its tmux session exists');
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+      await rail().waitFor();
+      await selectAskAction('Borealis', 'Fetch');
+      await shot('inspector-ask-submenu-dark');
+      await page.keyboard.press('Enter');
+      await page.getByText(/^Asked Borealis to fetch in its terminal\.$/).waitFor();
+      const pane = execFileSync('tmux', ['capture-pane', '-p', '-J', '-t', `${borealisSession}:`], { encoding: 'utf8' });
+      assert.match(pane, /run git fetch --prune and tell me how/);
+      assert.equal(await page.evaluate(() => location.hash), `#/agent/${atlas.id}`, 'asking never retargets the rail away from Atlas');
+    });
+    await check('g19 asking to commit without a message leaves the wording to the agent', async () => {
+      execFileSync('tmux', ['respawn-pane', '-k', '-t', `${borealisSession}:`, '/bin/sh', '-c', 'sleep 300']);
+      await selectAskAction('Borealis', 'Commit…');
+      await page.keyboard.press('Enter');
+      const dlg = page.getByRole('dialog');
+      await dlg.getByRole('button', { name: 'Ask Borealis', exact: true }).waitFor();
+      assert.match(await dlg.getByLabel('Commit message').getAttribute('placeholder'), /Optional/);
+      await shot('inspector-ask-commit-dialog-dark');
+      await dlg.getByRole('button', { name: 'Ask Borealis', exact: true }).click();
+      let pane = '';
+      for (let i = 0; i < 25 && !pane.includes('a fitting message'); i++) {
+        await delay(300);
+        pane = execFileSync('tmux', ['capture-pane', '-p', '-J', '-t', `${borealisSession}:`], { encoding: 'utf8' });
+      }
+      assert.match(pane, /review the uncommitted changes .* commit them with a fitting message/);
+    });
+  } finally {
+    execFileSync('tmux', ['kill-session', '-t', borealisSession]);
+  }
   assert.deepEqual(errors, [], 'no page errors');
   evidence.result = 'PASS';
 } catch (error) {
