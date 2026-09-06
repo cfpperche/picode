@@ -44,6 +44,25 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Session management API folded into the per-CLI namespace** (ADR-0079):
+  `/api/sessions/all`, `/api/pi-sessions(+/adopt)` and
+  `/api/workspaces/{id}/sessions/manage` are gone — desktop and mobile now
+  use `GET /api/clis/pi/sessions[?workspace=|?cwd=]`,
+  `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which carry the same guards
+  (in-use → 409, outside the pi root → 400) and add `inUseBy`/`cleanupDays`
+  to every pi row. The old shapes are replaced, not aliased; update any
+  external script that scraped them.
+- Collapsed workspaces no longer read "— empty" when they hold only
+  terminals. The header's face strip now lists terminals after managed
+  agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
+  Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
+  mark, capped at five with a `+N` overflow like agent faces. The docs
+  fixture seeds project terminals (a shell plus CLI terminals with live
+  runtime leases) and a terminals-only workspace, so captures photograph
+  the real states.
+
+
 - The user menu no longer lists **Sessions** (ADR-0079): sessions are a
   tab of the Agent CLIs surface, so the menu keeps one entry per top-level
   surface. Reach them via **Agent CLIs → Sessions**, the workspace folder

@@ -5,8 +5,9 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+aa9beea`) carries today's
-terminal-checklist work (ADR-0080, this branch — not merged), the
+**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
+terminal-checklist work (ADR-0080, on `feat/terminal-checklist` — not yet
+merged), the
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
 desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and
@@ -18,7 +19,7 @@ amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
 reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
 Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
-(ADR-0079): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
+(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
 No push was made. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
 capture acceptance remain pending, so deployment does not enable browser
@@ -37,14 +38,18 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+aa9beea`, health `200`, desktop bundle
-`index-DAL01ZST.js` (served and built hashes match). `make deploy` restarted
-systemd; the seven terminal records survived. Live: the `glm5` agent's rail
-reads `main ↑89` (upstream `origin/main`, nothing pushed — as this file has
-recorded all along), the Git menu opens with its six actions and the overlay
-audit passes; nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the Git-actions tree (Go tests including the
-bare-remote ahead/behind case, 690 frontend/package tests, both UI builds,
+**Last application deployment:** `0.1.0+db12b097`, health `200` — the
+sessions-endpoints fold (which includes the terminal-faces tree,
+`fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
+Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
+`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
+deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
+(terminals-only) wore its agent-CLI favicons instead of "— empty";
+**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
+reload persistence verified in-browser; console clean, overlay audit ok.
+Nothing was typed into a production terminal.
+**Quality:** `make ci` passed on the terminal-faces tree (Go tests,
+frontend suites including `collapseFaces.test.js`, both UI builds,
 embedded binary, docs parity with regenerated captures, Vale). Browser
 acceptance: `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
 fixture (`docs/screenshots/inspector-qa.json`), commands proven typed and
@@ -144,6 +149,23 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   renders the package's card), light-theme screenshot of the strip, mobile
   TermRow (server now embeds `checklist` in terminal views, so mobile can
   adopt it later — deliberate desktop-first scope).
+- `feat/tab-strip-scroll` awaits merge to main and `make deploy`. Phase 1
+  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
+  approved by the owner with the 3 px overlay indicator and `Alt+[` /
+  `Alt+]`): the strip hides its layout scrollbar and reveals the active
+  tab by code (`lib/tabStrip.js`). Phases 2–4 (wheel, edge fades, arrows,
+  indicator, all-tabs list, keys, label cap) are listed under Next up.
+- `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
+  collapsed workspace header's face strip now includes terminals after
+  managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
+  wired in `Sidebar.jsx`): agent-CLI terminals wear their CLI favicon
+  (vendor marks as fallback), shells the `>_` mark — a terminals-only
+  workspace no longer shows "— empty", which now means truly no agents
+  and no terminals. The docs fixture seeds project terminals and a
+  terminals-only "sandbox" workspace (plus an empty "fresh"), so
+  `make docs-shots` captures changed and were regenerated. Verified on
+  the fixture in-browser (screenshots read, overlay audit ok, reload
+  persists); not yet deployed to the live instance.
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -175,7 +197,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
+1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
+   owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
+   `data-at-start` / `data-at-end` from one ResizeObserver + scroll
+   listener driving edge fades and `‹ ›` arrows; 3 px non-interactive
+   overlay indicator (hover/scroll, fades after 500 ms); "All tabs" list
+   in `.main-tabs-end` with status dots, hidden tabs first, and a
+   needs-you dot on the arrow of an off-screen tab; `Alt+[` / `Alt+]`
+   plus `role=tablist` arrow-key focus; label `max-width` with ellipsis.
+   Separate follow-up: the global `* { scrollbar-width: thin }` makes
+   Chromium ignore every `::-webkit-scrollbar` rule in the app
+   (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
+2. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
    (`# `/`<` prefixes). Decide whether `/api/sessions/all` and
@@ -260,8 +293,48 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   404s; invariant test extended. Isolated-daemon QA: card + pane screenshots
   for present, live-update, absent and reset states, reload persistence,
   `overlayAudit ok`. visual-review: PASS. `make ci` gates green (Go tests,
-  357 JS tests, build, openapi regenerated). No push.
+  JS tests, build, openapi and captures regenerated). No push.
 
+- **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
+  Measured on the live instance with seven tabs: the strip's classic
+  scrollbar took 10 of 39 px (Windows drew arrow buttons because
+  `scrollbar-width: thin` disables the webkit rules in Chromium ≥ 121),
+  the active tab sat at 1151 px in a 995 px viewport, wheel did nothing.
+  Study written with receipts (VS Code, Zed, JetBrains, Sublime, Firefox,
+  Chrome, MUI, Ant, Radix, Mantine, NN/g). Shipped: `.tab-strip`
+  `scrollbar-width: none` + smooth `scroll-behavior` (reduced-motion
+  aware, `overscroll-behavior-x: contain`), `revealLeft` in
+  `lib/tabStrip.js` (6 tests) applied from a layout effect in
+  `AgentTabs` on selection/open (instant on first paint). Verified on the
+  worktree's Vite build against the live server: gutter 0, tab 39 px,
+  active tab gap 0 on either clipped side. visual-review: PASS
+  (tabs-after.png read; no overlay in this change; card 5/5).
+- **2026-09-05 — Session management API folded into the per-CLI namespace
+  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
+  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
+  removed; desktop and mobile use `GET /api/clis/pi/sessions
+  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
+  `cleanupDays` on pi rows and — the semantic gap closed — scope by
+  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
+  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
+  the profiles routes), same guards: in-use → 409, outside root → 400.
+  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
+  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
+  workspace scope, delete overlay + file removed, auto-clean persisted,
+  adopt created an agent with the copied session).
+- **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
+  with only terminals (shell / agent CLI) collapsed to "— empty"; the
+  strip now renders terminals after managed agents — CLI favicons
+  (Claude Code, Codex, Grok, Pi) with vendor-mark fallbacks and `>_` for
+  shells, `faceSlice`-capped at 5 (`collapseFaces.test.js`; `TermFace` in
+  `ProviderFaces.jsx`; `Sidebar.collapsedMark(agents, terms)`). Fixture
+  seeds terminals + "sandbox" (terminals-only) and "fresh" (empty)
+  workspaces; docs captures regenerated. In-browser review on the
+  fixture: all four strip states read, expand/collapse cycle and reload
+  persistence ok, console clean, overlay audit ok. visual-review: PASS
+  (collapse-zoom2.png, expand-sandbox.png). `make ci` green on the
+  branch.
 - **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
   gains `upstream`/`ahead`/`behind`/`detached`
   (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
@@ -277,6 +350,7 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
   Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
   `index-DAL01ZST.js`, seven terminals survived. No push.
+
 - **2026-09-06 — Deploy serialization + living-docs guards merged and
   deployed.** Fast-forwarded after reconciling three interleaved main moves;
   combined `make ci` passed; deployed `a8a201b` under the new lock (lock
@@ -291,5 +365,3 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   cases (15/15); the handoff-update skill starts by verifying the working
   directory. Root cause of the clobbering (a parallel session's stale cwd)
   remains behavioral — the guards catch it at commit time.
-
-Older activity lives in `docs/handoff-archive.md`.

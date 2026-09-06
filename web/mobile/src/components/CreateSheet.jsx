@@ -23,7 +23,7 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
   useEffect(() => {
     if (!open || kind !== "session") return;
     setSessions(null);
-    api("/api/pi-sessions").then((d) => setSessions((d && d.sessions) || [])).catch(() => setSessions([]));
+    api("/api/clis/pi/sessions").then((d) => setSessions((d && d.sessions) || [])).catch(() => setSessions([]));
   }, [open, kind]);
 
   async function onSubmit(e) {
@@ -46,7 +46,7 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
     setError("");
     setBusy(true);
     try {
-      const ag = await api("/api/pi-sessions/adopt", {
+      const ag = await api("/api/clis/pi/sessions/adopt", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }),
       });
       onCreated({ kind: "free", created: ag });

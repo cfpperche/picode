@@ -102,7 +102,6 @@ func TestPrivateAgentDirManageAndSweep(t *testing.T) {
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
 	agentID := wsv.Agent.ID
-	base := "/api/workspaces/" + wsv.ID
 
 	// Old (sweep-eligible), owned via agent_sessions but never "current".
 	owned := writeAgentSession(t, agentID, "owned.jsonl", 40*24*time.Hour)
@@ -121,7 +120,7 @@ func TestPrivateAgentDirManageAndSweep(t *testing.T) {
 
 	// Shows up in the manage view: workspaceSessionDirs unions the
 	// private dir alongside the shared cwd bucket.
-	code, view := get(base + "/sessions/manage")
+	code, view := get("/api/clis/pi/sessions?workspace=" + wsv.ID)
 	if code != http.StatusOK {
 		t.Fatalf("manage = %d", code)
 	}
@@ -135,7 +134,7 @@ func TestPrivateAgentDirManageAndSweep(t *testing.T) {
 
 	// Deletable through the workspace-scoped delete: safeSessionPath now
 	// accepts the private dir as a valid root, not just the cwd bucket.
-	dres := postJSONMethod(t, ts, http.MethodDelete, base+"/sessions/manage", map[string]string{"path": owned})
+	dres := postJSONMethod(t, ts, http.MethodPost, "/api/clis/pi/sessions/delete", map[string]string{"path": owned})
 	if dres.StatusCode != http.StatusOK {
 		t.Fatalf("delete owned = %d", dres.StatusCode)
 	}
@@ -151,7 +150,7 @@ func TestPrivateAgentDirManageAndSweep(t *testing.T) {
 
 	// Sweep: removes the unowned file, keeps the historized-but-not-
 	// current one (AllAgentSessionPaths guard).
-	sres := postJSONMethod(t, ts, http.MethodPut, "/api/session-cleanup", map[string]int{"days": 30})
+	sres := postJSONMethod(t, ts, http.MethodPut, "/api/clis/pi/sessions/cleanup", map[string]int{"days": 30})
 	var put map[string]any
 	_ = json.NewDecoder(sres.Body).Decode(&put)
 	if sres.StatusCode != http.StatusOK || put["removed"].(float64) != 1 {
@@ -180,12 +179,11 @@ func TestSessionManageAndSweep(t *testing.T) {
 		t.Fatal(err)
 	}
 	wsv := addWorkspaceWithAgent(t, ts, "App", proj)
-	base := "/api/workspaces/" + wsv.ID
 
 	orphan := writeManageSession(t, proj, "orphan.jsonl", 0)
 	bound := writeManageSession(t, proj, "bound.jsonl", 0)
 	old := writeManageSession(t, proj, "old.jsonl", 40*24*time.Hour)
-	_ = postJSON(t, ts, base+"/sessions/resume", map[string]string{"path": bound})
+	_ = postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/sessions/resume", map[string]string{"path": bound})
 
 	get := func(path string) (int, map[string]any) {
 		res := do(t, ts.Client(), mustGet(t, ts.URL+path))
@@ -194,12 +192,12 @@ func TestSessionManageAndSweep(t *testing.T) {
 		return res.StatusCode, body
 	}
 	del := func(url string, payload any) int {
-		res := postJSONMethod(t, ts, http.MethodDelete, url, payload)
+		res := postJSONMethod(t, ts, http.MethodPost, url+"/delete", payload)
 		return res.StatusCode
 	}
 
 	// List: three sessions, one bound, size present, cleanup off.
-	code, view := get(base + "/sessions/manage")
+	code, view := get("/api/clis/pi/sessions?workspace=" + wsv.ID)
 	if code != http.StatusOK {
 		t.Fatalf("manage = %d", code)
 	}
@@ -228,26 +226,26 @@ func TestSessionManageAndSweep(t *testing.T) {
 	}
 
 	// Delete: orphan ok, bound 409, outside 400/404, twice 404.
-	if c := del(base+"/sessions/manage", map[string]string{"path": orphan}); c != http.StatusOK {
+	if c := del("/api/clis/pi/sessions", map[string]string{"path": orphan}); c != http.StatusOK {
 		t.Fatalf("delete orphan = %d", c)
 	}
 	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
 		t.Fatal("orphan file still on disk")
 	}
-	if c := del(base+"/sessions/manage", map[string]string{"path": bound}); c != http.StatusConflict {
+	if c := del("/api/clis/pi/sessions", map[string]string{"path": bound}); c != http.StatusConflict {
 		t.Fatalf("delete bound = %d, want 409", c)
 	}
 	outside := filepath.Join(home, "elsewhere.jsonl")
 	_ = os.WriteFile(outside, []byte("{}\n"), 0o644)
-	if c := del(base+"/sessions/manage", map[string]string{"path": outside}); c != http.StatusBadRequest {
+	if c := del("/api/clis/pi/sessions", map[string]string{"path": outside}); c != http.StatusBadRequest {
 		t.Fatalf("delete outside = %d, want 400", c)
 	}
-	if c := del(base+"/sessions/manage", map[string]string{"path": orphan}); c != http.StatusNotFound {
+	if c := del("/api/clis/pi/sessions", map[string]string{"path": orphan}); c != http.StatusNotFound {
 		t.Fatalf("delete twice = %d, want 404", c)
 	}
 
 	// Sweep: 30 days removes only the old orphan; in-use stays.
-	res := postJSONMethod(t, ts, http.MethodPut, "/api/session-cleanup", map[string]int{"days": 30})
+	res := postJSONMethod(t, ts, http.MethodPut, "/api/clis/pi/sessions/cleanup", map[string]int{"days": 30})
 	var put map[string]any
 	_ = json.NewDecoder(res.Body).Decode(&put)
 	if res.StatusCode != http.StatusOK || put["removed"].(float64) != 1 {
@@ -259,10 +257,10 @@ func TestSessionManageAndSweep(t *testing.T) {
 	if _, err := os.Stat(bound); err != nil {
 		t.Fatal("sweep deleted an in-use session")
 	}
-	if c, body := get("/api/session-cleanup"); c != http.StatusOK || body["days"].(float64) != 30 {
+	if c, body := get("/api/clis/pi/sessions/cleanup"); c != http.StatusOK || body["days"].(float64) != 30 {
 		t.Fatalf("cleanup setting read = %d %v", c, body)
 	}
-	if c := postJSONMethod(t, ts, http.MethodPut, "/api/session-cleanup", map[string]int{"days": -1}).StatusCode; c != http.StatusBadRequest {
+	if c := postJSONMethod(t, ts, http.MethodPut, "/api/clis/pi/sessions/cleanup", map[string]int{"days": -1}).StatusCode; c != http.StatusBadRequest {
 		t.Fatalf("negative days = %d, want 400", c)
 	}
 }
@@ -278,8 +276,12 @@ func TestManageViewNamesAgent(t *testing.T) {
 	p := writeManageSession(t, proj, "only.jsonl", 0)
 	_ = postJSON(t, ts, "/api/workspaces/"+wsv.ID+"/sessions/resume", map[string]string{"path": p})
 
-	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions/manage"))
-	var view sessionManageView
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/clis/pi/sessions?workspace="+wsv.ID))
+	var view struct {
+		Sessions []struct {
+			InUseBy *struct{ AgentName string } `json:"inUseBy"`
+		} `json:"sessions"`
+	}
 	if err := json.NewDecoder(res.Body).Decode(&view); err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +313,7 @@ func TestAllSessionsView(t *testing.T) {
 	inWs := writeManageSession(t, proj, "in-ws.jsonl", 0)
 	outside := writeManageSession(t, other, "outside.jsonl", 0)
 
-	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/sessions/all"))
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/clis/pi/sessions"))
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("all = %d", res.StatusCode)
 	}
@@ -346,7 +348,7 @@ func TestAllSessionsView(t *testing.T) {
 	}
 
 	// Machine delete: outside folder ok; path outside the root rejected.
-	if c := postJSONMethod(t, ts, http.MethodDelete, "/api/sessions/all", map[string]string{"path": outside}).StatusCode; c != http.StatusOK {
+	if c := postJSONMethod(t, ts, http.MethodPost, "/api/clis/pi/sessions/delete", map[string]string{"path": outside}).StatusCode; c != http.StatusOK {
 		t.Fatalf("delete outside-folder = %d", c)
 	}
 	if _, err := os.Stat(outside); !os.IsNotExist(err) {
@@ -354,7 +356,7 @@ func TestAllSessionsView(t *testing.T) {
 	}
 	notRoot := filepath.Join(home, "loose.jsonl")
 	_ = os.WriteFile(notRoot, []byte("{}\n"), 0o644)
-	if c := postJSONMethod(t, ts, http.MethodDelete, "/api/sessions/all", map[string]string{"path": notRoot}).StatusCode; c != http.StatusBadRequest {
+	if c := postJSONMethod(t, ts, http.MethodPost, "/api/clis/pi/sessions/delete", map[string]string{"path": notRoot}).StatusCode; c != http.StatusBadRequest {
 		t.Fatalf("delete non-root = %d, want 400", c)
 	}
 }
