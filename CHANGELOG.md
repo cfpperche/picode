@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- `packages/pi-browser-capture` (ADR-0080): a standalone pi extension that
+  streams opt-in live browser frames while `agent_browser` runs — without
+  patching pi-agent-browser-native. Frames mirror to
+  `<pi-session-file>.capture/` (bounded JPEG, latest wins) and the final frame
+  persists as a session entry for replay; `/browser-captures on|off|status`
+  consent is branch-persisted. Proven over real-model RPC against an unpatched
+  upstream 0.6.6 checkout (17 intra-call frames, final marker, kill switch).
+  Daemon feed forwarding and UI subscription are the next phases; the pinned
+  in-package patch stays until they pass acceptance.
+
 ### Changed
 
 - **Sessions moved under Agent CLIs** (ADR-0079): the desktop surface now

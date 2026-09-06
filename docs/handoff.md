@@ -17,10 +17,10 @@ reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
 Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
 (ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
 No push was made. Preserve the
-unrelated root `.pi/compact.json`. The capture ADR was renumbered because
-Integrations took 0075; the opt-in native emitter and real end-to-end
-capture acceptance remain pending, so deployment does not enable browser
-capture emission.
+unrelated root `.pi/compact.json`. Browser capture emission now has a proven
+standalone path (ADR-0080): real-model RPC frames passed against an unpatched
+upstream 0.6.6 checkout; daemon/UI phases remain, so deployment still does not
+enable browser capture emission.
 
 Managed-stop fix debts (living):
 
@@ -128,6 +128,14 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- **Browser capture sidecar (ADR-0080, branch `feat/browser-capture-sidecar`).**
+  Phase A passed: `packages/pi-browser-capture` mirrors bounded frames during
+  real `agent_browser` calls against an unpatched 0.6.6 checkout — 17
+  intra-call frames (~1 fps), final marker ~10 ms after the tool end, persisted
+  `browser-capture-final` entries, kill switch verified, zero in-tool update
+  leakage. Receipts: `var/sidecar-proof/`. Phase B (daemon watches the capture
+  dir → feed → UI pill) and phase C (remove the pinned patch) come next.
+
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -188,11 +196,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Known debts / open questions
 
-- **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or measured
-  slow-consumer/cancellation matrix. The hub drops on overflow and caches no
-  missed partials. Desktop reconnect and same-agent session replacement during
-  a pending session-changing API need dedicated acceptance; mobile reconnect
-  and selection switching passed with fixtures. See `docs/plans/browser-preview.md`.
+- **Capture integration: sidecar proof passed (ADR-0080); UI phases open.**
+  Live frames now flow via the sidecar over real RPC; no measured
+  slow-consumer/cancellation matrix yet. The hub drops on overflow and caches
+  no missed partials. Desktop reconnect and same-agent session replacement
+  during a pending session-changing API need dedicated acceptance; mobile
+  reconnect and selection switching passed with fixtures. See
+  `docs/plans/browser-preview.md`.
 
 - Webhook delivery is at-least-once within event retention, not an unlimited
   archive. Receivers must handle duplicate IDs; arbitrary receiver response
@@ -229,6 +239,16 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-05 — Browser-capture sidecar proven over real RPC (ADR-0080).**
+  Owner asked for a no-patch path; `packages/pi-browser-capture` now observes
+  `agent_browser` lifecycle, re-derives the upstream session rendezvous
+  (push `?maxFps=1` — URL ack pacing deadlocks a pre-browser attach), mirrors
+  bounded frames beside the session and persists the final frame. Real-model
+  proof against a clean 0.6.6 checkout: 17 intra-call frames, final marker
+  10 ms after end, kill switch verified, no in-tool leakage. Unit tests +
+  `scripts/verify-browser-capture-sidecar.mjs`; receipts `var/sidecar-proof/`.
+  Next: daemon feed bridge + UI (phase B), then remove the pinned patch (C).
 
 - **2026-09-05 — Imported MCP disable fix merged and deployed.** Reconciled
   the sessions-under-CLIs and workspace tuiMode commits; combined `make ci`
