@@ -29,9 +29,9 @@ const CLEANUP_OPTIONS = [
 
 // Catalog ids with a session source (ADR-0079). Names resolve from the
 // /api/clis catalog via cliNames; the order is the picker order.
-export const SESSION_CLIS = ["pi", "claude-code", "codex", "grok"];
+export const SESSION_CLIS = ["pi", "claude-code", "codex", "grok", "hermes"];
 
-const CLI_FALLBACK_NAMES = { pi: "Pi", "claude-code": "Claude Code", codex: "Codex", grok: "Grok" };
+const CLI_FALLBACK_NAMES = { pi: "Pi", "claude-code": "Claude Code", codex: "Codex", grok: "Grok", hermes: "Hermes Agent" };
 
 function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
   const canOpen = agentsForOpen.length > 0;

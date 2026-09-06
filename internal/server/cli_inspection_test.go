@@ -32,7 +32,7 @@ func TestCLIPreviewDecisionTable(t *testing.T) {
 	if err := os.WriteFile(tool, []byte("#!/bin/sh\ntouch '"+filepath.Join(home, "EXECUTED")+"'\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"pi", "claude-code", "codex", "grok"} {
+	for _, id := range []string{"pi", "claude-code", "codex", "grok", "hermes"} {
 		for _, enabled := range []bool{false, true} {
 			c := clilaunch.Config{Executable: tool, Args: []string{"two words", "--api-key", "hidden-argument"}, Env: map[string]string{"SECRET": "hidden-environment"}, Integration: enabled}
 			v := cliRequest(t, ts, "POST", "/api/clis/"+id+"/preview", map[string]any{"config": c}, 200)
@@ -200,7 +200,7 @@ exec cat
 	if err := os.WriteFile(tool, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"pi", "claude-code", "codex", "grok"} {
+	for _, id := range []string{"pi", "claude-code", "codex", "grok", "hermes"} {
 		out := filepath.Join(home, id+".args")
 		c := clilaunch.Config{Executable: tool, Integration: true, Env: map[string]string{"QA_FILE": out}, Args: []string{"two words", "$literal", ""}}
 		cliRequest(t, ts, "PUT", "/api/clis/"+id, c, 200)

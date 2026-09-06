@@ -43,7 +43,7 @@ export const cliLaunchSchema = z.object({
   for (const line of v.envText.split("\n").filter((x) => x.trim())) {
     const i = line.indexOf("="); const key = line.slice(0, i).trim();
     if (i < 1 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) { fail("Use NAME=value for each environment variable."); break; }
-    if (key.startsWith("PICODE_") || ["PATH", "HOME", "SHELL", "GROK_HOME"].includes(key)) { fail(`${key} is managed by the launcher.`); break; }
+    if (key.startsWith("PICODE_") || ["PATH", "HOME", "SHELL", "GROK_HOME", "HERMES_HOME"].includes(key)) { fail(`${key} is managed by the launcher.`); break; }
     if (keys.has(key)) { fail(`${key} appears more than once.`); break; }
     keys.add(key);
   }

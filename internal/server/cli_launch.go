@@ -347,14 +347,11 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 			cmd.Stderr = &output
 			cmd.WaitDelay = time.Second
 			if err = cmd.Run(); err == nil {
-				d.Version = strings.TrimSpace(output.String())
+				d.Version = clipCLIVersion(output.String())
 				for _, value := range c.Env {
 					if value != "" {
 						d.Version = strings.ReplaceAll(d.Version, value, "••••")
 					}
-				}
-				if len(d.Version) > 160 {
-					d.Version = d.Version[:160]
 				}
 				if d.Version == "" {
 					err = errors.New("The executable returned no version.")
@@ -381,6 +378,23 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, 200, d)
 	}
+}
+
+// clipCLIVersion keeps the setup line to one short sentence. Some CLIs
+// (Hermes Agent) dump install paths and SDK versions on extra lines.
+func clipCLIVersion(raw string) string {
+	s := ""
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			s = line
+			break
+		}
+	}
+	if len(s) > 160 {
+		s = s[:160]
+	}
+	return s
 }
 
 func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
@@ -762,6 +776,8 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			err = writeCodexIntercept(dir, hook)
 		case "grok":
 			err = writeGrokIntercept(dir, hook)
+		case "hermes":
+			err = writeHermesIntercept(dir, hook)
 		}
 		if err != nil {
 			return nil, err

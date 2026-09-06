@@ -230,7 +230,7 @@ func TestPIListAdaptsProviderAndModel(t *testing.T) {
 
 func TestSourcesRegistry(t *testing.T) {
 	all := Sources()
-	for _, cli := range []string{"pi", "claude-code", "codex", "grok"} {
+	for _, cli := range []string{"pi", "claude-code", "codex", "grok", "hermes"} {
 		if _, ok := all[cli]; !ok {
 			t.Errorf("source %q missing from registry", cli)
 		}
@@ -241,7 +241,7 @@ func TestSourcesRegistry(t *testing.T) {
 	// A machine where none of the non-pi CLIs ever ran still lists cleanly.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, cli := range []string{"claude-code", "codex", "grok"} {
+	for _, cli := range []string{"claude-code", "codex", "grok", "hermes"} {
 		src, ok := Get(cli)
 		if !ok {
 			t.Fatalf("source %q missing", cli)

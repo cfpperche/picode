@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
+  command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
+  read-only, and resumes with `hermes --resume <id>`. Activity reporting is
+  a presence lease plus session-only activity hooks (LLM start/end and
+  approval prompts) injected through `PYTHONPATH` sitecustomize — not a
+  `HERMES_HOME` overlay and not by writing `config.yaml`. Hermes may still
+  record PiCode's hook command in its own `shell-hooks-allowlist.json` when
+  auto-accepting. Check setup keeps the first `--version` line so Hermes'
+  install dump does not wrap the heading.
+
 - **Deploy refuses while agents work** (ADR-0086). `picode deploy` asks the
   running daemon who is mid-turn and stops before touching the installed
   binary when anyone is — the refusal names each agent or terminal and why.
