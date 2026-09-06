@@ -558,6 +558,13 @@ func serve() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	// Session forensics (ADR-0085): before the server accepts traffic,
+	// compare the shutdown snapshot with the sessions alive now. The diff
+	// feeds the lostAtRestart badge on terminal surfaces.
+	lostCtx, lostCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	deps.LostSessions = server.BootDiff(lostCtx, deps)
+	lostCancel()
+
 	// Initial bind + banner.
 	cfg, err := config.Resolve(st.GetSetting)
 	if err != nil {
@@ -644,6 +651,9 @@ func serve() {
 			stopWatch()
 			log.Printf("server: %v — shutting down", sig)
 			gracefulShutdown(srv)
+			snapCtx, snapCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			server.WriteShutdownSnapshot(snapCtx, deps)
+			snapCancel()
 			return
 		}
 	}

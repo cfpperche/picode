@@ -127,6 +127,24 @@ automatically: a plain Start still opens a fresh conversation. Terminals
 stopped before this feature shipped have no pin; their conversations stay
 reachable in the Sessions tab via "Open in terminal".
 
+When the terminal died in a daemon restart (not a CLI exit), the surface
+says so: "PiCode restarted while this terminal was running." (ADR-0085:
+the daemon records its live sessions at shutdown and diffs them at boot.)
+
+### Flight recorder (ADR-0085)
+
+PiCode keeps forensics under the data dir's `var/` folder:
+
+- `shutdown-snapshot.json` — the tmux sessions alive when the daemon
+  exited gracefully (root process id, root command, folder).
+- `restart-report-*.json` — the boot verdict for each restart: which of
+  those sessions survived, which did not. Last 10 kept.
+- `deploy-log.jsonl` — one line per deploy: time, binary version, the
+  terminal it ran from, and the folder.
+
+If sessions ever vanish around a restart, these three files answer when,
+what and who without any forensics archaeology.
+
 The **Terminals** tab includes configured CLI terminals and ordinary terminals
 where a supported CLI is observed. Launch identity, live CLI presence and
 activity are separate: **Installed** is not **Working**, and an enabled hook

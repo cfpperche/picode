@@ -36,7 +36,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
         </p>
       ) : term?.launchCli && !term.running ? (
         <div className="file-pane-msg" role="status">
-          <span>This CLI terminal is stopped. </span>
+          <span>{term.lostAtRestart ? "PiCode restarted while this terminal was running. " : "This CLI terminal is stopped. "}</span>
           {term.lastSession ? (
             <button type="button" className="btn btn-sm" disabled={resuming} onClick={resumeLast} title={term.lastSession.preview || undefined}>
               {resuming ? "Resuming…" : "Resume last session"}

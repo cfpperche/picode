@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Session forensics** (ADR-0085): the daemon now records which tmux
+  sessions were alive at a graceful shutdown and reports at boot exactly
+  which ones did not survive (log + `var/restart-report-*.json`), stopped
+  CLI terminals say "PiCode restarted while this terminal was running"
+  when that applies, launch scripts ignore SIGHUP like interactive shells
+  always did (explicit Stop escalates to SIGTERM so stopping still
+  stops), and every `picode deploy` appends who/what/where to
+  `var/deploy-log.jsonl`. The next session-loss incident self-reports.
 - **CLI terminal session recovery** (ADR-0084): every CLI terminal now pins
   the native conversation it is running (claude, codex, grok, pi) and a
   stopped terminal offers "Resume last session" — one click relaunches the

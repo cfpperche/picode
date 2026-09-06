@@ -64,6 +64,11 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	applyTermState(deps, view, t.ID)
 	applyTerminalLaunch(deps, view, t.ID)
 	applyTerminalChecklist(deps, view, t.ID)
+	// Session forensics (ADR-0085): this terminal was alive at the previous
+	// graceful shutdown and its session did not survive to this boot.
+	if !live && deps.LostSessions[session] {
+		view["lostAtRestart"] = true
+	}
 	return view
 }
 

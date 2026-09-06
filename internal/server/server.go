@@ -67,8 +67,12 @@ type Deps struct {
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
-	CLIs         *CLITerminals    // terminal launch settings and operation locks (ADR-0069)
-	Auth         *auth.Service    // request gate (ADR-0049); nil = ungated (tests, dev)
+	// Session forensics (ADR-0085): session names that were alive at the
+	// previous graceful shutdown and did not survive to this boot. Set once
+	// by the daemon before New; nil-safe everywhere.
+	LostSessions map[string]bool
+	CLIs         *CLITerminals // terminal launch settings and operation locks (ADR-0069)
+	Auth         *auth.Service // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
