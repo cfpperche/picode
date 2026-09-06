@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp manager** (ADR-0080): dedicated Models and Server pages on
+  desktop and mobile, with connection diagnosis, saved-key preservation and
+  a Providers shortcut. Canceling a model replacement does not load it;
+  unload and download failures no longer report success.
+
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
   `detached`), and a Git menu in the rail's header prepares Fetch, Pull, Push,

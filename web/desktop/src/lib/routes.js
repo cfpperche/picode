@@ -8,6 +8,7 @@ export const ROUTES = {
   settings: "/settings",
   system: "/system",
   providers: "/providers",
+  llama: "/llama/models",
   mcps: "/mcps",
   integrations: "/integrations",
   packages: "/packages",
@@ -23,6 +24,7 @@ export function parseRoute(hash) {
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
   if (h === "/settings") return "settings";
   if (h === "/system") return "system";
+  if (h === "/llama" || h.startsWith("/llama/") || h === "/providers/llama") return "llama";
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
   if (h === "/mcps") return "mcps";
   if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
@@ -190,7 +192,7 @@ export function go(name, agentId) {
     return;
   }
   if (name === "providers-llama") {
-    location.hash = "#/providers/llama";
+    location.hash = "#/llama/models";
     return;
   }
   if (name === "pins-new") {

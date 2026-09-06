@@ -42,11 +42,20 @@ func handleLlamaList(w http.ResponseWriter, r *http.Request) {
 		models = []llama.Model{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"url":    llamaURL(),
-		"ok":     ok,
-		"models": models,
-		"setup":  llama.Inspect(llamaURL(), models, ok),
+		"url":        llamaURL(),
+		"ok":         ok,
+		"models":     models,
+		"setup":      llama.Inspect(llamaURL(), models, ok),
+		"connection": llamaConnection(err),
 	})
+}
+
+func llamaConnection(err error) map[string]string {
+	if err == nil {
+		return map[string]string{"code": "ready", "message": "Connected"}
+	}
+	failure := llama.ConnectionFailure(err)
+	return map[string]string{"code": failure.Code, "message": failure.Message}
 }
 
 func handleLlamaLoad(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +83,14 @@ func handleLlamaLoad(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if m.Status == "loaded" || m.Status == "sleeping" {
-				_ = c.Unload(m.ID)
+				if err := c.Unload(m.ID); err != nil {
+					writeErr(w, http.StatusBadGateway, err.Error())
+					return
+				}
+				if err := c.Wait(m.ID, "unloaded", 2*time.Minute); err != nil {
+					writeErr(w, http.StatusBadGateway, err.Error())
+					return
+				}
 			}
 		}
 	}
@@ -106,7 +122,10 @@ func handleLlamaUnload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	_ = c.Wait(req.ID, "unloaded", 2*time.Minute)
+	if err := c.Wait(req.ID, "unloaded", 2*time.Minute); err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": req.ID})
 }
 
