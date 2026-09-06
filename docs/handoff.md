@@ -33,17 +33,12 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+07cc806`, health `ok`. `make
-deploy` restarted systemd; the terminal records survived. Live verification
-of the worktree-blob fix: the previously-404 request answers `200 image/png`
-and the uncommitted panel renders the sibling's PNG previews (screenshots
-read). Earlier deploy `0.1.0+075f6cc` had carried the connector-tabs
-rollout with health `ok`, boot `6020b8eed79d6e22`, 44/44 panes survived.
-Live Integrations: the catalog tabs render and the
-**Claude Code** tab shows the real `context7` server as "Added from Claude
-Code" while the existing service row stayed untouched — read-only checks, no
-production mutations. Read evidence: `var/connector-tabs-deploy/`; private
-SQLite and previous-binary backups are in its `recovery/` folder.
+**Last application deployment:** `0.1.0+39eb181`, health `ok`, boot
+`d11bb0fd6c75f608`. `make deploy` restarted systemd; all 48 baseline tmux pane
+identities survived. Live check: the redesigned custom-connector dialog renders
+its labeled groups (transport, sign-in, headers) with no hidden controls —
+verified read-only, nothing created. Evidence: `var/custom-dialog-deploy/`;
+private SQLite and previous-binary backups are in its `recovery/` folder.
 **Quality:** `make ci` passed three times — on the feature tree, after the
 first main merge (with regenerated captures) and on the final merged tree —
 including Go tests, 700 frontend/package tests, both UI builds, the embedded
@@ -210,6 +205,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   renumbered at merge — `feat/pi-diff` also holds an unmerged 0076.
 
 ## Recent activity
+
+- **2026-09-05 — Custom connector dialog redesign merged and deployed.**
+  Reconciled clean (main had not moved); combined `make ci` passed; deployed
+  `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48
+  panes survived. visual-review: PASS. No connector mutations or push.
 
 - **2026-09-05 — Custom connector dialog redesign (branch).** Labeled groups
   replace the More/Less toggle: Server name, How PiCode reaches it, Sign-in
