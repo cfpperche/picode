@@ -311,10 +311,11 @@ own TUI continues one session instead of minting a competitor each hop.
 The composer status bar is per agent too: the desktop app fetches
 `/status?agent=<selected>`; without the parameter the endpoint answers
 for the workspace's first agent (ADR-0053). The
-machine-wide/workspace-wide housekeeping views (`/sessions/manage`,
-`/sessions/all`, below) are unfiltered on purpose and union in every
-agent's private dir alongside the shared cwd bucket: they exist to show
-and clean up everything, ownership tag or not.
+machine-wide/workspace-wide housekeeping view (`GET
+/api/clis/pi/sessions`, below) is unfiltered on purpose and unions in
+every agent's private dir alongside the shared cwd bucket when scoped by
+workspace: it exists to show and clean up everything, ownership tag or
+not.
 PiCode lists, switches (`--session`), and **replays** them into the chat
 surface. History is not copied into SQLite (ADR-0005). The transcript endpoint serves a
 window (`?tail=&skip=`) — the browser holds only the newest slice and
@@ -621,26 +622,30 @@ HTTP API (Go 1.22 method patterns):
   preview for the delete dialog (session count, last occupant, owned work folder).
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
-- `GET /api/workspaces/{id}/sessions/manage` — every Pi session under the
-  folder *and* each of its agents' private dirs (`workspaceSessionDirs`,
-  ADR-0040), unfiltered by ownership (unlike the per-agent picker,
-  ADR-0039 — this view's job is to show everything), each with
-  size/age/messages/cost and `inUseBy` (the agent whose current session
-  it is); `cleanupDays` and `totalBytes` ride along. `DELETE` on the same
-  path removes one orphan (in-use → 409). Powers the `#/clis/sessions/<id>`
-  view (sidebar folder icon): Open with… reuses the resume endpoint,
-  Compact reuses the agent compact.
-- `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
-  (0 = off, default). Sweep runs at boot, daily, and after each change;
-  it deletes only sessions no agent is bound to *or has ever been*
-  (`agents.session_path` current pointer, plus the full `agent_sessions`
-  history, ADR-0040 — an older but still chat-picker-resumable session is
-  never swept just because it isn't the current one), across the shared
-  cwd buckets and every agent's private dir.
-- `GET/DELETE /api/sessions/all` — machine-wide view (`session.ListAll`):
-  every Pi session on the machine, each tagged with the workspace owning
-  its folder; delete validates against the sessions root. Powers the
-  `#/clis/sessions` All-folders view (ADR-0079).
+- `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
+  phase 2): pi plus Claude Code, Codex and Grok, read-only from disk
+  (`internal/clisession`), each row with size/age/messages and
+  server-verified resume arguments, tagged with the PiCode workspace that
+  owns its folder. For pi the row also carries `inUseBy` (the agent whose
+  current session it is) and the response adds `cleanupDays`; scoping by
+  `?workspace=<id>` unions the shared cwd bucket with each of that
+  workspace's agents' private dirs (`workspaceSessionDirs`, ADR-0040),
+  unfiltered by ownership (unlike the per-agent picker, ADR-0039 — this
+  view's job is to show everything). `POST /api/clis/pi/sessions/delete`
+  `{path}` removes one orphan (in-use → 409, outside the pi root → 400);
+  `POST /api/clis/pi/sessions/adopt` `{path}` copies a JSONL and creates a
+  stopped agent (the old `/api/pi-sessions*` flow); `GET/PUT
+  /api/clis/pi/sessions/cleanup` is the orphan auto-clean preference in
+  days (0 = off, default) — the sweep runs at boot, daily, and after each
+  change, and never deletes a session any agent is bound to *or has ever
+  been* (the `agent_sessions` history, ADR-0040: an older but still
+  chat-picker-resumable session is not swept just because it isn't the
+  current one). Together these power the `#/clis/sessions`
+  views and the "From a Pi session" picker: Open with… reuses the resume
+  endpoint, Compact reuses the agent compact. The legacy routes
+  (`/api/sessions/all`, `/api/pi-sessions*`, `/api/session-cleanup`,
+  `/api/workspaces/{id}/sessions/manage`) were removed — one namespace
+  per CLI.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent
   (idempotent); 409 on a workspace with no agents, like every
   workspace-scoped call that needs one (sessions, status)

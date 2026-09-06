@@ -31,6 +31,18 @@ func (PISource) List(cwd string) ([]Summary, error) {
 	return piSummaries(all), nil
 }
 
+// PIDirs summarizes pi JSONL from already-resolved session directories
+// (newest first) — the escape hatch the server uses to union the shared
+// cwd bucket with each agent's private dir (ADR-0040) for a workspace
+// scope, which a plain cwd filter cannot express.
+func PIDirs(dirs ...string) ([]Summary, error) {
+	all, err := session.ListDirs(dirs...)
+	if err != nil {
+		return nil, err
+	}
+	return piSummaries(all), nil
+}
+
 func piSummaries(all []session.Summary) []Summary {
 	out := make([]Summary, 0, len(all))
 	for _, s := range all {

@@ -43,7 +43,7 @@ func TestAdoptPiSessionDecisionTable(t *testing.T) {
 
 	t.Run("known cwd becomes workspace agent", func(t *testing.T) {
 		src := writeAdoptSession(t, known)
-		res := postJSON(t, ts, "/api/pi-sessions/adopt", map[string]string{"path": src})
+		res := postJSON(t, ts, "/api/clis/pi/sessions/adopt", map[string]string{"path": src})
 		if res.StatusCode != http.StatusCreated {
 			t.Fatalf("adopt = %d", res.StatusCode)
 		}
@@ -71,7 +71,7 @@ func TestAdoptPiSessionDecisionTable(t *testing.T) {
 			t.Fatal(err)
 		}
 		src := writeAdoptSession(t, other)
-		res := postJSON(t, ts, "/api/pi-sessions/adopt", map[string]string{"path": src})
+		res := postJSON(t, ts, "/api/clis/pi/sessions/adopt", map[string]string{"path": src})
 		if res.StatusCode != http.StatusCreated {
 			t.Fatalf("adopt = %d", res.StatusCode)
 		}
@@ -88,7 +88,7 @@ func TestAdoptPiSessionDecisionTable(t *testing.T) {
 	})
 
 	t.Run("path outside sessions root is rejected", func(t *testing.T) {
-		res := postJSON(t, ts, "/api/pi-sessions/adopt", map[string]string{"path": "/etc/passwd"})
+		res := postJSON(t, ts, "/api/clis/pi/sessions/adopt", map[string]string{"path": "/etc/passwd"})
 		if res.StatusCode != http.StatusBadRequest {
 			t.Fatalf("outside = %d", res.StatusCode)
 		}
@@ -102,7 +102,7 @@ func TestListPiSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeAdoptSession(t, proj)
-	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/pi-sessions"))
+	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/clis/pi/sessions"))
 	if got.StatusCode != http.StatusOK {
 		t.Fatalf("list = %d", got.StatusCode)
 	}
