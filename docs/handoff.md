@@ -5,14 +5,17 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD `03489b9a` (deployed as `0.1.0+03489b9a`, health ok,
-boot `4899f4331b3cbfd1`, 111 terminal sessions preserved on the default tmux
-server) lands the **browser-capture sidecar (ADR-0082)** — live/replay
-browser frames without patching pi-agent-browser-native, consent-gated and
-default-off — on top of the tab-strip study
+**Repository:** HEAD `acf68b3a` (deployed as `0.1.0+acf68b3a`) merges the
+tab-strip debts pass (indicator on the top edge, rAF-exact wheel settle,
+arrow needs-you dot, `Alt+W`/Delete close, the app-wide scrollbar split —
+see below) on top of `03489b9a` (health ok, boot `4899f4331b3cbfd1`, 111
+terminal sessions preserved on the default tmux server), which lands the
+**browser-capture sidecar (ADR-0082)** — live/replay browser frames without
+patching pi-agent-browser-native, consent-gated and default-off — on top of
+the tab-strip study
 (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 1–4: no
 scrollbar, arrows/fades/indicator/wheel, All-tabs list + `Alt+[`/`Alt+]` +
-tablist, 200 px label cap) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
+tablist, 200 px label cap, all debts closed) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
 and the **terminal checklists** work (`d1f1e9f9`, `0.1.0+d1f1e9f`, ADR-0081)
 are merged and deployed, on top of Inspector run-when-idle, terminal
 faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
@@ -40,17 +43,21 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `139ab1ba` (tab strip phases 2–4 merged
-with the checklists tree) via `make deploy` from the root checkout; systemd
-active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
-six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
-overflow buttons (two arrows + All tabs), `mask-image` fades, indicator
-mounted, `role=tablist`, `Alt+]` cycled the selection, label `max-width`
-200 px, tabs `flex-shrink: 0`; the All tabs menu listed 6 items with the
-"Out of view" group inside the viewport, overlay audit ok, screenshot read
-(visual-review: PASS). The `/api/version` label was again not read from the
-browser session — the bundle is proven by behaviour the previous one lacked.
-Previous deploy `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
+**Last application deployment:** `acf68b3a` (tab-strip debts merged onto
+the browser-capture sidecar tree, `03489b9a`) via `make deploy` from the
+root checkout, after the root's mid-merge state from another session
+cleared; systemd active, `GET /api/terminals` 200. Verified live at 700 px
+with a real terminal: `body`/`.side-section` `scrollbar-width: auto` with
+an 8 px sidebar gutter (the Chromium/webkit collision is gone); with the
+needs-you tab scrolled out of view, `POST /api/terminals/{id}/state
+needs-you` lit the dot on the **left** arrow only, screenshot read, then
+reset back to `idle`; the indicator's `top` computed to the strip's own
+top; `Delete` on a focused non-active tab closed it and moved focus to
+its neighbour, `Alt+W` then closed the selected tab. The `/api/version`
+label was again not read from the browser session — the bundle is proven
+by behaviour the previous one lacked. Previous deploy `139ab1ba` (tab strip
+phases 2–4 merged with the checklists tree); before that `d1f1e9f9`,
+version `0.1.0+d1f1e9f`, via
 serialized `make deploy` from the validated worktree after fast-forwarding
 main (terminal checklists, ADR-0081). Health `ok`, systemd active. All 9
 pre-deploy terminal IDs survived the restart; `GET /api/terminals` answers
@@ -157,13 +164,6 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `fix/tab-strip-debts` awaits merge to main and `make deploy`: the five
-  tab-strip debts closed (indicator on the top edge, rAF settle instead of
-  the Safari timer, arrow needs-you dot verified on a real `needs-you`
-  terminal, `Alt+W` / Delete close, and the app-wide scrollbar split —
-  standard properties only under `@supports not selector(::-webkit-scrollbar)`
-  in desktop and mobile, per-view overrides removed). Phases 1–4 are
-  deployed (`dcbaa316`, `139ab1ba`).
 - Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
   `0.1.0+d1f1e9f`). Full stack: publish target fallback
   (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
@@ -316,7 +316,14 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
-- **2026-09-06 — Tab strip debts closed.** Indicator moved to the strip's
+- **2026-09-06 — Tab strip debts merged and deployed (`acf68b3a`).**
+  Fast-forwarded main after the root checkout cleared another session's
+  browser-capture-sidecar merge (waited rather than touching a dirty
+  shared tree); reconciled `docs/handoff.md` (dropped a stale duplicate
+  paragraph the two branches both carried). Deploy re-verified live at
+  700 px on a real terminal — see Last application deployment above —
+  since the worktree-only QA below predates the merge.
+- **2026-09-06 — Tab strip debts closed (worktree QA).** Indicator moved to the strip's
   top edge (bottom belongs to the active underline); wheel target now
   settles when `scrollLeft` is still for three frames (rAF), replacing
   `scrollend` + a 400 ms timer; `app.tab.close` on `Alt+W` plus Delete /
