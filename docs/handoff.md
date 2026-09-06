@@ -200,12 +200,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Complete llama delivery 3 model guidance/readiness: capture and read the
-   quantization guidance dialog on desktop and mobile, then run the full UI
-   visual review before merging. This branch currently shows file size,
-   conservative memory estimate and contextual guidance; Go and JS tests pass.
-   Desktop/mobile dialog captures were read and overlay audits passed.
-   visual-review: PASS.
+1. Complete llama delivery 3 model guidance/readiness: run the full CI gate,
+   then merge this guidance slice with the real b10809 acceptance record.
+   Desktop/mobile quantization dialog captures were read and overlay audits
+   passed. visual-review: PASS. A 0.6B model's failed Pi read-tool run remains
+   documented as a negative compatibility example.
    Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
@@ -323,7 +322,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   expose file size, conservative runtime memory estimate and contextual
   hardware guidance; fixed Q4_K_M recommendation removed. Go tests and JSX
   build pass. Desktop/mobile quantization dialog captures were read and
-  overlay audits passed. visual-review: PASS.
+  overlay audits passed. visual-review: PASS. The pinned 4B runtime fixture
+  passed the real Pi read-tool round trip; the 0.6B negative case is retained.
 
 - **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
   jobs, capability detection, file progress, cancellation and recovery with
