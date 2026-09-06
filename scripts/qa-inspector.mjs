@@ -340,6 +340,72 @@ try {
     await shot('inspector-commit-typed-dark');
     clearLine(id);
   });
+  // Stage 2 (ADR-0078): with "run when no agent is working here" on, PiCode
+  // presses Enter only when the interlock finds nobody else writing the
+  // repository. A second terminal holding `sleep` is enough to make it fall
+  // back to preparing; with the folder idle, a commit runs for real.
+  await check('g16 run mode presses Enter only when nobody is working in the repository', async () => {
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    await gitButton().click();
+    await page.getByRole('menuitemcheckbox', { name: 'Run when no agent is working here' }).click();
+    await page.waitForFunction(() => localStorage.getItem('picode-inspector-run') === '1');
+    const busyTerm = await api('/api/terminals', 'POST', { name: 'Busy', cwd: root, workspaceId: workspace.id });
+    await delay(1200);
+    execFileSync('tmux', ['send-keys', '-t', busyTerm.session + ':', 'sleep 120', 'Enter']);
+    await delay(800);
+    await gitButton().click();
+    await page.getByRole('menuitem', { name: /^Fetch/ }).click();
+    // The app may first land on the busy shell, get refused, and move to a
+    // fresh terminal: follow the hash until a pane other than the busy one
+    // shows the command.
+    let id1 = '';
+    let pane1 = '';
+    for (let i = 0; i < 60 && !pane1.includes('git fetch --prune'); i++) {
+      await delay(300);
+      if (!/^#\/term\//.test(await page.evaluate(() => location.hash))) continue;
+      const current = await termOfHash();
+      if (current === busyTerm.id) continue;
+      id1 = current;
+      pane1 = execFileSync('tmux', ['capture-pane', '-p', '-J', '-t', `picode-sh-${id1}:`], { encoding: 'utf8' });
+    }
+    assert.ok(id1 && id1 !== busyTerm.id, 'the busy terminal is never the target');
+    assert.match(pane1, /git fetch --prune/);
+    await page.getByText(/is running sleep in this repository/).waitFor();
+    await shot('inspector-run-busy-fallback-dark');
+    clearLine(id1);
+    execFileSync('tmux', ['send-keys', '-t', busyTerm.session + ':', 'C-c']);
+    await fetch(base + '/api/terminals/' + busyTerm.id, { method: 'DELETE' });
+    // Let the note dismiss itself before the next click, as a person would wait.
+    await page.locator('[data-sonner-toast]').first().waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+    await delay(600);
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    await gitButton().click();
+    await page.getByRole('menuitem', { name: /^Commit…/ }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: 'Run in terminal', exact: true }).waitFor();
+    await dlg.getByLabel('Commit message').fill('qa: run mode commits for real');
+    await shot('inspector-run-commit-dialog-dark');
+    await dlg.getByRole('button', { name: 'Run in terminal', exact: true }).click();
+    await page.waitForFunction(() => /^#\/term\//.test(location.hash));
+    let files = -1;
+    for (let i = 0; i < 40 && files !== 0; i++) {
+      await delay(400);
+      files = (await api(`/api/agents/${atlas.id}/gitstatus`)).totals.files;
+    }
+    assert.equal(files, 0, 'the commit ran in the terminal');
+    await shot('inspector-run-commit-dark');
+    // Put the seed back: the commit becomes the dirty tree again.
+    execFileSync('git', ['-C', root, 'reset', '-q', '--mixed', 'HEAD~1']);
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await rail().getByRole('button', { name: 'Refresh', exact: true }).waitFor();
+    await rail().getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('#inspector .ft-tab-badge')?.textContent === '4');
+    await gitButton().click();
+    await page.getByRole('menuitemcheckbox', { name: 'Run when no agent is working here' }).click();
+    await page.waitForFunction(() => localStorage.getItem('picode-inspector-run') === '0');
+  });
   assert.deepEqual(errors, [], 'no page errors');
   evidence.result = 'PASS';
 } catch (error) {

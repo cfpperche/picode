@@ -5,13 +5,16 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
+**Repository:** HEAD (`dcbaa316`, deployed) carries the tab-strip phase 1
+(no scrollbar under the editor tabs, active tab revealed by code; study
+`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 2–4 under Next
+up), today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and
-the **Git actions** stage (branch chip with ahead/behind, a Git menu preparing
-fetch/pull/push/commit/PR commands in the owner's terminal), merged and
-deployed as `aa9beea4`, bounded
+desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab,
+the Git actions stage (deployed as `aa9beea4`) and, complete on
+`feat/inspector-run`, the **run-when-idle** stage (PiCode presses Enter behind
+an interlock — see Recent activity), bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
@@ -36,7 +39,14 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+db12b097`, health `200` — the
+**Last application deployment:** HEAD `dcbaa316` (tab strip phase 1) via
+`make deploy` from the root checkout; systemd restarted, desktop answered
+after reload. Verified on the live instance with seven terminal tabs:
+strip gutter 0 px (was 10), tabs 39 px tall, computed `scrollbar-width:
+none`, active tab fully inside the strip at either clipped side; screenshot
+read (visual-review: PASS). The `/api/version` label was not read from the
+browser session — the served bundle is proven by behaviour the previous
+bundle lacked. Previous deploy `0.1.0+db12b097`, health `200` — the
 sessions-endpoints fold (which includes the terminal-faces tree,
 `fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
 Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
@@ -76,7 +86,13 @@ feature worktree and branch are removed.
   Commit and push and Create pull request the same way — an idle shell of the
   folder is reused, a terminal hosting a CLI never receives keystrokes — and
   the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached` from
-  `gitstatus`'s new `upstream`/`ahead`/`behind`/`detached` fields.
+  `gitstatus`'s new `upstream`/`ahead`/`behind`/`detached` fields. With the
+  menu's per-viewer checkbox **Run when no agent is working here**, the `run`
+  route presses Enter itself only when its interlock finds the repository
+  idle (no agent mid-turn, no TUI working, no automation, no other terminal
+  working or holding a program, target pane at a shell); otherwise the command
+  is prepared and a note names who is busy. The `type` route now refuses a
+  moved terminal or a pane not at a shell; the rail takes a fresh terminal.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -134,7 +150,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/tab-strip-scroll` awaits merge to main and `make deploy`. Phase 1
+- Tab strip phase 1 is merged and deployed (`dcbaa316`); the worktree and
+  branch are removed. Phase 1
   of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
   approved by the owner with the 3 px overlay indicator and `Alt+[` /
   `Alt+]`): the strip hides its layout scrollbar and reveals the active
@@ -220,11 +237,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
-9. Inspector Git actions, next stages (ADR-0078): an optional "run when no
-   agent is working here" mode that presses Enter behind the interlock (the
-   step that amends the write refusals), and "ask the agent" variants beside
-   each action for folders with a running agent. Merge/rebase/branch switch
-   wait for a picker.
+9. Inspector Git actions, stage 3 (ADR-0078): "ask the agent" variants beside
+   each action for folders with a running agent, through the channel that
+   already carries prompts. Merge/rebase/branch switch wait for a picker.
 
 ## Known debts / open questions
 
@@ -256,6 +271,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - Tutorial integrity passes, but all three strict freshness audits remain stale
   after source relocation. Recapture/render is explicit; hashes were not relabeled.
 - Branch protection and CODEOWNERS require owner action on GitHub.
+- QA fixtures for the Inspector died twice mid-run (wrapper exit 144, no
+  panic, data dir left behind) when started as harness background tasks; a
+  `setsid` fixture survived a full 16-group run, and one detached fixture still
+  died 15 s after a browser opened it while another survived the same step.
+  Working hypothesis: a concurrent session's process cleanup by name. Start
+  QA fixtures detached, under a unique binary name if it recurs, and never
+  `pkill -f` a pattern that matches the calling shell.
 - Inspector debts (ADR-0078): no complete filename search yet — the Files
   filter covers loaded rows only (`/files?q=` is agent-only and stops at 200
   files; `git ls-files` for all three owner kinds is the planned fix); free
@@ -270,6 +292,19 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them.
 - **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
   Measured on the live instance with seven tabs: the strip's classic
   scrollbar took 10 of 39 px (Windows drew arrow buttons because

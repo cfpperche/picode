@@ -153,6 +153,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerGitStatusRoutes(mux, deps)
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
+	registerGitRunRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux)

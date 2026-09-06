@@ -4591,3 +4591,5 @@ img.ws-face.term-cli-face {
 .insp-commit-dlg .dlg-input { width: 100%; box-sizing: border-box; }
 .insp-commit-error { margin: 6px 0 0; }
 .insp-commit-preview { margin: 10px 0 0; font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.insp-menu-check { padding-left: 6px; }
+.insp-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }

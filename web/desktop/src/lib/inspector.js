@@ -240,6 +240,9 @@ export function blockedMessage(kind, cwd) {
 const OPEN_KEY = "picode-inspector-open";
 const WIDTH_KEY = "picode-inspector-w";
 const TAB_KEY = "picode-inspector-tab";
+// "Run when no agent is working here": the one preference that lets PiCode
+// press Enter on a prepared command (ADR-0078 stage 2). Off by default.
+const RUN_KEY = "picode-inspector-run";
 
 function safeStorage() {
   try { return typeof localStorage !== "undefined" ? localStorage : null; } catch { return null; }
@@ -248,7 +251,7 @@ function safeStorage() {
 // Per-viewer, not navigable: open state, width and tab live in localStorage
 // like the sidebar's (no hash route — same reasoning as termView).
 export function readInspectorPrefs(storage = safeStorage()) {
-  let open = null, width = INSPECTOR_DEFAULT, tab = "changes";
+  let open = null, width = INSPECTOR_DEFAULT, tab = "changes", run = false;
   try {
     const o = storage && storage.getItem(OPEN_KEY);
     open = o === "1" ? true : o === "0" ? false : null;
@@ -256,8 +259,9 @@ export function readInspectorPrefs(storage = safeStorage()) {
     if (Number.isFinite(w)) width = clampInspectorWidth(w);
     const t = storage && storage.getItem(TAB_KEY);
     tab = t === "files" || t === "pr" ? t : "changes";
+    run = (storage && storage.getItem(RUN_KEY)) === "1";
   } catch { /* private mode, quota — defaults are fine */ }
-  return { open, width, tab };
+  return { open, width, tab, run };
 }
 
 export function writeInspectorPrefs(prefs, storage = safeStorage()) {
@@ -266,7 +270,15 @@ export function writeInspectorPrefs(prefs, storage = safeStorage()) {
     if (prefs.open === true || prefs.open === false) storage.setItem(OPEN_KEY, prefs.open ? "1" : "0");
     if (Number.isFinite(Number(prefs.width))) storage.setItem(WIDTH_KEY, String(clampInspectorWidth(prefs.width)));
     if (prefs.tab === "files" || prefs.tab === "changes" || prefs.tab === "pr") storage.setItem(TAB_KEY, prefs.tab);
+    if (prefs.run === true || prefs.run === false) storage.setItem(RUN_KEY, prefs.run ? "1" : "0");
   } catch { /* preference is optional */ }
+}
+
+// runFallbackNote: the toast when a run was refused and the command was
+// prepared instead — the server's reason, then what to do.
+export function runFallbackNote(reason) {
+  const why = String(reason || "").trim().replace(/\.?$/, "");
+  return (why ? why + ". " : "") + "The command is ready in the terminal; press Enter to run it.";
 }
 
 // --- Pull request tab (ADR-0078, phase 2) --------------------------------
