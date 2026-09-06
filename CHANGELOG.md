@@ -85,6 +85,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Custom connector dialog redesign.** Every field is now visible in labeled
+  groups — Server name, How PiCode reaches it, Sign-in (with the token field
+  and a sign-in hint inline) and Environment variables or Headers per
+  transport. The More/Less toggle and the phantom empty row are gone; pair
+  rows start empty and are added on demand.
+
 - **Connector catalog tabs.** The Add-connector card gains internal tabs: a
   fixed **Catalog** tab (a **Custom** card opening the server form, plus the
   cataloged services) and one tab per agent CLI whose configuration contains

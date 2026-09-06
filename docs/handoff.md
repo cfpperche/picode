@@ -211,6 +211,14 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Custom connector dialog redesign (branch).** Labeled groups
+  replace the More/Less toggle: Server name, How PiCode reaches it, Sign-in
+  (token inline, sign-in hint) and Environment variables/Headers per transport.
+  Pair rows start empty and grow on demand; phantom empty row removed on both
+  apps. `make ci` passed. Isolated-daemon E2E: URL variant groups, OAuth hint,
+  Command variant with env pair added a real server; desktop/mobile screenshots
+  read, audits ok. visual-review: PASS (`custom-dialog-*.png`).
+
 - **2026-09-05 — Worktree-scoped asset previews fixed and deployed
   (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and
   workspace git reads skipped it, so uncommitted panels showed "Can't load

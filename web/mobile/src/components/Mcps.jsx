@@ -479,64 +479,63 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
             <Dialog.Content className="dlg integration-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
               <Dialog.Title className="dlg-title">Add custom connector</Dialog.Title>
               <Dialog.Description className="dlg-body">Name the server and choose how PiCode reaches it.</Dialog.Description>
-              <form className="mcp-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
-                <div className="mcp-form-row" data-align-row>
-                  <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" aria-label="Server name" disabled={!!job} />
-                  <div className="pkg-scope" role="radiogroup" aria-label="How it connects">
-                    <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio", auth: "", token: "" })}>Command</button>
-                    <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
+              <form className="mcp-form integration-form" noValidate onSubmit={(e) => { e.preventDefault(); addServer({}); }}>
+                <label>Server name
+                  <input className="dlg-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="my-connector" aria-label="Server name" disabled={!!job} autoComplete="off" />
+                </label>
+                <div className="mcp-field-group">
+                  <span className="mcp-group-label">How PiCode reaches it</span>
+                  <div className="mcp-form-row" data-align-row>
+                    <div className="pkg-scope" role="radiogroup" aria-label="Transport">
+                      <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "stdio"} onClick={() => setForm({ ...form, kind: "stdio", auth: "", token: "" })}>Command</button>
+                      <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.kind === "url"} onClick={() => setForm({ ...form, kind: "url" })}>URL</button>
+                    </div>
+                    {form.kind === "stdio" ? (
+                      <>
+                        <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="Command" aria-label="Command" disabled={!!job} autoComplete="off" />
+                        <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="Arguments" aria-label="Arguments" disabled={!!job} autoComplete="off" />
+                      </>
+                    ) : (
+                      <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://" aria-label="Server URL" disabled={!!job} autoComplete="off" />
+                    )}
                   </div>
                 </div>
-                <div className="mcp-form-row" data-align-row>
-                  {form.kind === "stdio" ? (
-                    <>
-                      <input className="dlg-input" value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="Command" aria-label="Command" disabled={!!job} />
-                      <input className="dlg-input" value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} placeholder="Arguments" aria-label="Arguments" disabled={!!job} />
-                    </>
-                  ) : (
-                    <input className="dlg-input" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://" aria-label="Server URL" disabled={!!job} />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-ghost mcp-more"
-                  aria-expanded={form.more}
-                  disabled={!!job}
-                  onClick={() => setForm({ ...form, more: !form.more, pairs: form.pairs.length ? form.pairs : [{ key: "", value: "" }] })}
-                >{form.more ? "Less" : "More"}</button>
-                {form.more ? (
-                  <div className="mcp-extra">
-                    {form.kind === "url" ? (
-                      <div className="mcp-form-row" data-align-row>
-                        <div className="pkg-scope" role="radiogroup" aria-label="Sign-in">
-                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === ""} onClick={() => setForm({ ...form, auth: "", token: "" })}>None</button>
-                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "oauth"} title="Opens the server's sign-in page" onClick={() => setForm({ ...form, auth: "oauth", token: "" })}>Sign in</button>
-                          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "bearer"} onClick={() => setForm({ ...form, auth: "bearer" })}>Token</button>
-                        </div>
-                        {form.auth === "bearer" ? (
-                          <input
-                            className="dlg-input"
-                            type="password"
-                            autoComplete="off"
-                            value={form.token}
-                            onChange={(e) => setForm({ ...form, token: e.target.value })}
-                            placeholder="Token"
-                            aria-label="Token"
-                            disabled={!!job}
-                          />
-                        ) : null}
+                {form.kind === "url" ? (
+                  <>
+                    <div className="mcp-field-group">
+                      <span className="mcp-group-label">Sign-in</span>
+                      <div className="pkg-scope" role="radiogroup" aria-label="Sign-in">
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === ""} onClick={() => setForm({ ...form, auth: "", token: "" })}>None</button>
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "oauth"} onClick={() => setForm({ ...form, auth: "oauth", token: "" })}>Sign in</button>
+                        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={form.auth === "bearer"} onClick={() => setForm({ ...form, auth: "bearer" })}>Token</button>
                       </div>
-                    ) : null}
-                    <PairList
-                      kind={form.kind}
-                      pairs={form.pairs}
-                      disabled={!!job}
-                      onChange={(pairs) => setForm({ ...form, pairs })}
-                    />
+                      {form.auth === "bearer" ? (
+                        <input
+                          className="dlg-input"
+                          type="password"
+                          autoComplete="off"
+                          value={form.token}
+                          onChange={(e) => setForm({ ...form, token: e.target.value })}
+                          placeholder="Token"
+                          aria-label="Token"
+                          disabled={!!job}
+                        />
+                      ) : null}
+                      {form.auth === "oauth" ? <p className="pkg-fine">The agent opens the server's sign-in page on first use.</p> : null}
+                    </div>
+                    <div className="mcp-field-group">
+                      <span className="mcp-group-label">Headers</span>
+                      <PairList kind="url" pairs={form.pairs} disabled={!!job} onChange={(pairs) => setForm({ ...form, pairs })} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="mcp-field-group">
+                    <span className="mcp-group-label">Environment variables</span>
+                    <PairList kind="stdio" pairs={form.pairs} disabled={!!job} onChange={(pairs) => setForm({ ...form, pairs })} />
                   </div>
-                ) : null}
-                {formError ? <p className="form-error">{formError}</p> : null}
-                <div className="dlg-actions">
+                )}
+                {formError ? <p className="form-error" role="alert">{formError}</p> : null}
+                <div className="dlg-actions" data-align-row>
                   <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => setCustomOpen(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={!!job || !form.name.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentWorkPath)}>Add connector</button>
                 </div>
@@ -579,18 +578,18 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
 }
 
 function emptyForm() {
-  return { name: "", kind: "url", command: "", args: "", url: "", auth: "", token: "", pairs: [], more: false };
+  return { name: "", kind: "url", command: "", args: "", url: "", auth: "", token: "", pairs: [] };
 }
 
 function PairList({ kind, pairs, disabled, onChange }) {
-  const rows = pairs.length ? pairs : [{ key: "", value: "" }];
+  const rows = pairs;
   const keyLabel = kind === "stdio" ? "Variable" : "Header";
   function setRow(i, patch) {
     onChange(rows.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   }
   function remove(i) {
     const next = rows.filter((_, idx) => idx !== i);
-    onChange(next.length ? next : [{ key: "", value: "" }]);
+    onChange(next);
   }
   return (
     <div className="mcp-pairs">
