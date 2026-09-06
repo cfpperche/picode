@@ -211,7 +211,7 @@ stay on their own routes.
 | *(no route)* | Inspector rail | the right-hand Changes/Files rail beside the center (ADR-0078). Per-viewer state (`picode-inspector-open`, `-w`, `-tab`), like `termView` and the sidebar width; it follows the selected tab's owner and opens content as `#/file/…` tabs. |
 | `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
-| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches. Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
+| `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches; `#/clis/sessions` (machine-wide) and `#/clis/sessions/<workspaceId>` (one folder) are the session housekeeping views (ADR-0079 — the old top-level `#/sessions*` addresses redirect here). Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
@@ -613,7 +613,7 @@ HTTP API (Go 1.22 method patterns):
   ADR-0039 — this view's job is to show everything), each with
   size/age/messages/cost and `inUseBy` (the agent whose current session
   it is); `cleanupDays` and `totalBytes` ride along. `DELETE` on the same
-  path removes one orphan (in-use → 409). Powers the `#/sessions/<id>`
+  path removes one orphan (in-use → 409). Powers the `#/clis/sessions/<id>`
   view (sidebar folder icon): Open with… reuses the resume endpoint,
   Compact reuses the agent compact.
 - `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
@@ -626,7 +626,7 @@ HTTP API (Go 1.22 method patterns):
 - `GET/DELETE /api/sessions/all` — machine-wide view (`session.ListAll`):
   every Pi session on the machine, each tagged with the workspace owning
   its folder; delete validates against the sessions root. Powers the
-  `#/sessions` All-folders view.
+  `#/clis/sessions` All-folders view (ADR-0079).
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent
   (idempotent); 409 on a workspace with no agents, like every
   workspace-scoped call that needs one (sessions, status)

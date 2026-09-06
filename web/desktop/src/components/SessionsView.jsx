@@ -72,10 +72,10 @@ function SessionRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
   );
 }
 
-// Two scopes, one view: a workspace folder (#/sessions/<id>) or every Pi
-// session on this machine (#/sessions), grouped by folder. Orphan = not the
-// current session of any agent; only orphans can be deleted.
-export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent }) {
+// Two scopes, one view (ADR-0079): a workspace folder (#/clis/sessions/<id>)
+// or every Pi session on this machine (#/clis/sessions), grouped by folder.
+// Orphan = not the current session of any agent; only orphans can be deleted.
+export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [openPick, setOpenPick] = useState(null); // { session, resumeWsId }
@@ -187,12 +187,12 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   const total = data ? data.totalBytes : 0;
 
   return (
-    <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} wide>
+    <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} wide embedded={embedded}>
       <div className="sessions-toolbar" data-align-row>
-        <span className="sessions-total">{all ? "All folders · " : ""}{sessions.length} {sessions.length === 1 ? "session" : "sessions"} · {fmtBytes(total)} on disk</span>
+        <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{sessions.length} {sessions.length === 1 ? "session" : "sessions"} · {fmtBytes(total)} on disk</span>
         <div className="sessions-actions" data-align-row>
           {!all ? (
-            <a className="sessions-scope-link" href="#/sessions" title="Every Pi session on this machine, grouped by folder">All folders →</a>
+            <a className="sessions-scope-link" href="#/clis/sessions" title="Every Pi session on this machine, grouped by folder">All folders →</a>
           ) : null}
           <label className="sessions-cleanup" title="Orphan sessions (not the current session of any agent) are deleted after this many days.">
             Auto-clean orphans

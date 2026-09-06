@@ -80,8 +80,7 @@ import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
 import { anchorFor, readInspectorPrefs, writeInspectorPrefs } from "./lib/inspector.js";
-import { sessionsHash, sessionsRoute } from "./lib/routes.js";
-import SessionsView from "./components/SessionsView.jsx";
+import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
 import WhatsNew from "./components/WhatsNew.jsx";
@@ -2214,8 +2213,6 @@ export default function App() {
   }
 
   const onPane = route !== "workspace";
-  const sessionsWsId = route === "sessions" ? sessionsRoute() : null;
-  const sessionsWs = sessionsWsId ? workspaces.find((w) => w.id === sessionsWsId) : null;
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
@@ -2628,23 +2625,13 @@ export default function App() {
         </div>
 
         <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
-        <AgentClis hidden={route !== "clis"} />
+        <AgentClis hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
-        {route === "sessions" ? (
-          <SessionsView
-            wsId={sessionsWsId}
-            workspace={sessionsWs}
-            agents={(sessionsWs && sessionsWs.agents) || []}
-            workspaces={workspaces}
-            onOpenAgent={(id) => revealAgent(id)}
-            onCompactAgent={compactAgentById}
-          />
-        ) : null}
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}

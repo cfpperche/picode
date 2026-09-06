@@ -26,7 +26,7 @@ export default function TopSessions({ items }) {
               type="button"
               className="top-session-row"
               title={(s.name ? s.name + " · " : "") + s.cwd + " · " + s.messages.toLocaleString() + " msgs · " + absTime(s.lastAt)}
-              onClick={() => { location.hash = s.workspaceId ? sessionsHash(s.workspaceId) : "#/sessions"; }}
+              onClick={() => { location.hash = sessionsHash(s.workspaceId); }}
             >
               <span className="top-session-name">{name}</span>
               <span className="top-session-where">{sub}</span>
