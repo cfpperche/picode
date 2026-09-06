@@ -123,3 +123,47 @@ real-keyboard Tab reaching the button with the accent focus ring, the
 the pane, and dark theme — all confirmed on desktop, and the mobile
 sub-line format on `/mobile/`. `overlayAudit` clean, no console errors.
 No server or domain change; `checklistRows`/`checklistLine` untouched.
+
+## Addendum: chevron gutter (2026-09-06, owner-reported, same day)
+
+Deployed within hours of the alignment addendum above, the owner sent a
+screenshot: the `›` chevron still read as offset from the title/subtitle,
+even though `getBoundingClientRect()` on the deployed page proved the
+chevron's own *box* landed on the exact same 31px column as the title
+(58px in both cases, measured live). The mismatch was never the box — it
+was the icon. A rendered SVG glyph's visible ink is typically inset from
+its own bounding box (stroke width, internal padding in the path itself);
+plain text's ink sits much closer to its box edge. Two elements can share
+a left coordinate down to the pixel and still look offset to a careful
+eye, because the eye compares ink, not boxes.
+
+The fix moves the chevron *out* of the 31px column into a dedicated
+gutter immediately before it — the same convention a file tree uses for
+its disclosure triangle: the triangle is a small leading mark in its own
+slot, and every label lines up in one column regardless of the triangle's
+own artwork. Concretely: `.ws-check-disclosure`'s left margin dropped from
+31px to 10px (freeing a 21px gutter — the chevron's 16px box plus the
+button's 5px gap), and the expanded list's `<ul>` padding-left dropped
+from 18px to 0 with the per-step gap widened from 6px to 7px, so a step's
+glyph sits in that same gutter and its *text* lands on 31px too. The
+chevron and step glyphs now visually anchor to the identity mark above
+them, and the checklist line's and every step's actual reading text sits
+on the identical column as the title, subtitle and folder/branch line —
+proven this time by comparing `checkText`/`stepText` to `title`
+(`getBoundingClientRect().left`), not by comparing the chevron's box.
+
+Verified on an isolated scratch daemon built from the exact commit
+production was running (`08e9ee62`, before an unrelated same-day favicon
+resize landed on `main`) so the identity-mark geometry matched what the
+owner's screenshot showed: title, checklist text and step text all at
+58px; the chevron and step glyphs sit at ~37–39px, inside the gutter.
+`make ci` green (docs-shots regenerated for app-fleet/app-inspector).
+
+Note for whoever next touches `.ws-identity-mark`: that same-day favicon
+change shrank the identity mark from 24px to 16px width, which — checked
+in passing, not fixed here, out of this fix's scope — will put `.ws-context`
+(the folder/branch line, unchanged since ADR-0055) 8px off the title once
+it reaches production, by the same box-vs-text-column arithmetic this
+addendum just walked through. Left for that feature's own session; a
+`fix/runtime-favicon-alignment` worktree already existed at the time of
+this note, which may already own it.
