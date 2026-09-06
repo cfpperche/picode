@@ -6,6 +6,7 @@
 package clisession
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -55,6 +56,34 @@ func Sources() map[string]Source {
 func Get(cli string) (Source, bool) {
 	s, ok := Sources()[cli]
 	return s, ok
+}
+
+// Latest returns the most recently updated session of one CLI in one
+// folder, or nil when the CLI has none there. Sessions last written before
+// notBefore never win — pass a run's start time so a terminal can't pin
+// another terminal's conversation in a shared folder (ADR-0084); the zero
+// time accepts any.
+func Latest(cliID, cwd string, notBefore time.Time) (*Summary, error) {
+	src, ok := Get(cliID)
+	if !ok {
+		return nil, fmt.Errorf("Unknown CLI.")
+	}
+	list, err := src.List(cwd)
+	if err != nil {
+		return nil, err
+	}
+	sortNewest(list)
+	for i := range list {
+		s := &list[i]
+		if !notBefore.IsZero() {
+			at, err := time.Parse(time.RFC3339, s.UpdatedAt)
+			if err != nil || at.Before(notBefore) {
+				continue
+			}
+		}
+		return s, nil
+	}
+	return nil, nil
 }
 
 // sortNewest orders summaries by UpdatedAt, newest first, and is the

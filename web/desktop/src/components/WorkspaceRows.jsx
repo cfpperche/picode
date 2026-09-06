@@ -1,12 +1,13 @@
+import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { checklistLine } from "@picode/shared/domain/checklist.js";
+import { checklistLine, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 
@@ -111,7 +112,7 @@ export function AgentRow({
   const title = model ? label + " — " + model : label;
   const repo = repoLine(ag, ws);
   const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
-  const check = checklistLine(checklists && checklists[ag.id]);
+  const check = checklists && checklists[ag.id];
   const waiting = ag.waiting || ag.id === waitingId;
   const working = !waiting && (ag.streaming || ag.id === workingId || (workingIds || []).includes(ag.id));
   const status = waiting ? "needs-you" : working ? "working" : mode === "interactive" ? "interactive" : mode === "stopped" ? "stopped" : "ready";
@@ -150,8 +151,8 @@ export function AgentRow({
           </RowMenu>
         ) : null}
       </div>
+      <ChecklistDisclosure id={ag.id} check={check} />
       <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />
-      {check ? <ChecklistLine line={check} /> : null}
       {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
     </li>
   );
@@ -160,6 +161,8 @@ export function AgentRow({
 // Terminal rows use the same identity → activity → location rhythm as agent
 // rows. `tui` is authoritative when present; legacy top-level cli/state is
 // still rendered so older sessions degrade visibly rather than disappearing.
+// A pi running inside the terminal (Agent CLIs, ADR-0069) publishes its
+// checklist like a managed agent, so the card carries the same plan line.
 export function TermRow({
   term: t,
   selectedId, onSelectTerm,
@@ -170,6 +173,7 @@ export function TermRow({
   const line = termLine(t);
   const cli = terminalCli(t);
   const cliLabel = cli ? terminalCliLabel(cli) : "Terminal";
+  const check = t.checklist;
   const selected = selectedId === "t:" + t.id;
   const select = () => onSelectTerm && onSelectTerm(t.id);
   return (
@@ -194,24 +198,77 @@ export function TermRow({
           </RowMenu>
         ) : null}
       </div>
+      <ChecklistDisclosure id={t.id} check={check} />
       <ContextLine line={line} ownerKind="term" ownerId={t.id} ownerLabel={t.name || "Terminal"} onFileTree={onFileTree} onGitGraph={onGitGraph} />
     </li>
   );
 }
 
 // The agent's internal checklist as one operator line (ADR-0055): the
-// current step with its position, or a discrete "No checklist" when the
-// contract was not met. Nothing known → nothing shown.
+// current step with its position. Nothing known, and an absent marker (the
+// contract was not met), both render nothing — silence is not absence and
+// absence is not worth a line (ADR-0082, owner refinement). No parens
+// around the counter — this is a list row, not a terminal (owner refinement,
+// docs/plans/sidebar-checklist-expand.md).
 export function ChecklistLine({ line }) {
-  if (!line) return null;
-  if (line.kind === "absent") {
-    return <div className="ws-check absent" title="The task required a checklist and none was written"><span className="ws-check-text">No checklist</span></div>;
-  }
-  const pos = "(" + line.position + "/" + line.total + ")";
+  if (!line || line.kind === "absent") return null;
+  const pos = line.position + "/" + line.total;
   return (
-    <div className="ws-check" title={pos + " " + line.text}>
-      <span className="ws-check-pos">{pos}</span>
+    <div className="ws-check" title={pos + " · " + line.text}>
       <span className="ws-check-text">{line.text}</span>
+      <span className="ws-check-pos">{pos}</span>
+    </div>
+  );
+}
+
+// The same plan as a disclosure (docs/plans/sidebar-checklist-expand.md):
+// collapsed it is the operator line; expanded it lists every step — ☑ on
+// finished ones, the braille spinner on the step being executed, ☐ on the
+// rest. The items are already in client state and arrive live over the
+// feed, so opening costs no fetch and updates render in place. Absent and
+// unknown checklists render nothing (ADR-0082) — there is nothing to open.
+//
+// Layout matches ContextLine below it: same 31px text column, no parens
+// around the counter, counter reads as a fixed column at the row's end
+// (Linear/GitHub sub-issue idiom) instead of a prefix. A finished plan
+// (position === total and every item completed) dims to the same weight as
+// a completed step, so it stops reading as an open task.
+export function ChecklistDisclosure({ id, check }) {
+  const [open, setOpen] = useState(false);
+  const line = checklistLine(check);
+  if (!line) return null;
+  const listId = "chk-" + id;
+  const pos = line.position + "/" + line.total;
+  const items = (check && check.items) || [];
+  const done = line.position === line.total && items.length > 0 && countDone(items) === items.length;
+  return (
+    <div className="ws-check-disclosure">
+      <button
+        type="button"
+        className={"ws-check-line" + (done ? " is-done" : "")}
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-label={"Plan, step " + pos + ": " + line.text}
+        title={pos + " · " + line.text}
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}
+      >
+        <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight /></span>
+        <span className="ws-check-text">{line.text}</span>
+        <span className="ws-check-pos">{pos}</span>
+      </button>
+      <div id={listId} className={"ws-check-list" + (open ? " open" : "")} aria-hidden={!open}>
+        <ul>
+          {checklistRows(check.items).map((row) => (
+            <li key={row.key} className={row.status + (row.current ? " current" : "")}>
+              <span className="ws-check-step-glyph" aria-hidden="true">
+                {row.current ? <PiSpinner title="In progress" /> : row.glyph}
+              </span>
+              <span className="ws-check-step-text" title={row.text}>{row.text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

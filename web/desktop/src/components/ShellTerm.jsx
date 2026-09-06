@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { terms, parkTerm, closeTerm } from "../lib/terms.js";
 import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
 import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
+import { matchGlobalAction } from "../lib/appKeys.js";
 import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks } from "@picode/shared/domain/termLinks.js";
 import { wireTermClipboard } from "@picode/shared/domain/termClipboard.js";
@@ -67,7 +68,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
     wireTermWheel(term, sendBytes);
-    wireTermKeys(term, sendBytes);
+    wireTermKeys(term, sendBytes, matchGlobalAction);
     wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);

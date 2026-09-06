@@ -424,6 +424,27 @@ Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
 
+### llama.cpp manager (ADR-0080)
+
+`#/llama/models` and `#/llama/server` own model operations and connection
+settings on desktop and mobile. Providers links to this surface; legacy
+`#/providers/llama` and the desktop `/llama` command reach it. URL and
+optional key still live in Pi auth.json; an empty key preserves the saved key.
+`GET /api/llama` adds a safe `connection` code/message distinguishing ready,
+authentication, timeout, unreachable, unsupported and server errors.
+Model operations now return HTTP 202 with a durable job (ADR-0083). SQLite
+migration 030 stores request identity, observations, per-file progress and
+revision-guarded transitions. `internal/llamajob` reserves models/endpoints,
+coalesces router SSE with bounded polling fallback, and reconciles restart
+outcomes without replaying mutations. Unknown results retain reservations.
+Connection fingerprints stay outside public JSON; credentials are not stored
+in jobs. Cancel is available for downloads on the verified b10809 build family.
+`#/llama/activity` follows `llama.job` feed events and refreshes on reconnect;
+its history survives navigation. Service ownership remains delivery 4 in
+[the plan](plans/llama-manager.md).
+Hugging Face GGUF metadata also exposes file size and a conservative runtime
+memory estimate with contextual guidance; missing size data remains unknown.
+
 ## Component diagram
 
 ```
@@ -873,8 +894,14 @@ drop events. Emitter limits and integration acceptance remain required.
 
 The built-in renderer is tool-agnostic; capture emission must be explicitly
 enabled in a package loaded by the agent, globally or at workspace/agent scope.
-The installed browser package does not yet emit this shape. Its real emitter,
-the panel and streaming are tracked in the [delivery plan](plans/browser-preview.md).
+Emission is moving to `packages/pi-browser-capture`, a standalone sidecar
+extension (ADR-0082): it mirrors bounded frames to
+`<pi-session-file>.capture/` during `agent_browser` calls and persists the
+final frame as a session entry, instead of patching pi-agent-browser-native.
+Real-RPC proof, the daemon capture-directory bridge and live/replay UI
+rendering (desktop + mobile) all passed against an unpatched 0.6.6 checkout.
+The superseded in-package patch and the panel are tracked in the
+[delivery plan](plans/browser-preview.md).
 Pi owns raw session persistence; host validation cannot remove pixels already
 written there or bound the raw RPC input before decoding.
 

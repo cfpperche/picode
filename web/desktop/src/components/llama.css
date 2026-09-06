@@ -1,0 +1,60 @@
+/* Independent app surface; colors and control sizing use shared tokens. */
+.llama-nav { display:flex; gap:8px; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:16px; }
+.llama-nav a { padding:8px 12px; border-radius:6px; color:var(--text-secondary); text-decoration:none; }
+.llama-nav a.active, .llama-nav a:hover { color:var(--text-primary); background:var(--bg-hover); }
+.llama-status { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+.llama-status button { margin-left:auto; }
+.llama-dot { width:8px; height:8px; border-radius:50%; background:var(--text-secondary); flex-shrink:0; }
+.llama-dot.ready { background:var(--ok); }
+.llama-dot.checking { animation:llama-pulse 1s ease-in-out infinite alternate; }
+.llama-form { max-width:600px; display:grid; gap:12px; }
+.llama-form label { display:grid; gap:8px; }
+.llama-form input { width:100%; min-width:0; height:var(--ctl-h); padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-base); color:var(--text-primary); }
+.llama-actions, .llama-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.llama-actions .btn { height:var(--ctl-h); }
+.llama-empty { padding:12px 0; }
+.llama-empty p { margin-bottom:12px; }
+.llama-toolbar { margin-bottom:12px; }
+.llama-model-name { min-width:0; flex:1; overflow-wrap:anywhere; }
+.llama-model-name small { display:block; color:var(--text-secondary); margin-top:4px; }
+.llama-models .prov-row { gap:12px; }
+.llama-guidance { flex-basis: 100%; margin: -4px 0 8px; padding-left: 0; }
+.llama-working { border-left:3px solid var(--accent); padding:8px 12px; animation:llama-pulse 1s ease-in-out infinite alternate; overflow-wrap:anywhere; }
+.llama-skeleton div { height:36px; background:var(--border); margin:8px 0; border-radius:6px; animation:llama-pulse 1s ease-in-out infinite alternate; }
+@keyframes llama-pulse { from { opacity:.5; } to { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .llama-working, .llama-skeleton div, .llama-dot.checking { animation:none; } }
+
+.llama-actions { justify-content:flex-start; }
+.llama-form .settings-desc { margin:0; }
+.llama-nav a, .llama-models .prov-row { transition:background var(--motion-fast); }
+
+.llama-state { display:flex; align-items:center; gap:8px; flex:1 1 240px; min-width:0; }
+
+.llama-activity-link { margin: 12px 0; }
+.llama-jobs { list-style: none; padding: 0; margin: 0; }
+.llama-job { padding: 14px 0; border-bottom: 1px solid var(--border); animation: llama-enter 160ms ease-out; transition: background var(--motion-fast); }
+.llama-job-heading { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; }
+.llama-job-heading strong { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.llama-job-heading > span { flex-shrink: 0; color: var(--text-secondary); font-size: 12px; }
+.llama-job[data-state="succeeded"] .llama-job-heading > span { color: var(--ok); }
+.llama-job p { color: var(--text-secondary); margin: 6px 0; }
+.llama-job-meta { display: block; margin: 8px 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.llama-job progress { width: 100%; height: 6px; accent-color: var(--accent); display: block; margin: 8px 0; }
+.llama-file { margin: 12px 0; }
+.llama-file > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+.llama-file span { overflow-wrap: anywhere; min-width: 0; }
+.llama-file small { color: var(--text-secondary); }
+.llama-job .btn, .llama-toolbar .btn { min-height: var(--ctl-h); }
+@keyframes llama-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) { .llama-job-heading { flex-wrap: wrap; gap: 4px; } }
+@media (prefers-reduced-motion: reduce) { .llama-job { animation: none; } }
+
+.llama-toolbar h3 { margin: 0; min-height: var(--ctl-h); display: flex; align-items: center; }
+
+.llama-job progress { appearance: none; border: 0; background: var(--border); border-radius: 3px; overflow: hidden; }
+.llama-job progress::-webkit-progress-bar { background: transparent; }
+.llama-job progress::-webkit-progress-value { background: var(--accent); transition: width 160ms ease; }
+.llama-job progress::-moz-progress-bar { background: var(--accent); }
+.llama-job[data-state="running"] progress:indeterminate, .llama-job[data-state="queued"] progress:indeterminate { background: linear-gradient(90deg, transparent, var(--accent), transparent) 0 / 40% 100% no-repeat, var(--border); animation: llama-progress 1.5s ease-in-out infinite alternate; }
+@keyframes llama-progress { to { background-position: 100% 0; } }
+@media (prefers-reduced-motion: reduce) { .llama-job progress:indeterminate { animation: none; } }

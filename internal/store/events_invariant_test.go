@@ -38,6 +38,15 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.SetTerminalLaunchAttempt(tm.ID, clilaunch.Attempt{Error: "failed"})
 		}, []string{"terminal.launch"}},
+		{"SetTerminalLastSession", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "cli", proj)
+			_ = s.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{})
+			s.OnEvent = recorder(s)
+			ls := TerminalLastSession{CLI: "claude-code", SessionID: "s1", UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+			_ = s.SetTerminalLastSession(tm.ID, ls)
+			// Same session+updatedAt pins again without a second event.
+			_ = s.SetTerminalLastSession(tm.ID, ls)
+		}, []string{"terminal.last_session"}},
 		{"SetCLIConfig", func(s *Store) { _ = s.SetCLIConfig("codex", clilaunch.Config{}) }, []string{"cli.updated"}},
 		{"AddWebhook", func(s *Store) {
 			s.OnEvent = recorder(s)
@@ -128,6 +137,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.ClearChecklist(a.ID)
 		}, []string{"agent.checklist"}},
+		{"SetTerminalChecklist", func(s *Store) {
+			tm, _ := s.CreateTerminalIn("", "t", proj)
+			s.OnEvent = recorder(s)
+			_, _ = s.SetTerminalChecklist(tm.ID, "s1", []ChecklistItem{{Text: "x", Status: "pending"}}, false)
+		}, []string{"terminal.checklist"}},
 		{"CreateTerminal", func(s *Store) { _, _ = s.CreateTerminalIn("", "t", proj) }, []string{"terminal.created"}},
 		{"RenameTerminal", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "t", proj)
@@ -281,6 +295,13 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.RequestDockerReview(p.ID)
 		}, []string{"inbox.created", "docker.plan"}},
+		{"BeginLlamaJob", func(s *Store) { _, _, _ = s.BeginLlamaJob(testLlamaJob("request", "model")) }, []string{"llama.job"}},
+		{"UpdateLlamaJob", func(s *Store) {
+			j, _, _ := s.BeginLlamaJob(testLlamaJob("request", "model"))
+			s.OnEvent = recorder(s)
+			j.State = "succeeded"
+			_, _ = s.UpdateLlamaJob(j)
+		}, []string{"llama.job"}},
 		{"BeginDockerJob", func(s *Store) { _, _, _ = s.BeginDockerJob(testDockerJob("request-job", "plan", "a")) }, []string{"docker.job"}},
 		{"UpdateDockerJob", func(s *Store) {
 			j, _, _ := s.BeginDockerJob(testDockerJob("request-job", "plan", "a"))

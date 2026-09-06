@@ -7,7 +7,7 @@ import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { go } from "../lib/routes.js";
-import LlamaPanel from "./LlamaPanel.jsx";
+
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -57,7 +57,7 @@ function AccountName({ provider, acc, onSaved }) {
   );
 }
 
-export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd, wantLlama }) {
+export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
   const list = catalog && catalog.providers ? catalog.providers : [];
   const signed = list.filter((p) => p.signedIn);
   const [add, setAdd] = useState(false);
@@ -111,16 +111,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
     openAdd();
   }, [hidden, wantAdd]);
 
-  useEffect(() => {
-    if (hidden || !wantLlama) return;
-    const p = list.find((x) => x.id === "llama.cpp");
-    if (p && !p.signedIn) {
-      chooseProvider(p);
-      setAdd(true);
-      return;
-    }
-    requestAnimationFrame(() => document.getElementById("llama-panel")?.scrollIntoView({ block: "start" }));
-  }, [hidden, wantLlama]);
+
 
   useEffect(() => {
     setRecents(rememberProviders(signed.map((p) => p.id)));
@@ -393,6 +384,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                   <div className="prov-row prov-head">
                     <ProviderFace id={p.id} />
                     <span className="prov-id">{p.id}</span>
+                    {p.id === "llama.cpp" ? <a className="btn btn-ghost btn-sm" href="#/llama/models">Manage</a> : null}
                     {money ? <span className="prov-spend" title="What your sessions spent on this provider in the last 7 days">{money} · 7d</span> : null}
                     {envVar ? null : (
                       <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
@@ -413,9 +405,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                             ) : (
                               <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
                             )}
-                            <span className={"prov-auth" + (a.active && !a.paused ? " in" : "")}>
+                            <span className={"prov-auth" + (a.active && !a.paused && p.id !== "llama.cpp" ? " in" : "")}>
                               {envVar ? "environment" : a.type === "oauth" ? "account" : "api key"}
-                              {a.paused ? " · paused" : a.active ? " · active" : ""}
+                              {a.paused ? " · paused" : a.active ? (p.id === "llama.cpp" ? " · configured" : " · active") : ""}
                             </span>
                             {verdict ? (
                               <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
@@ -476,7 +468,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
           </ul>
         )}
       </section>
-      {signed.some((p) => p.id === "llama.cpp") ? <LlamaPanel onRefresh={onRefresh} /> : null}
+      {!signed.some((p) => p.id === "llama.cpp") ? <div className="prov-row"><span className="prov-id">llama.cpp models and connection</span><a className="btn btn-ghost btn-sm" href="#/llama/server">Set up llama.cpp</a></div> : null}
       {recentRows.length ? (
         <section className="settings-section">
           <div className="set-row">

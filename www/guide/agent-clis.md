@@ -1,9 +1,10 @@
 # Agent CLIs
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
-phone. It manages terminals for your installed Pi, Claude Code, Codex and Grok
-commands. Managed agents, structured chat, packages and automations still use
-Pi; a CLI terminal is not a new type of managed agent.
+phone. It manages terminals — and lists each CLI's session history — for
+your installed Pi, Claude Code, Codex and Grok commands. Managed agents,
+structured chat, packages and automations still use Pi; a CLI terminal is
+not a new type of managed agent.
 
 ## Open a terminal
 
@@ -55,6 +56,19 @@ this is configuration storage,
 not a credential vault. Prefer the native CLI's authentication mechanism.
 Native model, permission and session settings are not part of this preview.
 
+## Find a session
+
+The **Sessions** tab lists the sessions each CLI left on disk, grouped by
+folder. Pick the CLI in the toolbar and search by name, preview or folder.
+**Open in terminal** starts that CLI again in the session's folder; the
+exact arguments come from the CLI itself (for example `claude --resume`).
+
+Pi sessions add management actions: **Open with…** moves one of the
+folder's agents to that session, **Compact** summarizes its older turns,
+**Delete** removes the file, and **Auto-clean orphans** removes abandoned
+sessions after the chosen number of days. Sessions are read from disk,
+deleting is permanent, and sessions in use by an agent refuse deletion.
+
 ## Reuse launch profiles
 
 Expand **Launch profiles** for a CLI, then select **New profile**. Name it,
@@ -88,6 +102,7 @@ means unverified, even when a CLI process is present.
 |---|---|
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
+| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |
@@ -99,6 +114,36 @@ Preparation failure leaves the old process intact. A later process-start
 failure is still possible; the terminal retains its settings and last failed
 attempt so you can repair and retry. Removing a workspace also removes the
 private launch files for its terminals, without removing native CLI data.
+
+### Resume after a restart or crash (ADR-0084)
+
+While a CLI runs, PiCode pins the conversation it is writing (the newest
+session of that CLI in the terminal's folder, refreshed as the CLI
+reports activity). When a deploy, crash or daemon restart ends the
+terminal, its surface offers **Resume last session** — the CLI comes back
+in the same conversation. The pin records what was running, so the button
+shows the recovered work even after the process is gone. Nothing resumes
+automatically: a plain Start still opens a fresh conversation. Terminals
+stopped before this feature shipped have no pin; their conversations stay
+reachable in the Sessions tab via "Open in terminal".
+
+When the terminal died in a daemon restart (not a CLI exit), the surface
+says so: "PiCode restarted while this terminal was running." (ADR-0085:
+the daemon records its live sessions at shutdown and diffs them at boot.)
+
+### Flight recorder (ADR-0085)
+
+PiCode keeps forensics under the data dir's `var/` folder:
+
+- `shutdown-snapshot.json` — the tmux sessions alive when the daemon
+  exited gracefully (root process id, root command, folder).
+- `restart-report-*.json` — the boot verdict for each restart: which of
+  those sessions survived, which did not. Last 10 kept.
+- `deploy-log.jsonl` — one line per deploy: time, binary version, the
+  terminal it ran from, and the folder.
+
+If sessions ever vanish around a restart, these three files answer when,
+what and who without any forensics archaeology.
 
 The **Terminals** tab includes configured CLI terminals and ordinary terminals
 where a supported CLI is observed. Launch identity, live CLI presence and

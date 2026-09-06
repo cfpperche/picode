@@ -73,6 +73,21 @@ test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
   assert.equal(applyFleet(s, { type: "terminal.state", data: {} }), s);
 });
 
+test("fleet: terminal.checklist (the plan of the pi inside the terminal, ADR-0055)", () => {
+  let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
+  s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [{ text: "explore", status: "completed" }, { text: "edit", status: "in-progress" }], updatedAt: "2026-09-06T10:00:00Z" } });
+  assert.deepEqual(s.terminals[0].checklist, { items: [{ text: "explore", status: "completed" }, { text: "edit", status: "in-progress" }], absent: false, updatedAt: "2026-09-06T10:00:00Z" });
+  // An absent marker is a row of its own (renders as silence, ADR-0082).
+  s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [], absent: true } });
+  assert.deepEqual(s.terminals[0].checklist, { items: [], absent: true, updatedAt: undefined });
+  // The reset/cleared empty state is silence: the line goes away.
+  s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [] } });
+  assert.equal(s.terminals[0].checklist, undefined);
+  // Unknown terminals and shapeless events stay untouched.
+  assert.equal(applyFleet(s, { type: "terminal.checklist", data: { termId: "zz", items: [{ text: "x" }] } }), s);
+  assert.equal(applyFleet(s, { type: "terminal.checklist", data: {} }), s);
+});
+
 test("fleet: terminal lifecycle clears stale presence; launch defaults invalidate", () => {
   const state = { workspaces: [], freeAgents: [], terminals: [{ id: "t", running: true, cli: "pi", tui: { runId: "old" }, state: "working" }] };
   const stopped = { id: "t", running: false, launchCli: "pi" };

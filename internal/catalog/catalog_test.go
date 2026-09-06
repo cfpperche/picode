@@ -144,3 +144,16 @@ func TestRemoveAuthKeepsOtherKeys(t *testing.T) {
 		t.Fatal("openai dropped")
 	}
 }
+
+func TestPutLlamaPreservesKeyOnURLChange(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := PutLlama("http://127.0.0.1:8080", "secret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := PutLlama("http://127.0.0.1:8081", ""); err != nil {
+		t.Fatal(err)
+	}
+	if LlamaKey() != "secret" || LlamaURL() != "http://127.0.0.1:8081" {
+		t.Fatal("credential or URL lost")
+	}
+}

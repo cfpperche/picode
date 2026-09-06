@@ -1,0 +1,238 @@
+{
+  "checks": [
+    "desktop: activity empty/progress, navigation and reload without mutation replay, cancel once, unknown reconciliation, refresh failure preserves history, unsupported cancellation and light theme",
+    "mobile: activity empty/progress, navigation and reload without mutation replay, cancel once, unknown reconciliation, refresh failure preserves history, unsupported cancellation and light theme"
+  ],
+  "screenshots": [
+    "llama-desktop-activity-empty.png",
+    "llama-desktop-activity-progress.png",
+    "llama-desktop-activity-cancel.png",
+    "llama-desktop-activity-unknown.png",
+    "llama-desktop-activity-error.png",
+    "llama-desktop-activity-light.png",
+    "llama-mobile-activity-empty.png",
+    "llama-mobile-activity-progress.png",
+    "llama-mobile-activity-cancel.png",
+    "llama-mobile-activity-unknown.png",
+    "llama-mobile-activity-error.png",
+    "llama-mobile-activity-light.png"
+  ],
+  "audits": [
+    {
+      "file": "llama-desktop-activity-empty.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-activity-progress.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-activity-cancel.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-activity-unknown.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-activity-error.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-desktop-activity-light.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-empty.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-progress.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-cancel.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-unknown.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-error.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-mobile-activity-light.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    }
+  ]
+}

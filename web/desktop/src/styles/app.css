@@ -15,15 +15,37 @@
 @media (prefers-reduced-motion: reduce) { .app-operation, .app-operation::before, .app-block-busy .app-sect::before, .app-row-busy .app-row-title::before { animation: none; } }
 * {
   box-sizing: border-box; margin: 0;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
 }
 html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
 }
-/* Compact overlay scrollbar — VS Code / Cursor / Linear.
-   Windows Chromium otherwise paints 17px + arrows. No JS. */
+/* Scrollbars: two engines, one look — VS Code / Cursor / Linear compact
+   bars. Chromium and Safari draw the 8px ::-webkit-scrollbar rules below;
+   Firefox tints its standard thin bar with the standard properties. The
+   two must never mix: Chromium ≥ 121 ignores the pseudo-elements on any
+   box whose scrollbar-width or scrollbar-color is not `auto` and paints
+   its standard thin bar with Windows arrow buttons instead (that is what
+   put arrows under the editor tabs, 2026-09-06). So every standard
+   property lives inside this block, and nothing else in the app sets
+   scrollbar-color; `scrollbar-width: none` is the one exception that
+   works the same everywhere. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+  .side-section {
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color .18s ease;
+  }
+  #sidebar:hover .side-section, #sidebar:focus-within .side-section {
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+  @media (max-width: 700px) {
+    .conversation.with-rail { scrollbar-width: thin; }
+  }
+}
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
 *::-webkit-scrollbar-thumb {
@@ -35,17 +57,9 @@ html, body {
 }
 *::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
 /* Sidebar scrollbar hides until the sidebar is hovered or focused —
-   the rail stays invisible at rest (Linear/VS Code). `scrollbar-width:
-   thin` (inherited above) keeps reserving its gutter, so the reveal is
-   a pure thumb fade with no reflow. The ::-webkit-scrollbar-thumb
-   fallback covers engines where the standard property is ignored. */
-.side-section {
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color .18s ease;
-}
-#sidebar:hover .side-section, #sidebar:focus-within .side-section {
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-}
+   the rail stays invisible at rest (Linear/VS Code). The gutter stays
+   reserved, so the reveal is a pure thumb fade with no reflow. Firefox's
+   scrollbar-color half of this lives in the @supports block above. */
 .side-section::-webkit-scrollbar-thumb {
   background: transparent;
   transition: background .18s ease;
@@ -934,8 +948,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-chev.open { transform: rotate(90deg); }
 .ws-faces { display: flex; align-items: center; flex: none; }
+/* Agent/terminal faces match the workspace favicon: same 16px box, same
+   3px radius, natural image shape (never forced circular). The white
+   plate + ring below only dress the letter/glyph fallbacks for contrast
+   on the dark sidebar; image faces strip both where they render full
+   bleed (identity marks, tabs). */
 .ws-face {
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 16px; height: 16px; border-radius: 3px;
   border: 1.5px solid var(--bg-panel); background: #fff;
   margin-left: -6px; object-fit: contain; padding: 1px;
   display: grid; place-items: center;
@@ -970,18 +989,18 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .ws-identity-mark {
-  position: relative; width: 24px; height: 24px; display: grid; place-items: center;
+  position: relative; width: 16px; height: 16px; display: grid; place-items: center;
   align-self: flex-start; flex: none; color: var(--text-secondary);
 }
-.ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
-/* Runtime favicons fill the same 22px slot as agent faces, but without the
+.ws-identity-mark > .ws-face { margin: 0; }
+/* Runtime favicons fill the same 16px slot as agent faces, but without the
    white plate and ring — those read as a chip around sparse marks (Claude). */
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
 /* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
-   plus 1px padding shrank the agent art to ~18px beside a full 22px terminal
-   mark. The white plate stays — dark currentColor marks need it on the dark
+   plus 1px padding shrank the agent art below the workspace favicon's 16px.
+   The white plate stays — dark currentColor marks need it on the dark
    sidebar, and it is invisible on light chrome. */
 .ws-identity-mark img.ws-face { border: 0; padding: 0; }
 .ws-activity-dot {
@@ -1035,7 +1054,13 @@ img.ws-face.term-cli-face {
 .ws-row-menu-item svg { flex: none; color: currentColor; }
 .ws-context {
   display: flex; align-items: center; gap: 5px; min-width: 0;
-  margin: 3px 31px 0 31px; overflow: hidden;
+  /* Left inset = identity-mark (16px) + row-hit gap (7px), so this line
+     starts under the title above it. Was 31px against a 24px identity
+     mark; the runtime-favicon resize (2026-09-06) shrank the mark to
+     16px without updating this constant, so every row's folder/branch
+     line drifted 8px right of its own title — caught while chasing a
+     related checklist-line alignment report the same day. */
+  margin: 3px 31px 0 23px; overflow: hidden;
 }
 .ws-context-btn {
   display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
@@ -1052,13 +1077,13 @@ img.ws-face.term-cli-face {
   background: var(--bg-hover); color: var(--warn); text-align: center;
   font-size: 10px; line-height: 14px;
 }
-.ws-meta { display: block; margin: 2px 31px 0; font-size: 10px; color: var(--text-secondary); }
+.ws-meta { display: block; margin: 2px 23px 0; font-size: 10px; color: var(--text-secondary); }
 .term-cli-badge {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  width: 22px; height: 22px; flex: none; box-sizing: border-box;
-  border: 1px solid var(--border-strong); border-radius: 6px;
+  width: 16px; height: 16px; flex: none; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 3px;
   background: var(--bg-base); color: var(--text-primary);
-  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: 8px; font-weight: 700; line-height: 1;
 }
 .term-cli-badge.is-shell { color: var(--text-secondary); }
 .term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
@@ -1068,11 +1093,11 @@ img.ws-face.term-cli-face {
 /* Loaded favicons skip the chip (see TerminalCliBadge). Keep this after the
    cli-* color rules so they cannot restore a border on .has-favicon. */
 .term-cli-badge.has-favicon {
-  width: auto; height: 22px; padding: 0;
+  width: auto; height: 16px; padding: 0;
   border: 0; background: transparent; border-radius: 0;
 }
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
-.term-cli-favicon { width: 22px; height: 22px; display: block; object-fit: contain; }
+.term-cli-favicon { width: 16px; height: 16px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
 /* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
@@ -1391,17 +1416,56 @@ img.ws-face.term-cli-face {
   display: flex; align-items: stretch; padding: 0; overflow-x: auto; flex: 1; min-width: 0;
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
-     bar stole 10px of the 40px chrome (and Chromium ignores the app's
-     ::-webkit-scrollbar rules under the global `scrollbar-width: thin`,
-     so Windows painted its arrow buttons). The active tab is revealed by
-     code instead (AgentTabs, lib/tabStrip.js); phase 2 of
-     docs/benchmarks/2026-09-06-tab-strip-overflow.md adds the cues. */
+     bar stole 10px of the 40px chrome. The active tab is revealed by code
+     instead (AgentTabs, lib/tabStrip.js); the cues around the strip are
+     phases 2–3 of docs/benchmarks/2026-09-06-tab-strip-overflow.md. */
   scrollbar-width: none;
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
 }
 .tab-strip::-webkit-scrollbar { display: none; width: 0; height: 0; }
 @media (prefers-reduced-motion: reduce) { .tab-strip { scroll-behavior: auto; } }
+/* Overflow chrome (phase 2). The scroller wrapper positions the indicator
+   over the strip without living inside the scroll box. Edge fades sit on
+   whichever side still has tabs (Firefox's overflow indicators, Chromium's
+   "Fade" option); arrows flank the strip only while it overflows. */
+.tab-scroller { position: relative; display: flex; flex: 1; min-width: 0; }
+.tab-strip[data-at-start="false"] { mask-image: linear-gradient(to right, transparent, #000 28px); }
+.tab-strip[data-at-end="false"] { mask-image: linear-gradient(to left, transparent, #000 28px); }
+.tab-strip[data-at-start="false"][data-at-end="false"] {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+.tab-arrow {
+  flex: none; width: 26px; padding: 0; border: 0; border-right: 1px solid var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-panel); color: var(--text-secondary); cursor: pointer;
+}
+.tab-arrow.right { border-right: 0; border-left: 1px solid var(--border); }
+.tab-arrow:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
+.tab-arrow:disabled { opacity: .35; cursor: default; }
+.tab-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Phase 3: keyboard and the "All tabs" list. Tabs are a WAI-ARIA tablist
+   (roving tabindex, arrows / Home / End; Alt+[ and Alt+] from anywhere).
+   An arrow wears the needs-you dot when a hidden tab beyond it wants the
+   user — the one thing none of the benchmarks surface. */
+.tab-arrow { position: relative; }
+.tab-arrow-dot { position: absolute; top: 6px; right: 4px; width: 6px; height: 6px; }
+.tab-list-trigger { border-right: 0; border-left: 1px solid var(--border); }
+.mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab-list { width: 300px; }
+.tab-list-item .mtab-term { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; }
+.tab-list-item .mtab-dot { flex: none; }
+.tab-list-item[aria-current="true"] .um-name { color: var(--accent); }
+/* The indicator rides the strip's top edge: the bottom edge belongs to
+   the active tab's accent underline, which the bar used to cover. */
+.tab-indicator {
+  position: absolute; top: 0; height: 3px; border-radius: 0 0 2px 2px;
+  background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+  pointer-events: none; opacity: 0;
+  transition: opacity 800ms linear;
+}
+.tab-scroller:hover .tab-indicator, .tab-scroller[data-scrolling] .tab-indicator { opacity: 1; transition: opacity 100ms linear; }
+@media (prefers-reduced-motion: reduce) { .tab-indicator { transition: none; } }
 .session-bar {
   display: flex; align-items: center; gap: 6px; flex: none;
   position: relative;
@@ -1443,11 +1507,19 @@ img.ws-face.term-cli-face {
 .session-rename { font-size: 11px; color: var(--accent); cursor: pointer; }
 .mtab {
   display: flex; align-items: center; gap: 6px;
+  /* Never shrink: the strip scrolls (Firefox, VS Code), tabs do not
+     collapse toward their favicons (Chrome). Needed explicitly now that
+     the label's overflow:hidden lets flex treat its min-width as 0. */
+  flex: none;
   padding: 0 8px; font-size: 12.5px;
   border-right: 1px solid var(--border);
   cursor: grab; color: var(--text-secondary); white-space: nowrap;
   user-select: none;
 }
+/* Phase 4: one long name cannot swallow the strip (Chrome caps a tab at
+   232 dip, VS Code's fixed sizing at 160 px). The tooltip carries the
+   full name or path. */
+.mtab-label { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtab:hover { color: var(--text-primary); background: var(--bg-hover); }
 .mtab.active { color: var(--text-primary); background: var(--bg-base); box-shadow: inset 0 -2px 0 var(--accent); }
 .mtab.dragging { opacity: .45; cursor: grabbing; }
@@ -1457,15 +1529,13 @@ img.ws-face.term-cli-face {
 .mtab-dot.running { background: var(--ok); }
 /* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
 .mtab-dot.attn { background: var(--accent); }
+/* Tab faces wear the workspace favicon's 16px box — same size as the
+   sidebar — with no overlap margin and no ring/padding on images. */
 .mtab-term .term-cli-badge {
-  width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
+  border: 0; background: none; font-size: 8px;
 }
-.mtab-term .ws-face { width: 16px; height: 16px; margin: 0; }
-/* Tab provider faces match the terminal mark's optical size: full-bleed
-   art (no ring, no padding) at the 18px box the boxed badge already uses.
-   The white plate from .ws-face stays — it is invisible on light chrome
-   and keeps currentColor marks from vanishing on the dark tab strip. */
-.mtab-term img.ws-face { width: 18px; height: 18px; border: 0; padding: 0; }
+.mtab-term .ws-face { margin: 0; }
+.mtab-term img.ws-face { border: 0; padding: 0; }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
@@ -1568,6 +1638,12 @@ img.ws-face.term-cli-face {
 }
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
+/* The plan line above the pane (ADR-0055, terminals). The sidebar's
+   .ws-check carries a 31px margin to align under the identity mark there;
+   the pane strip has no such column, so it resets to flush width. */
+.term-check { flex: none; padding: 2px 8px 6px; }
+.term-check .ws-check { margin-left: 0; margin-right: 0; }
+:root[data-term-theme="light"] .term-check .ws-check { color: var(--text-secondary); }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 /* Same header UI as the file tree's .ft-head — one look across surfaces. */
 .file-pane-bar {
@@ -1826,7 +1902,7 @@ img.ws-face.term-cli-face {
 .rail-pop-text { font-size: 12px; line-height: 1.4; color: var(--text-primary); }
 @media (max-width: 700px) {
   .conv-rail { display: none; }
-  .conversation.with-rail { scrollbar-width: thin; scrollbar-gutter: stable; }
+  .conversation.with-rail { scrollbar-width: auto; scrollbar-gutter: stable; }
   .conversation.with-rail::-webkit-scrollbar { width: 8px; height: auto; }
 }
 .conv-col {
@@ -2518,11 +2594,55 @@ img.ws-face.term-cli-face {
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
-/* The agent's checklist as one operator line (ADR-0055). */
-.ws-check { display: flex; align-items: baseline; gap: 5px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
-.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; color: var(--accent); }
-.ws-check-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-check.absent .ws-check-text { color: var(--warn, #d29922); font-style: italic; }
+/* The agent's checklist as one operator line (ADR-0055). Same left text
+   column as .ws-context below it (owner refinement,
+   docs/plans/sidebar-checklist-expand.md) — no more flush-left padding
+   that put it out of the card's grid. 23px = identity-mark (16px) + the
+   row-hit gap (7px); kept as one constant with .ws-context, both updated
+   together when the runtime-favicon resize was caught (see there). The
+   counter is a fixed column at the row's end, not a prefix (Linear/GitHub
+   sub-issue idiom): the step text is flex:1 with an ellipsis, so the
+   counter always lands at the right edge instead of trailing ragged text. */
+.ws-check { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 3px 31px 0 23px; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+/* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
+   a real button; opening reveals every step — ☑ dimmed, the braille spinner
+   on the one being executed, ☐ pending. Live over the feed, no fetch. The
+   chevron reuses .ws-chev (the workspace group header's own disclosure
+   affordance) so the same rotate-on-open language reads across the sidebar.
+   The chevron sits in its own gutter *before* the text column instead of
+   sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
+   touches its box edge the way the title's plain text does, so aligning the
+   chevron's box to the column still reads as offset from the title above
+   it. The gutter is exactly the chevron's box (16px, --tree-chev) plus the
+   button's gap (5px) = 21px, so the *text* — not the icon — lands on the
+   same 23px column as the title, folder and branch lines (23 − 21 = 2px
+   left margin here), whatever the icon's own inset is. */
+.ws-check-disclosure { margin: 3px 31px 0 2px; min-width: 0; }
+button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
+button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
+button.ws-check-line:hover .ws-chev, button.ws-check-line:focus-visible .ws-chev { color: var(--text-primary); }
+button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+/* A finished plan (n/n, every step completed) drops to the same weight as a
+   completed step in the expanded list — it stops reading as live activity. */
+button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-check-pos { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
+.ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
+.ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
+/* Step glyphs (☑ ◐ ☐) start in the same gutter as the collapsed line's
+   chevron (padding-left: 0, the container is already inset by the gutter);
+   the 7px li gap plus the 14px glyph width match the chevron's own 21px
+   gutter, so step text lands on the same column as the chevron line's
+   text above it. */
+.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.ws-check-list li { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
+.ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
+.ws-check-step-glyph { flex: none; width: 14px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
+.ws-check-list li.current .ws-check-step-glyph .pi-spin { width: 14px; height: auto; font-size: 11px; }
+.ws-check-step-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (prefers-reduced-motion: reduce) { .ws-check-list { transition: none; } }
 /* The checklist card in the chat. */
 .tool-pill.checklist .tp-name { color: var(--accent); }
 .tp-checklist { padding: 6px 10px; font-family: inherit; font-size: 12.5px; }
@@ -2786,9 +2906,6 @@ img.ws-face.term-cli-face {
 /* Vaul extends the backdrop below the drawer for overshoot. Our sheets
    scroll their own content, so that extension creates empty scroll space. */
 .dlg.dlg-sheet::after { display: none; }
-@supports selector(::-webkit-scrollbar) {
-  .dlg.dlg-sheet { scrollbar-width: auto; scrollbar-color: auto; }
-}
 .dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
 .dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }
 .dlg.dlg-sheet input, .dlg.dlg-sheet select, .dlg.dlg-sheet textarea { font-size: 16px; }
@@ -4478,7 +4595,7 @@ img.ws-face.term-cli-face {
   border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
 }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
-.insp-face .ws-face { width: 18px; height: 18px; margin: 0; }
+.insp-face .ws-face { margin: 0; }
 .insp-face img.ws-face { border: 0; padding: 0; }
 .insp-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
 .insp-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; flex: none; }

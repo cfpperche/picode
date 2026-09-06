@@ -61,23 +61,46 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
 3. **Vertical wheel scrolls the strip** with the dominant-axis rule, only
    when the strip overflows, `preventDefault` only when it moved, no
    remap when `deltaX` is already present or `ctrlKey` (pinch) is set;
-   `overscroll-behavior-x: contain` (Firefox, VS Code, Ant).
+   `overscroll-behavior-x: contain` (Firefox, VS Code, Ant). Successive
+   ticks accumulate on a pending target so a smooth scroll in flight
+   does not swallow the distance asked for; the target is forgotten once
+   `scrollLeft` has been still for three frames — exact in every engine,
+   where `scrollend` is Chromium/Firefox only. Shipped in phase 2.
 4. **Edge cue + arrows while overflowing.** A fade mask at whichever edge
    still has content and `‹ ›` buttons at the strip ends, always visible
    while overflowing and disabled at the ends (Firefox, MUI, NN/g).
-   One `ResizeObserver` + scroll listener sets `data-overflow`,
-   `data-at-start`, `data-at-end`; CSS does the rest.
-5. **Thin overlay position indicator** (3 px, bottom edge, `pointer-events:
-   none`, appears on hover/scroll, fades after 500 ms) so the NN/g
-   "scrollbar means more content" signal survives without VS Code's
-   spurious-click problem.
-6. **"All tabs" list** (`▾` in `.main-tabs-end`, shown only while
-   overflowing) listing every tab with its face, name and status dot,
-   the hidden ones first (JetBrains, Sublime, Firefox, VS Code).
-7. **Keyboard:** next/previous tab on a combo the browser does not
-   reserve, plus `role=tablist` / `role=tab` with arrow-key roving focus.
-8. **Label cap:** `max-width` with ellipsis on the label so one long name
-   cannot swallow the strip (Chrome 232 dip, VS Code fixed max 160).
+   One `ResizeObserver` (strip + tabs) and a scroll listener feed
+   `data-at-start` / `data-at-end` on the strip; CSS does the rest
+   (`lib/useTabStrip.js`). Shipped in phase 2 with item 3.
+5. **Thin overlay position indicator** (3 px, `pointer-events: none`,
+   appears on hover/scroll, fades after 500 ms) so the NN/g "scrollbar
+   means more content" signal survives without VS Code's spurious-click
+   problem. Shipped in phase 2 at the bottom edge; moved to the top edge in
+   the debts pass because the bottom belongs to the active tab's accent
+   underline (VS Code lives with the overlap; its active tab is marked at
+   the top).
+6. **"All tabs" list** (a list button after the right arrow, shown only
+   while overflowing) listing every tab with its face, name and status
+   dot, the hidden ones first under "Out of view" (JetBrains, Sublime,
+   Firefox, VS Code). Radix DropdownMenu, `hiddenTabs` in `lib/tabStrip.js`.
+   Shipped in phase 3.
+7. **Keyboard:** `Alt+[` / `Alt+]` for previous / next tab (owner decision;
+   Ctrl+Tab, Ctrl+PgUp/PgDn and Ctrl+W are browser-reserved), rebindable
+   in the app-keys catalog, plus `role=tablist` / `role=tab` with
+   **manual activation** — arrows / Home / End move focus, Enter or Space
+   selects (MUI default, Radix `manual`). Automatic activation was tried
+   and dropped: selecting a terminal tab hands focus to its xterm textarea,
+   so the next arrow would reach the shell. Terminals return every Global
+   app chord to the app (`wireTermKeys` passthrough) — before, `Ctrl+K`
+   opened the palette *and* sent `\x0b`. Shipped in phase 3. The debts
+   pass added closing from the keyboard: `Alt+W` (catalog, `app.tab.close`)
+   and Delete / Backspace on a focused tab, focus moving to the neighbour
+   (ARIA tabs-with-removal).
+8. **Label cap:** `.mtab-label { max-width: 200px }` with ellipsis so one
+   long name cannot swallow the strip (Chrome 232 dip, VS Code fixed max
+   160); the tooltip carries "name — CLI or path". `.mtab { flex: none }`
+   keeps tabs from shrinking once the label may overflow — the strip
+   scrolls, tabs never collapse toward their favicon. Shipped in phase 4.
 
 ## Where PiCode improves on them
 
@@ -86,7 +109,7 @@ Receipts: VS Code [multiEditorTabsControl.ts](https://github.com/microsoft/vscod
 | VS Code: 3 px hover-only bar is the only cue and is draggable | Indicator is non-interactive; the arrows and the list carry the clicks |
 | Firefox: arrows appear with a jump when overflow starts | Arrows and fades reserve no width when hidden (`.main-tabs-end` already exists at the right; a matching left slot only mounts on overflow) |
 | Zed: no cue at all | Fade + arrows + list |
-| Everyone: tab status is invisible once scrolled away | The "All tabs" list keeps the needs-you / working dots, and a needs-you tab that is off screen surfaces the dot on the arrow at its side |
+| Everyone: tab status is invisible once scrolled away | The "All tabs" list keeps the needs-you / working dots, and a needs-you tab that is off screen surfaces the dot on the arrow at its side (verified on the docs fixture with a real `needs-you` terminal state) |
 
 ## What PiCode refuses (v1)
 
@@ -99,4 +122,6 @@ arrows, touch inertia beyond native scrolling, mobile (no strip there).
 
 This study backs the tab-strip change; the implementation cites it in the
 changelog entry. The global `* { scrollbar-width: thin }` collision with
-`::-webkit-scrollbar` is a separate follow-up.
+`::-webkit-scrollbar` that the first measurement exposed was fixed in the
+debts pass: the standard properties now live under
+`@supports not selector(::-webkit-scrollbar)` in both apps.

@@ -25,9 +25,11 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
+	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -41,10 +43,11 @@ import (
 
 // Deps carries the server's collaborators (injected for testability).
 type Deps struct {
-	Store    *store.Store
-	Tmux     *tmux.Manager
-	Runtime  *rpc.Runtime
-	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
+	LlamaJobs *llamajob.Service
+	Store     *store.Store
+	Tmux      *tmux.Manager
+	Runtime   *rpc.Runtime
+	AgentCmd  string // command spawned per workspace ("pi" — ADR-0003)
 
 	// Port management (ADR-0007). BindHost is the configured host;
 	// Rebind signals the main loop to re-read the port setting;
@@ -64,8 +67,12 @@ type Deps struct {
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
-	CLIs         *CLITerminals    // terminal launch settings and operation locks (ADR-0069)
-	Auth         *auth.Service    // request gate (ADR-0049); nil = ungated (tests, dev)
+	// Session forensics (ADR-0085): session names that were alive at the
+	// previous graceful shutdown and did not survive to this boot. Set once
+	// by the daemon before New; nil-safe everywhere.
+	LostSessions map[string]bool
+	CLIs         *CLITerminals // terminal launch settings and operation locks (ADR-0069)
+	Auth         *auth.Service // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -103,17 +110,24 @@ func New(addr string, deps Deps) *http.Server {
 		deps.Replies = newTuiReplies()
 	}
 
+	if deps.Store != nil && deps.LlamaJobs == nil {
+		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() })
+	}
 	registerAll(mux, deps)
 
 	var handler http.Handler = mux
 	if deps.Auth != nil {
 		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
 	}
-	return &http.Server{
+	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	if deps.LlamaJobs != nil {
+		srv.RegisterOnShutdown(deps.LlamaJobs.Close)
+	}
+	return srv
 }
 
 // registerAll wires every route the server serves onto any route
@@ -157,7 +171,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerAgentAskRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
-	registerLlama(mux)
+	registerLlama(mux, deps)
 	registerSnippet(mux, deps)
 	registerPins(mux, deps)
 	registerPinFiles(mux, deps)

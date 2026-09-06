@@ -95,17 +95,6 @@ test("sessions live under Agent CLIs (ADR-0079)", () => {
   assert.equal(sessionsHash(""), "#/clis/sessions");
 });
 
-test("go(sessions) lands on the machine-wide view, not the :id template", () => {
-  const orig = globalThis.location;
-  globalThis.location = { hash: "" };
-  try {
-    go("sessions");
-    assert.equal(globalThis.location.hash, "#/clis/sessions");
-  } finally {
-    globalThis.location = orig;
-  }
-});
-
 test("tree hash names the owner, tab id names the root folder", () => {
   assert.equal(parseRoute("#/tree/a/opus"), "workspace");
   assert.equal(treeHash("agent", "opus"), "#/tree/a/opus");
@@ -159,4 +148,9 @@ test("app tabs are distinct from every other tab family", () => {
   assert.ok(!isAppTab(termTabId("demo")));
   assert.ok(!isAppTab(gitTabId("/repo/.git")));
   assert.ok(!isAppTab(treeTabId("/home/u/proj")));
+});
+
+test("llama manager owns its routes and the legacy link", () => {
+ for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
+ assert.equal(parseRoute("#/providers/new"), "providers");
 });

@@ -5,28 +5,22 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (`50df07f7`, deployed) carries the Inspector
-run-when-idle stage (ADR-0078 stage 2, merged as `2da0ba15`), terminal faces
-styled like agent faces, the tab-strip phase 1
-(no scrollbar under the editor tabs, active tab revealed by code; study
-`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 2–4 under Next
-up), today's
-worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
-rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab,
-the Git actions stage (deployed as `aa9beea4`) and the **run-when-idle**
-stage (PiCode presses Enter behind an advisory interlock, deployed as
-`0.1.0+2da0ba1` — see Recent activity), bounded
-captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
-amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
-worktree-aware Git Graph (0073), independent web apps (0072), Windows task
-reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
-Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
-(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
-No push was made. The capture ADR was renumbered because
-Integrations took 0075; the opt-in native emitter and real end-to-end
-capture acceptance remain pending, so deployment does not enable browser
-capture emission.
+**Repository:** `main` includes two same-day follow-up fixes to the
+checklist compact-view alignment (chevron gutter `a79c576b`, sidebar
+column correction `d64f4623`; merged `1b08aa2a`, deployed `0.1.0+1b08aa2`)
+on top of the identity-favicon refactor (`020804f8`, deployed `f4ea75eb`)
+and the checklist compact-view alignment itself
+(owner refinement, merged `08e9ee62`, deployed `0.1.0+08e9ee6`) on top of
+llama.cpp delivery 2 (ADR-0083), merged as
+`70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
+refinements + expand-on-click disclosure (ADR-0082, merged `e2cdc61f`,
+deployed `0.1.0+1af83f4`). Models, Server and
+Activity work on desktop/mobile. Load, unload and download now create durable
+jobs, show per-file progress and recover observation after reconnect/restart
+without replaying a mutation. Cancellation is enabled only for verified b10809.
+Delivery 1 was deployed as `ac4ff1dd`; delivery 2 is live. Deliveries 3 and 4 remain planned in the
+[four-delivery plan](plans/llama-manager.md). Other sessions' root work is
+preserved; production deployment information below is inherited history.
 
 Managed-stop fix debts (living):
 
@@ -41,56 +35,104 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** HEAD `50df07f7` (terminal faces in
-strips match agent faces, on top of the tab-strip phase 1 tree) via
-`make deploy` from the root checkout; systemd restarted. Verified on
-the live instance: terminal favicons in collapsed strips render in
-exactly the agent-face style — computed parity (white plate, 1px ring,
-1px padding, 18px) across agent and terminal imgs; COGNIXSE wears
-claude + openai, PiCode's strip is uniform with `+5`; screenshot read
-(visual-review: PASS), console clean, overlay audit ok. Nothing was
-typed into a production terminal. Previous deploy `0.1.0+2da0ba1`
-(Inspector run-when-idle, ADR-0078 stage 2) via `make deploy` from the root
-checkout at 11:54:36: health `200`, served bundle `index-W52Xj5hY.js` equal
-to the built index, 10 terminals restored, the new
-`POST /api/terminals/{id}/run` answers 404 for an unknown id, journal clean.
-Live smoke in a Playwright Chromium with `ignoreHTTPSErrors` (agent-browser's
-Chromium does not trust the mkcert CA) on the terminal anchored at
-`~/picode`: the Git menu lists Fetch, Pull, Push, Commit…, Commit and push…
-and the unchecked "Run when no agent is working here"; toggling stores
-`picode-inspector-run=1`, reopening shows it checked, toggled back off;
-overlay audit ok; no Git action clicked, nothing typed into a production
-terminal (visual-review: PASS, both menu states read). Incident: at 11:49
-the service was found `inactive` — terminated at 11:48:46 by another
-session, two seconds before a sidecar instance on `:18097` started from a
-production terminal — and a diagnostics probe `picode --version` from the
-Inspector session fell through to server mode and served the production
-data dir on 8445 for about four minutes until killed (clean shutdown); the
-stage 2 deploy brought the service back. Before that `dcbaa316` (tab strip
-phase 1), then `0.1.0+db12b097` — the sessions-endpoints
-fold (which includes the terminal-faces tree, `fa97e8cf`, and the
-menu-item removal).
-Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
-`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
-deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
-(terminals-only) wore its agent-CLI favicons instead of "— empty";
-**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
-reload persistence verified in-browser; console clean, overlay audit ok.
-Nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the terminal-faces tree and on the stage 2
-tree merged with main `dcbaa316` (Go tests including `TestTerminalRunRefusals`
-and `TestTerminalRunTypesAndSubmits`, frontend suites including
-`collapseFaces.test.js`, both UI builds, embedded binary, docs parity with
-regenerated captures, Vale); the handoff-only merge of `0d346348` re-ran
-`docs-check` and Vale before the fast-forward. Browser acceptance:
-`scripts/qa-inspector.mjs` 16/16 groups on the scripted-gh fixture
-(`docs/screenshots/inspector-qa.json`), commands proven typed and never run
-through `tmux capture-pane -J`, and g16 proving run mode: the busy fallback
-toast names the other terminal, a real commit lands through "Run in
-terminal", then the fixture repo is reset. `inspector-git-*`,
-`inspector-commit-*` and `inspector-run-*` screenshots plus the live menu
-read, overlay/row audits ok. visual-review: PASS. Fixtures and QA browser
-sessions are closed; the feature worktrees and branches are removed.
+**Last application deployment:** `1b08aa2a`, version `0.1.0+1b08aa2`, via
+`make deploy` from the root checkout (two follow-up fixes to the checklist
+compact-view alignment, same day, owner-reported and self-found — no ADR,
+see `docs/plans/sidebar-checklist-expand.md` addendum updates). (1) The
+disclosure chevron's *box* matched the title's column but its rendered
+ink did not (an SVG glyph's ink sits inset from its own bounding box; the
+owner caught it in a screenshot after the first deploy) — the chevron now
+sits in a dedicated gutter before the text column, so the checklist
+line's and every expanded step's actual text lands on the column, not the
+icon. (2) Re-verifying that fix against the *actually deployed* tree (not
+the commit it was first tested on) surfaced that the favicon-refactor
+deploy below had shrunk the identity mark to 16px and updated `ws-meta`'s
+indent (31→23px) but missed `.ws-context` (the folder/branch line) and,
+transitively, the checklist line's own 31px constant — every row's
+folder/branch line was 8px off its title, live, at the time this was
+found. Both `.ws-context` and `.ws-check`/`.ws-check-disclosure` now use
+the same 23px inset. Verified live via `getBoundingClientRect` on real
+production rows (`glm5`, `Pi`): title, checklist text and folder text all
+land on the identical 50px column (not eyeballed). `make ci` green twice
+(docs-shots regenerated for app-fleet/app-inspector each time). Health
+`ok`, systemd active.
+
+Previous deployment: `f4ea75eb`, version `0.1.0+f4ea75e`, via
+`make deploy` from the root checkout (identity-favicon refactor, merged
+from `feat/favicon-refactor` as `020804f8`; worktree and branch removed).
+Agent and terminal identity favicons now wear the workspace favicon's
+treatment — 16px box, 3px radius, natural image shape, no forced circular
+crop — across sidebar identity marks, the collapsed face strip, editor-tab
+faces and terminal CLI badges (boxed fallbacks 22→16px, `ws-meta` indent
+31→23px). `make ci` required a `make docs-shots` refresh (desktop fleet +
+inspector screenshots re-taken, `f4ea75eb`). Verified live: health `ok`,
+systemd active, tab face and six row faces computed 16×16/3px, screenshots
+read (light and dark), `overlayAudit` ok. visual-review: PASS.
+
+Previous deployment: `08e9ee62`, version `0.1.0+08e9ee6`, via
+`make deploy` from the root checkout (checklist compact-view alignment,
+owner refinement — no ADR, see `docs/plans/sidebar-checklist-expand.md`
+addendum). Health `ok`, systemd active. Verified live: the served CSS
+bundle carries the new `.ws-check-line.is-done` rule (absent from the
+previous bundle), and the production sidebar renders real agent rows with
+the fix — `glm5`'s `2/2` and `Pi`'s `8/8` (dimmed, `is-done`) both flush
+right with no parens, aligned under the folder/branch line. Pre-deploy
+browser QA on an isolated scratch daemon (seeded via the checklist API
+for an in-progress plan, a fully-completed plan and a terminal plan)
+covered collapsed alignment, expand/collapse, real-keyboard focus ring,
+the terminal pane strip, and dark theme on desktop, plus the mobile
+sub-line format. `overlayAudit` clean, no console errors. visual-review:
+PASS.
+
+Previous deployment: `1af83f4d`, version `0.1.0+1af83f4`, via
+serialized `make deploy` from the root checkout (checklist refinements +
+expand-on-click disclosure merged, ADR-0082). Health `ok`, systemd active,
+8 terminals survived, `POST /api/terminals/nope/checklist` 404s live. The
+sidebar disclosure is browser-QA'd on an identical bundle (isolated daemon:
+expand, live flip, keyboard); on the live instance a card shows the
+expandable line once its pi publishes (pi-checklist 0.2.0 on the process's
+next start).
+
+Previous deployment: `70edb214` (llama delivery 2 merged
+with the checklists tree) via `make deploy` from the root checkout; systemd
+active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
+six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
+overflow buttons (two arrows + All tabs), `mask-image` fades, indicator
+mounted, `role=tablist`, `Alt+]` cycled the selection, label `max-width`
+200 px, tabs `flex-shrink: 0`; the All tabs menu listed 6 items with the
+"Out of view" group inside the viewport, overlay audit ok, screenshot read
+(visual-review: PASS). The `/api/version` label was again not read from the
+browser session — the bundle is proven by behaviour the previous one lacked.
+Previous deploy `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
+serialized `make deploy` from the validated worktree after fast-forwarding
+main (terminal checklists, ADR-0081). Health `ok`, systemd active. All 9
+pre-deploy terminal IDs survived the restart; `GET /api/terminals` answers
+and `POST /api/terminals/nope/checklist` 404s on the live instance. Terminal
+cards show a checklist line once a terminal pi publishes (pi-checklist 0.2.0
+picks up on the process's next start; existing pi processes keep the old
+extension until restarted).
+
+Previous deployment: `ac4ff1dd`, version `0.1.0+ac4ff1d` (llama.cpp
+delivery 1) — live desktop/mobile old-link navigation, Models/Server pages
+and Test connection passed; four production screenshots read, overlay/
+alignment audits ok and no JavaScript page errors. The configured llama endpoint
+`http://127.0.0.1:8080` times out, as it was unavailable before deployment;
+no llama service was started and no model operation was executed in production.
+Evidence and previous-binary recovery copy: `var/llama-deploy/`.
+
+**Quality:** delivery 2 visual-review PASS: 16 Models/Server captures,
+12 Activity captures, three real-router UI captures and four regenerated
+public screenshots were read; overlay/alignment audits passed. Real b10809
+CPU acceptance used four threads, 8192 context and one model at a time:
+Qwen3-4B load/restart/reconnect produced exactly one load request; unload
+completed; Qwen3-0.6B download recorded 5,297,108/428,970,080 bytes and confirmed
+cancellation. Evidence: `docs/plans/llama-jobs-runtime-qa.json` and
+`docs/screenshots/llama-jobs-{qa,live-ui}.json`. Full `make ci` passed with `GOMAXPROCS=4 GOFLAGS='-p=2 -count=1'`
+(919 JS/package tests, Go tests, formatting/vet, both apps, embedded binary,
+docs parity/build and Vale). Race tests passed for llama, llamajob and store. Test result caching was disabled after a local
+Go cache-path lookup stalled; see the validation plan. Ordinary CI skips the opt-in real-router
+`TestLiveLlamaJobs`; its explicit prerequisites and successful separate run
+are documented in [the validation plan](plans/llama-manager.md#delivery-2-validation-and-limits).
 
 ### Product and platform
 
@@ -176,33 +218,41 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- Tab strip phase 1 is merged and deployed (`dcbaa316`); the worktree and
-  branch are removed. Phase 1
-  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
-  approved by the owner with the 3 px overlay indicator and `Alt+[` /
-  `Alt+]`): the strip hides its layout scrollbar and reveals the active
-  tab by code (`lib/tabStrip.js`). Phases 2–4 (wheel, edge fades, arrows,
-  indicator, all-tabs list, keys, label cap) are listed under Next up.
-- `feat/term-face-style` awaits merge to main and `make deploy`. Follow-up
-  to the terminal face strip: terminal favicons in the collapsed header
-  dropped the full-bleed `term-cli-face` override and render in exactly
-  the agent-face style (same 18px plate, ring, contained art) — agents
-  and terminals read as one visual family. Rows keep the full-bleed
-  identity treatment. Verified by computed-style parity in the strip and
-  screenshots; docs captures regenerated; `make ci` green.
-- `feat/term-collapse-faces` shipped in `0.1.0+fa97e8c`. The collapsed
-  workspace header's face strip includes terminals after
-  managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
-  wired in `Sidebar.jsx`): agent-CLI terminals wear their CLI favicon
-  (vendor marks as fallback), shells the `>_` mark — a terminals-only
-  workspace no longer shows "— empty", which now means truly no agents
-  and no terminals. The docs fixture seeds project terminals and a
-  terminals-only "sandbox" workspace (plus an empty "fresh"), so
-  `make docs-shots` captures photograph the real states. Verified live:
-  COGNIXSE wears claude + openai favicons collapsed.
-- `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
-  running instance predates the fix (see Current state). Mobile keeps no
-  worktree concept in its Changes screen, so nothing to ship there.
+- Checklist refinements + disclosure are **merged and deployed**
+  (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
+  counter `(x/n)` muted, an **absent** checklist rendering as silence
+  everywhere (ADR-0082, owner call; data plane unchanged), and the
+  **expand-on-click disclosure** (`checklistRows` pure + node-tested;
+  `ChecklistDisclosure` on agent and terminal cards — ☑ dimmed, braille
+  `PiSpinner` on the step being executed, ☐ pending; real button with
+  `aria-expanded`, Enter/Escape, never navigates; 150ms grid-rows motion
+  behind reduced-motion; live over the feed, no fetch). Open acceptance:
+  see a live terminal card gain its expandable line once a terminal pi
+  publishes with pi-checklist 0.2.0 (running pi processes pick it up on
+  their next start); light-theme screenshot of the expanded list; mobile
+  expansion (server already embeds `checklist` in terminal views —
+  desktop-first scope).
+
+- llama delivery 2 is complete in `feat/llama-jobs`; integration/deployment
+  remains separate. Keep real validation sequential with four CPU threads
+  and unload models afterwards. Production llama configuration was not changed. Owned QA servers are stopped.
+
+- Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
+  branch removed. The study's adoption list is complete; its debts sit
+  under Next up.
+- Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`). Full stack: publish target fallback
+  (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
+  store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
+  view fold in `liveTermView`, sidebar card line and terminal-pane strip,
+  pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
+  live-update/absent/reset states and reload persistence. Open acceptance:
+  a real pi process publishing through the extension in a live terminal (the
+  POST contract is covered by Go tests; a terminal pi linked to this repo
+  picks the new extension up on its next start — running pi processes keep
+  the old extension until restarted), light-theme screenshot of the strip,
+  mobile TermRow (server embeds `checklist` in terminal views —
+  deliberate desktop-first scope).
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -231,23 +281,27 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
-   owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
-   `data-at-start` / `data-at-end` from one ResizeObserver + scroll
-   listener driving edge fades and `‹ ›` arrows; 3 px non-interactive
-   overlay indicator (hover/scroll, fades after 500 ms); "All tabs" list
-   in `.main-tabs-end` with status dots, hidden tabs first, and a
-   needs-you dot on the arrow of an off-screen tab; `Alt+[` / `Alt+]`
-   plus `role=tablist` arrow-key focus; label `max-width` with ellipsis.
+1. Validate the deployed llama delivery 3 guidance dialog on the live service.
+   Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Extend the deploy guard (glm5's `fix/deploy-guards` work) to log the
+   deployer and warn when CLI terminals are mid-turn (ADR-0084 follow-up).
+
+1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
+   four phases shipped): the indicator covers
+   the active tab's accent underline while shown (VS Code does the same);
+   `scrollend` is the only exact "settled" signal, Safari falls back to a
+   400 ms timer; the needs-you dot on an arrow was verified for CSS
+   placement with an injected dot and by `hiddenTabs` tests, not on a
+   live needs-you tab (none existed during QA); `.mtab-close` inside a
+   `role=tab` is reachable by mouse only (tabIndex −1), close from the
+   keyboard is not offered yet.
    Separate follow-up: the global `* { scrollbar-width: thin }` makes
    Chromium ignore every `::-webkit-scrollbar` rule in the app
    (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
 2. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
-   (`# `/`<` prefixes). Decide whether `/api/sessions/all` and
-   `/api/pi-sessions` become deprecated aliases of the per-CLI endpoint
-   (owner call). Grok sessions are prompt-history summaries — no
+   (`# `/`<` prefixes). Grok sessions are prompt-history summaries — no
    transcripts exist in that format.
 2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
@@ -268,6 +322,39 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    already carries prompts. Merge/rebase/branch switch wait for a picker.
 
 ## Known debts / open questions
+
+- **CLI session death mechanism unproven (ADR-0085 ships the instruments):**
+  deploys ended every picode-managed tmux session on 2026-09-06 while
+  interactive-bash terminals survived; the signal chain was never caught
+  red-handed. The flight recorder (shutdown snapshot + boot diff) and the
+  `trap '' HUP` pane root ship together: the NEXT deploy that kills
+  sessions either stops killing them (SIGHUP proven + fixed) or the boot
+  report pins the loss window with root commands recorded. The deployed
+  resume feature still has no real-incident exercise of its pin/resume
+  path — first deploy done by a human or agent will be that test.
+- **ADR-0084 pin gap at first deploy:** terminals stopped before the feature
+  ships have no pin; the Resume button appears only for sessions run after
+  it deploys. Recoverable today via Sessions → "Open in terminal".
+- **`docs/decisions/` has two 0082 files** (browser-capture-sidecar and
+  absent-checklist-renders-silence) — a numbering collision that merged to
+  main; needs a renumber to keep the ADR index unambiguous.
+- **Sessions (ADR-0079) review debts:** the mobile session picker migrated
+  URLs and is field-compatible with the new shape (code-verified) but has
+  had no mobile visual pass; the `session_deleted` feed event regained
+  workspace attribution in the review pass and is exercised by every delete
+  test though no test asserts the payload itself; Conscious broadening, recorded in architecture.md: the unified delete
+  accepts any orphan under the pi root — the old workspace-scoped route
+  confined deletes to that workspace's dirs; the UI only lists in-scope
+  rows, and the in-use/409 and root/400 guards are unchanged.
+
+
+- llama: CPU real-model and b10809 job acceptance passed; GPU and other
+  server-build cancellation remain unverified. An unknown download with an
+  absent model retains its reservation because absence cannot prove completion;
+  no forced unlock or automatic mutation replay is provided. History retains
+  older SQLite records (UI shows latest 50 plus unresolved jobs); pruning is
+  deferred. Model guidance/readiness is delivery 3; service ownership and cache
+  deletion require delivery 4's follow-up ADR.
 
 - **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or measured
   slow-consumer/cancellation matrix. The hub drops on overflow and caches no
@@ -322,98 +409,99 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Session forensics merged and deployed twice
+  (`0b0fe5c5` 18:34 as `0.1.0+0b0fe5c`, then `4028fcd8` 18:50 as
+  `0.1.0+4028fcd8`).** The second restart exercised the full flight-
+  recorder loop live: `shutdown snapshot recorded 9 session(s)` →
+  `all 9 session(s) … are still alive` + report file. Deploy log (P4)
+  captured the deployer (`termId: pi-04f1b6`, root checkout). The
+  SIGHUP-immune pane roots apply to sessions launched from now on; the
+  next deploy that kills sessions is the mechanism experiment. Deploy
+  log now answers "who deployed" permanently. Pushed to origin.
+- **2026-09-06 — Session forensics shipped (ADR-0085,
+  `feat/session-forensics`).** Flight recorder: graceful shutdowns write
+  `var/shutdown-snapshot.json`; boot diffs it, logs the verdict, keeps
+  `var/restart-report-*.json` (last 10) and badges lost terminals
+  ("PiCode restarted while this terminal was running" above Resume).
+  Launch scripts now `trap '' HUP` (bash-parity; explicit stop escalates
+  to SIGTERM on the pane root so stop still stops — the SIGHUP theory
+  gets tested on the next deploy either way). `picode deploy` appends
+  who/what/where to `var/deploy-log.jsonl`. Decision table + fake-tmux
+  tests, real-tmux SIGHUP survival test with untrapped control. make ci
+  green. visual-review: PASS (lostAtRestart wording on scratch instance).
+- **2026-09-06 — CLI terminal session recovery built (ADR-0084,
+  `feat/cli-resume-recovery`).** Root cause of the two mass-detach
+  incidents (13:41, 14:08): ordinary agent-run `make deploy` restarts (the
+  14:08 one executed by the llama codex itself, reflog `70edb214`,
+  daemon-reload journal line at 14:08:40); every picode-managed tmux
+  session (pane root `/bin/sh`) dies while interactive-bash terminals
+  survive; CLI processes linger headless for minutes (codex wrote its
+  rollout until 14:16:46), masking the breakage. Exact pane-death signal
+  chain still unproven — see debts. Shipped: last-session pinning
+  (runtime end / state reports / stop), `start {resume:true}` with
+  server-verified resume args, "Resume last session" on the stopped
+  surface (desktop+mobile), migration 031, event `terminal.last_session`.
+  Gates green; visual-review PASS (scratch instance 8460, stopped →
+  resume → running, overlayAudit ok). visual-review: PASS.
+- **2026-09-06 — Two follow-up alignment fixes merged and deployed
+  (`1b08aa2a`, `0.1.0+1b08aa2`).** Same day as the compact-view alignment
+  below. (1) Owner sent a screenshot: the disclosure chevron still read as
+  offset from the title even though `getBoundingClientRect()` proved its
+  box matched the title's column — the mismatch was the icon's own ink
+  inset, not the box. Moved the chevron into a dedicated gutter before the
+  text column (file-tree convention), so checklist text — not the icon —
+  lands on the column. (2) Re-verifying that fix against the tree actually
+  in production (not the commit first tested against) surfaced that the
+  same-day identity-favicon deploy had shrunk the identity mark to 16px
+  and updated `ws-meta`'s indent to match, but missed `.ws-context` (the
+  folder/branch line): every row's folder line was already 8px off its
+  title in production. Fixed the same constant in `.ws-context` and the
+  checklist rules (31px → 23px). Verified on real production rows
+  (`glm5`, `Pi`) via measurement, not eyeballing. `make ci` green on both
+  merges (docs-shots regenerated twice). No push.
+- **2026-09-06 — Checklist compact-view alignment merged and deployed
+  (`08e9ee62`, `0.1.0+08e9ee6`).** Owner flagged the `(x/n)` parens and the
+  line's misalignment with the rest of the card while reviewing agent/
+  terminal screenshots. Researched web-UX references (VS Code chat todo
+  list, Cursor Agents window, Linear/GitHub sub-issue counters, PatternFly
+  progress guidance), proposed a refinement, owner approved. No parens
+  anywhere the counter appears; `.ws-check`/`.ws-check-disclosure` share
+  `.ws-context`'s 31px column; counter is a fixed end column, not a
+  prefix; disclosure chevron reuses `.ws-chev`; focus ring matches the
+  row's own `box-shadow` instead of an inset outline; a fully-completed
+  plan dims via a new `is-done` class; plan line moved above folder/
+  branch on agent and terminal cards; mobile sub-line drops its parens.
+  No server/domain change. `make ci` green (docs-shots regenerated for
+  app-fleet/app-inspector). Browser-QA'd pre-deploy on an isolated scratch
+  daemon; deploy verified by the served CSS carrying the new `is-done`
+  rule and by the live sidebar rendering real agent rows correctly. No
+  push (local main now 7 commits ahead of origin).
+- **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
+  commits: everything since the last push — checklists terminal+disclosure,
+  Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,
+  deploy guards and docs). origin/main == local main, no divergence; only
+  tag remains `v0.1.0`.
+- **2026-09-06 — Checklist refinements + disclosure merged and deployed
+  (`e2cdc61f`/`1af83f4d`, `0.1.0+1af83f4`).** Reconciled two mid-flight main
+  moves (llama delivery 2, drop-sessions cleanup); conflicts kept both
+  sides' entries. Deploy verified: health ok, 8 terminals survived,
+  unknown-terminal checklist 404 live. Disclosure interaction was
+  browser-QA'd pre-deploy on an identical bundle. No push.
+- **2026-09-06 — Checklist refinements + disclosure reconciled with llama
+  delivery 2 (branch).** CHANGELOG/ADR-index/handoff conflicts resolved
+  keeping both sides (llama ADR-0083 vs my ADR-0082); captures taken on
+  main's side pending regeneration. Content unchanged from the two prior
+  branch commits: muted counter, absent-silence (ADR-0082), and the
+  expand-on-click disclosure (☑ / braille spinner / ☐), browser-QA'd on an
+  isolated daemon. visual-review: PASS.
 
-- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
-  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
-  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
-  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
-  terminals by CLI state or foreground program via `PaneCommand`, the target
-  pane at a shell; repository identity by git common dir); 409 `moved` /
-  `foreground` / `busy` naming who; the `type` route shares the root and
-  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
-  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
-  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
-  with fallback note and a fresh-terminal retry, dialog reads "Run in
-  terminal". ADR-0078 now states the amendment to the write refusals of
-  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
-  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
-  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
-  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
-  live Git menu read in both checkbox states).
-- **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
-  Measured on the live instance with seven tabs: the strip's classic
-  scrollbar took 10 of 39 px (Windows drew arrow buttons because
-  `scrollbar-width: thin` disables the webkit rules in Chromium ≥ 121),
-  the active tab sat at 1151 px in a 995 px viewport, wheel did nothing.
-  Study written with receipts (VS Code, Zed, JetBrains, Sublime, Firefox,
-  Chrome, MUI, Ant, Radix, Mantine, NN/g). Shipped: `.tab-strip`
-  `scrollbar-width: none` + smooth `scroll-behavior` (reduced-motion
-  aware, `overscroll-behavior-x: contain`), `revealLeft` in
-  `lib/tabStrip.js` (6 tests) applied from a layout effect in
-  `AgentTabs` on selection/open (instant on first paint). Verified on the
-  worktree's Vite build against the live server: gutter 0, tab 39 px,
-  active tab gap 0 on either clipped side. visual-review: PASS
-  (tabs-after.png read; no overlay in this change; card 5/5).
-- **2026-09-06 — Terminal faces match agent faces in collapsed strips.**
-  The strip's terminal favicons kept the row's full-bleed treatment
-  (`term-cli-face`), reading darker and larger than the agent faces
-  beside them. They now render as plain `ws-face` — identical plate,
-  ring and contained art (computed-style parity verified in-browser);
-  rows keep the full-bleed look. Docs captures regenerated; `make ci`
-  green on the branch. visual-review: PASS (face-style-zoom2.png read).
-- **2026-09-05 — Session management API folded into the per-CLI namespace
-  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
-  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
-  removed; desktop and mobile use `GET /api/clis/pi/sessions
-  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
-  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
-  `cleanupDays` on pi rows and — the semantic gap closed — scope by
-  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
-  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
-  the profiles routes), same guards: in-use → 409, outside root → 400.
-  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
-  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
-  workspace scope, delete overlay + file removed, auto-clean persisted,
-  adopt created an agent with the copied session).
-- **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
-  with only terminals (shell / agent CLI) collapsed to "— empty"; the
-  strip now renders terminals after managed agents — CLI favicons
-  (Claude Code, Codex, Grok, Pi) with vendor-mark fallbacks and `>_` for
-  shells, `faceSlice`-capped at 5 (`collapseFaces.test.js`; `TermFace` in
-  `ProviderFaces.jsx`; `Sidebar.collapsedMark(agents, terms)`). Fixture
-  seeds terminals + "sandbox" (terminals-only) and "fresh" (empty)
-  workspaces; docs captures regenerated. In-browser review on the
-  fixture: all four strip states read, expand/collapse cycle and reload
-  persistence ok, console clean, overlay audit ok. visual-review: PASS
-  (collapse-zoom2.png, expand-sandbox.png). `make ci` green on the
-  branch.
-- **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
-  gains `upstream`/`ahead`/`behind`/`detached`
-  (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
-  chip shows `main ↑2 ↓1`, `unpublished` or `detached`; a Git menu in the
-  rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
-  Create pull request in an idle terminal of the folder through the `type`
-  route (`gitActionCommand`, `shellQuote`, `gitActions`, `branchChip`,
-  `commitMessageSchema`; `InspectorCommitDialog.jsx` on ResponsiveDialog with
-  Zod errors and a command preview). The fixture seeds a bare origin one
-  commit behind. `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
-  fixture (`tmux capture-pane -J` proves the commands are typed, never run;
-  `gitstatus` keeps its four changes); `inspector-git-*` and
-  `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
-  Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
-  `index-DAL01ZST.js`, seven terminals survived. No push.
+- **2026-09-06 — Dead `go("sessions")` branch removed.** The user menu was
+  its last caller; the sessions debt note shrinks accordingly (routes.test
+  drops the branch's own test with it).
+- **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
+  jobs, capability detection, file progress, cancellation and recovery with
+  no mutation replay; decision-table tests and isolated real CPU acceptance.
+  visual-review: PASS (35 screenshots read; overlay/alignment audits ok).
+  ADR-0083, public guide, API schema and four-delivery plan updated together.
 
-- **2026-09-06 — Deploy serialization + living-docs guards merged and
-  deployed.** Fast-forwarded after reconciling three interleaved main moves;
-  combined `make ci` passed; deployed `a8a201b` under the new lock (lock
-  proven to block a second holder). Service healthy. No push.
-
-- **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
-  two rounds of parallel-session interference, `make deploy`/`restart` now
-  hold a lock across build+restart (a gate-to-restart race shipped the wrong
-  tree once), and the pre-commit hook refuses commits where a staged
-  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
-  signature of a session writing into the wrong worktree. Selftest grew three
-  cases (15/15); the handoff-update skill starts by verifying the working
-  directory. Root cause of the clobbering (a parallel session's stale cwd)
-  remains behavioral — the guards catch it at commit time.
+Older activity lives in `docs/handoff-archive.md`.

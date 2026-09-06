@@ -3380,6 +3380,93 @@
         ]
       }
     },
+    "/api/llama/jobs": {
+      "get": {
+        "operationId": "getApiLlamaJobs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/jobs/{id}/cancel": {
+      "post": {
+        "operationId": "postApiLlamaJobsCancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/jobs/{id}/reconcile": {
+      "post": {
+        "operationId": "postApiLlamaJobsReconcile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
     "/api/llama/load": {
       "post": {
         "operationId": "postApiLlamaLoad",
@@ -5240,6 +5327,65 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/checklist": {
+      "get": {
+        "operationId": "getApiTerminalsChecklist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      },
+      "post": {
+        "operationId": "postApiTerminalsChecklist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"

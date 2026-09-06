@@ -83,6 +83,51 @@ func TestChecklistLevel(t *testing.T) {
 
 func strptr(s string) *string { return &s }
 
+func TestSetTerminalChecklist(t *testing.T) {
+	s := openTest(t)
+	tm, err := s.CreateTerminalIn(FreeWorkspaceID, "agent cli", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.SetTerminalChecklist(tm.ID, "s1", []ChecklistItem{{Text: "read", Status: "completed"}, {Text: "edit", Status: "in-progress"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	c, err := s.GetTerminalChecklist(tm.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TerminalID != tm.ID || c.SessionID != "s1" || len(c.Items) != 2 || c.Absent {
+		t.Fatalf("set = %+v", c)
+	}
+
+	// An absent marker replaces the list (the shells render "No checklist").
+	if _, err := s.SetTerminalChecklist(tm.ID, "s1", nil, true); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ = s.GetTerminalChecklist(tm.ID); !c.Absent || len(c.Items) != 0 {
+		t.Fatalf("absent = %+v", c)
+	}
+
+	// Unknown terminal → ErrNotFound: the extension can only publish from a
+	// live PiCode terminal, and a removed one must not grow rows back.
+	if _, err := s.SetTerminalChecklist("nope", "s1", []ChecklistItem{{Text: "x"}}, false); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown terminal = %v, want ErrNotFound", err)
+	}
+	// Invalid items are refused before the write.
+	if _, err := s.SetTerminalChecklist(tm.ID, "s1", []ChecklistItem{{Text: "x", Status: "done"}}, false); err == nil {
+		t.Fatal("invalid status accepted")
+	}
+
+	// The row dies with the terminal.
+	if err := s.DeleteTerminal(tm.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetTerminalChecklist(tm.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("get after delete = %v, want ErrNotFound", err)
+	}
+}
+
 func TestSetAndClearChecklist(t *testing.T) {
 	s := openTest(t)
 	a, err := s.AddAgent(FreeWorkspaceID, "planner", "")

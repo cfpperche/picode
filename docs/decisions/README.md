@@ -84,3 +84,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0077](0077-tui-diff-panel.md) | Side diff panel for the pi TUI — an MIT extension drawn as a non-capturing overlay, never bytes into the PTY | accepted |
 | [0078](0078-inspector-rail.md) | An Inspector rail follows the selected tab's owner and opens content in the center; PR through the host's gh; Git actions in the user's shell, run behind an interlock, or asked of a running agent through its prompt channel | accepted, amends the write refusals of 0022/0032/0038/0073 for the rail's Git actions |
 | [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/sessions(/<wsId>)` replaces the top-level route; old links redirect | accepted, extends 0069 |
+| [0080](0080-llama-manager.md) | Dedicated llama.cpp manager and reliable connection results | accepted |
+| [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
+| [0082](0082-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
+| [0083](0083-llama-operation-jobs.md) | Durable model operations, progress, cancellation and reconnect | accepted |

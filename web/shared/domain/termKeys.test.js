@@ -92,3 +92,15 @@ test("termDataFilter converts a stray \\r after an unhandled Shift+Enter (Window
   // Non-Enter data untouched
   assert.equal(termDataFilter("abc"), "abc");
 });
+
+test("passthrough keydowns are neither written nor canceled by xterm", () => {
+  let h = null;
+  const sent = [];
+  wireTermKeys({ attachCustomKeyEventHandler(fn) { h = fn; } }, (b) => sent.push(b), (ev) => ev.altKey && ev.key === "]");
+  let prevented = false;
+  const ev = { type: "keydown", key: "]", altKey: true, preventDefault() { prevented = true; } };
+  assert.equal(h(ev), false);
+  assert.equal(prevented, false);
+  assert.equal(sent.length, 0);
+  assert.equal(h({ type: "keydown", key: "a" }), true);
+});

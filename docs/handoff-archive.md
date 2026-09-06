@@ -3,6 +3,127 @@
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 
+<!-- 2026-09-06: 2026-09-05 blocks moved off handoff.md -->
+
+- **2026-09-05 — User menu drops the Sessions item (ADR-0079).** With
+  sessions a tab of the Agent CLIs surface, the menu keeps one entry per
+  top-level surface; Agent CLIs → Sessions, the workspace folder icon, the
+  dashboard's top sessions and old `#/sessions*` links all still reach the
+  picker. visual-review: PASS (open menu screenshot read, item gone,
+  layout intact).
+- **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079); merged and deployed.**
+  `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
+  (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt
+  history) alongside pi, read-only with defensive parsers (fixtures from
+  real installations, 2026-09). `GET /api/clis/{id}/sessions?cwd=` serves
+  them with server-verified resume args (`claude --resume <id>`, `codex
+  resume <id>` positional, `grok --resume <id>`); the `#/clis/sessions`
+  surface gains a CLI picker (`?cli=`) and search; non-Pi rows offer
+  **Open in terminal** (resume args as launch-arg overrides through the
+  ADR-0069 terminal launch) — no replay, writes or deletes for non-Pi
+  sessions, and a gone-workspace scope errors instead of silently
+  unfiltering. Real-machine smoke: 347 pi / 351 claude / 907 codex / 202
+  grok sessions parsed. visual-review: PASS (claude/codex/grok loaded,
+  grok scoped empty, gone-workspace error, search, open-in-terminal
+  click-through; overlayAudit ok after fixing the preview row height).
+- **2026-09-05 — Imported MCP disable fix merged and deployed.** Reconciled
+  the sessions-under-CLIs and workspace tuiMode commits; combined `make ci`
+  passed; deployed `8470ef5`. Live toggle proven both directions on the real
+  context7 import (adapter loader resolved `disabled: true` after OFF);
+  53/53 panes survived; end state Off as intended. visual-review: PASS.
+  No push.
+
+- **2026-09-05 — Imported MCP disable fix (branch).** The Configured Services
+  toggle for servers PiCode does not own followed the page scope, so an
+  imported host server (e.g. context7 from Claude Code) could not be reliably
+  disabled. Non-owned rows now always toggle the user-layer override stub;
+  re-enabling removes it. Go test covers the OFF→ON stub lifecycle; the
+  adapter's own config loader was verified to resolve `disabled: true` after
+  OFF and the enabled entry after ON. `make ci` passed.
+
+
+- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079); merged and
+  deployed.** Desktop
+  `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as
+  the third tab of the Agent CLIs surface; sidebar icon, dashboard top
+  sessions and user menu emit the new hashes and old deep links redirect.
+  UI-only phase 1: no API change. `make ci` green on the feature tree, on
+  main after the merge (main had moved — reconciled with the Inspector PR
+  tab and connector-dialog commits) and on the final tree; docs captures
+  regenerated twice through the pipeline. Live check after deploy: the real
+  instance renders the tab with 345 real sessions, in-use badges and
+  working redirects. visual-review: PASS (empty, loaded, workspace-scoped,
+  error and Open-with overlay states read; overlayAudit ok).
+- **2026-09-05 — Inspector PR tab (ADR-0078 phase 2).** `internal/server/pr.go`
+  (`GET …/pr` for agents/terminals/workspaces through the host's `gh`, states
+  in 200, minute cache, `?refresh=1`; `POST /api/terminals/{id}/type` literal
+  keystrokes) with Go tests on a scripted `gh` (unauth, none, no remote, ok
+  with folded checks, cache/refresh, missing gh, plain folder, owner routes
+  with root, type refusals); `tmux.TypeText`; `InspectorPR.jsx` +
+  `usePullRequest`; PR label helpers in `lib/inspector.js` (16 node tests).
+  Browser QA on a fixture whose PATH carries a scripted `gh`:
+  `scripts/qa-inspector.mjs` 13/13 groups; `inspector-pr-*` screenshots read,
+  audits ok. visual-review: PASS. ADR-0078 marked accepted with the owner's
+  approval; its Commit section now compares three designs with the benchmarks.
+  Fast-forwarded main (no drift this time) and deployed `9a7691a5`; served
+  bundle `index-BZJ2lZOW.js`, seven terminals survived. No push.
+
+<!-- 2026-09-06: blocks moved off handoff.md (terminal-checklists session) -->
+
+- **2026-09-05 — Custom connector dialog redesign merged and deployed.**
+  Reconciled clean (main had not moved); combined `make ci` passed; deployed
+  `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48
+  panes survived. visual-review: PASS. No connector mutations or push.
+
+- **2026-09-05 — Custom connector dialog redesign (branch).** Labeled groups
+  replace the More/Less toggle: Server name, How PiCode reaches it, Sign-in
+  (token inline, sign-in hint) and Environment variables/Headers per transport.
+  Pair rows start empty and grow on demand; phantom empty row removed on both
+  apps. `make ci` passed. Isolated-daemon E2E: URL variant groups, OAuth hint,
+  Command variant with env pair added a real server; desktop/mobile screenshots
+  read, audits ok. visual-review: PASS (`custom-dialog-*.png`).
+
+
+- **2026-09-05 — Worktree-scoped asset previews fixed and deployed
+  (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and
+  workspace git reads skipped it, so uncommitted panels showed "Can't load
+  this image." for a sibling worktree's untracked screenshots. All four
+  scoped reads (`gitstatus`, `gitdiff`, `git/blob`, `blob`) now narrow by
+  ref for all three owner kinds; decision-table test
+  (`TestWorktreeScopedEndpoints`) added, no UI change needed. Reproduced
+  live pre-fix (404 on `claude-d8c849`'s terminal graph), verified live
+  post-deploy: the same request returns the PNG and the panel renders the
+  previews (screenshots read: desktop-live and mobile-replay both paint).
+  visual-review: PASS. Merged and deployed `07cc806`.
+- **2026-09-05 — Connector catalog tabs merged and deployed.** Reconciled the
+  Inspector rail work and passed combined `make ci`; deployed `075f6cce`. Live
+  catalog tabs render with the real Claude Code host; `context7` shows "Added
+  from Claude Code" and its service row stayed untouched; 44/44 panes
+  survived. visual-review: PASS. No integration mutations or push.
+
+- **2026-09-05 — Connector catalog tabs (branch).** Add-connector card gains
+  a fixed Catalog tab (Custom card opens the former inline form as a dialog)
+  and one tab per scanned agent CLI with found servers; host imports confirm
+  destination and show an Added state; Use-from dialog and inline form retired
+  on desktop and mobile. Domain helper `connectorTabs` unit-tested; `make ci`
+  passed. Isolated-daemon browser E2E: custom add, host import and Added state
+  on both apps; screenshots read, settled audits ok. visual-review: PASS
+  (`connector-tabs-*.png`).
+
+- **2026-09-05 — Inspector rail (ADR-0078).** Study
+  `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
+  and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;
+  `lib/inspector.js` + `lib/resizeEdge.js` (17 node tests); `Inspector.jsx`
+  mounted after `<main>`; file-tab Diff view; fixture seeds a dirty repository;
+  `app-inspector` docs capture. Browser QA on an isolated fixture:
+  `scripts/qa-inspector.mjs` passed 11/11 groups (`docs/screenshots/inspector-qa.json`);
+  11 screenshots read, overlay/row audits ok. visual-review: PASS. Two defects
+  found and fixed in review: the blocked line named the stale cwd (now read live
+  from `…/cwd`), and the Diff view's header row was misaligned outside the
+  folder tab. Merged `9a8e15a7` after three catch-up merges of main
+  (pi-diff, Gmail, managed-stop) and deployed; served bundle
+  `index-DYuuKYrY.js`, seven terminals survived. No push.
+
 ## Inspector/managed-stop deploy prose (condensed during catalog tabs deploy)
 
 **Repository:** the desktop **Inspector rail** (ADR-0078, proposed until the
@@ -2913,3 +3034,279 @@ The existing test cleanup context/lifetime needs review; no test code changed.
   `index-DYuuKYrY.js`, seven terminals survived. No push.
 
 Older activity lives in `docs/handoff-archive.md`.
+
+- **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
+  gains `upstream`/`ahead`/`behind`/`detached`
+  (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
+  chip shows `main ↑2 ↓1`, `unpublished` or `detached`; a Git menu in the
+  rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
+  Create pull request in an idle terminal of the folder through the `type`
+  route (`gitActionCommand`, `shellQuote`, `gitActions`, `branchChip`,
+  `commitMessageSchema`; `InspectorCommitDialog.jsx` on ResponsiveDialog with
+  Zod errors and a command preview). The fixture seeds a bare origin one
+  commit behind. `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
+  fixture (`tmux capture-pane -J` proves the commands are typed, never run;
+  `gitstatus` keeps its four changes); `inspector-git-*` and
+  `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
+  Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
+  `index-DAL01ZST.js`, seven terminals survived. No push.
+- **2026-09-06 — Deploy serialization + living-docs guards merged and
+  deployed.** Fast-forwarded after reconciling three interleaved main moves;
+  combined `make ci` passed; deployed `a8a201b` under the new lock (lock
+  proven to block a second holder). Service healthy. No push.
+
+- **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
+  two rounds of parallel-session interference, `make deploy`/`restart` now
+  hold a lock across build+restart (a gate-to-restart race shipped the wrong
+  tree once), and the pre-commit hook refuses commits where a staged
+  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
+  signature of a session writing into the wrong worktree. Selftest grew three
+  cases (15/15); the handoff-update skill starts by verifying the working
+  directory. Root cause of the clobbering (a parallel session's stale cwd)
+  remains behavioral — the guards catch it at commit time.
+
+
+- **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
+  Measured on the live instance with seven tabs: the strip's classic
+  scrollbar took 10 of 39 px (Windows drew arrow buttons because
+  `scrollbar-width: thin` disables the webkit rules in Chromium ≥ 121),
+  the active tab sat at 1151 px in a 995 px viewport, wheel did nothing.
+  Study written with receipts (VS Code, Zed, JetBrains, Sublime, Firefox,
+  Chrome, MUI, Ant, Radix, Mantine, NN/g). Shipped: `.tab-strip`
+  `scrollbar-width: none` + smooth `scroll-behavior` (reduced-motion
+  aware, `overscroll-behavior-x: contain`), `revealLeft` in
+  `lib/tabStrip.js` (6 tests) applied from a layout effect in
+  `AgentTabs` on selection/open (instant on first paint). Verified on the
+  worktree's Vite build against the live server: gutter 0, tab 39 px,
+  active tab gap 0 on either clipped side. visual-review: PASS
+  (tabs-after.png read; no overlay in this change; card 5/5).
+- **2026-09-06 — Terminal faces match agent faces in collapsed strips.**
+  The strip's terminal favicons kept the row's full-bleed treatment
+  (`term-cli-face`), reading darker and larger than the agent faces
+  beside them. They now render as plain `ws-face` — identical plate,
+  ring and contained art (computed-style parity verified in-browser);
+  rows keep the full-bleed look. Docs captures regenerated; `make ci`
+  green on the branch. visual-review: PASS (face-style-zoom2.png read).
+- **2026-09-05 — Session management API folded into the per-CLI namespace
+  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
+  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
+  removed; desktop and mobile use `GET /api/clis/pi/sessions
+  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
+  `cleanupDays` on pi rows and — the semantic gap closed — scope by
+  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
+  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
+  the profiles routes), same guards: in-use → 409, outside root → 400.
+  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
+  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
+  workspace scope, delete overlay + file removed, auto-clean persisted,
+  adopt created an agent with the copied session).
+- **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
+  with only terminals (shell / agent CLI) collapsed to "— empty"; the
+  strip now renders terminals after managed agents — CLI favicons
+  (Claude Code, Codex, Grok, Pi) with vendor-mark fallbacks and `>_` for
+  shells, `faceSlice`-capped at 5 (`collapseFaces.test.js`; `TermFace` in
+  `ProviderFaces.jsx`; `Sidebar.collapsedMark(agents, terms)`). Fixture
+  seeds terminals + "sandbox" (terminals-only) and "fresh" (empty)
+  workspaces; docs captures regenerated. In-browser review on the
+  fixture: all four strip states read, expand/collapse cycle and reload
+  persistence ok, console clean, overlay audit ok. visual-review: PASS
+  (collapse-zoom2.png, expand-sandbox.png). `make ci` green on the
+  branch.
+- **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
+  gains `upstream`/`ahead`/`behind`/`detached`
+  (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
+  chip shows `main ↑2 ↓1`, `unpublished` or `detached`; a Git menu in the
+  rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
+  Create pull request in an idle terminal of the folder through the `type`
+  route (`gitActionCommand`, `shellQuote`, `gitActions`, `branchChip`,
+  `commitMessageSchema`; `InspectorCommitDialog.jsx` on ResponsiveDialog with
+  Zod errors and a command preview). The fixture seeds a bare origin one
+  commit behind. `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
+  fixture (`tmux capture-pane -J` proves the commands are typed, never run;
+  `gitstatus` keeps its four changes); `inspector-git-*` and
+  `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
+  Fast-forwarded main (no drift) and deployed `aa9beea4`; served bundle
+  `index-DAL01ZST.js`, seven terminals survived. No push.
+
+- **2026-09-06 — Deploy serialization + living-docs guards merged and
+  deployed.** Fast-forwarded after reconciling three interleaved main moves;
+  combined `make ci` passed; deployed `a8a201b` under the new lock (lock
+  proven to block a second holder). Service healthy. No push.
+
+- **2026-09-06 — Deploy serialization + living-docs guards (branch).** After
+  two rounds of parallel-session interference, `make deploy`/`restart` now
+  hold a lock across build+restart (a gate-to-restart race shipped the wrong
+  tree once), and the pre-commit hook refuses commits where a staged
+  `CHANGELOG.md` or `docs/handoff.md` lost its first-line shape — the
+  signature of a session writing into the wrong worktree. Selftest grew three
+  cases (15/15); the handoff-update skill starts by verifying the working
+  directory. Root cause of the clobbering (a parallel session's stale cwd)
+  remains behavioral — the guards catch it at commit time.
+
+
+## Deployment record preceding llama delivery 1
+
+**Last application deployment:** HEAD `50df07f7` (terminal faces in
+strips match agent faces, on top of the tab-strip phase 1 tree) via
+`make deploy` from the root checkout; systemd restarted. Verified on
+the live instance: terminal favicons in collapsed strips render in
+exactly the agent-face style — computed parity (white plate, 1px ring,
+1px padding, 18px) across agent and terminal imgs; COGNIXSE wears
+claude + openai, PiCode's strip is uniform with `+5`; screenshot read
+(visual-review: PASS), console clean, overlay audit ok. Nothing was
+typed into a production terminal. Previous deploy `0.1.0+2da0ba1`
+(Inspector run-when-idle, ADR-0078 stage 2) via `make deploy` from the root
+checkout at 11:54:36: health `200`, served bundle `index-W52Xj5hY.js` equal
+to the built index, 10 terminals restored, the new
+`POST /api/terminals/{id}/run` answers 404 for an unknown id, journal clean.
+Live smoke in a Playwright Chromium with `ignoreHTTPSErrors` (agent-browser's
+Chromium does not trust the mkcert CA) on the terminal anchored at
+`~/picode`: the Git menu lists Fetch, Pull, Push, Commit…, Commit and push…
+and the unchecked "Run when no agent is working here"; toggling stores
+`picode-inspector-run=1`, reopening shows it checked, toggled back off;
+overlay audit ok; no Git action clicked, nothing typed into a production
+terminal (visual-review: PASS, both menu states read). Incident: at 11:49
+the service was found `inactive` — terminated at 11:48:46 by another
+session, two seconds before a sidecar instance on `:18097` started from a
+production terminal — and a diagnostics probe `picode --version` from the
+Inspector session fell through to server mode and served the production
+data dir on 8445 for about four minutes until killed (clean shutdown); the
+stage 2 deploy brought the service back. Before that `dcbaa316` (tab strip
+phase 1), then `0.1.0+db12b097` — the sessions-endpoints
+fold (which includes the terminal-faces tree, `fa97e8cf`, and the
+menu-item removal).
+Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
+`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
+deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
+(terminals-only) wore its agent-CLI favicons instead of "— empty";
+**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
+reload persistence verified in-browser; console clean, overlay audit ok.
+Nothing was typed into a production terminal.
+**Quality:** `make ci` passed on the terminal-faces tree and on the stage 2
+tree merged with main `dcbaa316` (Go tests including `TestTerminalRunRefusals`
+and `TestTerminalRunTypesAndSubmits`, frontend suites including
+`collapseFaces.test.js`, both UI builds, embedded binary, docs parity with
+regenerated captures, Vale); the handoff-only merge of `0d346348` re-ran
+`docs-check` and Vale before the fast-forward. Browser acceptance:
+`scripts/qa-inspector.mjs` 16/16 groups on the scripted-gh fixture
+(`docs/screenshots/inspector-qa.json`), commands proven typed and never run
+through `tmux capture-pane -J`, and g16 proving run mode: the busy fallback
+toast names the other terminal, a real commit lands through "Run in
+terminal", then the fixture repo is reset. `inspector-git-*`,
+`inspector-commit-*` and `inspector-run-*` screenshots plus the live menu
+read, overlay/row audits ok. visual-review: PASS. Fixtures and QA browser
+sessions are closed; the feature worktrees and branches are removed.
+
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
+
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).
+
+
+- **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
+  and sessions work (ADR number collision resolved: terminal checklists took
+  0081); combined `make ci` green on the reconciled tree. Deploy verified:
+  health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
+  live. No push.
+
+- **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
+  with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
+  after QA showed the new `overflow: hidden` letting flex shrink every tab
+  instead of scrolling (the Chrome behaviour the study refuses). Verified
+  on the worktree's Vite build with an injected 65-character name: label
+  200 px and truncated, other tabs unchanged, the strip overflowed and the
+  arrows appeared. Screenshot read. visual-review: PASS (p4-ellipsis.png).
+  During QA the owner's live service was found inactive since 12:26:50
+  (`server: terminated`, no deploy in flight, lock free, binary from a
+  12:25 deploy by another session); `systemctl --user start picode`
+  brought it back at 12:33 — the cause of the stop is unknown.
+- **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
+  tablist.** `describeTab` now feeds both the strip and a Radix
+  DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,
+  current one marked); `app.tab.prev` / `app.tab.next` join the app-keys
+  catalog (Hotkeys dialog and Settings → Keys pick them up); `wireTermKeys`
+  gained a `passthrough` predicate and both terminals pass
+  `matchGlobalAction`, so Global chords no longer reach the shell
+  (`termKeys.test.js`, `appKeys.test.js`; 37 JS tests across the three
+  files). Manual activation replaced automatic after QA showed the
+  terminal stealing focus on select. Verified on the worktree's Vite
+  build at 1000 px with six tabs: roles and tabindex, Alt chords cycle and
+  wrap with `defaultPrevented`, arrows / Home / End move focus without
+  selecting, Enter selects and reveals, the menu lists 6 items with the
+  "Out of view" group and separator inside the viewport (overlay audit
+  ok), picking an out-of-view item selects and reveals it, the active tab
+  stays visible when the overflow chrome appears. visual-review: PASS
+  (p3-list.png, p3-arrowdot.png read; card 5/5).
+- **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
+  `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
+  (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
+  `#tab-strip` (QA scripts keep matching `.main-tabs .mtab`). Verified on
+  the worktree's Vite build against the live server at 1000 px with six
+  tabs: left arrow disabled at start and right at end, `mask-image`
+  switches side and shows both in the middle, indicator 3 px with opacity
+  0 → 1 on hover and after scrolling, real wheel and dispatched wheel
+  both scrolled and were `defaultPrevented`, a `deltaX` gesture was not
+  consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
+  read for start / middle+hover / end. visual-review: PASS (p2-start.png,
+  p2-middle.png, p2-end.png; no overlay; card 5/5).
+- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
+  internal checklist now follows the agent into its terminal: `pi-checklist`
+  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
+  (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
+  shell terminal — feeds the same operator line managed agents show. New
+  `terminal_checklists` store (migration 029, dies with the terminal),
+  durable `terminal.checklist` events, `POST/GET /api/terminals/{id}/checklist`,
+  the checklist folded into every terminal view (boot fetch stays
+  `GET /api/terminals`), sidebar card line and a live strip above the
+  terminal pane (agent TUI panes get the same strip from the agent map).
+  Reset/absent/blocked semantics mirror the agent side; unknown terminal
+  404s; invariant test extended. Renumbered to 0081 after colliding with the
+  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
+  present, live-update, absent and reset states, reload persistence,
+  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
+
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).

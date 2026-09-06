@@ -10,7 +10,7 @@ import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
 import { closeShellTerm } from "./components/ShellTerm.jsx";
 import { summarizeArgs } from "./components/Conversation.jsx";
 import { fileChangeFromTool } from "@picode/shared/domain/diff.js";
-import { captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
+import { applyCaptureFrame, captureOnEnd, captureState, updateCapture, toolResultDetail } from "@picode/shared/domain/toolPreview.js";
 import { reconcileTranscript, liveSince, startTool, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
@@ -39,7 +39,7 @@ import ContextMenu from "./components/ContextMenu.jsx";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { parseRoute, go, providersNew, providersLlama, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -47,7 +47,7 @@ import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
 import { applyFleet, applyTui, applyUsage, touches } from "@picode/shared/domain/feedReducers.js";
-import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
+import { applyChecklists, checklistLine, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
@@ -87,7 +87,7 @@ import WhatsNew from "./components/WhatsNew.jsx";
 import RELEASE_NOTES from "@picode/shared/data/whats-new.json";
 import { hasUnseenRelease, readSeenVersion, shouldAutoOpen, writeSeenVersion } from "./lib/whatsNew.js";
 import ShareGist from "./components/ShareGist.jsx";
-import LlamaDialog from "./components/LlamaDialog.jsx";
+import LlamaPanel from "./components/LlamaPanel.jsx";
 import TermSettingsPage from "./components/TermSettingsPage.jsx";
 import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchema, createWsAgentSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { parentDir } from "@picode/shared/domain/cloneUrl.js";
@@ -194,7 +194,6 @@ export default function App() {
   const [slashExtra, setSlashExtra] = useState([]);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [llamaOpen, setLlamaOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState({ gist: "", viewer: "" });
@@ -656,12 +655,12 @@ export default function App() {
 
   useEffect(() => {
     if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
-    const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || llamaOpen || shareOpen || waiting || inboxNeedsYou;
+    const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || shareOpen || waiting || inboxNeedsYou;
     if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, llamaOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
+  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {
@@ -1316,6 +1315,10 @@ export default function App() {
         queueMicrotask(scrollConv);
         break;
       }
+      case "capture_frame": {
+        setItems((cur) => cur.map((it) => applyCaptureFrame(it, ev)));
+        break;
+      }
       case "tool_execution_update": {
         setItems((cur) => cur.map((it) => (it.kind === "tool" && it.id === ev.toolCallId
           ? updateCapture(it, ev.partialResult?.details) : it)));
@@ -1333,7 +1336,7 @@ export default function App() {
             result: ev.result,
             expanded: it.expanded || searchHits.length > 0,
             change,
-            ...captureState(ev.result?.details),
+            ...captureOnEnd(it, ev.result?.details),
           };
         }));
         break;
@@ -2395,6 +2398,7 @@ export default function App() {
                 term={t}
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
+                checklist={checklistLine(t.checklist)}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
               />
             );
@@ -2501,7 +2505,7 @@ export default function App() {
               if (cmd.run === "session-clone") { cloneSession(); return; }
               if (cmd.run === "go-providers") { go("providers"); return; }
               if (cmd.run === "go-providers-new") { go("providers-new"); return; }
-              if (cmd.run === "llama") { setLlamaOpen(true); return; }
+              if (cmd.run === "llama") { go("llama"); return; }
               if (cmd.run === "automate") { await startAutomate(""); return; }
               if (cmd.run === "session-info") { setSessionOpen(true); return; }
               if (cmd.run === "quit") {
@@ -2665,6 +2669,7 @@ export default function App() {
                   key={"agterm-" + agent.id + "-" + (termEpochs[agent.id] || 0)}
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
+                  checklist={checklistLine(checklists[agent.id])}
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
                 />
               </>
@@ -2687,11 +2692,11 @@ export default function App() {
           onTheme={setTheme}
         />
         <System hidden={route !== "system"} version={version} system={system} />
+        {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Providers
           hidden={route !== "providers"}
           catalog={catalog}
           wantAdd={providersNew()}
-          wantLlama={providersLlama()}
           onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }}
           onSignOut={async (provider) => {
             const ok = await askConfirm({
@@ -2839,7 +2844,7 @@ export default function App() {
         onFork={forkFrom}
         onClone={cloneSession}
       />
-      <LlamaDialog open={llamaOpen} onClose={() => setLlamaOpen(false)} onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} />
+
       <ShareGist open={shareOpen} gist={shareLinks.gist} viewer={shareLinks.viewer} onClose={() => setShareOpen(false)} />
       <Hotkeys open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
