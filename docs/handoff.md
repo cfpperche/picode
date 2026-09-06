@@ -34,7 +34,7 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+17246488`, health `200`. `make
+**Last application deployment:** `0.1.0+c2231801`, health `200` (menu-item removal on top of the sessions phase-2 merge). `make
 deploy` restarted systemd with the sessions phase-2 merge; the live API
 answers `GET /api/clis/codex/sessions` with 907 real sessions and the
 desktop serves the per-CLI sessions picker. Previous deployment
