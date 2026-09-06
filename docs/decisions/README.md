@@ -87,3 +87,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0080](0080-llama-manager.md) | Dedicated llama.cpp manager and reliable connection results | accepted |
 | [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
 | [0082](0082-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
+| [0083](0083-llama-operation-jobs.md) | Durable model operations, progress, cancellation and reconnect | accepted |

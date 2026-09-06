@@ -73,7 +73,8 @@
     "./domain/transcriptMerge.js": "./domain/transcriptMerge.js",
     "./domain/tree.js": "./domain/tree.js",
     "./domain/turns.js": "./domain/turns.js",
-    "./tokens/theme.css": "./tokens/theme.css"
+    "./tokens/theme.css": "./tokens/theme.css",
+    "./domain/llamaJobs.js": "./domain/llamaJobs.js"
   },
   "scripts": {
     "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"

@@ -25,9 +25,11 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
+	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -41,10 +43,11 @@ import (
 
 // Deps carries the server's collaborators (injected for testability).
 type Deps struct {
-	Store    *store.Store
-	Tmux     *tmux.Manager
-	Runtime  *rpc.Runtime
-	AgentCmd string // command spawned per workspace ("pi" — ADR-0003)
+	LlamaJobs *llamajob.Service
+	Store     *store.Store
+	Tmux      *tmux.Manager
+	Runtime   *rpc.Runtime
+	AgentCmd  string // command spawned per workspace ("pi" — ADR-0003)
 
 	// Port management (ADR-0007). BindHost is the configured host;
 	// Rebind signals the main loop to re-read the port setting;
@@ -103,17 +106,24 @@ func New(addr string, deps Deps) *http.Server {
 		deps.Replies = newTuiReplies()
 	}
 
+	if deps.Store != nil && deps.LlamaJobs == nil {
+		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() })
+	}
 	registerAll(mux, deps)
 
 	var handler http.Handler = mux
 	if deps.Auth != nil {
 		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
 	}
-	return &http.Server{
+	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	if deps.LlamaJobs != nil {
+		srv.RegisterOnShutdown(deps.LlamaJobs.Close)
+	}
+	return srv
 }
 
 // registerAll wires every route the server serves onto any route
@@ -156,7 +166,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerGitRunRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
-	registerLlama(mux)
+	registerLlama(mux, deps)
 	registerSnippet(mux, deps)
 	registerPins(mux, deps)
 	registerPinFiles(mux, deps)

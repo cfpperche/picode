@@ -1,0 +1,47 @@
+{
+  "model": "Qwen3-4B-Q4_K_M",
+  "checks": {
+    "router": true,
+    "sseSubscription": true,
+    "load": true,
+    "sseLoadEvent": true,
+    "stream": true,
+    "toolProtocol": true,
+    "piReadRoundTrip": true,
+    "unload": true
+  },
+  "limitations": [
+    "One small model and selected build; not GPU performance or coding readiness",
+    "Does not validate PiCode browser jobs, downloads, cancellation, or restart recovery"
+  ],
+  "build": "b10809-5266f24da",
+  "streamChunks": 4,
+  "piExit": 0,
+  "piEventTypes": [
+    "agent_end",
+    "agent_settled",
+    "agent_start",
+    "message_end",
+    "message_start",
+    "message_update",
+    "session",
+    "tool_execution_end",
+    "tool_execution_start",
+    "turn_end",
+    "turn_start"
+  ],
+  "pass": true,
+  "environment": {
+    "execution": "Linux/WSL CPU, 4 threads, 8192 context, thinking disabled",
+    "piVersion": "0.85.1",
+    "productionChanged": false
+  },
+  "source": {
+    "repository": "Qwen/Qwen3-4B-GGUF",
+    "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+    "file": "Qwen3-4B-Q4_K_M.gguf",
+    "bytes": 2497280256,
+    "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "verified": true
+  }
+}

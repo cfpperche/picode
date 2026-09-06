@@ -19,12 +19,27 @@
 @media (prefers-reduced-motion: reduce) { .app-operation, .app-operation::before, .app-block-busy .app-sect::before, .app-row-busy .app-row-title::before { animation: none; } }
 * {
   box-sizing: border-box; margin: 0;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
 }
 html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
+}
+/* Scrollbars: the standard properties live only where ::-webkit-scrollbar
+   is not understood — Chromium ≥ 121 ignores the pseudo-elements on any
+   box whose scrollbar-width or scrollbar-color is not `auto` (see the
+   desktop app.css for the full note). */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+  .side-section {
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color .18s ease;
+  }
+  #sidebar:hover .side-section, #sidebar:focus-within .side-section {
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
 }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
@@ -36,13 +51,6 @@ html, body {
   background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
 }
 *::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
-.side-section {
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color .18s ease;
-}
-#sidebar:hover .side-section, #sidebar:focus-within .side-section {
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-}
 .side-section::-webkit-scrollbar-thumb {
   background: transparent;
   transition: background .18s ease;
@@ -1754,9 +1762,6 @@ img.ws-face.term-cli-face {
   padding: 8px 18px calc(20px + env(safe-area-inset-bottom)); outline: none;
 }
 .dlg.dlg-sheet::after { display: none; }
-@supports selector(::-webkit-scrollbar) {
-  .dlg.dlg-sheet { scrollbar-width: auto; scrollbar-color: auto; }
-}
 .dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
 .dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }
 .dlg.dlg-sheet input, .dlg.dlg-sheet select, .dlg.dlg-sheet textarea { font-size: 16px; }

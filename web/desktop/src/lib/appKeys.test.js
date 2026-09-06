@@ -75,3 +75,9 @@ test("matchGlobalAction covers every Global chord and nothing else", () => {
   assert.equal(matchGlobalAction(ev({ key: "d", ctrlKey: true }), {}), false); // Composer group
   assert.equal(matchGlobalAction(ev({ key: "]" }), {}), false);
 });
+
+test("close tab defaults to Alt+W and counts as a Global chord", () => {
+  assert.equal(matchAction("app.tab.close", ev({ key: "w", altKey: true }), {}), true);
+  assert.equal(matchGlobalAction(ev({ key: "w", altKey: true }), {}), true);
+  assert.equal(matchAction("app.tab.close", ev({ key: "w", ctrlKey: true }), {}), false);
+});

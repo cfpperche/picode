@@ -15,7 +15,10 @@ import { stripState, wheelToScroll, arrowStep, hiddenTabs } from "./tabStrip.js"
 // (the tabs array). Sizes come from one ResizeObserver over the strip and
 // its tabs, so a rename or a status dot cannot leave a stale arrow.
 const HIDE_MS = 500;
-const WHEEL_SETTLE_MS = 400;
+// Frames without movement before a wheel-driven smooth scroll counts as
+// settled. `scrollend` would say so exactly, but Safari lacks it; watching
+// scrollLeft come to rest is exact everywhere.
+const SETTLE_FRAMES = 3;
 
 export function useTabStrip(ref, deps) {
   const [state, setState] = useState(() => stripState({ scrollLeft: 0, clientWidth: 0, scrollWidth: 0 }));
@@ -26,7 +29,7 @@ export function useTabStrip(ref, deps) {
   // flight when the next tick arrives, and reading scrollLeft then would
   // lose the distance already asked for (the strip would crawl).
   const target = useRef(null);
-  const timers = useRef({ hide: 0, wheel: 0 });
+  const timers = useRef({ hide: 0, watch: 0 });
 
   const measure = useCallback(() => {
     const el = ref.current;
@@ -50,7 +53,19 @@ export function useTabStrip(ref, deps) {
       clearTimeout(timers.current.hide);
       timers.current.hide = setTimeout(() => setScrolling(false), HIDE_MS);
     };
-    const settle = () => { target.current = null; };
+    // Watch the scroll box until it stops moving, then forget the target.
+    const watch = () => {
+      cancelAnimationFrame(timers.current.watch);
+      let last = el.scrollLeft;
+      let still = 0;
+      const tick = () => {
+        if (target.current == null) return;
+        if (el.scrollLeft === last) still += 1; else { still = 0; last = el.scrollLeft; }
+        if (still >= SETTLE_FRAMES) { target.current = null; return; }
+        timers.current.watch = requestAnimationFrame(tick);
+      };
+      timers.current.watch = requestAnimationFrame(tick);
+    };
     const onWheel = (e) => {
       const dx = wheelToScroll(e, el.clientWidth);
       if (!dx) return;
@@ -63,21 +78,18 @@ export function useTabStrip(ref, deps) {
       e.preventDefault();
       target.current = to;
       el.scrollTo({ left: to });
-      clearTimeout(timers.current.wheel);
-      timers.current.wheel = setTimeout(settle, WHEEL_SETTLE_MS);
+      watch();
     };
     el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("scrollend", settle);
     // React registers wheel listeners as passive; preventDefault needs this one.
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       ro.disconnect();
       observer.current = null;
       el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("scrollend", settle);
       el.removeEventListener("wheel", onWheel);
       clearTimeout(timers.current.hide);
-      clearTimeout(timers.current.wheel);
+      cancelAnimationFrame(timers.current.watch);
     };
   }, [ref, measure]);
 

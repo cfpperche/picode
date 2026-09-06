@@ -12,6 +12,7 @@ export const CATALOG = [
   // decision 2026-09-06).
   { id: "app.tab.prev", group: "Global", label: "Previous tab", defaults: ["alt+["] },
   { id: "app.tab.next", group: "Global", label: "Next tab", defaults: ["alt+]"] },
+  { id: "app.tab.close", group: "Global", label: "Close tab", defaults: ["alt+w"] },
   { id: "composer.voice.toggle", group: "Composer", label: "Toggle voice", defaults: ["ctrl+shift+o", "super+shift+o"] },
   { id: "composer.dictate", group: "Composer", label: "Dictate", defaults: ["ctrl+d", "super+d"] },
 ];
