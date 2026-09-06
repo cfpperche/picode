@@ -54,7 +54,9 @@
 
 ## Known debts / open questions
 
-- Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Hermes: live TUI Working→Ready confirmed 2026-09-06 (`hermes-1f19ed`,
+  resume of `20260906_202219_54a6a2`); needs-you still unproven; `cli-v1-*`
+  screenshots not regenerated; may write `shell-hooks-allowlist.json`.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").

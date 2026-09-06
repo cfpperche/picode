@@ -13,8 +13,10 @@ tmux sessions alive. systemd active, health ok.
 
 visual-review: PASS (scratch; overlayAudit ok).
 
-Not done: live TUI working/needs-you turn; live `--resume`; `cli-v1-*`
-screenshot refresh; profile scan. Hermes may write
-`shell-hooks-allowlist.json`.
+Owner dogfood 2026-09-06: Activity reporting on, resume of
+`20260906_202219_54a6a2`, sidebar Working then Ready.
+
+Not done: needs-you; `cli-v1-*` screenshots; profile scan. Hermes may
+write `shell-hooks-allowlist.json`.
 
 Merge: fast-forwarded main to `405fed15`; deployed `0.1.0+405fed1`.
