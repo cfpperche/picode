@@ -139,3 +139,104 @@ func TestPairingsAreOneShot(t *testing.T) {
 		t.Fatalf("expired = %v", err)
 	}
 }
+
+// Backdates a session's last_seen_at (test fixture only — production code
+// lets LookupSession keep it fresh).
+func ageSession(s *Store, id string, age time.Duration) {
+	_, _ = s.db.Exec(`UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?`,
+		time.Now().UTC().Add(-age).Format(time.RFC3339Nano), id)
+}
+
+// ADR-0049 amendment 2026-09-06: an auto-minted loopback browser session
+// ends when its access ends. Decision table (conditions → picked for
+// revocation?):
+//
+//	loopback mint, idle > grace          → yes
+//	loopback mint, last request fresh    → no  (open tab, even backgrounded)
+//	paired session (device_id set), idle → no  (a phone returns; deliberate pairing)
+//	paired ON loopback (device_id), idle → no
+//	token session, idle                  → no
+//	already revoked, idle                → no  (nothing left to announce)
+//	expired, idle                        → no  (invisible already; prune deletes)
+//	unparsable last_seen_at              → no  (never guessed stale)
+func TestRevokeStaleLoopbackSessions(t *testing.T) {
+	s := openTest(t)
+	mk := func(kind, deviceID, label, ip string) string {
+		sess, _, err := s.CreateSession(kind, deviceID, label, ip, 90*24*time.Hour)
+		if err != nil {
+			t.Fatalf("create %s/%s: %v", label, ip, err)
+		}
+		return sess.ID
+	}
+	dead := mk(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP) // 1
+	live := mk(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP) // 2
+	pairedPhone := mk(SessionBrowser, "dev-9", "iPhone", "100.64.0.7")                // 3
+	pairedLoopback := mk(SessionBrowser, "dev-2", "This machine · Windows", LoopbackMintIP)
+	token := mk(SessionToken, "", "Install token", "")
+	alreadyGone := mk(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP)
+	expired := mk(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP)
+	corrupt := mk(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP)
+
+	ageSession(s, dead, time.Hour)
+	ageSession(s, pairedPhone, time.Hour)
+	ageSession(s, pairedLoopback, time.Hour)
+	ageSession(s, token, time.Hour)
+	ageSession(s, alreadyGone, time.Hour)
+	ageSession(s, expired, time.Hour)
+	if err := s.RevokeSession(alreadyGone); err != nil {
+		t.Fatal(err)
+	}
+	ageSession(s, expired, time.Hour)
+	if _, err := s.db.Exec(`UPDATE auth_sessions SET expires_at = ? WHERE id = ?`,
+		time.Now().UTC().Add(-time.Hour).Format(time.RFC3339Nano), expired); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE auth_sessions SET last_seen_at = 'not-a-time' WHERE id = ?`, corrupt); err != nil {
+		t.Fatal(err)
+	}
+
+	stale, err := s.StaleLoopbackBrowserSessions(10 * time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stale) != 1 || stale[0].ID != dead {
+		t.Fatalf("stale = %+v, want only %s", stale, dead)
+	}
+
+	got, err := s.RevokeStaleLoopbackSessions(10 * time.Minute)
+	if err != nil || got != 1 {
+		t.Fatalf("revoked = %d, %v; want 1", got, err)
+	}
+	if row, err := s.SessionByID(dead); err != nil || row.RevokedAt == nil {
+		t.Fatalf("dead session not revoked: %+v %v", row, err)
+	}
+	// The live tab (second profile of the same family) is untouched.
+	liveRow, err := s.SessionByID(live)
+	if err != nil || liveRow.RevokedAt != nil {
+		t.Fatalf("live session disturbed: %+v %v", liveRow, err)
+	}
+	// A second sweep finds nothing — idempotent.
+	if n, err := s.RevokeStaleLoopbackSessions(10 * time.Minute); err != nil || n != 0 {
+		t.Fatalf("second sweep = %d, %v; want 0", n, err)
+	}
+}
+
+// The sweep reuses RevokeSession, so each revoked row announces exactly
+// one session.revoked event (ADR-0048) — nothing for rows it skips.
+func TestRevokeStaleLoopbackSessionsAnnouncesEachRevocation(t *testing.T) {
+	s := openTest(t)
+	gone, _, _ := s.CreateSession(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP, 90*24*time.Hour)
+	kept, _, _ := s.CreateSession(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP, 90*24*time.Hour)
+	ageSession(s, gone.ID, time.Hour)
+	var got []string
+	s.OnEvent = func(ev Event) { got = append(got, ev.Type) }
+	if n, err := s.RevokeStaleLoopbackSessions(10 * time.Minute); err != nil || n != 1 {
+		t.Fatalf("revoked = %d, %v; want 1", n, err)
+	}
+	if len(got) != 1 || got[0] != "session.revoked" {
+		t.Fatalf("events = %v, want [session.revoked]", got)
+	}
+	if row, err := s.SessionByID(kept.ID); err != nil || row.RevokedAt != nil {
+		t.Fatalf("fresh session disturbed: %+v %v", row, err)
+	}
+}

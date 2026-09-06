@@ -88,6 +88,19 @@ to the `[Unreleased]` section. The repository's official language is English
   composer stays visible while typing. Sticky Ctrl/Alt are unchanged.
   The same row is available on an agent's Terminal view.
 
+- **Loopback browser sessions end when the access ends** (ADR-0049
+  amendment 2026-09-06). An auto-minted loopback browser session — the
+  silent mint every browser on this machine gets, the headless QA fleet
+  included — is revoked by a minute housekeeping sweep once its last
+  authenticated request is 10 minutes old: a closed browser stops
+  refreshing `last_seen_at`, an open one keeps the row alive even with
+  Chrome's once-a-minute background-timer throttle. Each revocation is a
+  `session.revoked` event, so open Devices views drop the row live; the
+  daily prune deletes the rows a week later. Paired devices (phones,
+  paired loopbacks) and the install token are never touched. The pile of
+  offline "Headless browser" rows self-clears on the first sweep after
+  upgrade.
+
 - **Development process** (ADR-0086, owner-approved after the 2026-09-06
   cost review): `make ci-scoped` runs only the gates a branch's diff can
   break; `make close` ends a worktree session (scoped gates, regenerated
