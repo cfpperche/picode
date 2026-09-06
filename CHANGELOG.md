@@ -47,6 +47,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Close a tab from the keyboard.** `Alt+W` closes the current tab from
+  anywhere (rebindable under Settings → Keys, handed back by terminals like
+  the other global chords), and Delete or Backspace closes the focused tab
+  in the strip, moving focus to its neighbour.
+
 - **Every open tab, one list away.** While tabs overflow, a list button at
   the strip's end opens all open tabs — the ones out of view first, each
   with its face, name and status dot, the current one marked — and picking
@@ -61,6 +66,19 @@ to the `[Unreleased]` section. The repository's official language is English
   `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
 
 ### Changed
+
+- **Scrollbars look the same again on Windows Chromium.** The app's compact
+  8 px scrollbars had stopped applying wherever the standard
+  `scrollbar-width` / `scrollbar-color` properties were also set — Chromium
+  121+ then paints its own thin bar with arrow buttons. The standard
+  properties now apply only in engines without `::-webkit-scrollbar`
+  (Firefox), on desktop and mobile alike; the per-view workarounds in Agent
+  CLIs and bottom sheets are gone.
+
+- The tab strip's position indicator rides the top edge of the tabs
+  instead of the bottom, so it no longer covers the active tab's accent
+  underline; a wheel-driven scroll now counts as settled when the strip
+  stops moving, in every browser, instead of after a fixed delay.
 
 - A tab's name stops at 200 px with an ellipsis, so one long terminal or
   file name cannot swallow the strip; the tooltip carries the full name

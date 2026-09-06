@@ -86,8 +86,8 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
   const revealed = useRef(false);
   const strip = useTabStrip(stripRef, [tabs]);
   // The latest props for listeners that outlive a render.
-  const live = useRef({ ids, selectedId, onSelect });
-  live.current = { ids, selectedId, onSelect };
+  const live = useRef({ ids, selectedId, onSelect, onClose });
+  live.current = { ids, selectedId, onSelect, onClose };
 
   // The strip has no scrollbar, so selecting or opening a tab must bring it
   // into view (every benchmark does; see lib/tabStrip.js). The first reveal
@@ -106,10 +106,18 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
     // effect had just revealed.
   }, [selectedId, tabs, strip.overflow]);
 
-  // Alt+[ / Alt+] cycle tabs from anywhere, wrapping like a browser;
-  // terminals hand these chords back (wireTermKeys passthrough).
+  // Alt+[ / Alt+] cycle tabs from anywhere, wrapping like a browser, and
+  // Alt+W closes the current one; terminals hand these chords back
+  // (wireTermKeys passthrough).
   useEffect(() => {
     const onKey = (e) => {
+      if (matchAction("app.tab.close", e)) {
+        const { selectedId: sel, ids: all, onClose: close } = live.current;
+        if (!sel || !all.includes(sel)) return;
+        e.preventDefault();
+        close(sel);
+        return;
+      }
       const prev = matchAction("app.tab.prev", e);
       const next = !prev && matchAction("app.tab.next", e);
       if (!prev && !next) return;
@@ -125,7 +133,9 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
   }, []);
 
   // WAI-ARIA tablist with manual activation (MUI default, Radix `manual`):
-  // arrows / Home / End move focus between tabs, Enter or Space selects.
+  // arrows / Home / End move focus between tabs, Enter or Space selects,
+  // Delete or Backspace closes the focused tab (the ARIA tabs-with-removal
+  // pattern) and keeps focus on its neighbour.
   // Automatic activation would not work here — selecting a terminal tab
   // hands focus to its xterm textarea, so the next arrow would go to the
   // shell instead of the strip.
@@ -139,6 +149,14 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
       if (!cur) return;
       e.preventDefault();
       if (cur.dataset.tab !== selectedId) onSelect(cur.dataset.tab);
+      return;
+    }
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (!cur) return;
+      e.preventDefault();
+      const neighbour = tabsEl[i + 1] || tabsEl[i - 1];
+      onClose(cur.dataset.tab);
+      if (neighbour) neighbour.focus();
       return;
     }
     let next = null;
@@ -267,7 +285,7 @@ function Tab({ id, active, attn, onSelect, onClose, onReorder, closeTitle, child
       onFocus={(e) => { if (e.target === e.currentTarget) e.currentTarget.scrollIntoView({ inline: "nearest", block: "nearest" }); }}
     >
       {children}
-      <button type="button" className="mtab-close" draggable="false" tabIndex={-1} title={closeTitle} onClick={() => onClose(id)}>×</button>
+      <button type="button" className="mtab-close" draggable="false" tabIndex={-1} title={closeTitle + " · Alt+W, or Delete on a focused tab"} onClick={() => onClose(id)}>×</button>
     </div>
   );
 }

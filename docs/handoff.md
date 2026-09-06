@@ -149,9 +149,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
-  branch removed. The study's adoption list is complete; its debts sit
-  under Next up.
+- `fix/tab-strip-debts` awaits merge to main and `make deploy`: the five
+  tab-strip debts closed (indicator on the top edge, rAF settle instead of
+  the Safari timer, arrow needs-you dot verified on a real `needs-you`
+  terminal, `Alt+W` / Delete close, and the app-wide scrollbar split —
+  standard properties only under `@supports not selector(::-webkit-scrollbar)`
+  in desktop and mobile, per-view overrides removed). Phases 1–4 are
+  deployed (`dcbaa316`, `139ab1ba`).
 - Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
   `0.1.0+d1f1e9f`). Full stack: publish target fallback
   (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
@@ -196,18 +200,6 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
    Deliveries 3–4 remain planned; see the approved llama manager plan.
 
-1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
-   four phases shipped): the indicator covers
-   the active tab's accent underline while shown (VS Code does the same);
-   `scrollend` is the only exact "settled" signal, Safari falls back to a
-   400 ms timer; the needs-you dot on an arrow was verified for CSS
-   placement with an injected dot and by `hiddenTabs` tests, not on a
-   live needs-you tab (none existed during QA); `.mtab-close` inside a
-   `role=tab` is reachable by mouse only (tabIndex −1), close from the
-   keyboard is not offered yet.
-   Separate follow-up: the global `* { scrollbar-width: thin }` makes
-   Chromium ignore every `::-webkit-scrollbar` rule in the app
-   (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
 2. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
@@ -305,6 +297,24 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Tab strip debts closed.** Indicator moved to the strip's
+  top edge (bottom belongs to the active underline); wheel target now
+  settles when `scrollLeft` is still for three frames (rAF), replacing
+  `scrollend` + a 400 ms timer; `app.tab.close` on `Alt+W` plus Delete /
+  Backspace on a focused tab (focus to the neighbour, `.mtab-close` title
+  says so); the app-wide scrollbar collision fixed by moving every
+  `scrollbar-width: thin` / `scrollbar-color` under
+  `@supports not selector(::-webkit-scrollbar)` in desktop and mobile
+  `app.css`, dropping the Agent CLIs and `.dlg-sheet` overrides
+  (`.conversation.with-rail` narrow rule now `auto` for webkit engines).
+  Verified on the docs fixture (port 18770, 640 px, 7 tabs incl. 3 agents):
+  body `scrollbar-width: auto`, `.side-section` gutter 8 px; a real
+  `POST /api/terminals/{id}/state needs-you` tab hidden on the left lit the
+  left arrow's dot and not the right one; three wheel ticks reached the
+  full 148 px target; indicator top = strip top, active underline free;
+  Delete removed the focused tab and focused its neighbour; `Alt+W`
+  removed the selected one. 35 JS tests green. Screenshots read.
+  visual-review: PASS (d-indicator.png, d-arrowdot-left.png; no overlay).
 - **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
   `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
   and sessions work (ADR number collision resolved: terminal checklists took

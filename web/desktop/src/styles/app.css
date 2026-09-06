@@ -15,15 +15,37 @@
 @media (prefers-reduced-motion: reduce) { .app-operation, .app-operation::before, .app-block-busy .app-sect::before, .app-row-busy .app-row-title::before { animation: none; } }
 * {
   box-sizing: border-box; margin: 0;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
 }
 html, body {
   height: 100vh; max-height: 100vh;
   overflow: hidden;
 }
-/* Compact overlay scrollbar — VS Code / Cursor / Linear.
-   Windows Chromium otherwise paints 17px + arrows. No JS. */
+/* Scrollbars: two engines, one look — VS Code / Cursor / Linear compact
+   bars. Chromium and Safari draw the 8px ::-webkit-scrollbar rules below;
+   Firefox tints its standard thin bar with the standard properties. The
+   two must never mix: Chromium ≥ 121 ignores the pseudo-elements on any
+   box whose scrollbar-width or scrollbar-color is not `auto` and paints
+   its standard thin bar with Windows arrow buttons instead (that is what
+   put arrows under the editor tabs, 2026-09-06). So every standard
+   property lives inside this block, and nothing else in the app sets
+   scrollbar-color; `scrollbar-width: none` is the one exception that
+   works the same everywhere. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+  .side-section {
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color .18s ease;
+  }
+  #sidebar:hover .side-section, #sidebar:focus-within .side-section {
+    scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
+  }
+  @media (max-width: 700px) {
+    .conversation.with-rail { scrollbar-width: thin; }
+  }
+}
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
 *::-webkit-scrollbar-thumb {
@@ -35,17 +57,9 @@ html, body {
 }
 *::-webkit-scrollbar-button { width: 0; height: 0; display: none; }
 /* Sidebar scrollbar hides until the sidebar is hovered or focused —
-   the rail stays invisible at rest (Linear/VS Code). `scrollbar-width:
-   thin` (inherited above) keeps reserving its gutter, so the reveal is
-   a pure thumb fade with no reflow. The ::-webkit-scrollbar-thumb
-   fallback covers engines where the standard property is ignored. */
-.side-section {
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color .18s ease;
-}
-#sidebar:hover .side-section, #sidebar:focus-within .side-section {
-  scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
-}
+   the rail stays invisible at rest (Linear/VS Code). The gutter stays
+   reserved, so the reveal is a pure thumb fade with no reflow. Firefox's
+   scrollbar-color half of this lives in the @supports block above. */
 .side-section::-webkit-scrollbar-thumb {
   background: transparent;
   transition: background .18s ease;
@@ -1391,11 +1405,9 @@ img.ws-face.term-cli-face {
   display: flex; align-items: stretch; padding: 0; overflow-x: auto; flex: 1; min-width: 0;
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
-     bar stole 10px of the 40px chrome (and Chromium ignores the app's
-     ::-webkit-scrollbar rules under the global `scrollbar-width: thin`,
-     so Windows painted its arrow buttons). The active tab is revealed by
-     code instead (AgentTabs, lib/tabStrip.js); phase 2 of
-     docs/benchmarks/2026-09-06-tab-strip-overflow.md adds the cues. */
+     bar stole 10px of the 40px chrome. The active tab is revealed by code
+     instead (AgentTabs, lib/tabStrip.js); the cues around the strip are
+     phases 2–3 of docs/benchmarks/2026-09-06-tab-strip-overflow.md. */
   scrollbar-width: none;
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
@@ -1433,8 +1445,10 @@ img.ws-face.term-cli-face {
 .tab-list-item .mtab-term { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; }
 .tab-list-item .mtab-dot { flex: none; }
 .tab-list-item[aria-current="true"] .um-name { color: var(--accent); }
+/* The indicator rides the strip's top edge: the bottom edge belongs to
+   the active tab's accent underline, which the bar used to cover. */
 .tab-indicator {
-  position: absolute; bottom: 0; height: 3px; border-radius: 2px;
+  position: absolute; top: 0; height: 3px; border-radius: 0 0 2px 2px;
   background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
   pointer-events: none; opacity: 0;
   transition: opacity 800ms linear;
@@ -1878,7 +1892,7 @@ img.ws-face.term-cli-face {
 .rail-pop-text { font-size: 12px; line-height: 1.4; color: var(--text-primary); }
 @media (max-width: 700px) {
   .conv-rail { display: none; }
-  .conversation.with-rail { scrollbar-width: thin; scrollbar-gutter: stable; }
+  .conversation.with-rail { scrollbar-width: auto; scrollbar-gutter: stable; }
   .conversation.with-rail::-webkit-scrollbar { width: 8px; height: auto; }
 }
 .conv-col {
@@ -2838,9 +2852,6 @@ img.ws-face.term-cli-face {
 /* Vaul extends the backdrop below the drawer for overshoot. Our sheets
    scroll their own content, so that extension creates empty scroll space. */
 .dlg.dlg-sheet::after { display: none; }
-@supports selector(::-webkit-scrollbar) {
-  .dlg.dlg-sheet { scrollbar-width: auto; scrollbar-color: auto; }
-}
 .dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
 .dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }
 .dlg.dlg-sheet input, .dlg.dlg-sheet select, .dlg.dlg-sheet textarea { font-size: 16px; }
