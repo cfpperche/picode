@@ -2,8 +2,7 @@
 
 - Date: 2026-09-06
 - Owner approved the four-delivery roadmap and starting implementation.
-- Status: delivery 1 implemented and validated on `feat/llama-manager`;
-  combined with main `66aa4b9c` and revalidated; deployment pending.
+- Status: delivery 1 merged and deployed as `ac4ff1dd` (`0.1.0+ac4ff1d`).
   Deliveries 2–4 planned, not shipped.
 
 ## Outcome and navigation
@@ -133,3 +132,9 @@ Reviewed 2026-09-05; upstream capabilities require installed-version checks:
 Integration validation (2026-09-06): combined make ci passed with 902
 JS/package tests; the 16-image browser matrix passed again. Public captures
 were regenerated and read. Owner authorized merge and deployment.
+
+Deployment (2026-09-06): `ac4ff1dd` published with serialized make deploy;
+health ok, deployed desktop bundle verified, 9/9 pre-deploy terminal IDs
+preserved. Live desktop/mobile legacy links, Models/Server pages and Test
+connection passed; screenshots read and audits ok. The pre-existing llama
+endpoint timeout remains, so real-model acceptance is still pending.
