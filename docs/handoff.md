@@ -5,7 +5,11 @@
 
 ## Current state (read this first)
 
-**Repository:** `main` includes the checklist compact-view alignment
+**Repository:** `main` includes two same-day follow-up fixes to the
+checklist compact-view alignment (chevron gutter `a79c576b`, sidebar
+column correction `d64f4623`; merged `1b08aa2a`, deployed `0.1.0+1b08aa2`)
+on top of the identity-favicon refactor (`020804f8`, deployed `f4ea75eb`)
+and the checklist compact-view alignment itself
 (owner refinement, merged `08e9ee62`, deployed `0.1.0+08e9ee6`) on top of
 llama.cpp delivery 2 (ADR-0083), merged as
 `70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
@@ -31,7 +35,29 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `f4ea75eb`, version `0.1.0+f4ea75e`, via
+**Last application deployment:** `1b08aa2a`, version `0.1.0+1b08aa2`, via
+`make deploy` from the root checkout (two follow-up fixes to the checklist
+compact-view alignment, same day, owner-reported and self-found — no ADR,
+see `docs/plans/sidebar-checklist-expand.md` addendum updates). (1) The
+disclosure chevron's *box* matched the title's column but its rendered
+ink did not (an SVG glyph's ink sits inset from its own bounding box; the
+owner caught it in a screenshot after the first deploy) — the chevron now
+sits in a dedicated gutter before the text column, so the checklist
+line's and every expanded step's actual text lands on the column, not the
+icon. (2) Re-verifying that fix against the *actually deployed* tree (not
+the commit it was first tested on) surfaced that the favicon-refactor
+deploy below had shrunk the identity mark to 16px and updated `ws-meta`'s
+indent (31→23px) but missed `.ws-context` (the folder/branch line) and,
+transitively, the checklist line's own 31px constant — every row's
+folder/branch line was 8px off its title, live, at the time this was
+found. Both `.ws-context` and `.ws-check`/`.ws-check-disclosure` now use
+the same 23px inset. Verified live via `getBoundingClientRect` on real
+production rows (`glm5`, `Pi`): title, checklist text and folder text all
+land on the identical 50px column (not eyeballed). `make ci` green twice
+(docs-shots regenerated for app-fleet/app-inspector each time). Health
+`ok`, systemd active.
+
+Previous deployment: `f4ea75eb`, version `0.1.0+f4ea75e`, via
 `make deploy` from the root checkout (identity-favicon refactor, merged
 from `feat/favicon-refactor` as `020804f8`; worktree and branch removed).
 Agent and terminal identity favicons now wear the workspace favicon's
@@ -366,6 +392,22 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Two follow-up alignment fixes merged and deployed
+  (`1b08aa2a`, `0.1.0+1b08aa2`).** Same day as the compact-view alignment
+  below. (1) Owner sent a screenshot: the disclosure chevron still read as
+  offset from the title even though `getBoundingClientRect()` proved its
+  box matched the title's column — the mismatch was the icon's own ink
+  inset, not the box. Moved the chevron into a dedicated gutter before the
+  text column (file-tree convention), so checklist text — not the icon —
+  lands on the column. (2) Re-verifying that fix against the tree actually
+  in production (not the commit first tested against) surfaced that the
+  same-day identity-favicon deploy had shrunk the identity mark to 16px
+  and updated `ws-meta`'s indent to match, but missed `.ws-context` (the
+  folder/branch line): every row's folder line was already 8px off its
+  title in production. Fixed the same constant in `.ws-context` and the
+  checklist rules (31px → 23px). Verified on real production rows
+  (`glm5`, `Pi`) via measurement, not eyeballing. `make ci` green on both
+  merges (docs-shots regenerated twice). No push.
 - **2026-09-06 — Checklist compact-view alignment merged and deployed
   (`08e9ee62`, `0.1.0+08e9ee6`).** Owner flagged the `(x/n)` parens and the
   line's misalignment with the rest of the card while reviewing agent/
