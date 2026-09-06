@@ -33,6 +33,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- The editor tab strip no longer shows a scrollbar under the tabs. The
+  classic bar (with arrow buttons on Windows) took 10 of the bar's 40 px
+  and the active tab could sit out of view; tabs now use the full height
+  and the strip scrolls to reveal the selected tab on selection and on
+  open (instantly on load, smoothly afterwards, still under
+  reduced-motion). Wheel, edge cues, arrows, an all-tabs list and
+  `Alt+[` / `Alt+]` follow in later phases of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
 - **Session management API folded into the per-CLI namespace** (ADR-0079):
   `/api/sessions/all`, `/api/pi-sessions(+/adopt)` and
   `/api/workspaces/{id}/sessions/manage` are gone — desktop and mobile now
