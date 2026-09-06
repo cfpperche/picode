@@ -36,14 +36,15 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+aa9beea`, health `200`, desktop bundle
-`index-DAL01ZST.js` (served and built hashes match). `make deploy` restarted
-systemd; the seven terminal records survived. Live: the `glm5` agent's rail
-reads `main ↑89` (upstream `origin/main`, nothing pushed — as this file has
-recorded all along), the Git menu opens with its six actions and the overlay
-audit passes; nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the Git-actions tree (Go tests including the
-bare-remote ahead/behind case, 690 frontend/package tests, both UI builds,
+**Last application deployment:** `0.1.0+fa97e8c`, health `200`, desktop
+bundle from the terminal-faces tree. `make deploy` restarted systemd.
+Live: collapsed **COGNIXSE** (terminals-only) now wears its agent-CLI
+favicons (claude + openai) instead of "— empty"; **PiCode** shows a
+capped strip (`+5`); expand/collapse cycles and reload persistence
+verified in-browser; console clean, overlay audit ok. Nothing was typed
+into a production terminal.
+**Quality:** `make ci` passed on the terminal-faces tree (Go tests,
+frontend suites including `collapseFaces.test.js`, both UI builds,
 embedded binary, docs parity with regenerated captures, Vale). Browser
 acceptance: `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
 fixture (`docs/screenshots/inspector-qa.json`), commands proven typed and
