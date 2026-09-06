@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy install test test-js fmt fmt-check vet ci-docs ci clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy deploy-batch timers install test test-js fmt fmt-check vet ci-docs ci ci-scoped close close-summary worktree worktree-gc clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -107,7 +107,11 @@ cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 	./bin/picode install
 
-deploy: ## Rebuild UI+binary and restart the installed service (serialized)
+# Deploy is not part of closing a branch (ADR-0086): every restart ends the
+# managed CLI/agent panes, so main ships in batches — the timer below, or an
+# owner's `make deploy-batch`. `picode deploy` refuses while anyone is
+# mid-turn (exit 2); PICODE_DEPLOY_FORCE=1 overrides for a deliberate one-off.
+deploy: ## Rebuild UI+binary and restart the installed service (serialized; refuses while agents work)
 	flock -x /tmp/picode-deploy.lock $(MAKE) --no-print-directory _deploy
 
 # Body of deploy, held under the lock: parallel sessions deploying between
@@ -115,6 +119,17 @@ deploy: ## Rebuild UI+binary and restart the installed service (serialized)
 _deploy: web
 	go build -tags embedui -o bin/picode ./cmd/picode
 	./bin/picode deploy
+
+deploy-batch: ## Ship main when nobody is mid-turn: recapture stale public images, commit, deploy (what the timer runs)
+	./scripts/deploy-batch.sh
+
+timers: ## Install the systemd user timers (deploy batches at 12:00/18:00/23:00, weekly cert check)
+	mkdir -p ~/.config/systemd/user
+	cp scripts/systemd/picode-deploy.service scripts/systemd/picode-deploy.timer ~/.config/systemd/user/
+	cp scripts/systemd/picode-cert.service scripts/systemd/picode-cert.timer ~/.config/systemd/user/
+	systemctl --user daemon-reload
+	systemctl --user enable --now picode-deploy.timer picode-cert.timer
+	systemctl --user list-timers picode-deploy.timer picode-cert.timer --no-pager
 
 build: web ## Build UI + bin/picode (embeds the UI — ADR-0023)
 	go build -tags embedui -o bin/picode ./cmd/picode
@@ -168,7 +183,24 @@ ci-docs: ## Verify committed docs parity, then build the public site
 	$(MAKE) docs-check
 	$(MAKE) docs
 
-ci: hooks-check fmt-check vet test test-js build ci-docs vale ## Everything CI runs (includes UI + public docs + image + prose parity)
+ci: hooks-check fmt-check vet test test-js build ci-docs vale ## Everything CI runs — the gate for the merge on main
+
+# A worktree iteration runs what its diff can break (ADR-0086); `make ci`
+# stays the whole matrix for the merge on main.
+ci-scoped: ## The gates this branch's diff can break (go: affected packages; web: test-js+build; docs: site+vale)
+	./scripts/ci-scoped.sh
+
+close: ## End a worktree session: scoped gates, regenerated artifacts, fast-forward check, closing summary
+	./scripts/close.sh
+
+close-summary: ## Print what the closing docs need (commits, diff, owed files) — write handoff/changelog from this
+	./scripts/close-summary.sh
+
+worktree: ## New isolated tree ready to build: make worktree NAME=<name> [BRANCH=feat/<name>]
+	./scripts/worktree.sh "$(NAME)" $(BRANCH)
+
+worktree-gc: ## Remove worktrees whose branch is merged, tree clean and idle for an hour (FORCE=1 skips the idle check)
+	./scripts/worktree-gc.sh
 
 clean: ## Remove build artifacts
 	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist

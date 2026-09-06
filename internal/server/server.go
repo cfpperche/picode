@@ -3,6 +3,7 @@
 // Routes (M1):
 //
 //	GET  /api/health, /api/version          — liveness/identity
+//	GET  /api/deploy/readiness              — who is working (loopback, no session)
 //	GET  /api/system                        — pi/tmux detection + warnings
 //	GET/POST /api/workspaces                — registry CRUD
 //	DELETE /api/workspaces/{id}             — remove (+ stop agent)
@@ -168,6 +169,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)
+	registerDeployRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux, deps)

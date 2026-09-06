@@ -198,13 +198,17 @@ func handleTerminalRun(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, msg)
 			return
 		}
-		if deps.Tmux == nil || !deps.Tmux.Available() {
-			writeErr(w, http.StatusServiceUnavailable, "Need tmux to run a command in a terminal.")
-			return
-		}
+		// The request is judged before the machine: a bad body, an unknown
+		// terminal or a stale root is the caller's problem whether or not
+		// tmux is installed. The capability check sits ahead of the pane
+		// probes, which are what needs tmux.
 		cwd := liveTermCwd(deps, r, t)
 		if req.Root == "" || req.Root != canonDir(cwd) {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal moved to " + cwd + ".", "reason": "moved", "cwd": cwd})
+			return
+		}
+		if deps.Tmux == nil || !deps.Tmux.Available() {
+			writeErr(w, http.StatusServiceUnavailable, "Need tmux to run a command in a terminal.")
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)

@@ -2492,6 +2492,23 @@
         ]
       }
     },
+    "/api/deploy/readiness": {
+      "get": {
+        "operationId": "getApiDeployReadiness",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "deploy"
+        ]
+      }
+    },
     "/api/devices": {
       "get": {
         "operationId": "getApiDevices",
@@ -7107,6 +7124,9 @@
     },
     {
       "name": "clis"
+    },
+    {
+      "name": "deploy"
     },
     {
       "name": "devices"

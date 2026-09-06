@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { classifyPaths, pathScope } from "./ci-scope.mjs";
+import { classifyPaths, localScope, pathScope } from "./ci-scope.mjs";
 
 const cases = [
   {
@@ -110,3 +110,22 @@ test("hosted workflow preserves the optimized platform decision table", () => {
     "local CI must check committed parity before docs generation",
   );
 });
+
+// Local worktree scopes (ADR-0086): run what the diff can break.
+const localCases = [
+  { name: "empty diff runs everything", paths: [], want: { full: true } },
+  { name: "CSS only is a web scope", paths: ["web/desktop/src/styles/app.css"], want: { full: false, go: false, web: true } },
+  { name: "a handler is a go scope with its path", paths: ["internal/server/server.go"], want: { full: false, go: true, web: false, goPaths: ["internal/server/server.go"] } },
+  { name: "a pi package is test-js only", paths: ["packages/pi-checklist/index.ts"], want: { full: false, packages: true, go: false } },
+  { name: "public docs are the docs scope", paths: ["www/guide/api.md"], want: { full: false, docs: true, packages: false } },
+  { name: "docs scripts are docs and test-js", paths: ["scripts/docs-shots.mjs"], want: { docs: true, packages: true, full: false } },
+  { name: "handoff is metadata", paths: ["docs/handoff/2026-09-06-x.md"], want: { metadata: true, full: false } },
+  { name: "the Makefile fails safe to full", paths: ["Makefile", "web/a.jsx"], want: { full: true } },
+  { name: "an unknown root file fails safe to full", paths: ["Dockerfile"], want: { full: true } },
+];
+for (const c of localCases) {
+  test("localScope: " + c.name, () => {
+    const got = localScope(c.paths);
+    for (const [k, v] of Object.entries(c.want)) assert.deepEqual(got[k], v, k);
+  });
+}

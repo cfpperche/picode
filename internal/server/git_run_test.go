@@ -46,6 +46,19 @@ func swapProbes(t *testing.T, panes map[string]string, busyAgents map[string]str
 	t.Cleanup(func() { paneCommandFn, agentBusyFn, terminalBusyFn = pane, agent, term })
 }
 
+// shimTmux puts a tmux that always fails first on PATH, so the run and type
+// routes pass their capability check on a machine without tmux (the macOS
+// CI runner) and every probe they make afterwards is answered by swapProbes.
+// A real tmux with no session for the terminal behaves the same way.
+func shimTmux(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "tmux"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 func postRaw(t *testing.T, ts *httptest.Server, path string, body string) (int, map[string]any) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(body))
@@ -82,6 +95,7 @@ func TestTerminalRunRefusals(t *testing.T) {
 	runPath := "/api/terminals/" + target.ID + "/run"
 	ok := `{"text":"git fetch --prune","root":` + jsonString(root) + `}`
 
+	shimTmux(t)
 	swapProbes(t, map[string]string{}, map[string]string{})
 	if code, _ := postRaw(t, ts, runPath, `{"text":"echo hi\n","root":`+jsonString(root)+`}`); code != http.StatusBadRequest {
 		t.Fatalf("newline = %d, want 400", code)

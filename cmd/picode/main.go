@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -93,7 +94,7 @@ func dispatch(cmd string, args []string) bool {
 	case cmd == "update":
 		runUpdate()
 	case cmd == "deploy":
-		runDeploy()
+		runDeploy(args)
 	case cmd == "uninstall":
 		runUninstall(args)
 	case cmd == "pair":
@@ -228,8 +229,17 @@ func runInstall(args []string) {
 	fmt.Println("  systemctl --user status picode")
 }
 
-func runDeploy() {
+// A restart ends every managed CLI/agent pane (ADR-0084/0085), so deploy
+// first asks the running daemon who is working and refuses while anyone
+// is (ADR-0086). --force, or PICODE_DEPLOY_FORCE=1 from make, overrides.
+func runDeploy(args []string) {
 	shippable("deploy")
+	force := os.Getenv("PICODE_DEPLOY_FORCE") == "1"
+	for _, a := range args {
+		if a == "--force" || a == "-f" {
+			force = true
+		}
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("deploy: %v", err)
@@ -239,7 +249,11 @@ func runDeploy() {
 		log.Fatalf("deploy: %v", err)
 	}
 	fmt.Println("Deploying this binary…")
-	if err := install.Deploy(exe, home, os.Getenv("PATH")); err != nil {
+	if err := install.DeployForce(exe, home, os.Getenv("PATH"), force); err != nil {
+		if errors.Is(err, install.ErrDeployBusy) {
+			fmt.Fprintln(os.Stderr, "deploy refused:", err)
+			os.Exit(2)
+		}
 		log.Fatalf("deploy: %v", err)
 	}
 	fmt.Println("Restarted.")

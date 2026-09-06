@@ -48,8 +48,14 @@ func Install(exe, home, pathEnv string) error {
 	return nil
 }
 
-// Deploy copies this binary over the installed one and restarts the unit.
+// Deploy copies this binary over the installed one and restarts the unit,
+// unless the daemon reports agents mid-turn (ADR-0086).
 func Deploy(exe, home, pathEnv string) error {
+	return DeployForce(exe, home, pathEnv, false)
+}
+
+// DeployForce is Deploy with the readiness guard optionally skipped.
+func DeployForce(exe, home, pathEnv string, force bool) error {
 	if !systemdAvailable() {
 		return fmt.Errorf("need systemd (user). In WSL set systemd=true in /etc/wsl.conf")
 	}
@@ -63,6 +69,10 @@ func Deploy(exe, home, pathEnv string) error {
 	p := ForHome(home)
 	if _, err := os.Stat(p.Unit); err != nil {
 		return fmt.Errorf("not installed — run picode install first")
+	}
+	// Before anything irreversible: the restart must not cost a conversation.
+	if err := guardDeploy(p.Data, force); err != nil {
+		return err
 	}
 	// Same reason as Install: copying the new binary and failing to restart
 	// leaves the old one running and looks like a successful deploy.

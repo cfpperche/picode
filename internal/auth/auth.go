@@ -178,6 +178,10 @@ func exempt(r *http.Request) bool {
 	switch {
 	case p == "/api/health" && r.Method == http.MethodGet:
 		return true
+	// The deploy guard runs on this machine before a restart (ADR-0086);
+	// from anywhere else the route is an ordinary guarded API.
+	case p == "/api/deploy/readiness" && r.Method == http.MethodGet && Loopback(r):
+		return true
 	case p == "/pair":
 		return true
 	case r.Method == http.MethodPost && fireRoute.MatchString(p):
