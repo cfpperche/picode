@@ -29,8 +29,8 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  deployed `0.1.0+78bfd8d` (`make deploy` from the root checkout); health
-  ok, systemd active. iPhone IME pass still owed. Managed agents remain
+  refined on `main` (`0eb9f6b4`): pin only while the IME is up, opaque
+  row, xterm refit. iPhone pass still owed. Managed agents remain
   Pi-only; coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
@@ -38,8 +38,6 @@
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/mobile-keybar-refine` — no black strip at rest; opaque extra keys;
-  terminal refits above the IME. Safari's undo/Done pill cannot be hidden.
 
 ## Next up
 
