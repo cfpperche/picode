@@ -1,0 +1,17 @@
+{
+  "builtin": {
+    "default": {
+      "model": "zai/glm-5.3-flash",
+      "thinking": "max"
+    },
+    "vision": {
+      "model": "zai/glm-5.3-flash",
+      "thinking": "max"
+    },
+    "plan": {
+      "model": "zai/glm-5.3",
+      "thinking": "max"
+    }
+  },
+  "custom": []
+}
