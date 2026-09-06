@@ -6,9 +6,9 @@
 ## Current state (read this first)
 
 **Repository:** `main` includes llama.cpp delivery 2 (ADR-0083), merged as
-`70edb214` and deployed as `0.1.0+70edb21` — and the checklist sidebar
-refinements + expand-on-click disclosure (ADR-0082,
-`feat/checklist-sidebar-refine`) merge next. Models, Server and
+`70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
+refinements + expand-on-click disclosure (ADR-0082, merged `e2cdc61f`,
+deployed `0.1.0+1af83f4`). Models, Server and
 Activity work on desktop/mobile. Load, unload and download now create durable
 jobs, show per-file progress and recover observation after reconnect/restart
 without replaying a mutation. Cancellation is enabled only for verified b10809.
@@ -29,7 +29,16 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `70edb214` (llama delivery 2 merged
+**Last application deployment:** `1af83f4d`, version `0.1.0+1af83f4`, via
+serialized `make deploy` from the root checkout (checklist refinements +
+expand-on-click disclosure merged, ADR-0082). Health `ok`, systemd active,
+8 terminals survived, `POST /api/terminals/nope/checklist` 404s live. The
+sidebar disclosure is browser-QA'd on an identical bundle (isolated daemon:
+expand, live flip, keyboard); on the live instance a card shows the
+expandable line once its pi publishes (pi-checklist 0.2.0 on the process's
+next start).
+
+Previous deployment: `70edb214` (llama delivery 2 merged
 with the checklists tree) via `make deploy` from the root checkout; systemd
 active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
 six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
@@ -154,17 +163,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/checklist-sidebar-refine` is merged into main; the next `make
-  deploy` ships it. Contents: the checklist counter `(x/n)` muted, an
-  **absent** checklist rendering as silence everywhere (ADR-0082, owner
-  call; data plane unchanged), and the **expand-on-click disclosure**
-  (`checklistRows` pure + node-tested; `ChecklistDisclosure` on agent and
-  terminal cards — ☑ dimmed, braille `PiSpinner` on the step being
-  executed, ☐ pending; real button with `aria-expanded`, Enter/Escape,
-  never navigates; 150ms grid-rows motion behind reduced-motion; live over
-  the feed, no fetch). Browser QA on an isolated daemon: both cards expand,
-  live flip mid-expansion, URL unchanged, `overlayAudit ok`. visual-review:
-  PASS. `make ci` green.
+- Checklist refinements + disclosure are **merged and deployed**
+  (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
+  counter `(x/n)` muted, an **absent** checklist rendering as silence
+  everywhere (ADR-0082, owner call; data plane unchanged), and the
+  **expand-on-click disclosure** (`checklistRows` pure + node-tested;
+  `ChecklistDisclosure` on agent and terminal cards — ☑ dimmed, braille
+  `PiSpinner` on the step being executed, ☐ pending; real button with
+  `aria-expanded`, Enter/Escape, never navigates; 150ms grid-rows motion
+  behind reduced-motion; live over the feed, no fetch). Open acceptance:
+  see a live terminal card gain its expandable line once a terminal pi
+  publishes with pi-checklist 0.2.0 (running pi processes pick it up on
+  their next start); light-theme screenshot of the expanded list; mobile
+  expansion (server already embeds `checklist` in terminal views —
+  desktop-first scope).
 
 - llama delivery 2 is complete in `feat/llama-jobs`; integration/deployment
   remains separate. Keep real validation sequential with four CPU threads
@@ -326,6 +338,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Checklist refinements + disclosure merged and deployed
+  (`e2cdc61f`/`1af83f4d`, `0.1.0+1af83f4`).** Reconciled two mid-flight main
+  moves (llama delivery 2, drop-sessions cleanup); conflicts kept both
+  sides' entries. Deploy verified: health ok, 8 terminals survived,
+  unknown-terminal checklist 404 live. Disclosure interaction was
+  browser-QA'd pre-deploy on an identical bundle. No push.
 - **2026-09-06 — Checklist refinements + disclosure reconciled with llama
   delivery 2 (branch).** CHANGELOG/ADR-index/handoff conflicts resolved
   keeping both sides (llama ADR-0083 vs my ADR-0082); captures taken on
