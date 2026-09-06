@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Sessions moved under Agent CLIs** (ADR-0079): the desktop surface now
+  lives at `#/clis/sessions` (every Pi session, grouped by folder) and
+  `#/clis/sessions/<workspaceId>` (one folder) as a third tab beside CLIs
+  and Terminals; the sidebar folder icon, the dashboard's top sessions and
+  the user menu open the new addresses, and old `#/sessions*` links
+  redirect. No API or behavior change in this step; listing sessions of the
+  other agent CLIs (Claude Code, Codex, Grok) is planned next on the same
+  address.
 - `pi-diff` (ADR-0077 amendment): in pi's fullscreen TUI mode the panel is
   now a real layout column — full height, fixed while the transcript
   scrolls, chat and editor wrapping to the left — with mouse-wheel

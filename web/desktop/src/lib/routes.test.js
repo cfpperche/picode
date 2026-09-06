@@ -84,14 +84,15 @@ test("git tabs are distinct from file and terminal tabs", () => {
   assert.ok(!isGitTab(termTabId("sh1")));
 });
 
-test("sessions route parses workspace id", () => {
-  assert.equal(parseRoute("#/sessions"), "sessions");
-  assert.equal(parseRoute("#/sessions/ws-9"), "sessions");
-  assert.equal(sessionsRoute("#/sessions/ws-9"), "ws-9");
-  assert.equal(sessionsRoute("#/sessions"), null);
+test("sessions live under Agent CLIs (ADR-0079)", () => {
+  // Legacy top-level hashes render the Agent CLIs shell, which redirects.
+  assert.equal(parseRoute("#/sessions"), "clis");
+  assert.equal(parseRoute("#/sessions/ws-9"), "clis");
+  assert.equal(sessionsRoute("#/clis/sessions/ws-9"), "ws-9");
+  assert.equal(sessionsRoute("#/clis/sessions"), null);
   assert.equal(sessionsRoute("#/agent/opus"), null);
-  assert.equal(sessionsHash("ws-9"), "#/sessions/ws-9");
-  assert.equal(sessionsHash(""), "#/");
+  assert.equal(sessionsHash("ws-9"), "#/clis/sessions/ws-9");
+  assert.equal(sessionsHash(""), "#/clis/sessions");
 });
 
 test("go(sessions) lands on the machine-wide view, not the :id template", () => {
@@ -99,7 +100,7 @@ test("go(sessions) lands on the machine-wide view, not the :id template", () => 
   globalThis.location = { hash: "" };
   try {
     go("sessions");
-    assert.equal(globalThis.location.hash, "#/sessions");
+    assert.equal(globalThis.location.hash, "#/clis/sessions");
   } finally {
     globalThis.location = orig;
   }

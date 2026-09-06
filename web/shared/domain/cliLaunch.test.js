@@ -8,6 +8,11 @@ test("CLI manager parses launch routes", () => {
   assert.deepEqual(cliLocation("#/clis/terminal/a%20b"), { view: "terminal", id: "a b" });
 });
 
+test("sessions view takes an optional workspace scope (ADR-0079)", () => {
+  assert.deepEqual(cliLocation("#/clis/sessions"), { view: "sessions", id: "" });
+  assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "sessions", id: "ws-9" });
+});
+
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {
   const base = { executable: "", args: ["--flag"], path: ["/base"], env: { KEEP: "one", DROP: "two" }, integration: true };
   const next = { ...base, args: [], env: { KEEP: "one", ADD: "three" }, integration: false };

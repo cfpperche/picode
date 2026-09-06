@@ -13,7 +13,9 @@ captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
 reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
-Pi-only; coding CLIs are terminals. No push was made. Preserve the
+Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
+(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
+No push was made. Preserve the
 unrelated root `.pi/compact.json`. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
 capture acceptance remain pending, so deployment does not enable browser
@@ -122,6 +124,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- `refactor/sessions-into-clis` (ADR-0079, accepted): the desktop sessions
+  surface moved under Agent CLIs — `#/clis/sessions` (machine-wide) and
+  `#/clis/sessions/<workspaceId>` (one folder) render as the third tab;
+  `#/sessions*` deep links redirect; sidebar icon, dashboard top sessions
+  and the user menu emit the new hashes. UI-only: no API change. Awaits
+  merge to main. Phase 2 (other CLIs' sessions) is next, see below.
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -150,7 +158,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Scope provider OAuth/marketplace acceptance only if the owner requests it;
+1. **Sessions phase 2 (ADR-0079)**: per-CLI session sources —
+   `internal/clisession` with a `Source` per CLI (pi wraps the existing
+   package; claude-code reads `~/.claude/projects`; codex reads
+   `~/.codex/sessions`; grok needs verified evidence first),
+   `GET /api/clis/{id}/sessions(+transcript)`, per-CLI filter and search on
+   `#/clis/sessions`, and "Open in terminal" resume actions for non-Pi
+   sessions. Chat replay stays Pi-only. Decide then whether
+   `/api/sessions/all` and `/api/pi-sessions` become deprecated aliases.
+2. Scope provider OAuth/marketplace acceptance only if the owner requests it;
    generic Integrations and external connector setup are already deployed.
 2. Validate deployed PWA upgrades and push on iOS/Android. Mobile UI increments
    belong only in `web/mobile`.
@@ -211,6 +227,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079).** Desktop
+  `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as
+  the third tab of the Agent CLIs surface; sidebar icon, dashboard top
+  sessions and user menu emit the new hashes and old deep links redirect.
+  UI-only phase 1: no API change. `make ci` green; docs captures
+  regenerated. visual-review: PASS (empty, loaded, workspace-scoped, error
+  and Open-with overlay states read; overlayAudit ok).
 - **2026-09-05 — Worktree-scoped asset previews fixed and deployed
   (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and
   workspace git reads skipped it, so uncommitted panels showed "Can't load
