@@ -79,7 +79,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, readInspectorPrefs, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -974,11 +974,46 @@ export default function App() {
   // The Inspector's PR tab pre-fills a gh command in a terminal the human
   // submits themselves (ADR-0078): the owner's own terminal when it is one,
   // otherwise a new terminal born in the anchored folder.
-  async function typeIntoTerminal(owner, root, command) {
+  async function typeIntoTerminal(owner, root, command, { run = false } = {}) {
     if (!owner || !command) return;
+    const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    // Stage 2 (ADR-0078): with the run preference on, the server presses
+    // Enter only when its interlock finds nobody else writing the repository;
+    // a busy answer becomes a prepared command plus a note saying why.
+    const deliver = async (tid) => {
+      if (run) {
+        try {
+          await post(tid, "run", { text: command, root });
+          return;
+        } catch (err) {
+          // Only the target terminal's own refusals ("This terminal moved
+          // to…", "This terminal is running…") send the command elsewhere;
+          // a busy repository is prepared right here, with the reason.
+          const msg = (err && err.message) || "";
+          if (/^This terminal (moved to|is running)/i.test(msg)) throw err;
+          toast.info(runFallbackNote(humanizeError(msg)));
+        }
+      }
+      await post(tid, "type", { text: command, root });
+    };
+    const create = async () => {
+      const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
+      const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
+      const page = await api("/api/terminals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: command.trim().split(/\s+/)[0] || "git", cwd: root || "", workspaceId: wsId }),
+      });
+      setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
+      await openTermTab(page.id);
+      // A shell born this instant has not drawn its prompt yet; keystrokes
+      // that arrive before it echo twice. Give it a beat before typing.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      return page.id;
+    };
     try {
       let tid = owner.kind === "term" ? owner.id : "";
-      let fresh = false;
       if (!tid) {
         // Reuse a plain, idle shell already sitting in that folder; never a
         // terminal hosting a CLI (Claude Code, Codex…) whose TUI would eat
@@ -987,24 +1022,18 @@ export default function App() {
         if (idle) tid = idle.id;
       }
       if (!tid) {
-        const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
-        const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
-        const page = await api("/api/terminals", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: command.trim().split(/\s+/)[0] || "git", cwd: root || "", workspaceId: wsId }),
-        });
-        setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
-        tid = page.id;
-        fresh = true;
+        await deliver(await create());
+        return;
       }
       await openTermTab(tid);
-      // A shell born this instant has not drawn its prompt yet; keystrokes
-      // that arrive before it echo twice. Give it a beat before typing.
-      if (fresh) await new Promise((resolve) => setTimeout(resolve, 900));
-      await api("/api/terminals/" + encodeURIComponent(tid) + "/type", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: command }),
-      });
+      try {
+        await deliver(tid);
+      } catch (err) {
+        // The chosen terminal moved away or holds a foreground program:
+        // a fresh terminal in the folder takes the command instead.
+        if (!/^This terminal (moved to|is running)/i.test((err && err.message) || "")) throw err;
+        await deliver(await create());
+      }
     } catch (err) { toastError(err); }
   }
 
@@ -2714,6 +2743,8 @@ export default function App() {
         onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
         onOpenTerminal={typeIntoTerminal}
         onChanges={setInspectorChanged}
+        runMode={!!inspectorPrefs.run}
+        onRunMode={(run) => rememberInspector({ run })}
       />
 
       <Palette
@@ -2750,13 +2781,13 @@ export default function App() {
           setFormError("");
           if (k === "session") {
             setPiSessions(null);
-            api("/api/pi-sessions").then((p) => setPiSessions((p && p.sessions) || [])).catch(() => setPiSessions([]));
+            api("/api/clis/pi/sessions").then((p) => setPiSessions((p && p.sessions) || [])).catch(() => setPiSessions([]));
           }
         }}
         onAdopt={async (path) => {
           setFormError("");
           try {
-            const ag = await api("/api/pi-sessions/adopt", {
+            const ag = await api("/api/clis/pi/sessions/adopt", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ path }),

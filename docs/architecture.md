@@ -248,7 +248,7 @@ Composer `/` also lists **extension commands** from the running managed agent
 sends `/name` as a prompt. Stopped agents omit that list. Names that collide
 with a PiCode command are dropped.
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The desktop shell is three columns: the left sidebar, the center (tab strip and one surface at a time) and, since ADR-0078, a right **Inspector** rail. The rail follows the selected tab's owner (agent, terminal or workspace — the same owner that authorises file reads, resolved from the tab id like the git graph and folder tabs do) and keeps its last anchor beside tabs without a folder (apps). **Changes** (default) lists the working tree as a folder tree with per-file and per-folder `+N −M` from `…/gitstatus`, an `Uncommitted · +N −M` total, the branch and worktree, and beside an agent an `All | This agent` scope that intersects the tree with the paths the session's `edit`/`write` tools named; **Files** is the lazy project tree with a filter over loaded rows. The rail hosts no editor: a file opens the existing `#/file/…` tab, a change opens the same tab in a **Diff** view (`WorkingDiff`), and "View diff" / "Open file" swap the two in place — the view is per-tab viewer state, not part of the tab id or the hash. Every read pins the anchor's folder as the `root` precondition (ADR-0074); a background 409 becomes one blocked line — "This terminal moved to …" with **Follow** — that reads the live cwd and never retargets on its own. Live updates: `git.updated` for the pinned root, feed open/reset, focus/visibility, and the terminal row's live cwd/dirty facts; no interval. Width (260–560, default 320), open state and tab are localStorage preferences (`picode-inspector-*`, no hash route); a viewer who never toggled gets the rail open at ≥1440px; it shrinks before it hides and hides when even 260px would push the conversation under 640px, or in the ≤767px shell. Toggle: the tab-strip button, `Ctrl+.` / `Cmd+.` (`app.inspector.toggle`) or the palette. A third tab, **PR**, shows the branch's pull request through the host's `gh` (`…/pr`): number, state, review decision, checks, `+N −M`, an "Open on GitHub" link; "No pull request" and "not logged in" offer one action that pre-types `gh pr create --fill` or `gh auth login` into the owner's terminal (`POST /api/terminals/{id}/type`), never submitting it. A **Git actions** menu prepares Fetch, Pull, Push, Commit, Commit and push and Create pull request as exact commands in a plain idle terminal of the folder (reused when one exists, never a terminal hosting a CLI), through the same `type` route — the human presses Enter; the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached`. Its More menu offers Reveal, Open git graph and Open as tab (the ADR-0074 folder tab stays the deep-review host). The rail is the host for later right-hand panels (PR, browser preview, search, tasks): one rail, never two.
+The desktop shell is three columns: the left sidebar, the center (tab strip and one surface at a time) and, since ADR-0078, a right **Inspector** rail. The rail follows the selected tab's owner (agent, terminal or workspace — the same owner that authorises file reads, resolved from the tab id like the git graph and folder tabs do) and keeps its last anchor beside tabs without a folder (apps). **Changes** (default) lists the working tree as a folder tree with per-file and per-folder `+N −M` from `…/gitstatus`, an `Uncommitted · +N −M` total, the branch and worktree, and beside an agent an `All | This agent` scope that intersects the tree with the paths the session's `edit`/`write` tools named; **Files** is the lazy project tree with a filter over loaded rows. The rail hosts no editor: a file opens the existing `#/file/…` tab, a change opens the same tab in a **Diff** view (`WorkingDiff`), and "View diff" / "Open file" swap the two in place — the view is per-tab viewer state, not part of the tab id or the hash. Every read pins the anchor's folder as the `root` precondition (ADR-0074); a background 409 becomes one blocked line — "This terminal moved to …" with **Follow** — that reads the live cwd and never retargets on its own. Live updates: `git.updated` for the pinned root, feed open/reset, focus/visibility, and the terminal row's live cwd/dirty facts; no interval. Width (260–560, default 320), open state and tab are localStorage preferences (`picode-inspector-*`, no hash route); a viewer who never toggled gets the rail open at ≥1440px; it shrinks before it hides and hides when even 260px would push the conversation under 640px, or in the ≤767px shell. Toggle: the tab-strip button, `Ctrl+.` / `Cmd+.` (`app.inspector.toggle`) or the palette. A third tab, **PR**, shows the branch's pull request through the host's `gh` (`…/pr`): number, state, review decision, checks, `+N −M`, an "Open on GitHub" link; "No pull request" and "not logged in" offer one action that pre-types `gh pr create --fill` or `gh auth login` into the owner's terminal (`POST /api/terminals/{id}/type`), never submitting it. A **Git actions** menu prepares Fetch, Pull, Push, Commit, Commit and push and Create pull request as exact commands in a plain idle terminal of the folder (reused when one exists, never a terminal hosting a CLI), through the same `type` route — the human presses Enter; with the menu's "Run when no agent is working here" checkbox on (per viewer), the `run` route presses Enter itself when its interlock finds the repository idle and otherwise prepares the command with a note saying who is busy; the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached`. Its More menu offers Reveal, Open git graph and Open as tab (the ADR-0074 folder tab stays the deep-review host). The rail is the host for later right-hand panels (PR, browser preview, search, tasks): one rail, never two.
 The sidebar has five flat tabs, one kind each (ADR-0026, fifth added by ADR-0036), in order: **Workspaces** (the landing tab — one collapsible card per workspace holding its agents and its terminals; no section-level collapse), **Agents** (free agents, name-sorted, no hierarchy — agent and terminal rows share one flat supervision shape), **Terminals** (free terminals only), **Apps** (a grid of app tiles drawn from `GET /api/apps` manifests — numeric badge for actionable counts, dot for activity, aggregated onto the tab icon; a tile opens the app as a main tab `x:<id>` / `#/app/<id>`) and **Pins**. Nothing appears in two tabs. Terminals are first-class shells (ADR-0017): **+** on the Terminals tab creates a free one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`); the terminal button on a workspace card creates one owned by it, born in the workspace folder (`workspaceId` in the POST body). Either opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux; removing a workspace kills its terminals with it (the cleanup dialog warns with the count from the preview). Not tied to an agent. A terminal row separates **CLI presence** from **activity** (ADR-0062): a wrapper lease identifies Claude Code, Codex, Grok, or Pi with a run id, while lifecycle hooks report `Working`, `Needs you`, or quiet `Ready`; when no wrapper announcement is in memory (daemon restart, unwired sessions), reconciliation revives presence from the pane's process tree — exact pane command, or a `/proc` walk that matches the wrapped CLI through wrapper shells and interpreters, validated by PID plus process-start token, and dropped the moment the CLI exits. No presence or activity is inferred from terminal pixels. Supported CLI badges use each runtime's official mark — the same transparent SVG source the provider faces use, then the vendor's own assets as fallback links — filling the same 22px face slot as agent rows with no chip behind the image; the compact text mark in a boxed badge is only an asset-load fallback. Agent and terminal rows lead with identity/status, keep live path and branch as subdued actions, and put secondary actions behind a menu. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear after **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
 An Inbox answer to a TUI agent lands directly in its running terminal
 (ADR-0060). Every spawned agent TUI carries PiCode's receiver extension
@@ -311,10 +311,11 @@ own TUI continues one session instead of minting a competitor each hop.
 The composer status bar is per agent too: the desktop app fetches
 `/status?agent=<selected>`; without the parameter the endpoint answers
 for the workspace's first agent (ADR-0053). The
-machine-wide/workspace-wide housekeeping views (`/sessions/manage`,
-`/sessions/all`, below) are unfiltered on purpose and union in every
-agent's private dir alongside the shared cwd bucket: they exist to show
-and clean up everything, ownership tag or not.
+machine-wide/workspace-wide housekeeping view (`GET
+/api/clis/pi/sessions`, below) is unfiltered on purpose and unions in
+every agent's private dir alongside the shared cwd bucket when scoped by
+workspace: it exists to show and clean up everything, ownership tag or
+not.
 PiCode lists, switches (`--session`), and **replays** them into the chat
 surface. History is not copied into SQLite (ADR-0005). The transcript endpoint serves a
 window (`?tail=&skip=`) — the browser holds only the newest slice and
@@ -634,26 +635,30 @@ HTTP API (Go 1.22 method patterns):
   preview for the delete dialog (session count, last occupant, owned work folder).
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
-- `GET /api/workspaces/{id}/sessions/manage` — every Pi session under the
-  folder *and* each of its agents' private dirs (`workspaceSessionDirs`,
-  ADR-0040), unfiltered by ownership (unlike the per-agent picker,
-  ADR-0039 — this view's job is to show everything), each with
-  size/age/messages/cost and `inUseBy` (the agent whose current session
-  it is); `cleanupDays` and `totalBytes` ride along. `DELETE` on the same
-  path removes one orphan (in-use → 409). Powers the `#/clis/sessions/<id>`
-  view (sidebar folder icon): Open with… reuses the resume endpoint,
-  Compact reuses the agent compact.
-- `GET/PUT /api/session-cleanup` — orphan auto-clean preference in days
-  (0 = off, default). Sweep runs at boot, daily, and after each change;
-  it deletes only sessions no agent is bound to *or has ever been*
-  (`agents.session_path` current pointer, plus the full `agent_sessions`
-  history, ADR-0040 — an older but still chat-picker-resumable session is
-  never swept just because it isn't the current one), across the shared
-  cwd buckets and every agent's private dir.
-- `GET/DELETE /api/sessions/all` — machine-wide view (`session.ListAll`):
-  every Pi session on the machine, each tagged with the workspace owning
-  its folder; delete validates against the sessions root. Powers the
-  `#/clis/sessions` All-folders view (ADR-0079).
+- `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
+  phase 2): pi plus Claude Code, Codex and Grok, read-only from disk
+  (`internal/clisession`), each row with size/age/messages and
+  server-verified resume arguments, tagged with the PiCode workspace that
+  owns its folder. For pi the row also carries `inUseBy` (the agent whose
+  current session it is) and the response adds `cleanupDays`; scoping by
+  `?workspace=<id>` unions the shared cwd bucket with each of that
+  workspace's agents' private dirs (`workspaceSessionDirs`, ADR-0040),
+  unfiltered by ownership (unlike the per-agent picker, ADR-0039 — this
+  view's job is to show everything). `POST /api/clis/pi/sessions/delete`
+  `{path}` removes one orphan (in-use → 409, outside the pi root → 400);
+  `POST /api/clis/pi/sessions/adopt` `{path}` copies a JSONL and creates a
+  stopped agent (the old `/api/pi-sessions*` flow); `GET/PUT
+  /api/clis/pi/sessions/cleanup` is the orphan auto-clean preference in
+  days (0 = off, default) — the sweep runs at boot, daily, and after each
+  change, and never deletes a session any agent is bound to *or has ever
+  been* (the `agent_sessions` history, ADR-0040: an older but still
+  chat-picker-resumable session is not swept just because it isn't the
+  current one). Together these power the `#/clis/sessions`
+  views and the "From a Pi session" picker: Open with… reuses the resume
+  endpoint, Compact reuses the agent compact. The legacy routes
+  (`/api/sessions/all`, `/api/pi-sessions*`, `/api/session-cleanup`,
+  `/api/workspaces/{id}/sessions/manage`) were removed — one namespace
+  per CLI.
 - `POST /api/workspaces/{id}/open|close` — start/stop the pi agent
   (idempotent); 409 on a workspace with no agents, like every
   workspace-scoped call that needs one (sessions, status)
@@ -764,7 +769,15 @@ HTTP API (Go 1.22 method patterns):
   the Inspector pre-fills `gh pr create --fill` or `gh auth login` for the
   human to submit. Control characters, newlines, a leading dash and texts
   over 2000 characters are refused (400); a terminal without a live pane is
-  409.
+  409, and so are a terminal whose live cwd differs from an optional `root`
+  (`reason: moved`) or whose pane is not at a shell (`reason: foreground`).
+- `POST /api/terminals/{id}/run` `{"text","root"}` — the same keystrokes plus
+  Enter, behind the Inspector's interlock (ADR-0078 stage 2): 409 `busy`
+  naming every PiCode-known writer of that repository (agents mid-turn, TUIs
+  working, automation runs, other terminals reported working or holding a
+  foreground program), 409 `moved` / `foreground` / `closed` for the target
+  terminal itself; otherwise `{"ran": true}`. Git runs in the user's shell,
+  never in the service process; the interlock is advisory and momentary.
 
 ADR-0074 adds optional `?root=<canonical folder>` to browse, text (GET/PUT),
 blob, gitstatus, gitdiff, git/blob, pr and reveal. The resolved owner cwd remains

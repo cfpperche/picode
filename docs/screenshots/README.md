@@ -39,7 +39,11 @@ menu (ADR-0078, Commit stage 1): Fetch typed into an idle terminal of the
 folder, the commit form refusing an empty message, the form with its command
 preview, and the prepared commit sitting unsubmitted in the prompt while
 `gitstatus` still reports the four changes; the branch chip reads `main ↑1`
-from the seeded upstream.
+from the seeded upstream. `inspector-run-*` adds the run-when-idle mode
+(stage 2): the note that a second terminal is running `sleep` and the command
+was prepared instead (the toast steps left of the rail), the commit form in
+"Run in terminal" wording, and the terminal after the commit ran with
+`gitstatus` at zero changes before the runner restores the seed.
 
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector

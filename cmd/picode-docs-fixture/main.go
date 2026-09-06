@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/feed"
@@ -54,6 +55,8 @@ func main() {
 		filepath.Join(dataDir, "home", ".pi", "agent"),
 		filepath.Join(dataDir, "work", "picode"),
 		filepath.Join(dataDir, "work", "website"),
+		filepath.Join(dataDir, "work", "sandbox"),
+		filepath.Join(dataDir, "work", "fresh"),
 	} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			log.Fatalf("fixture: mkdir %s: %v", d, err)
@@ -71,7 +74,8 @@ func main() {
 		log.Fatalf("fixture: store: %v", err)
 	}
 	defer st.Close()
-	if err := seed(st); err != nil {
+	runtimes := server.NewTermRuntimes()
+	if err := seed(st, runtimes); err != nil {
 		log.Fatalf("fixture: seed: %v", err)
 	}
 	runtime := rpc.NewRuntime("pi", st, nil) // never started: no real spawns
@@ -92,14 +96,15 @@ func main() {
 	}
 
 	deps := server.Deps{
-		Store:    st,
-		Auth:     nil, // ungated: the capture browser walks straight in
-		Tmux:     tmux.New(),
-		Runtime:  runtime,
-		AgentCmd: "pi", // ADR-0003; never spawned by the fixture
-		DataDir:  dataDir,
-		Presence: devices,
-		Feed:     changes,
+		Store:        st,
+		Auth:         nil, // ungated: the capture browser walks straight in
+		Tmux:         tmux.New(),
+		Runtime:      runtime,
+		AgentCmd:     "pi", // ADR-0003; never spawned by the fixture
+		DataDir:      dataDir,
+		Presence:     devices,
+		Feed:         changes,
+		TermRuntimes: runtimes,
 		// The mobile inbox screen is an apps-host surface (ADR-0036):
 		// without the registry its iframe dies and the screen shows
 		// "Reconnecting" forever — the capture gate caught exactly that.
@@ -115,13 +120,21 @@ func main() {
 
 // seed fills the store with a fixed, synthetic world. Names, states and
 // numbers are invented; nothing here is a real person, inbox or spend.
-func seed(st *store.Store) error {
+func seed(st *store.Store, runtimes *server.TermRuntimes) error {
 	wsMain, err := st.AddWorkspace("picode", filepath.Join(dataDir, "work", "picode"))
 	if err != nil {
 		return err
 	}
 	wsSite, err := st.AddWorkspace("website", filepath.Join(dataDir, "work", "website"))
 	if err != nil {
+		return err
+	}
+	wsSandbox, err := st.AddWorkspace("sandbox", filepath.Join(dataDir, "work", "sandbox"))
+	if err != nil {
+		return err
+	}
+	// fresh: no agents, no terminals — the sidebar's real empty state.
+	if _, err := st.AddWorkspace("fresh", filepath.Join(dataDir, "work", "fresh")); err != nil {
 		return err
 	}
 
@@ -183,6 +196,37 @@ func seed(st *store.Store) error {
 		return err
 	}
 
+	// Project terminals (ADR-0026): plain shells plus agent-CLI terminals
+	// with a live runtime lease (ADR-0062), so the sidebar's terminal rows
+	// and the collapsed face strips photograph real states. No process is
+	// spawned — the lease only proves presence to the live list.
+	if _, err := st.CreateTerminalIn(wsMain.ID, "shell", filepath.Join(dataDir, "work", "picode")); err != nil {
+		return err
+	}
+	if err := seedCLITerminal(st, runtimes, wsMain.ID, "claude", "claude-code", filepath.Join(dataDir, "work", "picode")); err != nil {
+		return err
+	}
+	if _, err := st.CreateTerminalIn(wsSandbox.ID, "build", filepath.Join(dataDir, "work", "sandbox")); err != nil {
+		return err
+	}
+	if err := seedCLITerminal(st, runtimes, wsSandbox.ID, "pi", "pi", filepath.Join(dataDir, "work", "sandbox")); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// seedCLITerminal creates an agent-CLI terminal in ws and marks its CLI
+// runtime live, the way the wrapper would when a real TUI attaches.
+func seedCLITerminal(st *store.Store, runtimes *server.TermRuntimes, wsID, name, cli, cwd string) error {
+	term, err := st.CreateTerminalIn(wsID, name, cwd)
+	if err != nil {
+		return err
+	}
+	runtimes.Start(term.ID, server.TermRuntime{
+		CLI: cli, Source: "wrapper", RunID: "fixture-" + name,
+		StartedAt: time.Now().UTC(),
+	})
 	return nil
 }
 

@@ -3,7 +3,8 @@
 - Date: 2026-09-06
 - Owner approved the four-delivery roadmap and starting implementation.
 - Status: delivery 1 implemented and validated on `feat/llama-manager`;
-  integration pending. Deliveries 2–4 planned, not shipped.
+  combined with main `66aa4b9c` and revalidated; deployment pending.
+  Deliveries 2–4 planned, not shipped.
 
 ## Outcome and navigation
 
@@ -128,3 +129,7 @@ Reviewed 2026-09-05; upstream capabilities require installed-version checks:
 - Delivery 1 intentionally retains synchronous operations. Installed-version
   acceptance, job recovery/concurrency and model readiness remain subsequent
   delivery work; no real service installation, restart or deletion occurred.
+
+Integration validation (2026-09-06): combined make ci passed with 902
+JS/package tests; the 16-image browser matrix passed again. Public captures
+were regenerated and read. Owner authorized merge and deployment.

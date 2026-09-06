@@ -2328,6 +2328,135 @@
         ]
       }
     },
+    "/api/clis/{cli}/sessions/adopt": {
+      "post": {
+        "operationId": "postApiClisSessionsAdopt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/sessions/cleanup": {
+      "get": {
+        "operationId": "getApiClisSessionsCleanup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      },
+      "put": {
+        "operationId": "putApiClisSessionsCleanup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/sessions/delete": {
+      "post": {
+        "operationId": "postApiClisSessionsDelete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
     "/api/clis/{cli}/terminals": {
       "post": {
         "operationId": "postApiClisTerminals",
@@ -3713,49 +3842,6 @@
         ]
       }
     },
-    "/api/pi-sessions": {
-      "get": {
-        "operationId": "getApiPi-sessions",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "pi-sessions"
-        ]
-      }
-    },
-    "/api/pi-sessions/adopt": {
-      "post": {
-        "operationId": "postApiPi-sessionsAdopt",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "pi-sessions"
-        ]
-      }
-    },
     "/api/pi-settings": {
       "get": {
         "operationId": "getApiPi-settings",
@@ -4749,88 +4835,6 @@
         ]
       }
     },
-    "/api/session-cleanup": {
-      "get": {
-        "operationId": "getApiSession-cleanup",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "session-cleanup"
-        ]
-      },
-      "put": {
-        "operationId": "putApiSession-cleanup",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "session-cleanup"
-        ]
-      }
-    },
-    "/api/sessions/all": {
-      "delete": {
-        "operationId": "deleteApiSessionsAll",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "sessions"
-        ]
-      },
-      "get": {
-        "operationId": "getApiSessionsAll",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "sessions"
-        ]
-      }
-    },
     "/api/sessions/stats": {
       "get": {
         "operationId": "getApiSessionsStats",
@@ -5659,6 +5663,41 @@
     "/api/terminals/{id}/reveal": {
       "post": {
         "operationId": "postApiTerminalsReveal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/run": {
+      "post": {
+        "operationId": "postApiTerminalsRun",
         "parameters": [
           {
             "in": "path",
@@ -6629,65 +6668,6 @@
         ]
       }
     },
-    "/api/workspaces/{id}/sessions/manage": {
-      "delete": {
-        "operationId": "deleteApiWorkspacesSessionsManage",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "workspaces"
-        ]
-      },
-      "get": {
-        "operationId": "getApiWorkspacesSessionsManage",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "workspaces"
-        ]
-      }
-    },
     "/api/workspaces/{id}/sessions/new": {
       "post": {
         "operationId": "postApiWorkspacesSessionsNew",
@@ -7019,9 +6999,6 @@
       "name": "pi-keys"
     },
     {
-      "name": "pi-sessions"
-    },
-    {
       "name": "pi-settings"
     },
     {
@@ -7035,9 +7012,6 @@
     },
     {
       "name": "server"
-    },
-    {
-      "name": "session-cleanup"
     },
     {
       "name": "sessions"

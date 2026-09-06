@@ -1,12 +1,9 @@
 package server
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -25,25 +22,6 @@ const settingCleanupDays = "cleanup_orphan_days"
 type sessionUse struct {
 	AgentID   string `json:"agentId"`
 	AgentName string `json:"agentName"`
-}
-
-type sessionManageItem struct {
-	session.Summary
-	InUseBy *sessionUse `json:"inUseBy"`
-}
-
-type sessionManageView struct {
-	Sessions    []sessionManageItem `json:"sessions"`
-	CleanupDays int                 `json:"cleanupDays"`
-	TotalBytes  int64               `json:"totalBytes"`
-}
-
-// allSessionItem adds the folder context for the machine-wide view.
-type allSessionItem struct {
-	session.Summary
-	InUseBy     *sessionUse `json:"inUseBy"`
-	WorkspaceID string      `json:"workspaceId,omitempty"` // set when this cwd is a PiCode workspace
-	Workspace   string      `json:"workspace,omitempty"`
 }
 
 // workspaceSessionDirs is every directory pi may have written this
@@ -79,181 +57,6 @@ func sessionUseBy(deps Deps) map[string]sessionUse {
 		out[*a.SessionPath] = sessionUse{AgentID: a.ID, AgentName: a.Name}
 	}
 	return out
-}
-
-func handleManageSessions(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		wk, err := deps.Store.GetWorkspace(r.PathValue("id"))
-		if err != nil {
-			writeErr(w, statusForStore(err), err.Error())
-			return
-		}
-		var list []session.Summary
-		for _, dir := range workspaceSessionDirs(deps, wk) {
-			part, err := session.ListDir(dir)
-			if err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-			list = append(list, part...)
-		}
-		sort.Slice(list, func(i, j int) bool { return list[i].UpdatedAt > list[j].UpdatedAt })
-		use := sessionUseBy(deps)
-		var total int64
-		items := make([]sessionManageItem, 0, len(list))
-		for _, s := range list {
-			it := sessionManageItem{Summary: s}
-			if u, ok := use[s.Path]; ok {
-				it.InUseBy = &u
-			}
-			total += s.Size
-			items = append(items, it)
-		}
-		writeJSON(w, http.StatusOK, sessionManageView{
-			Sessions:    items,
-			CleanupDays: cleanupDaysSetting(deps),
-			TotalBytes:  total,
-		})
-	}
-}
-
-// handleAllSessions is the machine-wide view: every Pi session on this
-// machine, each tagged with the workspace it belongs to (if any).
-func handleAllSessions(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		list, err := session.ListAll()
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		use := sessionUseBy(deps)
-		wsByDir := map[string]struct{ id, name string }{}
-		if wss, err := deps.Store.ListWorkspaces(); err == nil {
-			for _, wk := range wss {
-				wsByDir[canonDir(wk.Path)] = struct{ id, name string }{wk.ID, wk.Name}
-			}
-		}
-		var total int64
-		items := make([]allSessionItem, 0, len(list))
-		for _, s := range list {
-			it := allSessionItem{Summary: s}
-			if u, ok := use[s.Path]; ok {
-				it.InUseBy = &u
-			}
-			if ws, ok := wsByDir[canonDir(s.Cwd)]; ok {
-				it.WorkspaceID = ws.id
-				it.Workspace = ws.name
-			}
-			total += s.Size
-			items = append(items, it)
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"sessions":    items,
-			"cleanupDays": cleanupDaysSetting(deps),
-			"totalBytes":  total,
-		})
-	}
-}
-
-// handleDeleteAnySession removes one orphan session from anywhere under the
-// machine's pi sessions root (same in-use rule as the workspace delete).
-func handleDeleteAnySession(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Path string `json:"path"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
-			writeErr(w, http.StatusBadRequest, "path required")
-			return
-		}
-		path, err := filepath.Abs(strings.TrimSpace(req.Path))
-		if err != nil || !session.UnderRoot(session.Root(), path) {
-			writeErr(w, http.StatusBadRequest, "session is not on this machine")
-			return
-		}
-		if u, inUse := sessionUseBy(deps)[path]; inUse {
-			writeErr(w, http.StatusConflict, "in use by agent "+u.AgentName+" — point that agent at another session first")
-			return
-		}
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				writeErr(w, http.StatusNotFound, "session file is gone")
-				return
-			}
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if err := os.Remove(path); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		_ = deps.Store.AppendEvent("session_deleted", nil, nil, map[string]any{"path": path, "scope": "machine"})
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-	}
-}
-
-func handleDeleteManagedSession(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		wk, err := deps.Store.GetWorkspace(r.PathValue("id"))
-		if err != nil {
-			writeErr(w, statusForStore(err), err.Error())
-			return
-		}
-		var req struct {
-			Path string `json:"path"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
-			writeErr(w, http.StatusBadRequest, "path required")
-			return
-		}
-		path, err := filepath.Abs(strings.TrimSpace(req.Path))
-		if err != nil || !safeSessionPath(path, workspaceSessionDirs(deps, wk)...) {
-			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
-			return
-		}
-		if u, inUse := sessionUseBy(deps)[path]; inUse {
-			writeErr(w, http.StatusConflict, "in use by agent "+u.AgentName+" — point that agent at another session first")
-			return
-		}
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				writeErr(w, http.StatusNotFound, "session file is gone")
-				return
-			}
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if err := os.Remove(path); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		_ = deps.Store.AppendEvent("session_deleted", nil, &wk.ID, map[string]any{"path": path})
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-	}
-}
-
-// handleCleanupSetting is the auto-clean preference: 0 keeps everything
-// (default), N deletes orphan sessions untouched for N days.
-func handleCleanupSetting(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPut {
-			var req struct {
-				Days int `json:"days"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Days < 0 || req.Days > 3650 {
-				writeErr(w, http.StatusBadRequest, "days must be 0..3650 (0 = keep everything)")
-				return
-			}
-			if err := deps.Store.SetSetting(settingCleanupDays, strconv.Itoa(req.Days)); err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-			removed := sweepOrphanSessions(deps, req.Days)
-			writeJSON(w, http.StatusOK, map[string]any{"days": req.Days, "removed": removed})
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"days": cleanupDaysSetting(deps)})
-	}
 }
 
 func cleanupDaysSetting(deps Deps) int {

@@ -17,6 +17,17 @@ to the `[Unreleased]` section. The repository's official language is English
   desktop and mobile, with connection diagnosis, saved-key preservation and
   a Providers shortcut. Canceling a model replacement does not load it;
   unload and download failures no longer report success.
+- **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
+  menu gains a per-viewer checkbox, "Run when no agent is working here". With
+  it on, PiCode types the command into your terminal and presses Enter itself,
+  but only when no agent in that repository is mid-turn, no automation is
+  running there, and no other terminal there is working or holding a program;
+  otherwise the command is prepared as before and a note says who is busy.
+  Git still runs in your own shell with your credentials and hooks. Typing
+  now also refuses a terminal that moved away from the folder or whose pane
+  is not at a shell prompt, and takes a fresh terminal instead. Right-hand
+  toasts step left of the rail while it is open, so a note never covers its
+  buttons.
 
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
@@ -37,6 +48,36 @@ to the `[Unreleased]` section. The repository's official language is English
   verified against real installations; empty state when a CLI never ran.
 
 ### Changed
+
+- The editor tab strip no longer shows a scrollbar under the tabs. The
+  classic bar (with arrow buttons on Windows) took 10 of the bar's 40 px
+  and the active tab could sit out of view; tabs now use the full height
+  and the strip scrolls to reveal the selected tab on selection and on
+  open (instantly on load, smoothly afterwards, still under
+  reduced-motion). Wheel, edge cues, arrows, an all-tabs list and
+  `Alt+[` / `Alt+]` follow in later phases of
+  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`.
+
+- **Session management API folded into the per-CLI namespace** (ADR-0079):
+  `/api/sessions/all`, `/api/pi-sessions(+/adopt)` and
+  `/api/workspaces/{id}/sessions/manage` are gone — desktop and mobile now
+  use `GET /api/clis/pi/sessions[?workspace=|?cwd=]`,
+  `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which carry the same guards
+  (in-use → 409, outside the pi root → 400) and add `inUseBy`/`cleanupDays`
+  to every pi row. The old shapes are replaced, not aliased; update any
+  external script that scraped them.
+- Collapsed workspaces no longer read "— empty" when they hold only
+  terminals. The header's face strip now lists terminals after managed
+  agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
+  Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
+  mark, capped at five with a `+N` overflow like agent faces. Terminal
+  faces render in exactly the agent-face style — same 18px plate, ring
+  and contained art — so the strip reads as one visual family. The docs
+  fixture seeds project terminals (a shell plus CLI terminals with live
+  runtime leases) and a terminals-only workspace, so captures photograph
+  the real states.
+
 
 - The user menu no longer lists **Sessions** (ADR-0079): sessions are a
   tab of the Agent CLIs surface, so the menu keeps one entry per top-level

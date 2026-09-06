@@ -85,7 +85,7 @@ func TestListSessionsScopedPerAgent(t *testing.T) {
 	// The machine-wide housekeeping view is unaffected by the ownership
 	// filter — it still surfaces every session, including the unowned
 	// one, for cleanup purposes (session_manage.go, sessionUseBy).
-	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions/manage"))
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/clis/pi/sessions?workspace="+wsv.ID))
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("manage = %d", res.StatusCode)
 	}
@@ -220,7 +220,7 @@ func TestListSessionsResolvesFreshSessionPath(t *testing.T) {
 
 	// The backfill must reach agents.session_path, not just the history
 	// table — that's what the manage view's inUseBy guard reads.
-	mres := do(t, ts.Client(), mustGet(t, ts.URL+"/api/workspaces/"+wsv.ID+"/sessions/manage"))
+	mres := do(t, ts.Client(), mustGet(t, ts.URL+"/api/clis/pi/sessions?workspace="+wsv.ID))
 	if mres.StatusCode != http.StatusOK {
 		t.Fatalf("manage = %d", mres.StatusCode)
 	}
