@@ -323,13 +323,15 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Known debts / open questions
 
-- **CLI session death mechanism unproven (ADR-0084):** deploys end every
-  picode-managed tmux session (pane root `/bin/sh`) while interactive-bash
-  terminals survive; CLI processes linger headless for minutes. The signal
-  chain (SIGHUP-vs-bash is the structural hint) was never caught red-handed.
-  Owed: a shutdown snapshot of live sessions + boot diff (warn "N sessions
-  alive at shutdown are gone"), and a `trap '' HUP` pane-root experiment in
-  the launch script to test the SIGHUP theory on the next deploy.
+- **CLI session death mechanism unproven (ADR-0085 ships the instruments):**
+  deploys ended every picode-managed tmux session on 2026-09-06 while
+  interactive-bash terminals survived; the signal chain was never caught
+  red-handed. The flight recorder (shutdown snapshot + boot diff) and the
+  `trap '' HUP` pane root ship together: the NEXT deploy that kills
+  sessions either stops killing them (SIGHUP proven + fixed) or the boot
+  report pins the loss window with root commands recorded. The deployed
+  resume feature still has no real-incident exercise of its pin/resume
+  path — first deploy done by a human or agent will be that test.
 - **ADR-0084 pin gap at first deploy:** terminals stopped before the feature
   ships have no pin; the Resume button appears only for sessions run after
   it deploys. Recoverable today via Sessions → "Open in terminal".
@@ -407,6 +409,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Session forensics shipped (ADR-0085,
+  `feat/session-forensics`).** Flight recorder: graceful shutdowns write
+  `var/shutdown-snapshot.json`; boot diffs it, logs the verdict, keeps
+  `var/restart-report-*.json` (last 10) and badges lost terminals
+  ("PiCode restarted while this terminal was running" above Resume).
+  Launch scripts now `trap '' HUP` (bash-parity; explicit stop escalates
+  to SIGTERM on the pane root so stop still stops — the SIGHUP theory
+  gets tested on the next deploy either way). `picode deploy` appends
+  who/what/where to `var/deploy-log.jsonl`. Decision table + fake-tmux
+  tests, real-tmux SIGHUP survival test with untrapped control. make ci
+  green. visual-review: PASS (lostAtRestart wording on scratch instance).
 - **2026-09-06 — CLI terminal session recovery built (ADR-0084,
   `feat/cli-resume-recovery`).** Root cause of the two mass-detach
   incidents (13:41, 14:08): ordinary agent-run `make deploy` restarts (the
