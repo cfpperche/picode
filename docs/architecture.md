@@ -444,6 +444,9 @@ its history survives navigation. Service ownership remains delivery 4 in
 [the plan](plans/llama-manager.md).
 Hugging Face GGUF metadata also exposes file size and a conservative runtime
 memory estimate with contextual guidance; missing size data remains unknown.
+Delivery 4's ownership boundary is ADR-0084: only an explicitly created local
+Linux/WSL profile may receive lifecycle or cache mutations; external and remote
+routers remain inspection-only for those controls.
 
 ## Component diagram
 

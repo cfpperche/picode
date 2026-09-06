@@ -226,8 +226,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Validate the deployed llama delivery 3 guidance dialog on the live service.
-   Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Implement llama delivery 4 from ADR-0084: local Linux/WSL owned profile,
+   effective execution presets, reviewed lifecycle jobs and ownership-aware
+   cache cleanup. External/remote routers remain read-only for those controls.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
