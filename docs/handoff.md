@@ -5,7 +5,7 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+07cc806`) carries today's
+**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
 desktop Inspector rail (ADR-0078, accepted by the owner) with its **PR tab**
@@ -36,9 +36,14 @@ web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 Preserve the unrelated root `.pi/compact.json`.
 
-**Last application deployment:** `0.1.0+9a7691a`, health `200`, desktop bundle
-`index-BZJ2lZOW.js` (served and built hashes match). `make deploy` restarted
-systemd; the seven terminal records survived. The live `…/pr` route, through
+**Last application deployment:** `0.1.0+9a41241`, health `200`. `make
+deploy` restarted systemd with the ADR-0079 sessions merge; the live
+desktop serves the Agent CLIs surface with the new **Sessions** tab —
+`#/clis/sessions` renders the machine-wide view (345 sessions grouped by
+folder, in-use badges, Open with…/Compact/Delete) and old `#/sessions*`
+links redirect (screenshots read). Earlier `0.1.0+9a7691a` deployment
+notes: desktop bundle `index-BZJ2lZOW.js` (served and built hashes match);
+the seven terminal records survived; the live `…/pr` route, through
 the machine's real `gh`, answers `none` for the `glm5` agent on `main`, and
 the rail's PR tab shows "No pull request for main" with **Create in
 terminal**; nothing was typed into a production terminal.
@@ -123,12 +128,6 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `refactor/sessions-into-clis` (ADR-0079, accepted): the desktop sessions
-  surface moved under Agent CLIs — `#/clis/sessions` (machine-wide) and
-  `#/clis/sessions/<workspaceId>` (one folder) render as the third tab;
-  `#/sessions*` deep links redirect; sidebar icon, dashboard top sessions
-  and the user menu emit the new hashes. UI-only: no API change. Awaits
-  merge to main. Phase 2 (other CLIs' sessions) is next, see below.
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -228,13 +227,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
-- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079).** Desktop
+- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079); merged and
+  deployed.** Desktop
   `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as
   the third tab of the Agent CLIs surface; sidebar icon, dashboard top
   sessions and user menu emit the new hashes and old deep links redirect.
-  UI-only phase 1: no API change. `make ci` green; docs captures
-  regenerated. visual-review: PASS (empty, loaded, workspace-scoped, error
-  and Open-with overlay states read; overlayAudit ok).
+  UI-only phase 1: no API change. `make ci` green on the feature tree, on
+  main after the merge (main had moved — reconciled with the Inspector PR
+  tab and connector-dialog commits) and on the final tree; docs captures
+  regenerated twice through the pipeline. Live check after deploy: the real
+  instance renders the tab with 345 real sessions, in-use badges and
+  working redirects. visual-review: PASS (empty, loaded, workspace-scoped,
+  error and Open-with overlay states read; overlayAudit ok).
 - **2026-09-05 — Inspector PR tab (ADR-0078 phase 2).** `internal/server/pr.go`
   (`GET …/pr` for agents/terminals/workspaces through the host's `gh`, states
   in 200, minute cache, `?refresh=1`; `POST /api/terminals/{id}/type` literal
