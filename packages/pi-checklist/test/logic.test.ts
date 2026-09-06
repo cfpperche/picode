@@ -9,12 +9,21 @@ import {
 	MAX_REMINDERS,
 	normalizeItems,
 	parseLevel,
+	publishTarget,
 	reconstruct,
 	REFUSAL,
 	renderLines,
 	resolveServerUrl,
 	summarize,
 } from "../src/logic.ts";
+
+test("publishTarget: agent wins, terminal is the fallback, raw pi is silent", () => {
+	assert.deepEqual(publishTarget({ PICODE_AGENT_ID: "ag-1", PICODE_TERM_ID: "term-2" }), { kind: "agent", id: "ag-1" });
+	assert.deepEqual(publishTarget({ PICODE_TERM_ID: "agent-cli-f5dd51" }), { kind: "terminal", id: "agent-cli-f5dd51" });
+	assert.equal(publishTarget({ PICODE_AGENT_ID: "ag 1" }), null); // malformed agent id is not a terminal either
+	assert.equal(publishTarget({ PICODE_TERM_ID: "" }), null);
+	assert.equal(publishTarget({}), null);
+});
 
 test("level: PICODE_CHECKLIST parses, anything else is changes", () => {
 	assert.equal(parseLevel({}), "changes");

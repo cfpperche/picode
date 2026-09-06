@@ -163,6 +163,24 @@ export function agentId(env: Record<string, string | undefined>): string {
 }
 
 /**
+ * Where a publish goes (ADR-0055, extended to terminals): a managed agent
+ * (PICODE_AGENT_ID) wins; a CLI running in a PiCode terminal (PICODE_TERM_ID,
+ * injected into every tmux session) publishes under that terminal. null for
+ * a raw pi outside PiCode — no channel, no line.
+ */
+export interface PublishTarget {
+	kind: "agent" | "terminal";
+	id: string;
+}
+
+export function publishTarget(env: Record<string, string | undefined>): PublishTarget | null {
+	const agent = agentId(env);
+	if (agent) return { kind: "agent", id: agent };
+	const term = (env.PICODE_TERM_ID || "").trim();
+	return /^[A-Za-z0-9_.-]{1,128}$/.test(term) ? { kind: "terminal", id: term } : null;
+}
+
+/**
  * Rebuild the list from the session branch: the last toolResult of the
  * checklist tool carries `details.items` (pi's branching-safe state idiom).
  */

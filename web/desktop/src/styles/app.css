@@ -1615,6 +1615,11 @@ img.ws-face.term-cli-face {
 }
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
+/* The plan line above the pane (ADR-0055, terminals). The sidebar's
+   .ws-check adapts to full width; the surface keeps the pane bg. */
+.term-check { flex: none; padding: 2px 8px 6px; }
+.term-check .ws-check { padding-left: 0; }
+:root[data-term-theme="light"] .term-check .ws-check { color: var(--text-secondary); }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 /* Same header UI as the file tree's .ft-head — one look across surfaces. */
 .file-pane-bar {

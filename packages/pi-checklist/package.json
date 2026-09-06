@@ -1,6 +1,6 @@
 {
   "name": "pi-checklist",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Opt-in internal checklist for pi: the agent writes its plan with the checklist tool before its first change, keeps it updated, and PiCode shows the current step on the sidebar (ADR-0055).",
   "license": "MIT",
   "type": "module",

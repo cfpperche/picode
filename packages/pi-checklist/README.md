@@ -28,11 +28,15 @@ agent's settings; a raw `pi` without it is `changes`.
 
 ## How it reaches PiCode
 
-On every change the extension POSTs
-`/api/agents/<PICODE_AGENT_ID>/checklist` — `server.json` (or
-`PICODE_URL`) and the install token, re-read per call, loopback TLS
-accepted — never awaited by the turn. With no reachable PiCode the tool,
-the gate and the TUI card still work; only the sidebar stays quiet.
+On every change the extension POSTs the list to PiCode — `server.json` (or
+`PICODE_URL`) and the install token, re-read per call, loopback TLS accepted —
+never awaited by the turn. The target comes from the environment PiCode
+stamps on the process: a managed agent posts to
+`/api/agents/<PICODE_AGENT_ID>/checklist`; a pi running inside a PiCode
+terminal (Agent CLIs) posts to `/api/terminals/<PICODE_TERM_ID>/checklist`,
+so the terminal's card shows the same line an agent's does (ADR-0080). With
+no reachable PiCode and neither variable the tool, the gate and the TUI card
+still work; only the sidebar stays quiet.
 
 The row the daemon keeps follows the *current session*: a session whose
 branch has no checklist resets the row on start (a fresh start must not

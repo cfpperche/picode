@@ -85,3 +85,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0078](0078-inspector-rail.md) | An Inspector rail follows the selected tab's owner and opens content in the center; PR through the host's gh; Git actions in the user's shell, run behind an interlock | accepted, amends the write refusals of 0022/0032/0038/0073 for the rail's Git actions |
 | [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/sessions(/<wsId>)` replaces the top-level route; old links redirect | accepted, extends 0069 |
 | [0080](0080-llama-manager.md) | Dedicated llama.cpp manager and reliable connection results | accepted |
+| [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |

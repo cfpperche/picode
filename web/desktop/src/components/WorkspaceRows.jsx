@@ -160,6 +160,8 @@ export function AgentRow({
 // Terminal rows use the same identity → activity → location rhythm as agent
 // rows. `tui` is authoritative when present; legacy top-level cli/state is
 // still rendered so older sessions degrade visibly rather than disappearing.
+// A pi running inside the terminal (Agent CLIs, ADR-0069) publishes its
+// checklist like a managed agent, so the card carries the same plan line.
 export function TermRow({
   term: t,
   selectedId, onSelectTerm,
@@ -170,6 +172,7 @@ export function TermRow({
   const line = termLine(t);
   const cli = terminalCli(t);
   const cliLabel = cli ? terminalCliLabel(cli) : "Terminal";
+  const check = checklistLine(t.checklist);
   const selected = selectedId === "t:" + t.id;
   const select = () => onSelectTerm && onSelectTerm(t.id);
   return (
@@ -195,6 +198,7 @@ export function TermRow({
         ) : null}
       </div>
       <ContextLine line={line} ownerKind="term" ownerId={t.id} ownerLabel={t.name || "Terminal"} onFileTree={onFileTree} onGitGraph={onGitGraph} />
+      {check ? <ChecklistLine line={check} /> : null}
     </li>
   );
 }

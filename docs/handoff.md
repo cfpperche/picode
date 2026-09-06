@@ -7,7 +7,9 @@
 
 **Repository:** llama.cpp delivery 1 is merged and deployed as `ac4ff1dd`
 (`0.1.0+ac4ff1d`, ADR-0080), on top of Inspector run-when-idle, terminal
-faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
+faces, tab-strip phase 1 and the unified CLI sessions endpoints — and the
+terminal-checklist work (ADR-0081, on `feat/terminal-checklist`) is merged
+next. Dedicated
 `#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
 links to them and the old llama link redirects. Connection failures are
 classified, canceled loads do not run and failed operations do not report
@@ -141,6 +143,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   activation. Phase 4: `.mtab-label` capped at 200 px with ellipsis and a
   "name — detail" tooltip, `.mtab { flex: none }`. Phase 1 is deployed as
   `dcbaa316`; the study is complete once this branch ships.
+- `feat/terminal-checklist` (ADR-0081) is merged into main; `make deploy`
+  restarts the service onto it. Full stack: publish target fallback
+  (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
+  store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
+  view fold in `liveTermView`, sidebar card line and terminal-pane strip,
+  pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
+  live-update/absent/reset states and reload persistence. Not covered: a
+  real pi process publishing through the extension in a live terminal (the
+  POST contract is covered by Go tests; a terminal pi linked to this repo
+  picks the new extension up on its next start), light-theme screenshot of
+  the strip, mobile TermRow (server embeds `checklist` in terminal views —
+  deliberate desktop-first scope).
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -322,6 +336,21 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
   read for start / middle+hover / end. visual-review: PASS (p2-start.png,
   p2-middle.png, p2-end.png; no overlay; card 5/5).
+- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
+  internal checklist now follows the agent into its terminal: `pi-checklist`
+  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
+  (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
+  shell terminal — feeds the same operator line managed agents show. New
+  `terminal_checklists` store (migration 029, dies with the terminal),
+  durable `terminal.checklist` events, `POST/GET /api/terminals/{id}/checklist`,
+  the checklist folded into every terminal view (boot fetch stays
+  `GET /api/terminals`), sidebar card line and a live strip above the
+  terminal pane (agent TUI panes get the same strip from the agent map).
+  Reset/absent/blocked semantics mirror the agent side; unknown terminal
+  404s; invariant test extended. Renumbered to 0081 after colliding with the
+  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
+  present, live-update, absent and reset states, reload persistence,
+  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
 - **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
   main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
   Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,

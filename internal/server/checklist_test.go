@@ -10,6 +10,105 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
+// A pi inside a PiCode terminal (no PICODE_AGENT_ID) publishes under the
+// terminal id: same body semantics, terminal identity, view fold.
+func TestTerminalChecklistRoutes(t *testing.T) {
+	ts, st := newInboxServer(t)
+	tm, err := st.CreateTerminalIn(store.FreeWorkspaceID, "agent cli", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Unknown terminal → 404; bad status → 400.
+	res, _ := inboxPost(t, ts, "/api/terminals/nope/checklist", `{"items":[{"text":"x"}]}`)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown terminal = %d", res.StatusCode)
+	}
+	res, _ = inboxPost(t, ts, "/api/terminals/"+tm.ID+"/checklist", `{"items":[{"text":"x","status":"done"}]}`)
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bad status = %d", res.StatusCode)
+	}
+
+	// A list, then a blocked marker (stale steps must not survive).
+	res, out := inboxPost(t, ts, "/api/terminals/"+tm.ID+"/checklist", `{"sessionId":"s1","items":[{"text":"read the code","status":"completed"},{"text":"edit","status":"in-progress"}]}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("set = %d %v", res.StatusCode, out)
+	}
+	if out["termId"] != tm.ID {
+		t.Fatalf("termId = %v", out["termId"])
+	}
+	res, out = inboxPost(t, ts, "/api/terminals/"+tm.ID+"/checklist", `{"items":[{"text":"stale"}],"blocked":true}`)
+	if res.StatusCode != http.StatusOK || out["absent"] != true {
+		t.Fatalf("blocked = %d %v", res.StatusCode, out)
+	}
+
+	// The terminal view (GET /api/terminals) carries the checklist, the way
+	// it carries live state — the list is the boot fetch.
+	type termView struct {
+		ID        string                   `json:"id"`
+		Checklist *store.TerminalChecklist `json:"checklist"`
+	}
+	var list struct {
+		Terminals []termView `json:"terminals"`
+	}
+	r := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+	_ = json.NewDecoder(r.Body).Decode(&list)
+	r.Body.Close()
+	var view *termView
+	for i := range list.Terminals {
+		if list.Terminals[i].ID == tm.ID {
+			view = &list.Terminals[i]
+		}
+	}
+	if view == nil || view.Checklist == nil || !view.Checklist.Absent {
+		t.Fatalf("view fold = %+v", view)
+	}
+
+	// A fresh session resets: the row is dropped, the event announces the
+	// empty state, and an unknown terminal stays 404.
+	res, _ = inboxPost(t, ts, "/api/terminals/"+tm.ID+"/checklist", `{"reset":true}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("reset = %d", res.StatusCode)
+	}
+	res, _ = inboxPost(t, ts, "/api/terminals/nope/checklist", `{"reset":true}`)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("reset unknown = %d", res.StatusCode)
+	}
+	r = do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+	var fresh struct {
+		Terminals []termView `json:"terminals"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&fresh)
+	r.Body.Close()
+	for _, t2 := range fresh.Terminals {
+		if t2.ID == tm.ID && t2.Checklist != nil {
+			t.Fatalf("checklist survived reset = %+v", t2.Checklist)
+		}
+	}
+
+	// Every set/blocked/reset POST above announced itself.
+	evs, err := st.ListEventsSince(0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, ev := range evs {
+		if ev.Type == "terminal.checklist" {
+			n++
+		}
+	}
+	if n != 3 {
+		t.Fatalf("terminal.checklist events = %d, want 3", n)
+	}
+
+	// Unknown terminal's GET is an empty answer, not an error.
+	r = do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/nope/checklist"))
+	r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("get unknown = %d", r.StatusCode)
+	}
+}
+
 func TestChecklistRoutes(t *testing.T) {
 	ts, st := newInboxServer(t)
 	ws, err := st.AddWorkspace("w", t.TempDir())

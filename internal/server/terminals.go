@@ -63,6 +63,7 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 	applyTermRuntime(deps, view, t.ID)
 	applyTermState(deps, view, t.ID)
 	applyTerminalLaunch(deps, view, t.ID)
+	applyTerminalChecklist(deps, view, t.ID)
 	return view
 }
 
