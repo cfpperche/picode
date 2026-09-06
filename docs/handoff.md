@@ -5,35 +5,15 @@
 
 ## Current state (read this first)
 
-**llama integration:** delivery 1 (ADR-0080) is integrated with main `66aa4b9c`
-on `feat/llama-manager`. Models/Server routes, connection diagnosis and
-operation fixes are implemented; combined make ci passed (902 JS/package tests, Go tests, builds,
-docs parity/build and Vale). All 16 desktop/mobile captures were read and
-overlay audits passed; visual-review: PASS. Deployment is next.
-The owner authorized merge and deploy. [Four-delivery plan](plans/llama-manager.md).
-
-**Repository:** HEAD (`50df07f7`, deployed) carries the Inspector
-run-when-idle stage (ADR-0078 stage 2, merged as `2da0ba15`), terminal faces
-styled like agent faces, the tab-strip phase 1
-(no scrollbar under the editor tabs, active tab revealed by code; study
-`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 2–4 under Next
-up), today's
-worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
-rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab,
-the Git actions stage (deployed as `aa9beea4`) and the **run-when-idle**
-stage (PiCode presses Enter behind an advisory interlock, deployed as
-`0.1.0+2da0ba1` — see Recent activity), bounded
-captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
-amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
-worktree-aware Git Graph (0073), independent web apps (0072), Windows task
-reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
-Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
-(ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
-No push was made. The capture ADR was renumbered because
-Integrations took 0075; the opt-in native emitter and real end-to-end
-capture acceptance remain pending, so deployment does not enable browser
-capture emission.
+**Repository:** llama.cpp delivery 1 is merged and deployed as `ac4ff1dd`
+(`0.1.0+ac4ff1d`, ADR-0080), on top of Inspector run-when-idle, terminal
+faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
+`#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
+links to them and the old llama link redirects. Connection failures are
+classified, canceled loads do not run and failed operations do not report
+success. The [four-delivery plan](plans/llama-manager.md) records deliveries
+2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
+No push was made.
 
 Managed-stop fix debts (living):
 
@@ -48,56 +28,22 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** HEAD `50df07f7` (terminal faces in
-strips match agent faces, on top of the tab-strip phase 1 tree) via
-`make deploy` from the root checkout; systemd restarted. Verified on
-the live instance: terminal favicons in collapsed strips render in
-exactly the agent-face style — computed parity (white plate, 1px ring,
-1px padding, 18px) across agent and terminal imgs; COGNIXSE wears
-claude + openai, PiCode's strip is uniform with `+5`; screenshot read
-(visual-review: PASS), console clean, overlay audit ok. Nothing was
-typed into a production terminal. Previous deploy `0.1.0+2da0ba1`
-(Inspector run-when-idle, ADR-0078 stage 2) via `make deploy` from the root
-checkout at 11:54:36: health `200`, served bundle `index-W52Xj5hY.js` equal
-to the built index, 10 terminals restored, the new
-`POST /api/terminals/{id}/run` answers 404 for an unknown id, journal clean.
-Live smoke in a Playwright Chromium with `ignoreHTTPSErrors` (agent-browser's
-Chromium does not trust the mkcert CA) on the terminal anchored at
-`~/picode`: the Git menu lists Fetch, Pull, Push, Commit…, Commit and push…
-and the unchecked "Run when no agent is working here"; toggling stores
-`picode-inspector-run=1`, reopening shows it checked, toggled back off;
-overlay audit ok; no Git action clicked, nothing typed into a production
-terminal (visual-review: PASS, both menu states read). Incident: at 11:49
-the service was found `inactive` — terminated at 11:48:46 by another
-session, two seconds before a sidecar instance on `:18097` started from a
-production terminal — and a diagnostics probe `picode --version` from the
-Inspector session fell through to server mode and served the production
-data dir on 8445 for about four minutes until killed (clean shutdown); the
-stage 2 deploy brought the service back. Before that `dcbaa316` (tab strip
-phase 1), then `0.1.0+db12b097` — the sessions-endpoints
-fold (which includes the terminal-faces tree, `fa97e8cf`, and the
-menu-item removal).
-Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
-`cleanupDays`, and the removed `/api/sessions/all` answers 404. Previous
-deploy `0.1.0+fa97e8c` (terminal faces): collapsed **COGNIXSE**
-(terminals-only) wore its agent-CLI favicons instead of "— empty";
-**PiCode** showed a capped strip (`+5`); expand/collapse cycles and
-reload persistence verified in-browser; console clean, overlay audit ok.
-Nothing was typed into a production terminal.
-**Quality:** `make ci` passed on the terminal-faces tree and on the stage 2
-tree merged with main `dcbaa316` (Go tests including `TestTerminalRunRefusals`
-and `TestTerminalRunTypesAndSubmits`, frontend suites including
-`collapseFaces.test.js`, both UI builds, embedded binary, docs parity with
-regenerated captures, Vale); the handoff-only merge of `0d346348` re-ran
-`docs-check` and Vale before the fast-forward. Browser acceptance:
-`scripts/qa-inspector.mjs` 16/16 groups on the scripted-gh fixture
-(`docs/screenshots/inspector-qa.json`), commands proven typed and never run
-through `tmux capture-pane -J`, and g16 proving run mode: the busy fallback
-toast names the other terminal, a real commit lands through "Run in
-terminal", then the fixture repo is reset. `inspector-git-*`,
-`inspector-commit-*` and `inspector-run-*` screenshots plus the live menu
-read, overlay/row audits ok. visual-review: PASS. Fixtures and QA browser
-sessions are closed; the feature worktrees and branches are removed.
+**Last application deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
+serialized `make deploy` from the validated worktree after fast-forwarding
+main. Health `ok`, systemd active, desktop bundle `index-B_QAIkue.js` matches
+the deployed build. All 9 pre-deploy terminal IDs survived the restart.
+Live desktop/mobile old-link navigation, Models/Server pages and Test
+connection passed; four production screenshots read, overlay/alignment
+audits ok and no JavaScript page errors. The configured llama endpoint
+`http://127.0.0.1:8080` times out, as it was unavailable before deployment;
+no llama service was started and no model operation was executed in production.
+Evidence and previous-binary recovery copy: `var/llama-deploy/`.
+
+**Quality:** combined `make ci` passed (902 JS/package tests, Go tests,
+formatting/vet, desktop/mobile builds, embedded binary, docs parity/build and
+Vale). The 16-capture llama fixture matrix passed again; images and regenerated
+public captures read; visual-review: PASS. Browser/fixture sessions are closed.
+The merged feature branch/worktree are removed during session cleanup.
 
 ### Product and platform
 
@@ -194,7 +140,6 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   `wireTermKeys` passthrough for Global chords, tablist roles with manual
   activation. Phase 1 is deployed as `dcbaa316`. Phase 4 (label cap)
   remains under Next up.
-- llama delivery 1: combined validation passed; authorized merge/deploy in progress.
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -263,6 +208,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    already carries prompts. Merge/rebase/branch switch wait for a picker.
 
 ## Known debts / open questions
+
+- **Sessions (ADR-0079) review debts:** the mobile session picker migrated
+  URLs and is field-compatible with the new shape (code-verified) but has
+  had no mobile visual pass; the `session_deleted` feed event regained
+  workspace attribution in the review pass and is exercised by every delete
+  test though no test asserts the payload itself; `go("sessions")` in
+  routes.js has no in-app caller left (kept as a public helper with a test).
+  Conscious broadening, recorded in architecture.md: the unified delete
+  accepts any orphan under the pi root — the old workspace-scoped route
+  confined deletes to that workspace's dirs; the UI only lists in-scope
+  rows, and the in-use/409 and root/400 guards are unchanged.
+
 
 - llama: browser/HTTP-fixture acceptance is synthetic; real installed-build,
   GPU and model inference acceptance remains pending. Synchronous operations
@@ -354,11 +311,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
   read for start / middle+hover / end. visual-review: PASS (p2-start.png,
   p2-middle.png, p2-end.png; no overlay; card 5/5).
-- **2026-09-06 — llama manager integration.** Owner authorized merge/deploy
-  of delivery 1; main incorporated into the isolated feature branch. Code
-  merged automatically; living docs reconciled and captures regenerated.
-  make ci passed; 16 browser captures read and audits ok; visual-review: PASS.
-  Original implementation is `467cd556`; deployment follows the merge.
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
 
 - **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
   `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`

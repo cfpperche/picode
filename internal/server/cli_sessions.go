@@ -166,7 +166,16 @@ func handleCLIDeleteSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		_ = deps.Store.AppendEvent("session_deleted", nil, nil, map[string]any{"path": path, "scope": "machine"})
+		event := map[string]any{"path": path, "scope": "machine"}
+		if wss, err := deps.Store.ListWorkspaces(); err == nil {
+			for _, wk := range wss {
+				if safeSessionPath(path, workspaceSessionDirs(deps, wk)...) {
+					event["workspaceId"] = wk.ID
+					break
+				}
+			}
+		}
+		_ = deps.Store.AppendEvent("session_deleted", nil, nil, event)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
