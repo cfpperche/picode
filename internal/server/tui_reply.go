@@ -297,10 +297,11 @@ func (deps Deps) DeliverReply(ctx context.Context, itemID, verb, text string) (a
 	}
 
 	baseline := rpc.CaptureDeliveryBaseline(sessionPath)
+	settle := deps.inboxSettle()
 	if deps.Replies.receiverFresh(agentID) {
-		err = deps.deliverViaReceiver(agentID, sessionPath, task, baseline)
+		err = deps.deliverViaReceiver(agentID, sessionPath, task, baseline, settle)
 	} else {
-		err = deps.deliverViaPaste(ctx, agentID, sessionPath, task, baseline)
+		err = deps.deliverViaPaste(ctx, agentID, sessionPath, task, baseline, settle)
 	}
 	if err != nil {
 		note := "The reply could not be delivered to the terminal. Send it again from this item."
@@ -310,12 +311,36 @@ func (deps Deps) DeliverReply(ctx context.Context, itemID, verb, text string) (a
 	return agentID, nil
 }
 
+// deliverySettle is what a delivered or lost message means to its owner: an
+// Inbox reply settles or reopens its item (ADR-0060); an Inspector ask
+// (ADR-0078 stage 3) records its task. rowWait is how long the durable JSONL
+// row may take to appear; zero means no session file is known, so a paste is
+// recorded as typed the moment tmux accepts it.
+type deliverySettle struct {
+	delivered func(task store.Task)
+	failed    func(task store.Task, reason string)
+	rowWait   time.Duration
+}
+
+// inboxSettle keeps ADR-0060's contract: the row settles the item, silence
+// reopens it with the response preserved for prefill.
+func (deps Deps) inboxSettle() deliverySettle {
+	return deliverySettle{
+		delivered: deps.finishDelivered,
+		failed: func(task store.Task, reason string) {
+			_ = deps.Store.EndInboxReply(task.ID, store.TaskFailed, reason,
+				"The reply never reached the session. Send it again from this item.")
+		},
+		rowWait: replyRowWait,
+	}
+}
+
 // deliverViaReceiver hands the reply to the receiver extension through a
 // one-shot file and waits briefly for its ack. The ack means the TUI owns the
 // message and renders it (queued mid-turn, per the owner's decision); the
 // durable JSONL row, reconciled in the background, remains the truth that
 // keeps the item done — silence reopens it.
-func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline) error {
+func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle) error {
 	nonce, err := newReplyNonce()
 	if err != nil {
 		return err
@@ -341,21 +366,21 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 			}
 			// The TUI owns the message now. The row decides whether the
 			// item stays done; a TUI that dies before processing reopens it.
-			go deps.awaitReplyRow(task, sessionPath, baseline, replyRowWait)
+			go deps.awaitReplyRow(task, sessionPath, baseline, settle)
 			return nil
 		case <-deadline:
 			_ = os.Remove(file)
 			// No ack: the receiver may have died with the file unread. The
 			// durable row decides; silence reopens the item.
 			if rpc.UserMessageAfter(baseline, task.Payload) {
-				deps.finishDelivered(task)
+				settle.delivered(task)
 				return nil
 			}
 			return errors.New("the terminal did not pick up the reply")
 		case <-tick.C:
 			if rpc.UserMessageAfter(baseline, task.Payload) {
 				_ = os.Remove(file)
-				deps.finishDelivered(task)
+				settle.delivered(task)
 				return nil
 			}
 		}
@@ -368,31 +393,34 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 // Tradeoffs the owner accepted: the paste can land in an open draft, and the
 // pane's current session cannot be verified — the JSONL row proof still
 // gates whether the item stays done.
-func (deps Deps) deliverViaPaste(ctx context.Context, agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline) error {
+func (deps Deps) deliverViaPaste(ctx context.Context, agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle) error {
 	if err := deps.Tmux.PasteText(ctx, tmux.SessionName(agentID), task.Payload); err != nil {
 		return err
 	}
-	go deps.awaitReplyRow(task, sessionPath, baseline, replyRowWait)
+	if settle.rowWait <= 0 {
+		// No session file to read: the paste is the proof there is.
+		settle.delivered(task)
+		return nil
+	}
+	go deps.awaitReplyRow(task, sessionPath, baseline, settle)
 	return nil
 }
 
 // awaitReplyRow closes the loop in the background: the reply counts as
 // delivered when the exact session gains the user row, and the item reopens
 // with a truthful reason if the terminal never processes it.
-func (deps Deps) awaitReplyRow(task store.Task, sessionPath string, baseline rpc.DeliveryBaseline, window time.Duration) {
-	deadline := time.After(window)
+func (deps Deps) awaitReplyRow(task store.Task, sessionPath string, baseline rpc.DeliveryBaseline, settle deliverySettle) {
+	deadline := time.After(settle.rowWait)
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	for {
 		select {
 		case <-deadline:
-			_ = deps.Store.EndInboxReply(task.ID, store.TaskFailed,
-				"the terminal never processed the reply",
-				"The reply never reached the session. Send it again from this item.")
+			settle.failed(task, "the terminal never processed the reply")
 			return
 		case <-tick.C:
 			if rpc.UserMessageAfter(baseline, task.Payload) {
-				deps.finishDelivered(task)
+				settle.delivered(task)
 				return
 			}
 		}

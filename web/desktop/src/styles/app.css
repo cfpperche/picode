@@ -4709,4 +4709,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .insp-commit-error { margin: 6px 0 0; }
 .insp-commit-preview { margin: 10px 0 0; font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .insp-menu-check { padding-left: 6px; }
+/* "Ask <agent>" submenu triggers (ADR-0078 stage 3): the channel hint sits
+   where the other rows show their command; the chevron marks the submenu. */
+.insp-menu-hint { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.insp-menu-chev { flex: none; margin-left: 6px; color: var(--text-secondary); }
+.composer-more-item[data-state="open"] { background: var(--bg-hover); }
 .insp-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }

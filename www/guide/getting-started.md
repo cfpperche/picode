@@ -24,7 +24,7 @@ Open `https://localhost:8445`. The sidebar has a tab per kind: **Agents** (agent
 
 *Video: creating an agent from the browser — the screens above are the real app.*
 
-`make deploy` rebuilds this repo and restarts the service. `picode update` checks GitHub for a newer release. `picode uninstall` removes the service. `--purge` also deletes `~/.picode`.
+`make deploy` rebuilds this repo and restarts the service; it refuses while an agent or a terminal is mid-turn (`picode deploy --force` overrides). `picode update` checks GitHub for a newer release. `picode uninstall` removes the service. `--purge` also deletes `~/.picode`.
 
 ```bash
 make dev          # run from the repo without installing

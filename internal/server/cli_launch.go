@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
@@ -577,9 +578,19 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 					pinTerminalLastSession(deps, id, rt)
 				}
 			}
+			// Stop escalation (ADR-0085): the pane root ignores SIGHUP now, so
+			// a plain kill-session would leave it running headless. Kill the
+			// session first (closes the PTY), then SIGTERM the pane root while
+			// we still know its pid. Best effort, never fatal.
+			panePID, _ := deps.Tmux.PanePID(r.Context(), name)
 			if err := deps.Tmux.KillSession(r.Context(), name); err != nil {
 				writeErr(w, 500, err.Error())
 				return
+			}
+			if panePID > 0 {
+				if p, perr := os.FindProcess(panePID); perr == nil {
+					_ = p.Signal(syscall.SIGTERM)
+				}
 			}
 			if deps.TermStates != nil {
 				deps.TermStates.Drop(id)
@@ -783,6 +794,12 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	}
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# PiCode terminal launch. Values below are quoted arguments, never eval.\n")
+	// SIGHUP-immune pane root (ADR-0085): interactive bash ignores SIGHUP and
+	// survived every daemon restart, while these `sh` roots died with the
+	// pane's whole session. Children inherit the ignore, which is the point;
+	// explicit Stop escalates to SIGTERM on the pane root, so "stop means
+	// stop" survives the trap.
+	body.WriteString("trap '' HUP\n")
 	keys := []string{}
 	for k := range c.Env {
 		keys = append(keys, k)

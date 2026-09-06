@@ -332,14 +332,16 @@ func handleTerminalType(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, msg)
 			return
 		}
-		if deps.Tmux == nil || !deps.Tmux.Available() {
-			writeErr(w, http.StatusServiceUnavailable, "Need tmux to type into a terminal.")
-			return
-		}
 		// An optional root is the rail's folder: a terminal that moved away
 		// must not receive a command meant for it (ADR-0074's precondition).
+		// Judged before the tmux check, like the run route: a stale root is
+		// the caller's problem on any machine.
 		if cwd := liveTermCwd(deps, r, t); req.Root != "" && req.Root != canonDir(cwd) {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal moved to " + cwd + ".", "reason": "moved", "cwd": cwd})
+			return
+		}
+		if deps.Tmux == nil || !deps.Tmux.Available() {
+			writeErr(w, http.StatusServiceUnavailable, "Need tmux to type into a terminal.")
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)

@@ -9,6 +9,7 @@ import {
   readInspectorPrefs, writeInspectorPrefs,
   prTabLabel, prStateLabel, prChecksLabel, prReviewLabel, prBlockedAction,
   shellQuote, gitActionCommand, gitActions, branchChip, runFallbackNote,
+  askableAgents, askChannelHint, askGitPrompt, askedNote,
 } from "./inspector.js";
 import { flattenTree } from "./fileTree.js";
 
@@ -240,4 +241,55 @@ test("branchChip names the checkout and its distance from upstream", () => {
   const det = branchChip({ git: true, branch: "abc1234", detached: true });
   assert.equal(det.detached, true);
   assert.equal(det.unpublished, false);
+});
+
+test("askableAgents offers running agents of this repository, anchored first, at most three", () => {
+  const top = "/w/app";
+  const ws = {
+    id: "ws1", name: "app", path: top,
+    agents: [
+      { id: "a-stopped", name: "Off", running: false, mode: "stopped" },
+      { id: "a-tui", name: "Zed", running: true, mode: "interactive" },
+      { id: "a-rpc", name: "Atlas", running: true, mode: "managed", streaming: true },
+      { id: "a-sub", name: "Sub", running: true, mode: "managed", workPath: top + "/pkg" },
+      { id: "a-else", name: "Elsewhere", running: true, mode: "managed", workPath: "/w/other" },
+      { id: "a-4th", name: "Zulu", running: true, mode: "managed" },
+    ],
+  };
+  const free = [{ id: "f1", name: "Nova", running: true, mode: "managed", workPath: top + "/tools" }, { id: "f2", name: "Rigel", running: true, mode: "managed" }];
+  const none = askableAgents({ workspaces: [ws], freeAgents: free }, { root: "" });
+  assert.deepEqual(none, []);
+  const got = askableAgents({ workspaces: [ws], freeAgents: free }, { root: top + "/pkg", repoRoot: top, anchor: { kind: "agent", id: "a-sub" } });
+  assert.deepEqual(got.map((a) => a.id), ["a-sub", "a-rpc", "f1"]);
+  assert.equal(got[1].streaming, true);
+  assert.equal(got[0].path, top + "/pkg");
+  const term = askableAgents({ workspaces: [ws], freeAgents: [] }, { root: top, anchor: { kind: "term", id: "t1" } });
+  assert.deepEqual(term.map((a) => a.name), ["Atlas", "Sub", "Zed"]);
+  assert.equal(term.find((a) => a.name === "Zed").mode, "interactive");
+  assert.equal(askChannelHint(term[2]), "in its terminal");
+  assert.equal(askChannelHint(term[0]), "after its turn");
+  assert.equal(askChannelHint(term[1]), "");
+  // A trailing slash or a Windows separator does not break containment.
+  assert.equal(askableAgents({ workspaces: [{ ...ws, path: top + "/" }] }, { root: top }).length, 4 - 1);
+});
+
+test("askGitPrompt names the folder, the branch, the action and its rules", () => {
+  const ctx = { root: "/w/app", branch: "main", upstream: "origin/main" };
+  assert.equal(askGitPrompt("fetch", ctx), "In /w/app, run git fetch --prune and tell me how the branch main stands against its upstream.");
+  assert.match(askGitPrompt("pull", ctx), /^In \/w\/app, bring the branch main up to date .*fast-forward only .*stop and tell me why/);
+  assert.equal(askGitPrompt("push", ctx), "In /w/app, push the branch main to its upstream (origin/main). Never force-push; if the push is rejected, tell me why.");
+  assert.equal(askGitPrompt("push", { root: "/w/app", branch: "feat/x" }), "In /w/app, push the branch feat/x and set its upstream (origin/feat/x). Never force-push; if the push is rejected, tell me why.");
+  assert.equal(askGitPrompt("commit", { ...ctx, message: "fix: typo" }), 'In /w/app, commit the current changes on the branch main with this message: "fix: typo". Do not push.');
+  assert.equal(askGitPrompt("commit", ctx), "In /w/app, review the uncommitted changes on the branch main and commit them with a fitting message. Do not push.");
+  assert.match(askGitPrompt("commit-push", { ...ctx, message: "m" }), /with this message: "m"\. Then push the branch main to its upstream \(origin\/main\), never with force\.$/);
+  assert.match(askGitPrompt("pr", ctx), /create a pull request for the branch main with gh pr create.*give me its URL\.$/);
+  assert.equal(askGitPrompt("fetch", {}), "In this folder, run git fetch --prune and tell me how the current branch stands against its upstream.");
+  assert.equal(askGitPrompt("nope", ctx), "");
+});
+
+test("askedNote says when the agent acts", () => {
+  assert.equal(askedNote("Atlas", "push", { mode: "managed", via: "queue", busy: false }), "Asked Atlas to push.");
+  assert.equal(askedNote("Atlas", "commit-push", { mode: "managed", via: "queue", busy: true }), "Queued for Atlas: commit and push after its current turn.");
+  assert.equal(askedNote("Zed", "pr", { mode: "interactive", via: "paste" }), "Asked Zed to open a pull request in its terminal.");
+  assert.equal(askedNote("", "fetch", null), "Asked the agent to fetch.");
 });

@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -58,6 +59,14 @@ import (
 	"github.com/cfpperche/picode/internal/webhooks"
 )
 
+// loopbackIdleRevoke is how long an auto-minted loopback browser session
+// may sit without an authenticated request before the housekeeping sweep
+// revokes it (ADR-0049 amendment 2026-09-06). The grace rides presence
+// reality: an open tab pings every 15 s (Chrome throttles a background
+// tab to once a minute), so 10 minutes only ever trips for a browser that
+// is actually gone.
+const loopbackIdleRevoke = 10 * time.Minute
+
 func main() {
 	if len(os.Args) > 1 {
 		if dispatch(os.Args[1], os.Args[2:]) {
@@ -93,7 +102,7 @@ func dispatch(cmd string, args []string) bool {
 	case cmd == "update":
 		runUpdate()
 	case cmd == "deploy":
-		runDeploy()
+		runDeploy(args)
 	case cmd == "uninstall":
 		runUninstall(args)
 	case cmd == "pair":
@@ -228,8 +237,17 @@ func runInstall(args []string) {
 	fmt.Println("  systemctl --user status picode")
 }
 
-func runDeploy() {
+// A restart ends every managed CLI/agent pane (ADR-0084/0085), so deploy
+// first asks the running daemon who is working and refuses while anyone
+// is (ADR-0086). --force, or PICODE_DEPLOY_FORCE=1 from make, overrides.
+func runDeploy(args []string) {
 	shippable("deploy")
+	force := os.Getenv("PICODE_DEPLOY_FORCE") == "1"
+	for _, a := range args {
+		if a == "--force" || a == "-f" {
+			force = true
+		}
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		log.Fatalf("deploy: %v", err)
@@ -239,7 +257,11 @@ func runDeploy() {
 		log.Fatalf("deploy: %v", err)
 	}
 	fmt.Println("Deploying this binary…")
-	if err := install.Deploy(exe, home, os.Getenv("PATH")); err != nil {
+	if err := install.DeployForce(exe, home, os.Getenv("PATH"), force); err != nil {
+		if errors.Is(err, install.ErrDeployBusy) {
+			fmt.Fprintln(os.Stderr, "deploy refused:", err)
+			os.Exit(2)
+		}
 		log.Fatalf("deploy: %v", err)
 	}
 	fmt.Println("Restarted.")
@@ -424,20 +446,41 @@ func serve() {
 	// caller, so revoked and expired rows piled up forever —Devices showed
 	// every browser session ever minted. Daily sweep, 7-day retention
 	// (ListSessions already hides dead rows, so the lag is invisible).
+	// Amended 2026-09-06: an auto-minted loopback browser session (the
+	// headless QA fleet, a loopback visit) ends when its access ends — the
+	// minute sweep revokes rows whose last authenticated request is
+	// loopbackIdleRevoke old, each with a session.revoked event so open
+	// Devices views drop the row live; the daily prune deletes the rows a
+	// week later. The grace rides session.last_seen_at, which every
+	// authenticated request (the presence ping included) refreshes: an
+	// open tab keeps the row alive even with Chrome's once-a-minute
+	// background-timer throttle, so only a genuinely closed browser trips.
 	go func() {
+		revokeIdle := func() {
+			if n, err := st.RevokeStaleLoopbackSessions(loopbackIdleRevoke); err != nil {
+				log.Printf("auth: revoke idle loopback sessions: %v", err)
+			} else if n > 0 {
+				log.Printf("auth: revoked %d idle loopback browser session(s)", n)
+			}
+		}
 		prune := func() {
 			if _, err := st.PruneSessions(time.Now().Add(-7 * 24 * time.Hour)); err != nil {
 				log.Printf("auth: prune sessions: %v", err)
 			}
 		}
+		revokeIdle()
 		prune()
-		t := time.NewTicker(24 * time.Hour)
-		defer t.Stop()
+		minute := time.NewTicker(time.Minute)
+		defer minute.Stop()
+		daily := time.NewTicker(24 * time.Hour)
+		defer daily.Stop()
 		for {
 			select {
 			case <-backupCtx.Done():
 				return
-			case <-t.C:
+			case <-minute.C:
+				revokeIdle()
+			case <-daily.C:
 				prune()
 			}
 		}
@@ -558,6 +601,13 @@ func serve() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	// Session forensics (ADR-0085): before the server accepts traffic,
+	// compare the shutdown snapshot with the sessions alive now. The diff
+	// feeds the lostAtRestart badge on terminal surfaces.
+	lostCtx, lostCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	deps.LostSessions = server.BootDiff(lostCtx, deps)
+	lostCancel()
+
 	// Initial bind + banner.
 	cfg, err := config.Resolve(st.GetSetting)
 	if err != nil {
@@ -644,6 +694,9 @@ func serve() {
 			stopWatch()
 			log.Printf("server: %v — shutting down", sig)
 			gracefulShutdown(srv)
+			snapCtx, snapCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			server.WriteShutdownSnapshot(snapCtx, deps)
+			snapCancel()
 			return
 		}
 	}

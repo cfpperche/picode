@@ -64,6 +64,11 @@ if (cd "$repo/wt" && printf '# Handoff — living project state\n\nbody\n' > CHA
 if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > CHANGELOG.md && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add CHANGELOG.md docs/handoff.md && git commit -q -m "restore and log" 2>/dev/null); then ok "restored docs commit allowed"; else bad "restored docs commit allowed" "the guard must not block honest docs edits"; fi
 if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m clobber2 2>/dev/null); then bad "clobbered handoff refused" "a changelog copy was committed as the handoff"; else ok "clobbered handoff refused"; fi
 
+# 2c. The handoff line cap (ADR-0086): 100 lines pass, 101 are refused.
+if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 99); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff at cap" 2>/dev/null); then ok "handoff at 100 lines allowed"; else bad "handoff at 100 lines allowed" "the cap refuses a file at the limit"; fi
+if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 100); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff over cap" 2>/dev/null); then bad "handoff over 100 lines refused" "a 101-line handoff was committed"; else ok "handoff over 100 lines refused"; fi
+(cd "$repo/wt" && git checkout -q -- docs/handoff.md 2>/dev/null; git reset -q 2>/dev/null)
+
 # 3. Escape hatch, return home, and the pre-commit belt when off main.
 if PICODE_ALLOW_SWITCH=1 git switch -q feat/existing 2>/dev/null; then ok "PICODE_ALLOW_SWITCH override works"; else bad "PICODE_ALLOW_SWITCH override works" "override refused"; fi
 date > off.txt && git add off.txt

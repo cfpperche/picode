@@ -405,3 +405,35 @@ func cliRequestFull(t *testing.T, ts *httptest.Server, method, path string, body
 	}
 	return out
 }
+
+// The generated launch script is the pane root (ADR-0085): it must ignore
+// SIGHUP from its first executable line, right after the shebang.
+func TestLaunchScriptIgnoresHUP(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, dataDir, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	binary := filepath.Join(home, "tool")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nexec cat\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/pi", clilaunch.Config{Executable: binary}, 200)
+	created := cliRequest(t, ts, "POST", "/api/clis/pi/terminals", map[string]any{"name": "HUP fixture", "cwd": home}, 201)
+	id := created["id"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
+
+	// The kept run generation holds the script the pane is running.
+	matches, err := filepath.Glob(filepath.Join(dataDir, "cli-launch", id, "run-*", "launch.sh"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("launch.sh runs = %v, %v", matches, err)
+	}
+	raw, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(raw), "\n")
+	if len(lines) < 3 || !strings.HasPrefix(lines[0], "#!") || !strings.Contains(lines[2], "trap '' HUP") {
+		t.Fatalf("launch.sh head = %q", lines[:3])
+	}
+}

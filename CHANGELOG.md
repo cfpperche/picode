@@ -23,6 +23,47 @@ to the `[Unreleased]` section. The repository's official language is English
   auto-accepting. Check setup keeps the first `--version` line so Hermes'
   install dump does not wrap the heading.
 
+- **Deploy refuses while agents work** (ADR-0086). `picode deploy` asks the
+  running daemon who is mid-turn and stops before touching the installed
+  binary when anyone is — the refusal names each agent or terminal and why.
+  `picode deploy --force` (or `PICODE_DEPLOY_FORCE=1 make deploy`) is the
+  deliberate override. `make deploy-batch` and the `picode-deploy.timer`
+  (12:00, 18:00, 23:00; `make timers` installs it) ship `main` in batches,
+  refreshing stale public screenshots first. New loopback-only route
+  `GET /api/deploy/readiness`.
+
+- **Inspector: ask a running agent to do a Git action** (ADR-0078). For every
+  agent running in the rail's repository — managed or in its own terminal —
+  the Git menu now lists an "Ask &lt;name&gt;" submenu with the same actions.
+  Asking sends the agent a plain-language message through the channel that
+  already carries its prompts: a queued turn for a managed agent (delivered
+  at once, or as a follow-up once its current turn ends) or the Inbox
+  reply's own door into a TUI (the receiver extension, or a bracketed
+  paste). The agent decides how and runs it in its own turn; PiCode never
+  runs git here. The commit form's message becomes optional when asking —
+  left empty, the agent writes one from the changes. A stopped agent, or a
+  terminal hosting a coding CLI, is not offered.
+
+- **Inspector: run Git actions when nobody is working** (ADR-0078). The Git
+  menu gains a per-viewer checkbox, "Run when no agent is working here". With
+  it on, PiCode types the command into your terminal and presses Enter itself,
+  but only when no agent in that repository is mid-turn, no automation is
+  running there, and no other terminal there is working or holding a program;
+  otherwise the command is prepared as before and a note says who is busy.
+  Git still runs in your own shell with your credentials and hooks. Typing
+  now also refuses a terminal that moved away from the folder or whose pane
+  is not at a shell prompt, and takes a fresh terminal instead. Right-hand
+  toasts step left of the rail while it is open, so a note never covers its
+  buttons.
+
+- **Session forensics** (ADR-0085): the daemon now records which tmux
+  sessions were alive at a graceful shutdown and reports at boot exactly
+  which ones did not survive (log + `var/restart-report-*.json`), stopped
+  CLI terminals say "PiCode restarted while this terminal was running"
+  when that applies, launch scripts ignore SIGHUP like interactive shells
+  always did (explicit Stop escalates to SIGTERM so stopping still
+  stops), and every `picode deploy` appends who/what/where to
+  `var/deploy-log.jsonl`. The next session-loss incident self-reports.
 - **CLI terminal session recovery** (ADR-0084): every CLI terminal now pins
   the native conversation it is running (claude, codex, grok, pi) and a
   stopped terminal offers "Resume last session" — one click relaunches the
@@ -48,6 +89,38 @@ to the `[Unreleased]` section. The repository's official language is English
   remain visible rather than being reported as success.
 
 ### Changed
+
+- **Mobile extra keys sit above the phone keyboard.** The terminal key
+  bar is one horizontally scrolling row (esc, tab, ctrl, alt, arrows,
+  Ctrl+C, then Home/End/pages and `| ~ / -`) that opens and closes with
+  the software keyboard instead of a two-row Termux grid the IME could
+  cover. The phone shell sizes itself to the visual viewport so the chat
+  composer stays visible while typing. Sticky Ctrl/Alt are unchanged.
+  The same row is available on an agent's Terminal view.
+
+- **Loopback browser sessions end when the access ends** (ADR-0049
+  amendment 2026-09-06). An auto-minted loopback browser session — the
+  silent mint every browser on this machine gets, the headless QA fleet
+  included — is revoked by a minute housekeeping sweep once its last
+  authenticated request is 10 minutes old: a closed browser stops
+  refreshing `last_seen_at`, an open one keeps the row alive even with
+  Chrome's once-a-minute background-timer throttle. Each revocation is a
+  `session.revoked` event, so open Devices views drop the row live; the
+  daily prune deletes the rows a week later. Paired devices (phones,
+  paired loopbacks) and the install token are never touched. The pile of
+  offline "Headless browser" rows self-clears on the first sweep after
+  upgrade.
+
+- **Development process** (ADR-0086, owner-approved after the 2026-09-06
+  cost review): `make ci-scoped` runs only the gates a branch's diff can
+  break; `make close` ends a worktree session (scoped gates, regenerated
+  OpenAPI/llms/captures, fast-forward check, closing summary); `make
+  worktree NAME=x` hardlinks `node_modules` instead of `npm ci`; `make
+  worktree-gc` removes merged, clean, idle trees; `make docs-check` warns
+  on stale capture fingerprints instead of failing (`--strict` for the
+  old gate); `docs/handoff.md` is capped at 100 lines by the pre-commit
+  hook and per-session notes move to `docs/handoff/`; `docs/screenshots/`
+  is frozen (evidence stays in `var/screenshots/`).
 
 - **Sidebar text column corrected for the smaller identity mark.** The
   runtime-favicon resize shrank agent/terminal identity marks from 24px to
@@ -95,6 +168,13 @@ to the `[Unreleased]` section. The repository's official language is English
   now renders as silence: no line, no "No checklist", on agent cards,
   terminal cards, the terminal pane strip and mobile rows. The data plane
   is unchanged — the absent marker is still published and stored.
+
+### Fixed
+
+- **GitHub CI on macOS**: the worktree test compares symlink-resolved
+  paths (`/var` → `/private/var`), and the terminal run/type routes
+  validate the request (404/409) before asking for tmux (503), so the
+  matrix is green without tmux installed.
 
 ## [0.1.0] - 2026-08-23
 

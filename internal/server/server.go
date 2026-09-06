@@ -3,6 +3,7 @@
 // Routes (M1):
 //
 //	GET  /api/health, /api/version          — liveness/identity
+//	GET  /api/deploy/readiness              — who is working (loopback, no session)
 //	GET  /api/system                        — pi/tmux detection + warnings
 //	GET/POST /api/workspaces                — registry CRUD
 //	DELETE /api/workspaces/{id}             — remove (+ stop agent)
@@ -67,8 +68,12 @@ type Deps struct {
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
-	CLIs         *CLITerminals    // terminal launch settings and operation locks (ADR-0069)
-	Auth         *auth.Service    // request gate (ADR-0049); nil = ungated (tests, dev)
+	// Session forensics (ADR-0085): session names that were alive at the
+	// previous graceful shutdown and did not survive to this boot. Set once
+	// by the daemon before New; nil-safe everywhere.
+	LostSessions map[string]bool
+	CLIs         *CLITerminals // terminal launch settings and operation locks (ADR-0069)
+	Auth         *auth.Service // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -164,6 +169,8 @@ func registerAll(mux Registrar, deps Deps) {
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)
+	registerDeployRoutes(mux, deps)
+	registerAgentAskRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux, deps)

@@ -26,8 +26,10 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Managed agents remain Pi-only;
-  coding CLIs are terminals. `origin/main` is pushed regularly.
+  at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
+  deployed `0.1.0+78bfd8d` (`make deploy` from the root checkout); health
+  ok, systemd active. iPhone IME pass still owed. Managed agents remain
+  Pi-only; coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
@@ -39,34 +41,20 @@
 
 ## Next up
 
-1. Merge `feat/hermes-cli` after a live `hermes` TUI turn reports
-   working / needs-you / idle, plus `--resume` in a PiCode terminal.
-2. Watch the first batch deploy (timers installed 2026-09-06 19:20; next
-   23:00; `journalctl --user -u picode-deploy`): it talks to a daemon
-   without the readiness route and deploys unguarded; later ones refuse.
-3. Renumber the duplicate ADR-0082 (browser-capture-sidecar vs
-   absent-checklist-renders-silence) and fix the index.
-4. llama delivery 3 live validation; delivery 4 needs a service-ownership /
-   cache-deletion ADR.
-5. Tab strip debts: keyboard close of `.mtab-close`, needs-you dot on an
-   arrow verified on a live tab, `scrollbar-width: thin` vs `::-webkit-scrollbar`.
-6. Sessions phase 2: codex machine-wide scan cache (~6 s on 907 files);
-   narrow injected-block heuristic; Grok has no transcripts; Hermes titles
-   only, no `profiles/` scan.
-7. CLI working/approval/settled acceptance matrix per vendor version;
-   first-class CLI agents need a protocol/session/package parity ADR.
-8. Compose registration ADR (`docs/plans/docker-v2.md`); ADR-0064 cadence
-   decision; docs-video recapture policy.
-9. Configured compaction re-dogfood; reconcile historical Inbox rows before
-   live replies; remote-mode and browser-preview acceptance (owner infra).
-10. Inspector follow-ups: merge/rebase/branch switch wait for a picker
-   (reset, force push, stash drop stay refused); full filename search
-   (`git ls-files`); per-anchor watch lease; per-turn `+N −M` footer.
+1. Merge `feat/hermes-cli` (this session); live TUI activity still owed.
+2. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
+3. Renumber duplicate ADR-0082 and fix the index.
+4. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
+5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
+6. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
+7. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
+8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+9. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+10. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
 
 ## Known debts / open questions
 
-- Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated;
-  Hermes may write `shell-hooks-allowlist.json` (not `config.yaml`).
+- Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
@@ -98,3 +86,6 @@
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with
   an absent model keeps its reservation; history pruning deferred.
+- Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
+  owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
+  the full window with the IME up, land the focus-gated iOS fallback.

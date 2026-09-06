@@ -4,6 +4,12 @@ This directory holds **curated screenshots that document the UI's evolution**.
 GitHub renders them inline in PRs and Markdown — they are how visual review
 verdicts (`.pi/skills/visual-review`) become auditable evidence.
 
+> **Frozen since 2026-09-06 (ADR-0086).** New evidence is not committed
+> here: working captures stay in gitignored `var/screenshots/`, and the
+> reply's `visual-review:` line plus the session's `docs/handoff/` note are
+> the audit trail. The 391 files below remain as the visual history they
+> already are. The four public images are generated into `www/img/`.
+
 ## Rules
 
 - Naming: `<milestone>-<view>-<state>.png` — e.g. `m1-termgrid-home-empty.png`,
@@ -50,6 +56,13 @@ from the seeded upstream. `inspector-run-*` adds the run-when-idle mode
 was prepared instead (the toast steps left of the rail), the commit form in
 "Run in terminal" wording, and the terminal after the commit ran with
 `gitstatus` at zero changes before the runner restores the seed.
+`inspector-ask-*` adds stage 3, asking an agent: the Git menu's "Ask
+&lt;name&gt;" submenu open for a second, TUI-mode agent sharing the
+repository (an idle tmux session standing in for a real login, since the
+fixture has no real pi), and the commit form addressing that agent with its
+message optional and the prompt preview showing what it will read. QA group
+g18 proves the prompt lands in the agent's own terminal and the toast names
+the door taken; g19 proves an empty message asks the agent to write its own.
 
 Integrations (ADR-0075): `integrations-desktop-*` covers empty webhooks,
 missing adapter, validation overlay, failed delivery/retry and the connector

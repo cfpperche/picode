@@ -2,11 +2,11 @@
   "builtin": {
     "default": {
       "model": "zai/glm-5.3-flash",
-      "thinking": "max"
+      "thinking": "medium"
     },
     "vision": {
       "model": "zai/glm-5.3-flash",
-      "thinking": "max"
+      "thinking": "medium"
     },
     "plan": {
       "model": "zai/glm-5.3",

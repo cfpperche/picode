@@ -2,7 +2,7 @@
 // Classify a GitHub change set before the expensive CI jobs start.
 // Unknown, empty, or mixed change sets fail safe to the complete matrix.
 
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +52,64 @@ export function classifyPaths(rawPaths) {
   return { scope: "metadata", full: false, docs: false, paths };
 }
 
+// Local scopes (ADR-0086). A worktree iteration runs the gates its diff can
+// break, not the whole matrix: a CSS fix does not need three minutes of Go
+// tests, a handler change does not need a Vite build. Anything that shapes
+// the gates themselves (go.mod, Makefile, hooks, this file) fails safe to
+// full. Go paths are returned so the caller can pick affected packages.
+export function localScope(rawPaths) {
+  const paths = [...new Set(rawPaths.map(normalizePath).filter(Boolean))];
+  const s = { full: false, go: false, web: false, packages: false, docs: false, metadata: false, goPaths: [], paths };
+  if (paths.length === 0) {
+    s.full = true;
+    return s;
+  }
+  for (const p of paths) {
+    if (
+      p === "go.mod" ||
+      p === "go.sum" ||
+      p === "Makefile" ||
+      p.startsWith(".github/") ||
+      p.startsWith(".githooks/") ||
+      p === "scripts/ci-scope.mjs" ||
+      p === "scripts/ci-scoped.sh" ||
+      p.startsWith("scripts/hooks-")
+    ) {
+      s.full = true;
+      continue;
+    }
+    if (p.startsWith("cmd/") || p.startsWith("internal/") || p.endsWith(".go")) {
+      s.go = true;
+      s.goPaths.push(p);
+      continue;
+    }
+    if (p.startsWith("web/")) {
+      s.web = true;
+      continue;
+    }
+    const kind = pathScope(p);
+    if (/^scripts\/.*\.(m?js|ts)$/.test(p) || p.startsWith("packages/") || p.startsWith(".pi/")) s.packages = true;
+    if (kind === "docs") s.docs = true;
+    else if (kind === "metadata") s.metadata = true;
+    else if (!s.packages) s.full = true;
+  }
+  return s;
+}
+
+function localMain() {
+  const raw = readFileSync(0, "utf8").split("\n");
+  const s = localScope(raw);
+  const flag = (v) => (v ? "1" : "");
+  console.log(`SCOPE_FULL=${flag(s.full)}`);
+  console.log(`SCOPE_GO=${flag(s.go)}`);
+  console.log(`SCOPE_WEB=${flag(s.web)}`);
+  console.log(`SCOPE_PACKAGES=${flag(s.packages)}`);
+  console.log(`SCOPE_DOCS=${flag(s.docs)}`);
+  console.log(`SCOPE_METADATA=${flag(s.metadata)}`);
+  console.log(`SCOPE_GO_PATHS='${s.goPaths.join(" ")}'`);
+  console.log(`SCOPE_COUNT=${s.paths.length}`);
+}
+
 function validCommit(sha) {
   if (!sha || /^0+$/.test(sha)) return false;
   try {
@@ -97,4 +155,7 @@ function main() {
 }
 
 const invoked = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invoked) main();
+if (invoked) {
+  if (process.argv.includes("--local")) localMain();
+  else main();
+}

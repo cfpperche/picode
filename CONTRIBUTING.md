@@ -19,16 +19,21 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
 
 ## For Pi agents
 
-1. Read `AGENTS.md` (auto-loaded) and `docs/handoff.md` **before** starting.
+1. Read `AGENTS.md` (auto-loaded) and `docs/handoff.md` (≤ 100 lines)
+   **before** starting; then only what AGENTS.md's reading table names.
 2. Use the skills: `read` `/skill:uiux-review` **before** the first UI edit,
    `/skill:visual-review` before calling UI done, `/skill:quality-gate`
-   before declaring done, `/skill:handoff-update` before ending.
-3. Never break the build. Architectural change → ADR
-   (`docs/decisions/template.md`).
-4. **Work in an isolated git worktree** (AGENTS.md non-negotiable 5).
-   Do not edit `main` in the primary checkout in parallel with another
-   agent. After merge, remove the worktree and the branch.
-5. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
+   before declaring done, `/skill:handoff-update` for the session note.
+3. Never break the build: `make ci-scoped` while iterating, `make close`
+   at the end, `make ci` on `main` for the merge. A boundary change
+   (protocol, persistence, security, process) → ADR
+   (`docs/decisions/template.md`); a UI refinement never needs one.
+4. **Work in an isolated git worktree** (`make worktree NAME=<name>`,
+   AGENTS.md non-negotiable 5). Do not edit `main` in the primary checkout
+   in parallel with another agent. After merge, `make worktree-gc`.
+5. **Do not deploy** (ADR-0086): `main` ships in batches; a branch is done
+   when `main` fast-forwards to it.
+6. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
    `packages/pi-compact/`, and `packages/pi-diff/` is MIT; everything else is PolyForm
    Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0028.
 
@@ -41,7 +46,7 @@ Code and docs change together, in the same commit:
 | Behavior or architecture | `docs/architecture.md` (+ ADR if architectural) |
 | Anything user-visible | `CHANGELOG.md` → `[Unreleased]` |
 | A slash command users can type | `www/commands.md` heading `{#id}` + pi correlation per [docs/guidelines.md](docs/guidelines.md) |
-| Project state at all | `docs/handoff.md` (session end) |
+| Project state at all | `docs/handoff/<date>-<branch>.md` (≤ 25 lines) + `docs/handoff.md` kept true (≤ 100 lines) |
 | A benchmark we hold | `docs/benchmarks.md` with rationale |
 
 ## License of contributions

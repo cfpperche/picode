@@ -33,6 +33,7 @@ const AppSurface = lazy(() => import("./components/AppSurface.jsx"));
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
 import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
+import { useVisualViewport } from "./hooks/useVisualViewport.js";
 import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } from "./lib/whatsNew.js";
 import ScreenBoundary, { ScreenLoading } from "./components/ScreenBoundary.jsx";
 import { saveAgentConfig } from "./lib/agentConfig.js";
@@ -47,6 +48,7 @@ const LAST_AGENT_KEY = "picode-mobile-last-agent";
 // tab bar is the chrome. One fleet poll feeds every screen; only the
 // agent screen opens an agent socket.
 export default function MobileApp() {
+  useVisualViewport();
   const route = useHashRoute();
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);

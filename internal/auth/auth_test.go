@@ -98,6 +98,8 @@ func TestDecisionTable(t *testing.T) {
 		who  string
 	}{
 		{"health is free", call{method: "GET", path: "/api/health"}, 200, ""},
+		{"deploy readiness is free on loopback", call{method: "GET", path: "/api/deploy/readiness", remote: "127.0.0.1:1", ua: "curl/8"}, 200, ""},
+		{"deploy readiness is guarded elsewhere", call{method: "GET", path: "/api/deploy/readiness"}, 401, ""},
 		{"ui is free", call{method: "GET", path: "/assets/app.js"}, 200, ""},
 		{"pair is free", call{method: "GET", path: "/pair?code=x"}, 200, ""},
 		{"fire is free", call{method: "POST", path: "/api/automations/a1/fire", origin: "http://localhost:8445"}, 200, ""},

@@ -145,6 +145,18 @@ func TestStatusBudgetRunsOut(t *testing.T) {
 	}
 }
 
+// realPath resolves symlinks the way git reports worktree paths: on macOS
+// t.TempDir() lives under /var, a symlink to /private/var, and `git
+// worktree list` answers the resolved form.
+func realPath(t *testing.T, p string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
 func TestWorktreeOfRef(t *testing.T) {
 	dir := repo(t)
 	side := filepath.Join(t.TempDir(), "side")
@@ -153,6 +165,8 @@ func TestWorktreeOfRef(t *testing.T) {
 	run(t, dir, "git", "worktree", "add", detached)
 	run(t, detached, "git", "checkout", "--detach")
 	head := strings.TrimSpace(runOut(t, dir, "git", "rev-parse", "HEAD"))
+	// Git lists worktrees by their resolved paths; compare against those.
+	dir, side, detached = realPath(t, dir), realPath(t, side), realPath(t, detached)
 
 	if got := WorktreeOfRef(dir, "side"); got != side {
 		t.Fatalf("WorktreeOfRef(branch) = %q, want %q", got, side)
