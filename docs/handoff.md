@@ -5,7 +5,11 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD `139ab1ba` (deployed) completes the tab-strip study
+**Repository:** HEAD `03489b9a` (deployed as `0.1.0+03489b9a`, health ok,
+boot `4899f4331b3cbfd1`, 111 terminal sessions preserved on the default tmux
+server) lands the **browser-capture sidecar (ADR-0082)** — live/replay
+browser frames without patching pi-agent-browser-native, consent-gated and
+default-off — on top of the tab-strip study
 (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 1–4: no
 scrollbar, arrows/fades/indicator/wheel, All-tabs list + `Alt+[`/`Alt+]` +
 tablist, 200 px label cap) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
