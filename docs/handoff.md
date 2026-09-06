@@ -26,9 +26,10 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Mobile extra keys are a one-row
-  IME accessory (ADR-0044, `2ed7b7df`); iPhone IME pass still owed.
-  Managed agents remain Pi-only; coding CLIs are terminals.
+  at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
+  deployed `0.1.0+78bfd8d` (`make deploy` from the root checkout); health
+  ok, systemd active. iPhone IME pass still owed. Managed agents remain
+  Pi-only; coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
