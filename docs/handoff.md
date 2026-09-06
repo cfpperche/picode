@@ -5,7 +5,10 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
+**Repository:** HEAD (`dcbaa316`, deployed) carries the tab-strip phase 1
+(no scrollbar under the editor tabs, active tab revealed by code; study
+`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 2–4 under Next
+up), today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
 desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab,
@@ -36,7 +39,14 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `0.1.0+db12b097`, health `200` — the
+**Last application deployment:** HEAD `dcbaa316` (tab strip phase 1) via
+`make deploy` from the root checkout; systemd restarted, desktop answered
+after reload. Verified on the live instance with seven terminal tabs:
+strip gutter 0 px (was 10), tabs 39 px tall, computed `scrollbar-width:
+none`, active tab fully inside the strip at either clipped side; screenshot
+read (visual-review: PASS). The `/api/version` label was not read from the
+browser session — the served bundle is proven by behaviour the previous
+bundle lacked. Previous deploy `0.1.0+db12b097`, health `200` — the
 sessions-endpoints fold (which includes the terminal-faces tree,
 `fa97e8cf`, and the menu-item removal). `make deploy` restarted systemd.
 Live: `GET /api/clis/pi/sessions` answers 387 real sessions with
@@ -140,7 +150,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/tab-strip-scroll` awaits merge to main and `make deploy`. Phase 1
+- Tab strip phase 1 is merged and deployed (`dcbaa316`); the worktree and
+  branch are removed. Phase 1
   of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
   approved by the owner with the 3 px overlay indicator and `Alt+[` /
   `Alt+]`): the strip hides its layout scrollbar and reveals the active
