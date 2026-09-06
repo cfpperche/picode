@@ -1,0 +1,109 @@
+{
+  "checks": [
+    "desktop real load, navigation and reload with one POST",
+    "real unload and two durable completed jobs",
+    "mobile reads the same history",
+    "no JavaScript errors; overlay audits pass"
+  ],
+  "screenshots": [
+    "llama-live-desktop-completed.png",
+    "llama-live-desktop-history.png",
+    "llama-live-mobile-history.png"
+  ],
+  "audits": [
+    {
+      "file": "llama-live-desktop-completed.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            222,
+            222
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-live-desktop-history.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            254,
+            254
+          ]
+        }
+      ]
+    },
+    {
+      "file": "llama-live-mobile-history.png",
+      "ok": true,
+      "hits": [],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            36,
+            36
+          ],
+          "tops": [
+            244,
+            244
+          ]
+        }
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "id": "llama-09ebd3",
+      "requestKey": "54227bc5-ec07-4560-ba45-e570b325f72d",
+      "endpoint": "http://127.0.0.1:18081",
+      "model": "Qwen3-4B-Q4_K_M",
+      "operation": "unload",
+      "replaceOthers": false,
+      "state": "succeeded",
+      "stage": "observing",
+      "observed": "unloaded",
+      "message": "The model reached the requested state.",
+      "progress": [],
+      "cancelSupported": true,
+      "cancelRequested": false,
+      "cancelAccepted": false,
+      "createdAt": "2026-09-06T16:36:19.000867054Z",
+      "updatedAt": "2026-09-06T16:36:19.612187466Z",
+      "revision": 6
+    },
+    {
+      "id": "llama-1fd638",
+      "requestKey": "af364064-b21b-415f-aa65-b8626237502b",
+      "endpoint": "http://127.0.0.1:18081",
+      "model": "Qwen3-4B-Q4_K_M",
+      "operation": "load",
+      "replaceOthers": false,
+      "state": "succeeded",
+      "stage": "observing",
+      "observed": "loaded",
+      "message": "The model reached the requested state.",
+      "progress": [],
+      "cancelSupported": true,
+      "cancelRequested": false,
+      "cancelAccepted": false,
+      "createdAt": "2026-09-06T16:36:14.623030839Z",
+      "updatedAt": "2026-09-06T16:36:17.899089509Z",
+      "revision": 6
+    }
+  ]
+}

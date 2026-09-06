@@ -16,10 +16,11 @@ for (const app of ['desktop', 'mobile']) {
  await context.addInitScript(() => localStorage.setItem("picode-theme", "dark"));
  const page = await context.newPage();
  const errors = []; page.on('pageerror', e => errors.push(e.message));
- let code = 'ready', models = [], requests = [];
+ let code = 'ready', models = [], requests = [], jobs = [];
+ await page.route('**/api/llama/jobs', r => r.fulfill({json:{jobs}}));
  await page.route('**/api/llama', r => r.fulfill({ json: { url: 'http://127.0.0.1:8080', ok: code === 'ready', models, connection: { code, message: code === 'ready' ? 'Connected' : code === 'authentication' ? 'The server rejected the API key.' : 'Cannot reach the server from PiCode.' } } }));
- await page.route('**/api/llama/load', async r => { requests.push(r.request().postDataJSON()); models = models.map(m => ({...m, status: 'loaded'})); await r.fulfill({ json: { ok: true } }); });
- await page.route('**/api/llama/unload', async r => { requests.push(r.request().postDataJSON()); models = models.map(m => ({...m, status:'unloaded'})); await r.fulfill({json:{ok:true}}); });
+ await page.route('**/api/llama/load', async r => { requests.push(r.request().postDataJSON()); models = models.map(m => ({...m, status: 'loaded'})); jobs = [{ id: 'load-job', model: requests.at(-1).id, operation:'load', state:'succeeded', createdAt:new Date().toISOString(), endpoint:'http://127.0.0.1:8080' }]; await r.fulfill({ json: { job: jobs[0] } }); });
+ await page.route('**/api/llama/unload', async r => { requests.push(r.request().postDataJSON()); models = models.map(m => ({...m, status:'unloaded'})); jobs = [{ id:'unload-job', model:requests.at(-1).id, operation:'unload', state:'succeeded', createdAt:new Date().toISOString(), endpoint:'http://127.0.0.1:8080' }]; await r.fulfill({json:{job:jobs[0]}}); });
  await page.route('**/api/providers/llama.cpp', async r => { requests.push(r.request().postDataJSON()); await r.fulfill({ json: { ok: true } }); });
  await page.route('**/api/llama/hf?*', r => r.fulfill({ json: { hits: [] } }));
  async function shot(name) {
@@ -84,6 +85,7 @@ for (const app of ['desktop', 'mobile']) {
  await page.locator('.dlg:visible').waitFor({state:'hidden'});
  await page.waitForFunction(() => !document.querySelector('.llama-working'));
  assert.equal(requests.at(-1).unloadOthers,true);
+ await manager.getByRole('button', { name:'Test connection' }).click();
  await manager.getByRole('button', {name:'Unload',exact:true}).first().click();
  await page.locator('.dlg:visible').getByRole('button', {name:'Unload',exact:true}).click();
  await page.locator('.dlg:visible').waitFor({state:'hidden'});

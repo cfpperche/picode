@@ -3222,3 +3222,91 @@ sessions are closed; the feature worktrees and branches are removed.
   minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
   `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
   live Git menu read in both checkbox states).
+
+
+- **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
+  and sessions work (ADR number collision resolved: terminal checklists took
+  0081); combined `make ci` green on the reconciled tree. Deploy verified:
+  health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
+  live. No push.
+
+- **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
+  with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
+  after QA showed the new `overflow: hidden` letting flex shrink every tab
+  instead of scrolling (the Chrome behaviour the study refuses). Verified
+  on the worktree's Vite build with an injected 65-character name: label
+  200 px and truncated, other tabs unchanged, the strip overflowed and the
+  arrows appeared. Screenshot read. visual-review: PASS (p4-ellipsis.png).
+  During QA the owner's live service was found inactive since 12:26:50
+  (`server: terminated`, no deploy in flight, lock free, binary from a
+  12:25 deploy by another session); `systemctl --user start picode`
+  brought it back at 12:33 — the cause of the stop is unknown.
+- **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
+  tablist.** `describeTab` now feeds both the strip and a Radix
+  DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,
+  current one marked); `app.tab.prev` / `app.tab.next` join the app-keys
+  catalog (Hotkeys dialog and Settings → Keys pick them up); `wireTermKeys`
+  gained a `passthrough` predicate and both terminals pass
+  `matchGlobalAction`, so Global chords no longer reach the shell
+  (`termKeys.test.js`, `appKeys.test.js`; 37 JS tests across the three
+  files). Manual activation replaced automatic after QA showed the
+  terminal stealing focus on select. Verified on the worktree's Vite
+  build at 1000 px with six tabs: roles and tabindex, Alt chords cycle and
+  wrap with `defaultPrevented`, arrows / Home / End move focus without
+  selecting, Enter selects and reveals, the menu lists 6 items with the
+  "Out of view" group and separator inside the viewport (overlay audit
+  ok), picking an out-of-view item selects and reveals it, the active tab
+  stays visible when the overflow chrome appears. visual-review: PASS
+  (p3-list.png, p3-arrowdot.png read; card 5/5).
+- **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
+  `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
+  (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
+  `#tab-strip` (QA scripts keep matching `.main-tabs .mtab`). Verified on
+  the worktree's Vite build against the live server at 1000 px with six
+  tabs: left arrow disabled at start and right at end, `mask-image`
+  switches side and shows both in the middle, indicator 3 px with opacity
+  0 → 1 on hover and after scrolling, real wheel and dispatched wheel
+  both scrolled and were `defaultPrevented`, a `deltaX` gesture was not
+  consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
+  read for start / middle+hover / end. visual-review: PASS (p2-start.png,
+  p2-middle.png, p2-end.png; no overlay; card 5/5).
+- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
+  internal checklist now follows the agent into its terminal: `pi-checklist`
+  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
+  (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
+  shell terminal — feeds the same operator line managed agents show. New
+  `terminal_checklists` store (migration 029, dies with the terminal),
+  durable `terminal.checklist` events, `POST/GET /api/terminals/{id}/checklist`,
+  the checklist folded into every terminal view (boot fetch stays
+  `GET /api/terminals`), sidebar card line and a live strip above the
+  terminal pane (agent TUI panes get the same strip from the agent map).
+  Reset/absent/blocked semantics mirror the agent side; unknown terminal
+  404s; invariant test extended. Renumbered to 0081 after colliding with the
+  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
+  present, live-update, absent and reset states, reload persistence,
+  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
+- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
+  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
+  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
+  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
+  captures read and audits ok; visual-review: PASS. The existing llama
+  connection times out; real-model acceptance remains pending. No push.
+
+- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
+  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
+  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
+  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
+  terminals by CLI state or foreground program via `PaneCommand`, the target
+  pane at a shell; repository identity by git common dir); 409 `moved` /
+  `foreground` / `busy` naming who; the `type` route shares the root and
+  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
+  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
+  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
+  with fallback note and a fresh-terminal retry, dialog reads "Run in
+  terminal". ADR-0078 now states the amendment to the write refusals of
+  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
+  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
+  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
+  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
+  live Git menu read in both checkbox states).

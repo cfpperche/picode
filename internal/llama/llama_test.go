@@ -35,6 +35,7 @@ func TestConnectionResults(t *testing.T) {
 		{"auth", 401, `secret`, "authentication"},
 		{"forbidden", 403, `secret`, "authentication"},
 		{"missing", 404, ``, "unsupported"},
+		{"rejected", 400, `secret`, "request_rejected"},
 		{"malformed", 200, `oops`, "unsupported"},
 		{"single model", 200, `{"data":[{"id":"model"}]}`, "unsupported"},
 		{"server", 500, `secret`, "server_error"},

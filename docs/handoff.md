@@ -5,19 +5,15 @@
 
 ## Current state (read this first)
 
-**Repository:** HEAD `139ab1ba` (deployed) completes the tab-strip study
-(`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 1–4: no
-scrollbar, arrows/fades/indicator/wheel, All-tabs list + `Alt+[`/`Alt+]` +
-tablist, 200 px label cap) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
-and the **terminal checklists** work (`d1f1e9f9`, `0.1.0+d1f1e9f`, ADR-0081)
-are merged and deployed, on top of Inspector run-when-idle, terminal
-faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
-`#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
-links to them and the old llama link redirects. Connection failures are
-classified, canceled loads do not run and failed operations do not report
-success. The [four-delivery plan](plans/llama-manager.md) records deliveries
-2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
-No push was made.
+**Repository:** this feature branch includes main through `24e135ac` (merge
+`6a0c8c53`) and completes llama.cpp delivery 2 (ADR-0083). Models, Server and
+Activity work on desktop/mobile. Load, unload and download now create durable
+jobs, show per-file progress and recover observation after reconnect/restart
+without replaying a mutation. Cancellation is enabled only for verified b10809.
+Delivery 1 was deployed as `ac4ff1dd`; delivery 2 is validated locally and is
+not merged, pushed or deployed. Deliveries 3 and 4 remain planned in the
+[four-delivery plan](plans/llama-manager.md). Other sessions' root work is
+preserved; production deployment information below is inherited history.
 
 Managed-stop fix debts (living):
 
@@ -59,11 +55,19 @@ alignment audits ok and no JavaScript page errors. The configured llama endpoint
 no llama service was started and no model operation was executed in production.
 Evidence and previous-binary recovery copy: `var/llama-deploy/`.
 
-**Quality:** combined `make ci` passed (902 JS/package tests, Go tests,
-formatting/vet, desktop/mobile builds, embedded binary, docs parity/build and
-Vale). The 16-capture llama fixture matrix passed again; images and regenerated
-public captures read; visual-review: PASS. Browser/fixture sessions are closed.
-The merged feature branch/worktree are removed during session cleanup.
+**Quality:** delivery 2 visual-review PASS: 16 Models/Server captures,
+12 Activity captures, three real-router UI captures and four regenerated
+public screenshots were read; overlay/alignment audits passed. Real b10809
+CPU acceptance used four threads, 8192 context and one model at a time:
+Qwen3-4B load/restart/reconnect produced exactly one load request; unload
+completed; Qwen3-0.6B download recorded 5,297,108/428,970,080 bytes and confirmed
+cancellation. Evidence: `docs/plans/llama-jobs-runtime-qa.json` and
+`docs/screenshots/llama-jobs-{qa,live-ui}.json`. Full `make ci` passed with `GOMAXPROCS=4 GOFLAGS='-p=2 -count=1'`
+(919 JS/package tests, Go tests, formatting/vet, both apps, embedded binary,
+docs parity/build and Vale). Race tests passed for llama, llamajob and store. Test result caching was disabled after a local
+Go cache-path lookup stalled; see the validation plan. Ordinary CI skips the opt-in real-router
+`TestLiveLlamaJobs`; its explicit prerequisites and successful separate run
+are documented in [the validation plan](plans/llama-manager.md#delivery-2-validation-and-limits).
 
 ### Product and platform
 
@@ -149,10 +153,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- llama delivery 2 is being implemented in `feat/llama-jobs`: durable jobs,
-  progress, cancellation and reconnect. Qwen3-4B/b10809 passed the isolated
-  CPU/Pi read-tool test; see `docs/plans/llama-runtime-4b-qa.json`. Keep real
-  validation sequential with four CPU threads and unload models afterwards.
+- llama delivery 2 is complete in `feat/llama-jobs`; integration/deployment
+  remains separate. Keep real validation sequential with four CPU threads
+  and unload models afterwards. Production llama configuration was not changed. Owned QA servers are stopped.
 
 - Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
   branch removed. The study's adoption list is complete; its debts sit
@@ -198,8 +201,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. llama delivery 2: capability detection, durable jobs, progress and reconnect.
-   Deliveries 3–4 remain planned; see the approved llama manager plan.
+1. Integrate validated llama delivery 2 after reconciling current main, then
+   validate the deployed Activity route. Delivery 3 adds model guidance/readiness;
+   delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
@@ -250,12 +254,13 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   rows, and the in-use/409 and root/400 guards are unchanged.
 
 
-- llama: browser/HTTP-fixture acceptance is synthetic; real installed-build,
-  GPU and model inference acceptance remains pending. Synchronous operations
-  remain in delivery 1; recovery/concurrency/cancellation belongs to delivery 2.
-  Model guidance/readiness is delivery 3; service ownership and cache deletion
-  require delivery 4's concrete follow-up ADR. No llama service lifecycle or
-  model-file deletion is introduced in delivery 1.
+- llama: CPU real-model and b10809 job acceptance passed; GPU and other
+  server-build cancellation remain unverified. An unknown download with an
+  absent model retains its reservation because absence cannot prove completion;
+  no forced unlock or automatic mutation replay is provided. History retains
+  older SQLite records (UI shows latest 50 plus unresolved jobs); pruning is
+  deferred. Model guidance/readiness is delivery 3; service ownership and cache
+  deletion require delivery 4's follow-up ADR.
 
 - **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or measured
   slow-consumer/cancellation matrix. The hub drops on overflow and caches no
@@ -310,91 +315,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
-- **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
-  `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
-  and sessions work (ADR number collision resolved: terminal checklists took
-  0081); combined `make ci` green on the reconciled tree. Deploy verified:
-  health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
-  live. No push.
 
-- **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
-  with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
-  after QA showed the new `overflow: hidden` letting flex shrink every tab
-  instead of scrolling (the Chrome behaviour the study refuses). Verified
-  on the worktree's Vite build with an injected 65-character name: label
-  200 px and truncated, other tabs unchanged, the strip overflowed and the
-  arrows appeared. Screenshot read. visual-review: PASS (p4-ellipsis.png).
-  During QA the owner's live service was found inactive since 12:26:50
-  (`server: terminated`, no deploy in flight, lock free, binary from a
-  12:25 deploy by another session); `systemctl --user start picode`
-  brought it back at 12:33 — the cause of the stop is unknown.
-- **2026-09-06 — Tab strip phase 3: All tabs list, arrow dot, Alt+[ / Alt+],
-  tablist.** `describeTab` now feeds both the strip and a Radix
-  DropdownMenu listing every tab (out-of-view first via `hiddenTabs`,
-  current one marked); `app.tab.prev` / `app.tab.next` join the app-keys
-  catalog (Hotkeys dialog and Settings → Keys pick them up); `wireTermKeys`
-  gained a `passthrough` predicate and both terminals pass
-  `matchGlobalAction`, so Global chords no longer reach the shell
-  (`termKeys.test.js`, `appKeys.test.js`; 37 JS tests across the three
-  files). Manual activation replaced automatic after QA showed the
-  terminal stealing focus on select. Verified on the worktree's Vite
-  build at 1000 px with six tabs: roles and tabindex, Alt chords cycle and
-  wrap with `defaultPrevented`, arrows / Home / End move focus without
-  selecting, Enter selects and reveals, the menu lists 6 items with the
-  "Out of view" group and separator inside the viewport (overlay audit
-  ok), picking an out-of-view item selects and reveals it, the active tab
-  stays visible when the overflow chrome appears. visual-review: PASS
-  (p3-list.png, p3-arrowdot.png read; card 5/5).
-- **2026-09-06 — Tab strip phase 2: arrows, edge fades, indicator, wheel.**
-  `stripState` / `wheelToScroll` / `arrowStep` in `lib/tabStrip.js`
-  (12 tests now), `useTabStrip` hook, `.tab-scroller` wrapper around
-  `#tab-strip` (QA scripts keep matching `.main-tabs .mtab`). Verified on
-  the worktree's Vite build against the live server at 1000 px with six
-  tabs: left arrow disabled at start and right at end, `mask-image`
-  switches side and shows both in the middle, indicator 3 px with opacity
-  0 → 1 on hover and after scrolling, real wheel and dispatched wheel
-  both scrolled and were `defaultPrevented`, a `deltaX` gesture was not
-  consumed, nothing rendered at 1280 px where the tabs fit. Screenshots
-  read for start / middle+hover / end. visual-review: PASS (p2-start.png,
-  p2-middle.png, p2-end.png; no overlay; card 5/5).
-- **2026-09-06 — Terminal checklists (ADR-0081, branch → main).** The
-  internal checklist now follows the agent into its terminal: `pi-checklist`
-  0.2.0 publishes under `PICODE_TERM_ID` when `PICODE_AGENT_ID` is absent
-  (`publishTarget`), so a pi in an Agent CLI terminal — or a manual one in a
-  shell terminal — feeds the same operator line managed agents show. New
-  `terminal_checklists` store (migration 029, dies with the terminal),
-  durable `terminal.checklist` events, `POST/GET /api/terminals/{id}/checklist`,
-  the checklist folded into every terminal view (boot fetch stays
-  `GET /api/terminals`), sidebar card line and a live strip above the
-  terminal pane (agent TUI panes get the same strip from the agent map).
-  Reset/absent/blocked semantics mirror the agent side; unknown terminal
-  404s; invariant test extended. Renumbered to 0081 after colliding with the
-  llama-manager ADR. Isolated-daemon QA: card + pane screenshots for
-  present, live-update, absent and reset states, reload persistence,
-  `overlayAudit ok`. visual-review: PASS. `make ci` gates green.
-- **2026-09-06 — llama manager delivery 1 merged and deployed.** Reconciled
-  main `66aa4b9c`; combined make ci and 16-capture browser matrix passed.
-  Fast-forwarded and deployed `ac4ff1dd`; health ok, served assets match,
-  9/9 terminal IDs preserved. Live desktop/mobile pages and old links passed,
-  captures read and audits ok; visual-review: PASS. The existing llama
-  connection times out; real-model acceptance remains pending. No push.
-
-- **2026-09-06 — Inspector run-when-idle (ADR-0078 stage 2).**
-  `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}`
-  types and submits in the user's shell behind `repoBusy` (agents mid-turn via
-  the runtime snapshot, TUIs via `LooksWorking`, automation runs, other
-  terminals by CLI state or foreground program via `PaneCommand`, the target
-  pane at a shell; repository identity by git common dir); 409 `moved` /
-  `foreground` / `busy` naming who; the `type` route shares the root and
-  foreground guards. Tests: `TestTerminalRunRefusals` with injected probes,
-  `TestTerminalRunTypesAndSubmits` on a real tmux shell (a created file is the
-  proof). Client: Git-menu checkbox `picode-inspector-run`, `run` delivery
-  with fallback note and a fresh-terminal retry, dialog reads "Run in
-  terminal". ADR-0078 now states the amendment to the write refusals of
-  0022/0032/0038/0073, and the ADR index says so on each of them. Merged as
-  `2da0ba15`, deployed as `0.1.0+2da0ba1` and contained in `50df07f`
-  minutes later. visual-review: PASS (`inspector-run-busy-fallback-dark.png`,
-  `inspector-run-commit-dialog-dark.png`, `inspector-run-commit-dark.png`,
-  live Git menu read in both checkbox states).
+- **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
+  jobs, capability detection, file progress, cancellation and recovery with
+  no mutation replay; decision-table tests and isolated real CPU acceptance.
+  visual-review: PASS (35 screenshots read; overlay/alignment audits ok).
+  ADR-0083, public guide, API schema and four-delivery plan updated together.
 
 Older activity lives in `docs/handoff-archive.md`.

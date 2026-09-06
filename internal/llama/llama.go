@@ -2,6 +2,7 @@ package llama
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,8 +18,9 @@ const DefaultURL = "http://127.0.0.1:8080"
 
 // Model is one router catalog row (no secrets).
 type Model struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID       string         `json:"id"`
+	Status   string         `json:"status"`
+	Progress []FileProgress `json:"progress,omitempty"`
 }
 
 // NormalizeURL matches pi: http(s), strip query/hash, drop trailing /v1.
@@ -28,7 +30,7 @@ func NormalizeURL(raw string) (string, error) {
 		raw = DefaultURL
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" {
+	if err != nil || u.Host == "" || u.User != nil {
 		return "", fmt.Errorf("invalid llama.cpp URL")
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
@@ -80,6 +82,10 @@ func New(base, key string) (*Client, error) {
 }
 
 func (c *Client) do(method, path string, body any) ([]byte, error) {
+	return c.doContext(context.Background(), method, path, body)
+}
+
+func (c *Client) doContext(ctx context.Context, method, path string, body any) ([]byte, error) {
 	var rdr io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -88,7 +94,7 @@ func (c *Client) do(method, path string, body any) ([]byte, error) {
 		}
 		rdr = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, c.base+path, rdr)
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, rdr)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +109,16 @@ func (c *Client) do(method, path string, body any) ([]byte, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-	raw, _ := io.ReadAll(res.Body)
+	raw, readErr := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	if readErr != nil {
+		return nil, readErr
+	}
 	if res.StatusCode >= 300 {
 		if res.StatusCode == 401 || res.StatusCode == 403 {
 			return nil, &ConnectionError{"authentication", "The server rejected the API key."}
+		}
+		if res.StatusCode == 400 || res.StatusCode == 409 || res.StatusCode == 422 {
+			return nil, &ConnectionError{"request_rejected", "The server rejected this model operation."}
 		}
 		if res.StatusCode == 404 || res.StatusCode == 405 {
 			return nil, &ConnectionError{"unsupported", "This server does not support model management."}
@@ -116,8 +128,10 @@ func (c *Client) do(method, path string, body any) ([]byte, error) {
 	return raw, nil
 }
 
-func (c *Client) List() ([]Model, error) {
-	raw, err := c.do(http.MethodGet, "/models", nil)
+func (c *Client) List() ([]Model, error) { return c.ListContext(context.Background()) }
+
+func (c *Client) ListContext(ctx context.Context) ([]Model, error) {
+	raw, err := c.doContext(ctx, http.MethodGet, "/models", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +139,8 @@ func (c *Client) List() ([]Model, error) {
 		Data []struct {
 			ID     string `json:"id"`
 			Status struct {
-				Value string `json:"value"`
+				Value    string          `json:"value"`
+				Progress json.RawMessage `json:"progress"`
 			} `json:"status"`
 		} `json:"data"`
 	}
@@ -134,14 +149,14 @@ func (c *Client) List() ([]Model, error) {
 	}
 	out := make([]Model, 0, len(payload.Data))
 	for _, m := range payload.Data {
-		if m.ID == "" {
+		if m.ID == "" || len(m.ID) > 512 {
 			return nil, &ConnectionError{"unsupported", "This server did not return a llama.cpp model catalog."}
 		}
 		st := m.Status.Value
-		if st == "" {
+		if st == "" || len(st) > 32 {
 			return nil, &ConnectionError{"unsupported", "This server did not return model management states."}
 		}
-		out = append(out, Model{ID: m.ID, Status: st})
+		out = append(out, Model{ID: m.ID, Status: st, Progress: parseProgress(m.Status.Progress)})
 	}
 	return out, nil
 }

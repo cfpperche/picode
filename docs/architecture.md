@@ -432,10 +432,16 @@ settings on desktop and mobile. Providers links to this surface; legacy
 optional key still live in Pi auth.json; an empty key preserves the saved key.
 `GET /api/llama` adds a safe `connection` code/message distinguishing ready,
 authentication, timeout, unreachable, unsupported and server errors.
-Load/replace stops on unload failure; unload waits must succeed; failed or
-unknown download states are not treated as completion. Requests still block
-until completion in delivery 1. Durable jobs, SSE and managed-service ownership
-belong to later deliveries in [the plan](plans/llama-manager.md).
+Model operations now return HTTP 202 with a durable job (ADR-0083). SQLite
+migration 030 stores request identity, observations, per-file progress and
+revision-guarded transitions. `internal/llamajob` reserves models/endpoints,
+coalesces router SSE with bounded polling fallback, and reconciles restart
+outcomes without replaying mutations. Unknown results retain reservations.
+Connection fingerprints stay outside public JSON; credentials are not stored
+in jobs. Cancel is available for downloads on the verified b10809 build family.
+`#/llama/activity` follows `llama.job` feed events and refreshes on reconnect;
+its history survives navigation. Service ownership remains delivery 4 in
+[the plan](plans/llama-manager.md).
 
 ## Component diagram
 

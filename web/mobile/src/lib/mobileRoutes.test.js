@@ -79,5 +79,5 @@ describe("mobileRoute", () => {
 });
 
 it("llama deep links open the dedicated manager", () => {
- for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/providers/llama"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "llama" });
+ for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "llama" });
 });

@@ -286,6 +286,13 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.RequestDockerReview(p.ID)
 		}, []string{"inbox.created", "docker.plan"}},
+		{"BeginLlamaJob", func(s *Store) { _, _, _ = s.BeginLlamaJob(testLlamaJob("request", "model")) }, []string{"llama.job"}},
+		{"UpdateLlamaJob", func(s *Store) {
+			j, _, _ := s.BeginLlamaJob(testLlamaJob("request", "model"))
+			s.OnEvent = recorder(s)
+			j.State = "succeeded"
+			_, _ = s.UpdateLlamaJob(j)
+		}, []string{"llama.job"}},
 		{"BeginDockerJob", func(s *Store) { _, _, _ = s.BeginDockerJob(testDockerJob("request-job", "plan", "a")) }, []string{"docker.job"}},
 		{"UpdateDockerJob", func(s *Store) {
 			j, _, _ := s.BeginDockerJob(testDockerJob("request-job", "plan", "a"))

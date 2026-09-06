@@ -1,60 +1,50 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/llamajob"
+	"github.com/cfpperche/picode/internal/store"
 )
 
-func TestLlamaOperationFailures(t *testing.T) {
+func TestLlamaJobHTTP(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	service, err := llamajob.New(st, func() (string, string) { return "http://127.0.0.1:1", "" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
+	mux := http.NewServeMux()
+	registerLlama(mux, Deps{Store: st, LlamaJobs: service})
 	for _, tc := range []struct {
-		name         string
-		unloadStatus int
-		waitFails    bool
-		load         bool
+		method, path, body string
+		status             int
 	}{
-		{"unload rejected", 500, false, false},
-		{"unload completion failed", 200, true, false},
-		{"replace unload rejected", 500, false, true},
-		{"replace completion failed", 200, true, true},
+		{"POST", "/api/llama/load", `{"id":"a"}`, 400},
+		{"POST", "/api/llama/load", `{"id":"a","requestKey":"test"}`, 202},
+		{"POST", "/api/llama/load", `{"id":"a","requestKey":"test"}`, 202},
+		{"POST", "/api/llama/load", `{"id":"b","requestKey":"test"}`, 409},
+		{"GET", "/api/llama/jobs", "", 200},
+		{"POST", "/api/llama/jobs/missing/cancel", "", 404},
+		{"POST", "/api/llama/jobs/missing/reconcile", "", 404},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			unloaded, loaded := false, false
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				switch r.URL.Path {
-				case "/models/unload":
-					unloaded = true
-					w.WriteHeader(tc.unloadStatus)
-					fmt.Fprint(w, `{}`)
-				case "/models/load":
-					loaded = true
-					fmt.Fprint(w, `{}`)
-				case "/models":
-					if unloaded && tc.waitFails {
-						http.Error(w, "failed", 500)
-						return
-					}
-					fmt.Fprint(w, `{"data":[{"id":"old","status":{"value":"loaded"}}]}`)
-				}
-			}))
-			defer upstream.Close()
-			if err := catalog.PutLlama(upstream.URL, ""); err != nil {
-				t.Fatal(err)
-			}
-			rec := httptest.NewRecorder()
-			if tc.load {
-				handleLlamaLoad(rec, httptest.NewRequest("POST", "/api/llama/load", strings.NewReader(`{"id":"new","unloadOthers":true}`)))
-			} else {
-				handleLlamaUnload(rec, httptest.NewRequest("POST", "/api/llama/unload", strings.NewReader(`{"id":"old"}`)))
-			}
-			if rec.Code != http.StatusBadGateway || loaded {
-				t.Fatalf("status=%d load=%v body=%s", rec.Code, loaded, rec.Body.String())
-			}
-		})
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body)))
+		if rec.Code != tc.status {
+			t.Fatalf("%s got %d: %s", tc.path, rec.Code, rec.Body.String())
+		}
+	}
+	rec := httptest.NewRecorder()
+	handleLlamaOperation(Deps{}, "load")(rec, httptest.NewRequest("POST", "/api/llama/load", nil))
+	if rec.Code != 503 {
+		t.Fatal(rec.Code)
 	}
 }

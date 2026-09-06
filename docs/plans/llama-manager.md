@@ -3,7 +3,9 @@
 - Date: 2026-09-06
 - Owner approved the four-delivery roadmap and starting implementation.
 - Status: delivery 1 merged and deployed as `ac4ff1dd` (`0.1.0+ac4ff1d`).
-  Deliveries 2–4 planned, not shipped.
+  Delivery 2 is implemented and visually validated in `feat/llama-jobs`; integration
+  and deployment remain pending. Deliveries 3 and 4 remain planned.
+  Deliveries 3–4 remain planned.
 
 ## Outcome and navigation
 
@@ -46,7 +48,7 @@ into a dedicated, compact manager rather than a long Providers footer.
 
 ### Delivery 2 execution matrix
 
-Implementation and acceptance are pending. A job records the normalized server
+Delivery 2 implements the following contract. A job records the normalized server
 identity, model, operation, request key, observed state and timestamps; secrets
 stay outside the job. Replacing other models reserves the whole server while
 ordinary operations reserve their model. A connection edit cannot retarget an
@@ -54,20 +56,20 @@ existing job. Store transitions append feed events in the same transaction.
 
 | Conditions | Required action | Acceptance |
 |---|---|---|
-| Same request key and identical operation | Return existing job; never repeat POST | Pending |
-| Same key with different input | Conflict; no remote mutation | Pending |
-| Active operation on the same model | Conflict until reconciled | Pending |
-| Replace requested while any model job is active | Conflict before unloading anything | Pending |
-| SSE responds with the expected content type | Observe events, reconcile final catalog | Pending |
-| SSE unavailable or disconnected | Bounded server-side catalog polling; preserve progress | Pending |
-| Progress has multiple files | Keep done/total per file; unknown totals remain indeterminate | Pending |
-| Browser leaves or reconnects | Read durable job and feed; never replay mutation | Pending |
-| PiCode restarts after accepting a job | Reconcile without replay; ambiguous result is interrupted/unknown | Pending |
-| Server URL or credential changes during work | Keep the original target; no silent retargeting | Pending |
-| Download cancel supported and download still active | Request unload; confirm observed terminal state | Pending |
-| Cancel races with successful completion | Reconcile; never label completed download as canceled | Pending |
-| Cancel unsupported, load/unload active, or remote state uncertain | Explain limitation; no false cancellation success | Pending |
-| Server unreachable after accepting a mutation | Unknown outcome; retain evidence and reconcile | Pending |
+| Same request key and identical operation | Return existing job; never repeat POST | `TestLlamaReservationsAndIdentity`, `TestLoadDedupAndFallback` |
+| Same key with different input | Conflict; no remote mutation | `TestLlamaReservationsAndIdentity`, `TestLlamaJobHTTP` |
+| Active operation on the same model | Conflict until reconciled | `TestLlamaConcurrentReservation`, `TestLlamaReservationsAndIdentity` |
+| Replace requested while any model job is active | Conflict before unloading anything | `TestLlamaReservationsAndIdentity` |
+| SSE responds with the expected content type | Observe events, reconcile final catalog | `TestCapabilityEvidence`, real `TestLiveLlamaJobs` |
+| SSE unavailable or disconnected | Bounded server-side catalog polling; preserve progress | `TestLoadDedupAndFallback`, `TestEventsAndContextCancellation` |
+| Progress has multiple files | Keep done/total per file; unknown totals remain indeterminate | `TestProgressRedactsURLsAndPreservesUnknownTotal`, real download + UI matrix |
+| Browser leaves or reconnects | Read durable job and feed; never replay mutation | `qa-llama-jobs.mjs`, real `qa-llama-jobs-live.mjs` |
+| PiCode restarts after accepting a job | Reconcile without replay; ambiguous result is interrupted/unknown | `TestRestartReconcilesWithoutReplay`, `TestTimeoutAndQueuedRecovery`, real restart |
+| Server URL or credential changes during work | Keep the original target; no silent retargeting | `TestRestartChangedConnectionAndCancellationNeverReplays` |
+| Download cancel supported and download still active | Request unload; confirm observed terminal state | `TestDownloadCancelAndCompletionRace`, real cancellation |
+| Cancel races with successful completion | Reconcile; never label completed download as canceled | `TestDownloadCancelAndCompletionRace` |
+| Cancel unsupported, load/unload active, or remote state uncertain | Explain limitation; no false cancellation success | `TestCancelUnsupportedAndFailedDownload`, `TestRestartChangedConnectionAndCancellationNeverReplays` |
+| Server unreachable after accepting a mutation | Unknown outcome; retain evidence and reconcile | `TestTimeoutAndQueuedRecovery` |
 
 Use `scripts/qa-llama-runtime.py` against an explicitly selected disposable,
 unloaded model for real router load, streaming, tool-protocol and unload checks.
@@ -148,7 +150,7 @@ Reviewed 2026-09-05; upstream capabilities require installed-version checks:
   embedded binary, generated-doc parity/build and Vale. Public captures were
   regenerated through docs-shots; docs gates passed again after guide edits.
 - `TestConnectionResults`, `TestConnectionTimeoutAndTransport`,
-  `TestWaitOutcomes`, `TestLlamaOperationFailures` and
+  `TestWaitOutcomes`, `TestReplaceFailureNeverLoads` and
   `TestPutLlamaPreservesKeyOnURLChange` cover the backend matrix.
 - `scripts/qa-llama.mjs`: desktop/mobile legacy routes, empty catalog,
   download dialog/search-empty, blocked/auth error, invalid/saved connection,
@@ -224,3 +226,39 @@ was not changed. The verified model remains in the isolated temporary cache.
 `make ci` passed again (902 JS/package tests plus Go/build/docs gates).
 Delivery 2 can now use this model/build pair as a real acceptance fixture;
 job implementation and its decision matrix remain outstanding.
+
+## Delivery 2 validation and limits
+
+Validation uses synthetic condition matrices and the real b10809 router with
+an isolated cache. Qwen3-4B runs on CPU with four threads and 8192 context;
+models are loaded sequentially and unloaded after the test. The real download
+cancellation uses the smaller Qwen3-0.6B Q4_0 artifact and stops after progress
+is observed. No benchmark, GPU load or production service change is required.
+
+The real catalog did not expose download byte counts in the acceptance build;
+`download_progress` SSE events do, nested under `progress` in b10809. Both
+the nested and documented direct payloads are accepted. The implementation merges these per-file
+observations, strips URL credentials/query strings and persists them. When SSE
+is unavailable, catalog polling reconciles state and retains the last known
+bytes; no new byte counts or percentages are invented. SSE reconnect retries
+are bounded by the job's 30-minute watch deadline.
+
+Ordinary CI skips only the opt-in `TestLiveLlamaJobs`, whose router/model/cache
+must be provided explicitly. Run it with `PICODE_LLAMA_LIVE=1 go test
+./internal/llamajob -run '^TestLiveLlamaJobs$' -count=1 -v`; the router must be
+isolated on `127.0.0.1:18081`, with Qwen3-4B-Q4_K_M initially unloaded. Set
+`PICODE_LLAMA_REPORT` to save the result. Browser matrices use a separate
+`picode-docs-fixture` at port 18763. `qa-llama-jobs-live.mjs` changes only that
+fixture's connection, loads/unloads the real model and checks shared history.
+
+Unknown download results can retain a reservation when the model is absent:
+absence alone cannot prove that a failed/canceled download completed. No
+forced unlock, automatic retry, service ownership or cache deletion is added.
+Cancellation is verified only for b10809; other builds retain observation and
+show the limitation. Older job records remain in SQLite; retention/pruning
+beyond the displayed most-recent-50 history is not introduced.
+
+The final full gate uses `GOMAXPROCS=4 GOFLAGS='-p=2 -count=1' make ci`.
+Cached runs stalled in Go's `computeTestInputsID` / `EvalSymlinks` / `Lstat`
+before another test process started; disabling result reuse avoids that local
+cache-path lookup and runs the tests afresh. No application workaround is added.

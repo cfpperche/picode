@@ -1,0 +1,96 @@
+{
+  "canceled": {
+    "id": "llama-204d9f",
+    "requestKey": "live-download",
+    "endpoint": "http://127.0.0.1:44643",
+    "model": "ggml-org/Qwen3-0.6B-GGUF:Q4_0",
+    "operation": "download",
+    "replaceOthers": false,
+    "state": "canceled",
+    "stage": "cancelDispatch",
+    "observed": "missing",
+    "message": "The server stopped the download.",
+    "progress": [
+      {
+        "file": "Qwen3-0.6B-Q4_0.gguf",
+        "done": 14473450,
+        "total": 428970080
+      }
+    ],
+    "cancelSupported": true,
+    "cancelRequested": true,
+    "cancelAccepted": true,
+    "createdAt": "2026-09-06T16:38:26.015212915Z",
+    "updatedAt": "2026-09-06T16:38:30.335200699Z",
+    "revision": 12
+  },
+  "downloadProgress": {
+    "id": "llama-204d9f",
+    "requestKey": "live-download",
+    "endpoint": "http://127.0.0.1:44643",
+    "model": "ggml-org/Qwen3-0.6B-GGUF:Q4_0",
+    "operation": "download",
+    "replaceOthers": false,
+    "state": "running",
+    "stage": "observing",
+    "observed": "downloading",
+    "message": "Waiting for the server: downloading.",
+    "progress": [
+      {
+        "file": "Qwen3-0.6B-Q4_0.gguf",
+        "done": 5297108,
+        "total": 428970080
+      }
+    ],
+    "cancelSupported": true,
+    "cancelRequested": false,
+    "cancelAccepted": false,
+    "createdAt": "2026-09-06T16:38:26.015212915Z",
+    "updatedAt": "2026-09-06T16:38:29.795191335Z",
+    "revision": 7
+  },
+  "loadAfterRestart": {
+    "id": "llama-b8683d",
+    "requestKey": "live-load",
+    "endpoint": "http://127.0.0.1:44643",
+    "model": "Qwen3-4B-Q4_K_M",
+    "operation": "load",
+    "replaceOthers": false,
+    "state": "succeeded",
+    "stage": "observing",
+    "observed": "loaded",
+    "message": "The model reached the requested state.",
+    "progress": [],
+    "cancelSupported": true,
+    "cancelRequested": false,
+    "cancelAccepted": false,
+    "createdAt": "2026-09-06T16:38:22.792529514Z",
+    "updatedAt": "2026-09-06T16:38:25.225877206Z",
+    "revision": 10
+  },
+  "pass": true,
+  "posts": {
+    "/models": 1,
+    "/models/load": 1,
+    "/models/unload": 2
+  },
+  "unload": {
+    "id": "llama-309bd8",
+    "requestKey": "live-unload",
+    "endpoint": "http://127.0.0.1:44643",
+    "model": "Qwen3-4B-Q4_K_M",
+    "operation": "unload",
+    "replaceOthers": false,
+    "state": "succeeded",
+    "stage": "observing",
+    "observed": "unloaded",
+    "message": "The model reached the requested state.",
+    "progress": [],
+    "cancelSupported": true,
+    "cancelRequested": false,
+    "cancelAccepted": false,
+    "createdAt": "2026-09-06T16:38:25.310605936Z",
+    "updatedAt": "2026-09-06T16:38:25.916336218Z",
+    "revision": 6
+  }
+}
