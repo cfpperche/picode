@@ -59,6 +59,14 @@ import (
 	"github.com/cfpperche/picode/internal/webhooks"
 )
 
+// loopbackIdleRevoke is how long an auto-minted loopback browser session
+// may sit without an authenticated request before the housekeeping sweep
+// revokes it (ADR-0049 amendment 2026-09-06). The grace rides presence
+// reality: an open tab pings every 15 s (Chrome throttles a background
+// tab to once a minute), so 10 minutes only ever trips for a browser that
+// is actually gone.
+const loopbackIdleRevoke = 10 * time.Minute
+
 func main() {
 	if len(os.Args) > 1 {
 		if dispatch(os.Args[1], os.Args[2:]) {
@@ -438,20 +446,41 @@ func serve() {
 	// caller, so revoked and expired rows piled up forever —Devices showed
 	// every browser session ever minted. Daily sweep, 7-day retention
 	// (ListSessions already hides dead rows, so the lag is invisible).
+	// Amended 2026-09-06: an auto-minted loopback browser session (the
+	// headless QA fleet, a loopback visit) ends when its access ends — the
+	// minute sweep revokes rows whose last authenticated request is
+	// loopbackIdleRevoke old, each with a session.revoked event so open
+	// Devices views drop the row live; the daily prune deletes the rows a
+	// week later. The grace rides session.last_seen_at, which every
+	// authenticated request (the presence ping included) refreshes: an
+	// open tab keeps the row alive even with Chrome's once-a-minute
+	// background-timer throttle, so only a genuinely closed browser trips.
 	go func() {
+		revokeIdle := func() {
+			if n, err := st.RevokeStaleLoopbackSessions(loopbackIdleRevoke); err != nil {
+				log.Printf("auth: revoke idle loopback sessions: %v", err)
+			} else if n > 0 {
+				log.Printf("auth: revoked %d idle loopback browser session(s)", n)
+			}
+		}
 		prune := func() {
 			if _, err := st.PruneSessions(time.Now().Add(-7 * 24 * time.Hour)); err != nil {
 				log.Printf("auth: prune sessions: %v", err)
 			}
 		}
+		revokeIdle()
 		prune()
-		t := time.NewTicker(24 * time.Hour)
-		defer t.Stop()
+		minute := time.NewTicker(time.Minute)
+		defer minute.Stop()
+		daily := time.NewTicker(24 * time.Hour)
+		defer daily.Stop()
 		for {
 			select {
 			case <-backupCtx.Done():
 				return
-			case <-t.C:
+			case <-minute.C:
+				revokeIdle()
+			case <-daily.C:
 				prune()
 			}
 		}

@@ -271,6 +271,13 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _, _ = s.RotateSessionSecret(sess.ID, time.Hour)
 		}, []string{"session.rotated"}},
+		{"RevokeStaleLoopbackSessions", func(s *Store) {
+			sess, _, _ := s.CreateSession(SessionBrowser, "", "This machine · Headless browser", LoopbackMintIP, 0)
+			_, _, _ = s.CreateSession(SessionBrowser, "dev-1", "iPhone", "100.64.0.7", 0) // paired: never picked
+			ageSession(s, sess.ID, time.Hour)
+			s.OnEvent = recorder(s)
+			_, _ = s.RevokeStaleLoopbackSessions(time.Minute)
+		}, []string{"session.revoked"}},
 		{"CreatePairing + ConsumePairing", func(s *Store) {
 			code, _, _ := s.CreatePairing("", time.Minute)
 			_ = s.ConsumePairing(code)
