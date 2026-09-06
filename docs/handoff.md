@@ -14,8 +14,10 @@
   at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity
   is advisory in `make ci`, strict in `close` and the batch.
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
-  recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085) — the
-  18:50 restart left all nine sessions alive. Terminal checklists (ADR-0081)
+  recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). Hermes
+  Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
+  no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`; this restart left
+  all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
@@ -33,24 +35,21 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/hermes-cli` — Hermes Agent catalog, sessions, PYTHONPATH activity
-  hooks (no `HERMES_HOME` overlay). Live TUI turn not dogfooded.
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
 
 ## Next up
 
-1. Merge `feat/hermes-cli` (this session); live TUI activity still owed.
-2. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
-3. Renumber duplicate ADR-0082 and fix the index.
-4. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
-5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-6. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
-7. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
-8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-9. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-10. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
+1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
+2. Renumber duplicate ADR-0082 and fix the index.
+3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
+4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
+5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
+6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
+7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
 
 ## Known debts / open questions
 
