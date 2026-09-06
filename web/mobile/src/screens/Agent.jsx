@@ -6,17 +6,20 @@ import StateChip, { agentState } from "../components/StateChip.jsx";
 import Conversation from "../components/Conversation.jsx";
 import Composer from "../components/Composer.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
+import KeyBar from "../components/KeyBar.jsx";
 import { useAgentSocket } from "../hooks/useAgentSocket.js";
 import { usePoll } from "../hooks/usePoll.js";
+import { useTermAccessory } from "../hooks/useTermAccessory.js";
 import { api } from "@picode/shared/client/api.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconGit } from "../components/Icons.jsx";
+import { IconGit, IconKeyboard } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
+import { terms } from "../lib/terms.js";
 
 // The pushed agent screen: header (name · state), a meta line (model ·
 // cost · where), Chat or — for an agent living in a tmux TUI — Terminal,
@@ -32,9 +35,11 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
   const convRef = useRef(null);
+  const termHostRef = useRef(null);
   const nearBottom = useRef(true);
 
   const id = agent && agent.id;
+  const keys = useTermAccessory(termHostRef, () => terms.get(id), view === "term" && agent && agent.mode === "interactive" ? id : "");
   const mode = (agent && agent.mode) || "stopped";
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
@@ -80,9 +85,18 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
     workspace ? workspace.name : "free agent",
   ].filter(Boolean).join(" · ");
 
-  const right = stopped
-    ? <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onStart(agent, workspace)}>Start</button>
-    : <button type="button" className="btn btn-sm" disabled={busy} onClick={() => onStop(agent, workspace)}>Stop</button>;
+  const right = (
+    <>
+      {interactive && view === "term" ? (
+        <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => e.preventDefault()} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
+          <IconKeyboard size={16} />
+        </button>
+      ) : null}
+      {stopped
+        ? <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onStart(agent, workspace)}>Start</button>
+        : <button type="button" className="btn btn-sm" disabled={busy} onClick={() => onStop(agent, workspace)}>Stop</button>}
+    </>
+  );
 
   return (
     <div className="m-screen m-agent">
@@ -105,9 +119,12 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
       </div>
 
       {view === "term" && interactive ? (
-        <div className="m-term">
-          {<TerminalDock key={"agent-term-" + id} open agent={agent} workspace={workspace} />}
-        </div>
+        <>
+          <div className="m-term" ref={termHostRef}>
+            <TerminalDock key={"agent-term-" + id} open agent={agent} workspace={workspace} />
+          </div>
+          {keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
+        </>
       ) : (
         <div className="m-chat chat-body">
           <div className="chat-main">

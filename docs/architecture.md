@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073/0074).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-06 (ADRs 0071/0072/0073/0074; mobile IME accessory in 0044).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -184,6 +184,10 @@ are always sheets, including wide previews; desktop keeps responsive dialogs.
 The composer opens agent Settings over the mounted conversation, preserving
 unsent text and attachments. Mobile composer controls wrap onto a second row
 when needed, so Send remains visible alongside Stop on narrow screens.
+`#m-app` is pinned to `visualViewport` so the composer and a one-row
+terminal extra-keys accessory stay above the software keyboard
+(ADR-0044); the accessory follows terminal focus and is not a second
+QWERTY.
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients

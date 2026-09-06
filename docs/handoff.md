@@ -34,6 +34,7 @@
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/mobile-keybar-accessory` — one-row IME accessory + visualViewport shell.
 
 ## Next up
 
@@ -91,3 +92,6 @@
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with
   an absent model keeps its reservation; history pruning deferred.
+- Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
+  owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
+  the full window with the IME up, land the focus-gated iOS fallback.

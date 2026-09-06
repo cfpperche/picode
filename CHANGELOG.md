@@ -80,6 +80,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile extra keys sit above the phone keyboard.** The terminal key
+  bar is one horizontally scrolling row (esc, tab, ctrl, alt, arrows,
+  Ctrl+C, then Home/End/pages and `| ~ / -`) that opens and closes with
+  the software keyboard instead of a two-row Termux grid the IME could
+  cover. The phone shell sizes itself to the visual viewport so the chat
+  composer stays visible while typing. Sticky Ctrl/Alt are unchanged.
+  The same row is available on an agent's Terminal view.
+
 - **Development process** (ADR-0086, owner-approved after the 2026-09-06
   cost review): `make ci-scoped` runs only the gates a branch's diff can
   break; `make close` ends a worktree session (scoped gates, regenerated
