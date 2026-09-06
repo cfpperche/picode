@@ -90,6 +90,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile extra-keys row no longer shows a vertical overlay scrollbar.**
+  Dragging the row sideways is `pan-x` only; the terminal screen, the
+  row and xterm hide overlay scrollbars so iOS cannot paint a gray strip
+  down the right edge.
+
 - **Mobile extra keys no longer leave a black strip, and hide the TUI
   behind them.** The phone shell fills the screen while the keyboard is
   closed. Opening it shrinks the terminal (and refits xterm) so the

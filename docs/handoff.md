@@ -39,6 +39,8 @@
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/mobile-keybar-noscroll` — hide the iOS overlay scrollbar when
+  dragging the extra-keys row sideways.
 
 ## Next up
 

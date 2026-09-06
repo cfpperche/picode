@@ -202,28 +202,34 @@
 .m-term-row .m-state { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- terminal screen: xterm + the keys a soft keyboard lacks ---- */
-.m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; }
+.m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; position: relative;
+  -webkit-overflow-scrolling: auto; overscroll-behavior: none; scrollbar-width: none; }
+.m-term-screen::-webkit-scrollbar, .m-agent::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; overflow: hidden; }
 .m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px; overflow: hidden; }
 .m-term-screen .m-term { touch-action: none; } /* the drag is ours: wheel events for the pane, not a page scroll */
 .m-keys-btn { padding: 0 10px; }
 .m-keys-btn.on { color: var(--accent); border-color: var(--accent); }
-.m-term-screen { position: relative; }
 /* Opaque IME accessory so a sideways scroll never shows the TUI through
-   the gaps. z-index above xterm's canvas, which otherwise paints over it. */
+   the gaps. z-index above xterm's canvas, which otherwise paints over it.
+   Horizontal pan only: a vertical overlay scrollbar on the screen was
+   breaking the layout when the row was dragged sideways (iOS). */
 .m-keybar {
   flex: none; display: flex; align-items: center; gap: 4px;
   height: 44px; margin: 0 calc(-1 * var(--m-pad)); padding: 4px 6px;
   background: var(--bg-base); border-top: 1px solid var(--border);
-  z-index: 6; isolation: isolate; position: relative;
+  z-index: 6; isolation: isolate; position: relative; overflow: hidden;
+  touch-action: pan-x;
 }
 .m-keybar-scroller {
-  flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px;
-  overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain; scrollbar-width: none;
+  flex: 1; min-width: 0; height: 36px; display: flex; align-items: center; gap: 4px;
+  overflow-x: auto; overflow-y: hidden; touch-action: pan-x;
+  overscroll-behavior: none; scrollbar-width: none; -ms-overflow-style: none;
   background: var(--bg-base);
 }
-.m-keybar-scroller::-webkit-scrollbar { display: none; }
+.m-keybar-scroller::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#m-app .xterm-viewport { scrollbar-width: none; }
+#m-app .xterm-viewport::-webkit-scrollbar { display: none; width: 0; }
 .m-key {
   flex: none; height: 36px; min-width: 44px; padding: 0 10px; border: 0; border-radius: 8px;
   background: var(--bg-hover); color: var(--text-primary);
@@ -236,7 +242,8 @@
 .m-key-hide { padding: 0; width: 44px; min-width: 44px; background: var(--bg-hover); }
 
 /* ---- agent screen ---- */
-.m-agent { padding-bottom: 0; gap: 0; overflow: hidden; }
+.m-agent { padding-bottom: 0; gap: 0; overflow: hidden;
+  -webkit-overflow-scrolling: auto; overscroll-behavior: none; scrollbar-width: none; }
 .m-agent-state { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
 .m-agent-state .m-seg .dash-range-face { height: 32px; padding: 0 12px; } /* Work's segment keeps --ctl-h, level with New */
 .m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
