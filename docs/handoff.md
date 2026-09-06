@@ -5,11 +5,10 @@
 
 ## Current state (read this first)
 
-**Repository:** llama.cpp delivery 1 is merged and deployed as `ac4ff1dd`
-(`0.1.0+ac4ff1d`, ADR-0080), on top of Inspector run-when-idle, terminal
-faces, tab-strip phase 1 and the unified CLI sessions endpoints — and the
-terminal-checklist work (ADR-0081, on `feat/terminal-checklist`) is merged
-next. Dedicated
+**Repository:** llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
+and the **terminal checklists** work (`d1f1e9f9`, `0.1.0+d1f1e9f`, ADR-0081)
+are merged and deployed, on top of Inspector run-when-idle, terminal
+faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
 `#/llama/models` and `#/llama/server` pages work on desktop/mobile; Providers
 links to them and the old llama link redirects. Connection failures are
 classified, canceled loads do not run and failed operations do not report
@@ -30,13 +29,19 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `ac4ff1dd`, version `0.1.0+ac4ff1d`, via
+**Last application deployment:** `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
 serialized `make deploy` from the validated worktree after fast-forwarding
-main. Health `ok`, systemd active, desktop bundle `index-B_QAIkue.js` matches
-the deployed build. All 9 pre-deploy terminal IDs survived the restart.
-Live desktop/mobile old-link navigation, Models/Server pages and Test
-connection passed; four production screenshots read, overlay/alignment
-audits ok and no JavaScript page errors. The configured llama endpoint
+main (terminal checklists, ADR-0081). Health `ok`, systemd active. All 9
+pre-deploy terminal IDs survived the restart; `GET /api/terminals` answers
+and `POST /api/terminals/nope/checklist` 404s on the live instance. Terminal
+cards show a checklist line once a terminal pi publishes (pi-checklist 0.2.0
+picks up on the process's next start; existing pi processes keep the old
+extension until restarted).
+
+Previous deployment: `ac4ff1dd`, version `0.1.0+ac4ff1d` (llama.cpp
+delivery 1) — live desktop/mobile old-link navigation, Models/Server pages
+and Test connection passed; four production screenshots read, overlay/
+alignment audits ok and no JavaScript page errors. The configured llama endpoint
 `http://127.0.0.1:8080` times out, as it was unavailable before deployment;
 no llama service was started and no model operation was executed in production.
 Evidence and previous-binary recovery copy: `var/llama-deploy/`.
@@ -143,17 +148,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   activation. Phase 4: `.mtab-label` capped at 200 px with ellipsis and a
   "name — detail" tooltip, `.mtab { flex: none }`. Phase 1 is deployed as
   `dcbaa316`; the study is complete once this branch ships.
-- `feat/terminal-checklist` (ADR-0081) is merged into main; `make deploy`
-  restarts the service onto it. Full stack: publish target fallback
+- Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`). Full stack: publish target fallback
   (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
   store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
   view fold in `liveTermView`, sidebar card line and terminal-pane strip,
   pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
-  live-update/absent/reset states and reload persistence. Not covered: a
-  real pi process publishing through the extension in a live terminal (the
+  live-update/absent/reset states and reload persistence. Open acceptance:
+  a real pi process publishing through the extension in a live terminal (the
   POST contract is covered by Go tests; a terminal pi linked to this repo
-  picks the new extension up on its next start), light-theme screenshot of
-  the strip, mobile TermRow (server embeds `checklist` in terminal views —
+  picks the new extension up on its next start — running pi processes keep
+  the old extension until restarted), light-theme screenshot of the strip,
+  mobile TermRow (server embeds `checklist` in terminal views —
   deliberate desktop-first scope).
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
@@ -295,6 +301,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Terminal checklists merged and deployed (`d1f1e9f9`,
+  `0.1.0+d1f1e9f`).** Fast-forwarded main after reconciling the llama-manager
+  and sessions work (ADR number collision resolved: terminal checklists took
+  0081); combined `make ci` green on the reconciled tree. Deploy verified:
+  health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
+  live. No push.
 
 - **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
   with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
