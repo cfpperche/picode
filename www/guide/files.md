@@ -50,6 +50,15 @@ Selecting a change opens that file's diff as a tab in the center; **Open file**
 switches the tab to the editor and **View diff** brings the comparison back.
 Selecting a file opens the editor directly. The rail itself never edits.
 
+**PR** shows the pull request for the current branch, read through the
+GitHub CLI (`gh`) that is already logged in on the machine running PiCode:
+number, title, state, review decision, checks, lines changed, and a link to
+open it on GitHub. When the branch has no pull request, **Create in terminal**
+types `gh pr create --fill` into your terminal for you to review and submit.
+If `gh` is not logged in, **Log in from a terminal** types `gh auth login` the
+same way. PiCode never stores a GitHub token and never creates a pull request
+on its own. Answers are kept for a minute; **Refresh** asks GitHub again.
+
 If a terminal moves to another folder, the rail keeps what it showed and says
 so; **Follow** reads the new folder. **Refresh** rereads the current one. The
 menu offers **Reveal folder**, **Open git graph** and **Open as tab** (the File

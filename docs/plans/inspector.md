@@ -1,9 +1,10 @@
 # Inspector rail implementation and acceptance
 
-Owner-approved direction (2026-09-05): ADR-0078, Phase 0 (docs) and Phase 1
-(the read-only rail with Changes and Files). The rail opens content in the
-center and follows the selected tab's owner. PR and Commit are designed in
-the ADR and wait for the owner's decision after the first dogfood.
+Owner-approved direction (2026-09-05): ADR-0078 accepted with Phase 0 (docs),
+Phase 1 (the read-only rail with Changes and Files) and Phase 2 (the PR tab
+through the host's `gh`). The rail opens content in the center and follows
+the selected tab's owner. Commit is designed in the ADR, with three options
+compared against the benchmarks, and waits for the owner's decision.
 
 ## Implementation
 
@@ -15,6 +16,7 @@ the ADR and wait for the owner's decision after the first dogfood.
 | Center | `FileSurface` gains a per-tab Diff view (`WorkingDiff`); `FileTree` gains `trailing` and `ariaLabel`; `AgentTabs` gains `endSlot` for the toggle |
 | Shell | Mounted after `<main>` in `App.jsx`; `app.inspector.toggle` (`Ctrl+.` / `Cmd+.`); palette action "Toggle inspector"; `#inspector` in the overlay audit |
 | Docs pipeline | Fixture seeds a dirty repository under the picode workspace; surface `app-inspector` with profile `desktop-inspector` |
+| PR tab | `internal/server/pr.go`: `GET …/pr` for the three owners (states in 200, minute cache, gh's login as the credential) and `POST /api/terminals/{id}/type` (literal keystrokes, no Enter); `InspectorPR.jsx` + `usePullRequest`; `tmux.TypeText` |
 
 Benchmark adaptation: Paseo's folder-grouped Changes with counts and total,
 Orca's project tree and click-to-center, t3code's text tabs; PiCode adds
@@ -29,7 +31,10 @@ acceptance"). Automated coverage: `inspector.test.js` (anchor, layout,
 grouping, scope, counts, filter, prefs), `resizeEdge.test.js`,
 `internal/gitgraph/status_test.go` (`TestStatusWithStats*`,
 `TestCountNewFileCapsAndFinalLine`), `internal/server/filetree_test.go`
-(`TestGitStatusReAnchorsToTheOwnerCwd` with counts and totals).
+(`TestGitStatusReAnchorsToTheOwnerCwd` with counts and totals),
+`internal/server/pr_test.go` (fake gh on PATH: unauth, none, no remote, ok
+with folded checks, cache and refresh; missing gh; plain folder; owner routes
+with the root precondition; type-text refusals).
 
 ## Live acceptance scope
 

@@ -972,6 +972,35 @@ export default function App() {
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
   }
 
+  // The Inspector's PR tab pre-fills a gh command in a terminal the human
+  // submits themselves (ADR-0078): the owner's own terminal when it is one,
+  // otherwise a new terminal born in the anchored folder.
+  async function typeIntoTerminal(owner, root, command) {
+    if (!owner || !command) return;
+    try {
+      let tid = owner.kind === "term" ? owner.id : "";
+      if (!tid) {
+        const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
+        const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
+        const page = await api("/api/terminals", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "gh", cwd: root || "", workspaceId: wsId }),
+        });
+        setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
+        tid = page.id;
+      }
+      const fresh = owner.kind !== "term";
+      await openTermTab(tid);
+      // A shell born this instant has not drawn its prompt yet; keystrokes
+      // that arrive before it echo twice. Give it a beat before typing.
+      if (fresh) await new Promise((resolve) => setTimeout(resolve, 900));
+      await api("/api/terminals/" + encodeURIComponent(tid) + "/type", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: command }),
+      });
+    } catch (err) { toastError(err); }
+  }
+
   function provisionalGitId(kind, ownerId) {
     return gitTabId("@" + (kind === "term" ? "t" : "a") + ":" + ownerId);
   }
@@ -2676,6 +2705,7 @@ export default function App() {
         onOpenDiff={(o, path) => openFileTab(o.kind, o.id, path, "diff")}
         onOpenGraph={(o, name) => openGitTab(o.kind, o.id, name)}
         onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
+        onOpenTerminal={typeIntoTerminal}
         onChanges={setInspectorChanged}
       />
 

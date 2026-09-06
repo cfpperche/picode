@@ -41,3 +41,7 @@
 .integration-added { opacity: .75; cursor: default; }
 .integration-added:hover { border-color: var(--border); }
 .integration-added span { color: var(--accent); }
+
+.mcp-form.integration-form { gap: 14px; }
+.mcp-field-group { display: flex; flex-direction: column; gap: 6px; }
+.mcp-group-label { font-size: 12px; color: var(--text-secondary); }
