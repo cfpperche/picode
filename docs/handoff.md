@@ -229,6 +229,8 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 1. Implement llama delivery 4 from ADR-0084: local Linux/WSL owned profile,
    effective execution presets, reviewed lifecycle jobs and ownership-aware
    cache cleanup. External/remote routers remain read-only for those controls.
+   ExecutionProfile validation and deterministic command preview are now
+   implemented and tested; lifecycle jobs and persistence remain next.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
