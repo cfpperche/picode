@@ -1,5 +1,5 @@
 {
-  "base": "http://127.0.0.1:18753",
+  "base": "http://127.0.0.1:18754",
   "checks": [
     "g1 agent anchor lists the working tree with counts and totals",
     "g2 a change opens the file tab in Diff view; Open file swaps to the editor",
@@ -13,7 +13,9 @@
     "g10 a folder without git keeps Files and says so; no anchor is one line",
     "g11 the More menu opens inside the viewport and lists its actions",
     "g12 the PR tab mirrors gh: card, no-PR action or the blocked line",
-    "g13 \"Create in terminal\" pre-types the gh command and never submits it"
+    "g13 \"Create in terminal\" pre-types the gh command and never submits it",
+    "g14 the branch chip shows the distance to upstream; Fetch and Pull are typed into one idle terminal",
+    "g15 the commit form validates one line and prepares the command without running it"
   ],
   "screenshots": [
     "inspector-changes-dark.png",
@@ -31,7 +33,11 @@
     "inspector-pr-none-dark.png",
     "inspector-pr-create-typed-dark.png",
     "inspector-pr-unauth-dark.png",
-    "inspector-pr-noremote-dark.png"
+    "inspector-pr-noremote-dark.png",
+    "inspector-git-fetch-typed-dark.png",
+    "inspector-commit-dialog-error-dark.png",
+    "inspector-commit-dialog-dark.png",
+    "inspector-commit-typed-dark.png"
   ],
   "audits": [
     {
@@ -66,9 +72,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -120,9 +128,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -174,9 +184,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -228,9 +240,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -271,9 +285,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -389,9 +405,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -528,9 +546,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -582,9 +602,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -638,9 +660,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -670,9 +694,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -713,9 +739,11 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
+            6,
             6,
             6,
             6
@@ -756,12 +784,244 @@
           "heights": [
             28,
             28,
+            28,
             28
           ],
           "tops": [
             6,
             6,
+            6,
             6
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-git-fetch-typed-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-commit-dialog-error-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 251,
+          "bottom": 505,
+          "height": 254
+        },
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-commit-dialog-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": ".dlg",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 254,
+          "bottom": 502,
+          "height": 248
+        },
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28
+          ],
+          "tops": [
+            712,
+            712
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
+          ]
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "name": "inspector-commit-typed-dark",
+      "ok": true,
+      "hits": [
+        {
+          "sel": "#inspector",
+          "clipTop": false,
+          "clipBottom": false,
+          "clipLeft": false,
+          "clipRight": false,
+          "top": 0,
+          "bottom": 900,
+          "height": 900
+        }
+      ],
+      "rows": [
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            6,
+            6,
+            6,
+            6
+          ]
+        },
+        {
+          "misaligned": false,
+          "heights": [
+            28,
+            28,
+            28
+          ],
+          "tops": [
+            84,
+            84,
+            84
           ]
         }
       ],

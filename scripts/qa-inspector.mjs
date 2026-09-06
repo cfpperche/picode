@@ -214,6 +214,18 @@ try {
   // PICODE_QA_GH_MODE_FILE the runner drives a scripted gh through ok → none
   // → unauth; otherwise it asserts that the rail mirrors whatever the server
   // answers for this machine's gh.
+  const termList = (j) => (Array.isArray(j) ? j : (j && j.terminals) || []);
+  const gitButton = () => rail().getByRole('button', { name: 'Git actions', exact: true });
+  const termOfHash = () => page.evaluate(() => decodeURIComponent(location.hash.replace(/^#\/term\//, '')));
+  const paneOf = async (id, needle) => {
+    let pane = '';
+    for (let i = 0; i < 25 && !pane.includes(needle); i++) {
+      await delay(300);
+      pane = execFileSync('tmux', ['capture-pane', '-p', '-J', '-t', `picode-sh-${id}:`], { encoding: 'utf8' });
+    }
+    return pane;
+  };
+  const clearLine = (id) => execFileSync('tmux', ['send-keys', '-t', `picode-sh-${id}:`, 'C-u']);
   const modeFile = process.env.PICODE_QA_GH_MODE_FILE || '';
   const setMode = async (mode) => {
     writeFileSync(modeFile, mode + '\n');
@@ -249,22 +261,20 @@ try {
       await rail().getByText(/No pull request for/).waitFor();
       assert.equal(await prTab().innerText(), 'PR');
       await shot('inspector-pr-none-dark');
-      const termList = (j) => (Array.isArray(j) ? j : (j && j.terminals) || []);
       const before = new Set(termList(await api('/api/terminals')).map((t) => t.id));
       await rail().getByRole('button', { name: 'Create in terminal', exact: true }).click();
       await page.waitForFunction(() => /^#\/term\//.test(location.hash));
-      const created = termList(await api('/api/terminals')).find((t) => !before.has(t.id));
-      assert.ok(created, 'a terminal was created in the anchored folder');
-      assert.equal(created.cwd, root);
-      let pane = '';
-      for (let i = 0; i < 20 && !pane.includes('gh pr create --fill'); i++) {
-        await delay(300);
-        pane = execFileSync('tmux', ['capture-pane', '-p', '-t', created.session + ':'], { encoding: 'utf8' });
-      }
+      // An idle shell already in the folder is reused; otherwise one is born there.
+      const id = await termOfHash();
+      const target = termList(await api('/api/terminals')).find((t) => t.id === id);
+      assert.ok(target, 'the action landed in a terminal of the folder');
+      assert.equal(target.cwd, root);
+      const pane = await paneOf(id, 'gh pr create --fill');
       assert.match(pane, /gh pr create --fill/);
       assert.ok(!/Creating pull request|error|not found/i.test(pane), 'the command was typed, not run');
       await shot('inspector-pr-create-typed-dark');
-      await fetch(base + '/api/terminals/' + created.id, { method: 'DELETE' });
+      clearLine(id);
+      if (!before.has(id)) await fetch(base + '/api/terminals/' + id, { method: 'DELETE' });
       await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
       await prTab().waitFor();
       await setMode('unauth');
@@ -279,6 +289,57 @@ try {
       await setMode('ok');
     });
   }
+  // Git actions (ADR-0078, first stage of Commit): every action prepares
+  // the exact command in a plain idle terminal of the folder and never runs
+  // it. The seed has an upstream one commit behind, so the chip reads ↑1.
+  await check('g14 the branch chip shows the distance to upstream; Fetch and Pull are typed into one idle terminal', async () => {
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    const chip = await rail().locator('.insp-branch').innerText();
+    assert.match(chip, /main/);
+    assert.match(chip, /↑1/);
+    assert.equal(await rail().locator('.insp-branch').getAttribute('title'), 'Branch main, 1 ahead origin/main');
+    await gitButton().click();
+    await page.getByRole('menuitem', { name: /^Fetch/ }).click();
+    await page.waitForFunction(() => /^#\/term\//.test(location.hash));
+    const first = await termOfHash();
+    const pane = await paneOf(first, 'git fetch --prune');
+    assert.match(pane, /git fetch --prune/);
+    assert.ok(!/Fetching|fatal|error/i.test(pane), 'typed, not run');
+    await shot('inspector-git-fetch-typed-dark');
+    clearLine(first);
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    await gitButton().click();
+    await page.getByRole('menuitem', { name: /^Pull/ }).click();
+    await page.waitForFunction(() => /^#\/term\//.test(location.hash));
+    assert.equal(await termOfHash(), first, 'a second action reuses the idle terminal');
+    assert.match(await paneOf(first, 'git pull --ff-only'), /git pull --ff-only/);
+    clearLine(first);
+  });
+  await check('g15 the commit form validates one line and prepares the command without running it', async () => {
+    await page.evaluate((h) => { location.hash = h; }, `#/agent/${atlas.id}`);
+    await gitButton().waitFor();
+    await gitButton().click();
+    await page.getByRole('menuitem', { name: /^Commit…/ }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.getByRole('button', { name: 'Prepare in terminal', exact: true }).click();
+    await dlg.getByRole('alert').waitFor();
+    assert.match(await dlg.getByRole('alert').innerText(), /required/);
+    await shot('inspector-commit-dialog-error-dark');
+    await dlg.getByLabel('Commit message').fill("web: it's typed, not run");
+    await page.waitForFunction(() => document.querySelector('.insp-commit-preview')?.textContent.includes("git commit -m 'web: it'"));
+    await shot('inspector-commit-dialog-dark');
+    await dlg.getByRole('button', { name: 'Prepare in terminal', exact: true }).click();
+    await page.waitForFunction(() => /^#\/term\//.test(location.hash));
+    const id = await termOfHash();
+    const pane = await paneOf(id, "git commit -m 'web: it'");
+    assert.match(pane, /git add -A && git commit -m 'web: it'\\''s typed, not run'/, pane.slice(-400));
+    const status = await api(`/api/agents/${atlas.id}/gitstatus`);
+    assert.equal(status.totals.files, 4, 'nothing was committed');
+    await shot('inspector-commit-typed-dark');
+    clearLine(id);
+  });
   assert.deepEqual(errors, [], 'no page errors');
   evidence.result = 'PASS';
 } catch (error) {

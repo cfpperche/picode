@@ -17,6 +17,7 @@ compared against the benchmarks, and waits for the owner's decision.
 | Shell | Mounted after `<main>` in `App.jsx`; `app.inspector.toggle` (`Ctrl+.` / `Cmd+.`); palette action "Toggle inspector"; `#inspector` in the overlay audit |
 | Docs pipeline | Fixture seeds a dirty repository under the picode workspace; surface `app-inspector` with profile `desktop-inspector` |
 | PR tab | `internal/server/pr.go`: `GET …/pr` for the three owners (states in 200, minute cache, gh's login as the credential) and `POST /api/terminals/{id}/type` (literal keystrokes, no Enter); `InspectorPR.jsx` + `usePullRequest`; `tmux.TypeText` |
+| Git actions (stage 1) | `gitstatus` adds `upstream`, `ahead`, `behind`, `detached`; the chip shows `↑ ↓` / unpublished / detached; a Git menu prepares Fetch, Pull, Push, Commit, Commit and push, Create PR in an idle terminal of the folder (`gitActionCommand`, `shellQuote`, `commitMessageSchema`, `InspectorCommitDialog.jsx`) |
 
 Benchmark adaptation: Paseo's folder-grouped Changes with counts and total,
 Orca's project tree and click-to-center, t3code's text tabs; PiCode adds
@@ -34,7 +35,10 @@ grouping, scope, counts, filter, prefs), `resizeEdge.test.js`,
 (`TestGitStatusReAnchorsToTheOwnerCwd` with counts and totals),
 `internal/server/pr_test.go` (fake gh on PATH: unauth, none, no remote, ok
 with folded checks, cache and refresh; missing gh; plain folder; owner routes
-with the root precondition; type-text refusals).
+with the root precondition; type-text refusals),
+`TestStatusWithStatsUpstreamAheadBehind` (bare remote, ahead/behind,
+detached), `gitActionCommand`/`gitActions`/`branchChip`/`shellQuote` and
+`commitMessageSchema` node tests.
 
 ## Live acceptance scope
 

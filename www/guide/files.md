@@ -59,6 +59,15 @@ If `gh` is not logged in, **Log in from a terminal** types `gh auth login` the
 same way. PiCode never stores a GitHub token and never creates a pull request
 on its own. Answers are kept for a minute; **Refresh** asks GitHub again.
 
+The branch name beside the tabs shows how far it is from its upstream
+(`↑2 ↓1`), or says *unpublished* when it has none. The **Git actions** menu in
+the rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
+Create pull request: each one types the exact command into a terminal of that
+folder, reusing an idle one or opening a new one, and leaves it for you to
+press Enter. Commit asks for a one-line message and shows the command it will
+prepare. PiCode never runs git for you; your shell, your credentials and your
+hooks do the work, in a terminal you can see.
+
 If a terminal moves to another folder, the rail keeps what it showed and says
 so; **Follow** reads the new folder. **Refresh** rereads the current one. The
 menu offers **Reveal folder**, **Open git graph** and **Open as tab** (the File

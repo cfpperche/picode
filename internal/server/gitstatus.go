@@ -101,9 +101,15 @@ func writeGitStatus(w http.ResponseWriter, cwd string) {
 		totals["del"] += c.Del
 		totals["files"]++
 	}
-	page := map[string]any{"git": true, "repoRoot": st.Top, "branch": st.Branch, "changes": changes, "totals": totals}
+	page := map[string]any{"git": true, "repoRoot": st.Top, "branch": st.Branch, "changes": changes, "totals": totals, "ahead": st.Ahead, "behind": st.Behind}
 	if st.Worktree != "" {
 		page["worktree"] = st.Worktree
+	}
+	if st.Upstream != "" {
+		page["upstream"] = st.Upstream
+	}
+	if st.Detached {
+		page["detached"] = true
 	}
 	writeJSON(w, http.StatusOK, page)
 }

@@ -1,8 +1,8 @@
 # ADR-0078: An Inspector rail follows the selected tab's owner and opens content in the center
 
-- **Status**: accepted (the owner accepted the shipped rail on 2026-09-05 and
-  approved the PR tab; the Commit phase below is designed, with the owner's
-  decision pending)
+- **Status**: accepted (the owner accepted the shipped rail on 2026-09-05,
+  approved the PR tab, and on 2026-09-06 chose the first stage of the Commit
+  design below: git actions prepared in the terminal)
 - **Date**: 2026-09-05
 - **Amends**: ADR-0074's placement of the inspector inside the folder tab;
   the visual anatomy's "one center surface, one dock"
@@ -98,6 +98,27 @@ through `POST /api/terminals/{id}/type`, which sends literal keystrokes
 (`tmux send-keys -l`) and never Enter. Control characters, newlines,
 leading dashes and long texts are refused. The human reads and submits.
 
+A **Git actions** menu in the rail's header prepares the exact command in
+the owner's terminal and never runs it: Fetch (`git fetch --prune`), Pull
+(`git pull --ff-only`), Push (`git push`, or `git push -u origin <branch>`
+for a branch without an upstream), Commit and Commit and push (a one-line
+message validated by `commitMessageSchema`, composed into
+`git add -A && git commit -m '…'` with the message single-quoted for a
+POSIX shell), and Create pull request. A plain idle shell already in the
+folder is reused; a terminal hosting a CLI, or one that is working, never
+receives keystrokes; otherwise a terminal named after the command is born
+in the folder. A detached HEAD offers neither Pull nor Push. The tabs row's
+branch chip carries the distance to the upstream — `main ↑2 ↓1`,
+`unpublished` for a branch without one, `detached` for a bare HEAD — from
+two more fields on `gitstatus` (`upstream`, `ahead`, `behind`, `detached`),
+read with `git rev-list --left-right --count @{upstream}...HEAD`.
+
+Nothing in this stage writes git from the service process: the human's
+shell runs the command on Enter, with the human's credentials, hooks and
+signing, in the terminal they are looking at. When agents are running in
+the folder, asking one of them stays the other door; the "run when idle"
+mode and the "ask the agent" variants are the next stages below.
+
 The rail is the host for later right-hand panels — the browser preview's
 last capture, search, tasks. One rail, never two asides. With four or more
 tabs it switches to the sidebar's icon idiom.
@@ -137,6 +158,10 @@ tabs it switches to the sidebar's icon idiom.
 | PR: same folder and branch within a minute | Cached answer; Refresh asks gh again | `TestPRPageStatesThroughFakeGh` |
 | PR: root mismatch | 409, like every other owner read | `TestPRRouteThroughOwnersWithRoot` |
 | Type into a terminal | Literal keystrokes, no Enter; control characters, newlines, leading dash, >2000 chars refused | `TestTypeTextProblem`, `TestTerminalTypeRouteRefusesBadInput`; browser QA |
+| Branch with an upstream | Chip shows `↑ahead ↓behind`; title names the upstream | `TestStatusWithStatsUpstreamAheadBehind`, `branchChip` tests; browser QA |
+| Branch without an upstream / detached HEAD | Chip says `unpublished` / `detached`; Push uses `-u origin <branch>`; detached offers no Pull or Push | `gitActions`, `gitActionCommand` tests |
+| Git action chosen | Exact command typed into an idle shell of the folder (reused, else created), never submitted | `gitActionCommand` tests; browser QA (`tmux capture-pane`) |
+| Commit form | One line, ≤200 chars, no control characters, no leading dash; the message is single-quoted for the shell | `commitMessageSchema` test, `shellQuote` test; browser QA |
 
 Browser acceptance runs against an isolated fixture whose picode workspace
 is a seeded dirty repository. Evidence lands in `docs/screenshots/`
@@ -215,6 +240,19 @@ terminal succeeds. Whichever is chosen, staging stays "all" in the first
 version, the message is a Zod-validated form, push sits behind a second
 confirmation, and the interlock's limits are written into the ADR that
 adopts it.
+
+The owner's answer (2026-09-06): agents keep doing commit, push, merge and
+deploy themselves; a fourth door — (d) **ask the agent** owning the folder
+to commit, through the channel that already carries prompts — fits that
+flow and supersedes nothing. The human's door when every agent is off is
+the terminal, made discoverable: stage 1 (shipped above) is the Git actions
+menu preparing commands in the terminal plus the upstream distance on the
+chip; stage 2 is an optional "run when no agent is working here" mode that
+presses Enter behind the interlock (the only step that amends the four
+refusals, because PiCode then triggers a write, even if inside the user's
+shell); stage 3 adds the "ask the agent" variants beside each action.
+Merge, rebase and branch switching wait for a picker; reset, force push
+and stash drop get no button.
 
 ## Alternatives considered
 

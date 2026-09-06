@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema } from "./schemas.js";
+import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
@@ -55,4 +55,12 @@ test("mcp add env keys", () => {
   const ok = parseForm(mcpAddSchema, { ...mcpBase, kind: "stdio", command: "npx", url: "", pairs: [{ key: "API_KEY", value: "x" }] });
   assert.equal(ok.ok, true);
   assert.deepEqual(pairsToMap(ok.value.pairs), { API_KEY: "x" });
+});
+
+test("commit message is one readable line that cannot read as a flag", () => {
+  assert.equal(parseForm(commitMessageSchema, { message: "  " }).ok, false);
+  assert.equal(parseForm(commitMessageSchema, { message: "web: add rail" }).value.message, "web: add rail");
+  assert.match(parseForm(commitMessageSchema, { message: "line one\nline two" }).error, /One line/);
+  assert.match(parseForm(commitMessageSchema, { message: "--amend" }).error, /dash/);
+  assert.match(parseForm(commitMessageSchema, { message: "x".repeat(201) }).error, /200/);
 });

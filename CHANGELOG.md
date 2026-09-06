@@ -13,6 +13,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
+  far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
+  `detached`), and a Git menu in the rail's header prepares Fetch, Pull, Push,
+  Commit, Commit and push and Create pull request as the exact command in a
+  terminal of that folder — reusing an idle shell, never one running a CLI —
+  for you to press Enter. The commit form takes a one-line message and shows
+  the command before preparing it. Nothing runs git on your behalf.
+  `…/gitstatus` gains `upstream`, `ahead`, `behind` and `detached`.
+
 - **Sessions for every agent CLI** (ADR-0079 phase 2): the `#/clis/sessions`
   surface gains a CLI picker (Pi, Claude Code, Codex, Grok) with search.
   Pi keeps its management actions; the other CLIs list their on-disk

@@ -8,8 +8,10 @@
 **Repository:** HEAD (deployed as `0.1.0+9a41241`) carries today's
 worktree-scoped asset-preview fix (ADR-0073 amendment), the Integrations
 rollout (ADR-0075) with connector catalog tabs and the Gmail recipe, the
-desktop Inspector rail (ADR-0078, accepted by the owner) with its **PR tab**
-(phase 2, merged and deployed as `9a7691a5`), bounded
+desktop Inspector rail (ADR-0078, accepted by the owner) with its PR tab and,
+complete on `feat/inspector-git`, the **Git actions** stage (branch chip with
+ahead/behind, a Git menu preparing fetch/pull/push/commit/PR commands in the
+owner's terminal — see Recent activity), bounded
 captures (ADR-0076), the pi-diff TUI panel (ADR-0077 with the fullscreen
 amendment) and the managed-stop process-group fix, plus File Tree v2 (0074),
 worktree-aware Git Graph (0073), independent web apps (0072), Windows task
@@ -65,7 +67,12 @@ QA browser sessions are closed; the feature worktree and branch are removed.
   `totals`, `branch` and `worktree`. The **PR** tab reads the branch's pull
   request through the host's `gh` (`GET …/pr`, states in 200, a minute cache,
   no background poller, no token in PiCode) and pre-types `gh pr create --fill`
-  / `gh auth login` into the owner's terminal for the human to submit.
+  / `gh auth login` into the owner's terminal for the human to submit. The
+  **Git actions** menu (Commit stage 1) prepares Fetch, Pull, Push, Commit,
+  Commit and push and Create pull request the same way — an idle shell of the
+  folder is reused, a terminal hosting a CLI never receives keystrokes — and
+  the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached` from
+  `gitstatus`'s new `upstream`/`ahead`/`behind`/`detached` fields.
 - One Go binary serves independent `/desktop/` and `/mobile/` apps. Mobile
   owns copied UI and lazy screens; shared contracts/tokens have explicit
   exports. HTTPS defaults to `:8445`.
@@ -175,10 +182,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
    opt-in native emission and real RPC/cancellation/slow-consumer acceptance,
    not the panel yet; ADR-0054 dogfood remains separate.
 8. Decide whether selective docs-video recapture/render should be scheduled.
-9. Decide the Inspector's **Commit / Commit & Push** mechanics. ADR-0078
-   compares three designs against the benchmarks (pre-typed in the terminal;
-   server-side behind an interlock; typed and submitted in the terminal, gated
-   by the interlock) and recommends the third if one-click parity matters.
+9. Inspector Git actions, next stages (ADR-0078): an optional "run when no
+   agent is working here" mode that presses Enter behind the interlock (the
+   step that amends the write refusals), and "ask the agent" variants beside
+   each action for folders with a running agent. Merge/rebase/branch switch
+   wait for a picker.
 
 ## Known debts / open questions
 
@@ -224,6 +232,19 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
+  gains `upstream`/`ahead`/`behind`/`detached`
+  (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
+  chip shows `main ↑2 ↓1`, `unpublished` or `detached`; a Git menu in the
+  rail's header prepares Fetch, Pull, Push, Commit, Commit and push and
+  Create pull request in an idle terminal of the folder through the `type`
+  route (`gitActionCommand`, `shellQuote`, `gitActions`, `branchChip`,
+  `commitMessageSchema`; `InspectorCommitDialog.jsx` on ResponsiveDialog with
+  Zod errors and a command preview). The fixture seeds a bare origin one
+  commit behind. `scripts/qa-inspector.mjs` 15/15 groups on the scripted-gh
+  fixture (`tmux capture-pane -J` proves the commands are typed, never run;
+  `gitstatus` keeps its four changes); `inspector-git-*` and
+  `inspector-commit-*` screenshots read, audits ok. visual-review: PASS.
 - **2026-09-06 — Deploy serialization + living-docs guards merged and
   deployed.** Fast-forwarded after reconciling three interleaved main moves;
   combined `make ci` passed; deployed `a8a201b` under the new lock (lock

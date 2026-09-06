@@ -226,6 +226,14 @@ func seedRepo(dir string) {
 	if !git("init", "-q", "-b", "main") || !git("add", ".") || !git("commit", "-q", "-m", "seed: synthetic project") {
 		return
 	}
+	// A bare "origin" beside the folder gives the branch an upstream, and one
+	// more local commit leaves it one ahead — the chip reads `main ↑1`.
+	origin := filepath.Join(filepath.Dir(dir), "origin.git")
+	if git("init", "-q", "--bare", "-b", "main", origin) && git("remote", "add", "origin", origin) && git("push", "-q", "-u", "origin", "main") {
+		if err := os.WriteFile(filepath.Join(dir, "docs", "handoff.md"), []byte("# Handoff\n\nThe seed is one commit ahead of origin.\n"), 0o644); err == nil {
+			_ = git("add", ".") && git("commit", "-q", "-m", "docs: handoff records the seed")
+		}
+	}
 	// The dirty tree the rail lists: an edited file, a deletion and a new one.
 	edits := map[string]string{
 		"README.md":               "# picode\n\nSynthetic fixture project for the docs captures.\n\nThe Inspector rail lists this edit.\n",

@@ -8,6 +8,7 @@ import {
   compactCount, totalsLabel, filterRows, blockedMessage,
   readInspectorPrefs, writeInspectorPrefs,
   prTabLabel, prStateLabel, prChecksLabel, prReviewLabel, prBlockedAction,
+  shellQuote, gitActionCommand, gitActions, branchChip,
 } from "./inspector.js";
 import { flattenTree } from "./fileTree.js";
 
@@ -203,4 +204,38 @@ test("inspector prefs accept the pr tab", () => {
   const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
   writeInspectorPrefs({ tab: "pr" }, storage);
   assert.equal(readInspectorPrefs(storage).tab, "pr");
+});
+
+test("git actions type the exact command a person would, and quote what a shell could read", () => {
+  assert.equal(shellQuote("fix: it's done"), "'fix: it'\\''s done'");
+  assert.equal(gitActionCommand("fetch"), "git fetch --prune");
+  assert.equal(gitActionCommand("pull"), "git pull --ff-only");
+  assert.equal(gitActionCommand("push", { branch: "feat/x", upstream: "origin/feat/x" }), "git push");
+  assert.equal(gitActionCommand("push", { branch: "feat/x", upstream: "" }), "git push -u origin feat/x");
+  assert.equal(gitActionCommand("push", { branch: "odd$name", upstream: "" }), "git push -u origin 'odd$name'");
+  assert.equal(gitActionCommand("commit", { message: "web: add rail" }), "git add -A && git commit -m 'web: add rail'");
+  assert.equal(gitActionCommand("commit-push", { message: "it's", branch: "main", upstream: "" }), "git add -A && git commit -m 'it'\\''s' && git push -u origin main");
+  assert.equal(gitActionCommand("pr"), "gh pr create --fill");
+  assert.equal(gitActionCommand("nope"), "");
+  assert.deepEqual(gitActions({ git: true, branch: "main", upstream: "origin/main" }), ["fetch", "pull", "push", "commit", "commit-push"]);
+  assert.deepEqual(gitActions({ git: true, branch: "abc123", detached: true }), ["fetch", "commit"]);
+  assert.deepEqual(gitActions({ git: false }), []);
+});
+
+test("branchChip names the checkout and its distance from upstream", () => {
+  assert.equal(branchChip({ git: false }), null);
+  const level = branchChip({ git: true, branch: "main", upstream: "origin/main", ahead: 0, behind: 0 });
+  assert.equal(level.unpublished, false);
+  assert.match(level.title, /level with origin\/main/);
+  const far = branchChip({ git: true, branch: "feat/x", upstream: "origin/feat/x", ahead: 2, behind: 1, worktree: "x" });
+  assert.equal(far.ahead, 2);
+  assert.equal(far.behind, 1);
+  assert.equal(far.worktree, "x");
+  assert.match(far.title, /2 ahead and 1 behind origin\/feat\/x/);
+  const fresh = branchChip({ git: true, branch: "feat/new", ahead: 0, behind: 0 });
+  assert.equal(fresh.unpublished, true);
+  assert.match(fresh.title, /no upstream/);
+  const det = branchChip({ git: true, branch: "abc1234", detached: true });
+  assert.equal(det.detached, true);
+  assert.equal(det.unpublished, false);
 });

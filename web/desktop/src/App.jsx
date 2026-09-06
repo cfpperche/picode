@@ -979,17 +979,25 @@ export default function App() {
     if (!owner || !command) return;
     try {
       let tid = owner.kind === "term" ? owner.id : "";
+      let fresh = false;
+      if (!tid) {
+        // Reuse a plain, idle shell already sitting in that folder; never a
+        // terminal hosting a CLI (Claude Code, Codex…) whose TUI would eat
+        // the keystrokes, and never one that is working.
+        const idle = terminals.find((t) => t && t.cwd === root && !t.tui && !t.cli && !t.state);
+        if (idle) tid = idle.id;
+      }
       if (!tid) {
         const loc = owner.kind === "agent" ? locate(workspaces, freeAgents, owner.id) : null;
         const wsId = owner.kind === "workspace" ? owner.id : (loc && loc.workspace ? loc.workspace.id : "");
         const page = await api("/api/terminals", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "gh", cwd: root || "", workspaceId: wsId }),
+          body: JSON.stringify({ name: command.trim().split(/\s+/)[0] || "git", cwd: root || "", workspaceId: wsId }),
         });
         setTerminals((cur) => (cur.some((x) => x.id === page.id) ? cur : [...cur, page]));
         tid = page.id;
+        fresh = true;
       }
-      const fresh = owner.kind !== "term";
       await openTermTab(tid);
       // A shell born this instant has not drawn its prompt yet; keystrokes
       // that arrive before it echo twice. Give it a beat before typing.

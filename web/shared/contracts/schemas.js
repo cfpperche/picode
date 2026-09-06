@@ -199,3 +199,14 @@ export const automationSchema = z.object({
   if (v.maxRuns !== "" && !(Number.isInteger(runs) && runs >= 1)) issue("Max runs must be a whole number of at least 1.");
   if (runs > 0 && !(Number(v.maxRunsWindowMin) >= 1)) issue("Pick the window for max runs.");
 });
+
+// The Inspector's commit message is typed into a terminal as one line of
+// keystrokes (ADR-0078): no line breaks, nothing that reads as a flag, and
+// short enough to read in the prompt before pressing Enter.
+export const commitMessageSchema = z.object({
+  message: z.string().trim()
+    .min(1, "A commit message is required.")
+    .max(200, "Use up to 200 characters; a longer message belongs in the terminal.")
+    .refine((v) => !/[\0-\x1f\x7f]/.test(v), "One line only: no line breaks or control characters.")
+    .refine((v) => !v.startsWith("-"), "A message cannot start with a dash."),
+});

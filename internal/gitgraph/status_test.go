@@ -275,3 +275,47 @@ func TestCountNewFileCapsAndFinalLine(t *testing.T) {
 		t.Fatalf("missing file counted %d lines", lines)
 	}
 }
+
+// Ahead and behind are measured against the branch's own upstream; a branch
+// never pushed has no upstream, and a detached HEAD has neither.
+func TestStatusWithStatsUpstreamAheadBehind(t *testing.T) {
+	dir := repo(t)
+	if info := StatusWithStats(dir); info.Upstream != "" || info.Ahead != 0 || info.Behind != 0 || info.Detached {
+		t.Fatalf("before any remote = %+v, want no upstream", info)
+	}
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	run(t, t.TempDir(), "git", "init", "-q", "--bare", "-b", "main", bare)
+	run(t, dir, "git", "remote", "add", "origin", bare)
+	run(t, dir, "git", "push", "-q", "-u", "origin", "main")
+	if info := StatusWithStats(dir); info.Upstream != "origin/main" || info.Ahead != 0 || info.Behind != 0 {
+		t.Fatalf("just pushed = upstream %q ahead %d behind %d, want origin/main 0 0", info.Upstream, info.Ahead, info.Behind)
+	}
+	write(t, dir, "local", "l\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-q", "-m", "local one")
+	write(t, dir, "local2", "l\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-q", "-m", "local two")
+
+	other := filepath.Join(t.TempDir(), "other")
+	run(t, t.TempDir(), "git", "clone", "-q", bare, other)
+	write(t, other, "remote", "r\n")
+	run(t, other, "git", "add", ".")
+	run(t, other, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "remote one")
+	run(t, other, "git", "push", "-q")
+	run(t, dir, "git", "fetch", "-q")
+
+	info := StatusWithStats(dir)
+	if info.Upstream != "origin/main" || info.Ahead != 2 || info.Behind != 1 {
+		t.Fatalf("after commits = upstream %q ahead %d behind %d, want origin/main 2 1", info.Upstream, info.Ahead, info.Behind)
+	}
+	if info.Branch != "main" || info.Detached {
+		t.Fatalf("branch = %q detached=%v", info.Branch, info.Detached)
+	}
+
+	run(t, dir, "git", "checkout", "-q", "--detach")
+	info = StatusWithStats(dir)
+	if !info.Detached || info.Upstream != "" || info.Ahead != 0 || info.Behind != 0 || info.Branch == "" {
+		t.Fatalf("detached = %+v, want detached short HEAD without upstream", info)
+	}
+}

@@ -13,16 +13,18 @@ import { useEdgeResize } from "../lib/resizeEdge.js";
 import {
   INSPECTOR_MIN, blockedMessage, changeTotals, defaultOpen, describeAnchor,
   inspectorLayout, maxInspectorWidth, normalizeTouched, prTabLabel, scopeChanges,
+  branchChip, gitActionCommand, gitActions,
 } from "../lib/inspector.js";
 import InspectorChanges from "./InspectorChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
+import InspectorCommitDialog from "./InspectorCommitDialog.jsx";
 import { IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 
 const REVEAL_STALE_MS = 10_000;
-const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "" };
+const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "", upstream: "", ahead: 0, behind: 0, detached: false };
 
 // useInspectorLayout measures the shell and decides whether the rail fits.
 // The left sidebar's width is read from the DOM rather than lifted out of
@@ -97,6 +99,7 @@ export default function Inspector({
   const [scope, setScope] = useState("all");
   const [liveWidth, setLiveWidth] = useState(null);
   const [nonce, setNonce] = useState(0);
+  const [commitDialog, setCommitDialog] = useState(null);
   const rootRef = useRef("");
   const lifetimeRef = useRef(0);
   const busyRef = useRef(false);
@@ -167,7 +170,11 @@ export default function Inspector({
         const st = await api(ownerFileURL(owner, "gitstatus", "", page.root));
         if (generation !== lifetimeRef.current) return;
         setStatus(st && st.git
-          ? { git: true, changes: st.changes || [], totals: st.totals || changeTotals(st.changes), branch: st.branch || "", worktree: st.worktree || "" }
+          ? {
+            git: true, changes: st.changes || [], totals: st.totals || changeTotals(st.changes),
+            branch: st.branch || "", worktree: st.worktree || "", upstream: st.upstream || "",
+            ahead: Number(st.ahead) || 0, behind: Number(st.behind) || 0, detached: !!st.detached,
+          }
           : EMPTY_STATUS);
       } catch (e) {
         if (generation === lifetimeRef.current) setError(e.message || "Could not read changes.");
@@ -300,6 +307,14 @@ export default function Inspector({
   const shownWidth = liveWidth == null ? width : liveWidth;
   const chord = formatChord(primaryChord("app.inspector.toggle"));
   const refresh = () => { setNonce((n) => n + 1); return loadRef.current(true); };
+  const chip = branchChip(status);
+  const actions = owner ? gitActions(status) : [];
+  // Git actions prepare the exact command in the owner's terminal; the human
+  // submits it there (ADR-0078). Nothing here runs git.
+  const runGit = (action) => {
+    if (!onOpenTerminal || !owner) return;
+    onOpenTerminal(owner, root, gitActionCommand(action, { branch: status.branch, upstream: status.upstream }));
+  };
   function onTabKey(e) {
     if (order.length < 2 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
@@ -328,6 +343,27 @@ export default function Inspector({
             <button type="button" className="insp-btn" title={busy ? "Refreshing…" : "Refresh"} aria-label="Refresh" onClick={refresh} disabled={busy}>
               <IconReload size={14} className={busy ? "insp-spin" : undefined} />
             </button>
+          ) : null}
+          {owner && actions.length && onOpenTerminal ? (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button type="button" className="insp-btn" aria-label="Git actions" title="Git actions"><IconGit size={14} /></button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content className="composer-more-pop insp-git-pop" side="bottom" align="end" sideOffset={6} collisionPadding={8}>
+                  <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("fetch")}><span>Fetch</span><span className="insp-menu-cmd">git fetch --prune</span></DropdownMenu.Item>
+                  {actions.includes("pull") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pull")}><span>Pull</span><span className="insp-menu-cmd">git pull --ff-only</span></DropdownMenu.Item> : null}
+                  {actions.includes("push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("push")}><span>Push</span><span className="insp-menu-cmd">{status.upstream ? "git push" : "git push -u origin …"}</span></DropdownMenu.Item> : null}
+                  <DropdownMenu.Separator className="um-divider" />
+                  <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: false })}><span>Commit…</span><span className="insp-menu-cmd">git add -A && git commit</span></DropdownMenu.Item>
+                  {actions.includes("commit-push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: true })}><span>Commit and push…</span><span className="insp-menu-cmd">… && git push</span></DropdownMenu.Item> : null}
+                  {pull.page && pull.page.status !== "ok" ? <>
+                    <DropdownMenu.Separator className="um-divider" />
+                    <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pr")}><span>Create pull request</span><span className="insp-menu-cmd">gh pr create --fill</span></DropdownMenu.Item>
+                  </> : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           ) : null}
           {owner ? (
             <DropdownMenu.Root>
@@ -365,11 +401,14 @@ export default function Inspector({
               <button type="button" role="tab" className="ft-tab" data-panel="pr" tabIndex={panel === "pr" ? 0 : -1} aria-selected={panel === "pr"} onClick={() => onTab("pr")}>{prTabLabel(pull.page)}</button>
             ) : null}
           </nav>
-          {status.git && status.branch ? (
-            <span className="insp-branch" title={status.worktree ? `Branch ${status.branch} in worktree ${status.worktree}` : `Branch ${status.branch}`}>
+          {chip ? (
+            <span className={"insp-branch" + (chip.unpublished || chip.detached ? " insp-branch-noted" : "")} title={chip.title}>
               <IconGit size={12} />
-              <span className="insp-branch-name">{status.branch}</span>
-              {status.worktree ? <span className="insp-branch-wt">{status.worktree}</span> : null}
+              <span className="insp-branch-name">{chip.name}</span>
+              {chip.worktree ? <span className="insp-branch-wt">{chip.worktree}</span> : null}
+              {chip.ahead ? <span className="insp-branch-ab" aria-label={`${chip.ahead} ahead`}>↑{chip.ahead}</span> : null}
+              {chip.behind ? <span className="insp-branch-ab" aria-label={`${chip.behind} behind`}>↓{chip.behind}</span> : null}
+              {chip.unpublished ? <span className="insp-branch-note">unpublished</span> : chip.detached ? <span className="insp-branch-note">detached</span> : null}
             </span>
           ) : root && !status.git && !gone ? <span className="insp-branch insp-branch-none">Not a git repository</span> : null}
         </div>
@@ -415,6 +454,11 @@ export default function Inspector({
           />
         )}
       </div>
+      <InspectorCommitDialog
+        open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={status}
+        onClose={() => setCommitDialog(null)}
+        onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, root, command); }}
+      />
     </aside>
   );
 }

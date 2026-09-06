@@ -2,6 +2,7 @@ package gitgraph
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,11 +33,17 @@ type ChangeStat struct {
 }
 
 // StatusInfo is the working tree with its counts and the branch facts a
-// header can show. Top is "" when dir is not inside a repository.
+// header can show: the branch (or the short HEAD when Detached), the linked
+// worktree name, the upstream and how far the branch is ahead of and behind
+// it. Top is "" when dir is not inside a repository.
 type StatusInfo struct {
 	Top      string
 	Branch   string
+	Detached bool
 	Worktree string
+	Upstream string
+	Ahead    int
+	Behind   int
 	Changes  []ChangeStat
 }
 
@@ -94,6 +101,20 @@ func StatusWithStats(dir string) StatusInfo {
 	info.Branch = git(dir, "branch", "--show-current")
 	if info.Branch == "" {
 		info.Branch = git(dir, "rev-parse", "--short", "HEAD")
+		info.Detached = info.Branch != ""
+	}
+	// Ahead/behind come from the branch's own upstream: left of the
+	// symmetric difference is what the upstream has that HEAD lacks (behind),
+	// right is what HEAD has that the upstream lacks (ahead). No upstream —
+	// a branch never pushed, or a detached HEAD — leaves both at zero and
+	// Upstream empty, which the rail shows as "unpublished".
+	if !info.Detached && info.Branch != "" {
+		if up := git(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"); up != "" && up != "@{upstream}" {
+			info.Upstream = up
+			if counts := git(dir, "rev-list", "--left-right", "--count", "@{upstream}...HEAD"); counts != "" {
+				fmt.Sscanf(counts, "%d\t%d", &info.Behind, &info.Ahead)
+			}
+		}
 	}
 	if gitDir := git(dir, "rev-parse", "--git-dir"); strings.Contains(filepath.ToSlash(gitDir), "/worktrees/") {
 		info.Worktree = filepath.Base(gitDir)
