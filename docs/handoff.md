@@ -338,6 +338,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+- **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
+  commits: everything since the last push — checklists terminal+disclosure,
+  Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,
+  deploy guards and docs). origin/main == local main, no divergence; only
+  tag remains `v0.1.0`.
 - **2026-09-06 — Checklist refinements + disclosure merged and deployed
   (`e2cdc61f`/`1af83f4d`, `0.1.0+1af83f4`).** Reconciled two mid-flight main
   moves (llama delivery 2, drop-sessions cleanup); conflicts kept both
