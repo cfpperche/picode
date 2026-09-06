@@ -5,13 +5,12 @@
 
 ## Current state (read this first)
 
-**Repository:** this feature branch includes main through `24e135ac` (merge
-`6a0c8c53`) and completes llama.cpp delivery 2 (ADR-0083). Models, Server and
+**Repository:** `main` includes llama.cpp delivery 2 (ADR-0083), merged as
+`70edb214` and deployed as `0.1.0+70edb21`. Models, Server and
 Activity work on desktop/mobile. Load, unload and download now create durable
 jobs, show per-file progress and recover observation after reconnect/restart
 without replaying a mutation. Cancellation is enabled only for verified b10809.
-Delivery 1 was deployed as `ac4ff1dd`; delivery 2 is validated locally and is
-not merged, pushed or deployed. Deliveries 3 and 4 remain planned in the
+Delivery 1 was deployed as `ac4ff1dd`; delivery 2 is live. Deliveries 3 and 4 remain planned in the
 [four-delivery plan](plans/llama-manager.md). Other sessions' root work is
 preserved; production deployment information below is inherited history.
 
@@ -28,7 +27,7 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `139ab1ba` (tab strip phases 2–4 merged
+**Last application deployment:** `70edb214` (llama delivery 2 merged
 with the checklists tree) via `make deploy` from the root checkout; systemd
 active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
 six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
