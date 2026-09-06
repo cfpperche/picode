@@ -21,6 +21,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Inspector PR tab** (ADR-0078, phase 2). The rail's third tab shows the
+  branch's pull request through the GitHub CLI already logged in on the
+  machine: number, title, Open/Draft/Merged/Closed, review decision, checks
+  (passed, failed, pending, with the failing names), `+N −M`, files, author,
+  and an "Open on GitHub" link; the tab reads `PR #3981` once known. "No pull
+  request" and "not logged in" offer one action that pre-types
+  `gh pr create --fill` or `gh auth login` into your terminal for you to
+  submit — PiCode never stores a GitHub token and never creates a PR itself.
+  Answers are cached for a minute; Refresh asks again; nothing polls GitHub.
+  New routes: `GET …/pr` for agents, terminals and workspaces, and
+  `POST /api/terminals/{id}/type` (literal keystrokes, never Enter).
+
 - `packages/pi-diff` (ADR-0077): a side diff panel for the pi TUI. `/diff`
   opens a right-hand overlay with every file changed against `HEAD` and the
   numbered hunks of the file the agent touched last, refreshed after each

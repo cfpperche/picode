@@ -12,10 +12,11 @@ import { formatChord, primaryChord } from "../lib/appKeys.js";
 import { useEdgeResize } from "../lib/resizeEdge.js";
 import {
   INSPECTOR_MIN, blockedMessage, changeTotals, defaultOpen, describeAnchor,
-  inspectorLayout, maxInspectorWidth, normalizeTouched, scopeChanges,
+  inspectorLayout, maxInspectorWidth, normalizeTouched, prTabLabel, scopeChanges,
 } from "../lib/inspector.js";
 import InspectorChanges from "./InspectorChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
+import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
 import { IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
@@ -79,7 +80,7 @@ function AnchorFace({ info }) {
 export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
   tab, onTab, width, maxWidth, onWidth, onToggle, activePath,
-  onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onChanges,
+  onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
 }) {
   const anchorKind = anchor ? anchor.kind : "";
   const anchorId = anchor ? anchor.id : "";
@@ -95,6 +96,7 @@ export default function Inspector({
   const [busy, setBusy] = useState(false);
   const [scope, setScope] = useState("all");
   const [liveWidth, setLiveWidth] = useState(null);
+  const [nonce, setNonce] = useState(0);
   const rootRef = useRef("");
   const lifetimeRef = useRef(0);
   const busyRef = useRef(false);
@@ -280,6 +282,9 @@ export default function Inspector({
     onCommit: (next) => { setLiveWidth(null); if (onWidth) onWidth(next); },
   });
 
+  // The PR read is eager once the folder is a repository, so the tab can
+  // carry the number; it stays cached server-side and never polls.
+  const pull = usePullRequest({ owner, root, branch: status.branch, enabled: !!status.git && !hidden, nonce });
   const changes = status.git ? status.changes : [];
   const scopable = anchorKind === "agent" && Array.isArray(touchedPaths);
   const touched = scopable && scope === "agent" ? normalizeTouched(touchedPaths, root) : null;
@@ -288,16 +293,19 @@ export default function Inspector({
   const kinds = useMemo(() => changeKinds(changes), [changes]);
   const dirtyDirs = useMemo(() => changedDirs(changes), [changes]);
   const rows = useMemo(() => flattenTree(levels || {}, expanded), [levels, expanded]);
-  const panel = status.git && tab === "changes" ? "changes" : "files";
+  const panel = status.git && (tab === "changes" || tab === "pr") ? tab : "files";
+  const order = status.git ? ["changes", "files", "pr"] : ["files"];
   const name = info ? info.name : "Inspector";
   const shownPath = root || (info && info.path) || "";
   const shownWidth = liveWidth == null ? width : liveWidth;
   const chord = formatChord(primaryChord("app.inspector.toggle"));
-  const refresh = () => loadRef.current(true);
+  const refresh = () => { setNonce((n) => n + 1); return loadRef.current(true); };
   function onTabKey(e) {
-    if (!status.git || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    if (order.length < 2 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
-    const next = e.key === "Home" ? "changes" : e.key === "End" ? "files" : panel === "files" ? "changes" : "files";
+    const at = Math.max(0, order.indexOf(panel));
+    const next = e.key === "Home" ? order[0] : e.key === "End" ? order[order.length - 1]
+      : order[(at + (e.key === "ArrowRight" ? 1 : order.length - 1)) % order.length];
     onTab(next);
     e.currentTarget.querySelector(`[data-panel="${next}"]`)?.focus();
   }
@@ -353,6 +361,9 @@ export default function Inspector({
               </button>
             ) : null}
             <button type="button" role="tab" className="ft-tab" data-panel="files" tabIndex={panel === "files" ? 0 : -1} aria-selected={panel === "files"} onClick={() => onTab("files")}>Files</button>
+            {status.git ? (
+              <button type="button" role="tab" className="ft-tab" data-panel="pr" tabIndex={panel === "pr" ? 0 : -1} aria-selected={panel === "pr"} onClick={() => onTab("pr")}>{prTabLabel(pull.page)}</button>
+            ) : null}
           </nav>
           {status.git && status.branch ? (
             <span className="insp-branch" title={status.worktree ? `Branch ${status.branch} in worktree ${status.worktree}` : `Branch ${status.branch}`}>
@@ -386,6 +397,12 @@ export default function Inspector({
               {Array.from({ length: 10 }, (_, i) => <div key={i} className="skel-line" style={{ width: 30 + ((i * 19) % 50) + "%" }} />)}
             </div>
           )
+        ) : panel === "pr" ? (
+          <InspectorPR
+            page={pull.page} error={pull.error} busy={pull.busy} branch={status.branch}
+            onRetry={() => setNonce((n) => n + 1)}
+            onTerminal={onOpenTerminal ? (command) => onOpenTerminal(owner, root, command) : undefined}
+          />
         ) : panel === "changes" ? (
           <InspectorChanges
             changes={scoped} totals={totals} scope={scope} onScope={setScope} scopable={scopable}

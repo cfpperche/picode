@@ -7,6 +7,7 @@ import {
   groupChanges, changeTotals, scopeChanges, normalizeTouched,
   compactCount, totalsLabel, filterRows, blockedMessage,
   readInspectorPrefs, writeInspectorPrefs,
+  prTabLabel, prStateLabel, prChecksLabel, prReviewLabel, prBlockedAction,
 } from "./inspector.js";
 import { flattenTree } from "./fileTree.js";
 
@@ -172,4 +173,34 @@ test("inspector prefs round-trip through storage with safe defaults", () => {
   assert.deepEqual(readInspectorPrefs(broken), { open: null, width: INSPECTOR_DEFAULT, tab: "changes" });
   assert.doesNotThrow(() => writeInspectorPrefs({ open: true }, broken));
   assert.deepEqual(readInspectorPrefs(null), { open: null, width: INSPECTOR_DEFAULT, tab: "changes" });
+});
+
+test("pull request labels read like a person, not a payload", () => {
+  assert.equal(prTabLabel(null), "PR");
+  assert.equal(prTabLabel({ status: "none" }), "PR");
+  assert.equal(prTabLabel({ status: "ok", pr: { number: 3981 } }), "PR #3981");
+  assert.equal(prStateLabel({ state: "open", draft: false }), "Open");
+  assert.equal(prStateLabel({ state: "open", draft: true }), "Draft");
+  assert.equal(prStateLabel({ state: "merged" }), "Merged");
+  assert.equal(prStateLabel({ state: "closed" }), "Closed");
+  assert.equal(prStateLabel(null), "");
+  assert.equal(prChecksLabel({ total: 5, passed: 2, failed: 1, pending: 1, skipped: 1 }), "1 failed · 1 pending · 2 passed · 1 skipped");
+  assert.equal(prChecksLabel({ total: 3, passed: 3 }), "3 passed");
+  assert.equal(prChecksLabel({ total: 0 }), "No checks");
+  assert.equal(prChecksLabel(null), "No checks");
+  assert.equal(prReviewLabel("APPROVED"), "Approved");
+  assert.equal(prReviewLabel("CHANGES_REQUESTED"), "Changes requested");
+  assert.equal(prReviewLabel("REVIEW_REQUIRED"), "Review required");
+  assert.equal(prReviewLabel(""), "No review yet");
+  assert.equal(prBlockedAction("gh-missing"), "install");
+  assert.equal(prBlockedAction("gh-unauth"), "login");
+  assert.equal(prBlockedAction("no-remote"), "");
+  assert.equal(prBlockedAction("gh-error"), "retry");
+});
+
+test("inspector prefs accept the pr tab", () => {
+  const mem = new Map();
+  const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
+  writeInspectorPrefs({ tab: "pr" }, storage);
+  assert.equal(readInspectorPrefs(storage).tab, "pr");
 });
