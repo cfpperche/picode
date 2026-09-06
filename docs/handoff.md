@@ -31,7 +31,19 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `08e9ee62`, version `0.1.0+08e9ee6`, via
+**Last application deployment:** `f4ea75eb`, version `0.1.0+f4ea75e`, via
+`make deploy` from the root checkout (identity-favicon refactor, merged
+from `feat/favicon-refactor` as `020804f8`; worktree and branch removed).
+Agent and terminal identity favicons now wear the workspace favicon's
+treatment — 16px box, 3px radius, natural image shape, no forced circular
+crop — across sidebar identity marks, the collapsed face strip, editor-tab
+faces and terminal CLI badges (boxed fallbacks 22→16px, `ws-meta` indent
+31→23px). `make ci` required a `make docs-shots` refresh (desktop fleet +
+inspector screenshots re-taken, `f4ea75eb`). Verified live: health `ok`,
+systemd active, tab face and six row faces computed 16×16/3px, screenshots
+read (light and dark), `overlayAudit` ok. visual-review: PASS.
+
+Previous deployment: `08e9ee62`, version `0.1.0+08e9ee6`, via
 `make deploy` from the root checkout (checklist compact-view alignment,
 owner refinement — no ADR, see `docs/plans/sidebar-checklist-expand.md`
 addendum). Health `ok`, systemd active. Verified live: the served CSS
@@ -179,16 +191,6 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 `.pi/settings.json`, so project agents load it on their next start.
 
 ## In flight
-
-- **Favicon refactor** (`feat/favicon-refactor`, worktree
-  `.worktrees/favicon-refactor`): agent and terminal identity favicons now
-  wear the workspace favicon's exact treatment — 16px box, 3px radius,
-  natural image shape (no `border-radius: 50%` crop) — across sidebar
-  identity marks, the collapsed face strip, editor-tab faces and terminal
-  CLI badges (boxed fallbacks 22→16px, `.ws-meta` indent 31→23px to match).
-  Browser-QA'd on an isolated daemon: computed 16×16/3px on the tab IMG,
-  row IMG and badge SPAN; collapsed-cluster overlap preserved; screenshots
-  read; overlay audit ok. Merge and deploy remain.
 
 - Checklist refinements + disclosure are **merged and deployed**
   (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
