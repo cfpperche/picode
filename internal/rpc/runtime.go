@@ -85,7 +85,8 @@ type ManagedAgent struct {
 	deliveryPaths []string      // exact selected JSONL plus private dir for fresh sessions
 	onState       func(agentID string, streaming, waiting bool, dialog *UIDialog)
 	onUsage       func(agentID string, u Usage)
-	cost          float64 // sum of usage.cost.total over assistant message_end events
+	cost          float64       // sum of usage.cost.total over assistant message_end events
+	capture       *captureState // live browser-capture bridge (ADR-0080)
 }
 
 // RunObserver is set by an owner that files its own Inbox items for the
@@ -304,6 +305,7 @@ func (r *Runtime) start(agentID, path string, drain bool) (*ManagedAgent, error)
 		done:          make(chan struct{}),
 		settledCh:     closedChan(), // settled until a prompt is accepted
 		deliveryPaths: deliveryPaths,
+		capture:       newCaptureState(),
 	}
 
 	r.mu.Lock()
@@ -507,6 +509,7 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 			}
 		case "agent_settled":
 			ma.markSettled()
+			ma.refreshCaptureSessionFile()
 			ma.announceState()
 			if o := ma.runObserver(); o != nil {
 				if o.OnSettled != nil {
@@ -520,12 +523,33 @@ func (ma *ManagedAgent) pumpEvents(ready chan<- struct{}) {
 			}
 		case "extension_ui_request":
 			ma.noteUIRequest(ev)
+		case "tool_execution_start", "tool_execution_end":
+			if ev.EventType() == "tool_execution_start" {
+				var head struct {
+					ToolName string `json:"toolName"`
+				}
+				_ = json.Unmarshal(ev, &head)
+				if head.ToolName == "agent_browser" {
+					var id struct {
+						ToolCallID string `json:"toolCallId"`
+					}
+					_ = json.Unmarshal(ev, &id)
+					ma.startCaptureWatch(id.ToolCallID)
+				}
+			} else {
+				var id struct {
+					ToolCallID string `json:"toolCallId"`
+				}
+				_ = json.Unmarshal(ev, &id)
+				ma.markCaptureEnd(id.ToolCallID)
+			}
 		}
 		// Envelope for WS consumers: {"agentId":..., "event":{...}}
 		env, _ := json.Marshal(map[string]any{"agentId": ma.AgentID, "event": json.RawMessage(toolpreview.Event(ev))})
 		ma.hub.Broadcast(env)
 	})
 	close(ready)
+	ma.refreshCaptureSessionFile() // prime the capture bridge while idle (ADR-0080)
 	<-ma.client.Done()
 	unsub()
 

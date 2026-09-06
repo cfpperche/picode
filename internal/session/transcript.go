@@ -80,6 +80,7 @@ func transcriptAll(path string) ([]Event, int, error) {
 
 	var out []Event
 	pending := map[string]int{}
+	finals := map[string]map[string]any{} // toolCallId → sidecar final frame (ADR-0080)
 	boundary := 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -90,6 +91,14 @@ func transcriptAll(path string) ([]Event, int, error) {
 		}
 		var raw map[string]any
 		if json.Unmarshal(line, &raw) != nil {
+			continue
+		}
+		if raw["type"] == "custom" && raw["customType"] == "browser-capture-final" {
+			if data, ok := raw["data"].(map[string]any); ok {
+				if id, _ := data["toolCallId"].(string); id != "" {
+					finals[id] = data
+				}
+			}
 			continue
 		}
 		ts := entryTS(raw)
@@ -123,6 +132,34 @@ func transcriptAll(path string) ([]Event, int, error) {
 		case "toolResult":
 			out = applyToolResult(out, msg, pending)
 		}
+	}
+	// Sidecar final frames (ADR-0080): attach the persisted capture to its
+	// tool event when the tool result carries none. Entries may precede or
+	// follow their result row, so this runs after the scan.
+	for i := range out {
+		if out[i].Kind != "tool" {
+			continue
+		}
+		final, ok := finals[out[i].ID]
+		if !ok {
+			continue
+		}
+		res := out[i].Result
+		if res == nil {
+			res = map[string]any{}
+		}
+		if _, exists := res["preview"]; exists {
+			continue
+		}
+		bounded := toolpreview.Details(map[string]any{"preview": map[string]any{
+			"image": final["image"], "url": final["url"], "title": final["title"], "ts": final["ts"],
+		}})
+		p, ok := bounded["preview"].(map[string]any)
+		if !ok || p["image"] == nil {
+			continue // an unusable persisted frame is dropped, not an unavailable card
+		}
+		res["preview"] = p
+		out[i].Result = res
 	}
 	return out, boundary, sc.Err()
 }

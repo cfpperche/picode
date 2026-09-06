@@ -886,8 +886,14 @@ drop events. Emitter limits and integration acceptance remain required.
 
 The built-in renderer is tool-agnostic; capture emission must be explicitly
 enabled in a package loaded by the agent, globally or at workspace/agent scope.
-The installed browser package does not yet emit this shape. Its real emitter,
-the panel and streaming are tracked in the [delivery plan](plans/browser-preview.md).
+Emission is moving to `packages/pi-browser-capture`, a standalone sidecar
+extension (ADR-0080): it mirrors bounded frames to
+`<pi-session-file>.capture/` during `agent_browser` calls and persists the
+final frame as a session entry, instead of patching pi-agent-browser-native.
+Real-RPC proof, the daemon capture-directory bridge and live/replay UI
+rendering (desktop + mobile) all passed against an unpatched 0.6.6 checkout.
+The superseded in-package patch and the panel are tracked in the
+[delivery plan](plans/browser-preview.md).
 Pi owns raw session persistence; host validation cannot remove pixels already
 written there or bound the raw RPC input before decoding.
 

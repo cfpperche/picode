@@ -1,0 +1,28 @@
+{
+  "name": "pi-browser-capture",
+  "version": "0.1.0",
+  "description": "Standalone pi extension: opt-in live browser frames while any agent_browser tool runs — no patch to pi-agent-browser-native (ADR-0080).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "browser-capture"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/capture.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-browser-capture"
+  }
+}

@@ -18,6 +18,10 @@ classified, canceled loads do not run and failed operations do not report
 success. The [four-delivery plan](plans/llama-manager.md) records deliveries
 2–4 as future work. Managed agents remain Pi-only; coding CLIs are terminals.
 No push was made.
+Browser capture now has a proven no-patch path (ADR-0082,
+`packages/pi-browser-capture` + daemon bridge): real-model RPC, live/replay
+rendering on desktop and mobile, against an unpatched upstream 0.6.6
+checkout. Deployment keeps emission default-off (consent-gated).
 
 Managed-stop fix debts (living):
 
@@ -149,22 +153,23 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
-  branch removed. The study's adoption list is complete; its debts sit
-  under Next up.
-- Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
-  `0.1.0+d1f1e9f`). Full stack: publish target fallback
-  (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
-  store + `terminal.checklist` events + `/api/terminals/{id}/checklist`,
-  view fold in `liveTermView`, sidebar card line and terminal-pane strip,
-  pi-checklist 0.2.0. Verified on an isolated QA daemon: present/
-  live-update/absent/reset states and reload persistence. Open acceptance:
-  a real pi process publishing through the extension in a live terminal (the
-  POST contract is covered by Go tests; a terminal pi linked to this repo
-  picks the new extension up on its next start — running pi processes keep
-  the old extension until restarted), light-theme screenshot of the strip,
-  mobile TermRow (server embeds `checklist` in terminal views —
-  deliberate desktop-first scope).
+- **Browser capture sidecar (ADR-0080, branch `feat/browser-capture-sidecar`).**
+  Phases A and B passed: the sidecar extension, the daemon capture-directory
+  bridge (`capture_frame` over the agent WS, frames re-validated before
+  fan-out) and desktop/mobile live + replay rendering all verified against an
+  unpatched 0.6.6 checkout with a real model. Phase C — removing the
+  superseded pinned patch — is authorized and done on this branch's base.
+
+- `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
+  running instance predates the fix (see Current state). Mobile keeps no
+  worktree concept in its Changes screen, so nothing to ship there.
+- **Browser capture sidecar (ADR-0082) merged this merge:** the sidecar
+  extension, the daemon capture-directory bridge (`capture_frame` on the
+  agent WS, frames re-validated before fan-out) and desktop/mobile live +
+  replay rendering verified against an unpatched 0.6.6 checkout with a real
+  model. Deployment keeps emission consent-gated and default-off. Open
+  acceptance: slow-consumer/cancellation matrix, desktop reconnect and
+  same-agent session replacement (`docs/plans/browser-preview.md`).
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
@@ -252,11 +257,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   require delivery 4's concrete follow-up ADR. No llama service lifecycle or
   model-file deletion is introduced in delivery 1.
 
-- **Capture integration: FAIL/deferred.** No real emitter-to-RPC run or measured
-  slow-consumer/cancellation matrix. The hub drops on overflow and caches no
-  missed partials. Desktop reconnect and same-agent session replacement during
-  a pending session-changing API need dedicated acceptance; mobile reconnect
-  and selection switching passed with fixtures. See `docs/plans/browser-preview.md`.
+- **Capture integration: sidecar live/replay passed (ADR-0082).** No measured
+  slow-consumer/cancellation matrix yet (frames are latest-wins and dropped on
+  overflow by design). Desktop reconnect and same-agent session replacement
+  during a pending session-changing API need dedicated acceptance; mobile
+  reconnect and selection switching passed with fixtures. See
+  `docs/plans/browser-preview.md`.
 
 - Webhook delivery is at-least-once within event retention, not an unlimited
   archive. Receivers must handle duplicate IDs; arbitrary receiver response
@@ -311,6 +317,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   0081); combined `make ci` green on the reconciled tree. Deploy verified:
   health ok, 9 terminals survived, `POST /api/terminals/nope/checklist` 404s
   live. No push.
+
+- **2026-09-06 — Browser capture without patches (ADR-0082).** Owner asked
+  for a no-patch path; `packages/pi-browser-capture` observes `agent_browser`
+  lifecycle, re-derives the upstream session rendezvous (push `?maxFps=1` —
+  URL ack pacing deadlocks a pre-browser attach), mirrors bounded frames
+  beside the session and persists the final frame. Phase B: the daemon
+  watches the capture dir while `agent_browser` runs and broadcasts
+  `capture_frame` on the agent WS; desktop/mobile pills render live frames
+  (newest seq wins, final survives the end event) and replay reads the
+  persisted final entries. Real-model proof: 17 intra-call frames, final
+  marker 10 ms after end, kill switch verified, no in-tool leakage; live +
+  replay screenshots read (`capture-sidecar-*.png`); audits ok; `make ci`
+  green. The superseded emitter patch branch was removed (recoverable at
+  `c8f4d70d`).
 
 - **2026-09-06 — Tab strip phase 4: label cap.** `.mtab-label` at 200 px
   with ellipsis, tooltip "name — CLI/path", and `.mtab { flex: none }`
