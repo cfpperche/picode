@@ -131,6 +131,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- `feat/tab-strip-scroll` awaits merge to main and `make deploy`. Phase 1
+  of the tab-strip study (`docs/benchmarks/2026-09-06-tab-strip-overflow.md`,
+  approved by the owner with the 3 px overlay indicator and `Alt+[` /
+  `Alt+]`): the strip hides its layout scrollbar and reveals the active
+  tab by code (`lib/tabStrip.js`). Phases 2–4 (wheel, edge fades, arrows,
+  indicator, all-tabs list, keys, label cap) are listed under Next up.
 - `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
   collapsed workspace header's face strip now includes terminals after
   managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
@@ -173,7 +179,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
+1. **Tab strip phases 2–4** (study `2026-09-06-tab-strip-overflow.md`,
+   owner-approved): wheel → horizontal by dominant axis; `data-overflow` /
+   `data-at-start` / `data-at-end` from one ResizeObserver + scroll
+   listener driving edge fades and `‹ ›` arrows; 3 px non-interactive
+   overlay indicator (hover/scroll, fades after 500 ms); "All tabs" list
+   in `.main-tabs-end` with status dots, hidden tabs first, and a
+   needs-you dot on the arrow of an off-screen tab; `Alt+[` / `Alt+]`
+   plus `role=tablist` arrow-key focus; label `max-width` with ellipsis.
+   Separate follow-up: the global `* { scrollbar-width: thin }` makes
+   Chromium ignore every `::-webkit-scrollbar` rule in the app
+   (`agent-clis.css` and `.dlg-sheet` already carry per-view overrides).
+2. **Sessions phase 2 debts**: codex machine-wide scan reads every rollout
    (~6 s on 907 files; per-source mtime cache if it bothers anyone); codex
    preview skips injected instruction blocks by a narrow heuristic
    (`# `/`<` prefixes). Decide whether `/api/sessions/all` and
@@ -244,6 +261,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Tab strip phase 1: no scrollbar, active tab revealed.**
+  Measured on the live instance with seven tabs: the strip's classic
+  scrollbar took 10 of 39 px (Windows drew arrow buttons because
+  `scrollbar-width: thin` disables the webkit rules in Chromium ≥ 121),
+  the active tab sat at 1151 px in a 995 px viewport, wheel did nothing.
+  Study written with receipts (VS Code, Zed, JetBrains, Sublime, Firefox,
+  Chrome, MUI, Ant, Radix, Mantine, NN/g). Shipped: `.tab-strip`
+  `scrollbar-width: none` + smooth `scroll-behavior` (reduced-motion
+  aware, `overscroll-behavior-x: contain`), `revealLeft` in
+  `lib/tabStrip.js` (6 tests) applied from a layout effect in
+  `AgentTabs` on selection/open (instant on first paint). Verified on the
+  worktree's Vite build against the live server: gutter 0, tab 39 px,
+  active tab gap 0 on either clipped side. visual-review: PASS
+  (tabs-after.png read; no overlay in this change; card 5/5).
 - **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
   with only terminals (shell / agent CLI) collapsed to "— empty"; the
   strip now renders terminals after managed agents — CLI favicons
