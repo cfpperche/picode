@@ -316,6 +316,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-06 — Real-resume acceptance for CLI sessions (ADR-0079,
+  owner-confirmed).** **Open in terminal** on a real session reopens the
+  conversation in the CLI — closing the last owner-dependent item of the
+  sessions section. Details in `docs/handoff-archive.md` (sessions
+  entries) and the review-debts note in Known debts below.
 - **2026-09-06 — Tab strip debts merged and deployed (`acf68b3a`).**
   Fast-forwarded main after the root checkout cleared another session's
   browser-capture-sidecar merge (waited rather than touching a dirty
