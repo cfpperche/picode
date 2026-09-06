@@ -37,9 +37,9 @@
 
 ## Next up
 
-1. Run `make timers` on the owner's machine and watch the first batch
-   deploy (`journalctl --user -u picode-deploy`); the first batch talks to a
-   daemon without the readiness route and deploys unguarded, later ones refuse.
+1. Watch the first batch deploy (timers installed 2026-09-06 19:20; next
+   23:00; `journalctl --user -u picode-deploy`): it talks to a daemon
+   without the readiness route and deploys unguarded; later ones refuse.
 2. Renumber the duplicate ADR-0082 (browser-capture-sidecar vs
    absent-checklist-renders-silence) and fix the index.
 3. llama delivery 3 live validation; delivery 4 needs a service-ownership /
