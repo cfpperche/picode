@@ -16,8 +16,7 @@ worktree-aware Git Graph (0073), independent web apps (0072), Windows task
 reliability (0071), Agent CLIs v2 and Docker v3. Managed agents remain
 Pi-only; coding CLIs are terminals. Sessions moved under Agent CLIs
 (ADR-0079, this branch): `#/clis/sessions(/<wsId>)` replaced `#/sessions*`.
-No push was made. Preserve the
-unrelated root `.pi/compact.json`. The capture ADR was renumbered because
+No push was made. The capture ADR was renumbered because
 Integrations took 0075; the opt-in native emitter and real end-to-end
 capture acceptance remain pending, so deployment does not enable browser
 capture emission.
@@ -34,7 +33,6 @@ Managed-stop fix debts (living):
 HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), independent
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
-Preserve the unrelated root `.pi/compact.json`.
 
 **Last application deployment:** `0.1.0+17246488`, health `200`. `make
 deploy` restarted systemd with the sessions phase-2 merge; the live API
@@ -112,9 +110,10 @@ QA browser sessions are closed; the feature worktree and branch are removed.
 
 ### Compaction policy (`pi-compact`, ADR-0061)
 
-Deployed and dormant without configuration. The root `.pi/compact.json` belongs
-to other work and was not evaluated. Real-compaction acceptance must still prove
-`fromHook: true`, gemini-3.6-flash pricing and no aborted turns.
+Deployed. The workspace `.pi/compact.json` is now committed (`a2cbad66`):
+glm-5.3-flash, half the window, thinking off, no fallback. Real-compaction
+acceptance with that config must still prove `fromHook: true`, its pricing and
+no aborted turns.
 
 ### Diff panel (`pi-diff`, ADR-0077)
 

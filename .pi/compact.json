@@ -1,0 +1,7 @@
+{
+  "atTokens": null,
+  "atPercent": 0.5,
+  "model": "zai/glm-5.3-flash",
+  "fallback": [],
+  "thinking": "off"
+}
