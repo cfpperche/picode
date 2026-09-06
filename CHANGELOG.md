@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp service ownership design** (ADR-0084): the upcoming lifecycle
+  controls are scoped to explicitly owned local profiles; external routers
+  remain read-only for service and cache management.
+
 - **Contextual llama.cpp model guidance**: GGUF choices show file size,
   estimated runtime memory and a hardware-oriented starting recommendation.
 
