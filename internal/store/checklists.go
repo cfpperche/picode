@@ -159,6 +159,91 @@ func scanChecklist(row interface{ Scan(...any) error }) (Checklist, error) {
 	return c, nil
 }
 
+// TerminalChecklist is the latest list a pi inside a PiCode terminal
+// published (ADR-0055 extended to Agent CLI terminals): the extension
+// posts under PICODE_TERM_ID, and the terminal's card shows the same line
+// an agent's card does. Shape and vocabulary match Checklist.
+type TerminalChecklist struct {
+	TerminalID string          `json:"termId"`
+	SessionID  string          `json:"sessionId,omitempty"`
+	Items      []ChecklistItem `json:"items"`
+	Absent     bool            `json:"absent"`
+	UpdatedAt  string          `json:"updatedAt"`
+}
+
+// SetTerminalChecklist replaces a terminal's checklist and announces
+// terminal.checklist. The terminal must exist — the extension can only
+// publish from a live PiCode terminal.
+func (s *Store) SetTerminalChecklist(termID, sessionID string, items []ChecklistItem, absent bool) (TerminalChecklist, error) {
+	if _, err := s.GetTerminal(termID); err != nil {
+		return TerminalChecklist{}, err
+	}
+	items, err := ValidateChecklistItems(items)
+	if err != nil {
+		return TerminalChecklist{}, err
+	}
+	raw, _ := json.Marshal(items)
+	c := TerminalChecklist{TerminalID: termID, SessionID: strings.TrimSpace(sessionID), Items: items, Absent: absent, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	ab := 0
+	if absent {
+		ab = 1
+	}
+	_, err = s.db.Exec(`INSERT INTO terminal_checklists (terminal_id, session_id, items, absent, updated_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(terminal_id) DO UPDATE SET session_id=excluded.session_id, items=excluded.items, absent=excluded.absent, updated_at=excluded.updated_at`,
+		c.TerminalID, c.SessionID, string(raw), ab, c.UpdatedAt)
+	if err != nil {
+		return TerminalChecklist{}, fmt.Errorf("store: set terminal checklist: %w", err)
+	}
+	s.note("terminal.checklist", nil, nil, c)
+	return c, nil
+}
+
+func scanTerminalChecklist(row interface{ Scan(...any) error }) (TerminalChecklist, error) {
+	var c TerminalChecklist
+	var raw string
+	var ab int
+	if err := row.Scan(&c.TerminalID, &c.SessionID, &raw, &ab, &c.UpdatedAt); err != nil {
+		return TerminalChecklist{}, err
+	}
+	c.Absent = ab != 0
+	c.Items = []ChecklistItem{}
+	_ = json.Unmarshal([]byte(raw), &c.Items)
+	if c.Items == nil {
+		c.Items = []ChecklistItem{}
+	}
+	return c, nil
+}
+
+const terminalChecklistCols = `terminal_id, session_id, items, absent, updated_at`
+
+// GetTerminalChecklist returns the terminal's latest checklist; ErrNotFound when none.
+func (s *Store) GetTerminalChecklist(termID string) (TerminalChecklist, error) {
+	c, err := scanTerminalChecklist(s.db.QueryRow(`SELECT `+terminalChecklistCols+` FROM terminal_checklists WHERE terminal_id = ?`, termID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return TerminalChecklist{}, ErrNotFound
+	}
+	if err != nil {
+		return TerminalChecklist{}, fmt.Errorf("store: get terminal checklist: %w", err)
+	}
+	return c, nil
+}
+
+// ClearTerminalChecklist drops the terminal's row and announces the empty
+// state, so shells drop their line until the next real list arrives. Used
+// by the reset marker (a fresh session must not show the old task) and
+// idempotent like its agent-side sibling.
+func (s *Store) ClearTerminalChecklist(termID string) (TerminalChecklist, error) {
+	if _, err := s.GetTerminal(termID); err != nil {
+		return TerminalChecklist{}, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM terminal_checklists WHERE terminal_id = ?`, termID); err != nil {
+		return TerminalChecklist{}, fmt.Errorf("store: clear terminal checklist: %w", err)
+	}
+	c := TerminalChecklist{TerminalID: termID, Items: []ChecklistItem{}, Absent: false}
+	s.note("terminal.checklist", nil, nil, c)
+	return c, nil
+}
+
 const checklistCols = `agent_id, session_id, items, absent, updated_at`
 
 // GetChecklist returns the agent's latest checklist; ErrNotFound when none.

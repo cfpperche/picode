@@ -18,7 +18,6 @@ import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
-	agentId,
 	buildPayload,
 	contractPrompt,
 	decideGate,
@@ -26,6 +25,7 @@ import {
 	GLYPH,
 	normalizeItems,
 	parseLevel,
+	publishTarget,
 	reconstruct,
 	rejectUnauthorizedFor,
 	REMINDER,
@@ -80,10 +80,16 @@ function postJSON(url: URL, body: string): Promise<number> {
 
 /** Best-effort, never awaited by the model's turn: PiCode absent is not an error here. */
 function publish(payload: Payload): void {
-	const id = agentId(process.env);
+	const target = publishTarget(process.env);
 	const base = serverUrl();
-	if (!id || !base) return;
-	postJSON(new URL(`${base}/api/agents/${encodeURIComponent(id)}/checklist`), JSON.stringify(payload)).catch(() => {});
+	if (!target || !base) return;
+	// Managed agents post under the agent; a pi inside a PiCode terminal
+	// (Agent CLIs, ADR-0069) posts under that terminal so its card can
+	// carry the same line.
+	const path = target.kind === "terminal"
+		? `/api/terminals/${encodeURIComponent(target.id)}/checklist`
+		: `/api/agents/${encodeURIComponent(target.id)}/checklist`;
+	postJSON(new URL(`${base}${path}`), JSON.stringify(payload)).catch(() => {});
 }
 
 export default function piChecklist(pi: ExtensionAPI) {

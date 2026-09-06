@@ -203,6 +203,24 @@ export function applyFleet(state, ev) {
         ),
       };
     }
+    case "terminal.checklist": {
+      // Durable: the pi inside this terminal published its plan (ADR-0055
+      // extended to Agent CLIs). Steps render as the current step; an absent
+      // marker renders "No checklist"; the reset/cleared empty state is
+      // silence — no line, the way agent cards behave.
+      if (!d.termId) return state;
+      const term = terminals.find((t) => t.id === d.termId);
+      if (!term) return state;
+      const has = Array.isArray(d.items) && d.items.length > 0;
+      return {
+        ...state,
+        terminals: terminals.map((t) =>
+          t.id === d.termId
+            ? { ...t, checklist: has || d.absent ? { items: d.items || [], absent: !!d.absent, updatedAt: d.updatedAt } : undefined }
+            : t,
+        ),
+      };
+    }
     case "git.updated": {
       // Ephemeral (id 0): one fleet-wide watcher Inspect per directory,
       // fanned out here. The git shape mirrors gitinfo.Info; a missing

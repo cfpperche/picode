@@ -13,6 +13,17 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Checklists in agent CLI terminal cards and panes** (ADR-0080, extends
+  ADR-0055). A pi running inside a PiCode terminal — Agent CLI or a manual
+  launch — now reports its internal checklist under the terminal, so the
+  terminal's sidebar card shows the same `(2/4) current step` line managed
+  agents show, and a one-line strip above the terminal pane mirrors it live.
+  New routes `POST/GET /api/terminals/{id}/checklist` (pi-checklist 0.2.0
+  publishes there when `PICODE_AGENT_ID` is absent), durable
+  `terminal.checklist` events, and a `terminal_checklists` store row that
+  dies with the terminal. Reset, absent and blocked semantics match the
+  agent-side behavior; no checklist published means no line, as before.
+
 - **Inspector Git actions** (ADR-0078). The rail's branch chip now shows how
   far the branch is from its upstream (`main ↑2 ↓1`, `unpublished`,
   `detached`), and a Git menu in the rail's header prepares Fetch, Pull, Push,
