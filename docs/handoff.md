@@ -5,7 +5,10 @@
 
 ## Current state (read this first)
 
-**Repository:** llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
+**Repository:** HEAD `139ab1ba` (deployed) completes the tab-strip study
+(`docs/benchmarks/2026-09-06-tab-strip-overflow.md`, phases 1–4: no
+scrollbar, arrows/fades/indicator/wheel, All-tabs list + `Alt+[`/`Alt+]` +
+tablist, 200 px label cap) on top of llama.cpp delivery 1 (`ac4ff1dd`, `0.1.0+ac4ff1d`, ADR-0080)
 and the **terminal checklists** work (`d1f1e9f9`, `0.1.0+d1f1e9f`, ADR-0081)
 are merged and deployed, on top of Inspector run-when-idle, terminal
 faces, tab-strip phase 1 and the unified CLI sessions endpoints. Dedicated
@@ -29,7 +32,17 @@ HEAD also includes File Tree v2 (0074), worktree-aware Git Graph (0073), indepen
 web apps (0072), Windows task reliability (0071), Agent CLIs v2 and Docker v3.
 Managed agents remain Pi-only; coding CLIs are terminals. No push was made.
 
-**Last application deployment:** `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
+**Last application deployment:** `139ab1ba` (tab strip phases 2–4 merged
+with the checklists tree) via `make deploy` from the root checkout; systemd
+active, `GET /api/terminals` 200 after restart. Verified live at 1000 px with
+six terminal tabs: strip gutter 0 and `scrollbar-width: none`, three
+overflow buttons (two arrows + All tabs), `mask-image` fades, indicator
+mounted, `role=tablist`, `Alt+]` cycled the selection, label `max-width`
+200 px, tabs `flex-shrink: 0`; the All tabs menu listed 6 items with the
+"Out of view" group inside the viewport, overlay audit ok, screenshot read
+(visual-review: PASS). The `/api/version` label was again not read from the
+browser session — the bundle is proven by behaviour the previous one lacked.
+Previous deploy `d1f1e9f9`, version `0.1.0+d1f1e9f`, via
 serialized `make deploy` from the validated worktree after fast-forwarding
 main (terminal checklists, ADR-0081). Health `ok`, systemd active. All 9
 pre-deploy terminal IDs survived the restart; `GET /api/terminals` answers
@@ -136,18 +149,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
-- `feat/tab-strip-phase2` (phases 2, 3 and 4 of the tab-strip study,
-  `docs/benchmarks/2026-09-06-tab-strip-overflow.md`) awaits merge to main
-  and `make deploy`. Phase 2: `lib/useTabStrip.js` (ResizeObserver over
-  strip + tabs, scroll and non-passive wheel listeners) drives `‹ ›`
-  arrows that exist only while tabs overflow, edge fades via `mask-image`,
-  a 3 px non-interactive indicator and vertical-wheel-to-horizontal.
-  Phase 3: "All tabs" Radix menu (out-of-view first), needs-you dot on
-  the arrow hiding such a tab, `Alt+[` / `Alt+]` in the app-keys catalog,
-  `wireTermKeys` passthrough for Global chords, tablist roles with manual
-  activation. Phase 4: `.mtab-label` capped at 200 px with ellipsis and a
-  "name — detail" tooltip, `.mtab { flex: none }`. Phase 1 is deployed as
-  `dcbaa316`; the study is complete once this branch ships.
+- Tab strip phases 2–4 are merged and deployed (`139ab1ba`); worktree and
+  branch removed. The study's adoption list is complete; its debts sit
+  under Next up.
 - Terminal checklists (ADR-0081) are merged and deployed (`d1f1e9f9`,
   `0.1.0+d1f1e9f`). Full stack: publish target fallback
   (`PICODE_AGENT_ID` wins, else `PICODE_TERM_ID`), `terminal_checklists`
