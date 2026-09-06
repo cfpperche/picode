@@ -82,3 +82,44 @@ step's text is not repeated inside the list.
 - Persisting open state across reloads.
 - Actions on steps (check/uncheck by hand) — the list is the agent's plan,
   not a shared todo; the agent owns it (ADR-0055 contract).
+
+## Addendum: compact-view alignment (2026-09-06, owner-approved)
+
+The owner flagged two defects in the shipped disclosure while reviewing
+screenshots of agents and terminals: the `(x/n)` counter's parentheses read
+as terminal vocabulary, not list UI, and the line sat flush at the card's
+left edge — out of the 31px text column every other sub-line (folder,
+branch) uses. A web-UX pass (VS Code's chat todo list, Cursor's Agents
+window, Linear/GitHub sub-issue counters, PatternFly's progress guidance)
+confirmed the fix: a fixed-width counter at the row's end, not a prefix.
+
+Shipped (desktop `WorkspaceRows.jsx` + `app.css`, mobile `AgentRow.jsx`):
+
+- No parens anywhere the counter appears (sidebar line, disclosure line,
+  terminal pane strip, mobile sub-line).
+- `.ws-check` and `.ws-check-disclosure` share `.ws-context`'s 31px margin,
+  so the plan line, its expanded list, and the folder/branch line all sit
+  in one column. The terminal pane strip (no identity-mark gutter) resets
+  the margin to flush width.
+- The disclosure's chevron reuses `.ws-chev` (the workspace group header's
+  own affordance) instead of introducing a new one.
+- `:focus-visible` on the disclosure button uses the row's own
+  `box-shadow` selection style, replacing an inset outline that read as a
+  text field.
+- A finished plan (`position === total`, every item completed) gets an
+  `is-done` class that dims it to the same weight as a completed step in
+  the expanded list, so it stops reading as live activity.
+- The plan line moved above the folder/branch line on both `AgentRow` and
+  `TermRow`, matching the identity → activity → location rhythm the mobile
+  row already used.
+- Mobile's sub-line reads `5/8 · text` instead of `(5/8) text`.
+
+Browser QA on an isolated scratch daemon (`.worktrees/checklist-compact-
+refine`, seeded via `POST /api/agents/{id}/checklist` and `POST /api/
+terminals/{id}/checklist` for an in-progress plan, a fully-completed plan,
+and a terminal plan): collapsed alignment, expand/collapse by click,
+real-keyboard Tab reaching the button with the accent focus ring, the
+`is-done` dimming on the completed plan, the terminal pane strip flush to
+the pane, and dark theme — all confirmed on desktop, and the mobile
+sub-line format on `/mobile/`. `overlayAudit` clean, no console errors.
+No server or domain change; `checklistRows`/`checklistLine` untouched.

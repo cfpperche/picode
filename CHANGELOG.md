@@ -32,6 +32,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Checklist compact-view alignment** (owner refinement, `docs/plans/
+  sidebar-checklist-expand.md`). The counter drops its parentheses (`5/8`,
+  not `(5/8)`) and moves to a fixed column at the row's end, the Linear/
+  GitHub sub-issue idiom, instead of prefixing the step text. The line and
+  its expanded list now sit in the same 31px text column as the card's
+  folder/branch line below it — previously flush left, out of the card's
+  grid. The disclosure line's focus ring matches the row's own selection
+  style (`box-shadow`) instead of a text-field-like inset outline. A
+  finished plan (every step completed) dims to the same weight as a
+  completed step, so it stops reading as open activity. The plan line
+  moves above the folder/branch line on agent and terminal cards, matching
+  identity → activity → location. Mobile's sub-line drops its parens too
+  (`5/8 · text`). No server or domain change.
+
 - **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter
   no longer wears the accent color — the operator line is one muted line.
   An **absent** checklist (the task required a plan and none was written)

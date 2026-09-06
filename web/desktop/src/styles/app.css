@@ -1630,9 +1630,10 @@ img.ws-face.term-cli-face {
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
 /* The plan line above the pane (ADR-0055, terminals). The sidebar's
-   .ws-check adapts to full width; the surface keeps the pane bg. */
+   .ws-check carries a 31px margin to align under the identity mark there;
+   the pane strip has no such column, so it resets to flush width. */
 .term-check { flex: none; padding: 2px 8px 6px; }
-.term-check .ws-check { padding-left: 0; }
+.term-check .ws-check { margin-left: 0; margin-right: 0; }
 :root[data-term-theme="light"] .term-check .ws-check { color: var(--text-secondary); }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 /* Same header UI as the file tree's .ft-head — one look across surfaces. */
@@ -2584,20 +2585,33 @@ img.ws-face.term-cli-face {
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
-/* The agent's checklist as one operator line (ADR-0055). */
-.ws-check { display: flex; align-items: baseline; gap: 5px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
-.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; }
-.ws-check-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The agent's checklist as one operator line (ADR-0055). Same 31px text
+   column as .ws-context below it (owner refinement,
+   docs/plans/sidebar-checklist-expand.md) — no more flush-left padding
+   that put it out of the card's grid. The counter is a fixed column at
+   the row's end, not a prefix (Linear/GitHub sub-issue idiom): the step
+   text is flex:1 with an ellipsis, so the counter always lands at the
+   right edge instead of trailing ragged text. */
+.ws-check { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 3px 31px 0; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 /* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
    a real button; opening reveals every step — ☑ dimmed, the braille spinner
-   on the one being executed, ☐ pending. Live over the feed, no fetch. */
-.ws-check-disclosure { min-width: 0; }
-button.ws-check-line { display: flex; align-items: baseline; gap: 5px; min-width: 0; width: calc(100% - 4px); font-size: 11.5px; color: var(--text-secondary); padding: 1px 2px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
-button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }
-button.ws-check-line:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+   on the one being executed, ☐ pending. Live over the feed, no fetch. The
+   chevron reuses .ws-chev (the workspace group header's own disclosure
+   affordance) so the same rotate-on-open language reads across the sidebar. */
+.ws-check-disclosure { margin: 3px 31px 0; min-width: 0; }
+button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
+button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
+button.ws-check-line:hover .ws-chev, button.ws-check-line:focus-visible .ws-chev { color: var(--text-primary); }
+button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+/* A finished plan (n/n, every step completed) drops to the same weight as a
+   completed step in the expanded list — it stops reading as live activity. */
+button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-check-pos { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
 .ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
-.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 2px 0 2px 16px; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 18px; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .ws-check-list li { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
 .ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
