@@ -137,9 +137,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 - `pi-diff` (ADR-0077): the owner chose project settings over a core flag —
   the workspace `.pi/settings.json` sets `tuiMode: fullscreen` (`3c447edf`),
   so every pi opened here starts fullscreen with the panel as a fixed column.
-  Still open: a first look at the panel inside a live PiCode terminal tab
-  (the dogfood so far ran in tmux), and an upstream ask for
-  `ctx.ui.setTuiMode` so the extension could switch modes itself.
+  Owner confirmed the panel works in a live PiCode terminal tab. Upstream ask
+  filed: earendil-works/pi#9238 (`ctx.ui.setTuiMode` + `getLayoutRoot()`);
+  new-contributor issues there are auto-closed until a maintainer reopens.
 
 - OAuth-provider acceptance, model-driven connector usage and first-class
   non-Pi agents are not certified by the public/no-auth DeepWiki protocol check.
