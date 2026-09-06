@@ -41,6 +41,10 @@ The manager has **Models**, **Server** and **Activity** pages on desktop and mob
 2. **Models → Download model** to download a GGUF, or drop files in `--models-dir` and restart the router.
 3. **Load**, then pick the model on the agent chip.
 
+Quantization choices show the source file size and a conservative runtime
+memory estimate. Guidance is a starting point; actual memory also depends on
+context length, runtime settings and other loaded models.
+
 | | pi TUI | PiCode |
 |---|---|---|
 | Login | URL + optional key | same |

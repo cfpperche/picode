@@ -200,9 +200,11 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Next up
 
-1. Integrate validated llama delivery 2 after reconciling current main, then
-   validate the deployed Activity route. Delivery 3 adds model guidance/readiness;
-   delivery 4 needs a concrete service-ownership/cache-deletion ADR.
+1. Complete llama delivery 3 model guidance/readiness: capture and read the
+   quantization guidance dialog on desktop and mobile, then run the full UI
+   visual review before merging. This branch currently shows file size,
+   conservative memory estimate and contextual guidance; Go and JS tests pass.
+   Delivery 4 needs a concrete service-ownership/cache-deletion ADR.
 
 1. **Tab strip debts** (study `2026-09-06-tab-strip-overflow.md`, all
    four phases shipped): the indicator covers
@@ -314,6 +316,12 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
+
+- **2026-09-06 — llama delivery 3 guidance slice started.** GGUF choices now
+  expose file size, conservative runtime memory estimate and contextual
+  hardware guidance; fixed Q4_K_M recommendation removed. Go tests and JSX
+  build pass. Visual review of the new quantization dialog is pending because
+  the isolated fixture flow did not reach the details state.
 
 - **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
   jobs, capability detection, file progress, cancellation and recovery with

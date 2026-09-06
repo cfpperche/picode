@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Contextual llama.cpp model guidance**: GGUF choices now show file size,
+  estimated runtime memory and a hardware-oriented starting recommendation.
+
 - **llama.cpp operation activity** (ADR-0083): load, unload and download now
   run as persistent jobs. Activity shows per-file progress, reconnect outcomes
   and supported download cancellation on desktop/mobile. Duplicate requests

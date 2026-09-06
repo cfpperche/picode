@@ -300,9 +300,10 @@ export default function LlamaPanel({ onRefresh }) {
                   <ul className="prov-list">
                     {info.quantizations.map((z) => (
                       <li key={z.name} className="prov-row">
-                        <span className="prov-id">{z.name}{z.name === "Q4_K_M" ? " · recommended" : ""}</span>
-                        <span className="prov-auth">{bytes(z.size)}</span>
+                        <span className="prov-id">{z.name}</span>
+                        <span className="prov-auth">{bytes(z.size)}{z.estimatedMemory ? " · ~" + bytes(z.estimatedMemory) + " memory" : ""}</span>
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => startDownload(z.name)}>Download</button>
+                        {z.guidance ? <small className="settings-desc llama-guidance">{z.guidance}</small> : null}
                       </li>
                     ))}
                   </ul>
