@@ -18,7 +18,7 @@ readiness route answered `{"ready":true}` on a scratch instance seeded via
 the API; guard unit tests (refuse / force / silent daemon); hooks selftest
 27/27; scoped CI classified a CSS-only diff as web, a handler as go.
 visual-review: n/a (no UI change).
-Not done: timers not yet installed at the time of the note (Next up 1); the
+Not done: timers installed after the merge (first batch 23:00); the
 first batch deploy is unguarded because the running daemon predates the
 route; `internal/server` suite still serial; history rewrite is the owner's.
-Merge: fast-forward ready after merging main (`f93f22b3`).
+Merge: fast-forwarded main to `aeff1347`; root `make ci` green; four merged worktrees collected.
