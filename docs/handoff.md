@@ -224,6 +224,20 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-05 — Session management API folded into the per-CLI namespace
+  (ADR-0079).** `/api/sessions/all`, `/api/pi-sessions(+/adopt)`,
+  `/api/workspaces/{id}/sessions/manage` and `/api/session-cleanup` are
+  removed; desktop and mobile use `GET /api/clis/pi/sessions
+  [?workspace=|?cwd=]`, `POST /api/clis/pi/sessions/delete|adopt` and
+  `GET/PUT /api/clis/pi/sessions/cleanup`, which now carry `inUseBy` and
+  `cleanupDays` on pi rows and — the semantic gap closed — scope by
+  workspace through `workspaceSessionDirs` (cwd bucket + each agent's
+  private dir, ADR-0040). Delete is a POST action (ServeMux collision with
+  the profiles routes), same guards: in-use → 409, outside root → 400.
+  Decision tables migrated, not dropped: adopt, manage+sweep, in-use
+  naming, machine-wide tagging. visual-review: PASS (pi machine-wide,
+  workspace scope, delete overlay + file removed, auto-clean persisted,
+  adopt created an agent with the copied session).
 - **2026-09-06 — Deploy serialization + living-docs guards merged and
   deployed.** Fast-forwarded after reconciling three interleaved main moves;
   combined `make ci` passed; deployed `a8a201b` under the new lock (lock
