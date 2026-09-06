@@ -105,8 +105,10 @@ export default function Sidebar({
     window.addEventListener("pointerup", up);
   }
 
-  function collapsedMark(agents) {
-    return <ProviderFaces agents={agents} />;
+  // Collapsed header advertises everyone inside: managed agents first, then
+  // terminals (agent CLI favicons, shell marks) — never a fake "empty".
+  function collapsedMark(agents, terms) {
+    return <ProviderFaces agents={agents} terms={terms} />;
   }
 
   function isOpen(id) { return openWs[id] !== false; }
@@ -220,7 +222,7 @@ export default function Sidebar({
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="tree-icon"><WsFavicon ws={ws} /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws)) : null}</span>
+                <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws), wsTerms) : null}</span>
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="ws-icon-btn" title="Files in this folder" onClick={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={12} /></button>
                   <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>

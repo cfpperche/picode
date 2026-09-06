@@ -33,6 +33,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- Collapsed workspaces no longer read "— empty" when they hold only
+  terminals. The header's face strip now lists terminals after managed
+  agents: each agent-CLI terminal wears its own CLI favicon (Claude Code,
+  Codex, Grok, Pi; vendor marks as fallback) and plain shells the `>_`
+  mark, capped at five with a `+N` overflow like agent faces. The docs
+  fixture seeds project terminals (a shell plus CLI terminals with live
+  runtime leases) and a terminals-only workspace, so captures photograph
+  the real states.
+
 - The user menu no longer lists **Sessions** (ADR-0079): sessions are a
   tab of the Agent CLIs surface, so the menu keeps one entry per top-level
   surface. Reach them via **Agent CLIs → Sessions**, the workspace folder

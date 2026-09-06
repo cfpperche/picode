@@ -130,6 +130,17 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## In flight
 
+- `feat/term-collapse-faces` awaits merge to main and `make deploy`. The
+  collapsed workspace header's face strip now includes terminals after
+  managed agents (`collapseFaceItems`, `TermFace` in `ProviderFaces.jsx`,
+  wired in `Sidebar.jsx`): agent-CLI terminals wear their CLI favicon
+  (vendor marks as fallback), shells the `>_` mark — a terminals-only
+  workspace no longer shows "— empty", which now means truly no agents
+  and no terminals. The docs fixture seeds project terminals and a
+  terminals-only "sandbox" workspace (plus an empty "fresh"), so
+  `make docs-shots` captures changed and were regenerated. Verified on
+  the fixture in-browser (screenshots read, overlay audit ok, reload
+  persists); not yet deployed to the live instance.
 - `fix/worktree-blob-preview` awaits merge to main and `make deploy`; the
   running instance predates the fix (see Current state). Mobile keeps no
   worktree concept in its Changes screen, so nothing to ship there.
@@ -232,6 +243,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 
 ## Recent activity
 
+- **2026-09-06 — Collapsed workspaces show terminal faces.** A workspace
+  with only terminals (shell / agent CLI) collapsed to "— empty"; the
+  strip now renders terminals after managed agents — CLI favicons
+  (Claude Code, Codex, Grok, Pi) with vendor-mark fallbacks and `>_` for
+  shells, `faceSlice`-capped at 5 (`collapseFaces.test.js`; `TermFace` in
+  `ProviderFaces.jsx`; `Sidebar.collapsedMark(agents, terms)`). Fixture
+  seeds terminals + "sandbox" (terminals-only) and "fresh" (empty)
+  workspaces; docs captures regenerated. In-browser review on the
+  fixture: all four strip states read, expand/collapse cycle and reload
+  persistence ok, console clean, overlay audit ok. visual-review: PASS
+  (collapse-zoom2.png, expand-sandbox.png). `make ci` green on the
+  branch.
 - **2026-09-06 — Inspector Git actions, stage 1 (ADR-0078).** `gitstatus`
   gains `upstream`/`ahead`/`behind`/`detached`
   (`TestStatusWithStatsUpstreamAheadBehind` on a bare remote); the branch
@@ -261,121 +284,3 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   cases (15/15); the handoff-update skill starts by verifying the working
   directory. Root cause of the clobbering (a parallel session's stale cwd)
   remains behavioral — the guards catch it at commit time.
-
-- **2026-09-05 — User menu drops the Sessions item (ADR-0079).** With
-  sessions a tab of the Agent CLIs surface, the menu keeps one entry per
-  top-level surface; Agent CLIs → Sessions, the workspace folder icon, the
-  dashboard's top sessions and old `#/sessions*` links all still reach the
-  picker. visual-review: PASS (open menu screenshot read, item gone,
-  layout intact).
-- **2026-09-05 — Sessions phase 2: every agent CLI's sessions (ADR-0079); merged and deployed.**
-  `internal/clisession` indexes Claude Code (`~/.claude/projects`), Codex
-  (`~/.codex/sessions` rollouts) and Grok (`~/.grok/sessions` prompt
-  history) alongside pi, read-only with defensive parsers (fixtures from
-  real installations, 2026-09). `GET /api/clis/{id}/sessions?cwd=` serves
-  them with server-verified resume args (`claude --resume <id>`, `codex
-  resume <id>` positional, `grok --resume <id>`); the `#/clis/sessions`
-  surface gains a CLI picker (`?cli=`) and search; non-Pi rows offer
-  **Open in terminal** (resume args as launch-arg overrides through the
-  ADR-0069 terminal launch) — no replay, writes or deletes for non-Pi
-  sessions, and a gone-workspace scope errors instead of silently
-  unfiltering. Real-machine smoke: 347 pi / 351 claude / 907 codex / 202
-  grok sessions parsed. visual-review: PASS (claude/codex/grok loaded,
-  grok scoped empty, gone-workspace error, search, open-in-terminal
-  click-through; overlayAudit ok after fixing the preview row height).
-- **2026-09-05 — Imported MCP disable fix merged and deployed.** Reconciled
-  the sessions-under-CLIs and workspace tuiMode commits; combined `make ci`
-  passed; deployed `8470ef5`. Live toggle proven both directions on the real
-  context7 import (adapter loader resolved `disabled: true` after OFF);
-  53/53 panes survived; end state Off as intended. visual-review: PASS.
-  No push.
-
-- **2026-09-05 — Imported MCP disable fix (branch).** The Configured Services
-  toggle for servers PiCode does not own followed the page scope, so an
-  imported host server (e.g. context7 from Claude Code) could not be reliably
-  disabled. Non-owned rows now always toggle the user-layer override stub;
-  re-enabling removes it. Go test covers the OFF→ON stub lifecycle; the
-  adapter's own config loader was verified to resolve `disabled: true` after
-  OFF and the enabled entry after ON. `make ci` passed.
-
-
-- **2026-09-05 — Sessions moved under Agent CLIs (ADR-0079); merged and
-  deployed.** Desktop
-  `#/clis/sessions(/<wsId>)` replaces the top-level `#/sessions*` routes as
-  the third tab of the Agent CLIs surface; sidebar icon, dashboard top
-  sessions and user menu emit the new hashes and old deep links redirect.
-  UI-only phase 1: no API change. `make ci` green on the feature tree, on
-  main after the merge (main had moved — reconciled with the Inspector PR
-  tab and connector-dialog commits) and on the final tree; docs captures
-  regenerated twice through the pipeline. Live check after deploy: the real
-  instance renders the tab with 345 real sessions, in-use badges and
-  working redirects. visual-review: PASS (empty, loaded, workspace-scoped,
-  error and Open-with overlay states read; overlayAudit ok).
-- **2026-09-05 — Inspector PR tab (ADR-0078 phase 2).** `internal/server/pr.go`
-  (`GET …/pr` for agents/terminals/workspaces through the host's `gh`, states
-  in 200, minute cache, `?refresh=1`; `POST /api/terminals/{id}/type` literal
-  keystrokes) with Go tests on a scripted `gh` (unauth, none, no remote, ok
-  with folded checks, cache/refresh, missing gh, plain folder, owner routes
-  with root, type refusals); `tmux.TypeText`; `InspectorPR.jsx` +
-  `usePullRequest`; PR label helpers in `lib/inspector.js` (16 node tests).
-  Browser QA on a fixture whose PATH carries a scripted `gh`:
-  `scripts/qa-inspector.mjs` 13/13 groups; `inspector-pr-*` screenshots read,
-  audits ok. visual-review: PASS. ADR-0078 marked accepted with the owner's
-  approval; its Commit section now compares three designs with the benchmarks.
-  Fast-forwarded main (no drift this time) and deployed `9a7691a5`; served
-  bundle `index-BZJ2lZOW.js`, seven terminals survived. No push.
-- **2026-09-05 — Custom connector dialog redesign merged and deployed.**
-  Reconciled clean (main had not moved); combined `make ci` passed; deployed
-  `39eb1817`. Live dialog shows the labeled groups with audits ok; 48/48
-  panes survived. visual-review: PASS. No connector mutations or push.
-
-- **2026-09-05 — Custom connector dialog redesign (branch).** Labeled groups
-  replace the More/Less toggle: Server name, How PiCode reaches it, Sign-in
-  (token inline, sign-in hint) and Environment variables/Headers per transport.
-  Pair rows start empty and grow on demand; phantom empty row removed on both
-  apps. `make ci` passed. Isolated-daemon E2E: URL variant groups, OAuth hint,
-  Command variant with env pair added a real server; desktop/mobile screenshots
-  read, audits ok. visual-review: PASS (`custom-dialog-*.png`).
-
-
-- **2026-09-05 — Worktree-scoped asset previews fixed and deployed
-  (ADR-0073 amendment).** Terminal `/blob` ignored `?worktree=` and
-  workspace git reads skipped it, so uncommitted panels showed "Can't load
-  this image." for a sibling worktree's untracked screenshots. All four
-  scoped reads (`gitstatus`, `gitdiff`, `git/blob`, `blob`) now narrow by
-  ref for all three owner kinds; decision-table test
-  (`TestWorktreeScopedEndpoints`) added, no UI change needed. Reproduced
-  live pre-fix (404 on `claude-d8c849`'s terminal graph), verified live
-  post-deploy: the same request returns the PNG and the panel renders the
-  previews (screenshots read: desktop-live and mobile-replay both paint).
-  visual-review: PASS. Merged and deployed `07cc806`.
-- **2026-09-05 — Connector catalog tabs merged and deployed.** Reconciled the
-  Inspector rail work and passed combined `make ci`; deployed `075f6cce`. Live
-  catalog tabs render with the real Claude Code host; `context7` shows "Added
-  from Claude Code" and its service row stayed untouched; 44/44 panes
-  survived. visual-review: PASS. No integration mutations or push.
-
-- **2026-09-05 — Connector catalog tabs (branch).** Add-connector card gains
-  a fixed Catalog tab (Custom card opens the former inline form as a dialog)
-  and one tab per scanned agent CLI with found servers; host imports confirm
-  destination and show an Added state; Use-from dialog and inline form retired
-  on desktop and mobile. Domain helper `connectorTabs` unit-tested; `make ci`
-  passed. Isolated-daemon browser E2E: custom add, host import and Added state
-  on both apps; screenshots read, settled audits ok. visual-review: PASS
-  (`connector-tabs-*.png`).
-
-- **2026-09-05 — Inspector rail (ADR-0078).** Study
-  `docs/benchmarks/2026-09-05-inspector-rail.md` (Paseo, Orca, t3code), ADR
-  and `docs/plans/inspector.md`; `gitgraph.StatusWithStats` with Go tests;
-  `lib/inspector.js` + `lib/resizeEdge.js` (17 node tests); `Inspector.jsx`
-  mounted after `<main>`; file-tab Diff view; fixture seeds a dirty repository;
-  `app-inspector` docs capture. Browser QA on an isolated fixture:
-  `scripts/qa-inspector.mjs` passed 11/11 groups (`docs/screenshots/inspector-qa.json`);
-  11 screenshots read, overlay/row audits ok. visual-review: PASS. Two defects
-  found and fixed in review: the blocked line named the stale cwd (now read live
-  from `…/cwd`), and the Diff view's header row was misaligned outside the
-  folder tab. Merged `9a8e15a7` after three catch-up merges of main
-  (pi-diff, Gmail, managed-stop) and deployed; served bundle
-  `index-DYuuKYrY.js`, seven terminals survived. No push.
-
-Older activity lives in `docs/handoff-archive.md`.
