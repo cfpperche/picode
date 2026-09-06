@@ -447,6 +447,15 @@ memory estimate with contextual guidance; missing size data remains unknown.
 Delivery 4's ownership boundary is ADR-0084: only an explicitly created local
 Linux/WSL profile may receive lifecycle or cache mutations; external and remote
 routers remain inspection-only for those controls.
+The current delivery 4 code is only an unconnected execution-profile helper,
+not a service manager. Its preview verifies an absolute regular executable
+without symlink components against a required SHA-256 pin. It emits explicit
+GPU layers (including zero), Jinja/autoload switches and generation/batch
+threads (1–4 for this initial low-resource profile). The pin must eventually
+come from a trusted installation manifest: matching a caller-supplied hash
+does not prove release provenance. Verification is a snapshot, not a race-free
+launch guarantee; lifecycle locking, revalidation, version compatibility,
+persistence, UI, updates/rollback and cache ownership remain unimplemented.
 
 ## Component diagram
 

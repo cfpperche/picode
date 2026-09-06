@@ -1,5 +1,33 @@
 # Handoff archive
 
+- **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
+  commits: everything since the last push — checklists terminal+disclosure,
+  Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,
+  deploy guards and docs). origin/main == local main, no divergence; only
+  tag remains `v0.1.0`.
+- **2026-09-06 — Checklist refinements + disclosure merged and deployed
+  (`e2cdc61f`/`1af83f4d`, `0.1.0+1af83f4`).** Reconciled two mid-flight main
+  moves (llama delivery 2, drop-sessions cleanup); conflicts kept both
+  sides' entries. Deploy verified: health ok, 8 terminals survived,
+  unknown-terminal checklist 404 live. Disclosure interaction was
+  browser-QA'd pre-deploy on an identical bundle. No push.
+- **2026-09-06 — Checklist refinements + disclosure reconciled with llama
+  delivery 2 (branch).** CHANGELOG/ADR-index/handoff conflicts resolved
+  keeping both sides (llama ADR-0083 vs my ADR-0082); captures taken on
+  main's side pending regeneration. Content unchanged from the two prior
+  branch commits: muted counter, absent-silence (ADR-0082), and the
+  expand-on-click disclosure (☑ / braille spinner / ☐), browser-QA'd on an
+  isolated daemon. visual-review: PASS.
+
+- **2026-09-06 — Dead `go("sessions")` branch removed.** The user menu was
+  its last caller; the sessions debt note shrinks accordingly (routes.test
+  drops the branch's own test with it).
+- **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
+  jobs, capability detection, file progress, cancellation and recovery with
+  no mutation replay; decision-table tests and isolated real CPU acceptance.
+  visual-review: PASS (35 screenshots read; overlay/alignment audits ok).
+  ADR-0083, public guide, API schema and four-delivery plan updated together.
+
 Moved off `docs/handoff.md` when it exceeded ~150 lines. Newest living
 state is always `docs/handoff.md`. Do not treat this file as current.
 

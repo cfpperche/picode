@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp service preparation (internal only)**: execution previews now
+  pin executable content with SHA-256, reject invalid file paths/modes and
+  emit explicit GPU, Jinja, autoload and bounded CPU-thread settings. Service
+  lifecycle controls are still under development.
+
 - **llama.cpp service ownership design** (ADR-0084): the upcoming lifecycle
   controls are scoped to explicitly owned local profiles; external routers
   remain read-only for service and cache management.

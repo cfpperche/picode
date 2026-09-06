@@ -237,6 +237,24 @@ was not changed. The verified model remains in the isolated temporary cache.
 Delivery 2 can now use this model/build pair as a real acceptance fixture;
 job implementation and its decision matrix remain outstanding.
 
+## Delivery 4 execution-profile review
+
+Only the Go preview helper is implemented. No lifecycle operation is exposed.
+The initial low-resource profile requires 1–4 generation and batch threads;
+this is a product limit, not a claim about the machine's available resources.
+Flags were checked against the local b10809 executable's help without loading
+a model. Release provenance/version checks and launch-time revalidation remain
+required before connecting this helper to a service launcher.
+
+| Conditions | Action | Coverage |
+| --- | --- | --- |
+| GPU zero or positive × Jinja on/off × autoload on/off | Emit every setting explicitly, preserving argument order | `TestExecutionProfileArgs`: all eight combinations |
+| Port 1024–65535, context 512–131072, threads 1–4, GPU nonnegative | Accept; reject values outside each boundary | `TestExecutionProfileValidation` |
+| Relative/wrong binary name, missing/malformed hash, relative/empty model directory, public bind | Reject; allow IPv4/IPv6 loopback | `TestExecutionProfileValidation` and argument tests |
+| Missing binary, directory, no executable bits, content mismatch, leaf/parent symlink | Refuse preview with no arguments | `TestExecutionProfileBinaryGuards` |
+| Regular executable with matching SHA-256 | Return exact argv without executing it | `TestExecutionProfileArgs` |
+| Binary replaced after verification, untrusted pin, incompatible version | Not secured by the helper; future launcher must refuse/revalidate | Delivery 4 integration debt; no launcher exists |
+
 ## Delivery 2 validation and limits
 
 Validation uses synthetic condition matrices and the real b10809 router with

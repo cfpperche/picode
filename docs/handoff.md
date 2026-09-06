@@ -5,6 +5,13 @@
 
 ## Current state (read this first)
 
+**This branch (`feat/llama-service`):** delivery 4 has ADR-0084 and an
+unconnected execution-profile helper only. The review fix makes GPU zero,
+Jinja/autoload and 1–4 generation/batch threads explicit, and verifies the
+absolute executable path, regular-file mode and required SHA-256 pin before
+returning preview arguments. This is not a completed service manager or a
+deployed change. Deployment details below are inherited history.
+
 **Repository:** `main` includes llama.cpp delivery 2 (ADR-0083), merged as
 `70edb214` and deployed as `0.1.0+70edb21`, and the checklist sidebar
 refinements + expand-on-click disclosure (ADR-0082, merged `e2cdc61f`,
@@ -162,6 +169,18 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
 `.pi/settings.json`, so project agents load it on their next start.
 
 ## In flight
+
+- llama delivery 4: persistence, API/UI, installation provenance/version
+  verification, reviewed lifecycle jobs, rollback, diagnostics and cache
+  management remain unimplemented. Hash verification is a snapshot and does
+  not prevent replacement before a future launch. The decision table in
+  `docs/plans/llama-manager.md` separates helper coverage from these gaps.
+  Review validation: Go/JS tests, formatting, vet, embedded desktop/mobile
+  build, public docs build and Vale passed. Full `make ci` is FAIL: the already-committed
+  `www/img/app-fleet.png` hashes to `8f532ee2...`, while its committed manifest
+  expects `abe2cea3...` (both verified against pre-fix HEAD). Recapture and
+  visually review that documentation surface before merge; do not relabel its
+  hash. CI log: `/tmp/picode-llama-service-review-ci.log`.
 
 - Checklist refinements + disclosure are **merged and deployed**
   (`e2cdc61f`, `0.1.0+1af83f4`; worktree and branch removed). Shipped: the
@@ -340,32 +359,9 @@ refreshed and refocused the column. 20 logic tests. Listed in the root
   not live; `gh pr checks` detail beyond the rollup is not read.
 
 ## Recent activity
-- **2026-09-06 — Pushed main to origin.** `298de6c9..1033aaf6` (163
-  commits: everything since the last push — checklists terminal+disclosure,
-  Inspector Git actions, tab strip, sessions under CLIs, llama deliveries,
-  deploy guards and docs). origin/main == local main, no divergence; only
-  tag remains `v0.1.0`.
-- **2026-09-06 — Checklist refinements + disclosure merged and deployed
-  (`e2cdc61f`/`1af83f4d`, `0.1.0+1af83f4`).** Reconciled two mid-flight main
-  moves (llama delivery 2, drop-sessions cleanup); conflicts kept both
-  sides' entries. Deploy verified: health ok, 8 terminals survived,
-  unknown-terminal checklist 404 live. Disclosure interaction was
-  browser-QA'd pre-deploy on an identical bundle. No push.
-- **2026-09-06 — Checklist refinements + disclosure reconciled with llama
-  delivery 2 (branch).** CHANGELOG/ADR-index/handoff conflicts resolved
-  keeping both sides (llama ADR-0083 vs my ADR-0082); captures taken on
-  main's side pending regeneration. Content unchanged from the two prior
-  branch commits: muted counter, absent-silence (ADR-0082), and the
-  expand-on-click disclosure (☑ / braille spinner / ☐), browser-QA'd on an
-  isolated daemon. visual-review: PASS.
-
-- **2026-09-06 — Dead `go("sessions")` branch removed.** The user menu was
-  its last caller; the sessions debt note shrinks accordingly (routes.test
-  drops the branch's own test with it).
-- **2026-09-06 — llama delivery 2 completed in the feature branch.** Durable
-  jobs, capability detection, file progress, cancellation and recovery with
-  no mutation replay; decision-table tests and isolated real CPU acceptance.
-  visual-review: PASS (35 screenshots read; overlay/alignment audits ok).
-  ADR-0083, public guide, API schema and four-delivery plan updated together.
+- **2026-09-06 — llama execution-profile adversarial fixes.** Explicit
+  effective flags, bounded threads and pinned executable verification;
+  exact-argv combinations, numeric boundaries and filesystem refusal tests.
+  No model was loaded and no deployment was performed.
 
 Older activity lives in `docs/handoff-archive.md`.
