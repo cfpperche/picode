@@ -103,7 +103,7 @@ export default function PiKeys() {
             const dirty = isOverride(a, user);
             const waiting = listen === a.id;
             return (
-              <div key={a.id} className="key-row" data-align-row>
+              <div key={a.id} className="key-row">
                 <span className="key-label">{a.label}</span>
                 <div className="key-keys" data-align-row>
                   {waiting ? (

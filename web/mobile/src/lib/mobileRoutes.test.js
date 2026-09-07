@@ -45,7 +45,7 @@ describe("mobileRoute", () => {
     assert.equal(mobileRoute("#/providers/new").section, "providers");
     assert.equal(mobileRoute("#/termset/t1").section, "preferences");
     assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
-    assert.equal(mobileRoute("#/sessions/w1").screen, "work");
+    assert.equal(mobileRoute("#/sessions/w1").section, "clis");
     assert.equal(mobileRoute("#/file/a/x/y").screen, "work");
     assert.equal(mobileRoute("#/whatever").screen, "now");
   });
@@ -76,6 +76,16 @@ describe("mobileRoute", () => {
     assert.equal(parentHash(mobileRoute("#/more/system")), "#/more");
     assert.equal(parentHash(mobileRoute("#/more")), "#/");
   });
+});
+
+it("opens complete automation and session workflows without dropping nested links", () => {
+  for (const hash of ["#/automations", "#/automations/new", "#/automations/saved", "#/more/automations"]) {
+    assert.equal(mobileRoute(hash).section, "automations");
+    assert.equal(tabOf(mobileRoute(hash)), "more");
+  }
+  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1"]) {
+    assert.equal(mobileRoute(hash).section, "clis");
+  }
 });
 
 it("llama deep links open the dedicated manager", () => {

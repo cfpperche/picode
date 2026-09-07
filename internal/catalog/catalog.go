@@ -127,6 +127,12 @@ func ParseListModels(text string) []parsedRow {
 		// provider | model… | context | max-out | thinking | images
 		images := fields[len(fields)-1]
 		thinking := fields[len(fields)-2]
+		// The CLI also prints prose when no models are available. A table
+		// row always ends in two yes/no capability columns; prose is not
+		// a provider or a model, even when it contains six or more words.
+		if (images != "yes" && images != "no") || (thinking != "yes" && thinking != "no") {
+			continue
+		}
 		maxOut := fields[len(fields)-3]
 		context := fields[len(fields)-4]
 		model := strings.Join(fields[1:len(fields)-4], " ")

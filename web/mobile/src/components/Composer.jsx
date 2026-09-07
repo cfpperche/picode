@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import KindChip from "./KindChip.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs } from "./Icons.jsx";
+import * as Sheet from "./MobileSheet.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs, IconMore } from "./Icons.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import AgentPageBar from "./AgentPageBar.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
@@ -22,6 +21,7 @@ import {
 import { toast } from "../lib/toast.js";
 import { matchAction, primaryChord, formatChord } from "../lib/appKeys.js";
 import { readAppKeyOverrides } from "../lib/appKeyPrefs.js";
+import { isSubmitKey } from "../lib/agentDrafts.js";
 
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 
@@ -29,7 +29,7 @@ export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting,
   stopped, onToggleDock, onStop, onAbort, onSlash, statusBar, onCompact, sessionBar, lastReply,
   slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking,
-  onSettings,
+  onSettings, images = [], onImagesChange, sending = false, sendError = "",
 }) {
   const appKeyOverrides = readAppKeyOverrides();
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
@@ -61,23 +61,21 @@ export default function Composer({
   const [atOk, setAtOk] = useState(false);
   const [atIdx, setAtIdx] = useState(0);
   const [atHide, setAtHide] = useState("");
-  const [pics, setPics] = useState([]);
+  const pics = images;
+  const setPics = change => onImagesChange?.(change);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [drag, setDrag] = useState(false);
   const [preview, setPreview] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
-  const [text, setText] = useState(value || "");
+  const text = value || "";
+  const setText = next => onChange?.(next);
   const hits = filterSlash(text, slashExtra);
   const at = hits.length ? null : atQuery(text, caret);
   const atKey = at ? "@" + at.query : "";
   const showAt = !!(at && atOk && atHits && atHide !== atKey);
 
-  useEffect(() => { setText(value || ""); }, [value]);
   useEffect(() => { valueRef.current = text; }, [text]);
-  useEffect(() => {
-    const t = setTimeout(() => { if (onChange) onChange(text); }, 160);
-    return () => clearTimeout(t);
-  }, [text]);
   useEffect(() => { streamingRef.current = !!streaming; }, [streaming]);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
 
@@ -86,7 +84,7 @@ export default function Composer({
     if (!el) return;
     if (expanded) { el.style.height = "100%"; return; }
     el.style.height = "auto";
-    el.style.height = Math.max(52, Math.min(el.scrollHeight, 160)) + "px";
+    el.style.height = Math.max(36, Math.min(el.scrollHeight, 160)) + "px";
   }, [text, expanded, voice]);
 
   useEffect(() => { setSlashIdx(0); }, [text]);
@@ -116,7 +114,7 @@ export default function Composer({
   }, [agentId, atKey, hits.length, slashExtra, atAgents]);
 
   useEffect(() => {
-    return () => stopRec();
+    return () => { stopRec(); stopSpeak(); };
   }, []);
 
   useEffect(() => {
@@ -200,7 +198,7 @@ export default function Composer({
     if (plan.tooMany) toast.error("Up to 4 images.");
     if (plan.tooLarge) toast.error("Each image must be under 4 MB.");
     if (plan.notImage && !plan.files.length) toast.error("That isn't an image.");
-    const next = pics.slice();
+    const next = [];
     for (const f of plan.files) {
       try {
         const im = await readImage(f);
@@ -209,7 +207,7 @@ export default function Composer({
         if (err && err.message === "too-large") toast.error("Each image must be under 4 MB.");
       }
     }
-    setPics(next);
+    setPics(current => current.concat(next).slice(0, MAX_IMAGES));
   }
 
   async function attachHit(hit) {
@@ -268,13 +266,10 @@ export default function Composer({
     }
   }
 
-  function fireSend(sent) {
+  async function fireSend(sent) {
     const body = sent == null ? text : sent;
-    histPush(hist.current, body || "");
-    if (onSend) onSend(body, pics);
-    setPics([]);
-    setText("");
-    if (onChange) onChange("");
+    if (sending || (!body.trim() && !pics.length)) return;
+    if (await onSend?.(body, pics)) histPush(hist.current, body || "");
   }
 
   function pickSlash(cmd) {
@@ -435,7 +430,7 @@ export default function Composer({
 
   function interrupt() {
     stopSpeak();
-    if (streaming) {
+    if (streaming || waiting) {
       if (onAbort) onAbort();
       return;
     }
@@ -561,22 +556,6 @@ export default function Composer({
             </Command.List>
           </Command>
         )}
-        <div className="composer-tools" data-align-row>
-          {sessionBar}
-          <div className="composer-tools-end">
-            <AgentPageBar onGo={onAgentPage} pkgUpdates={pkgUpdates}>
-              <button
-                type="button"
-                className="composer-page"
-                title={expanded ? "Collapse" : "Expand"}
-                aria-label={expanded ? "Collapse composer" : "Expand composer"}
-                onClick={() => setExpanded((v) => !v)}
-              >
-                {expanded ? <IconCollapse /> : <IconExpand />}
-              </button>
-            </AgentPageBar>
-          </div>
-        </div>
         {tuiWorking ? (
           <div className="composer-tui-working" data-align-row role="status">
             <PiSpinner title="Working" />
@@ -621,24 +600,26 @@ export default function Composer({
           <textarea
             id="task-input"
             ref={ta}
-            rows={2}
-            placeholder="Message the agent — / commands, @ files, ! shell"
+            rows={1}
+            aria-label="Message the agent"
+            placeholder="Message the agent…"
             value={text}
             onChange={(e) => { histTyped(hist.current); setText(e.target.value); markCaret(e.target); }}
             onSelect={(e) => markCaret(e.target)}
             onClick={(e) => markCaret(e.target)}
             onKeyUp={(e) => markCaret(e.target)}
             onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
               if (hits.length) {
                 if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => Math.min(hits.length - 1, i + 1)); return; }
                 if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => Math.max(0, i - 1)); return; }
-                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
+                if (e.key === "Tab" || isSubmitKey(e.nativeEvent)) { e.preventDefault(); pickSlash(hits[slashIdx]); return; }
                 if (e.key === "Escape") { e.preventDefault(); setText(""); return; }
               }
               if (showAt) {
                 if (e.key === "ArrowDown") { e.preventDefault(); setAtIdx((i) => Math.min(atHits.length - 1, i + 1)); return; }
                 if (e.key === "ArrowUp") { e.preventDefault(); setAtIdx((i) => Math.max(0, i - 1)); return; }
-                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                if (e.key === "Tab" || isSubmitKey(e.nativeEvent)) {
                   e.preventDefault();
                   if (atHits[atIdx]) pickAt(atHits[atIdx]);
                   return;
@@ -657,7 +638,7 @@ export default function Composer({
                 requestAnimationFrame(() => { const el = ta.current; if (el) el.setSelectionRange(el.value.length, el.value.length); });
                 return;
               }
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (isSubmitKey(e.nativeEvent)) {
                 e.preventDefault();
                 fireSend();
               }
@@ -697,21 +678,26 @@ export default function Composer({
                 </button>
               </div>
             </div>
+          ) : dictate ? (
+            <span className="m-composer-recording" role="status">Dictating…</span>
           ) : (
-            <div className="composer-left chip-group">
-              <button type="button" className="cockpit-chip" onClick={onSettings}>Settings</button>
-              <KindChip value={kind} onChange={onKind} />
+            <div className="composer-left" data-align-row>
+              <button type="button" className="icon-btn m-composer-options-trigger" aria-label="Message options" aria-haspopup="dialog" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(true)}><IconMore size={18} /></button>
+              <button type="button" className="cockpit-chip" aria-label="Settings" onClick={onSettings}>Settings</button>
             </div>
           )}
           <div className="composer-right" data-align-row>
             <span id="chat-status-text" className="sr-only">{waiting ? "waiting" : status}{streaming ? " streaming" : ""}</span>
+            {streaming || waiting ? (
+              <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" aria-label="Stop response" onClick={onAbort}><IconStop size={16} /></button>
+            ) : null}
             {voice ? (
               <button type="button" className="btn-voice-interrupt" id="btn-voice-interrupt" onClick={interrupt}>
                 Interrupt
               </button>
             ) : dictate ? (
               <div className="dictate-bar" data-align-row>
-                <VoiceMeter stream={micStream} />
+                <VoiceMeter stream={micStream} bars={8} />
                 <button type="button" className="icon-btn" title="Cancel dictation" aria-label="Cancel dictation" onClick={cancelDictate}>
                   <IconX />
                 </button>
@@ -730,69 +716,41 @@ export default function Composer({
                   hidden
                   onChange={(e) => { addPics(e.target.files); e.target.value = ""; }}
                 />
-                <button
-                  type="button"
-                  className="icon-btn composer-attach"
-                  title="Attach image"
-                  aria-label="Attach image"
-                  onClick={() => devicePick.current && devicePick.current.click()}
-                >
-                  <IconImage />
-                </button>
-                {agentId ? (
-                  <>
-                    <button
-                      type="button"
-                      className="icon-btn composer-attach"
-                      title="Attach from workspace"
-                      aria-label="Attach from workspace"
-                      onClick={() => setPick(true)}
-                    >
-                      <IconClip />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn composer-attach"
-                      title="Sketch"
-                      aria-label="Sketch"
-                      onClick={() => openSketch()}
-                    >
-                      <IconSketch />
-                    </button>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  className="icon-btn icon-btn-mic"
-                  title={"Dictation (" + dictateKeyHint + ")"}
-                  aria-label="Dictation"
-                  onClick={() => startListen("dictate")}
-                >
-                  <IconMic />
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn icon-btn-wave"
-                  title={"Voice mode (" + voiceKeyHint + ")"}
-                  aria-label="Enter voice mode"
-                  onClick={enterVoice}
-                >
-                  <IconWave />
-                </button>
-                {streaming || waiting ? (
-                  <button id="task-abort" type="button" className="icon-btn icon-btn-stop" title="Stop" onClick={onAbort}>
-                    <IconStop size={16} />
-                  </button>
-                ) : null}
-                <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send" disabled={!(value && value.trim()) && !pics.length} onClick={() => fireSend()}>
-                  <IconSend size={16} />
+                <button id="task-send" type="button" className="icon-btn icon-btn-send" title="Send · Ctrl/⌘ Enter" aria-label="Send" aria-busy={sending} disabled={sending || (!text.trim() && !pics.length)} onClick={() => fireSend()}>
+                  {sending ? <PiSpinner title="Sending" /> : <IconSend size={16} />}<span>{sending ? "Sending" : kind === "steer" ? "Steer" : kind === "follow_up" || streaming || waiting ? "Queue" : "Send"}</span>
                 </button>
               </>
             )}
           </div>
         </div>
-        <ComposerStatus bar={statusBar} onCompact={onCompact} />
+        {sendError ? <div className="m-composer-error" role="alert"><span>Message not sent. {sendError}</span><button type="button" className="btn btn-sm" disabled={sending || (!text.trim() && !pics.length)} onClick={() => fireSend()}>Retry</button></div> : null}
       </div>
+      <Sheet.Root open={optionsOpen} onOpenChange={setOptionsOpen}>
+        <Sheet.Portal>
+          <Sheet.Overlay className="dlg-overlay" />
+          <Sheet.Content className="dlg m-composer-options" aria-describedby={undefined}>
+            <Sheet.Title className="dlg-title">Message options</Sheet.Title>
+            <div className="m-composer-option-list">
+              <button type="button" className="btn" onClick={() => { setOptionsOpen(false); devicePick.current?.click(); }}><IconImage />Attach image</button>
+              {agentId ? <>
+                <button type="button" className="btn" onClick={() => { setOptionsOpen(false); setPick(true); }}><IconClip />Attach from workspace</button>
+                <button type="button" className="btn" onClick={() => { setOptionsOpen(false); openSketch(); }}><IconSketch />Sketch</button>
+              </> : null}
+              <button type="button" className="btn" title={"Dictation (" + dictateKeyHint + ")"} onClick={() => { setOptionsOpen(false); startListen("dictate"); }}><IconMic />Dictation</button>
+              <button type="button" className="btn" title={"Voice mode (" + voiceKeyHint + ")"} onClick={() => { setOptionsOpen(false); enterVoice(); }}><IconWave />Voice mode</button>
+              <button type="button" className="btn" onClick={() => { setOptionsOpen(false); setExpanded(v => !v); }}>{expanded ? <IconCollapse /> : <IconExpand />}{expanded ? "Collapse composer" : "Expand composer"}</button>
+            </div>
+            <div className="m-composer-delivery" data-align-row>
+              <label htmlFor="task-kind">Delivery</label>
+              <select id="task-kind" value={kind} onChange={event => onKind?.(event.target.value)}>
+                <option value="prompt">Prompt</option><option value="steer">Steer</option><option value="follow_up">Follow-up</option>
+              </select>
+            </div>
+            <ComposerStatus bar={statusBar} onCompact={onCompact} />
+            <div className="dlg-actions"><Sheet.Close asChild><button type="button" className="btn">Done</button></Sheet.Close></div>
+          </Sheet.Content>
+        </Sheet.Portal>
+      </Sheet.Root>
       <ImageLightbox src={preview} onClose={() => setPreview("")} />
     </div>
   );

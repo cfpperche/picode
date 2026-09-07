@@ -82,6 +82,28 @@ func TestParseListModelsSkipsJunk(t *testing.T) {
 	}
 }
 
+func TestParseListModelsCapabilityColumns(t *testing.T) {
+	for _, tc := range []struct {
+		name, line string
+		want       int
+	}{
+		{"no models message", "No models available. Use /login to log into a provider via OAuth or API key.", 0},
+		{"diagnostic before table", "Warning: the configured provider has no available models.\n" + sample, 3},
+		{"both capabilities", "custom model with spaces 200K 16K yes yes", 1},
+		{"no capabilities", "custom local-model 200K 16K no no", 1},
+		{"thinking only", "custom local-model 200K 16K yes no", 1},
+		{"images only", "custom local-model 200K 16K no yes", 1},
+		{"invalid thinking", "custom local-model 200K 16K unknown yes", 0},
+		{"invalid images", "custom local-model 200K 16K yes unknown", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := len(ParseListModels(tc.line)); got != tc.want {
+				t.Fatalf("rows = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPutAPIKey(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

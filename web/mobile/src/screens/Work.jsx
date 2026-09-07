@@ -1,126 +1,70 @@
+import { useRef, useState } from "react";
 import AgentRow from "../components/AgentRow.jsx";
 import TermRow from "../components/TermRow.jsx";
-import { agentsOf } from "@picode/shared/domain/tree.js";
-import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
+import { freeTerminals } from "../lib/termGroups.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
-import { IconPlus } from "../components/Icons.jsx";
+import { IconPlus, IconGit, IconFolder, IconSearch, IconX } from "../components/Icons.jsx";
 import { WORK_SECTIONS } from "../lib/mobileRoutes.js";
+import { agentMatchesSearch, terminalMatchesSearch, searchWorkspaceGroups } from "../lib/mobileListSearch.js";
 import PullScreen from "../components/PullScreen.jsx";
-import { IconGit } from "../components/Icons.jsx";
+import "../styles/mobile-lists.css";
 
 const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Terminals" };
+const SEARCH_LABELS = { workspaces: "Search workspaces and their work", agents: "Search free agents", terminals: "Search free terminals" };
+let rememberedQuery = "";
 
-// Work mirrors the desktop sidebar's rail: the same three views, one
-// segmented control. Workspaces = one card per folder with its agents and
-// terminals; Agents = the free ones (no folder); Terminals = the free ones
-// too — a workspace's terminal is listed once, on its card.
-export default function Work({ section, onSection, loaded, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
+// Paseo's workspace grouping, adapted to one focused phone list. Search
+// retains the parent folder when it finds an agent or terminal inside it.
+export default function Work({ section, onSection, loaded, error, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
   onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges, onRefresh }) {
+  const [query, updateQuery] = useState(() => rememberedQuery);
+  const [searchOpen, setSearchOpen] = useState(() => !!rememberedQuery);
+  const focusSearch = useRef(false);
+  const setQuery = value => { rememberedQuery = value; updateQuery(value); };
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
+  const groups = searchWorkspaceGroups(workspaces, terminals, query);
+  const agents = (freeAgents || []).filter(agent => agentMatchesSearch(agent, query));
+  const terms = freeTerminals(terminals).filter(term => terminalMatchesSearch(term, query));
+  const rows = sec === "workspaces" ? groups : sec === "agents" ? agents : terms;
+  const searching = Boolean(query.trim());
+  const create = () => sec === "terminals" ? onNewTerm(null) : onCreate(sec === "agents" ? "free" : "workspace");
+  const addLabel = sec === "workspaces" ? "Add workspace" : sec === "agents" ? "New agent" : "New terminal";
   return (
-    <PullScreen onRefresh={onRefresh}>
-      <div className="m-screen-head">
-        <div className="dash-range m-seg m-work-seg" role="radiogroup" aria-label="Work view">
-          {WORK_SECTIONS.map((s) => (
-            <label key={s} className="dash-range-opt">
-              <input type="radio" name="m-work" value={s} checked={sec === s} onChange={() => onSection(s)} />
-              <span className="dash-range-face">{LABELS[s]}</span>
-            </label>
-          ))}
+    <PullScreen scrollKey={"work:" + sec} onRefresh={onRefresh} className="m-v2-lists m-work-v2">
+      <div className="m-screen-head m-list-head">
+        <div className="m-list-toolbar" data-align-row>
+          <select className="m-work-view" aria-label="Work view" value={sec} onChange={event => onSection(event.target.value)}>{WORK_SECTIONS.map(s => <option key={s} value={s}>{LABELS[s]}</option>)}</select>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={searchOpen ? "Close search" : "Search work"} aria-expanded={searchOpen} aria-controls="mobile-work-search" onClick={() => { focusSearch.current = !searchOpen; if (searchOpen) setQuery(""); setSearchOpen(!searchOpen); }}>{searchOpen ? <IconX /> : <IconSearch />}</button>
+          <button type="button" className="btn btn-primary btn-sm m-add" aria-label={addLabel} onClick={create}><IconPlus size={14} /> New</button>
         </div>
-        {sec === "terminals" ? (
-          <button type="button" className="btn btn-primary btn-sm m-add" onClick={() => onNewTerm(null)}><IconPlus size={14} /> New</button>
-        ) : (
-          <button type="button" className="btn btn-primary btn-sm m-add" onClick={() => onCreate(sec === "agents" ? "free" : "workspace")}><IconPlus size={14} /> New</button>
-        )}
+        {searchOpen ? <input id="mobile-work-search" type="search" className="dlg-input m-list-search" aria-label={SEARCH_LABELS[sec]} placeholder="Search work" value={query} onChange={event => setQuery(event.target.value)} ref={node => { if (node && focusSearch.current) { focusSearch.current = false; node.focus(); } }} /> : null}
       </div>
-      {!loaded ? null : sec === "workspaces" ? (
-        <Workspaces workspaces={workspaces} terminals={terminals} workingIds={workingIds} busyId={busyId} checklists={checklists}
-          onOpenAgent={onOpenAgent} onOpenTerm={onOpenTerm} onStart={onStart} onStop={onStop} onRemoveTerm={onRemoveTerm} onCreate={onCreate} onNewTerm={onNewTerm} onOpenChanges={onOpenChanges} />
-      ) : sec === "agents" ? (
-        <FreeAgents freeAgents={freeAgents} workingIds={workingIds} busyId={busyId} checklists={checklists} onOpenAgent={onOpenAgent} onStart={onStart} onStop={onStop} onCreate={onCreate} />
-      ) : (
-        <Terminals terminals={terminals} busyId={busyId} onOpenTerm={onOpenTerm} onRemoveTerm={onRemoveTerm} onNewTerm={onNewTerm} />
-      )}
+      {error ? <div className="m-list-notice" role="alert"><p>{loaded ? "Couldn’t refresh your work." : "Couldn’t load your work."}</p><button type="button" className="btn btn-sm" onClick={onRefresh}>Try again</button></div> : null}
+      {!loaded ? (error ? null : <div className="m-list-loading" role="status" aria-label="Loading work">{[0, 1, 2].map(i => <div className="m-skel" key={i}><span className="skel-line w-70" /><span className="skel-line w-40" /></div>)}</div>) : rows.length === 0 ? (
+        <div className="m-list-empty" role="status">
+          <p>{searching ? "No matching work." : sec === "workspaces" ? "No workspaces yet." : sec === "agents" ? "No free agents yet." : "No free terminals yet."}</p>
+          <button type="button" className="btn btn-sm" onClick={searching ? () => setQuery("") : create}>{searching ? "Clear search" : addLabel}</button>
+        </div>
+      ) : sec === "workspaces" ? groups.map(({ workspace: ws, agents: wsAgents, terminals: wsTerms }) => (
+        <section key={ws.id} className="m-section m-work-group" aria-label={ws.name}>
+          <div className="m-work-group-head">
+            <IconFolder size={17} />
+            <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
+            {ws.git?.dirty ? <button type="button" className="btn btn-ghost btn-sm m-changes-btn" aria-label={ws.git.dirty + " changes in " + ws.name} onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button> : null}
+          </div>
+          {wsAgents.length || wsTerms.length ? <ul className="m-list m-group-list">
+            {wsAgents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={ws} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)}
+            {wsTerms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
+          </ul> : <p className="m-empty-line m-work-empty">No agents or terminals yet.</p>}
+          <div className="m-work-group-actions" data-align-row>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onCreate("agent", ws)}><IconPlus size={13} /> Agent</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onNewTerm(ws)}><IconPlus size={13} /> Terminal</button>
+          </div>
+        </section>
+      )) : <ul className="m-list m-group-list" aria-label={LABELS[sec]}>
+        {sec === "agents" ? agents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={null} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)
+          : terms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
+      </ul>}
     </PullScreen>
-  );
-}
-
-function Workspaces({ workspaces, terminals, workingIds, busyId, checklists, onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges }) {
-  if (!workspaces || workspaces.length === 0) {
-    return (
-      <div className="m-blank">
-        <p className="m-blank-title">No workspaces yet</p>
-        <p className="m-blank-sub">A workspace is a project folder. Agents and terminals live inside it.</p>
-        <button type="button" className="btn btn-primary" onClick={() => onCreate("workspace")}>Add workspace</button>
-      </div>
-    );
-  }
-  return workspaces.map((ws) => {
-    const agents = agentsOf(ws);
-    const terms = workspaceTerminals(terminals, ws.id);
-    return (
-      <section key={ws.id} className="m-section m-ws-card">
-        <h3 className="m-section-label">{ws.name}<span className="m-section-sub">{shortPath(ws.path)}{ws.git && ws.git.branch ? " · " + ws.git.branch : ""}</span></h3>
-        {agents.length === 0 && terms.length === 0 ? (
-          <p className="m-empty-line">Empty.</p>
-        ) : (
-          <ul className="m-list">
-            {agents.map((a) => (
-              <AgentRow key={a.id} agent={a} workspace={ws} workingIds={workingIds} checklist={checklists && checklists[a.id]} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
-            ))}
-            {terms.map((t) => (
-              <TermRow key={t.id} term={t} busy={busyId === t.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />
-            ))}
-          </ul>
-        )}
-        <div className="m-ws-actions">
-          <button type="button" className="btn btn-sm" onClick={() => onCreate("agent", ws)}><IconPlus size={13} /> Agent</button>
-          <button type="button" className="btn btn-sm" onClick={() => onNewTerm(ws)}><IconPlus size={13} /> Terminal</button>
-          {ws.git && ws.git.dirty ? (
-            <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button>
-          ) : null}
-        </div>
-      </section>
-    );
-  });
-}
-
-function FreeAgents({ freeAgents, workingIds, busyId, checklists, onOpenAgent, onStart, onStop, onCreate }) {
-  if (!freeAgents || freeAgents.length === 0) {
-    return (
-      <div className="m-blank">
-        <p className="m-blank-title">No free agents</p>
-        <p className="m-blank-sub">A free agent works in its own folder, outside any workspace.</p>
-        <button type="button" className="btn btn-primary" onClick={() => onCreate("free")}>New agent</button>
-      </div>
-    );
-  }
-  return (
-    <ul className="m-list">
-      {freeAgents.map((a) => (
-        <AgentRow key={a.id} agent={a} workspace={null} workingIds={workingIds} checklist={checklists && checklists[a.id]} busy={busyId === a.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />
-      ))}
-    </ul>
-  );
-}
-
-function Terminals({ terminals, busyId, onOpenTerm, onRemoveTerm, onNewTerm }) {
-  const free = freeTerminals(terminals);
-  if (free.length === 0) {
-    return (
-      <div className="m-blank">
-        <p className="m-blank-title">No free terminals</p>
-        <p className="m-blank-sub">A free terminal lives outside any workspace; a workspace's terminals are on its card.</p>
-        <button type="button" className="btn btn-primary" onClick={() => onNewTerm(null)}>New terminal</button>
-      </div>
-    );
-  }
-  return (
-    <ul className="m-list">
-      {free.map((t) => (
-        <TermRow key={t.id} term={t} busy={busyId === t.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />
-      ))}
-    </ul>
   );
 }

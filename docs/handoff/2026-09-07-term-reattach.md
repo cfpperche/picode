@@ -18,3 +18,5 @@ Not done / debts: iOS wake with a zombie OPEN socket relies on the server's
 close frame arriving on network resume (standard path; not force-testable in
 Chromium). Server-side pong deadline (60 s) unchanged.
 Merge: fast-forward ready.
+Accepted live 2026-09-07: owner confirmed the fix on their phone session
+after deploy 0.1.0+b0087b1 — lock/wake reattaches without exit/re-enter.

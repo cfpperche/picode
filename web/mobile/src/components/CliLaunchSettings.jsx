@@ -8,7 +8,7 @@ import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged } from "@
 export const cliJSON = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 export const confirmDiscard = () => askConfirm({ title: "Discard launch changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
 
-export function useLaunchGuard(dirty) {
+export function useLaunchGuard(dirty, confirm = confirmDiscard) {
   const pending = useRef(false);
   const bypass = useRef(false);
   useEffect(() => {
@@ -20,7 +20,7 @@ export function useLaunchGuard(dirty) {
       e.preventDefault(); e.stopPropagation();
       if (pending.current) return;
       pending.current = true;
-      try { if (await confirmDiscard()) { bypass.current = true; location.href = link.href; } } finally { pending.current = false; }
+      try { if (await confirm()) { bypass.current = true; location.href = link.href; } } finally { pending.current = false; }
     };
     const hash = async (e) => {
       if (bypass.current) return;
@@ -28,13 +28,13 @@ export function useLaunchGuard(dirty) {
       history.replaceState(history.state, "", e.oldURL);
       if (pending.current) return;
       pending.current = true;
-      try { if (await confirmDiscard()) { bypass.current = true; location.href = e.newURL; } } finally { pending.current = false; }
+      try { if (await confirm()) { bypass.current = true; location.href = e.newURL; } } finally { pending.current = false; }
     };
     window.addEventListener("beforeunload", before);
     document.addEventListener("click", click, true);
     const releaseHash = registerHashGuard(hash);
     return () => { window.removeEventListener("beforeunload", before); document.removeEventListener("click", click, true); releaseHash(); };
-  }, [dirty]);
+  }, [dirty, confirm]);
   return () => { bypass.current = true; };
 }
 

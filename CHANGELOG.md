@@ -25,6 +25,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Mobile tools:** Agent CLIs now includes Sessions, and More includes
+  Automations with list, editor, run history and recoverable loading errors.
+
 - **Every Agent CLI can now receive a session handoff** (ADR-0094). OpenCode
   joins as a source and a target, Grok gains a native session (a live probe
   showed `summary.json` and `chat_history.jsonl` are all `--resume` needs),
@@ -47,11 +50,23 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile v2:** compact conversation and terminal controls, searchable Work
+  views and grouped tools give more space to active work. Each agent keeps
+  its unsent draft and attachments while navigating; message options open
+  in a sheet and Enter adds a new line. Failed sends offer Retry.
+
 - **Pi terminals no longer show a checklist strip above the pane.** The
   TUI already draws the plan; the sidebar card still carries the one-line
   step. The pane is just the terminal.
 
 ### Fixed
+
+- **Mobile recovery:** partial fleet failures preserve prior results; stale
+  session responses cannot replace the newly selected CLI. A CLI diagnostic
+  such as "No models available" no longer appears as a provider/model.
+  Automation actions reject duplicate taps and restore rejected toggles;
+  session handoff keeps controls locked through a confirmed retry and shows
+  execution failures inside its sheet.
 
 - **New Agent CLIs get Activity reporting on.** A CLI added to the catalog
   no longer imports with the switch off because it was missing from

@@ -15,7 +15,7 @@ export default function AgentRow({ agent, workspace, workingIds, checklist, onOp
   const stopped = state === "stopped";
   const check = checklistLine(checklist);
   const path = agent.workPath || (workspace && workspace.path) || "";
-  const context = [model, shortPath(path)].filter(Boolean).join(" · ");
+  const context = [model, path === workspace?.path ? "" : shortPath(path)].filter(Boolean).join(" · ");
   return (
     <li className={"m-row m-agent-row is-" + state}>
       <button type="button" className="m-row-main" onClick={() => onOpen(agent)}>

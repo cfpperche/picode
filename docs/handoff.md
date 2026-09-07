@@ -6,6 +6,7 @@
 
 ## Current state
 
+- **Mobile v2:** compact focused screens, retained drafts/search/scroll, Sessions and Automations; decision table in `docs/plans/mobile-v2.md`.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses while any agent
   or terminal is mid-turn (`GET /api/deploy/readiness`, loopback); `main`
   ships in batches (`make deploy-batch`, `picode-deploy.timer` at
@@ -96,5 +97,4 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
-  (Chromium PASS); iOS 26 IME-open is still owner acceptance.
+- Mobile v2: physical IME/PWA/push/resume and microphone acceptance remain open; editor/Git expansion needs owner scope confirmation (0044/0072).

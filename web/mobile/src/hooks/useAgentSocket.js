@@ -6,6 +6,7 @@ import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { toast, toastError } from "../lib/toast.js";
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { reconcileTranscript, liveSince, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
+import { submissionKind } from "../lib/agentDrafts.js";
 
 // One WebSocket for the agent screen only (ADR-0044). Drives the pure
 // reducer in lib/agentEvents.js and executes its effects; exposes the
@@ -24,6 +25,7 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
   const historyPath = useRef("");
   const retryRef = useRef(null);
   const managed = !!agent && agent.mode === "managed";
+  const activeRef = useRef(true);
 
   function set(next) {
     stateRef.current = next;
@@ -99,17 +101,18 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
   }
 
   useEffect(() => {
+    activeRef.current = true;
     historyPath.current = "";
     set(initialAgentState);
-    if (!agentId || !managed) { close(); return undefined; }
+    if (!agentId || !managed) { close(); return () => { activeRef.current = false; close(); }; }
     connect(agentId);
-    return close;
+    return () => { activeRef.current = false; close(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, managed]);
 
   function ensureConnected() {
     const p = sockRef.current;
-    if (!agentId) return;
+    if (!agentId || !activeRef.current || selectedRef.current !== agentId) return;
     if (!p || p.agentId !== agentId || (p.sock && p.sock.readyState !== 1)) connect(agentId);
   }
 
@@ -123,12 +126,14 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
       const res = await api("/api/agents/" + agentId + "/bash", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command }),
       });
-      set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "bash" && it.id === itemId ? {
+      if (activeRef.current && selectedRef.current === agentId) set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "bash" && it.id === itemId ? {
         ...it, output: res.output || it.output, exit: res.exitCode,
         status: res.cancelled ? "cancelled" : (res.exitCode === 0 ? "ok" : "err"),
       } : it)) });
+      return { accepted: true };
     } catch (e) {
-      set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "bash" && it.id === itemId ? { ...it, status: "err", output: it.output || (e && e.message) || String(e) } : it)) });
+      if (activeRef.current && selectedRef.current === agentId) set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "bash" && it.id === itemId ? { ...it, status: "err", output: it.output || (e && e.message) || String(e) } : it)) });
+      throw e;
     }
   }
 
@@ -140,17 +145,15 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
   async function send(text, images, kind) {
     const payload = String(text || "").trim();
     const pics = images || [];
-    if ((!payload && !pics.length) || !agentId) return;
+    if ((!payload && !pics.length) || !agentId) return { accepted: false };
     const cur = stateRef.current;
     const busy = cur.streaming || cur.waiting;
-    let sendKind = kind || "prompt";
-    if (busy && sendKind !== "steer" && sendKind !== "follow_up") sendKind = "follow_up";
+    const sendKind = submissionKind(kind, cur);
     const bash = bashLine(payload);
     if (bash && bash.refused) {
-      toast.info("!! runs without sending output — use the terminal for that.");
-      return;
+      return { accepted: false, error: "Use the terminal to run a command without sending its output." };
     }
-    if (bash && !pics.length) { await runBash(bash.command); return; }
+    if (bash && !pics.length) return runBash(bash.command);
     const ts = Date.now();
     set(markSent(cur, { kind: sendKind, text: payload, images: pics.map((p) => p.url), ts, busy }));
     try { await api("/api/agents/" + agentId + "/managed/start", { method: "POST" }); } catch { /* already running */ }
@@ -167,9 +170,10 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
           body: JSON.stringify({ kind: sendKind, payload, source: "user" }),
         });
       }
+      return { accepted: true };
     } catch (e) {
-      set(markUndelivered(stateRef.current, ts, (e && e.message) || String(e)));
-      toastError(e);
+      if (activeRef.current && selectedRef.current === agentId) set(markUndelivered(stateRef.current, ts, (e && e.message) || String(e), { preserveActivity: busy }));
+      throw e;
     }
   }
 
@@ -211,5 +215,9 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
     set({ ...stateRef.current, items: stateRef.current.items.map((it) => (it.kind === "tool" && it.id === id ? { ...it, expanded: !it.expanded } : it)) });
   }
 
-  return { state, scrollTick, send, abort, replyAsk, abortBash, toggleTool };
+  function toggleFiles(index) {
+    set({ ...stateRef.current, items: stateRef.current.items.map((it, i) => i === index && it.kind === "files" ? { ...it, expanded: !it.expanded } : it) });
+  }
+
+  return { state, scrollTick, send, abort, replyAsk, abortBash, toggleTool, toggleFiles };
 }

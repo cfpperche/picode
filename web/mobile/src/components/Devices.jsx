@@ -17,13 +17,15 @@ const EXT_GUIDE = "https://cfpperche.github.io/picode/guide/browser-extension";
 export default function Devices({ hidden }) {
   const [rows, setRows] = useState(null);
   const [live, setLive] = useState([]);
+  const [loadError, setLoadError] = useState(false);
 
   async function load() {
     try {
       const [s, d] = await Promise.all([api("/api/auth/sessions"), api("/api/devices").catch(() => [])]);
       setRows(s.items || []);
       setLive(Array.isArray(d) ? d : []);
-    } catch (e) { toastError(e); }
+      setLoadError(false);
+    } catch { setLoadError(true); }
   }
   useEffect(() => {
     if (hidden) return;
@@ -85,9 +87,10 @@ export default function Devices({ hidden }) {
 
   return (
     <PageFrame id="devices-view" title="Devices" hidden={hidden}>
-      {rows === null ? (
+      {loadError ? <div className="m-settings-notice" role="alert"><p>{rows === null ? "Couldn’t load devices." : "Couldn’t refresh devices."}</p><button type="button" className="btn btn-sm" onClick={load}>Try again</button></div> : null}
+      {rows === null ? (loadError ? null : (
         <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-70" /><span className="skel-line w-40" /></div>
-      ) : rows.length === 0 ? (
+      )) : rows.length === 0 ? (
         <div className="mcp-empty">
           <p>No paired devices yet.</p>
           <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
@@ -96,17 +99,18 @@ export default function Devices({ hidden }) {
         <>
           <ul className="dev-list">
             {rows.map((r) => (
-              <li key={r.id} className={"dev-row" + (r.online ? "" : " off")} data-align-row>
-                <span className="dev-dot-cell"><span className={"share-dot" + (r.online ? "" : " off")} /></span>
+              <li key={r.id} className={"dev-row m-device-row" + (r.online ? "" : " off")}>
                 <span className="dev-name">
+                  <span className={"share-dot" + (r.online ? "" : " off")} />
                   {r.label || r.id}
                   {r.current ? <span className="devs-tag">this device</span> : null}
                   {r.kind === "token" ? <span className="devs-tag">token</span> : null}
                   {r.pingKind === "extension" ? <span className="devs-tag">extension</span> : null}
                 </span>
-                <span className="dev-ip">{r.ip}</span>
-                <span className="dev-seen" title={absTime(r.pingSeen || r.lastSeenAt)}>{r.online ? "online" : "seen " + relTime(r.pingSeen || r.lastSeenAt)}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => forget(r)}>Forget</button>
+                <div className="m-device-controls" data-align-row>
+                  <span className="m-device-meta"><span className="dev-ip">{r.ip}</span><span className="dev-seen" title={absTime(r.pingSeen || r.lastSeenAt)}>{r.online ? "online" : "seen " + relTime(r.pingSeen || r.lastSeenAt)}</span></span>
+                  <button type="button" className="btn btn-ghost btn-sm" aria-label={"Forget " + (r.label || r.id)} onClick={() => forget(r)}>Forget</button>
+                </div>
               </li>
             ))}
           </ul>
@@ -114,10 +118,8 @@ export default function Devices({ hidden }) {
             <div className="devs-actions" data-align-row>
               <button type="button" className="btn btn-primary" onClick={pair}>Pair a device</button>
               <button type="button" className="btn btn-ghost" onClick={copyLink}>Copy a pairing link</button>
-              {offline.length ? (
-                <button type="button" className="btn btn-ghost" onClick={forgetOffline}>Forget offline ({offline.length})</button>
-              ) : null}
             </div>
+            {offline.length ? <button type="button" className="btn btn-ghost" onClick={forgetOffline}>Forget offline ({offline.length})</button> : null}
             {extOnline ? null : (
               <p className="settings-desc dev-ext-note">Chrome extension: not connected. <a href={EXT_GUIDE} target="_blank" rel="noreferrer">Open guide</a></p>
             )}

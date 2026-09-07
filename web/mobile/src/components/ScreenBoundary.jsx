@@ -1,7 +1,11 @@
 import { Component } from "react";
 
 export function ScreenLoading() {
-  return <section className="m-screen m-route-state" aria-busy="true" aria-label="Loading screen"><div className="m-skel" /><div className="m-skel" /></section>;
+  return <section className="m-screen m-route-state" aria-busy="true" aria-label="Loading screen">{[0, 1, 2].map(i => <div className="m-loading-row" key={i} aria-hidden="true"><span /><div><i /><i /></div></div>)}</section>;
+}
+
+export function ScreenError({ message = "Couldn’t open this screen.", onRetry }) {
+  return <section className="m-screen m-route-state" role="alert"><p>{message}</p><button type="button" className="btn btn-primary" onClick={onRetry}>Try again</button></section>;
 }
 
 // A missing chunk after an update or a dropped connection must leave a way

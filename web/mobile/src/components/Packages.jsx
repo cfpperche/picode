@@ -214,7 +214,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
 
       <div className="pkg-tabs" role="tablist" aria-label="Packages">
         <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
-          Installed{data ? <span className="pkg-tab-count">{list.length}</span> : null}
+          Installed{data && list.length ? <span className="pkg-tab-count">{list.length}</span> : null}
         </button>
         <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
       </div>
@@ -222,8 +222,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       {tab === "installed" ? (
         list.length === 0 && data ? (
           <div className="pkg-empty">
-            <p className="pkg-empty-title">Nothing installed yet</p>
-            <p className="pkg-fine">Pick one in the Marketplace, or paste a source above.</p>
+            <p className="pkg-empty-title">No packages installed.</p>
             <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
           </div>
         ) : (

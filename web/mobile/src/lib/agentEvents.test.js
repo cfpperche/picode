@@ -217,8 +217,17 @@ describe("local transitions", () => {
   it("markUndelivered annotates the bubble and stops the optimistic turn", () => {
     const s = markUndelivered(markSent(initialAgentState, { kind: "prompt", text: "hi", ts: 5, busy: false }), 5, "offline");
     assert.match(s.items.at(-1).text, /not delivered: offline/);
+    assert.equal(s.items.at(-1).undelivered, true);
     assert.equal(s.streaming, false);
   });
+  for (const [streaming, waiting] of [[true, false], [false, true], [true, true]]) {
+    it(`failed follow-up preserves existing activity: streaming=${streaming}, waiting=${waiting}`, () => {
+      const s = markUndelivered(markSent({ ...initialAgentState, streaming, waiting }, { kind: "follow_up", text: "later", ts: 5, busy: true }), 5, "offline", { preserveActivity: true });
+      assert.equal(s.streaming, streaming);
+      assert.equal(s.waiting, waiting);
+      assert.equal(s.items.at(-1).undelivered, true);
+    });
+  }
   it("markAborted drops queued steers and closes cards", () => {
     const start = run([{ type: "agent_start" }, ask]).state;
     const withSteer = { ...start, items: [...start.items, { kind: "block", cls: "user", chip: "steer", text: "x" }] };

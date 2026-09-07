@@ -10,6 +10,7 @@ import { cliLocation, launchDraft, launchConfig, editLaunchOverrides, resolveLau
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
+import SessionsView from "./SessionsView.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
@@ -48,6 +49,7 @@ export default function AgentClis({ hidden = false }) {
   }, []);
   useEffect(() => {
     if (!hidden && hash === "#/preferences/status") location.replace("#/clis");
+    if (!hidden && /^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash]);
   useEffect(() => {
     if (hidden) return;
@@ -117,11 +119,25 @@ export default function AgentClis({ hidden = false }) {
 
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
     <nav className="cli-tabs" aria-label="Agent CLIs">
-      <a href="#/clis" aria-current={route.view !== "terminals" ? "page" : undefined}>CLIs</a>
+      <a href="#/clis" aria-current={route.view !== "terminals" && route.view !== "sessions" ? "page" : undefined}>CLIs</a>
       <a href="#/clis/terminals" aria-current={route.view === "terminals" ? "page" : undefined}>Terminals</a>
+      <a href="#/clis/sessions" aria-current={route.view === "sessions" ? "page" : undefined}>Sessions</a>
     </nav>
     {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
+    {data && route.view === "sessions" ? <SessionsView embedded
+      wsId={route.id || ""} workspace={data.workspaces.find(w => w.id === route.id)}
+      agents={data.workspaces.find(w => w.id === route.id)?.agents || []} workspaces={data.workspaces}
+      cli={route.cli || "pi"} clis={data.clis} cliNames={Object.fromEntries(data.clis.map(c => [c.id, c.name]))}
+      onCliChange={id => navigate("/sessions" + (route.id ? "/" + encodeURIComponent(route.id) : "") + "?cli=" + encodeURIComponent(id))}
+      onOpenAgent={id => { location.hash = "#/agent/" + encodeURIComponent(id); }}
+      onCompactAgent={async id => {
+        if (!(await askConfirm({ title: "Compact session", message: "Replace older turns with a summary? This cannot be undone in chat.", confirmLabel: "Compact" }))) return;
+        run("compact:" + id, async () => {
+          const result = await api("/api/agents/" + encodeURIComponent(id) + "/compact", { method: "POST" });
+          toast.ok(result?.already ? "Nothing left to compact." : "Session compacted.");
+        }).catch(() => {});
+      }} /> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
       <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={"#/clis/" + c.id} aria-current={c.id === selected.id ? "page" : undefined}>

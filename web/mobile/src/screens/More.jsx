@@ -1,8 +1,9 @@
-import { lazy } from "react";
+import { lazy, useState } from "react";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 const Devices = lazy(() => import("../components/Devices.jsx"));
 const Settings = lazy(() => import("../components/Settings.jsx"));
 const AgentClis = lazy(() => import("../components/AgentClis.jsx"));
+const Automations = lazy(() => import("../components/Automations.jsx"));
 const PiSettings = lazy(() => import("../components/PiSettings.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
 const LlamaPanel = lazy(() => import("../components/LlamaPanel.jsx"));
@@ -15,8 +16,11 @@ import PushPrefs from "../components/PushPrefs.jsx";
 import AppsGrid from "../components/AppsGrid.jsx";
 import { IconChevronRight, IconMonitor, IconQR, IconSparkles } from "../components/Icons.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
+import { matchesListSearch } from "../lib/mobileListSearch.js";
+import "../styles/mobile-lists.css";
 
 const SECTIONS = [
+  ["automations", "Automations", "Scheduled and triggered work"],
   ["clis", "Agent CLIs", "Launch settings and terminals"],
   ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
@@ -30,16 +34,32 @@ const SECTIONS = [
   ["system", "System", "Version, host, paths"],
 ];
 
-const TITLES = Object.fromEntries(SECTIONS.map(([id, t]) => [id, t]));
+const TITLES = { ...Object.fromEntries(SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
+const GROUPS = [
+  ["Tools", ["clis", "automations", "apps", "llama"]],
+  ["Agents and connections", ["providers", "settings", "integrations", "packages"]],
+  ["PiCode", ["preferences", "notifications", "devices", "system"]],
+];
 
 // Mobile-owned settings, loaded only when their section opens.
-export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig }) {
+export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [] }) {
+  const [query, setQuery] = useState("");
   if (!section) {
+    const groups = GROUPS.map(([title, ids]) => ({ title, rows: ids.map(id => SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, title, ...row)) })).filter(group => group.rows.length);
+    const actions = [
+      { id: "updates", title: "What’s new", sub: "Release highlights", Icon: IconSparkles, action: onWhatsNew, unread: whatsNewUnread },
+      { id: "pair", title: "Open on another phone", sub: "Pair with a QR code", Icon: IconQR, action: onShare },
+      { id: "desktop", title: "Desktop layout", sub: "Open the desktop workspace", Icon: IconMonitor, action: () => setShell("desktop") },
+    ].filter(row => matchesListSearch(query, row.title, row.sub, row.id));
     return (
-      <div className="m-screen">
-        <div className="m-screen-head"><h2 className="m-screen-title">More</h2></div>
-        <ul className="m-list m-menu">
-          {SECTIONS.map(([id, title, sub]) => (
+      <div className="m-screen m-v2-lists m-more-v2" aria-label="More">
+        <div className="m-screen-head m-list-head">
+          <input type="search" className="dlg-input m-list-search" aria-label="Search tools and settings" placeholder="Search tools and settings" value={query} onChange={event => setQuery(event.target.value)} />
+        </div>
+        {groups.map(group => <section className="m-section m-more-group" key={group.title} aria-label={group.title}>
+          <h2 className="m-section-label">{group.title}</h2>
+          <ul className="m-list m-menu m-group-list">
+          {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
               <a className="m-row-main" href={"#/more/" + id}>
                 <span className="m-row-text">
@@ -50,28 +70,20 @@ export default function More({ section, apps, catalog, system, version, themeMod
               </a>
             </li>
           ))}
-          <li className={"m-row" + (whatsNewUnread ? " is-unread" : "")}>
-            <button type="button" className="m-row-main" onClick={onWhatsNew}>
-              <span className="m-row-face"><IconSparkles size={18} /></span>
-              <span className="m-row-text"><span className="m-row-title">What’s new</span><span className="m-row-sub">Release highlights and improvements</span></span>
+          </ul>
+        </section>)}
+        {actions.length ? <section className="m-section m-more-group" aria-label="Continue">
+          <h2 className="m-section-label">Continue</h2>
+          <ul className="m-list m-menu m-group-list">{actions.map(({ id, title, sub, Icon, action, unread }) => <li key={id} className={"m-row" + (unread ? " is-unread" : "")}>
+            <button type="button" className="m-row-main" onClick={action}>
+              <span className="m-row-face"><Icon size={18} /></span>
+              <span className="m-row-text"><span className="m-row-title">{title}</span><span className="m-row-sub">{sub}</span></span>
               <IconChevronRight size={16} className="m-row-chev" />
             </button>
-          </li>
-          <li className="m-row">
-            <button type="button" className="m-row-main" onClick={onShare}>
-              <span className="m-row-face"><IconQR size={18} /></span>
-              <span className="m-row-text"><span className="m-row-title">Open on another phone</span><span className="m-row-sub">QR code for this server</span></span>
-            </button>
-          </li>
-          <li className="m-row">
-            <button type="button" className="m-row-main" onClick={() => setShell("desktop")}>
-              <span className="m-row-face"><IconMonitor size={18} /></span>
-              <span className="m-row-text"><span className="m-row-title">Desktop layout</span><span className="m-row-sub">The full workstation shell, on this screen</span></span>
-            </button>
-          </li>
-        </ul>
-        <div className="m-install"><InstallButton /></div>
-        {version ? <p className="m-version">PiCode {version}</p> : null}
+          </li>)}</ul>
+        </section> : null}
+        {!groups.length && !actions.length ? <div className="m-list-empty" role="status"><p>No matching tools or settings.</p><button type="button" className="btn btn-sm" onClick={() => setQuery("")}>Clear search</button></div> : null}
+        {!query.trim() ? <><div className="m-install"><InstallButton /></div>{version ? <p className="m-version">PiCode {version}</p> : null}</> : null}
       </div>
     );
   }
@@ -84,6 +96,7 @@ export default function More({ section, apps, catalog, system, version, themeMod
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis /> : null}
+      {section === "automations" ? <Automations hidden={false} catalog={catalog} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}

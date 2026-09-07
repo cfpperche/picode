@@ -13,7 +13,7 @@
   display: flex; flex-direction: column;
   position: fixed; inset: 0; overflow: hidden;
   background: var(--bg-base); color: var(--text-primary);
-  font-size: 14px;
+  font: 14px/1.45 var(--sans);
   touch-action: manipulation; /* no double-tap zoom; pinch is cancelled in App.jsx */
 }
 #m-app.kb-open {
@@ -34,9 +34,9 @@
    top was simply clipped. */
 .m-screen:has(> .m-screen-head), .m-screen:has(> .m-head), .m-screen:has(.ft-head) { padding-top: 0; }
 /* ---- frame: no header, the tab bar is the chrome ---- */
-.m-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.m-body { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .m-screen {
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: calc(12px + env(safe-area-inset-top)) var(--m-pad) 24px;
   display: flex; flex-direction: column; gap: 18px;
@@ -67,6 +67,11 @@
   font: inherit; font-size: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .m-tab.on { color: var(--accent); }
+.m-tab-icon::before { content: ""; position: absolute; inset: -4px -15px; border-radius: 8px; background: transparent; transition: background 140ms var(--ease-out); }
+.m-tab.on .m-tab-icon::before { background: var(--accent-soft); }
+.m-tab-icon > svg { position: relative; }
+.m-tab-label { position: relative; }
+.m-tab.on .m-tab-label { font-weight: 650; }
 .m-tab-icon { position: relative; display: inline-flex; }
 .m-tab-label { line-height: 1; }
 .m-badge {
@@ -89,9 +94,11 @@
 }
 .m-head-back:active { background: var(--bg-hover); }
 .m-head-title { display: flex; flex-direction: column; min-width: 0; }
-.m-head-name { font-weight: 650; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-head-name { margin: 0; font-weight: 650; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-head-sub { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.m-head-right { display: inline-flex; align-items: center; gap: 6px; }
+.m-head-right { display: inline-flex; align-items: center; gap: 8px; }
+.m-head-right .btn { position: relative; min-width: var(--ctl-h); }
+.m-head-right .btn::after { content: ""; position: absolute; inset: -4px; }
 
 /* ---- sections, rows, cards ---- */
 .m-section { display: flex; flex-direction: column; gap: 8px; }
@@ -372,3 +379,29 @@
 .m-agent-config-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .m-agent-settings .cfg-fields select { width: 100%; max-width: 100%; }
+.m-config-unavailable { flex: 1 1 100%; grid-column: 1 / -1; margin: 0; font: 13px/1.45 var(--sans); color: var(--text-secondary); }
+.m-config-unavailable a { color: var(--accent); }
+.m-agent-settings .settings-desc:empty { display: none; }
+
+/* A mobile page has one scroll owner. Long values wrap in its content;
+   tables and code keep their own deliberate horizontal reading region. */
+.m-more-page .pane-view { overflow: visible; flex: none; }
+.m-more-page .settings-card { min-width: 0; }
+.m-more-page .settings-card :is(p, dd) { overflow-wrap: anywhere; }
+.m-more-page :is(.settings-tabs, .pi-tabs, .cli-tabs, .app-tabs) { max-width: 100%; }
+.m-more-page :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.m-loading-row { width: 100%; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.m-loading-row > span { flex: none; width: 32px; height: 32px; border-radius: 9px; }
+.m-loading-row > div { flex: 1; display: grid; gap: 8px; }
+.m-loading-row i { display: block; width: 70%; height: 12px; border-radius: 4px; }
+.m-loading-row i + i { width: 45%; height: 9px; }
+.m-loading-row :is(span, i) { background: var(--bg-hover); animation: m-loading-pulse 1.4s ease-in-out infinite alternate; }
+#m-app :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) {
+  .m-tab:hover, .m-head-back:hover, .m-row-main:hover, .m-row-act:hover { background: var(--bg-hover); }
+}
+@keyframes m-loading-pulse { to { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) {
+  .m-loading-row :is(span, i) { animation: none; }
+  .m-tab-icon::before { transition: none; }
+}
