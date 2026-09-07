@@ -1,11 +1,84 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useRef, useState } from "react";
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconTerminal } from "./Icons.jsx";
+import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
 import { readShellPref, setShell } from "@picode/shared/client/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
+const SECTION_ICONS = {
+  clis: IconTerminal,
+  automations: IconClock,
+  providers: IconProvider,
+  settings: IconSettings,
+  integrations: IconMcp,
+  packages: IconPackage,
+  preferences: IconMode,
+  devices: IconPhone,
+  system: IconDrive,
+};
+
+const ACTION_ICONS = { "whats-new": IconSparkles, share: IconQR, docs: IconExternal };
+
 export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates }) {
+  const [query, setQuery] = useState("");
+  const contentRef = useRef(null);
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
   const hasNotice = hasPkgUp || !!whatsNewUnread;
+  const searching = !!query.trim();
+  const groups = menuGroups(query);
+  const actions = menuActions(query);
+  const rows = (list) => list.map(([id, title, sub]) => {
+    const Icon = SECTION_ICONS[id];
+    return (
+      <DropdownMenu.Item key={id} className="um-item" id={"um-" + id} onSelect={() => onNavigate(id)}>
+        {Icon ? <Icon className="um-item-ico" /> : null}
+        <span className="um-item-text">
+          <span className="um-item-name">{title}{id === "packages" && hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
+          <span className="um-row-sub">{sub}</span>
+        </span>
+        <IconChevronRight />
+      </DropdownMenu.Item>
+    );
+  });
+
+  // Keep the search keys out of the menu's typeahead; Escape still closes.
+  const onSearchKeyDown = (event) => {
+    if (event.key === "Escape") return;
+    event.stopPropagation();
+    if (event.key === "ArrowDown") {
+      const first = contentRef.current && contentRef.current.querySelector("[role^='menuitem']");
+      if (first) { event.preventDefault(); first.focus(); }
+    }
+  };
+
+  const renderAction = (action) => {
+    const Icon = ACTION_ICONS[action.id];
+    if (action.id === "docs") {
+      return (
+        <DropdownMenu.Item asChild key={action.id}>
+          <a className="um-item" id="um-docs" href="https://cfpperche.github.io/picode/" target="_blank" rel="noopener noreferrer">
+            <Icon className="um-item-ico" />
+            <span className="um-item-text">
+              <span className="um-item-name">{action.title}</span>
+              <span className="um-row-sub">{action.sub}</span>
+            </span>
+            <IconExternal />
+          </a>
+        </DropdownMenu.Item>
+      );
+    }
+    return (
+      <DropdownMenu.Item key={action.id} className="um-item" id={"um-" + action.id} onSelect={action.id === "share" ? () => onShare && onShare() : () => onWhatsNew && onWhatsNew()}>
+        <Icon className="um-item-ico" />
+        <span className="um-item-text">
+          <span className="um-item-name">{action.title}{action.id === "whats-new" && whatsNewUnread ? <span className="um-dot" aria-label="New release notes" /> : null}</span>
+          <span className="um-row-sub">{action.sub}</span>
+        </span>
+        <IconChevronRight />
+      </DropdownMenu.Item>
+    );
+  };
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -19,7 +92,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="um-popover" side="top" align="start" sideOffset={6} collisionPadding={8}>
+        <DropdownMenu.Content className="um-popover" side="top" align="start" sideOffset={6} collisionPadding={8} ref={contentRef}>
           <div className="um-account">
             <span className="um-avatar" aria-hidden="true"><IconUser /></span>
             <div className="um-account-meta">
@@ -28,97 +101,73 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
             </div>
           </div>
 
-          <DropdownMenu.Separator className="um-divider" />
-          <div className="um-label">Theme</div>
-          <div className="um-theme" role="radiogroup" aria-label="Theme">
-            <button type="button" role="radio" aria-checked={themeMode === "light"} data-theme-option="light" data-active={themeMode === "light" ? "1" : ""} onClick={() => onTheme("light")}>
-              <IconSun /> Light
-            </button>
-            <button type="button" role="radio" aria-checked={themeMode === "system"} data-theme-option="system" data-active={themeMode === "system" ? "1" : ""} onClick={() => onTheme("system")}>
-              <IconMonitor /> System
-            </button>
-            <button type="button" role="radio" aria-checked={themeMode === "dark"} data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => onTheme("dark")}>
-              <IconMoon /> Dark
-            </button>
+          <div className="um-search" onKeyDown={onSearchKeyDown}>
+            <input
+              type="search"
+              className="um-search-input"
+              aria-label="Search tools and settings"
+              placeholder="Search tools and settings"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
           </div>
 
-          <div className="um-label">Layout</div>
-          <div className="um-theme" role="radiogroup" aria-label="Layout">
-            <button type="button" role="radio" aria-checked={readShellPref() === "desktop"} data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
-              <IconMonitor /> Desktop
-            </button>
-            <button type="button" role="radio" aria-checked={readShellPref() === "system"} data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
-              <IconMonitor /> Auto
-            </button>
-            <button type="button" role="radio" aria-checked={readShellPref() === "mobile"} data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
-              <IconPhone /> Mobile
-            </button>
-          </div>
+          {menuHasResults(query) ? (
+            <>
+              {groups.map((group) => (
+                <div className="um-group" key={group.title} aria-label={group.title}>
+                  <div className="um-label">{group.title}</div>
+                  {rows(group.rows)}
+                </div>
+              ))}
+              {actions.length ? (
+                <div className="um-group" aria-label="Continue">
+                  <div className="um-label">Continue</div>
+                  {actions.map(renderAction)}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="um-empty" role="status">
+              <span>No matching tools or settings.</span>
+              <button type="button" className="btn btn-sm" onClick={() => setQuery("")}>Clear search</button>
+            </div>
+          )}
 
-          <DropdownMenu.Separator className="um-divider" />
-          <DropdownMenu.Item className="um-item" id="um-whats-new" onSelect={() => onWhatsNew && onWhatsNew()}>
-            <IconSparkles className="um-item-ico" />
-            <span className="um-item-name">What’s new{whatsNewUnread ? <span className="um-dot" aria-label="New release notes" /> : null}</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-clis" onSelect={() => onNavigate("clis")}>
-            <IconTerminal className="um-item-ico" /><span className="um-item-name">Agent CLIs</span><IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-preferences" onSelect={() => onNavigate("preferences")}>
-            <IconMode className="um-item-ico" />
-            <span className="um-item-name">Preferences</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-settings" onSelect={() => onNavigate("settings")}>
-            <IconSettings className="um-item-ico" />
-            <span className="um-item-name">Settings</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-system" onSelect={() => onNavigate("system")}>
-            <IconDrive className="um-item-ico" />
-            <span className="um-item-name">System</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-providers" onSelect={() => onNavigate("providers")}>
-            <IconProvider className="um-item-ico" />
-            <span className="um-item-name">Providers</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-integrations" onSelect={() => onNavigate("integrations")}>
-            <IconMcp className="um-item-ico" />
-            <span className="um-item-name">Integrations</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-packages" onSelect={() => onNavigate("packages")}>
-            <IconPackage className="um-item-ico" />
-            <span className="um-item-name">Packages{hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-automations" onSelect={() => onNavigate("automations")}>
-            <IconClock className="um-item-ico" />
-            <span className="um-item-name">Automations</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-devices" onSelect={() => onNavigate("devices")}>
-            <IconPhone className="um-item-ico" />
-            <span className="um-item-name">Devices</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="um-item" id="um-share" onSelect={() => onShare && onShare()}>
-            <IconQR className="um-item-ico" />
-            <span className="um-item-name">Open on phone</span>
-            <IconChevronRight />
-          </DropdownMenu.Item>
-          <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div>
-          <DropdownMenu.Item asChild>
-            <a className="um-item" id="um-docs" href="https://cfpperche.github.io/picode/" target="_blank" rel="noopener noreferrer">
-              <span>Documentation</span>
-              <IconExternal />
-            </a>
-          </DropdownMenu.Item>
+          {!searching ? (
+            <>
+              <DropdownMenu.Separator className="um-divider" />
+              <div className="um-label">Theme</div>
+              <div className="um-theme" role="radiogroup" aria-label="Theme">
+                <button type="button" role="radio" aria-checked={themeMode === "light"} data-theme-option="light" data-active={themeMode === "light" ? "1" : ""} onClick={() => onTheme("light")}>
+                  <IconSun /> Light
+                </button>
+                <button type="button" role="radio" aria-checked={themeMode === "system"} data-theme-option="system" data-active={themeMode === "system" ? "1" : ""} onClick={() => onTheme("system")}>
+                  <IconMonitor /> System
+                </button>
+                <button type="button" role="radio" aria-checked={themeMode === "dark"} data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => onTheme("dark")}>
+                  <IconMoon /> Dark
+                </button>
+              </div>
 
-          <DropdownMenu.Separator className="um-divider" />
-          <div className="um-version">PiCode <span id="um-ver">{version ? "v" + version : ""}</span></div>
+              <div className="um-label">Layout</div>
+              <div className="um-theme" role="radiogroup" aria-label="Layout">
+                <button type="button" role="radio" aria-checked={readShellPref() === "desktop"} data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
+                  <IconMonitor /> Desktop
+                </button>
+                <button type="button" role="radio" aria-checked={readShellPref() === "system"} data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
+                  <IconMonitor /> Auto
+                </button>
+                <button type="button" role="radio" aria-checked={readShellPref() === "mobile"} data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
+                  <IconPhone /> Mobile
+                </button>
+              </div>
+
+              <DropdownMenu.Separator className="um-divider" />
+              <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div>
+              <div className="um-version">PiCode <span id="um-ver">{version ? "v" + version : ""}</span></div>
+            </>
+          ) : null}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
