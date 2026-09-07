@@ -1,8 +1,9 @@
 # Agent CLIs
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
-phone. It manages terminals — and lists each CLI's session history — for
-your installed Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Managed agents,
+phone. It manages terminals, lists each CLI's session history, and moves a
+conversation from one CLI to another, for your installed Pi, Claude Code,
+Codex, Grok, Hermes Agent and OpenCode commands. Managed agents,
 structured chat, packages and automations still use Pi; a CLI terminal is
 not a new type of managed agent.
 
@@ -81,21 +82,51 @@ deleting is permanent, and sessions in use by an agent refuse deletion.
 
 ## Continue a session in another CLI
 
-Every session row has a **•••** menu with **Continue in &lt;CLI&gt;…** for each
-other CLI that can receive it. PiCode reads the conversation, shows what
-will travel and what stays behind (thinking never travels; tool calls do),
-and then either writes a **native session** the other CLI resumes as its
-own — Claude Code, Codex, Grok and pi as a new agent, with OpenCode and
-Hermes receiving it through their own `import` command — or, for a CLI
-without an import path, starts it from a short **brief** it reads first.
-The
-conversation you started stays where it was; the new one begins with a
-note saying where it came from and that files may have changed since.
-Both rows show the link ("from Claude Code", "continued in Codex").
+A conversation is not stuck in the CLI that started it. Every session row
+has a **•••** menu offering **Continue in &lt;CLI&gt;…** for each other CLI that
+can receive it. The list comes from what each CLI can actually do, so it
+changes with the source you picked and with what is installed.
 
-If the source is still running, PiCode says so and lets you continue
-anyway. When the conversation was summarized along the way, you choose
-between what the previous agent still had in view or the whole history.
+Nothing is written until you confirm. The dialog first shows what would
+travel — how many turns and tool calls — and what would stay behind.
+Reasoning never travels: it belongs to the model that produced it and its
+provider signs it.
+
+There are two ways for the conversation to arrive.
+
+**Native session.** It becomes a real session of the other CLI, which
+resumes it as its own. Claude Code, Codex, Grok and Pi get one written
+into their session store, always as a new session and never over anything
+already there. OpenCode and Hermes Agent keep their sessions in a database
+their CLI holds open, so PiCode hands the conversation to their own
+`import` command instead of writing that database. Either way PiCode reads
+the session back before telling you it worked.
+
+**Brief.** For a CLI with no import path, PiCode writes a short summary —
+the last request, where the previous agent stopped, the recent turns, the
+files and commands it touched — and starts the CLI with it. Hermes Agent
+has no brief, because it cannot be started with a prompt.
+
+Two more choices appear when they apply. **How much** lets you pick
+between what the previous agent still had in view and the whole history,
+and shows up only when the conversation was summarized along the way.
+**Turn tool calls into plain text** hands them over as ordinary messages,
+for a CLI that would rather not read another agent's tools.
+
+What you started stays where it was. Nothing is moved and nothing is
+deleted. The new conversation opens with a note saying where it came from,
+which model was running there, and that files may have changed since. Both
+rows then carry the link — "from Claude Code" on one, "continued in Codex"
+on the other — pointing at the terminal or agent that holds it.
+
+Pi arrives differently: instead of a terminal you get a new managed agent,
+stopped, in the workspace that owns the folder. Start it like any other.
+
+Two things worth knowing. A session written for another CLI records a
+model that CLI can actually serve rather than the one that produced the
+turns, because naming a foreign model made one CLI refuse it and switch.
+And when the source conversation is still running, PiCode says so and asks
+before continuing, since its newest turns may not be on disk yet.
 
 ## Reuse launch profiles
 
