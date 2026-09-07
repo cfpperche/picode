@@ -510,18 +510,37 @@ its history survives navigation. Service ownership remains delivery 4 in
 [the plan](plans/llama-manager.md).
 Hugging Face GGUF metadata also exposes file size and a conservative runtime
 memory estimate with contextual guidance; missing size data remains unknown.
-Delivery 4's ownership boundary is ADR-0084: only an explicitly created local
+Delivery 4's ownership boundary is ADR-0090: only an explicitly created local
 Linux/WSL profile may receive lifecycle or cache mutations; external and remote
 routers remain inspection-only for those controls.
-The current delivery 4 code is only an unconnected execution-profile helper,
-not a service manager. Its preview verifies an absolute regular executable
-without symlink components against a required SHA-256 pin. It emits explicit
-GPU layers (including zero), Jinja/autoload switches and generation/batch
-threads (1–4 for this initial low-resource profile). The pin must eventually
-come from a trusted installation manifest: matching a caller-supplied hash
-does not prove release provenance. Verification is a snapshot, not a race-free
-launch guarantee; lifecycle locking, revalidation, version compatibility,
-persistence, UI, updates/rollback and cache ownership remain unimplemented.
+`internal/llamaservice` implements one explicitly created local CPU profile.
+Migration 034 stores its configuration, release manifests, ownership ledger and
+bounded job history through a CAS store mutation plus `llama.service` events.
+The desktop/mobile `#/llama/service` page has Light/Balanced presets, advanced
+settings, effective argv, reviewed lifecycle actions, cache and diagnostics.
+It adapts Cursor's progressive disclosure and t3code's reload-safe routes from
+the [benchmark study](benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
+
+The installer embeds official b10809/b10826 Linux CPU archive hashes, verifies
+before extraction, materializes internal library links as pinned regular
+files, and checks version/required flags. It does not accept arbitrary URLs,
+binary paths or shell fragments. It revalidates installed files before launch.
+Reviews expire after five minutes and bind revision, targets and consumers;
+model reservations share the lifecycle lock. Updates retain the old release
+and recover it if a running replacement fails readiness. The private same-binary
+supervisor owns a router process group: parent pipe EOF kills the entire group,
+including after a daemon crash. Startup marks unfinished jobs interrupted and
+does not relaunch the service. No process name or external PID is adopted.
+
+The initial CPU profiles use explicit GPU zero, Jinja/autoload switches and
+1–4 generation/batch threads. Model cache ownership is recorded only after a
+tracked download on the owned router reports a new exact file path, pinned by
+SHA-256. Existing files are never adopted. Cleanup requires a stopped service,
+no active model jobs and no configured agent references, with file revalidation.
+Unknown, changed and referenced files stay intact. Diagnostics use an allowlist
+instead of exporting logs or credentials. Linux x64 has real CPU acceptance;
+ARM64 and GPU execution remain unverified. Filesystem checks assume the owner's
+private data directory is not concurrently modified by another local process.
 
 ## Component diagram
 

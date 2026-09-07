@@ -1,6 +1,47 @@
 # llama.cpp
 
-PiCode talks to a **running** [llama.cpp](https://github.com/ggml-org/llama.cpp) router. It does not install the binary or delete GGUF files.
+PiCode connects to an existing [llama.cpp](https://github.com/ggml-org/llama.cpp)
+router, or creates a separate local CPU service on Linux/WSL.
+
+## Let PiCode manage a local service
+
+Open **llama.cpp → Local service** (`#/llama/service`) on desktop or mobile.
+Choose **Create local service**, then **Install** and review the pinned CPU
+version. Installation verifies the official archive and installed files before
+executing the server. Choose **Start**, then **Use this connection** and
+**Save connection** to use it for model operations.
+
+The Light preset uses two CPU threads and 4096 context; Balanced uses four
+threads and 8192 context. Both disable GPU use and automatic model loading.
+Advanced settings expose port, context, thread count and chat templates.
+Saving settings never restarts a running server. A restart notice appears
+when saved settings differ from those in use. **Effective command** shows the
+saved arguments for the verified executable.
+
+Start, stop, restart, update and rollback have a review step and durable
+activity. Updates retain the previous installation; a candidate that fails to
+start restores the previous version when possible. Reviews expire after five
+minutes and reject changed state. Stopping a running server requires explicit
+confirmation of interruption, including other applications using it.
+
+This service stops when PiCode stops, including after a crash. It does not
+start automatically after a PiCode restart. Interrupted actions remain in
+history for review; they are never replayed automatically.
+
+**Cache** lists exact file sizes and eligibility. Stop the service first.
+Only verified installer archives and model files from tracked successful
+downloads can be selected. Models referenced by configured agents, changed
+files and files without ownership evidence are retained. A final check runs
+before deletion. **Export diagnostics** includes settings and action states,
+excluding keys, host names, paths, model names and raw logs.
+
+The initial catalog contains CPU releases b10809 and b10826 for Linux x64
+and ARM64. Real acceptance currently covers Linux x64; ARM64 requires host
+acceptance. Existing external servers retain their connection/model controls;
+PiCode never adopts their processes or cache. GPU builds and secret-bearing
+environment configuration are not part of this local CPU service.
+
+## Connect an existing router
 
 Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/llama-cpp.md).
 
@@ -32,7 +73,7 @@ Gated Hugging Face repos: export `HF_TOKEN` **in the llama-server process**.
 
 Open **Providers → llama.cpp → Manage**, or use `/llama` on desktop.
 For a new connection, choose **Set up llama.cpp** in Providers.
-The manager has **Models**, **Server** and **Activity** pages on desktop and mobile:
+The manager has **Models**, **Server**, **Activity** and **Local service** pages on desktop and mobile:
 
 1. **Server** → enter the URL and optional API key → **Save connection**.
    Leaving the key blank keeps the saved key. **Test connection** checks the

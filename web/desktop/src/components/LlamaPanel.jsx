@@ -6,6 +6,7 @@ import { llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js
 import "./llama.css";
 import { mergeLlamaJob, mergeLlamaSnapshot } from "@picode/shared/domain/llamaJobs.js";
 import LlamaActivity from "./LlamaActivity.jsx";
+import LlamaService from "./LlamaService.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
 import { toastError } from "../lib/toast.js";
@@ -31,13 +32,13 @@ export default function LlamaPanel({ onRefresh }) {
   const [formError, setFormError] = useState("");
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [section, setSection] = useState(() => location.hash.endsWith("/activity") ? "activity" : location.hash.endsWith("/server") ? "server" : "models");
+  const [section, setSection] = useState(() => location.hash.endsWith("/service") ? "service" : location.hash.endsWith("/activity") ? "activity" : location.hash.endsWith("/server") ? "server" : "models");
   const initialized = useRef(false);
   const operation = useRef(false);
   useEffect(() => {
-    const update = () => setSection(location.hash.endsWith("/activity") ? "activity" : location.hash.endsWith("/server") ? "server" : "models");
+    const update = () => setSection(location.hash.endsWith("/service") ? "service" : location.hash.endsWith("/activity") ? "activity" : location.hash.endsWith("/server") ? "server" : "models");
     window.addEventListener("hashchange", update);
-    if (!/^#\/llama\/(models|server|activity)$/.test(location.hash)) location.replace("#/llama/models");
+    if (!/^#\/llama\/(models|server|activity|service)$/.test(location.hash)) location.replace("#/llama/models");
     return () => window.removeEventListener("hashchange", update);
   }, []);
   const [models, setModels] = useState([]);
@@ -228,17 +229,18 @@ export default function LlamaPanel({ onRefresh }) {
         <a className={section === "models" ? "active" : ""} href="#/llama/models" aria-current={section === "models" ? "page" : undefined}>Models</a>
         <a className={section === "server" ? "active" : ""} href="#/llama/server" aria-current={section === "server" ? "page" : undefined}>Server</a>
         <a className={section === "activity" ? "active" : ""} href="#/llama/activity" aria-current={section === "activity" ? "page" : undefined}>Activity</a>
+        <a className={section === "service" ? "active" : ""} href="#/llama/service" aria-current={section === "service" ? "page" : undefined}>Local service</a>
       </nav>
-      <div className="llama-status" role="status">
+      {section !== "service" ? <div className="llama-status" role="status">
         <div className="llama-state"><span className={"llama-dot " + (checking ? "checking" : ok ? "ready" : "")}></span>
         <span>{checking ? "Checking connection…" : connection.message}</span></div>
         <button type="button" className="btn btn-ghost btn-sm" disabled={checking || saving || !!busy} onClick={refresh}>Test connection</button>
-      </div>
+      </div> : null}
       {notice && !busy ? <p role="status" className="settings-desc">{notice}</p> : null}
       {busy ? <p className="llama-working" role="status">Working on {busy}…</p> : null}
       {retryRequest ? <button type="button" className="btn btn-ghost btn-sm" disabled={!!busy} onClick={retrySubmission}>Retry request</button> : null}
       {section !== "activity" && active.length ? <p className="llama-activity-link"><a href="#/llama/activity">{active.some(j => j.state === "unknown") ? "An operation needs attention" : "Model operations in progress"} · View activity</a></p> : null}
-      {section === "activity" ? (
+      {section === "service" ? <LlamaService onConnect={endpoint=>{setUrl(endpoint);location.hash="#/llama/server";}} /> : section === "activity" ? (
         <LlamaActivity jobs={jobs} loading={jobsLoading} error={jobsError} onRefresh={refreshJobs} />
       ) : section === "server" ? (
         <form className="llama-form" noValidate onSubmit={saveUrl}>

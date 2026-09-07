@@ -43,6 +43,7 @@ import (
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/install"
+	"github.com/cfpperche/picode/internal/llamaservice"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/push"
@@ -68,6 +69,7 @@ import (
 const loopbackIdleRevoke = 10 * time.Minute
 
 func main() {
+	llamaservice.RunSupervisor()
 	if len(os.Args) > 1 {
 		if dispatch(os.Args[1], os.Args[2:]) {
 			return

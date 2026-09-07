@@ -313,6 +313,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			j.State = "running"
 			_, _ = s.UpdateCLIJob(j)
 		}, []string{"cli.job"}},
+		{"SaveLlamaService", func(s *Store) { _, _ = s.SaveLlamaService(json.RawMessage(`{}`), 0) }, []string{"llama.service"}},
 		{"UpdateLlamaJob", func(s *Store) {
 			j, _, _ := s.BeginLlamaJob(testLlamaJob("request", "model"))
 			s.OnEvent = recorder(s)

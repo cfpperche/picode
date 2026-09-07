@@ -1,4 +1,11 @@
 import { z } from "zod";
+
+export const llamaServiceSchema = z.object({
+  port: z.number().int("Use a whole-number port.").min(1024, "Use a port from 1024 to 65535.").max(65535, "Use a port from 1024 to 65535."),
+  context: z.number().int("Use a whole-number context size.").min(512, "Use a context size from 512 to 131072.").max(131072, "Use a context size from 512 to 131072."),
+  threads: z.number().int("Use a whole-number thread count.").min(1, "Use 1 to 4 CPU threads.").max(4, "Use 1 to 4 CPU threads."),
+  jinja: z.boolean(),
+});
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { cronError } from "../domain/cron.js";
 

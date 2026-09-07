@@ -3667,6 +3667,133 @@
         ]
       }
     },
+    "/api/llama/service": {
+      "get": {
+        "operationId": "getApiLlamaService",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      },
+      "put": {
+        "operationId": "putApiLlamaService",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/cache": {
+      "get": {
+        "operationId": "getApiLlamaServiceCache",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/diagnostics": {
+      "get": {
+        "operationId": "getApiLlamaServiceDiagnostics",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/execute": {
+      "post": {
+        "operationId": "postApiLlamaServiceExecute",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/preview": {
+      "post": {
+        "operationId": "postApiLlamaServicePreview",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
     "/api/llama/unload": {
       "post": {
         "operationId": "postApiLlamaUnload",

@@ -13,6 +13,7 @@ import (
 )
 
 func registerLlama(mux Registrar, deps Deps) {
+	registerLlamaService(mux, deps)
 	mux.HandleFunc("GET /api/llama", handleLlamaList)
 	mux.HandleFunc("POST /api/llama/load", handleLlamaOperation(deps, "load"))
 	mux.HandleFunc("POST /api/llama/unload", handleLlamaOperation(deps, "unload"))
@@ -137,7 +138,17 @@ func handleLlamaOperation(deps Deps, operation string) http.HandlerFunc {
 			writeErr(w, 400, "Model and request key are required.")
 			return
 		}
-		j, err := deps.LlamaJobs.Start(req.ID, operation, req.RequestKey, req.UnloadOthers)
+		start := func() (store.LlamaJob, error) {
+			return deps.LlamaJobs.Start(req.ID, operation, req.RequestKey, req.UnloadOthers)
+		}
+		var j store.LlamaJob
+		var err error
+		if deps.LlamaService != nil {
+			endpoint, _ := llama.NormalizeURL(llamaURL())
+			j, err = deps.LlamaService.WithModelOperation(endpoint, start)
+		} else {
+			j, err = start()
+		}
 		if err != nil {
 			llamaJobError(w, err)
 			return

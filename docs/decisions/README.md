@@ -94,5 +94,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0087](0087-cli-lifecycle.md) | CLI lifecycle — update check, update, reinstall, uninstall by orchestrating the vendors' own commands as durable jobs | accepted, extends 0069 and 0083 |
 | [0088](0088-cross-cli-session-handoff.md) | Cross-CLI session handoff — a conversation of one Agent CLI continues in another as a new native session (or a brief), with a preview of what travels and a lineage row; create-only exception to 0056 | accepted, extends 0069/0079/0084, amends 0056 |
 | [0089](0089-cli-terminal-prompt-door.md) | User-initiated prompt door for Agent CLI terminals: stage files in the cwd, paste paths into the TUI; Inspector still must not type into a CLI | accepted, amends 0078 and 0002 |
- 
+
 | [0090](0090-llama-service-ownership.md) | Explicit llama.cpp service ownership, reviewed lifecycle and cache boundaries | accepted |

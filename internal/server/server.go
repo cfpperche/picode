@@ -32,6 +32,7 @@ import (
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llamajob"
+	"github.com/cfpperche/picode/internal/llamaservice"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -45,11 +46,12 @@ import (
 
 // Deps carries the server's collaborators (injected for testability).
 type Deps struct {
-	LlamaJobs *llamajob.Service
-	Store     *store.Store
-	Tmux      *tmux.Manager
-	Runtime   *rpc.Runtime
-	AgentCmd  string // command spawned per workspace ("pi" — ADR-0003)
+	LlamaJobs    *llamajob.Service
+	LlamaService *llamaservice.Service
+	Store        *store.Store
+	Tmux         *tmux.Manager
+	Runtime      *rpc.Runtime
+	AgentCmd     string // command spawned per workspace ("pi" — ADR-0003)
 
 	// Port management (ADR-0007). BindHost is the configured host;
 	// Rebind signals the main loop to re-read the port setting;
@@ -113,8 +115,27 @@ func New(addr string, deps Deps) *http.Server {
 		deps.Replies = newTuiReplies()
 	}
 
+	if deps.Store != nil && deps.DataDir != "" && deps.LlamaService == nil {
+		deps.LlamaService, _ = llamaservice.New(deps.Store, deps.DataDir, func() ([]string, error) {
+			agents, err := deps.Store.ListAllAgents()
+			if err != nil {
+				return nil, err
+			}
+			out := []string{}
+			for _, a := range agents {
+				if a.Provider == nil || *a.Provider == "llama.cpp" {
+					out = append(out, a.Name)
+				}
+			}
+			return out, nil
+		})
+	}
 	if deps.Store != nil && deps.LlamaJobs == nil {
-		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() })
+		var observer func(store.LlamaJob)
+		if deps.LlamaService != nil {
+			observer = deps.LlamaService.ObserveDownload
+		}
+		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() }, observer)
 	}
 	if deps.Store != nil && deps.CLIJobs == nil {
 		deps.CLIJobs, _ = clijob.New(clijob.Deps{
@@ -140,6 +161,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.CLIJobs != nil {
 		srv.RegisterOnShutdown(deps.CLIJobs.Close)
+	}
+	if deps.LlamaService != nil {
+		srv.RegisterOnShutdown(deps.LlamaService.Close)
 	}
 	return srv
 }

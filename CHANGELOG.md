@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Managed local llama.cpp service**: desktop/mobile Local service page with
+  CPU presets, saved settings, verified installation, reviewed start/stop/
+  restart/update/rollback, durable progress, ownership-aware cache cleanup and
+  redacted diagnostics. External routers are never adopted.
+
 - **llama.cpp service preparation (internal only)**: execution previews now
   pin executable content with SHA-256, reject invalid file paths/modes and
   emit explicit GPU, Jinja, autoload and bounded CPU-thread settings. Service
