@@ -16,6 +16,11 @@ PiCode does not install CLIs or manage their credentials here. A missing
 executable offers **Customize**; the CLI's documentation link explains its
 installation. Checking setup runs `--version`, without starting a conversation.
 
+Attaching a photo from a phone into a CLI terminal is a separate door
+(ADR-0087): the file is saved in the terminal's folder and the path is
+typed into the TUI. That send is not on this page yet; the Pi agent
+composer already opens Photos.
+
 ## Launch settings
 
 **Launch settings** shows the resolved executable, additional arguments,

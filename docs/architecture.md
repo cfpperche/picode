@@ -276,6 +276,14 @@ holders, leases, or fail-closed startup remain. `POST
 Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
+The composer also opens a device file picker (Photos / camera / files on a
+phone) so attach does not depend on clipboard paste.
+Agent CLI terminals have no composer. ADR-0087 records a user-initiated
+prompt door (stage a file under the terminal cwd, paste `@path` into the
+TUI) so a phone can attach a photo without promoting CLIs to managed
+agents; Inspector type/run/Ask still must not target a CLI TUI (ADR-0078).
+The HTTP routes for that door follow this decision; they are not inferred
+from the terminal manager.
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`

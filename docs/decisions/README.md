@@ -91,3 +91,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079 |
 | [0085](0085-session-forensics.md) | Session forensics — shutdown snapshot + boot diff, SIGHUP-immune pane roots, deploy log | accepted, extends 0084 |
 | [0086](0086-process-cost.md) | The rite around a change costs less than the change: batched guarded deploys, scoped gates, `make close`, a 100-line handoff with per-session files, advisory capture parity | accepted, amends 0018 and 0084/0085 |
+| [0087](0087-cli-terminal-prompt-door.md) | User-initiated prompt door for Agent CLI terminals: stage files in the cwd, paste paths into the TUI; Inspector still must not type into a CLI | accepted, amends 0078 and 0002 |
