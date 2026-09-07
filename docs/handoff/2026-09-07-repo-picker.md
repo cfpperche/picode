@@ -17,7 +17,8 @@ blocked and URL-pasted states; overlay audit ok.
 visual-review: PASS (repo-picker-blocked/open/filtered/groups + mobile ×2, card 5/5)
 
 Not done / debts: picker covers GitHub only (`gh` CLI); other hosts stay on the
-paste-URL path. Real-account pick was exercised against a fixture `gh`, not a
-live `gh repo list`.
+paste-URL path.
 
+Accepted live: owner created the `picode-companion` workspace through the
+picker on production `0.1.0+a2e699c` (real account, 82 repos listed).
 Merge: fast-forward ready (`git merge --ff-only feat/repo-picker && make ci`).
