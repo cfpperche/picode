@@ -41,7 +41,7 @@
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
   Pane checklist strip dropped `0.1.0+d620ca8`. Composer Photos `0.1.0+d04ad3f`.
   ADR-0089 attach bar `0.1.0+aca6628`.
-  Managed agents remain Pi-only.
+  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges.
 
 ## In flight (unmerged branches on disk)
 
@@ -56,7 +56,7 @@
 3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
-6. CLI prompt door iPhone acceptance; first-class CLI agents still need a parity ADR.
+6. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
