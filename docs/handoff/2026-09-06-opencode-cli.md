@@ -13,3 +13,6 @@ Verified PR1: `make test` / `test-js` / `fmt-check` / `vet`; visual-review
 PASS scratch :8471. PR2: same gates; `opencode debug info` lists the
 plugin; jsonc mtime unchanged; visual-review PASS scratch :8471 with
 Activity on (overlayAudit ok).
+visual-review: PASS
+Not done: live Working/Needs you unproven until deploy; no Reader/Writer.
+Merge: fast-forward ready
