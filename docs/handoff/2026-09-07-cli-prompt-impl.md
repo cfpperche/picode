@@ -11,4 +11,4 @@ JS. Scratch `:8471` desktop bar empty+chip; mobile sheet. overlayAudit ok.
 
 visual-review: PASS (term-attach empty/chip desktop, sheet mobile)
 Not done: iPhone Photos sheet (owner). Per-CLI mention polish (D7).
-Merge: not yet.
+Merge: ff as aca6628b; `make ci` green; deployed `0.1.0+aca6628`.
