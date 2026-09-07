@@ -250,7 +250,21 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 // the windowed conversation.
 func (p *handoffPlan) nativeTimeline() transcript.Timeline {
 	t := p.windowed
-	note := transcript.Event{Kind: transcript.KindMessage, Role: "user", Text: transcript.HandoffNote(p.full.Header, p.summary, p.now), Timestamp: p.now}
+	// The note leads the conversation, so it is stamped before the turns it
+	// introduces: a target that renders durations between beats shows a
+	// negative one when the first record is newer than the rest.
+	at := p.now
+	for _, e := range t.Events {
+		if !e.Timestamp.IsZero() && e.Timestamp.Before(at) {
+			at = e.Timestamp
+		}
+	}
+	if at.After(p.now) || at.Equal(p.now) {
+		at = p.now
+	} else {
+		at = at.Add(-time.Millisecond)
+	}
+	note := transcript.Event{Kind: transcript.KindMessage, Role: "user", Text: transcript.HandoffNote(p.full.Header, p.summary, p.now), Timestamp: at}
 	t.Events = append([]transcript.Event{note}, t.Events...)
 	return t
 }

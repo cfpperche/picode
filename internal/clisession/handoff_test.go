@@ -849,6 +849,14 @@ func applyOpenCodeImport(t *testing.T, path, file, cwd string) {
 			if !strings.HasPrefix(pid, "prt_") || str(p, "messageID") != mid {
 				t.Fatalf("part = %v", p)
 			}
+			if p["type"] == "tool" {
+				// The real importer refuses a completed tool state without
+				// these: "Missing key at [state][metadata]".
+				state, _ := p["state"].(map[string]any)
+				if state == nil || state["metadata"] == nil || state["status"] == nil || state["input"] == nil {
+					t.Fatalf("tool part state = %v", p["state"])
+				}
+			}
 			pb, _ := json.Marshal(p)
 			if _, err := db.Exec(`INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?,?,?,?,?)`, pid, mid, sid, mi*100+pi, string(pb)); err != nil {
 				t.Fatal(err)
@@ -862,7 +870,7 @@ func TestOpenCodeWritePublishesThroughItsOwnImport(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_DATA_HOME", "")
 	path := seedOpenCodeDB(t, filepath.Join(home, ".local", "share", "opencode"))
-	seedOpenCodeSession(t, path, "ses_seed", "/home/goat/other") // gives the store a version to probe
+	seedOpenCodeSession(t, path, "ses_seed", "/home/goat/other") // a version and a model to probe
 
 	if _, err := (OpenCodeSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: "/home/goat/proj"}); !errors.Is(err, ErrNoRunner) {
 		t.Fatalf("no runner: %v", err)
@@ -884,6 +892,11 @@ func TestOpenCodeWritePublishesThroughItsOwnImport(t *testing.T) {
 	}
 	if !strings.HasPrefix(got.ID, "ses_") || !reflect.DeepEqual(got.ResumeArgs, []string{"--session", got.ID}) || got.Name != "Race fix" || got.Messages != 4 {
 		t.Fatalf("summary = %+v", got)
+	}
+	// The model is this installation's, learned from a message OpenCode
+	// itself wrote, so a written session can never feed its own model back.
+	if got.Model != "opencode/big-pickle" {
+		t.Fatalf("model = %q", got.Model)
 	}
 	if _, err := os.Stat(ranArgs[1]); !os.IsNotExist(err) {
 		t.Fatalf("the handoff file must not outlive the import: %v", err)

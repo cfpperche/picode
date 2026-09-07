@@ -3,6 +3,7 @@ package clisession
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,45 @@ import (
 // opencodeID mints an id in OpenCode's shape: a three-letter kind prefix
 // and 26 alphanumeric characters.
 func opencodeID(prefix string) string { return prefix + "_" + transcript.RandomAlnum(26) }
+
+// opencodeNewestModel is a model this installation can serve, read from
+// the newest message OpenCode itself produced. Two live findings shaped
+// it: the importer refuses a file with no model ("Missing key at
+// [model]"), and carrying the source's makes OpenCode print "Model
+// claude-code/claude-opus-5 is not valid". Only OpenCode's own assistant
+// messages carry modelID and providerID — the ones a handoff writes do
+// not — so reading them can never feed a written session back to itself.
+func opencodeNewestModel() (id, provider string) {
+	path := opencodeDBPath()
+	if path == "" {
+		return "", ""
+	}
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro&_pragma=busy_timeout(1000)")
+	if err != nil {
+		return "", ""
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	rows, err := db.Query(`SELECT data FROM message ORDER BY time_created DESC LIMIT 500`)
+	if err != nil {
+		return "", ""
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var raw string
+		if rows.Scan(&raw) != nil {
+			continue
+		}
+		var m struct {
+			ModelID  string `json:"modelID"`
+			Provider string `json:"providerID"`
+		}
+		if json.Unmarshal([]byte(raw), &m) == nil && m.ModelID != "" && m.Provider != "" {
+			return m.ModelID, m.Provider
+		}
+	}
+	return "", ""
+}
 
 // opencodeNewestVersion reads the `version` of the most recently updated
 // session in the local store — the format marker the installed CLI wrote.
@@ -73,10 +113,11 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 	}
 	now := req.resolvedNow()
 	cwd := filepath.Clean(req.Cwd)
-	model := t.Header.Model
-	provider := t.Header.Provider
-	if provider == "" {
-		provider = t.Header.SourceCLI
+	// The model names what answers next, so it is this installation's own;
+	// the source's is named in the handoff note instead.
+	model, provider := opencodeNewestModel()
+	if model == "" || provider == "" {
+		return Summary{}, ErrUnknownFormat
 	}
 
 	type part map[string]any
@@ -86,13 +127,21 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 	}
 	var messages []message
 	var emitted []transcript.Event
+	// Stamps only ever move forward: OpenCode renders the span between
+	// beats, and a step backwards shows as a negative duration.
 	seq := 0
+	last := int64(0)
 	ms := func(at time.Time) int64 {
 		seq++
-		if at.IsZero() {
-			return now.Add(time.Duration(seq) * time.Millisecond).UnixMilli()
+		v := now.Add(time.Duration(seq) * time.Millisecond).UnixMilli()
+		if !at.IsZero() {
+			v = at.UnixMilli()
 		}
-		return at.UnixMilli()
+		if v <= last {
+			v = last + 1
+		}
+		last = v
+		return v
 	}
 	firstUserID := ""
 	add := func(role string, at time.Time, parts []part, extra map[string]any) {
@@ -166,8 +215,12 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 							"status": "completed",
 							"input":  blk.Call.ObjectInput(),
 							"output": "",
-							"title":  clip(blk.Call.Name+" "+blk.Call.InputString(), 80),
-							"time":   map[string]any{"start": ms(blk.Timestamp), "end": ms(blk.Timestamp)},
+							// The importer requires metadata on a completed
+							// tool state and refuses the file without it
+							// ("Missing key at [state][metadata]").
+							"metadata": map[string]any{"truncated": false},
+							"title":    clip(blk.Call.Name+" "+blk.Call.InputString(), 80),
+							"time":     map[string]any{"start": ms(blk.Timestamp), "end": ms(blk.Timestamp)},
 						},
 					})
 					emitted = append(emitted, transcript.Event{Kind: transcript.KindToolCall})
@@ -214,6 +267,21 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 	if name == "" {
 		name = "Handoff from " + t.Header.DisplayName()
 	}
+	// The session spans its messages: an envelope stamped "now" over turns
+	// carried from an older conversation renders as a negative duration.
+	first, last := now.UnixMilli(), now.UnixMilli()
+	for i, m := range messages {
+		created, _ := m.Info["time"].(map[string]any)["created"].(int64)
+		if created == 0 {
+			continue
+		}
+		if i == 0 || created < first {
+			first = created
+		}
+		if created > last {
+			last = created
+		}
+	}
 	envelope := map[string]any{
 		"info": map[string]any{
 			"id":        sid,
@@ -228,7 +296,7 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 			"summary":   map[string]any{"additions": 0, "deletions": 0, "files": 0},
 			"cost":      0,
 			"tokens":    map[string]any{"input": 0, "output": 0, "reasoning": 0, "cache": map[string]any{"read": 0, "write": 0}},
-			"time":      map[string]any{"created": now.UnixMilli(), "updated": now.UnixMilli()},
+			"time":      map[string]any{"created": first, "updated": last},
 		},
 		"messages": messages,
 	}
@@ -267,6 +335,6 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 		UpdatedAt:  rfc3339(now),
 		Preview:    preview(t),
 		Messages:   transcript.Timeline{Events: emitted}.Counts().Messages,
-		Model:      model,
+		Model:      provider + "/" + model,
 	}, nil
 }
