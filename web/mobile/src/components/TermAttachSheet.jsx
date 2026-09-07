@@ -88,21 +88,25 @@ export default function TermAttachSheet({ term, open, onClose }) {
           ) : (
             <p className="term-attach-empty">Add a photo or a file.</p>
           )}
-          <form className="term-attach-row" data-align-row noValidate onSubmit={(e) => { e.preventDefault(); send(); }}>
+          <form className="term-attach-form" noValidate onSubmit={(e) => { e.preventDefault(); send(); }}>
             <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
             <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-            <button type="button" className="icon-btn composer-attach" title="Attach image" aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /></button>
-            <button type="button" className="icon-btn composer-attach" title="Attach file" aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /></button>
-            <button type="button" className="icon-btn composer-attach" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /></button>
-            <input
-              className="term-attach-input"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Message the terminal"
-              aria-label="Message the terminal"
-              autoComplete="off"
-            />
-            <button type="submit" className="icon-btn icon-btn-send" title="Send" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
+            <div className="term-attach-row" data-align-row>
+              <button type="button" className="icon-btn composer-attach" title="Attach image" aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /></button>
+              <button type="button" className="icon-btn composer-attach" title="Attach file" aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /></button>
+              <button type="button" className="icon-btn composer-attach" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /></button>
+            </div>
+            <div className="term-attach-row" data-align-row>
+              <input
+                className="term-attach-input"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Message the terminal"
+                aria-label="Message the terminal"
+                autoComplete="off"
+              />
+              <button type="submit" className="icon-btn icon-btn-send" title="Send" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
+            </div>
           </form>
         </Dialog.Content>
       </Dialog.Portal>

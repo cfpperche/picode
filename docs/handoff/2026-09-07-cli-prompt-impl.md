@@ -7,8 +7,8 @@ on a CLI terminal is 409 `cli`.
 
 Verified: `TestTerminalPromptDecisionTable` (missing, shell, drop, size,
 escape, too many, dead pane, paste, busy, inspector). `planAttachFiles`
-JS. Visual on scratch next.
+JS. Scratch `:8471` desktop bar empty+chip; mobile sheet. overlayAudit ok.
 
-visual-review: pending scratch
+visual-review: PASS (term-attach empty/chip desktop, sheet mobile)
 Not done: iPhone Photos sheet (owner). Per-CLI mention polish (D7).
 Merge: not yet.

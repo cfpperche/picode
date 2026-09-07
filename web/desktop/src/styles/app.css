@@ -1611,6 +1611,10 @@ img.ws-face.term-cli-face {
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .term-attach-row { display: flex; align-items: center; gap: 6px; }
+.term-attach-row .icon-btn,
+.term-attach-row .composer-attach {
+  width: var(--ctl-h); height: var(--ctl-h);
+}
 .term-attach-input {
   flex: 1 1 auto; min-width: 0; height: var(--ctl-h);
   border: 1px solid var(--border); border-radius: 8px;
