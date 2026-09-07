@@ -22,6 +22,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/feed"
+	"github.com/cfpperche/picode/internal/llamaservice"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/server"
@@ -33,6 +34,7 @@ import (
 var dataDir string
 
 func main() {
+	llamaservice.RunSupervisor()
 	addr := flag.String("addr", "127.0.0.1:18740", "fixture listen address; use a separate port for concurrent worktrees")
 	flag.Parse()
 	// Never erase another worktree's fixture database. Each invocation owns

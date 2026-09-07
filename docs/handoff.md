@@ -16,8 +16,9 @@
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). Hermes
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
-  no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`; this restart left
-  all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
+  no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
+  (catalog, sqlite sessions, `--session` resume, `OPENCODE_CONFIG` plugin;
+  list-only for ADR-0088; not yet deployed). Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
@@ -25,43 +26,42 @@
   a durable `cli_jobs` lane with streamed output, terminal guards and typed
   uninstall confirmation; interrupted jobs never replay. Unmanageable
   installs (Homebrew, manual checkouts) get docs links, not controls.
+  Deployed `0.1.0+ba516b7`; detect fix (symlinks/wrappers) makes real
+  installs classify: pi/codex/opencode npm, claude native, grok vendor, hermes git.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
-- **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083: durable
-  jobs, progress, cancellation on verified b10809, reconnect); 3–4 planned
-  in `docs/plans/llama-manager.md`.
+- **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
+  adds `#/llama/service`, reviewed CPU lifecycle, rollback, cache and diagnostics
+  (ADR-0090), deployed as `0.1.0+c694fb2`. Delivery 3 guidance remains separate.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
-  (unguarded — readiness was empty). Pin only while the IME is up; opaque
-  row; xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
-  coding CLIs are terminals.
+  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
+  Composer Photos `0.1.0+d04ad3f`. ADR-0089 attach bar `0.1.0+aca6628`.
+  Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
-- `feat/opencode-cli` — PR2 OPENCODE_CONFIG activity plugin (catalog already on the branch).
-- `feat/llama-service` / `feat/llama-guidance` — llama settings, pins, delivery 3.
-- `feat/picode-feature-video` — skills record clicks, not slideshows.
+- `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088).
+- `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
+- `feat/llama-guidance` — delivery 3 guidance dialog.
 
 ## Next up
 
 1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
 2. Renumber duplicate ADR-0082 and fix the index.
-3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
+3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
-6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
+6. CLI prompt door iPhone acceptance; first-class CLI agents still need a parity ADR.
+7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
 
 ## Known debts / open questions
 
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06
-  (`hermes-1f19ed`; needs-you during `pre_approval_request` on `rm -r /tmp/…`,
-  then smart auto-approved so the chip did not linger); `cli-v1-*`
-  screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode plugin loads (`debug info`); live Working/Needs you unproven.
+- Handoff (ADR-0088): upstream formats undocumented (bump = refused write); OpenCode list-only (no Reader/Writer); Hermes/Grok native targets undecided; Codex lists a handed-off rollout only after restart.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
@@ -88,13 +88,11 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
-- Tutorial video freshness audits are stale after source relocation;
-  recapture/render is explicit. Branch protection and CODEOWNERS need the
-  owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
+- Tutorial video freshness audits are stale after source relocation; recapture/render is explicit. Branch
+  protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
-- llama: GPU / non-b10809 cancellation unverified; an unknown download with
-  an absent model keeps its reservation; history pruning deferred.
-- Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
-  owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
-  the full window with the IME up, land the focus-gated iOS fallback.
+- llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
+  Owned-service ARM64 and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
+- Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
+  (Chromium PASS); iOS 26 IME-open is still owner acceptance.

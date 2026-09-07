@@ -95,6 +95,9 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.SetTerminalLaunchApplied(tm.ID, clilaunch.Snapshot{Executable: "/bin/pi"})
 		}, []string{"terminal.launch"}},
+		{"AddSessionHandoff", func(s *Store) {
+			_, _ = s.AddSessionHandoff(SessionHandoff{SourceCLI: "claude-code", SourceID: "cc-1", TargetCLI: "codex", Mode: "native", Window: "recent"})
+		}, []string{"session.handoff"}},
 		{"AddWorkspace", func(s *Store) { _, _ = s.AddWorkspace("W", proj) }, []string{"workspace.added"}},
 		{"RemoveWorkspace", func(s *Store) {
 			w, _ := s.AddWorkspace("W", proj)
@@ -310,6 +313,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			j.State = "running"
 			_, _ = s.UpdateCLIJob(j)
 		}, []string{"cli.job"}},
+		{"SaveLlamaService", func(s *Store) { _, _ = s.SaveLlamaService(json.RawMessage(`{}`), 0) }, []string{"llama.service"}},
 		{"UpdateLlamaJob", func(s *Store) {
 			j, _, _ := s.BeginLlamaJob(testLlamaJob("request", "model"))
 			s.OnEvent = recorder(s)

@@ -47,7 +47,6 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
         entry.paneEl.classList.add("active");
         scheduleTermFit(entry, true);
-        if (active && entry.term) entry.term.focus();
         if (entry.term && !entry.unwireLinks) {
           entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
         }
@@ -86,7 +85,6 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
           sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
       });
-      if (active) term.focus();
     };
     sock.onmessage = (ev) => {
       if (typeof ev.data === "string") {
@@ -116,7 +114,6 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     if (!entry || !entry.term) return;
     entry.paneEl.classList.add("active");
     scheduleTermFit(entry, true);
-    entry.term.focus();
   }, [active, agentId]);
 
   useEffect(() => {

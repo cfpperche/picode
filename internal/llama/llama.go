@@ -18,6 +18,7 @@ const DefaultURL = "http://127.0.0.1:8080"
 
 // Model is one router catalog row (no secrets).
 type Model struct {
+	Path     string         `json:"-"`
 	ID       string         `json:"id"`
 	Status   string         `json:"status"`
 	Progress []FileProgress `json:"progress,omitempty"`
@@ -137,6 +138,7 @@ func (c *Client) ListContext(ctx context.Context) ([]Model, error) {
 	}
 	var payload struct {
 		Data []struct {
+			Path   string `json:"path"`
 			ID     string `json:"id"`
 			Status struct {
 				Value    string          `json:"value"`
@@ -156,7 +158,7 @@ func (c *Client) ListContext(ctx context.Context) ([]Model, error) {
 		if st == "" || len(st) > 32 {
 			return nil, &ConnectionError{"unsupported", "This server did not return model management states."}
 		}
-		out = append(out, Model{ID: m.ID, Status: st, Progress: parseProgress(m.Status.Progress)})
+		out = append(out, Model{ID: m.ID, Path: m.Path, Status: st, Progress: parseProgress(m.Status.Progress)})
 	}
 	return out, nil
 }

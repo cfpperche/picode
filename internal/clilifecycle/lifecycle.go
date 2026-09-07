@@ -6,6 +6,7 @@ package clilifecycle
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -118,11 +119,35 @@ var plans = map[string]spec{
 	},
 }
 
-// DetectMethod classifies an executable realpath. npm-installed binaries
-// resolve into a node_modules tree; the native/vender/git shapes come from
-// the observed 2026-09 install layouts.
-func DetectMethod(realpath string) Method {
-	p := filepath.ToSlash(realpath)
+// DetectMethod classifies an executable path. npm-installed binaries
+// resolve into a node_modules tree; the native/vendor/git shapes come from
+// the observed 2026-09 install layouts. Real installs are symlinks
+// (~/.local/bin/claude → ~/.local/share/claude/versions/N) or wrapper
+// scripts (hermes execs the venv path), so the link is resolved first and
+// the script head is scanned before giving up.
+func DetectMethod(path string) Method {
+	if path == "" {
+		return MethodUnknown
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		resolved = path
+	}
+	if m := classifyMethod(filepath.ToSlash(resolved)); m != MethodUnknown {
+		return m
+	}
+	if f, err := os.Open(path); err == nil {
+		head := make([]byte, 4096)
+		n, _ := f.Read(head)
+		f.Close()
+		if m := classifyMethod(filepath.ToSlash(string(head[:n]))); m != MethodUnknown {
+			return m
+		}
+	}
+	return MethodUnknown
+}
+
+func classifyMethod(p string) Method {
 	switch {
 	case strings.Contains(p, "/node_modules/"):
 		return MethodNpm

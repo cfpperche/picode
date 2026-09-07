@@ -18,12 +18,14 @@ test("keyboardInset is innerHeight minus visual viewport minus offsetTop", () =>
   assert.equal(keyboardInset({ innerHeight: 500, vvHeight: 800, vvOffsetTop: 0 }), 0);
 });
 
-test("decision table: extra keys follow focus, not a header flag", () => {
+test("decision table: extra keys follow a user tap, not attach-time focus", () => {
   const rows = [
-    { name: "rest", termFocused: false, hardKeyboard: false, want: false },
-    { name: "software IME", termFocused: true, hardKeyboard: false, want: true },
-    { name: "hardware", termFocused: true, hardKeyboard: true, want: false },
-    { name: "blurred hardware", termFocused: false, hardKeyboard: true, want: false },
+    { name: "rest", termFocused: false, hardKeyboard: false, userArmed: false, want: false },
+    { name: "attach programmatic focus", termFocused: true, hardKeyboard: false, userArmed: false, want: false },
+    { name: "user tapped pane", termFocused: true, hardKeyboard: false, userArmed: true, want: true },
+    { name: "header show", termFocused: true, hardKeyboard: false, userArmed: true, want: true },
+    { name: "hardware", termFocused: true, hardKeyboard: true, userArmed: true, want: false },
+    { name: "blurred hardware", termFocused: false, hardKeyboard: true, userArmed: false, want: false },
   ];
   for (const row of rows) {
     assert.equal(extraKeysVisible(row), row.want, row.name);
@@ -37,7 +39,8 @@ test("decision table: hardware hide is conservative", () => {
   assert.equal(hardKeyboardLikely({ ...focused, elapsedMs: HARD_KEYBOARD_WAIT_MS - 1 }), false);
   assert.equal(hardKeyboardLikely({ ...focused, inset: 300, finePointer: true }), false);
   assert.equal(hardKeyboardLikely({ ...focused, finePointer: false }), false);
-  assert.equal(extraKeysVisible({ termFocused: true, hardKeyboard: false }), true);
+  assert.equal(extraKeysVisible({ termFocused: true, hardKeyboard: false, userArmed: true }), true);
+  assert.equal(extraKeysVisible({ termFocused: true, hardKeyboard: false, userArmed: false }), false);
 });
 
 test("decision table: pin the shell only while the IME covers pixels", () => {
@@ -52,6 +55,18 @@ test("decision table: pin the shell only while the IME covers pixels", () => {
     restHeight: 800, inputFocused: true,
   });
   assert.equal(attachFocus.keyboardOpen, false);
+
+  const restLargeInset = shellLayout({
+    innerHeight: 844, vvHeight: 744, vvOffsetTop: 0, scale: 1,
+    restHeight: 744, inputFocused: false,
+  });
+  assert.equal(restLargeInset.keyboardOpen, false);
+
+  const attachFocusLargeInset = shellLayout({
+    innerHeight: 844, vvHeight: 744, vvOffsetTop: 0, scale: 1,
+    restHeight: 744, inputFocused: true,
+  });
+  assert.equal(attachFocusLargeInset.keyboardOpen, false);
 
   const iosOverlay = shellLayout({
     innerHeight: 844, vvHeight: 500, vvOffsetTop: 0, scale: 1,

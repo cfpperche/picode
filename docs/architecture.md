@@ -186,8 +186,8 @@ unsent text and attachments. Mobile composer controls wrap onto a second row
 when needed, so Send remains visible alongside Stop on narrow screens.
 `#m-app` is pinned to `visualViewport` so the composer and a one-row
 terminal extra-keys accessory stay above the software keyboard
-(ADR-0044); the accessory follows terminal focus and is not a second
-QWERTY.
+(ADR-0044); the accessory follows a user tap, not attach-time focus,
+and is not a second QWERTY.
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
@@ -276,6 +276,14 @@ holders, leases, or fail-closed startup remain. `POST
 Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
+The composer also opens a device file picker (Photos / camera / files on a
+phone) so attach does not depend on clipboard paste.
+Agent CLI terminals have no composer. ADR-0089 is a user-initiated prompt
+door: `POST /api/terminals/{id}/drop` writes a file under
+`<cwd>/.picode/drop/`, and `POST /api/terminals/{id}/prompt` pastes the
+caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
+to the terminal"), not model delivery. Inspector type/run/Ask still must
+not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`
@@ -462,6 +470,31 @@ Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
 
+### Cross-CLI session handoff (ADR-0088)
+
+Any session of an Agent CLI can continue in another one from the Sessions
+tab ("Continue in <CLI>…"). `internal/transcript` is the portable model —
+ordered events (message, tool call, tool result, thinking, compaction,
+context), a header and a manifest of what a reader could not carry.
+`internal/clisession` adds optional capabilities next to `Source`:
+`Reader` (native → timeline), `Writer` (timeline → a new native session,
+create-only, atomic, re-read before it counts) and `Prompter` (launch
+arguments for an initial prompt). They are discovered by type assertion,
+never by a switch, and `GET /api/clis` advertises them as
+`sessions: {list, read, write, prompt}`; the web derives the targets from
+that. Readers exist for all five CLIs, writers for Claude Code, Codex and
+pi (as an adopted managed agent), prompters for every CLI but Hermes.
+
+`POST /api/clis/{cli}/sessions/handoff/preview` and `…/handoff` share one
+plan: window (since the last compaction, or all), repair (every tool call
+answered), prepare (no thinking, no injected context), a handoff note as
+the first user message, then the target's Writer — or, in brief mode, a
+deterministic markdown brief under `<dataDir>/handoffs/<id>/brief.md` and
+the target started with a one-line prompt. Lineage lives in
+`session_handoffs` (event `session.handoff`) and is shown on both session
+listings. The installed target version comes from the setup check (run on
+demand); an unknown format refuses native and keeps brief.
+
 ### llama.cpp manager (ADR-0080)
 
 `#/llama/models` and `#/llama/server` own model operations and connection
@@ -482,6 +515,42 @@ its history survives navigation. Service ownership remains delivery 4 in
 [the plan](plans/llama-manager.md).
 Hugging Face GGUF metadata also exposes file size and a conservative runtime
 memory estimate with contextual guidance; missing size data remains unknown.
+Delivery 4's ownership boundary is ADR-0090: only an explicitly created local
+Linux/WSL profile may receive lifecycle or cache mutations; external and remote
+routers remain inspection-only for those controls.
+`internal/llamaservice` implements one explicitly created local CPU profile.
+Migration 034 stores its configuration, release manifests, ownership ledger and
+bounded job history through a CAS store mutation plus `llama.service` events.
+The desktop/mobile `#/llama/service` page has Light/Balanced presets, advanced
+settings, effective argv, reviewed lifecycle actions, cache and diagnostics.
+It adapts Cursor's progressive disclosure and t3code's reload-safe routes from
+the [benchmark study](benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
+
+The installer embeds official b10809/b10826 Linux CPU archive hashes, verifies
+before extraction, materializes internal library links as pinned regular
+files, and checks version/required flags. It does not accept arbitrary URLs,
+binary paths or shell fragments. It revalidates installed files before launch.
+Reviews expire after five minutes and bind revision, targets and consumers;
+model reservations share the lifecycle lock. Updates retain the old release
+and recover it if a running replacement fails readiness. The private same-binary
+supervisor owns a router process group: parent pipe EOF kills the entire group,
+including after a daemon crash. Startup marks unfinished jobs interrupted and
+does not relaunch the service. No process name or external PID is adopted.
+
+The initial CPU profiles use explicit GPU zero, Jinja/autoload switches and
+1–4 generation/batch threads. Model cache ownership is recorded only after a
+tracked download on the owned router identifies a new exact file, pinned by
+SHA-256. The verified b10809/b10826 HF cache catalog omits file paths: completed
+download filenames and sizes are matched to a new snapshot link and its
+content-addressed blob. The blob hash must match its name; existing blobs or
+snapshot links are never adopted. Cleanup removes the recorded snapshot link
+with its blob and refuses shared blobs, changed links or agent references to
+any quantization of the same repository. Cleanup requires a stopped service,
+no active model jobs and no configured agent references, with file revalidation.
+Unknown, changed and referenced files stay intact. Diagnostics use an allowlist
+instead of exporting logs or credentials. Linux x64 has real CPU acceptance;
+ARM64 and GPU execution remain unverified. Filesystem checks assume the owner's
+private data directory is not concurrently modified by another local process.
 
 ## Component diagram
 
@@ -991,7 +1060,9 @@ Agents communicate through their native protocol — no internals hacked.
 
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
-to render session history, branching and diffs in the UI. Read-only.
+to render session history, branching and diffs in the UI. Read-only. The
+cross-CLI readers and writers (ADR-0088) live in `internal/clisession`,
+not here.
 
 ### Compaction policy (ADR-0061)
 

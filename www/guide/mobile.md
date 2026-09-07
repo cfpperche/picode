@@ -35,8 +35,12 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
 
 Tap an agent to open it: the conversation (with any question the agent is
 asking), the composer with **prompt / steer / follow-up** and dictation, and
-**Stop** to abort the current turn. An agent living in a terminal shows a
-**Chat | Terminal** switch.
+**Stop** to abort the current turn. The image button on the composer opens
+this phone's Photos (or the camera); the paperclip still attaches a file
+from the agent's folder on the PiCode machine. An Agent CLI terminal
+adds **Attach** in the header — Photos, a file, or a file from the
+folder — and Send types it into the TUI. An agent living in a terminal
+shows a **Chat | Terminal** switch.
 
 Replying to that terminal agent from the Inbox keeps you on its Terminal
 screen. A small card moves through **Receiving → Processing → Returning** and
@@ -57,8 +61,9 @@ Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
 left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
 terminal or a workspace opens its uncommitted changes, read-only.
 
-Tap a terminal to attach to it. Tapping the pane opens the phone
-keyboard; a one-row **key bar** sits immediately above it with Esc, Tab,
+Tap a terminal to attach to it. Opening it does not raise the phone
+keyboard. Tapping the pane (or the header keyboard icon) opens the
+phone keyboard; a one-row **key bar** sits immediately above it with Esc, Tab,
 CTRL, Alt, arrows, `^C`, and — after a sideways scroll — Home, End,
 Page Up, Page Down, and `| ~ / -`.
 

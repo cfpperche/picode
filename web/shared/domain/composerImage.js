@@ -20,6 +20,34 @@ export function sniffImage(file) {
   return { mime, name: file.name || "image", size: file.size || 0 };
 }
 
+// Partition a device file list (Photos / picker) before readImage.
+// already = chips already on the composer.
+export function planDeviceImages(files, already) {
+  const list = [...(files || [])].filter(Boolean);
+  const out = [];
+  let notImage = 0;
+  let tooLarge = 0;
+  let tooMany = false;
+  const have = Math.max(0, already | 0);
+  for (const f of list) {
+    const info = sniffImage(f);
+    if (!info) {
+      notImage += 1;
+      continue;
+    }
+    if (info.size > MAX_IMAGE_BYTES) {
+      tooLarge += 1;
+      continue;
+    }
+    if (have + out.length >= MAX_IMAGES) {
+      tooMany = true;
+      continue;
+    }
+    out.push(f);
+  }
+  return { files: out, notImage, tooLarge, tooMany };
+}
+
 export function readImage(file) {
   return new Promise((resolve, reject) => {
     const info = sniffImage(file);

@@ -11,7 +11,32 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Phone terminal: extra keys stay off until you open the keyboard.**
+  Opening a terminal no longer focuses xterm on attach, so iOS does not
+  show the extra-keys row without the phone keyboard. The header keyboard
+  button lets that tap summon the IME. Pinning the shell to the visual
+  viewport requires a real shrink against the unfocused baseline, so a
+  rest-state gap no longer leaves a black strip under the TUI.
+
+- **Update checks failed on real installs**: install-method detection now
+  resolves symlinks (`~/.local/bin/claude` → the native versions dir) and
+  reads wrapper scripts (Hermes Agent), so update/reinstall/uninstall
+  controls appear for actual installs instead of "No managed lifecycle".
+
 ### Added
+
+- **Managed local llama.cpp service**: desktop/mobile Local service page with
+  CPU presets, saved settings, verified installation, reviewed start/stop/
+  restart/update/rollback, durable progress, ownership-aware cache cleanup and
+  redacted diagnostics. External routers are never adopted.
+
+- **Attach a photo or file to an Agent CLI terminal** (ADR-0089). On a
+  running Claude Code, Codex, Grok, Hermes, OpenCode or Pi CLI terminal, an attach
+  bar (desktop) or header paperclip (phone) stages the file in the
+  terminal folder and types the path into the TUI. Caps: four files, 4 MB
+  each. Inspector Git type/run still does not type into a CLI.
 
 - **CLI lifecycle management** (ADR-0087): update checks, update, reinstall
   and uninstall for catalogued agent CLIs. The Agent CLIs surface shows an
@@ -34,7 +59,16 @@ to the `[Unreleased]` section. The repository's official language is English
   Update/reinstall/uninstall use `opencode upgrade` and
   `opencode uninstall --keep-config --keep-data --force` (the vendor
   commands, including bun-global installs classified as npm by path).
+  OpenCode lists sessions for the Sessions tab; native read/write handoff
+  is not implemented yet (list-only).
 
+- **Continue a session in another Agent CLI** (ADR-0088): the Sessions tab
+  offers "Continue in <CLI>…" for every CLI the server says can receive the
+  session. A preview shows what travels and what is left behind; the
+  handoff writes a new native session for Claude Code or Codex, adopts a
+  new Pi agent, or starts a CLI from a deterministic brief. Grok sessions
+  now list their real transcripts (title, model, size) and Hermes
+  sessions can be read. Lineage shows on both rows.
 - **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
   command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
   read-only, and resumes with `hermes --resume <id>`. Activity reporting is
@@ -111,6 +145,11 @@ to the `[Unreleased]` section. The repository's official language is English
   remain visible rather than being reported as success.
 
 ### Changed
+
+- **Composer attaches a photo from this device.** An image button next to
+  the paperclip opens Photos, the camera, or a file picker. The paperclip
+  still attaches a file from the agent's folder on the PiCode machine.
+  Same caps as paste/drop: four images, 4 MB each.
 
 - **Mobile extra-keys row no longer shows a vertical overlay scrollbar.**
   Dragging the row sideways is `pan-x` only; the terminal screen, the
@@ -204,6 +243,10 @@ to the `[Unreleased]` section. The repository's official language is English
   is unchanged — the absent marker is still published and stored.
 
 ### Fixed
+
+- **Owned llama.cpp model cleanup** now recognizes verified Hugging Face cache
+  downloads even when the router omits file paths. It records the exact blob
+  and snapshot link, validates their hashes and refuses shared or changed files.
 
 - **GitHub CI on macOS**: the worktree test compares symlink-resolved
   paths (`/var` → `/private/var`), and the terminal run/type routes

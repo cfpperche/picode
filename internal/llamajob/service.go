@@ -25,15 +25,19 @@ type Service struct {
 	wg                  sync.WaitGroup
 	interval, timeLimit time.Duration
 	closed              bool
+	completed           func(store.LlamaJob)
 }
 
 func identity(endpoint, key string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(endpoint+"\x00"+key)))
 }
 
-func New(st *store.Store, connection Connection) (*Service, error) {
+func New(st *store.Store, connection Connection, completed ...func(store.LlamaJob)) (*Service, error) {
 	ctx, stop := context.WithCancel(context.Background())
 	s := &Service{store: st, connection: connection, ctx: ctx, stop: stop, workers: map[string]bool{}, interval: 2 * time.Second, timeLimit: 30 * time.Minute}
+	if len(completed) > 0 {
+		s.completed = completed[0]
+	}
 	jobs, err := st.LlamaJobs()
 	if err != nil {
 		stop()
@@ -75,7 +79,11 @@ func (s *Service) update(id string, change func(*store.LlamaJob)) (store.LlamaJo
 		return j, err
 	}
 	change(&j)
-	return s.store.UpdateLlamaJob(j)
+	j, err = s.store.UpdateLlamaJob(j)
+	if err == nil && j.State == "succeeded" && j.Operation == "download" && s.completed != nil {
+		go s.completed(j)
+	}
+	return j, err
 }
 
 func (s *Service) Start(model, operation, key string, replace bool) (store.LlamaJob, error) {

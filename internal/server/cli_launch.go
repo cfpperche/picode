@@ -109,6 +109,10 @@ type cliView struct {
 	Diagnostic         *CLIDiagnostic   `json:"diagnostic,omitempty"`
 	Plan               clilaunch.Plan   `json:"plan"`
 	Lifecycle          lifecycleView    `json:"lifecycle"`
+	// Sessions advertises what this CLI's session source can do (list,
+	// read a transcript, receive a native session, start from a brief) so
+	// the web derives handoff targets from the server (ADR-0088).
+	Sessions clisession.Capabilities `json:"sessions"`
 }
 
 func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
@@ -116,7 +120,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		return cliView{}, err
 	}
-	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli)}
+	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID)}
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveCLIExecutable(cli, c)
 	v.Installed = err == nil
@@ -418,6 +422,15 @@ func clipCLIVersion(raw string) string {
 	return s
 }
 
+// cliTerminalRequest is the body of POST /api/clis/{cli}/terminals, also
+// composed by the handoff endpoint (ADR-0088).
+type cliTerminalRequest struct {
+	Name        string              `json:"name"`
+	WorkspaceID string              `json:"workspaceId"`
+	Cwd         string              `json:"cwd"`
+	Overrides   clilaunch.Overrides `json:"overrides"`
+}
+
 func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli, ok := clilaunch.Find(r.PathValue("cli"))
@@ -425,12 +438,7 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
-		var v struct {
-			Name        string              `json:"name"`
-			WorkspaceID string              `json:"workspaceId"`
-			Cwd         string              `json:"cwd"`
-			Overrides   clilaunch.Overrides `json:"overrides"`
-		}
+		var v cliTerminalRequest
 		if !readCLIJSON(w, r, &v) {
 			return
 		}
@@ -438,45 +446,62 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, 503, "Install tmux to open a terminal.")
 			return
 		}
-		c, err := cliConfig(deps, cli.ID)
+		_, view, status, err := createCLITerminal(deps, r, cli, v)
 		if err != nil {
-			writeErr(w, 500, err.Error())
+			writeErr(w, status, err.Error())
 			return
 		}
-		c = clilaunch.Resolve(c, v.Overrides)
-		if err := clilaunch.Validate(c); err != nil {
-			writeErr(w, 400, err.Error())
-			return
-		}
-		if _, err := resolveCLIExecutable(cli, c); err != nil {
-			writeErr(w, 400, err.Error())
-			return
-		}
-		if strings.TrimSpace(v.Name) == "" {
-			v.Name = cli.Name
-		}
-		unlockWorkspace := terminalLock(deps, "workspace:"+v.WorkspaceID)
-		defer unlockWorkspace()
-		t, err := deps.Store.CreateTerminalIn(v.WorkspaceID, v.Name, v.Cwd)
-		if err != nil {
-			writeErr(w, 400, err.Error())
-			return
-		}
-		unlock := terminalLock(deps, t.ID)
-		defer unlock()
-		if err := deps.Store.SetTerminalLaunch(t.ID, cli.ID, v.Overrides); err != nil {
-			_ = deps.Store.DeleteTerminal(t.ID)
-			writeErr(w, 500, err.Error())
-			return
-		}
-		name := tmux.ShellSessionName(t.ID)
-		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
-			// Keep the configured terminal available for repair and retry.
-			writeJSON(w, 201, map[string]any{"id": t.ID, "launchError": err.Error()})
-			return
-		}
-		writeJSON(w, 201, liveTermView(deps, r, t, name, true))
+		writeJSON(w, status, view)
 	}
+}
+
+// checkCLILaunch resolves the CLI's stored settings with overrides and
+// verifies they validate and point at an installed executable — the
+// pre-flight both terminal creation and a handoff run before creating
+// anything. Returns the HTTP status for the failure.
+func checkCLILaunch(deps Deps, cli clilaunch.CLI, overrides clilaunch.Overrides) (clilaunch.Config, int, error) {
+	c, err := cliConfig(deps, cli.ID)
+	if err != nil {
+		return c, 500, err
+	}
+	c = clilaunch.Resolve(c, overrides)
+	if err := clilaunch.Validate(c); err != nil {
+		return c, 400, err
+	}
+	if _, err := resolveCLIExecutable(cli, c); err != nil {
+		return c, 400, err
+	}
+	return c, 0, nil
+}
+
+// createCLITerminal creates a terminal with a CLI launch and starts it. On
+// a launch failure the terminal is kept for repair and the 201 view
+// carries launchError, exactly as before the handoff endpoint shared it.
+func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTerminalRequest) (store.Terminal, map[string]any, int, error) {
+	if _, status, err := checkCLILaunch(deps, cli, v.Overrides); err != nil {
+		return store.Terminal{}, nil, status, err
+	}
+	if strings.TrimSpace(v.Name) == "" {
+		v.Name = cli.Name
+	}
+	unlockWorkspace := terminalLock(deps, "workspace:"+v.WorkspaceID)
+	defer unlockWorkspace()
+	t, err := deps.Store.CreateTerminalIn(v.WorkspaceID, v.Name, v.Cwd)
+	if err != nil {
+		return store.Terminal{}, nil, 400, err
+	}
+	unlock := terminalLock(deps, t.ID)
+	defer unlock()
+	if err := deps.Store.SetTerminalLaunch(t.ID, cli.ID, v.Overrides); err != nil {
+		_ = deps.Store.DeleteTerminal(t.ID)
+		return store.Terminal{}, nil, 500, err
+	}
+	name := tmux.ShellSessionName(t.ID)
+	if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
+		// Keep the configured terminal available for repair and retry.
+		return t, map[string]any{"id": t.ID, "launchError": err.Error()}, 201, nil
+	}
+	return t, liveTermView(deps, r, t, name, true), 201, nil
 }
 
 func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, clilaunch.Config, string, error) {

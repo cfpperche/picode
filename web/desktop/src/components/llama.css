@@ -58,3 +58,25 @@
 .llama-job[data-state="running"] progress:indeterminate, .llama-job[data-state="queued"] progress:indeterminate { background: linear-gradient(90deg, transparent, var(--accent), transparent) 0 / 40% 100% no-repeat, var(--border); animation: llama-progress 1.5s ease-in-out infinite alternate; }
 @keyframes llama-progress { to { background-position: 100% 0; } }
 @media (prefers-reduced-motion: reduce) { .llama-job progress:indeterminate { animation: none; } }
+.llama-owned { margin-top:24px; border-top:1px solid var(--border); padding-top:16px; min-width:0; }
+.llama-owned details { margin:12px 0; }
+.llama-owned summary { cursor:pointer; padding:8px 0; }
+.llama-owned-fields { display:grid; gap:12px; padding:8px 0; }
+.llama-owned-controls { display:grid; gap:12px; margin:16px 0; }
+.llama-owned label { display:grid; gap:6px; }
+.llama-owned input:not([type=checkbox]), .llama-owned select { min-height:var(--ctl-h); max-width:100%; width:100%; }
+.llama-owned .llama-owned-check { display:flex; align-items:center; gap:8px; }
+.llama-owned-check input { flex-shrink:0; }
+.llama-owned-command { overflow:auto; max-height:220px; font-size:12px; }
+.llama-cache-row { padding:10px 0; overflow-wrap:anywhere; }
+.llama-cache-row small { display:block; margin-top:4px; }
+.llama-service-jobs { list-style:none; padding:0; }
+.llama-service-jobs li { display:grid; gap:4px; padding:10px 0; animation:llama-service-enter 160ms ease-out; }
+.llama-owned .llama-actions { flex-wrap:wrap; }
+@keyframes llama-service-enter { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion:reduce) { .llama-service-jobs li { animation:none; } }
+.llama-owned { margin-top:0; border-top:0; padding-top:0; }
+.llama-owned .llama-form > .btn { justify-self:start; }
+.llama-owned select { padding:0 12px; border:1px solid var(--border-strong); border-radius:var(--radius-ctl); background:var(--bg-base); color:var(--text-primary); }
+.llama-owned .llama-owned-check input { width:16px; height:16px; }
+.llama-nav { flex-wrap:wrap; }

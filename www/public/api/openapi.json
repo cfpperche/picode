@@ -2544,6 +2544,76 @@
         ]
       }
     },
+    "/api/clis/{cli}/sessions/handoff": {
+      "post": {
+        "operationId": "postApiClisSessionsHandoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/sessions/handoff/preview": {
+      "post": {
+        "operationId": "postApiClisSessionsHandoffPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
     "/api/clis/{cli}/terminals": {
       "post": {
         "operationId": "postApiClisTerminals",
@@ -3574,6 +3644,133 @@
     "/api/llama/load": {
       "post": {
         "operationId": "postApiLlamaLoad",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service": {
+      "get": {
+        "operationId": "getApiLlamaService",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      },
+      "put": {
+        "operationId": "putApiLlamaService",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/cache": {
+      "get": {
+        "operationId": "getApiLlamaServiceCache",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/diagnostics": {
+      "get": {
+        "operationId": "getApiLlamaServiceDiagnostics",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/execute": {
+      "post": {
+        "operationId": "postApiLlamaServiceExecute",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "llama"
+        ]
+      }
+    },
+    "/api/llama/service/preview": {
+      "post": {
+        "operationId": "postApiLlamaServicePreview",
         "parameters": null,
         "requestBody": {
           "content": {
@@ -5529,6 +5726,41 @@
         ]
       }
     },
+    "/api/terminals/{id}/drop": {
+      "post": {
+        "operationId": "postApiTerminalsDrop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
     "/api/terminals/{id}/git": {
       "get": {
         "operationId": "getApiTerminalsGit",
@@ -5932,6 +6164,41 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "terminals"
+        ]
+      }
+    },
+    "/api/terminals/{id}/prompt": {
+      "post": {
+        "operationId": "postApiTerminalsPrompt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"
