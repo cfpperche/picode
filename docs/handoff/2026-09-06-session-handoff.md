@@ -23,4 +23,4 @@ Not done: Grok native spike; Hermes as target (owner decision); Codex
 writer emits no `turn_context` (model lost Codex→Claude); Codex's picker
 lists a handed-off rollout only after a Codex restart.
 
-Merge: pending `make close` and fast-forward of main.
+Merge: fast-forwarded main to `9145a05c`; `make ci` green on main. Deploy rides the next batch.
