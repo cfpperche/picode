@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Phone terminal: extra keys stay off until you open the keyboard.**
+  Opening a terminal no longer focuses xterm on attach, so iOS does not
+  show the extra-keys row without the phone keyboard. The header keyboard
+  button lets that tap summon the IME. Pinning the shell to the visual
+  viewport requires a real shrink against the unfocused baseline, so a
+  rest-state gap no longer leaves a black strip under the TUI.
+
 - **Update checks failed on real installs**: install-method detection now
   resolves symlinks (`~/.local/bin/claude` → the native versions dir) and
   reads wrapper scripts (Hermes Agent), so update/reinstall/uninstall

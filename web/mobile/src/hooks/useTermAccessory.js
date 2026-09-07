@@ -6,9 +6,10 @@ import {
   sendTermSeq,
 } from "@picode/shared/domain/keyboardInset.js";
 
-// Extra keys travel with the software keyboard: visible while the
-// terminal host holds focus, gone on blur. A bar tap never steals
-// focus (the caller preventDefault's pointerdown).
+// Extra keys travel with the software keyboard: visible after a user
+// tap focuses the terminal (or the header keyboard icon), gone on blur.
+// Attach-time focus is not a tap — iOS will not open the IME. A bar tap
+// never steals focus (the caller preventDefault's pointerdown).
 
 export function useTermAccessory(hostRef, entryOf, attachKey) {
   const entryRef = useRef(entryOf);
@@ -16,6 +17,13 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
   const [armed, setArmed] = useState({ ctrl: false, alt: false });
   const [focused, setFocused] = useState(false);
   const [hardKeyboard, setHardKeyboard] = useState(false);
+  const [userArmed, setUserArmed] = useState(false);
+
+  useEffect(() => {
+    setUserArmed(false);
+    setFocused(false);
+    setHardKeyboard(false);
+  }, [attachKey]);
 
   useEffect(() => {
     let off = null;
@@ -40,6 +48,9 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
     const onFocusIn = (ev) => {
       if (!inHost(ev.target)) return;
       setFocused(true);
+      // Attach-time focus has no recent pointer — iOS will not open the
+      // IME, so do not arm the extra-keys row.
+      if (Date.now() - touchedAt <= 800) setUserArmed(true);
       if (Date.now() - touchedAt > 500) return;
       focusedAt = Date.now();
       const vv = window.visualViewport;
@@ -61,11 +72,11 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
       const next = ev.relatedTarget;
       if (inHost(next)) return;
       setFocused(false);
+      setUserArmed(false);
     };
     document.addEventListener("pointerdown", onPointer, true);
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
-    if (inHost(document.activeElement)) setFocused(true);
     return () => {
       document.removeEventListener("pointerdown", onPointer, true);
       document.removeEventListener("focusin", onFocusIn);
@@ -88,6 +99,7 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
 
   function show() {
     setHardKeyboard(false);
+    setUserArmed(true);
     const entry = entryRef.current && entryRef.current();
     if (entry && entry.term) entry.term.focus();
   }
@@ -99,11 +111,12 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
     const ta = host && host.querySelector("textarea");
     if (ta) ta.blur();
     setFocused(false);
+    setUserArmed(false);
   }
 
   return {
     armed,
-    visible: extraKeysVisible({ termFocused: focused, hardKeyboard }),
+    visible: extraKeysVisible({ termFocused: focused, hardKeyboard, userArmed }),
     sendKey,
     armKey,
     show,

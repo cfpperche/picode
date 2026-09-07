@@ -88,7 +88,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const right = (
     <>
       {interactive && view === "term" ? (
-        <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => e.preventDefault()} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
+        <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
           <IconKeyboard size={16} />
         </button>
       ) : null}

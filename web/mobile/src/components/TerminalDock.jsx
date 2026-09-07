@@ -99,7 +99,6 @@ export default function TerminalDock({
         const dims = document.getElementById("sb-dims");
         if (dims) dims.textContent = `${term.cols}×${term.rows}`;
       });
-      term.focus();
     };
     sock.onmessage = (ev) => {
       if (typeof ev.data === "string") {

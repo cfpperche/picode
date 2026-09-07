@@ -21,8 +21,9 @@
   box-sizing: border-box; margin: 0;
 }
 html, body {
-  height: 100vh; max-height: 100vh;
+  height: 100%; height: 100dvh; max-height: 100dvh;
   overflow: hidden;
+  background: var(--bg-base);
 }
 /* Scrollbars: the standard properties live only where ::-webkit-scrollbar
    is not understood — Chromium ≥ 121 ignores the pseudo-elements on any

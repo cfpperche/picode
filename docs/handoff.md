@@ -35,7 +35,7 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
+  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
   Composer Photos `0.1.0+d04ad3f`. ADR-0089 attach bar `0.1.0+aca6628`.
   Managed agents remain Pi-only.
 
@@ -95,6 +95,5 @@
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
   Owned-service ARM64 and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
-- Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
-  owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
-  the full window with the IME up, land the focus-gated iOS fallback.
+- Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
+  (Chromium PASS); iOS 26 IME-open is still owner acceptance.

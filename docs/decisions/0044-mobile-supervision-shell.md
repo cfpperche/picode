@@ -251,3 +251,18 @@ A sideways drag on the row must not show iOS's overlay scrollbar on the
 screen: the row is `touch-action: pan-x`, the terminal screen turns off
 `-webkit-overflow-scrolling`, and overlay scrollbars are hidden on the
 row, the screen and xterm's viewport.
+
+## Amendment 2026-09-07 — first open does not arm the accessory
+
+Owner screenshots on iOS 26: opening a terminal focused xterm without a
+user tap, so the extra-keys row appeared and iOS did not open the
+software keyboard; a black strip sat under the TUI (`innerHeight` minus
+`visualViewport.height` at rest can exceed the pin threshold because of
+`100vh` vs the home indicator).
+
+Attach no longer calls `term.focus()`. Extra keys require a user tap
+(`userArmed`: pointer on the pane, or the header keyboard icon). The
+header icon does not `preventDefault` on open, so the tap can summon the
+IME. `#m-app` pins only when a focused field actually shrank the visual
+viewport against the unfocused baseline — a rest-state inset is not the
+IME.
