@@ -72,7 +72,7 @@ deleting is permanent, and sessions in use by an agent refuse deletion.
 
 ## Continue a session in another CLI
 
-Every session row has a **•••** menu with **Continue in <CLI>…** for each
+Every session row has a **•••** menu with **Continue in &lt;CLI&gt;…** for each
 other CLI that can receive it. PiCode reads the conversation, shows what
 will travel and what stays behind (thinking never travels; tool calls do),
 and then either writes a **native session** the other CLI resumes as its
