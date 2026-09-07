@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **llama.cpp installation cleanup:** desktop and mobile can review and remove
+  verified older installations while retaining the current version, restoration
+  version and unknown files.
+
 - **Install a missing CLI** (ADR-0088): the Agent CLIs surface offers an
   **Install** action when a catalogued CLI is not installed — npm-backed for
   pi, Codex and Claude Code through the same durable job lane; Grok and
@@ -32,6 +36,10 @@ to the `[Unreleased]` section. The repository's official language is English
   `enabled.json`. OpenCode rows frozen that way are turned on once at boot.
   Opening an OpenCode terminal prints `Starting OpenCode...` until the TUI
   draws, so the pane is not a blank cursor.
+
+- **llama.cpp setup recovery:** failed or interrupted initial setup removes
+  only its recorded empty folders, preserving existing or unexpected content.
+  Unreadable ownership proof retains the recovery record until access is restored.
 
 - **Phone terminal: extra keys stay off until you open the keyboard.**
   Opening a terminal no longer focuses xterm on attach, so iOS does not

@@ -24,13 +24,19 @@ start restores the previous version when possible. Reviews expire after five
 minutes and reject changed state. Stopping a running server requires explicit
 confirmation of interruption, including other applications using it.
 
+If initial setup fails, PiCode removes only empty folders belonging to that
+attempt, including after a restart. Existing folders and unexpected files
+are preserved for inspection before retrying.
+
 This service stops when PiCode stops, including after a crash. It does not
 start automatically after a PiCode restart. Interrupted actions remain in
 history for review; they are never replayed automatically.
 
-**Cache** lists exact file sizes and eligibility. Stop the service first.
-Only verified installer archives and model files from tracked successful
-downloads can be selected. Models referenced by configured agents, changed
+**Cache and installations** lists exact sizes and eligibility. Stop the service first.
+You can select verified installer archives, older installations and model
+files from tracked successful downloads. The current installation and the
+version reserved for restoration are always retained. Unknown installations
+and folders with extra or changed files cannot be selected. Models referenced by configured agents, changed
 files and files without ownership evidence are retained. A final check runs
 before deletion. For verified Hugging Face cache downloads, cleanup also removes
 the recorded cache link. Shared files and files with changed links are retained;

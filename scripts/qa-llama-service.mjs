@@ -71,7 +71,7 @@ try{
  await page.locator("summary").filter({hasText:"Cache"}).click();
  const eligible=page.locator(".llama-cache-row input[type=checkbox]");
  assert.ok(await eligible.count()>0);await eligible.first().check();
- await action("Clean selected files","desktop-cleanup-review");
+ await action("Clean selected items","desktop-cleanup-review");
  await shot(page,"desktop-stopped");
  const diagnostics=await fetch(base+"/api/llama/service/diagnostics").then(r=>r.json());
  assert.deepEqual(Object.keys(diagnostics).sort(),["busy","config","jobs","platform","running","version"]);
