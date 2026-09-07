@@ -35,7 +35,7 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
+  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
   Composer Photos `0.1.0+d04ad3f`. ADR-0089 attach bar `0.1.0+aca6628`.
   Managed agents remain Pi-only.
 
@@ -44,7 +44,6 @@
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/mobile-ime-firstopen` — extra keys only after a tap; no rest-state black strip.
 
 ## Next up
 
@@ -95,5 +94,5 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; owned-service ARM64/acceptance/pruning open.
-- Mobile IME accessory (ADR-0044): first-open tap-gate is Chromium PASS on
-  `feat/mobile-ime-firstopen`; iOS 26 IME-open is still owner acceptance.
+- Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
+  (Chromium PASS); iOS 26 IME-open is still owner acceptance.

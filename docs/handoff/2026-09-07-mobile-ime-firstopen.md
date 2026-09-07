@@ -12,4 +12,4 @@ overlayAudit ok.
 
 visual-review: PASS (Chromium). iOS IME still owner acceptance.
 Not done: real iPhone IME overlay with this build.
-Merge: not yet.
+Merge: ff as dfa9f7b9; `make ci` green; deployed `0.1.0+dfa9f7b`.
