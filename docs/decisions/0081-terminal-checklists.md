@@ -40,8 +40,10 @@ durable feed event, and folds the row into every terminal view next to the
 live state — the `GET /api/terminals` list stays the one boot fetch. A reset
 marker, a removed terminal, and a deleted agent's checklist all behave like
 their agent-side siblings. The shells render the same one-line projection on
-terminal cards and above terminal panes that agent cards already carry; no
-channel still means no line.
+terminal cards that agent cards already carry; no
+channel still means no line. The pane itself is the TUI — Pi already
+draws the step card there, so a second strip above the xterm is not shown
+(owner, 2026-09-07).
 
 The obligation level stays a managed-agent setting: a terminal pi runs at the
 package default (`changes`), because a terminal belongs to the user, not to a
@@ -52,7 +54,7 @@ per-agent configuration that does not exist there.
 | Conditions | Action / observable result |
 |---|---|
 | `PICODE_AGENT_ID` set (any other env) | POST to the agent route; agent card shows the line (unchanged) |
-| No agent id, `PICODE_TERM_ID` set | POST to the terminal route; terminal card and pane show the line |
+| No agent id, `PICODE_TERM_ID` set | POST to the terminal route; terminal card shows the line |
 | Neither | No publish; nothing shown anywhere (raw pi outside PiCode) |
 | Terminal row valid / absent / reset | Line / "No checklist" / no line — same vocabulary as agent cards |
 | POST for an unknown or removed terminal | 404; no row is created |
@@ -86,3 +88,10 @@ terminal cards simply never receive a line, which is the honest state.
   no line" rule; this ADR reuses all three under a second identity.
 - ADR-0069 supplied `PICODE_TERM_ID` correlation, proven by the lifecycle
   hooks since 2026-09-04.
+
+## Amendment 2026-09-07 — the pane is the TUI
+
+The owner asked to drop the one-line strip above a Pi terminal. The TUI
+already renders the checklist card; the PiCode strip duplicated it and
+stole a row from the pane. Sidebar cards (and the phone agent row) still
+show the operator line. The data plane is unchanged.

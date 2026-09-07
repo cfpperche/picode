@@ -35,8 +35,9 @@ delete the package and the mirrors have nothing to show.
 
 The mirrors cover agent CLI terminals too: a pi you launch in a PiCode
 terminal reports its plan under that terminal, so the terminal's sidebar
-card — and a strip above the terminal itself — shows the same line a
-managed agent's card does. Other CLIs (Claude Code, Codex, Grok, Hermes Agent) have no
+card shows the same line a managed agent's card does. The terminal pane
+is the TUI itself — it already draws the step card, so PiCode does not
+repeat it above the pane. Other CLIs (Claude Code, Codex, Grok, Hermes Agent) have no
 checklist package, so their terminals never show a line.
 
 ## What you see
@@ -45,8 +46,6 @@ checklist package, so their terminals never show a line.
   When a plan is finished it reads `(4/4)`. Nothing known, and a task
   without a plan, shows no line at all (ADR-0082).
   Agent CLI terminal cards carry the same line.
-- **Terminal pane**: the same one-line strip above the terminal, live —
-  useful when the TUI is maximized and the sidebar is narrow.
 - **Chat**: each `checklist` call is a card with every step —
   `☐` pending, `◐` in progress, `☑` done.
 - **Phone**: the agent row's second line is the current step.

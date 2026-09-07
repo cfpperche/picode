@@ -26,7 +26,7 @@ still publishes `absent`/`blocked`, the store still records it, the feed
 still announces it — but the **presentation** renders it as silence, the
 same as "nothing known". The one-line projection `{kind:"absent"}` stays
 in the shared domain helpers; the components render `null` for it (desktop
-sidebar cards, terminal pane strip, mobile agent rows). The blue accent on
+sidebar cards, mobile agent rows). The blue accent on
 the `(x/n)` counter goes with it: the operator line is one muted line, not
 a status signal.
 

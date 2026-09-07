@@ -18,8 +18,8 @@
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`; this restart left
   all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
-  with the compact line aligned to the card's text column; absent checklist
-  renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+  with the compact line on the sidebar card only (ADR-0081 amendment).
+  Absent checklist renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
   or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as
   a durable `cli_jobs` lane with streamed output, terminal guards and typed
@@ -44,6 +44,7 @@
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/term-no-pane-check` — drop the checklist strip above Pi terminal panes.
 
 ## Next up
 
