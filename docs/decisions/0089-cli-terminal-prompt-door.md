@@ -1,4 +1,4 @@
-# ADR-0088: User-initiated prompt door for Agent CLI terminals
+# ADR-0089: User-initiated prompt door for Agent CLI terminals
 
 - **Status**: accepted (owner, 2026-09-06: execute the 2026-09-06 study's
   recommended path)

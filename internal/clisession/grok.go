@@ -8,11 +8,12 @@ import (
 	"strings"
 )
 
-// GrokSource lists Grok CLI sessions from the prompt history under
-// ~/.grok/sessions/<url-encoded-cwd>/prompt_history.jsonl (format verified
-// against a real installation, 2026-09). The history is prompts only — one
-// file per folder, many session ids inside — so a Grok row summarizes the
-// prompts of one session id and claims no transcript it does not have.
+// GrokSource lists Grok CLI sessions under ~/.grok/sessions/<url-encoded
+// cwd>/ (format verified against a real installation, 2026-09): the
+// folder's prompt_history.jsonl knows every session that ran there, and
+// each <session-id>/ directory Grok kept adds summary.json (title, model,
+// message count) and chat_history.jsonl (the transcript, see grok_io.go).
+// A row without a directory summarizes prompts only.
 //
 // Verified resume flag (grok --help): `--resume <SESSION_ID>`; UUID-shaped
 // values always mean ids, which is exactly what this source reports.
@@ -42,8 +43,7 @@ func (GrokSource) List(cwd string) ([]Summary, error) {
 		if cwd != "" && dir != cwd {
 			continue // the directory name is the cwd: skip without parsing
 		}
-		p := filepath.Join(root, e.Name(), "prompt_history.jsonl")
-		out = append(out, grokSessions(p, dir)...)
+		out = append(out, grokFolder(root, e.Name(), dir)...)
 	}
 	sortNewest(out)
 	return out, nil

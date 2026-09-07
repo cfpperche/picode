@@ -38,7 +38,7 @@ git `type`/`run` cannot steal a live Claude prompt.
 Grok CLI and Hermes have no public image protocol. Path + "read this file"
 is the portable fallback.
 
-## Decision (→ ADR-0088)
+## Decision (→ ADR-0089)
 
 Do **not** replace the guest TUI with PiCode chat. Give a **user-initiated
 prompt door**: stage files under `<cwd>/.picode/drop/`, paste the caption

@@ -18,7 +18,7 @@ explains its installation. Checking setup runs `--version`, without starting
 a conversation.
 
 Attaching a photo from a phone into a CLI terminal is a separate door
-(ADR-0088): the file is saved in the terminal's folder and the path is
+(ADR-0089): the file is saved in the terminal's folder and the path is
 typed into the TUI. That send is not on this page yet; the Pi agent
 composer already opens Photos.
 
@@ -75,6 +75,22 @@ folder's agents to that session, **Compact** summarizes its older turns,
 **Delete** removes the file, and **Auto-clean orphans** removes abandoned
 sessions after the chosen number of days. Sessions are read from disk,
 deleting is permanent, and sessions in use by an agent refuse deletion.
+
+## Continue a session in another CLI
+
+Every session row has a **•••** menu with **Continue in &lt;CLI&gt;…** for each
+other CLI that can receive it. PiCode reads the conversation, shows what
+will travel and what stays behind (thinking never travels; tool calls do),
+and then either writes a **native session** the other CLI resumes as its
+own — Claude Code, Codex, and pi as a new agent — or, for CLIs without an
+import path, starts the CLI from a short **brief** it reads first. The
+conversation you started stays where it was; the new one begins with a
+note saying where it came from and that files may have changed since.
+Both rows show the link ("from Claude Code", "continued in Codex").
+
+If the source is still running, PiCode says so and lets you continue
+anyway. When the conversation was summarized along the way, you choose
+between what the previous agent still had in view or the whole history.
 
 ## Reuse launch profiles
 

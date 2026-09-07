@@ -1,8 +1,8 @@
-# 2026-09-06 — feat/cli-prompt-door: ADR-0088 + composer Photos
+# 2026-09-06 — feat/cli-prompt-door: ADR-0089 + composer Photos
 
 Shipped: study `docs/benchmarks/2026-09-06-cli-terminal-attach.md`;
-ADR-0088 (user Send may paste into a CLI TUI; Inspector must not).
-Number 0087 was taken by CLI lifecycle on main; this door is 0088.
+ADR-0089 (user Send may paste into a CLI TUI; Inspector must not).
+0087 is CLI lifecycle and 0088 is cross-CLI handoff on main; this door is 0089.
 Managed composer gains an **Attach image** button (`<input type="file"
 accept="image/*" multiple>`) on desktop and mobile. Paperclip stays
 workspace-only. Caps 4 × 4 MB (`planDeviceImages` table).

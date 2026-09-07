@@ -34,15 +34,16 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
-  ADR-0088 prompt door + composer Photos: `feat/cli-prompt-door`.
+  ADR-0089 prompt door + composer Photos: `feat/cli-prompt-door`.
   Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
+- `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/cli-prompt-door` — ADR-0088 + device image picker on the Pi composer.
+- `feat/cli-prompt-door` — ADR-0089 + device image picker on the Pi composer.
 
 ## Next up
 
@@ -50,7 +51,7 @@
 2. Renumber duplicate ADR-0082 and fix the index.
 3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
+5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
 6. CLI prompt door D2–D5 (drop/prompt APIs, attach bar); first-class CLI agents still need a parity ADR.
 7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
@@ -58,10 +59,10 @@
 
 ## Known debts / open questions
 
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06
-  (`hermes-1f19ed`; needs-you during `pre_approval_request` on `rm -r /tmp/…`,
-  then smart auto-approved so the chip did not linger); `cli-v1-*`
-  screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06 (`hermes-1f19ed`, needs-you on
+  `pre_approval_request`, then auto-approved); `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Handoff (ADR-0088): upstream formats are undocumented (a bump = refused write); Hermes/Grok native
+  targets undecided; Codex lists a handed-off rollout only after restart, renders no prior turns; Codex→Claude loses the model name.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
@@ -88,9 +89,8 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
-- Tutorial video freshness audits are stale after source relocation;
-  recapture/render is explicit. Branch protection and CODEOWNERS need the
-  owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
+- Tutorial video freshness audits are stale after source relocation; recapture/render is explicit. Branch
+  protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with

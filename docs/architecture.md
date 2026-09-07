@@ -278,7 +278,7 @@ Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 The composer also opens a device file picker (Photos / camera / files on a
 phone) so attach does not depend on clipboard paste.
-Agent CLI terminals have no composer. ADR-0088 records a user-initiated
+Agent CLI terminals have no composer. ADR-0089 records a user-initiated
 prompt door (stage a file under the terminal cwd, paste `@path` into the
 TUI) so a phone can attach a photo without promoting CLIs to managed
 agents; Inspector type/run/Ask still must not target a CLI TUI (ADR-0078).
@@ -464,6 +464,31 @@ navigation through a hash guard installed before route observers, use shared
 Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
+
+### Cross-CLI session handoff (ADR-0088)
+
+Any session of an Agent CLI can continue in another one from the Sessions
+tab ("Continue in <CLI>…"). `internal/transcript` is the portable model —
+ordered events (message, tool call, tool result, thinking, compaction,
+context), a header and a manifest of what a reader could not carry.
+`internal/clisession` adds optional capabilities next to `Source`:
+`Reader` (native → timeline), `Writer` (timeline → a new native session,
+create-only, atomic, re-read before it counts) and `Prompter` (launch
+arguments for an initial prompt). They are discovered by type assertion,
+never by a switch, and `GET /api/clis` advertises them as
+`sessions: {list, read, write, prompt}`; the web derives the targets from
+that. Readers exist for all five CLIs, writers for Claude Code, Codex and
+pi (as an adopted managed agent), prompters for every CLI but Hermes.
+
+`POST /api/clis/{cli}/sessions/handoff/preview` and `…/handoff` share one
+plan: window (since the last compaction, or all), repair (every tool call
+answered), prepare (no thinking, no injected context), a handoff note as
+the first user message, then the target's Writer — or, in brief mode, a
+deterministic markdown brief under `<dataDir>/handoffs/<id>/brief.md` and
+the target started with a one-line prompt. Lineage lives in
+`session_handoffs` (event `session.handoff`) and is shown on both session
+listings. The installed target version comes from the setup check (run on
+demand); an unknown format refuses native and keeps brief.
 
 ### llama.cpp manager (ADR-0080)
 
@@ -975,7 +1000,9 @@ Agents communicate through their native protocol — no internals hacked.
 
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
-to render session history, branching and diffs in the UI. Read-only.
+to render session history, branching and diffs in the UI. Read-only. The
+cross-CLI readers and writers (ADR-0088) live in `internal/clisession`,
+not here.
 
 ### Compaction policy (ADR-0061)
 

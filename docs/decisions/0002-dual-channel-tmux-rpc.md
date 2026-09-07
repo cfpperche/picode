@@ -52,5 +52,5 @@ and detach semantics for free.
 - **PTY only** with screen-scraping: rejected — fragile, no structured
   tasks/diffs.
 - **tmux send-keys for control**: rejected — brittle; RPC is a real API.
-  ADR-0060 (Pi Inbox) and ADR-0088 (CLI prompt door) are owner-accepted
+  ADR-0060 (Pi Inbox) and ADR-0089 (CLI prompt door) are owner-accepted
   *paste* exceptions for a user-initiated message, not a control protocol.
