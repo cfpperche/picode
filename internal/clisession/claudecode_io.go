@@ -207,7 +207,8 @@ func (ClaudeCodeSource) Read(ctx context.Context, ref Ref) (transcript.Timeline,
 
 // claudeUserText classifies one user text: the compaction summary that
 // follows a compact boundary, injected context (isMeta, slash-command
-// echoes), or a human turn.
+// echoes, the "[Request interrupted by user]" marker Claude Code writes
+// when a turn is cut short), or a human turn.
 func claudeUserText(t *transcript.Timeline, compactPending *bool, meta, compactSummary bool, text string, ts time.Time, g int) {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
@@ -222,7 +223,7 @@ func claudeUserText(t *transcript.Timeline, compactPending *bool, meta, compactS
 		t.Events = append(t.Events, transcript.Event{Kind: transcript.KindCompaction, Text: "Conversation compacted.", Timestamp: ts})
 		*compactPending = false
 	}
-	if meta || strings.HasPrefix(trimmed, "<command-") || strings.HasPrefix(trimmed, "<local-command") || strings.HasPrefix(trimmed, "<bash-") || strings.HasPrefix(trimmed, "<system-reminder>") {
+	if meta || strings.HasPrefix(trimmed, "<command-") || strings.HasPrefix(trimmed, "<local-command") || strings.HasPrefix(trimmed, "<bash-") || strings.HasPrefix(trimmed, "<system-reminder>") || strings.HasPrefix(trimmed, "[Request interrupted by user") {
 		t.Events = append(t.Events, transcript.Event{Kind: transcript.KindContext, Role: "user", Text: trimmed, Timestamp: ts, Group: g})
 		return
 	}

@@ -335,7 +335,7 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 			wsID, work := adoptHome(deps, cwd)
 			agentName := strings.TrimSpace(p.full.Header.Title)
 			if agentName == "" {
-				agentName = clipRunes(strings.TrimSpace(p.full.LastUserText()), 60)
+				agentName = clipRunes(firstUserText(p.windowed), 60)
 			}
 			if agentName == "" {
 				agentName = "From " + p.src.Name
@@ -498,6 +498,17 @@ func workspaceOwning(deps Deps, cwd string) string {
 	for _, wk := range list {
 		if wk.ID != store.FreeWorkspaceID && wk.Path != "" && filepath.Clean(wk.Path) == filepath.Clean(cwd) {
 			return wk.ID
+		}
+	}
+	return ""
+}
+
+// firstUserText is the opening human turn of a timeline — the line a
+// listing would show as the session's preview.
+func firstUserText(t transcript.Timeline) string {
+	for _, e := range t.Events {
+		if e.Kind == transcript.KindMessage && e.Role == "user" && strings.TrimSpace(e.Text) != "" {
+			return strings.TrimSpace(e.Text)
 		}
 	}
 	return ""

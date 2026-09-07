@@ -58,6 +58,7 @@ func seedClaudeTranscript(t *testing.T, home, proj string) string {
 		`{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"This session is being continued from a previous conversation. Summary: the race was in the scheduler."},"timestamp":"2026-09-01T10:00:06.100Z","sessionId":"cc-1","cwd":"` + proj + `","uuid":"u3"}`,
 		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"now add a test"},{"type":"image","source":{}}]},"timestamp":"2026-09-01T10:00:07.000Z","sessionId":"cc-1","cwd":"` + proj + `","uuid":"u4"}`,
 		`{"type":"assistant","message":{"id":"msg_2","role":"assistant","model":"claude-sonnet-5","content":[{"type":"tool_use","id":"toolu_2","name":"Edit","input":"raw"}]},"timestamp":"2026-09-01T10:00:08.000Z","sessionId":"cc-1","cwd":"` + proj + `","uuid":"a4"}`,
+		`{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]},"timestamp":"2026-09-01T10:00:09.000Z","sessionId":"cc-1","cwd":"` + proj + `","uuid":"u5"}`,
 		`{"type":"file-history-snapshot","messageId":"x","snapshot":{}}`,
 	}, "\n"))
 	return path
@@ -88,7 +89,7 @@ func TestClaudeReadMapsBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "context/user context/user message/user thinking message/assistant tool_call tool_result compaction message/user tool_call"
+	want := "context/user context/user message/user thinking message/assistant tool_call tool_result compaction message/user tool_call context/user"
 	if got := kinds(tl); got != want {
 		t.Fatalf("kinds:\n got %s\nwant %s", got, want)
 	}
