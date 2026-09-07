@@ -13,6 +13,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Public docs for moving a conversation between agents:** the Agent CLIs
+  guide now explains the two ways a session arrives (a native session, or
+  the vendor's own `import` for the SQLite-backed CLIs), the choices in the
+  dialog, and what stays behind; the home page names the capability.
 - **A workspace reaches its own files and history with nobody in it:**
   **Files** and **Git graph** on the workspace card's menu open the project's
   own file tree and commit graph — no agent and no terminal required. The

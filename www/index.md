@@ -23,6 +23,8 @@ features:
     details: Each agent gets a web terminal backed by tmux, so work survives reloads, laptops and browser crashes.
   - title: Sessions stay in pi
     details: History is pi's own session JSONL. Nothing is copied into a private database — pi tools keep working.
+  - title: Move a conversation between agents
+    details: Start in Claude Code and continue in Codex, Grok, OpenCode, Hermes or Pi. PiCode translates the session into the other CLI's own format and opens it there.
   - title: Many agents, one fleet
     details: Several agents per workspace, several workspaces per machine, all in one sidebar with live state.
   - title: Automations on a schedule
