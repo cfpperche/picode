@@ -1171,20 +1171,40 @@ img.ws-face.term-cli-face {
   position: absolute; top: -2px; right: -2px;
   box-shadow: 0 0 0 2px var(--bg-panel);
 }
-.um-item-name { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 8px; text-align: left; }
 .um-item-ico { flex: none; }
+.um-item-name { min-width: 0; display: inline-flex; align-items: center; gap: 8px; text-align: left; }
 .um-meta { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; line-height: 1.25; }
 .um-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .um-sub { font-size: 11px; color: var(--text-secondary); }
 .um-chev { color: var(--text-secondary); flex: none; }
 .um-popover {
   z-index: 40;
-  width: 268px; padding: 6px;
+  width: 304px; padding: 6px;
   max-height: calc(100vh - 80px); overflow-y: auto;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 16px color-mix(in srgb, #000 16%, transparent);
 }
+.um-search { padding: 4px 4px 6px; }
+.um-search-input {
+  width: 100%; height: var(--ctl-h); padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--text-primary);
+  font-family: inherit; font-size: 12.5px;
+}
+.um-search-input::placeholder { color: var(--text-secondary); }
+.um-search-input:focus { outline: none; border-color: var(--accent); }
+.um-group { display: flex; flex-direction: column; padding-bottom: 2px; }
+.um-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; text-align: left; }
+.um-row-sub {
+  font-size: 11px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.um-empty {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 8px; color: var(--text-secondary); font-size: 12.5px;
+}
+.um-empty .btn { flex: none; }
 .um-account { display: flex; align-items: center; gap: 9px; padding: 7px 8px; }
 .um-account-meta { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
 .um-account-name { font-weight: 550; font-size: 12.5px; }
@@ -1215,10 +1235,11 @@ img.ws-face.term-cli-face {
 }
 .um-item {
   display: flex; width: 100%; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 7px 8px; border-radius: var(--radius-ctl);
+  gap: 8px; padding: 6px 8px; border-radius: var(--radius-ctl);
   background: none; border: none; color: var(--text-primary);
   font-family: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none;
 }
+.um-item > svg:last-child { color: var(--text-secondary); flex: none; }
 .um-item:hover, .um-item[data-highlighted] { background: var(--bg-panel); outline: none; }
 .um-item.um-danger { color: var(--danger); }
 .um-item svg { color: var(--text-secondary); }
