@@ -47,7 +47,7 @@
 
 1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
 2. Renumber duplicate ADR-0082 and fix the index.
-3. llama delivery 3 live validation; owned-service ARM64 and model-ledger acceptance.
+3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
 6. CLI prompt door iPhone acceptance; first-class CLI agents still need a parity ADR.
@@ -93,7 +93,7 @@
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with
   an absent model keeps its reservation; history pruning deferred. Owned service:
-  ARM64 hardware, real model-ledger download acceptance and old-release pruning remain open.
+  ARM64 hardware and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
 - Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
   owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
   the full window with the IME up, land the focus-gated iOS fallback.

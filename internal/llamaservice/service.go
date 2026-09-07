@@ -469,6 +469,11 @@ func (s *Service) run(req Request) {
 						err = targetErr
 						break
 					}
+					if model, ok := s.doc.Models[name]; ok && model.Snapshot != "" {
+						if err = os.Remove(filepath.Join(s.root, model.Snapshot)); err != nil {
+							break
+						}
+					}
 					if err = os.Remove(path); err != nil {
 						break
 					}

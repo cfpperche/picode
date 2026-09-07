@@ -534,8 +534,13 @@ does not relaunch the service. No process name or external PID is adopted.
 
 The initial CPU profiles use explicit GPU zero, Jinja/autoload switches and
 1–4 generation/batch threads. Model cache ownership is recorded only after a
-tracked download on the owned router reports a new exact file path, pinned by
-SHA-256. Existing files are never adopted. Cleanup requires a stopped service,
+tracked download on the owned router identifies a new exact file, pinned by
+SHA-256. The verified b10809/b10826 HF cache catalog omits file paths: completed
+download filenames and sizes are matched to a new snapshot link and its
+content-addressed blob. The blob hash must match its name; existing blobs or
+snapshot links are never adopted. Cleanup removes the recorded snapshot link
+with its blob and refuses shared blobs, changed links or agent references to
+any quantization of the same repository. Cleanup requires a stopped service,
 no active model jobs and no configured agent references, with file revalidation.
 Unknown, changed and referenced files stay intact. Diagnostics use an allowlist
 instead of exporting logs or credentials. Linux x64 has real CPU acceptance;

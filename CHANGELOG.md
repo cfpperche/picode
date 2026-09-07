@@ -215,6 +215,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Owned llama.cpp model cleanup** now recognizes verified Hugging Face cache
+  downloads even when the router omits file paths. It records the exact blob
+  and snapshot link, validates their hashes and refuses shared or changed files.
+
 - **GitHub CI on macOS**: the worktree test compares symlink-resolved
   paths (`/var` → `/private/var`), and the terminal run/type routes
   validate the request (404/409) before asking for tmux (503), so the

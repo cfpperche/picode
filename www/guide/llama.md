@@ -32,7 +32,10 @@ history for review; they are never replayed automatically.
 Only verified installer archives and model files from tracked successful
 downloads can be selected. Models referenced by configured agents, changed
 files and files without ownership evidence are retained. A final check runs
-before deletion. **Export diagnostics** includes settings and action states,
+before deletion. For verified Hugging Face cache downloads, cleanup also removes
+the recorded cache link. Shared files and files with changed links are retained;
+agent references to any quantization of the same repository block cleanup.
+**Export diagnostics** includes settings and action states,
 excluding keys, host names, paths, model names and raw logs.
 
 The initial catalog contains CPU releases b10809 and b10826 for Linux x64

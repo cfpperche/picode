@@ -18,6 +18,7 @@ type OwnedModel struct {
 	Job      string `json:"job"`
 	Size     int64  `json:"size"`
 	Modified int64  `json:"modified"`
+	Snapshot string `json:"snapshot,omitempty"`
 }
 
 func (s *Service) modelFiles() ([]string, error) {
@@ -73,34 +74,43 @@ func (s *Service) ObserveDownload(j store.LlamaJob) {
 		return
 	}
 	for _, m := range models {
-		if m.ID != j.Model || m.Path == "" {
+		if m.ID != j.Model {
 			continue
 		}
-		rel, err := filepath.Rel(s.root, m.Path)
-		if err != nil || !strings.HasPrefix(rel, "models"+string(filepath.Separator)) || strings.Contains(rel, "..") {
-			continue
+		candidates := []modelCandidate{{path: m.Path}}
+		if m.Path == "" {
+			candidates = s.hfDownloadFiles(j)
 		}
-		existing := false
-		for _, old := range baseline {
-			if old == rel {
-				existing = true
+		for _, candidate := range candidates {
+			rel, err := filepath.Rel(s.root, candidate.path)
+			if err != nil || !strings.HasPrefix(rel, "models"+string(filepath.Separator)) || strings.Contains(rel, "..") {
+				continue
 			}
+			existing := false
+			for _, old := range baseline {
+				if old == rel || (candidate.snapshot != "" && old == candidate.snapshot) {
+					existing = true
+				}
+			}
+			if existing {
+				continue
+			}
+			h, size, err := hashRegular(candidate.path)
+			if err != nil {
+				continue
+			}
+			if candidate.snapshot != "" && (h != filepath.Base(candidate.path) || size != candidate.size) {
+				continue
+			}
+			if s.doc.Models == nil {
+				s.doc.Models = map[string]OwnedModel{}
+			}
+			info, err := os.Stat(candidate.path)
+			if err != nil {
+				continue
+			}
+			s.doc.Models[rel] = OwnedModel{Model: m.ID, SHA256: h, Job: j.ID, Size: size, Modified: info.ModTime().UnixNano(), Snapshot: candidate.snapshot}
 		}
-		if existing {
-			continue
-		}
-		h, size, err := hashRegular(m.Path)
-		if err != nil {
-			continue
-		}
-		if s.doc.Models == nil {
-			s.doc.Models = map[string]OwnedModel{}
-		}
-		info, err := os.Stat(m.Path)
-		if err != nil {
-			continue
-		}
-		s.doc.Models[rel] = OwnedModel{Model: m.ID, SHA256: h, Job: j.ID, Size: size, Modified: info.ModTime().UnixNano()}
 	}
 	delete(s.doc.Downloads, j.ID)
 	_ = s.save()
@@ -116,12 +126,17 @@ func (s *Service) cacheTarget(name string) (string, string, error) {
 		}
 		var references []string
 		for _, a := range agents {
-			if (a.Provider == nil || *a.Provider == "llama.cpp") && (a.Model == nil || *a.Model == model.Model) {
+			if (a.Provider == nil || *a.Provider == "llama.cpp") && (a.Model == nil || *a.Model == model.Model || (model.Snapshot != "" && hfRepo(*a.Model) == hfRepo(model.Model))) {
 				references = append(references, a.Name)
 			}
 		}
 		if len(references) > 0 {
 			return "", "", errors.New("Referenced by " + strings.Join(references, ", ") + "; retained.")
+		}
+		if model.Snapshot != "" {
+			if err := s.checkSnapshot(name, model); err != nil {
+				return "", "", err
+			}
 		}
 		return filepath.Join(s.root, name), model.SHA256, nil
 	}

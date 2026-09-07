@@ -277,13 +277,49 @@ Run live Go acceptance with `PICODE_LLAMA_SERVICE_ARCHIVE` pointing to the
 verified b10809 archive; ordinary CI does not fetch binaries.
 
 Limits: ARM64 pins are available but ARM64 hardware and GPU operation were not
-accepted. Model ownership completion uses a synthetic router/file matrix;
-the separate delivery-2 real download acceptance does not certify this new
-ledger end to end. Old release directories beyond the rollback pair are
+accepted. Model ownership now has real b10809 download/cleanup acceptance
+(2026-09-07, below). Old release directories beyond the rollback pair are
 retained; arbitrary folders and external caches are never deleted. Failure
 while first creating/persisting the service can leave an empty unadopted
 directory requiring inspection. Same-user filesystem tampering is outside
 the private data-directory trust boundary.
+
+### Real ownership acceptance — 2026-09-07
+
+The first live download exposed a false assumption: b10809's HF catalog rows
+omit `path`. The download succeeded but ownership remained unknown, correctly
+preventing deletion. The fix correlates completed download filenames and sizes
+with the new snapshot link and content-addressed blob in the verified cache
+layout ([b10809 source](https://github.com/ggml-org/llama.cpp/blob/b10809/common/hf-cache.cpp)).
+Both entries must be absent from the pre-download baseline, and the blob's
+SHA-256 must match its name. Existing downloads are not retroactively adopted.
+
+The corrected end-to-end run used `ggml-org/Qwen3-0.6B-GGUF:Q4_0`,
+428,970,080 bytes, SHA-256
+`da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4`.
+The router stayed unloaded with two CPU threads and 4096 context. Ownership
+was verified independently against disk and read-only SQLite; reviewed cleanup
+removed the blob and its recorded snapshot link while retaining an unknown file.
+
+| Conditions | Required result | Verified by |
+| --- | --- | --- |
+| Complete observed download, new blob and link, matching content hash | Persist ownership | Real run; `TestHFCacheOwnershipMatrix/new` |
+| Existing blob/link, hash mismatch, incomplete progress or unknown release | Do not adopt | `TestHFCacheOwnershipMatrix` |
+| Link escapes the repository cache or blob is itself a symlink | Do not adopt | `TestHFCacheOwnershipMatrix` |
+| Service running or configured agents reference the model | Refuse cleanup | Real run |
+| Agent references another quantization of the same repository | Conservatively refuse cleanup | `TestHFCacheOwnershipMatrix/agent-alias` |
+| Another snapshot references the blob, including after review | Refuse cleanup | `TestHFCacheOwnershipMatrix/shared` and `shared-after-review` |
+| Recorded snapshot link changes | Refuse cleanup | `TestHFCacheOwnershipMatrix/changed-link` |
+| Same-size blob mutation after review | Refuse; retain file | Real run |
+| Unowned file selected | Refuse; retain file | Real run |
+| Stopped, unreferenced, unchanged owned blob and link | Remove exact owned pair and ownership record | Real run; `TestHFCacheOwnershipMatrix/new` |
+
+Reproduce with a fresh `picode-docs-fixture` on an unused loopback port, then
+`python3 scripts/qa-llama-ledger.py --base http://127.0.0.1:<port>
+--archive <verified-b10809-archive> --report var/qa/llama-ledger/report.json`.
+The script verifies the synthetic data root before mutations, never loads a
+model, and requires about 430 MB of download traffic. Stop the fixture after
+inspection; on a failed run its private data remains available for diagnosis.
 
 ## Delivery 2 validation and limits
 
