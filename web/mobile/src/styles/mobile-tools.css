@@ -52,3 +52,6 @@
 }
 @keyframes m-tool-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .m-tool-loading .gg-skel, .m-changes .gg-skel { animation: none; } }
+
+.m-project-tools { display: flex; flex-direction: column; gap: 8px; }
+.m-project-tools-name { margin: 0 0 4px; color: var(--text-secondary); overflow-wrap: anywhere; }

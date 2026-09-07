@@ -10,7 +10,7 @@ import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 import { needsYou } from "./lib/needsYou.js";
 import { toast, toastError } from "./lib/toast.js";
 import { closeTerm } from "./lib/terms.js";
-import { mobileHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
+import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { askConfirm } from "./lib/confirm.js";
 import Reconnect from "./components/Reconnect.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./components/ShareDrawer.jsx";
@@ -27,6 +27,8 @@ const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ def
 import Work from "./screens/Work.jsx";
 const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
+const Files = lazy(() => import("./screens/Files.jsx"));
+const Git = lazy(() => import("./screens/Git.jsx"));
 const Changes = lazy(() => import("./screens/Changes.jsx"));
 const More = lazy(() => import("./screens/More.jsx"));
 const AppSurface = lazy(() => import("./components/AppSurface.jsx"));
@@ -38,12 +40,12 @@ import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } f
 import ScreenBoundary, { ScreenError, ScreenLoading } from "./components/ScreenBoundary.jsx";
 import { saveAgentConfig } from "./lib/agentConfig.js";
 import { fleetRouteReady } from "./lib/fleetReads.js";
+import { deliverGitCommand } from "./lib/gitDelivery.js";
 import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
 
-// The phone shell (ADR-0044): a supervision console, not the desktop
-// shrunk. Now (decisions, running, today, results) · Inbox · Work
+// The phone shell (ADR-0044/0095): focused mobile workflows. Now (decisions, running, today, results) · Inbox · Work
 // (workspaces / free agents / terminals, the desktop rail's three views)
 // · More, plus the pushed agent and terminal screens. No header: the
 // tab bar is the chrome. One fleet poll feeds every screen; only the
@@ -223,6 +225,22 @@ export default function MobileApp() {
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));
   }
+  function openFiles(owner, options = {}) { push(toolHash("files", owner, options)); }
+  function openGit(owner, root = "") { push(toolHash("git", owner, { root })); }
+  async function prepareGit(owner, root, command, { run = false } = {}) {
+    const context = owner.kind === "agent" ? findAgent(workspaces, freeAgents, owner.id) : null;
+    const workspaceId = owner.kind === "workspace" ? owner.id : context?.workspace?.id || "";
+    const result = await deliverGitCommand({ owner, root, command, run, terminals, workspaceId, api });
+    await reload({ force: true }).catch(() => {});
+    openTerm(result.id);
+    toast.info(result.ran ? "Command started in the terminal." : (result.reason ? result.reason + " " : "") + "Command prepared. Press Enter in the terminal to run it.");
+    return result;
+  }
+  async function askGit(who, text, root, action) {
+    const result = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, root }) });
+    toast.info(result.mode === "interactive" ? "Sent to " + who.name + " in its terminal." : result.busy ? "Queued for " + who.name + " after the current turn." : "Sent to " + who.name + ".");
+    return result;
+  }
   // Pull-to-refresh: everything the visible screens read, at once.
   async function refreshAll() {
     await Promise.all([
@@ -318,8 +336,8 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
-  const changeOwner = route.screen !== "changes" ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
+  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["changes", "files", "git"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const changeOwner = !["changes", "files", "git"].includes(route.screen) ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
     : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
     : { workspace: workspaces.find((w) => w.id === route.id) };
   const resourceFound = current || currentTerm || changeOwner?.agent || changeOwner?.term || changeOwner?.workspace;
@@ -328,13 +346,19 @@ export default function MobileApp() {
     body = fleetError ? <ScreenError message={fleetError} onRetry={reload} /> : <ScreenLoading />;
   } else if (route.screen === "app") {
     body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} initialPath={route.path || ""} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} onPathChange={(path) => { location.hash = "#/app/" + encodeURIComponent(route.id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : ""); }} /></div>;
+  } else if (route.screen === "files" || route.screen === "git") {
+    const owner = { kind: route.section, id: route.id };
+    const title = changeOwner?.agent?.name || changeOwner?.term?.name || changeOwner?.workspace?.name || "Project";
+    body = route.screen === "files"
+      ? <Files key={JSON.stringify([route.section, route.id, route.path, route.root, route.navigation])} owner={owner} title={title} root={route.root || ""} initialPath={route.path || ""} onBack={() => goBack(route)} onPathChange={(path, root) => { history.replaceState(history.state, "", toolHash("files", owner, { path, root })); }} onOpenGit={(target, root) => openGit(target || owner, root)} />
+      : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} workspaces={workspaces} freeAgents={freeAgents} />;
   } else if (route.screen === "changes") {
     const owner = changeOwner;
     const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")
       : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
     body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
   } else if (route.screen === "term") {
-    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenChanges={openChanges} />;
+    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
   } else if (route.screen === "agent") {
     body = (
       <Agent
@@ -346,7 +370,8 @@ export default function MobileApp() {
         onBack={() => goBack(route)}
         onStart={startAgent}
         onStop={stopAgent}
-        onOpenChanges={openChanges}
+        onOpenFiles={openFiles}
+        onOpenGit={openGit}
         onAgentConfig={patchAgent}
       />
     );
@@ -360,7 +385,7 @@ export default function MobileApp() {
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
-        onOpenChanges={openChanges} onRefresh={refreshAll} />
+        onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
     body = (

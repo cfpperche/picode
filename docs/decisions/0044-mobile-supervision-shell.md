@@ -3,6 +3,7 @@
 - **Status**: accepted; amended 2026-09-01 (same day) after the owner's first
   use on a phone — see *Amendment* at the end
 - **Date**: 2026-09-01
+- **Scope amendment**: file editor/tree and Git exclusions superseded by [ADR-0095](0095-mobile-files-git.md); other decisions unchanged.
 - **Presentation/build boundary**: partially superseded by
   [ADR-0072](0072-independent-web-applications.md). The original rationale
   below is retained as history.

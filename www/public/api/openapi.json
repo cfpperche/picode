@@ -7020,9 +7020,61 @@
         ]
       }
     },
+    "/api/workspaces/{id}/git": {
+      "get": {
+        "operationId": "getApiWorkspacesGit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/git/blob": {
       "get": {
         "operationId": "getApiWorkspacesGitBlob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/api/workspaces/{id}/git/commit": {
+      "get": {
+        "operationId": "getApiWorkspacesGitCommit",
         "parameters": [
           {
             "in": "path",

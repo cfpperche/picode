@@ -6,7 +6,7 @@
 
 ## Current state
 
-- **Mobile v2:** compact focused screens, retained drafts/search/scroll, Sessions and Automations; decision table in `docs/plans/mobile-v2.md`.
+- **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses while any agent
   or terminal is mid-turn (`GET /api/deploy/readiness`, loopback); `main`
   ships in batches (`make deploy-batch`, `picode-deploy.timer` at
@@ -47,7 +47,6 @@
 ## In flight (unmerged branches on disk)
 
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
-- `feat/mobile-v2` (+ `-chat`, `-lists`, `-tools`) — worktrees on disk, no commits yet.
 
 ## Next up
 
@@ -96,4 +95,5 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2: physical IME/PWA/push/resume and microphone acceptance remain open; editor/Git expansion needs owner scope confirmation (0044/0072).
+- Mobile v2: physical IME/PWA/push/resume and microphone acceptance remain open.
+- File writes retain the existing lexical/symlink and non-atomic mtime limits; ADR-0095 documents them.

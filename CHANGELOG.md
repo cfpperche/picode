@@ -25,6 +25,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Mobile Files and Git:** full-screen file browsing, search, editing and previews
+  with unsaved-change and file-conflict recovery; Git changes, history, branches,
+  worktree/commit details, PR status and existing terminal/agent action channels.
+  Workspace history now works without an agent; supplied folder preconditions
+  are checked for history and commits across workspaces, agents and terminals.
+
 - **Mobile tools:** Agent CLIs now includes Sessions, and More includes
   Automations with list, editor, run history and recoverable loading errors.
 

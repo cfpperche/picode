@@ -45,6 +45,11 @@ for (const [route, required] of [
   [{ screen: "changes", section: "agent" }, ["workspaces", "freeAgents"]],
   [{ screen: "changes", section: "term" }, ["terminals"]],
   [{ screen: "changes", section: "workspace" }, ["workspaces"]],
+  ...["files", "git"].flatMap(screen => [
+    [{ screen, section: "agent" }, ["workspaces", "freeAgents"]],
+    [{ screen, section: "term" }, ["terminals"]],
+    [{ screen, section: "workspace" }, ["workspaces"]],
+  ]),
   [{ screen: "work" }, []],
   [{ screen: "more", section: "providers" }, []],
 ]) {

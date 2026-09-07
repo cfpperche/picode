@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { mobileRoute, mobileHash, parentHash } from "../lib/mobileRoutes.js";
 
 // Hash routing for the phone (ADR-0044). Tabs replace the current entry
@@ -6,9 +6,12 @@ import { mobileRoute, mobileHash, parentHash } from "../lib/mobileRoutes.js";
 // closes the agent screen instead of leaving the PWA. The on-screen Back
 // is deterministic: it goes to the parent, never "wherever history was".
 export function useHashRoute() {
-  const [route, setRoute] = useState(() => mobileRoute(location.hash));
+  const navigation = useRef(0);
+  const [route, setRoute] = useState(() => ({ ...mobileRoute(location.hash), navigation: 0 }));
   useEffect(() => {
-    const on = () => setRoute(mobileRoute(location.hash));
+    // Each accepted hash event is a distinct navigation, even when an
+    // internal tool replaceState left the parsed parent route unchanged.
+    const on = () => setRoute({ ...mobileRoute(location.hash), navigation: ++navigation.current });
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);

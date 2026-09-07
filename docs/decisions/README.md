@@ -48,7 +48,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0041](0041-session-observability-dashboard.md) | Session observability dashboard (spend/activity/fleet) replaces the no-tabs-open home | accepted, amended by 0042 |
 | [0042](0042-dashboard-v2-breakdowns.md) | Dashboard v2 — model/workspace/token/tool/reliability breakdowns, live refresh, fingerprint cache | accepted, amends 0041 |
 | [0043](0043-browser-extension-native-host.md) | Chrome extension is a native-messaging client of existing agents | accepted |
-| [0044](0044-mobile-supervision-shell.md) | Mobile shell is a supervision console (Now / Inbox / Work / More + agent and terminal screens), not desktop parity | accepted, amended (2026-09-02: Safari-tab sticky heads) |
+| [0044](0044-mobile-supervision-shell.md) | Mobile shell is a supervision console (Now / Inbox / Work / More + agent and terminal screens), not desktop parity | accepted, amended (Safari-tab sticky heads; file/Git scope superseded by 0095) |
 | [0045](0045-automations.md) | Automations — daemon scheduler + webhook fire ordinary agent sessions; bounds, runs log, Inbox; v2: `/automate` drafts from the current agent, built-in templates | accepted, amends 0037 (source kind), amended 2026-09-01 (v2), 2026-09-02 (webhook through the gateway, notify URL, message runs deliver now) |
 | [0046](0046-responsive-dialogs.md) | One modal primitive: Radix dialog ≥720px, Vaul bottom sheet below, enforced by a test | accepted |
 | [0047](0047-web-push.md) | Web Push over VAPID in the standard library; presence-aware; per-device prefs | accepted, amended by 0048 (consumes the feed) |
@@ -76,7 +76,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted |
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
-| [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted |
+| [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted; file/Git scope superseded by 0095 |
 | [0073](0073-git-graph-worktrees.md) | The git graph shows every worktree's working tree — one dirty row per worktree, ref-addressed sibling reads, detached chips | accepted; write refusal amended by 0078 |
 | [0074](0074-file-tree-inline-details.md) | Files and Changes share a local detail pane with document guards and root preconditions | accepted |
 | [0075](0075-integrations.md) | Integrations: generic outbound webhooks and externally implemented MCP connectors | accepted |
@@ -100,3 +100,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0092](0092-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
 | [0093](0093-cli-install-missing.md) | Install a missing npm-backed CLI through the same lifecycle lane; vendor curl installers stay guided | accepted, extends 0087 |
 | [0094](0094-handoff-through-vendor-import.md) | A handoff writer may publish through the target CLI's own import command (OpenCode `import`, `hermes sessions import`); verification matches what the importer promises | accepted, extends 0088 |
+| [0095](0095-mobile-files-git.md) | Mobile files, editing and Git workflows | accepted |

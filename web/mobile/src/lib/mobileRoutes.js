@@ -1,6 +1,6 @@
 import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./routes.js";
 
-// Mobile hash routes (ADR-0044). Four tabs plus three pushed screens. The
+// Mobile hash routes (ADR-0044/0095). Four tabs plus focused tools. The
 // agent and terminal screens share the desktop's `#/agent/<id>` and
 // `#/term/<id>` so a QR scan or a link pasted from the desktop lands on
 // the same thing; every other desktop hash maps to the closest mobile
@@ -53,6 +53,15 @@ export function mobileRoute(hash) {
   if (agentId) return { screen: "agent", id: agentId, section: "" };
   const termId = termRoute("#" + h);
   if (termId) return { screen: "term", id: termId, section: "" };
+  const [toolPath, toolQuery = ""] = h.split("?");
+  const toolMatch = /^\/(file|tree|files|git)\/(a|t|w)\/([^/]+)(?:\/(.+))?$/.exec(toolPath);
+  if (toolMatch && (toolMatch[1] === "file" ? !!toolMatch[4] : !toolMatch[4])) {
+    const params = new URLSearchParams(toolQuery);
+    return { screen: toolMatch[1] === "git" ? "git" : "files", id: dec(toolMatch[3]), section: { a: "agent", t: "term", w: "workspace" }[toolMatch[2]],
+      ...(toolMatch[4] ? { path: dec(toolMatch[4]) } : {}),
+      ...(params.get("root") ? { root: params.get("root") } : {}),
+      ...(toolMatch[1] === "git" && params.get("commit") ? { commit: params.get("commit") } : {}) };
+  }
   const parts = h.split("/").filter(Boolean);
   const head = parts[0] || "";
   if (!head) return { screen: "now", id: "", section: "" };
@@ -86,6 +95,8 @@ export function mobileHash(screen, id, section) {
     case "work": return id ? "#/work/" + encodeURIComponent(id) : "#/work";
     case "agent": return workspaceHash(id);
     case "term": return termHash(id);
+    case "files": return toolHash("files", { kind: section, id });
+    case "git": return toolHash("git", { kind: section, id });
     case "changes": return "#/changes/" + ({ agent: "a", term: "t", workspace: "w" }[section] || "a") + "/" + encodeURIComponent(id);
     case "more": return id ? "#/more/" + encodeURIComponent(id) : "#/more";
     case "app": return "#/app/" + encodeURIComponent(id);
@@ -97,7 +108,7 @@ export function mobileHash(screen, id, section) {
 // parent tab lit so the user always knows where Back will land.
 export function tabOf(route) {
   if (!route) return "now";
-  if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || route.screen === "changes") return "work";
+  if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["changes", "files", "git"].includes(route.screen)) return "work";
   if (route.screen === "inbox") return "inbox";
   if (route.screen === "more" || route.screen === "app") return "more";
   return "now";
@@ -110,7 +121,7 @@ export function parentHash(route) {
   if (route.screen === "app") return "#/more/apps";
   if (route.screen === "agent") return "#/work";
   if (route.screen === "term") return "#/work/terminals";
-  if (route.screen === "changes") {
+  if (["changes", "files", "git"].includes(route.screen)) {
     if (route.section === "agent") return workspaceHash(route.id);
     if (route.section === "term") return termHash(route.id);
     return "#/work";
@@ -118,4 +129,15 @@ export function parentHash(route) {
   if (route.screen === "inbox" && route.id) return "#/inbox";
   if (route.screen === "more" && route.section) return "#/more";
   return "#/";
+}
+
+// Compatible desktop links, with the optional folder equality precondition.
+export function toolHash(screen, owner, { path = "", root = "", commit = "" } = {}) {
+  const kind = { agent: "a", term: "t", workspace: "w" }[owner.kind];
+  if (!kind || !owner.id) return "#/work";
+  const head = screen === "git" ? "git" : path ? "file" : "tree";
+  const params = new URLSearchParams();
+  if (root) params.set("root", root);
+  if (screen === "git" && commit) params.set("commit", commit);
+  return "#/" + head + "/" + kind + "/" + encodeURIComponent(owner.id) + (head === "file" ? "/" + encodeURIComponent(path) : "") + (params.size ? "?" + params : "");
 }

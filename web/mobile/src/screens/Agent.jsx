@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
+import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
@@ -15,23 +16,25 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconGit, IconKeyboard } from "../components/Icons.jsx";
+import { IconFolder, IconKeyboard } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { terms } from "../lib/terms.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
 import "../styles/mobile-chat.css";
+import "../styles/mobile-tools.css";
 
 // The pushed agent screen: header (name · state), a meta line (model ·
 // cost · where), Chat or — for an agent living in a tmux TUI — Terminal,
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenChanges, onAgentConfig }) {
+export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
   const id = agent && agent.id;
   const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
   const [view, setView] = useState("chat");
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
@@ -85,9 +88,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
 
   const right = (
     <>
-      {agent.git?.dirty ? (
-        <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" aria-label="Open changes" onClick={() => onOpenChanges("agent", id, name)}><IconGit size={16} /></button>
-      ) : null}
+      <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
       {interactive && view === "term" ? (
         <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
           <IconKeyboard size={16} />
@@ -171,6 +172,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
           </div>
         </div>
       )}
+      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
       <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
         <Sheet.Portal>
           <Sheet.Overlay className="dlg-overlay" />

@@ -1,9 +1,9 @@
 # Mobile webapp v2
 
-Status: research complete; implementation complete for the current mobile scope; integration gates below. The owner
+Status: initial mobile v2 integrated; Files/editor and Git extension implemented (ADR-0095). The owner
 requested a complete mobile redesign on 2026-09-07 after a web benchmark
-study. Expansion beyond the current mobile product is a pending scope
-clarification because ADR-0044/0072 explicitly exclude editor/tree/Git graph.
+study. The owner subsequently approved both Files/editor and complete existing Git
+workflows. ADR-0095 supersedes the corresponding ADR-0044/0072 exclusions.
 
 References: [fresh benchmark study](../benchmarks/2026-09-07-mobile-v2.md).
 Existing boundaries: ADR-0072 (independent apps), ADR-0044 (mobile product),
@@ -34,9 +34,9 @@ mobile-owned presentation and existing Radix/Vaul/native controls.
 | Access/PWA | Pairing, install, sharing, notifications, reconnect, theme and existing deep links. |
 
 Sessions and Automations close existing server-workflow gaps in the mobile
-tool catalog. Expansion candidate: Files/editor and Git history/actions. Reuse server endpoints and
-mobile-owned components; do not interpret a CLI terminal as a managed agent.
-Document any approved change of the mobile product boundary in a new ADR.
+tool catalog. Files/editor and Git history/actions extend that catalog under
+ADR-0095, retaining independent presentation and existing server action
+channels. A CLI terminal remains distinct from a managed agent.
 
 ## Dependencies and ownership
 
@@ -113,5 +113,58 @@ Mocked voice/dictation paths do not verify hardware microphone permission.
 Native handoff writes and scheduled/webhook delivery reuse existing server
 tests; mobile browser mutation scenarios intercept these requests.
 Full zoom accessibility remains limited by the existing ADR-0044 viewport
-policy. Files/editor and Git history/actions await the owner's scope answer;
-this delivery does not silently change those documented exclusions.
+policy. The owner-approved Files/editor and Git extension is recorded in
+ADR-0095 and validated separately below.
+
+## Files and Git extension (ADR-0095)
+
+Each tool opens from Work, Project tools on an agent, or Terminal actions.
+Files owns browsing, search, editor, preview and dirty-navigation dialogs;
+Git owns changes/history/PR, graph filtering, commit/worktree detail and
+action sheets. The root shell owns deep links and delivery to terminals or
+agents. Server changes are read-only parity and root checks. CodeMirror and
+language dependencies use the already-installed desktop versions, declared
+independently by mobile; no application imports the other's presentation.
+
+| Conditions | Expected action | Evidence |
+|---|---|---|
+| Workspace, agent or terminal file/tree/Git deep link | Preserve owner, encoded path and optional root; Back returns to context | `mobileRoutes.test.js`; integrated browser journey |
+| Missing fleet source / known missing owner | Retry source before declaring absence; missing owner is recoverable | `fleetReads.test.js`; Files/Git browser states |
+| Text with matching root and mtime | Save through existing text endpoint | `fileDocument.test.js`; `qa-mobile-files.mjs` |
+| File changed or deleted on disk | Keep draft, show conflict/error and recovery | File document tests; browser conflict |
+| Dirty editor navigation | Save waits for acknowledgement; Discard proceeds; Cancel stays | `fileDocument.test.js`; `qa-mobile-files.mjs` |
+| Edit during pending save or stale read | Keep subsequent edits; do not replace a newer document | File document tests |
+| Binary or oversized file | Preview or honest limit state; no text write | File read tests; browser preview states |
+| Root moved; duplicate browser history after internal Follow | Retain pinned content; guarded Follow adopts new root; Back restores old precondition | Root tests; `qa-mobile-project-tools.mjs`; `qa-mobile-files.mjs` |
+| Graph/commit for any owner; root absent/matches/mismatches | Legacy read / read / 409 before Git | `gitgraph_root_test.go` |
+| Workspace has no agent, sibling worktree or limited history | Read its own graph and commits with existing query semantics | `gitgraph_root_test.go` |
+| Plain folder or deleted owner | Files remains usable / recoverable missing-owner state | Git history tests; browser empty/blocked |
+| Prepare / run accepted | Type without Enter / start command in terminal; never claim Git success | `gitDelivery.test.js`; server terminal tests |
+| Confirmed busy repository on Run | Prepare once and explain why | `gitDelivery.test.js`; server interlock tests |
+| Chosen terminal moved or hosts a foreground program | Open plain shell in pinned folder after confirmed 409 | `gitDelivery.test.js` |
+| Run transport error, 401 or 502 | Keep error; no automatic retry or duplicate keystrokes | `gitDelivery.test.js` |
+| Eligible running agent selected | Ask through its existing prompt/TUI door | Inspector domain and server ask tests; browser request contract |
+
+Emulated acceptance includes 320px, 390px and landscape, both themes,
+loading/empty/blocked/error states, focused overlays and actual screenshot
+review. Physical IME, PWA resume and push remain owner-device acceptance.
+Existing file writes follow symlinks and use non-atomic mtime comparison;
+this extension does not change those server concurrency/isolation limits.
+
+### Extension acceptance evidence
+
+`qa-mobile-files.mjs` passes eight groups with 22 captures: actual saves and
+mtime conflicts, delayed reads/writes, dirty navigation, failed Follow,
+preview limits and folder recovery. `qa-mobile-project-tools.mjs` passes
+seven integrated journeys with 22 captures: Work/agent/terminal entry points,
+duplicate browser history after a terminal changes folders, both themes,
+a short viewport with a focused commit input, and preparing an exact command
+in a real disposable shell without submitting it.
+
+`qa-mobile-git.mjs` passes 56 captures and 124 guarded reads, including a
+real local branch/merge repository, sibling worktree, graph search/filtering,
+wide ancestry gutters, binary comparison, PR states and duplicate action
+submissions. Application delivery callbacks record arguments; local fixture
+Git setup uses only a disposable bare remote. The Git domain has 132 tests;
+Files adds 24 and terminal delivery 17. Screenshots were read and every
+overlay audit passed. Evidence stays in `var/screenshots/mobile-files-git/`.

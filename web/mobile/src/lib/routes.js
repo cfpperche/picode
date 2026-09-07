@@ -1,4 +1,4 @@
-// Mobile route helpers. Desktop-only editors and tab identities are absent.
+// Mobile route helpers. Tool links live in mobileRoutes; desktop tab identities are absent.
 const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup"];
 
 export function agentRoute(hash) {

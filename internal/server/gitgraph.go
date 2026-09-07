@@ -66,8 +66,10 @@ var gitKeyOf = gitgraph.Key
 func registerGitGraphRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/agents/{id}/git", handleAgentGraph(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git", handleTerminalGraph(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/git", handleWorkspaceGraph(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/commit", handleAgentCommit(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/commit", handleTerminalCommit(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/git/commit", handleWorkspaceCommit(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/head", handleAgentGitHead(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/head", handleTerminalGitHead(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/blob", handleAgentGitBlob(deps))
@@ -151,6 +153,9 @@ func handleTerminalGraph(deps Deps) http.HandlerFunc {
 }
 
 func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	// Token first, load second: if a commit lands in between, the token is
 	// older than the data and the next poll refetches once for nothing — the
 	// safe direction. The other order can hand out a token newer than the
@@ -168,6 +173,16 @@ func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
 	view := deps.graphView(g)
 	view.Token = token
 	writeJSON(w, http.StatusOK, view)
+}
+
+func handleWorkspaceGraph(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		writeGraph(w, r, deps, cwd)
+	}
 }
 
 func graphLimit(r *http.Request) int {
@@ -323,10 +338,23 @@ func handleTerminalCommit(deps Deps) http.HandlerFunc {
 	}
 }
 
+func handleWorkspaceCommit(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		writeCommit(w, r, cwd)
+	}
+}
+
 // writeCommit reads one commit through the owner's cwd. The hash is validated
 // inside gitgraph.Show, which refuses anything but a full object name — so a
 // caller cannot smuggle a flag or a ref into the git command line.
 func writeCommit(w http.ResponseWriter, r *http.Request, cwd string) {
+	if !checkFileRoot(w, r, cwd) {
+		return
+	}
 	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
 	if hash == "" {
 		writeErr(w, http.StatusBadRequest, "pass ?hash=<commit>")

@@ -68,8 +68,30 @@ chat or change the agent's saved run mode.
 *Video: the phone views — same server, same agents.*
 
 Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
-left for Done, Snooze and Delete, or open the row’s action menu. A **"N changed"** button on an agent or workspace opens its uncommitted
-changes, read-only. In a terminal, use **Terminal actions → Changes**.
+left for Done, Snooze and Delete, or open the row’s action menu. The change count on a workspace
+still opens its uncommitted changes.
+
+## Files and Git
+
+In **Work**, each workspace has **Files** and **Git**. In an agent, open
+**Project tools** in the header; in a terminal, open **Terminal actions**.
+Each tool takes the whole screen and returns to its project context.
+
+**Files** browses folders and searches filenames within the current folder.
+Tap a text file to edit; **Save** writes it back. Images and other supported
+media open as previews. Leaving unsaved edits offers **Save**, **Discard**
+or **Cancel**. If another process changed the file, your draft stays available
+while you choose recovery. If a terminal changed folders, **Follow** explicitly
+opens its current folder.
+
+**Git** includes **Changes**, **History** and **PR**. Filter history by branch
+or remote refs, open commits and compare working trees.
+**Git actions** offers Fetch, Pull, Push, Commit, Commit and push, and pull
+request creation. **Prepare** puts the command in a terminal for you to read
+and submit. **Run when no agent is working here** starts it only when the
+server's activity check allows it; otherwise the command is prepared with
+the reason. **Ask an agent** sends the request through that agent's existing
+channel. The terminal or agent shows the actual result.
 
 Tap a terminal to attach to it. Opening it does not raise the phone
 keyboard. Tapping the pane (or the header keyboard icon) opens the

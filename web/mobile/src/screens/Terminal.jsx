@@ -6,7 +6,7 @@ import { terms } from "../lib/terms.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { termLine } from "@picode/shared/domain/repoLine.js";
-import { IconKeyboard, IconGit, IconClip, IconMore, IconTrash } from "../components/Icons.jsx";
+import { IconKeyboard, IconGit, IconFolder, IconClip, IconMore, IconTrash } from "../components/Icons.jsx";
 import { useTermAccessory } from "../hooks/useTermAccessory.js";
 import TermAttachSheet from "../components/TermAttachSheet.jsx";
 import * as Dialog from "../components/MobileSheet.jsx";
@@ -17,7 +17,7 @@ import "../styles/mobile-tools.css";
 // open and close with the phone keyboard (ADR-0044). Attach does not
 // focus xterm; a tap on the pane or the header icon does.
 
-export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenChanges }) {
+export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFiles, onOpenGit }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
   const [attach, setAttach] = useState(false);
@@ -130,7 +130,8 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
           <Dialog.Content className="dlg m-term-actions" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">Terminal actions</Dialog.Title>
             <Dialog.Description className="m-term-actions-name">{live.name || "Terminal"}</Dialog.Description>
-            {live.git && onOpenChanges ? <button type="button" className="m-tool-action" onClick={() => { setActions(false); onOpenChanges("term", term.id, live.name || "Terminal"); }}><IconGit size={18} /><span>View changes</span>{live.git.dirty ? <span className="m-tool-action-count">{live.git.dirty}</span> : null}</button> : null}
+            <button type="button" className="m-tool-action" onClick={() => { setActions(false); onOpenFiles({ kind: "term", id: term.id }); }}><IconFolder size={18} /><span>Files</span></button>
+            <button type="button" className="m-tool-action" onClick={() => { setActions(false); onOpenGit({ kind: "term", id: term.id }); }}><IconGit size={18} /><span>Git</span>{live.git?.dirty ? <span className="m-tool-action-count">{live.git.dirty}</span> : null}</button>
             <button type="button" className="m-tool-action is-danger" disabled={busy} onClick={() => { setActions(false); onRemove(term); }}><IconTrash size={18} /><span>{busy ? "Removing…" : "Remove terminal"}</span></button>
             <Dialog.Close asChild><button type="button" className="btn btn-sm">Done</button></Dialog.Close>
           </Dialog.Content>

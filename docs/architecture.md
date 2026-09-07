@@ -179,7 +179,8 @@ Apps). Pushed agent, terminal, changes and app-detail screens retain the
 existing API behavior and compatible agent/terminal hashes. Conversation,
 composer, terminal, settings and preview components are mobile-owned copies;
 secondary screens load on demand and offer retry on loading failure. Mobile
-has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
+has no desktop sidebar or Pin Studio. ADR-0095 adds mobile-owned Files and Git
+tools, one full-screen view at a time. Its dialogs
 are always sheets, including wide previews; desktop keeps responsive dialogs.
 The v2 composer keeps its primary message and Send/Stop row compact; message
 options (kind, attachments, voice and expansion) open on demand. Per-agent
@@ -192,7 +193,19 @@ mobile-owned list/detail/editor flows using the existing server contracts.
 Fleet reads retain successful sources after partial failures and replay feed
 events received while a read is pending. Sessions and automation runs discard
 outdated responses; initial errors offer retry instead of a missing-resource
-claim or endless loading. See the [v2 acceptance table](plans/mobile-v2.md).
+claim or endless loading. Files supports owner-scoped browsing, bounded folder
+search, text editing and media previews. Its document controller preserves
+unsaved edits across reads and writes, handles mtime conflicts and guards
+navigation with Save/Discard/Cancel. Git provides Changes, History and PR
+views, branch/remote filtering, commit and sibling-worktree details, and the
+existing Prepare, Run when idle and Ask agent actions. Command delivery only
+falls back after a confirmed conflict; an unknown network outcome is not
+replayed. Both tools pin the owner folder and require explicit Follow after
+a root mismatch. Compatible `#/file/`, `#/tree/` and `#/git/` links retain
+owner identity and an optional root precondition. Workspace graph/commit
+reads now match the agent and terminal APIs; supplied roots are checked
+before all three perform their Git reads. See the
+[v2 acceptance table](plans/mobile-v2.md).
 `#m-app` is pinned to `visualViewport` so the composer and a one-row
 terminal extra-keys accessory stay above the software keyboard
 (ADR-0044); the accessory follows a user tap, not attach-time focus,

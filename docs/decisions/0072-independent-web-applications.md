@@ -1,6 +1,7 @@
 # ADR-0072: Independent desktop and mobile web applications
 
 - **Status**: accepted (owner approved the decoupling plan on 2026-09-05)
+- **Scope amendment**: file editor/tree and Git exclusions superseded by [ADR-0095](0095-mobile-files-git.md); other decisions unchanged.
 - **Date**: 2026-09-05
 - **Supersedes**: ADR-0008's single frontend entry, ADR-0044's reuse of desktop
   presentation inside mobile, and ADR-0046's single shared modal primitive.

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mobileRoute, mobileHash, tabOf, parentHash } from "./mobileRoutes.js";
+import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRoutes.js";
 
 describe("mobileRoute", () => {
   it("opens independent integrations deep links from More", () => {
@@ -46,7 +46,7 @@ describe("mobileRoute", () => {
     assert.equal(mobileRoute("#/termset/t1").section, "preferences");
     assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
     assert.equal(mobileRoute("#/sessions/w1").section, "clis");
-    assert.equal(mobileRoute("#/file/a/x/y").screen, "work");
+    assert.equal(mobileRoute("#/file/a/x/y").screen, "files");
     assert.equal(mobileRoute("#/whatever").screen, "now");
   });
   it("builds hashes that parse back, sharing the desktop agent link", () => {
@@ -90,4 +90,21 @@ it("opens complete automation and session workflows without dropping nested link
 
 it("llama deep links open the dedicated manager", () => {
  for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "llama" });
+});
+
+it("opens editor/tree/Git links with owner identity and folder preconditions", () => {
+  for (const kind of ["agent", "term", "workspace"]) {
+    const owner = { kind, id: "id /?#" };
+    for (const screen of ["files", "git"]) {
+      const opts = { root: "/tmp/project ?#", ...(screen === "files" ? { path: "src/app ?#.js" } : { commit: "abc123" }) };
+      const route = mobileRoute(toolHash(screen, owner, opts));
+      assert.deepEqual(route, { screen, id: owner.id, section: kind, ...opts });
+      assert.equal(tabOf(route), "work");
+      assert.equal(parentHash(route), kind === "workspace" ? "#/work" : mobileHash(kind, owner.id));
+      assert.equal(mobileRoute(toolHash(screen, owner)).screen, screen);
+    }
+  }
+  assert.equal(mobileRoute("#/tree/w/project").screen, "files");
+  assert.equal(mobileRoute("#/git/a/agent").screen, "git");
+  assert.equal(mobileRoute("#/git/x/nope").screen, "work");
 });
