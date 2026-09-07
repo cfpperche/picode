@@ -314,7 +314,7 @@ removed the blob and its recorded snapshot link while retaining an unknown file.
 | Unowned file selected | Refuse; retain file | Real run |
 | Stopped, unreferenced, unchanged owned blob and link | Remove exact owned pair and ownership record | Real run; `TestHFCacheOwnershipMatrix/new` |
 
-Reproduce with a fresh `picode-docs-fixture` on an unused loopback port, then
+Reproduce with Python 3.11+ and a fresh `picode-docs-fixture` on an unused loopback port, then
 `python3 scripts/qa-llama-ledger.py --base http://127.0.0.1:<port>
 --archive <verified-b10809-archive> --report var/qa/llama-ledger/report.json`.
 The script verifies the synthetic data root before mutations, never loads a
