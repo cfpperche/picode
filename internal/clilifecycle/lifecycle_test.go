@@ -1,9 +1,72 @@
 package clilifecycle
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// Real installs are symlinks into install roots or wrapper scripts that
+// exec the real binary (hermes). Regression for the 2026-09-07 production
+// report: every CLI classified unknown because detection never resolved
+// links or read the wrapper.
+func TestDetectMethodResolvesSymlinksAndWrappers(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	npmTarget := filepath.Join(dir, "nvm", "lib", "node_modules", "@x", "pi", "bin", "pi")
+	write(npmTarget, "#!/usr/bin/env node\n")
+	nativeTarget := filepath.Join(dir, ".local", "share", "claude", "versions", "2.1.263")
+	write(nativeTarget, "binary")
+	vendorTarget := filepath.Join(dir, ".grok", "downloads", "grok-1.0.13-linux-x86_64")
+	write(vendorTarget, "binary")
+	cases := []struct {
+		path string
+		want Method
+	}{
+		{npmTarget, MethodNpm},
+		{nativeTarget, MethodNative},
+		{vendorTarget, MethodVendor},
+	}
+	for _, c := range cases {
+		link := filepath.Join(dir, "bin", filepath.Base(c.path)+"-link")
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(c.path, link); err != nil {
+			t.Fatal(err)
+		}
+		if got := DetectMethod(link); got != c.want {
+			t.Errorf("symlink %s → %s: got %q, want %q", link, c.path, got, c.want)
+		}
+	}
+	// A plain wrapper script that execs the real venv binary.
+	wrapper := filepath.Join(dir, ".local", "bin", "hermes")
+	write(wrapper, "#!/usr/bin/env bash\nexec \""+filepath.Join(dir, ".hermes", "hermes-agent", "venv", "bin", "hermes")+"\" \"$@\"\n")
+	if got := DetectMethod(wrapper); got != MethodGit {
+		t.Errorf("wrapper hermes: got %q, want %q", got, MethodGit)
+	}
+	// Unrelated binaries stay unknown — no invented lifecycle.
+	plain := filepath.Join(dir, "plain")
+	write(plain, "#!/bin/sh\necho hi\n")
+	if got := DetectMethod(plain); got != MethodUnknown {
+		t.Errorf("plain script: got %q, want unknown", got)
+	}
+	if got := DetectMethod("/nonexistent/binary"); got != MethodUnknown {
+		t.Errorf("missing file: got %q, want unknown", got)
+	}
+	if got := DetectMethod(""); got != MethodUnknown {
+		t.Errorf("empty path: got %q, want unknown", got)
+	}
+}
 
 func TestDetectMethodDecisionTable(t *testing.T) {
 	cases := []struct {

@@ -20,6 +20,11 @@ to the `[Unreleased]` section. The repository's official language is English
   viewport requires a real shrink against the unfocused baseline, so a
   rest-state gap no longer leaves a black strip under the TUI.
 
+- **Update checks failed on real installs**: install-method detection now
+  resolves symlinks (`~/.local/bin/claude` → the native versions dir) and
+  reads wrapper scripts (Hermes Agent), so update/reinstall/uninstall
+  controls appear for actual installs instead of "No managed lifecycle".
+
 ### Added
 
 - **Managed local llama.cpp service**: desktop/mobile Local service page with
