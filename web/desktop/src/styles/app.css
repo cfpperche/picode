@@ -1146,12 +1146,6 @@ img.ws-face.term-cli-face {
 /* The row menu's trigger is tuned to the taller agent row; in this header it
    matches the icon button beside it. */
 .ws-group-actions .ws-row-menu-trigger { width: 24px; height: 22px; margin-top: 0; }
-/* The workspace's own folder/branch pills, in the same column as the empty
-   state below them, so both sub-lines start under the workspace name. */
-.ws-group > .ws-context {
-  margin: 1px 4px 2px;
-  padding-left: calc(var(--tree-chev) + var(--tree-gap) + var(--tree-icon) + var(--tree-gap));
-}
 
 .side-foot { padding: 8px; border-top: 1px solid var(--border); }
 

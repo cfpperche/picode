@@ -57,12 +57,15 @@ browser, not the server:
   graph, Sessions and Remove. Five became two, and the destructive action
   stopped sitting one pixel from the creative one. The triggers hold a fixed
   right-hand gutter so the collapsed face strip and the name end before them.
-- **The card gets the same context line its rows have.** `wsLine(ws)`
-  renders the folder pill and the branch pill (with the dirty count) that
-  `AgentRow` and `TermRow` already carry; the branch opens
-  `#/git/w/<id>`, the folder `#/tree/w/<id>`. This is the fix for the
-  reported pain, and it adds no new vocabulary — the gesture is the one the
-  owner already uses on an agent.
+- **The workspace is an owner of its own files and history.** `Files` and
+  `Git graph` on the menu read through the workspace (`#/tree/w/<id>`,
+  `#/git/w/<id>`), which is the fix for the reported pain.
+  *Shipped and then withdrawn the same day:* the card first carried the
+  folder/branch pills of `wsLine(ws)` as a second line, the way its rows do.
+  Live on a real fleet the owner read it as noise — every agent row under
+  the card repeats the same path and branch — and asked for the header to
+  stay one line, the menu carrying the actions. `wsLine` remains: the menu
+  asks it whether the folder is a repository at all.
 - **The menu tells the truth about an empty workspace.** No Git graph item
   on a folder that is not a repository; no Sessions item while the workspace
   has no agents, because that route answers 409.
@@ -72,8 +75,8 @@ browser, not the server:
 
 ## What PiCode refuses
 
-- A dedicated git icon button on the header. It would be a sixth action for
-  a fact the branch pill already states.
+- A dedicated git icon button on the header. Two visible controls is the
+  budget; the third entry point belongs in the menu.
 - Hiding the triggers again to buy back density: the resting `.55` opacity
   is the compromise, and hover, focus and an open menu take it to full.
 - A second identity for the graph tab. A workspace-owned graph collapses

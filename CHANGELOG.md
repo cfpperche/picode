@@ -13,15 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **A workspace reaches its own files and history with nobody in it:** the
-  sidebar card now carries the workspace's folder and branch as the same two
-  pills its agent and terminal rows have. The branch pill (with its dirty
-  count) opens the git graph of the project, the folder pill its file tree —
-  no agent and no terminal required. The graph, the commit details and the
-  uncommitted changes read through `/api/workspaces/{id}/…`, which the
-  server has answered since ADR-0030; a workspace-owned graph tab now also
-  survives a reload and a deep link (`#/git/w/<id>`) instead of reporting
-  "That agent is gone".
+- **A workspace reaches its own files and history with nobody in it:**
+  **Files** and **Git graph** on the workspace card's menu open the project's
+  own file tree and commit graph — no agent and no terminal required. The
+  graph, the commit details and the uncommitted changes read through
+  `/api/workspaces/{id}/…`, which the server has answered since ADR-0030;
+  a workspace-owned graph tab now also survives a reload and a deep link
+  (`#/git/w/<id>`) instead of reporting "That agent is gone".
 
 - **Handoff dialog polish**, from the visual pass that was owed: a session
   with no title of its own is no longer named after the handoff note, the
@@ -49,7 +47,9 @@ to the `[Unreleased]` section. The repository's official language is English
   the destructive action no longer sits beside the creative one. The menu
   hides Git graph on a folder that is not a repository and Sessions while
   the workspace has no agents, where the route answers 409. The empty state
-  gained its two actions: "Empty — *add an agent* or *a terminal*".
+  gained its two actions: "Empty — *add an agent* or *a terminal*". The card
+  header stays one line: the rows under it already carry path and branch, so
+  repeating them on the workspace was noise (owner's call, 2026-09-07).
   See `docs/benchmarks/2026-09-07-workspace-card-toolbar.md`.
 
 ### Fixed

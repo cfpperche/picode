@@ -70,7 +70,7 @@ function TerminalStatus({ term }) {
   );
 }
 
-export function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGraph }) {
+function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGraph }) {
   return (
     <div className="ws-context">
       <button
