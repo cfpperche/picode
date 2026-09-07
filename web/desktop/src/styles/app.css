@@ -2782,6 +2782,24 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .combo-list { max-height: 220px; overflow-y: auto; }
 .combo-empty { padding: 8px; font-size: 12px; color: var(--text-secondary); }
 .combo-hint { margin-left: auto; font-size: 11px; color: var(--text-secondary); }
+/* Repo picker (clone form): an anchored combobox on the URL field. The
+   dialog portal stacks at z-71, so this popover must render above it —
+   unlike the composer chips, whose own CSS hand-positions them. */
+.repo-field { display: flex; flex-direction: column; }
+.repo-pop {
+  position: static; left: auto; bottom: auto;
+  width: var(--radix-popper-anchor-width); min-width: 260px; max-width: none;
+  z-index: 72;
+}
+.repo-pop .combo-list { max-height: 260px; }
+.repo-opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-opt-desc { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-use-url { color: var(--text-secondary); }
+.repo-status {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 4px 0 0; font-size: 12px; color: var(--text-secondary);
+}
+.repo-status .btn { margin-left: auto; }
 .cockpit-opt { display: flex; align-items: center; gap: 8px; }
 .cockpit-think { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px 8px; }
 .think-pill {

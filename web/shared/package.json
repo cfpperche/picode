@@ -11,6 +11,7 @@
     "./client/api.js": "./client/api.js",
     "./client/device.js": "./client/device.js",
     "./client/feed.js": "./client/feed.js",
+    "./client/githubRepos.js": "./client/githubRepos.js",
     "./client/install.js": "./client/install.js",
     "./client/push.js": "./client/push.js",
     "./client/reconnect.js": "./client/reconnect.js",

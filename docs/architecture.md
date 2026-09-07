@@ -741,6 +741,15 @@ HTTP API (Go 1.22 method patterns):
   interactive prompts disabled. A destination already cloned from the
   same origin is adopted (`200 {adopted:true}`); occupied by anything
   else → 409. The one git write reachable from the GUI.
+- `GET /api/github/repos` — repository metadata for the clone form's
+  picker, listed with the machine's own `gh` CLI (ADR-0034's credential
+  model — the user's gh, never a PiCode-held token): `gh repo list
+  --limit 100 --json …` after an `gh auth status` check, 20 s cap. The
+  answer is `{available, reason?, repos?}` — unavailable setups carry a
+  visible reason (`gh` missing / not logged in / list failed) instead of
+  an error, and successes are cached in memory for 5 minutes; failures
+  stay uncached and `?refresh=1` bypasses the cache for Retry. Read-only
+  metadata; the clone itself still runs git with host credentials.
 - `GET /api/apps` — apps host (ADR-0036): manifests `{id, name, icon,
   apiVersion}` plus a live `badge` (`count` = actionable, `dot` =
   activity) per app; the poll target for the Apps tab. A badge failure

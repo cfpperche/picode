@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Repository picker in the clone form:** the New-workspace "Clone
+  repository" URL field is now a filterable combobox fed by the GitHub
+  repositories behind the machine's own `gh` login (`gh repo list` via the
+  new `GET /api/github/repos`, cached 5 min). Typing filters `owner/repo`
+  and descriptions, grouped by owner, with a lock on private repositories;
+  picking one fills URL, name and destination at once. Pasting any URL
+  still works first-class — a pasted URL shows a "Use this URL" row and
+  Enter submits it as before. Missing `gh` / not-logged-in machines show
+  one line with the one action that fixes it (install guide / copy the
+  `gh auth login` command); mobile gets the same list as a tap-to-open
+  picker next to the URL field.
+
 ### Fixed
 
 - **Terminals reattach after a phone lock:** locking the phone (or any

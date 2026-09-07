@@ -188,6 +188,7 @@ func registerAll(mux Registrar, deps Deps) {
 
 	registerWorkspaceRoutes(mux, deps)
 	registerWorkspaceCloneRoutes(mux, deps)
+	registerGithubReposRoutes(mux, deps)
 	registerServerRoutes(mux, deps)
 	registerPiSettingsRoutes(mux, deps)
 	registerPiKeysRoutes(mux)
