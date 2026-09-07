@@ -12,7 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// pi writer (ADR-0087): creates <req.Dir>/<ISO stamp>_<uuid>.jsonl in pi's
+// pi writer (ADR-0088): creates <req.Dir>/<ISO stamp>_<uuid>.jsonl in pi's
 // session version 3 — a session header, then id/parentId-chained entries:
 // session_info for the title, message entries for user turns, assistant
 // turns (text and toolCall blocks in one message) and toolResult messages.

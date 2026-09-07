@@ -15,7 +15,7 @@ import (
 )
 
 // Optional capabilities a Source may implement for cross-CLI session
-// handoff (ADR-0087). They are discovered by type assertion on the
+// handoff (ADR-0088). They are discovered by type assertion on the
 // registered Source — never by a switch on the CLI id — so a new CLI joins
 // the handoff surface by implementing the interfaces in its own file, and
 // a CLI that lacks one simply is not offered that mode.
@@ -279,7 +279,7 @@ func argumentsJSON(raw json.RawMessage) json.RawMessage {
 
 // writeNewFile creates path atomically and never overwrites: the body goes
 // to a sibling temp file, is synced, then renamed into place only if the
-// name is still free. This is the create-only invariant of ADR-0087 in one
+// name is still free. This is the create-only invariant of ADR-0088 in one
 // place.
 func writeNewFile(path string, body []byte) error {
 	if _, err := os.Lstat(path); err == nil {

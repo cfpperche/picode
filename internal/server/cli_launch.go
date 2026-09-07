@@ -108,9 +108,10 @@ type cliView struct {
 	IntegrationApplied bool             `json:"integrationApplied"`
 	Diagnostic         *CLIDiagnostic   `json:"diagnostic,omitempty"`
 	Plan               clilaunch.Plan   `json:"plan"`
+	Lifecycle          lifecycleView    `json:"lifecycle"`
 	// Sessions advertises what this CLI's session source can do (list,
 	// read a transcript, receive a native session, start from a brief) so
-	// the web derives handoff targets from the server (ADR-0087).
+	// the web derives handoff targets from the server (ADR-0088).
 	Sessions clisession.Capabilities `json:"sessions"`
 }
 
@@ -126,6 +127,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		v.Problem = err.Error()
 	}
+	v.Lifecycle = describeLifecycle(cli.ID, v.Executable)
 	if v.Installed && c.Integration && !v.IntegrationApplied {
 		v.Problem = "Activity reporting files need repair."
 	}
@@ -161,6 +163,7 @@ func syncCLIIntegration(deps Deps, id string, on bool) error {
 func registerCLIRoutes(mux Registrar, deps Deps) {
 	registerCLIProfileRoutes(mux, deps)
 	registerCLISessionRoutes(mux, deps)
+	registerCLILifecycleRoutes(mux, deps)
 	mux.HandleFunc("GET /api/clis", func(w http.ResponseWriter, r *http.Request) {
 		rows := []cliView{}
 		for _, cli := range clilaunch.Catalog() {
@@ -330,32 +333,39 @@ func handleCLICheck(deps Deps) http.HandlerFunc {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
-		d, err := runCLICheck(r.Context(), deps, cli)
+		unlock := terminalLock(deps, "cli-config")
+		defer unlock()
+		c, err := cliConfig(deps, cli.ID)
 		if err != nil {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		writeJSON(w, 200, d)
+		d := CLIDiagnostic{CheckedAt: time.Now().UTC().Format(time.RFC3339), Fingerprint: clilaunch.Fingerprint(c)}
+		b, err := computeCLICheck(deps, cli, c, d, r.Context())
+		if b.StoreErr != nil {
+			writeErr(w, 500, b.StoreErr.Error())
+			return
+		}
+		writeJSON(w, 200, b.Diagnostic)
 	}
 }
 
-// runCLICheck is the setup check (ADR-0070): resolve the executable, ask
-// it for --version with the configured environment, verify the activity
-// prerequisites, and record the diagnostic. Shared by the check endpoint
-// and by a handoff that needs the installed target's version (ADR-0087).
-func runCLICheck(ctx context.Context, deps Deps, cli clilaunch.CLI) (CLIDiagnostic, error) {
-	unlock := terminalLock(deps, "cli-config")
-	defer unlock()
-	c, err := cliConfig(deps, cli.ID)
-	if err != nil {
-		return CLIDiagnostic{}, err
-	}
-	d := CLIDiagnostic{CheckedAt: time.Now().UTC().Format(time.RFC3339), Fingerprint: clilaunch.Fingerprint(c)}
+// checkOutcome carries the computed diagnostic and any store write error so
+// the HTTP handler and the post-job refresh share one code path.
+type checkOutcome struct {
+	Diagnostic CLIDiagnostic
+	StoreErr   error
+}
+
+// computeCLICheck runs the bounded --version probe and prerequisite checks,
+// then persists the diagnostic (cli.checked event fires inside the store).
+func computeCLICheck(deps Deps, cli clilaunch.CLI, c clilaunch.Config, d CLIDiagnostic, parent context.Context) (checkOutcome, error) {
+	out := checkOutcome{Diagnostic: d}
 	binary, err := resolveCLIExecutable(cli, c)
-	d.Executable = binary
-	d.Identity = executableIdentity(binary)
+	out.Diagnostic.Executable = binary
+	out.Diagnostic.Identity = executableIdentity(binary)
 	if err == nil {
-		ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		ctx, cancel := context.WithTimeout(parent, 4*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, binary, "--version")
 		cmd.Env = cliEnvironment(c)
@@ -364,13 +374,13 @@ func runCLICheck(ctx context.Context, deps Deps, cli clilaunch.CLI) (CLIDiagnost
 		cmd.Stderr = &output
 		cmd.WaitDelay = time.Second
 		if err = cmd.Run(); err == nil {
-			d.Version = clipCLIVersion(output.String())
+			out.Diagnostic.Version = clipCLIVersion(output.String())
 			for _, value := range c.Env {
 				if value != "" {
-					d.Version = strings.ReplaceAll(d.Version, value, "••••")
+					out.Diagnostic.Version = strings.ReplaceAll(out.Diagnostic.Version, value, "••••")
 				}
 			}
-			if d.Version == "" {
+			if out.Diagnostic.Version == "" {
 				err = errors.New("The executable returned no version.")
 			}
 		} else {
@@ -384,15 +394,15 @@ func runCLICheck(ctx context.Context, deps Deps, cli clilaunch.CLI) (CLIDiagnost
 				break
 			}
 		}
-		d.Prerequisites = err == nil
+		out.Diagnostic.Prerequisites = err == nil
 	}
 	if err != nil {
-		d.Error = err.Error()
+		out.Diagnostic.Error = err.Error()
 	}
-	if err := deps.Store.SetCLICheck(cli.ID, d); err != nil {
-		return d, err
+	if err := deps.Store.SetCLICheck(cli.ID, out.Diagnostic); err != nil {
+		out.StoreErr = err
 	}
-	return d, nil
+	return out, nil
 }
 
 // clipCLIVersion keeps the setup line to one short sentence. Some CLIs
@@ -413,7 +423,7 @@ func clipCLIVersion(raw string) string {
 }
 
 // cliTerminalRequest is the body of POST /api/clis/{cli}/terminals, also
-// composed by the handoff endpoint (ADR-0087).
+// composed by the handoff endpoint (ADR-0088).
 type cliTerminalRequest struct {
 	Name        string              `json:"name"`
 	WorkspaceID string              `json:"workspaceId"`

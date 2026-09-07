@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Claude Code transcript ↔ timeline (ADR-0087). Format verified against a
+// Claude Code transcript ↔ timeline (ADR-0088). Format verified against a
 // real installation (Claude Code 2.1.263, 2026-09). One JSONL line per
 // record; the lines that matter:
 //

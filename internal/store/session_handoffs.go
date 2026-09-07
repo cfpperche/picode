@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// SessionHandoff records one cross-CLI session handoff (ADR-0087): which
+// SessionHandoff records one cross-CLI session handoff (ADR-0088): which
 // native conversation was translated, into which CLI, how (native session
 // or brief, whole conversation or since the last summary, tool shape),
 // what the translation left behind (manifest), and where it continues (a

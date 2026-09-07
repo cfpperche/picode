@@ -1,4 +1,4 @@
--- Cross-CLI session handoffs (ADR-0087): one row per translated session,
+-- Cross-CLI session handoffs (ADR-0088): one row per translated session,
 -- the lineage between a source conversation and the native session (or
 -- brief) it continued as in another Agent CLI.
 CREATE TABLE IF NOT EXISTS session_handoffs (

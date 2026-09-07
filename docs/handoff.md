@@ -20,6 +20,11 @@
   all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+- **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
+  or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as
+  a durable `cli_jobs` lane with streamed output, terminal guards and typed
+  uninstall confirmation; interrupted jobs never replay. Unmanageable
+  installs (Homebrew, manual checkouts) get docs links, not controls.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083: durable
@@ -29,16 +34,12 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined and deployed `0.1.0+8b64862` (`PICODE_DEPLOY_FORCE=1` — terminal
-  "agent cli" was mid-turn). Pin only while the IME is up; opaque row;
-  xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
-  coding CLIs are terminals.
+  refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
+  (unguarded — readiness was empty); iPhone pass still owed. Managed agents remain Pi-only; coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
 
-- `feat/session-handoff` — continue a session in another Agent CLI
-  (ADR-0087): readers for all five CLIs, native writers for Claude Code /
-  Codex / pi, brief fallback, lineage; smoke passed on real binaries.
+- `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
@@ -57,11 +58,10 @@
 
 ## Known debts / open questions
 
-- Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
-- Handoff (ADR-0087): native formats are undocumented upstream — a version
-  bump surfaces as a refused write; Hermes/Grok native targets undecided;
-  Codex shows a handed-off rollout in its picker only after a restart and
-  renders no prior turns (context loads); Codex→Claude loses the model name.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06 (`hermes-1f19ed`, needs-you on
+  `pre_approval_request`, then auto-approved); `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Handoff (ADR-0088): upstream formats are undocumented (a bump = refused write); Hermes/Grok native
+  targets undecided; Codex lists a handed-off rollout only after restart, renders no prior turns; Codex→Claude loses the model name.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
@@ -85,10 +85,11 @@
   fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
+- CLI lifecycle: npm data can lag native Claude releases by hours (the badge
+  names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
-- Tutorial video freshness audits are stale after source relocation;
-  recapture/render is explicit. Branch protection and CODEOWNERS need the
-  owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
+- Tutorial video freshness audits are stale after source relocation; recapture/render is explicit. Branch
+  protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with

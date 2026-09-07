@@ -1,6 +1,6 @@
 # 2026-09-06 — feat/session-handoff: continue a session in another Agent CLI
 
-Shipped (ADR-0087): `internal/transcript` (timeline, window, repair,
+Shipped (ADR-0088): `internal/transcript` (timeline, window, repair,
 prepare, note, deterministic brief); `clisession` Reader for Claude Code,
 Codex, Grok (per-session dirs now listed with title/model/size), pi and
 Hermes; Writer for Claude Code, Codex, pi (create-only, atomic, round-trip

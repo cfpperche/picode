@@ -18,7 +18,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Cross-CLI session handoff (ADR-0087): continue a conversation recorded by
+// Cross-CLI session handoff (ADR-0088): continue a conversation recorded by
 // one Agent CLI in another one.
 //
 //	POST /api/clis/{cli}/sessions/handoff/preview   read-only: what would travel, what would be left behind
@@ -438,11 +438,20 @@ func resolveFormatVersion(ctx context.Context, deps Deps, cli clilaunch.CLI) str
 		}
 	}
 	if stale {
-		fresh, err := runCLICheck(ctx, deps, cli)
+		unlock := terminalLock(deps, "cli-config")
+		c, err := cliConfig(deps, cli.ID)
 		if err != nil {
+			unlock()
 			return ""
 		}
-		d = &clilaunch.Diagnostic{Version: fresh.Version, Error: fresh.Error}
+		seed := CLIDiagnostic{CheckedAt: time.Now().UTC().Format(time.RFC3339), Fingerprint: clilaunch.Fingerprint(c)}
+		out, err := computeCLICheck(deps, cli, c, seed, ctx)
+		unlock()
+		if err != nil || out.StoreErr != nil {
+			return ""
+		}
+		fresh := out.Diagnostic
+		d = &fresh
 	}
 	if d == nil || d.Error != "" {
 		return ""

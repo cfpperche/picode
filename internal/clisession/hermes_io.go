@@ -12,7 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Hermes Agent state.db → timeline (ADR-0087). Read-only, over the same
+// Hermes Agent state.db → timeline (ADR-0088). Read-only, over the same
 // column-tolerant SQLite access HermesSource.List uses. Schema verified
 // against a real installation (Hermes Agent 0.18.2, 2026-09):
 //

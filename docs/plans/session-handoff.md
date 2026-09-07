@@ -1,4 +1,4 @@
-# Cross-CLI session handoff work plan (ADR-0087)
+# Cross-CLI session handoff work plan (ADR-0088)
 
 - Date: 2026-09-06
 - Owner approved: the handoff direction (not a live switch), the create-only

@@ -11,7 +11,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// pi session JSONL ↔ timeline (ADR-0087). Format verified against real
+// pi session JSONL ↔ timeline (ADR-0088). Format verified against real
 // files (pi 0.85, session version 3, 2026-09):
 //
 //	{type:session,version:3,id,timestamp,cwd}                 header, first line

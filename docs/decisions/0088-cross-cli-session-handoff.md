@@ -1,4 +1,4 @@
-# ADR-0087: Cross-CLI session handoff — continue a conversation in another Agent CLI
+# ADR-0088: Cross-CLI session handoff — continue a conversation in another Agent CLI
 
 - **Status**: accepted (owner approved the direction, the scoped exception
   to the never-write rule, the first milestone and the deterministic brief

@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Codex rollout ↔ timeline (ADR-0087). Format verified against real
+// Codex rollout ↔ timeline (ADR-0088). Format verified against real
 // rollouts (Codex CLI 0.78 … 0.153, 2026-09). Envelope per line:
 // {timestamp, type, payload}. Types that carry conversation:
 //

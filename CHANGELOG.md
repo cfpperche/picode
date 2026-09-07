@@ -13,7 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
-- **Continue a session in another Agent CLI** (ADR-0087): the Sessions tab
+- **CLI lifecycle management** (ADR-0087): update checks, update, reinstall
+  and uninstall for catalogued agent CLIs. The Agent CLIs surface shows an
+  update badge with the latest version (npm registry or the vendor's own
+  `--check` command) and runs each CLI's native update/reinstall/uninstall
+  command as a durable job with streamed output, terminal guards and typed
+  uninstall confirmation. Install methods PiCode cannot manage (Homebrew,
+  manual checkouts; Grok and native Claude Code uninstalls) show their
+  official guide instead of controls. Jobs survive daemon restarts as
+  `interrupted` — never replayed.
+- **Continue a session in another Agent CLI** (ADR-0088): the Sessions tab
   offers "Continue in <CLI>…" for every CLI the server says can receive the
   session. A preview shows what travels and what is left behind; the
   handoff writes a new native session for Claude Code or Codex, adopts a
@@ -96,6 +105,11 @@ to the `[Unreleased]` section. The repository's official language is English
   remain visible rather than being reported as success.
 
 ### Changed
+
+- **Mobile extra-keys row no longer shows a vertical overlay scrollbar.**
+  Dragging the row sideways is `pan-x` only; the terminal screen, the
+  row and xterm hide overlay scrollbars so iOS cannot paint a gray strip
+  down the right edge.
 
 - **Mobile extra keys no longer leave a black strip, and hide the TUI
   behind them.** The phone shell fills the screen while the keyboard is

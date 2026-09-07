@@ -246,3 +246,8 @@ against the unfocused visual-viewport baseline). The extra-keys row is
 opaque (`--bg-base`) with `z-index` above xterm, and the pane clips
 overflow then refits. The TUI draws to the bottom of the pane (no extra
 home-indicator padding) so a closed keyboard is not a dead strip.
+
+A sideways drag on the row must not show iOS's overlay scrollbar on the
+screen: the row is `touch-action: pan-x`, the terminal screen turns off
+`-webkit-overflow-scrolling`, and overlay scrollbars are hidden on the
+row, the screen and xterm's viewport.

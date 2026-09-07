@@ -41,7 +41,7 @@ func registerCLISessionRoutes(mux Registrar, deps Deps) {
 //	malformed or undeclared files           → skipped, never a 500
 //	session cwd matches a PiCode workspace  → tagged workspaceId/workspace
 //	pi rows                                 → inUseBy + cleanupDays ride along
-//	session was handed off / came from one  → handoff.{to,from} (ADR-0087)
+//	session was handed off / came from one  → handoff.{to,from} (ADR-0088)
 func handleCLISessions(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli, ok := clilaunch.Find(r.PathValue("cli"))
@@ -318,5 +318,5 @@ type cliSessionView struct {
 	WorkspaceID string        `json:"workspaceId,omitempty"`
 	Workspace   string        `json:"workspace,omitempty"`
 	InUseBy     *sessionUse   `json:"inUseBy,omitempty"`
-	Handoff     *handoffLinks `json:"handoff,omitempty"` // lineage (ADR-0087)
+	Handoff     *handoffLinks `json:"handoff,omitempty"` // lineage (ADR-0088)
 }

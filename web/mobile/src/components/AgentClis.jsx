@@ -36,9 +36,9 @@ export default function AgentClis({ hidden = false }) {
   const refresh = useCallback(async () => {
     const seq = ++request.current;
     try {
-      const [catalog, terms, work, presets] = await Promise.all([api("/api/clis"), api("/api/terminals"), api("/api/workspaces"), api("/api/clis/profiles")]);
+      const [catalog, terms, work, presets, jobs] = await Promise.all([api("/api/clis"), api("/api/terminals"), api("/api/workspaces"), api("/api/clis/profiles"), api("/api/cli-jobs").catch(() => ({ jobs: [] }))]);
       if (seq !== request.current || !active.current) return;
-      setData({ ...catalog, terminals: terms.terminals || [], workspaces: cliWorkspaceList(work), profiles: presets.profiles || [] }); setError("");
+      setData({ ...catalog, terminals: terms.terminals || [], workspaces: cliWorkspaceList(work), profiles: presets.profiles || [], jobs: jobs.jobs || [] }); setError("");
     } catch (e) { if (seq === request.current && active.current) setError(e.message); }
   }, []);
   useEffect(() => {
@@ -52,6 +52,14 @@ export default function AgentClis({ hidden = false }) {
   useEffect(() => {
     if (hidden) return;
     refresh();
+    // ADR-0087: refresh stale update checks once per visit, server-side
+    // cached — never a polling timer.
+    const stale = (c) => !c.installed || !c.diagnostic || !c.diagnostic.updateCheckedAt || Date.now() - new Date(c.diagnostic.updateCheckedAt).getTime() > 6 * 3600 * 1000;
+    api("/api/clis").then((catalog) => {
+      for (const c of catalog.clis || []) {
+        if (stale(c)) api(`/api/clis/${c.id}/update-check`, json("POST", {})).catch(() => {});
+      }
+    }).catch(() => {});
     let timer;
     const unsub = subscribeFeed((e) => {
       if (/^(cli\.|terminal\.|workspace\.|feed\.(open|reset))/.test(e.type)) {
@@ -68,6 +76,32 @@ export default function AgentClis({ hidden = false }) {
     try { await fn(); await refresh(); } catch (e) { toastError(e); throw e; } finally { setBusy(""); }
   };
   const selected = data?.clis.find((c) => c.id === route.id) || data?.clis[0];
+  const selectedJob = data?.jobs?.find((j) => j.cli === selected?.id);
+  const lifecycleBusy = !!busy || !!selectedJob && (selectedJob.state === "queued" || selectedJob.state === "running");
+  const checkUpdates = () => run("uc:" + selected.id, () => api(`/api/clis/${selected.id}/update-check`, json("POST", {}))).catch(() => {});
+  const startLifecycle = async (action) => {
+    const cli = selected;
+    if (action === "uninstall") {
+      const ok = await askConfirm({
+        title: `Uninstall ${cli.name}?`,
+        message: "This removes the CLI from this machine. Your settings and conversations stay.",
+        confirmLabel: "Uninstall",
+        danger: true,
+        choices: [{ id: "confirm", label: `I understand — type "${cli.name}" to confirm`, typed: { expected: cli.name } }],
+      });
+      if (!ok) return;
+    }
+    await run(action + ":" + cli.id, async () => {
+      try {
+        await api(`/api/clis/${cli.id}/lifecycle`, json("POST", { action, requestKey: action + "-" + Date.now() }));
+      } catch (e) {
+        if (!/terminal/.test(e.message || "")) throw e;
+        const ok = await askConfirm({ title: "Terminals are running", message: e.message, confirmLabel: "Run anyway", danger: true });
+        if (!ok) return;
+        await api(`/api/clis/${cli.id}/lifecycle`, json("POST", { action, requestKey: action + "-" + Date.now(), confirmTerminals: true }));
+      }
+    });
+  };
   const action = async (t, op) => {
     const destructive = op === "remove" || (t.running && op !== "start");
     if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
@@ -90,13 +124,20 @@ export default function AgentClis({ hidden = false }) {
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
       <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={"#/clis/" + c.id} aria-current={c.id === selected.id ? "page" : undefined}>
-        <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? "Installed" : "Not found"}</small></span><IconChevronRight size={14} />
+        <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
-        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Executable not found")}{selected.diagnostic?.stale ? " · check out of date" : ""}</p>{selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row>
+        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Executable not found")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{selected.diagnostic?.updateCheckedAt ? <p>Update check {selected.diagnostic.updateError ? "failed" : "saved"} {new Date(selected.diagnostic.updateCheckedAt).toLocaleString()}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row>
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
+          {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
           <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button>
+          {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
+            <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>
+            {selected.lifecycle?.canReinstall ? <DropdownMenu.Item className="um-item" onSelect={() => startLifecycle("reinstall")}>Reinstall</DropdownMenu.Item> : null}
+            {selected.lifecycle?.uninstall === "vendor" || selected.lifecycle?.uninstall === "npm" ? <><DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => startLifecycle("uninstall")}>Uninstall {selected.name}</DropdownMenu.Item></> : null}
+          </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root> : null}
         </div></div>
+        <CLILifecycleCard cli={selected} job={selectedJob} onCheck={checkUpdates} />
         {selected.problem ? <Notice action={selected.installed && selected.config.integration && !selected.integrationApplied ? "Repair integration" : "Customize"} onAction={() => {
           if (selected.installed && selected.config.integration && !selected.integrationApplied) run("repair", () => api(`/api/clis/${selected.id}/repair`, json("POST", {}))).catch(() => {});
           else setEditRequested({ id: selected.id, at: Date.now() });
@@ -205,4 +246,24 @@ function CLIDiagnostics({ cli, terminals, busy, run }) {
     <dt>Reporter tools</dt><dd>{cli.diagnostic?.prerequisites && !cli.diagnostic.stale ? "Checked" : "Not verified"}</dd>
     <dt>Last activity signal</dt><dd>{observed ? <>{terminalStatusLabel(observed)} · <a href={termHash(observed.id)}>{observed.name}</a><small>{new Date(observed.stateAt).toLocaleString()}</small></> : "No current signal observed"}</dd>
   </dl><button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { run("repair", () => api(`/api/clis/${cli.id}/repair`, json("POST", {}))).catch(() => {}); }}>{busy ? "Updating…" : "Repair PiCode files"}</button></details>;
+}
+
+const jobStateLabel = { queued: "Waiting to start", running: "Running", succeeded: "Done", failed: "Failed", interrupted: "Interrupted" };
+
+// CLILifecycleCard surfaces the latest lifecycle job for one CLI plus the
+// guided-uninstall facts for install methods without an uninstall command
+// (ADR-0087). One line + one action per state, never a blank well.
+function CLILifecycleCard({ cli, job, onCheck }) {
+  const active = job && (job.state === "queued" || job.state === "running");
+  if (!active && !job && cli.lifecycle?.uninstall !== "guided") return null;
+  return <div className="cli-job-card" role="status" data-state={job ? job.state : "guided"}>
+    {job ? <>
+      <div className="cli-job-head"><span className={"cli-job-state is-" + job.state}>{jobStateLabel[job.state] || job.state}</span><span>{job.action === "uninstall" ? "Uninstall" : job.action === "reinstall" ? "Reinstall" : "Update"} · {cli.name}</span></div>
+      <p>{job.message}</p>
+      {job.output ? <details className="cli-job-log"><summary>Output</summary><pre>{job.output}</pre></details> : null}
+      {job.state === "interrupted" ? <button className="btn btn-ghost btn-sm" onClick={onCheck}>Check result</button> : null}
+      {job.state === "failed" ? <button className="btn btn-ghost btn-sm" onClick={onCheck}>Check setup</button> : null}
+    </> : null}
+    {!active && cli.lifecycle?.uninstall === "guided" ? <p className="cli-job-guided">Uninstalling {cli.name} follows its own guide for this install type. <a href={cli.lifecycle.docs || cli.docs} target="_blank" rel="noreferrer">Open the uninstall guide ↗</a></p> : null}
+  </div>;
 }

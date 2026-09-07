@@ -31,7 +31,7 @@ const CLEANUP_OPTIONS = [
   { v: 90, label: "90 days" },
 ];
 
-// Lineage (ADR-0087): where a session came from and where it continued.
+// Lineage (ADR-0088): where a session came from and where it continued.
 function LineageBadges({ s, cliNames, onOpenAgent }) {
   const badges = lineageBadges(s.handoff, cliNames);
   if (!badges.length) return null;
@@ -46,7 +46,7 @@ function LineageBadges({ s, cliNames, onOpenAgent }) {
 }
 
 // "Continue in <CLI>…" — one item per target the server advertises for
-// this session's CLI (ADR-0087). Empty list: a disabled item says why.
+// this session's CLI (ADR-0088). Empty list: a disabled item says why.
 function HandoffMenu({ s, targets, busy, onHandoff }) {
   return (
     <DropdownMenu.Root>
@@ -150,7 +150,7 @@ function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames
 // Sessions surface (ADR-0079): one view per CLI. Pi keeps its management
 // actions (open with, compact, delete, auto-clean); other CLIs list their
 // on-disk sessions and open them in a terminal with the CLI's verified
-// resume arguments. Any session can continue in another CLI (ADR-0087):
+// resume arguments. Any session can continue in another CLI (ADR-0088):
 // the targets come from the capabilities /api/clis advertises, never from
 // a list kept here.
 export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", onCliChange, cliNames = {}, clis = [], wsReady = true }) {
@@ -321,7 +321,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     }
   }
 
-  // After a handoff: say where it went and go there (ADR-0087).
+  // After a handoff: say where it went and go there (ADR-0088).
   function onHandoffDone(res, target) {
     setHandoff(null);
     const term = res && res.terminal;

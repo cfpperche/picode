@@ -12,9 +12,10 @@ not a new type of managed agent.
 2. Select **New terminal**, give it a name and choose a workspace or folder.
 3. Select **Open terminal**. Use the CLI's own interface and login flow.
 
-PiCode does not install CLIs or manage their credentials here. A missing
-executable offers **Customize**; the CLI's documentation link explains its
-installation. Checking setup runs `--version`, without starting a conversation.
+PiCode does not install CLIs for the first time or manage their credentials
+here. A missing executable offers **Customize**; the CLI's documentation link
+explains its installation. Checking setup runs `--version`, without starting
+a conversation.
 
 ## Launch settings
 
@@ -112,6 +113,33 @@ prepared integration files and the latest currently observed activity signal.
 changing native CLI configuration or restarting terminals. A prepared file is
 not proof that every event works with that CLI version. No observed signal
 means unverified, even when a CLI process is present.
+
+## Update, reinstall or uninstall a CLI
+
+When a newer release exists, the CLI's row shows an **Update** badge and its
+detail page offers **Update**. PiCode runs each CLI's own update command —
+`pi update`, `claude update`, `codex update`, `grok update`,
+`hermes update` — plus npm for npm-installed tools. Update checks refresh on
+demand and when the saved check is older than six hours.
+
+| What you see | What it means |
+|---|---|
+| Update badge with a version | A newer release exists; the exact number comes from the CLI's registry or its own check |
+| Update check failed | The registry or the CLI's check could not answer; nothing was changed |
+| Working… with a progress card | The CLI's updater is running; the card shows its output |
+| Done | The update finished and the setup check ran again |
+| Interrupted | PiCode shut down while the updater ran. Nothing was retried; run **Check setup** to see the CLI's state |
+| No update controls | The install method is one PiCode cannot manage (for example Homebrew or a manual checkout) |
+
+**Reinstall** forces a fresh install of the same CLI. Running terminals of
+that CLI keep the old version until you restart them; PiCode asks before it
+touches a CLI with live terminals.
+
+**Uninstall** runs the CLI's own uninstall command (Hermes Agent) or npm's
+for npm-installed tools, after you type the CLI's name. Grok and a native
+Claude Code install have no uninstall command; PiCode links their official
+guide instead. Uninstalling never touches your settings or conversations
+beyond what the CLI's own uninstaller does.
 
 ## Control a terminal
 

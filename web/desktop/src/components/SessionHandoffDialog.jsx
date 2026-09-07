@@ -9,7 +9,7 @@ import PiSpinner from "./PiSpinner.jsx";
 
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-// SessionHandoffDialog (ADR-0087): "Continue in <CLI>". It previews what
+// SessionHandoffDialog (ADR-0088): "Continue in <CLI>". It previews what
 // would travel (counts, what is left behind, whether the source is still
 // live) through the read-only preview endpoint, re-previews on every
 // choice, and only the primary action writes anything. The same plan

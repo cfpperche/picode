@@ -12,7 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Grok Build session store ↔ timeline (ADR-0087). Format verified against
+// Grok Build session store ↔ timeline (ADR-0088). Format verified against
 // a real installation (Grok 1.0.13, 2026-09):
 //
 //	~/.grok/sessions/<url-escaped cwd>/prompt_history.jsonl   prompts of every session in the folder

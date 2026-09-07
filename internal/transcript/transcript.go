@@ -1,5 +1,5 @@
 // Package transcript is the portable, CLI-neutral shape of a coding-agent
-// conversation (ADR-0087). Each Agent CLI's reader projects its native
+// conversation (ADR-0088). Each Agent CLI's reader projects its native
 // session into an ordered Timeline; each writer emits a native session from
 // one. The model is deliberately small — it carries what a second agent
 // needs to continue the work (turns, tool calls and their results, the

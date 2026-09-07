@@ -119,3 +119,21 @@
   .cli-profile-row > .cli-actions { margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .cli-detail, .cli-editor, .cli-terminal-row, .cli-state::before, .cli-loading div, .cli-preview > h4::after { animation: none !important; } }
+
+/* CLI lifecycle (ADR-0087) */
+.cli-update-pill { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warn); border: 1px solid var(--warn); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.cli-catalog a > svg { margin-left: auto; }
+.cli-catalog a:has(.cli-update-pill) > svg { margin-left: 0; }
+.cli-job-card { margin: 12px 0; padding: 12px 14px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); font-size: 12px; color: var(--text-secondary); animation: cli-enter var(--motion-fast) var(--ease-out); }
+.cli-job-head { display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
+.cli-job-state { font-size: 11px; font-weight: 600; }
+.cli-job-state.is-running, .cli-job-state.is-queued { color: var(--warn); }
+.cli-job-state.is-succeeded { color: var(--ok); }
+.cli-job-state.is-failed, .cli-job-state.is-interrupted { color: var(--danger); }
+.cli-job-card p { margin-top: 6px; overflow-wrap: anywhere; }
+.cli-job-log { margin-top: 8px; }
+.cli-job-log summary { cursor: pointer; color: var(--text-secondary); }
+.cli-job-log pre { margin: 8px 0 0; padding: 10px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-ctl); font-size: 11px; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cli-job-guided { margin: 0; }
+.cli-job-guided a { color: var(--accent); }
+.um-item.cli-danger-item { color: var(--danger); }

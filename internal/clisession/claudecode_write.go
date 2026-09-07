@@ -13,7 +13,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Claude Code writer (ADR-0087): creates
+// Claude Code writer (ADR-0088): creates
 // ~/.claude/projects/<encoded cwd>/<uuid>.jsonl in the shape Claude Code
 // 2.1.x writes itself — one record per line, chained by parentUuid, every
 // record carrying sessionId, cwd and version; tool_use blocks answered by

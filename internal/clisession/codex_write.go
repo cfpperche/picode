@@ -12,7 +12,7 @@ import (
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
-// Codex writer (ADR-0087): creates
+// Codex writer (ADR-0088): creates
 // ~/.codex/sessions/YYYY/MM/DD/rollout-<YYYY-MM-DDThh-mm-ss>-<uuid>.jsonl
 // in the shape Codex CLI 0.1xx writes: a session_meta envelope whose id
 // matches the file name, then response_item records — messages with

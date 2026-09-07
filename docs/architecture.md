@@ -421,6 +421,26 @@ size/mtime and configuration fingerprint determine staleness. Check runs
 only private integration files. Observed activity remains ephemeral and is never
 inferred from a prepared file or a version check.
 
+ADR-0087 adds a lifecycle layer in `internal/clilifecycle` and
+`internal/clijob`. Detection classifies the resolved executable's realpath
+(npm, native, vendor, git, unknown) and a per-CLI plan pins the exact argv:
+checks read the npm registry (reusing `pipkg`) or the vendor's own `--check`
+command, and mutations run the vendors' update/reinstall/uninstall commands —
+npm only where the vendor has no command. Update facts (`Latest`,
+`UpdateAvailable`, `UpdateCheckedAt`, `InstallMethod`) live in the
+`cli_checks` diagnostic; `POST /api/clis/<cli>/update-check` refreshes them
+on demand and the surface triggers it once when the stored check is older
+than six hours — there is no browser polling timer. Mutations are durable
+jobs in `cli_jobs` (`cli.job` events): HTTP 202, request-key idempotency, at
+most one active lifecycle job, revision-guarded transitions, bounded output
+tail. Restart recovery marks queued/running jobs `interrupted` and never
+replays an install; a graceful shutdown cancels the command and marks the job
+`interrupted` too. A job refuses while live terminals of that CLI run unless
+the caller confirms; uninstall additionally requires typing the CLI name.
+`unknown` install methods get no mutation controls — only the docs link.
+After a succeeded job the setup check re-runs and update facts reset so no
+stale badge survives.
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
@@ -437,7 +457,7 @@ Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
 
-### Cross-CLI session handoff (ADR-0087)
+### Cross-CLI session handoff (ADR-0088)
 
 Any session of an Agent CLI can continue in another one from the Sessions
 tab ("Continue in <CLI>…"). `internal/transcript` is the portable model —
@@ -973,7 +993,7 @@ Agents communicate through their native protocol — no internals hacked.
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
 to render session history, branching and diffs in the UI. Read-only. The
-cross-CLI readers and writers (ADR-0087) live in `internal/clisession`,
+cross-CLI readers and writers (ADR-0088) live in `internal/clisession`,
 not here.
 
 ### Compaction policy (ADR-0061)

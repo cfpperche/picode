@@ -1,4 +1,4 @@
-// Cross-CLI session handoff (ADR-0087): pure helpers the Sessions tab and
+// Cross-CLI session handoff (ADR-0088): pure helpers the Sessions tab and
 // its dialog share. Everything here derives from what GET /api/clis
 // advertises per CLI (`sessions: {list, read, write, prompt}`) — no CLI id
 // is hardcoded, so a new Agent CLI appears the moment the server knows it.
