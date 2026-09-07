@@ -83,7 +83,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			after.Cursor++
 			_ = s.SaveWebhookProgress(w, after)
 		}, nil},
-		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
+		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "cli", proj)
 			s.OnEvent = recorder(s)

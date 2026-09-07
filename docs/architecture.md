@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-06 (Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-06 (OpenCode CLI catalog PR1; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -16,7 +16,7 @@ agents through a Pi extension, so agents talk to each other using Pi's own
 tool-calling protocol.
 
 Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
-Code, Codex, Grok and Hermes Agent commands. It reuses terminal records, tmux, invocation
+Code, Codex, Grok, Hermes Agent and OpenCode commands. It reuses terminal records, tmux, invocation
 wrappers and the event feed. These are not Agent records: structured chat,
 JSON-RPC, packages, orchestration and session ownership remain Pi-only until
 a future decision supplies those contracts for another CLI.
@@ -375,15 +375,20 @@ reporter prerequisites. It does not certify authentication or every hook.
 `GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
 (ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
 Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
-rollouts, Grok its `~/.grok/sessions` prompt history, and Hermes Agent its
-`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, each parsed
-defensively (malformed files are skipped, missing roots are an empty list).
-Hermes listing is the active home only (no `profiles/` scan), `source` cli/tui
-with a folder and at least one message; preview is the session title.
+rollouts, Grok its `~/.grok/sessions` prompt history, Hermes Agent its
+`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, and OpenCode
+its `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
+SQLite rows, each parsed defensively (malformed files are skipped, missing
+roots are an empty list). Hermes listing is the active home only (no
+`profiles/` scan), `source` cli/tui with a folder and at least one message;
+preview is the session title. OpenCode listing skips child sessions
+(`parent_id`), archived rows and empty transcripts; timestamps are
+milliseconds; preview is the session title. The OpenCode CLI's own
+`session list` is project-scoped and is not used.
 Rows carry the server-verified resume arguments for that CLI (verified
 2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
 <id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
-Agent v0.18.2); pi's row carries none — pi resumes
+Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29); pi's row carries none — pi resumes
 through its own chat flow. Cost is pi-only on this surface: guest formats
 are not shown with per-session spend. Non-Pi sessions open through
 `POST /api/clis/<cli>/terminals` with the resume arguments as launch
@@ -677,7 +682,7 @@ HTTP API (Go 1.22 method patterns):
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
 - `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
-  phase 2): pi plus Claude Code, Codex, Grok and Hermes Agent, read-only from disk
+  phase 2): pi plus Claude Code, Codex, Grok, Hermes Agent and OpenCode, read-only from disk
   (`internal/clisession`), each row with size/age/messages and
   server-verified resume arguments, tagged with the PiCode workspace that
   owns its folder. For pi the row also carries `inUseBy` (the agent whose
@@ -852,7 +857,9 @@ server is on another format.
 
 Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
 scoped wrappers inject Claude, Codex, Grok, Hermes Agent (PYTHONPATH
-sitecustomize, no `HERMES_HOME` overlay), or manual Pi TUI hooks; a wrapper
+sitecustomize, no `HERMES_HOME` overlay), OpenCode (presence lease only in
+this release; no data-dir overlay and no write to `~/.config/opencode`),
+or manual Pi TUI hooks; a wrapper
 lease becomes `terminal.runtime`, while lifecycle reports become
 `terminal.state` feed events. The lease carries a canonical CLI, run id, PID,
 and process start token when available. The server watcher removes a lease

@@ -1,8 +1,10 @@
 // Package clisession is a read-only index of coding-CLI session files
 // (ADR-0079 phase 2): pi JSONL under ~/.pi/agent/sessions, Claude Code
 // transcripts under ~/.claude/projects, Codex rollouts under
-// ~/.codex/sessions, Grok prompt history under ~/.grok/sessions and
-// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db).
+// ~/.codex/sessions, Grok prompt history under ~/.grok/sessions,
+// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db) and
+// OpenCode rows in ~/.local/share/opencode/opencode.db (or
+// $XDG_DATA_HOME/opencode/opencode.db).
 // Nothing here writes, deletes or resumes; it only lists what is on disk.
 package clisession
 
@@ -17,9 +19,9 @@ import (
 )
 
 // Summary is one session of one CLI, enough for the sessions picker.
-// Cost is intentionally pi-only on this surface: Claude Code, Codex, Grok
-// and Hermes listings do not populate it. Hermes stores spend in state.db,
-// but the guest session row does not render cost.
+// Cost is intentionally pi-only on this surface: Claude Code, Codex, Grok,
+// Hermes and OpenCode listings do not populate it. Hermes and OpenCode store
+// spend in SQLite, but the guest session row does not render cost.
 type Summary struct {
 	CLI        string   `json:"cli"`
 	ID         string   `json:"id"`
@@ -47,7 +49,7 @@ type Source interface {
 // Sources returns every registered source keyed by catalog CLI id.
 func Sources() map[string]Source {
 	out := map[string]Source{}
-	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}} {
+	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}, OpenCodeSource{}} {
 		out[s.CLI()] = s
 	}
 	return out

@@ -2,7 +2,7 @@
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
 phone. It manages terminals — and lists each CLI's session history — for
-your installed Pi, Claude Code, Codex, Grok and Hermes Agent commands. Managed agents,
+your installed Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Managed agents,
 structured chat, packages and automations still use Pi; a CLI terminal is
 not a new type of managed agent.
 
@@ -63,7 +63,7 @@ The **Sessions** tab lists the sessions each CLI left on disk, grouped by
 folder. Pick the CLI in the toolbar and search by name, preview or folder.
 **Open in terminal** starts that CLI again in the session's folder; the
 exact arguments come from the CLI itself (for example `claude --resume`,
-`hermes --resume`).
+`hermes --resume`, `opencode --session`).
 
 Pi sessions add management actions: **Open with…** moves one of the
 folder's agents to that session, **Compact** summarizes its older turns,
@@ -103,7 +103,7 @@ means unverified, even when a CLI process is present.
 When a newer release exists, the CLI's row shows an **Update** badge and its
 detail page offers **Update**. PiCode runs each CLI's own update command —
 `pi update`, `claude update`, `codex update`, `grok update`,
-`hermes update` — plus npm for npm-installed tools. Update checks refresh on
+`hermes update`, `opencode upgrade` — plus npm for npm-installed tools. Update checks refresh on
 demand and when the saved check is older than six hours.
 
 | What you see | What it means |
@@ -119,8 +119,8 @@ demand and when the saved check is older than six hours.
 that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
-**Uninstall** runs the CLI's own uninstall command (Hermes Agent) or npm's
-for npm-installed tools, after you type the CLI's name. Grok and a native
+**Uninstall** runs the CLI's own uninstall command (Hermes Agent, OpenCode)
+or npm's for npm-installed tools, after you type the CLI's name. Grok and a native
 Claude Code install have no uninstall command; PiCode links their official
 guide instead. Uninstalling never touches your settings or conversations
 beyond what the CLI's own uninstaller does.
@@ -131,7 +131,7 @@ beyond what the CLI's own uninstaller does.
 |---|---|
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
-| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
+| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |

@@ -1,7 +1,7 @@
 package server
 
 // Terminal CLI intercept (ADR-0056, owner 2026-09-03): never write the
-// user's ~/.claude / ~/.codex / ~/.grok / ~/.hermes / ~/.pi. PiCode terminals prepend
+// user's ~/.claude / ~/.codex / ~/.grok / ~/.hermes / ~/.config/opencode / ~/.pi. PiCode terminals prepend
 // <dataDir>/bin to PATH at tmux session creation; wrappers there exec
 // the real binary with launch-time injection (args, extension, or overlay).
 // Lifecycle-aware wrappers remain a small shell parent so they can announce
@@ -163,6 +163,12 @@ func wrapperLifecycle(hook string) string {
 // "not an interactive chat/TUI". Kept in one place so the presence lease and
 // PYTHONPATH passthrough skip the same names.
 const hermesMaintenanceCommands = `setup|model|moa|fallback|secrets|migrate|gateway|proxy|lsp|postinstall|whatsapp|whatsapp-cloud|slack|send|login|logout|auth|status|cron|webhook|portal|kanban|project|hooks|doctor|security|dump|debug|backup|checkpoints|import|config|console|pairing|skills|bundles|plugins|curator|pets|journey|learning|memory-graph|memory|tools|computer-use|mcp|sessions|insights|claw|version|update|uninstall|acp|profile|completion|dashboard|serve|desktop|gui|logs|prompt-size`
+
+// opencodeMaintenanceCommands is the first positional after flags that means
+// "not the interactive TUI". A path positional is the TUI project argument,
+// not a subcommand. Kept in one place so the presence lease skips the same
+// names the activity-plugin passthrough will skip in a later step.
+const opencodeMaintenanceCommands = `session|auth|providers|mcp|models|serve|web|acp|plugin|plug|db|upgrade|uninstall|github|stats|export|import|completion|agent|debug|run|attach|pr`
 
 const wrapperLifecycleEnd = `rc=$?
 if [ "$picode_tui" = 1 ] && [ -n "${PICODE_TUI_RUN_ID-}" ]; then
@@ -598,6 +604,42 @@ done
 	return writeExecutable(wrapperPath(dataDir, "hermes"), body)
 }
 
+func writeOpencodeIntercept(dataDir, hook string) error {
+	passthrough := strings.Replace(`# Named maintenance subcommands skip the presence lease, even when flags
+# precede them (opencode --log-level DEBUG session list). A path positional
+# is the TUI project argument, not a subcommand. Session ids after
+# --session/-s are not subcommands.
+picode_take=
+for picode_arg in "$@"; do
+  if [ -n "$picode_take" ]; then
+    picode_take=
+    continue
+  fi
+  case "$picode_arg" in
+    -s|--session|-m|--model|--agent|--prompt|--port|--hostname|--mdns-domain|--cors|--log-level|--replay-limit)
+      picode_take=1
+      continue
+      ;;
+    --session=*|--model=*|--agent=*|--prompt=*|--port=*|--hostname=*|--mdns-domain=*|--cors=*|--log-level=*|--replay-limit=*)
+      continue
+      ;;
+    --|-*) continue ;;
+    OPENCODE_MAINT)
+      exec "$real" "$@"
+      ;;
+    *) break ;;
+  esac
+done
+`, "OPENCODE_MAINT", opencodeMaintenanceCommands, 1)
+	body := "#!/bin/sh\n# PiCode intercept — OpenCode. Session PATH only. No data-dir overlay; no user config write.\nname=opencode\n" +
+		wrapperFindReal +
+		passthrough +
+		wrapperLifecycle(hook) +
+		"\"$real\" \"$@\"\n" +
+		wrapperLifecycleEnd
+	return writeExecutable(wrapperPath(dataDir, "opencode"), body)
+}
+
 func removeWrapper(dataDir, binName string) {
 	_ = os.Remove(wrapperPath(dataDir, binName))
 }
@@ -636,6 +678,10 @@ func installIntercept(dataDir, cliID string) error {
 		if err := writeHermesIntercept(dataDir, hook); err != nil {
 			return err
 		}
+	case "opencode":
+		if err := writeOpencodeIntercept(dataDir, hook); err != nil {
+			return err
+		}
 	case "pi":
 		if err := writePiIntercept(dataDir, hook); err != nil {
 			return err
@@ -659,6 +705,8 @@ func uninstallIntercept(dataDir, cliID string) error {
 		removeWrapper(dataDir, "grok")
 	case "hermes":
 		removeWrapper(dataDir, "hermes")
+	case "opencode":
+		removeWrapper(dataDir, "opencode")
 	case "pi":
 		removeWrapper(dataDir, "pi")
 		_ = os.Remove(piTerminalStateExtensionFile(dataDir))

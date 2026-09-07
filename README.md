@@ -42,7 +42,7 @@ configuring and steering a fleet of Pi agents. It does not replace Pi. Every
 agent is a real `pi` process, and the genuine Pi TUI remains one tab away.
 
 PiCode is growing toward a multi-CLI ADE. Today, managed agents remain Pi;
-Claude Code, Codex, Grok, Hermes Agent and manual Pi sessions run in managed terminals.
+Claude Code, Codex, Grok, Hermes Agent, OpenCode and manual Pi sessions run in managed terminals.
 The Agent CLIs central manager controls their launches and activity reporting,
 without turning those terminals into Pi agents.
 

@@ -233,6 +233,12 @@ func wiringRows(dataDir string) []wiringRow {
 			Note:      "Session PYTHONPATH hooks; no HERMES_HOME overlay. Auth stays yours.",
 		},
 		{
+			ID: "opencode", Label: "OpenCode", Bin: "opencode",
+			Installed: installedOnPath("opencode"),
+			Wired:     interceptWired(dataDir, "opencode", "opencode"),
+			Note:      "Presence lease only. Does not write ~/.config/opencode or overlay the data dir.",
+		},
+		{
 			ID: "pi", Label: "Pi", Bin: "pi",
 			Installed: installedOnPath("pi"),
 			Wired:     interceptWired(dataDir, "pi", "pi"),

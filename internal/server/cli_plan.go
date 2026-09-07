@@ -44,6 +44,8 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Environment["PICODE_HERMES_HOOK"] = hook + " auto hermes"
 		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not setup/model/auth/…)", Args: []string{"--accept-hooks"}})
 		p.Files = append(p.Files, filepath.Join(hermesPythonDir(dir), "sitecustomize.py"))
+	case "opencode":
+		p.Summary = "Presence lease in PiCode terminals. Activity hooks are not injected yet."
 	}
 	return p
 }

@@ -60,6 +60,10 @@ func TestCLISessionsEndpointDecisionTable(t *testing.T) {
 	if n := len(empty["sessions"].([]any)); n != 0 {
 		t.Errorf("hermes on an empty machine returned %d rows, want 0", n)
 	}
+	empty = cliRequest(t, ts, "GET", "/api/clis/opencode/sessions", nil, 200)
+	if n := len(empty["sessions"].([]any)); n != 0 {
+		t.Errorf("opencode on an empty machine returned %d rows, want 0", n)
+	}
 
 	// Claude listing: parsed, workspace-tagged, broken file skipped.
 	got := cliRequest(t, ts, "GET", "/api/clis/claude-code/sessions", nil, 200)
@@ -120,6 +124,8 @@ func TestCLISessionsPiOnlyGuards(t *testing.T) {
 		{http.MethodGet, "/api/clis/claude-code/sessions/cleanup"},
 		{http.MethodPost, "/api/clis/hermes/sessions/delete"},
 		{http.MethodPost, "/api/clis/hermes/sessions/adopt"},
+		{http.MethodPost, "/api/clis/opencode/sessions/delete"},
+		{http.MethodPost, "/api/clis/opencode/sessions/adopt"},
 	} {
 		res := postJSONMethod(t, ts, row.method, row.path, map[string]any{"path": "x", "days": 1})
 		if res.StatusCode != http.StatusBadRequest {

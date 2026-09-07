@@ -732,7 +732,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	}
 	hookLog := filepath.Join(root, "hooks.log")
 	realLog := filepath.Join(root, "real.log")
-	for _, cli := range []string{"claude-code", "codex", "grok", "hermes", "pi"} {
+	for _, cli := range []string{"claude-code", "codex", "grok", "hermes", "opencode", "pi"} {
 		if err := installIntercept(dataDir, cli); err != nil {
 			t.Fatalf("install %s: %v", cli, err)
 		}
@@ -741,7 +741,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	if err := writeExecutable(hook, "#!/bin/sh\nprintf '%s|%s|%s|%s\\n' \"$1\" \"$2\" \"$3\" \"$4\" >> \"$PICODE_TEST_HOOK_LOG\"\n"); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"claude", "codex", "grok", "hermes", "pi"} {
+	for _, name := range []string{"claude", "codex", "grok", "hermes", "opencode", "pi"} {
 		path := filepath.Join(root, name)
 		body := "#!/bin/sh\nprintf '%s|%s\\n' \"" + name + "\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"
 		if name == "grok" {
@@ -771,11 +771,12 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 		{cli: "codex", args: []string{"hello"}},
 		{cli: "grok", args: []string{"hello"}, wantErr: true},
 		{cli: "hermes", args: []string{"--tui"}},
+		{cli: "opencode", args: []string{"--session", "ses_test"}},
 		{cli: "pi", args: []string{"hello"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.cli, func(t *testing.T) {
-			name := map[string]string{"claude-code": "claude", "codex": "codex", "grok": "grok", "hermes": "hermes", "pi": "pi"}[tc.cli]
+			name := map[string]string{"claude-code": "claude", "codex": "codex", "grok": "grok", "hermes": "hermes", "opencode": "opencode", "pi": "pi"}[tc.cli]
 			cmd := exec.Command(wrapperPath(dataDir, name), tc.args...)
 			cmd.Env = append(os.Environ(),
 				"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
@@ -792,7 +793,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, cli := range []string{"claude", "codex", "grok", "hermes", "pi"} {
+	for _, cli := range []string{"claude", "codex", "grok", "hermes", "opencode", "pi"} {
 		if !strings.Contains(string(got), "runtime-start|"+cli+"|") || !strings.Contains(string(got), "runtime-end|"+cli+"|") {
 			t.Fatalf("%s lifecycle = %q", cli, got)
 		}
@@ -801,6 +802,108 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 		t.Fatal(err)
 	} else if !strings.Contains(string(real), "pi|-e "+piTerminalStateExtensionFile(dataDir)+" hello") {
 		t.Fatalf("real argv did not preserve Pi injection: %q", real)
+	}
+}
+
+func TestInterceptOpencodePresenceNoUserConfig(t *testing.T) {
+	ts, dataDir := wiringTestServer(t)
+	if res := postJSON(t, ts, "/api/terminals/wiring/opencode/enable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("opencode enable = %d", res.StatusCode)
+	}
+	body, err := os.ReadFile(wrapperPath(dataDir, "opencode"))
+	if err != nil {
+		t.Fatalf("opencode wrapper missing: %v", err)
+	}
+	got := string(body)
+	if !strings.Contains(got, "name=opencode") || !strings.Contains(got, "runtime-start") {
+		t.Fatalf("opencode wrapper missing presence lease:\n%s", got)
+	}
+	if strings.Contains(got, "XDG_DATA_HOME=") || strings.Contains(got, "OPENCODE_CONFIG=") {
+		t.Fatalf("opencode wrapper must not overlay data dir or config:\n%s", got)
+	}
+	home, _ := os.UserHomeDir()
+	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "opencode.jsonc")); !os.IsNotExist(err) {
+		t.Fatalf("enable must not write ~/.config/opencode/opencode.jsonc: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "plugins")); !os.IsNotExist(err) {
+		t.Fatalf("enable must not create ~/.config/opencode/plugins: %v", err)
+	}
+	var page struct {
+		Clis []wiringRow `json:"clis"`
+	}
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/wiring"))
+	_ = json.NewDecoder(res.Body).Decode(&page)
+	var row *wiringRow
+	for i := range page.Clis {
+		if page.Clis[i].ID == "opencode" {
+			row = &page.Clis[i]
+		}
+	}
+	if row == nil || !row.Wired || !strings.Contains(row.Note, "Presence lease") {
+		t.Fatalf("opencode wiring = %+v", page.Clis)
+	}
+}
+
+func TestOpencodeMaintenanceSkipsPresenceLease(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not on PATH")
+	}
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOpencodeIntercept(dataDir, hookScriptPath(dataDir)); err != nil {
+		t.Fatal(err)
+	}
+	hookLog := filepath.Join(root, "hooks.log")
+	realLog := filepath.Join(root, "real.log")
+	if err := writeExecutable(hookScriptPath(dataDir), "#!/bin/sh\nprintf '%s|%s\\n' \"$1\" \"$2\" >> \"$PICODE_TEST_HOOK_LOG\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeExecutable(filepath.Join(root, "opencode"), "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("sh", "-n", wrapperPath(dataDir, "opencode")).CombinedOutput(); err != nil {
+		t.Fatalf("wrapper syntax: %v: %s", err, out)
+	}
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(wrapperPath(dataDir, "opencode"), args...)
+		cmd.Env = append(os.Environ(),
+			"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
+			"PICODE_TERM_ID=terminal-test",
+			"PICODE_TEST_HOOK_LOG="+hookLog,
+			"PICODE_TEST_REAL_LOG="+realLog,
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("wrapper %v: %v: %s", args, err, out)
+		}
+	}
+	run("session", "list")
+	run("--log-level", "DEBUG", "auth", "list")
+	got, err := os.ReadFile(hookLog)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(got), "runtime-start") {
+		t.Fatalf("maintenance must not take a presence lease:\n%s", got)
+	}
+	real, err := os.ReadFile(realLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(real), "session list") || !strings.Contains(string(real), "auth list") {
+		t.Fatalf("real argv: %q", real)
+	}
+	run("/tmp/some-project")
+	run("--session", "ses_x")
+	got, err = os.ReadFile(hookLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "runtime-start|opencode") {
+		t.Fatalf("TUI project path and --session must take a presence lease:\n%s", got)
 	}
 }
 

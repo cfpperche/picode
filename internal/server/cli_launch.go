@@ -799,6 +799,8 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			err = writeGrokIntercept(dir, hook)
 		case "hermes":
 			err = writeHermesIntercept(dir, hook)
+		case "opencode":
+			err = writeOpencodeIntercept(dir, hook)
 		}
 		if err != nil {
 			return nil, err

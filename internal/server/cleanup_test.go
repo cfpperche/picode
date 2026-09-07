@@ -29,6 +29,7 @@ func cleanupServer(t *testing.T) (ts *httptest.Server, dataDir, home string) {
 	}
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_DATA_HOME", "")
 
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {

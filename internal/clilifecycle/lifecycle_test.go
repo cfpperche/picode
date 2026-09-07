@@ -16,6 +16,7 @@ func TestDetectMethodDecisionTable(t *testing.T) {
 		{"/home/u/.claude/local/claude", MethodUnknown},
 		{"/home/u/.grok/downloads/grok-1.0.13-linux-x86_64", MethodVendor},
 		{"/home/u/.hermes/hermes-agent/venv/bin/hermes", MethodGit},
+		{"/home/u/.bun/install/global/node_modules/opencode-ai/bin/opencode.exe", MethodNpm},
 		{"/opt/homebrew/bin/codex", MethodUnknown},
 		{"", MethodUnknown},
 	}
@@ -46,6 +47,8 @@ func TestForDecisionTable(t *testing.T) {
 		{"grok", "npm", false, "", nil, nil, "", nil},
 		{"hermes", "git", true, "vendor", []string{"update", "--yes"}, []string{"update", "--force", "--yes"}, "vendor", []string{"uninstall", "--yes"}},
 		{"hermes", "unknown", false, "", nil, nil, "", nil},
+		{"opencode", "npm", true, "npm", []string{"upgrade"}, []string{"upgrade"}, "vendor", []string{"uninstall", "--keep-config", "--keep-data", "--force"}},
+		{"opencode", "unknown", false, "", nil, nil, "", nil},
 	}
 	for _, c := range cases {
 		p, ok := For(c.cli, Method(c.method))

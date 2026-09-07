@@ -27,6 +27,7 @@ func Catalog() []CLI {
 		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli"},
 		{"grok", "Grok", "grok", "https://grok.com/build"},
 		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation"},
+		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs"},
 	}
 }
 

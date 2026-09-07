@@ -68,6 +68,11 @@ type spec struct {
 	// npm-managed installs (claude update → "use npm"). Their update and
 	// reinstall go through npm instead.
 	npmUpdateOnly bool
+	// vendorOnNpm keeps vendor update/reinstall/uninstall argv when
+	// DetectMethod returns npm. OpenCode's bun global lives under
+	// node_modules, but `opencode upgrade` / `opencode uninstall` are the
+	// installer-aware commands; npm install/remove -g would miss bun.
+	vendorOnNpm bool
 }
 
 // plans maps each catalogued CLI to its vendor lifecycle shapes. npm is
@@ -102,6 +107,14 @@ var plans = map[string]spec{
 		reinstallArgs: []string{"update", "--force", "--yes"},
 		uninstall:     UninstallVendor,
 		uninstallArgs: []string{"uninstall", "--yes"},
+	},
+	"opencode": {
+		npmPackage:    "opencode-ai",
+		updateArgs:    []string{"upgrade"},
+		reinstallArgs: []string{"upgrade"},
+		uninstall:     UninstallVendor,
+		uninstallArgs: []string{"uninstall", "--keep-config", "--keep-data", "--force"},
+		vendorOnNpm:   true,
 	},
 }
 
@@ -143,6 +156,18 @@ func For(cliID string, m Method) (Plan, bool) {
 		p.Uninstall = UninstallNpm
 		p.UninstallArgs = []string{"remove", "-g", s.npmPackage}
 		p.Docs = ""
+		return p, true
+	}
+	if m == MethodNpm && s.vendorOnNpm {
+		if s.npmPackage == "" {
+			return Plan{CLI: cliID, Method: m, Uninstall: UninstallNone}, false
+		}
+		p.NpmPackage = s.npmPackage
+		p.LatestFrom = "npm"
+		p.UpdateArgs = s.updateArgs
+		p.ReinstallArgs = s.reinstallArgs
+		p.Uninstall = s.uninstall
+		p.UninstallArgs = s.uninstallArgs
 		return p, true
 	}
 	if m == MethodNpm {

@@ -23,6 +23,16 @@ to the `[Unreleased]` section. The repository's official language is English
   official guide instead of controls. Jobs survive daemon restarts as
   `interrupted` — never replayed.
 
+- **OpenCode in Agent CLIs**: the catalog launches the installed `opencode`
+  command in a terminal, lists top-level sessions from
+  `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
+  read-only, and resumes with `opencode --session <id>`. Activity reporting
+  is a presence lease in this release — vendor activity hooks land next,
+  without writing `~/.config/opencode` or overlaying the data directory.
+  Update/reinstall/uninstall use `opencode upgrade` and
+  `opencode uninstall --keep-config --keep-data --force` (the vendor
+  commands, including bun-global installs classified as npm by path).
+
 - **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
   command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
   read-only, and resumes with `hermes --resume <id>`. Activity reporting is

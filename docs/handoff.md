@@ -41,9 +41,9 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/llama-service` — explicit execution settings and binary pins.
-- `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
-- `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/opencode-cli` — PR1 catalog/sessions/presence; activity plugin is PR2.
+- `feat/llama-service` / `feat/llama-guidance` — llama settings, pins, delivery 3.
+- `feat/picode-feature-video` — skills record clicks, not slideshows.
 
 ## Next up
 

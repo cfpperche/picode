@@ -125,6 +125,8 @@ func normalizeTerminalCLI(id string) string {
 		return "grok"
 	case "hermes":
 		return "hermes"
+	case "opencode":
+		return "opencode"
 	case "pi":
 		return "pi"
 	default:
@@ -380,7 +382,7 @@ func handleSetTerminalRuntime(deps Deps) http.HandlerFunc {
 		case "start":
 			cli := normalizeTerminalCLI(req.CLI)
 			if cli == "" {
-				writeErr(w, http.StatusBadRequest, "cli must be claude-code, codex, grok or pi")
+				writeErr(w, http.StatusBadRequest, "cli must be claude-code, codex, grok, hermes, opencode or pi")
 				return
 			}
 			if runID == "" || len(runID) > runtimeRunIDCap {
