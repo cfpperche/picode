@@ -20,6 +20,12 @@
   all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+- **CLI lifecycle (ADR-0087):** the Agent CLIs surface shows update badges
+  (npm registry or vendor `--check`) and runs each CLI's own
+  update/reinstall/uninstall command as a durable `cli_jobs` lane with
+  streamed output, terminal guards and typed uninstall confirmation;
+  interrupted jobs never replay. Unknown install methods (Homebrew, manual
+  checkouts) get docs links, not controls.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083: durable
@@ -78,6 +84,9 @@
   fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
+- CLI lifecycle: npm registry data can lag native Claude releases by hours
+  (the badge names the source); grok uninstall is guided-only; Windows-native
+  host paths are out of scope (ADR-0087).
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Tutorial video freshness audits are stale after source relocation;
   recapture/render is explicit. Branch protection and CODEOWNERS need the
