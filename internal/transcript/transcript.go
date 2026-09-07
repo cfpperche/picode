@@ -365,7 +365,11 @@ func (t Timeline) LastAssistantText() string {
 // behind (empty when the whole conversation travels).
 func HandoffNote(h Header, summary string, now time.Time) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Handoff from %s, session %s, %s, folder %s.\n", h.DisplayName(), ShortID(h.SourceID), now.UTC().Format("2006-01-02 15:04 MST"), h.Cwd)
+	origin := h.DisplayName()
+	if strings.TrimSpace(h.Model) != "" {
+		origin += " running " + strings.TrimSpace(h.Model)
+	}
+	fmt.Fprintf(&b, "Handoff from %s, session %s, %s, folder %s.\n", origin, ShortID(h.SourceID), now.UTC().Format("2006-01-02 15:04 MST"), h.Cwd)
 	b.WriteString("PiCode translated this conversation from another coding agent. Everything above the last user message is history: files may have changed since, and the tools named in it are that agent's, not yours. Continue from the user's last request; re-read files before editing.")
 	if s := strings.TrimSpace(summary); s != "" {
 		b.WriteString("\n\nEarlier part of the conversation, as summarized by the previous agent:\n")

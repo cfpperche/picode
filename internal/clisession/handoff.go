@@ -2,6 +2,7 @@ package clisession
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -471,9 +472,24 @@ func newestFile(paths []string) string {
 	return best
 }
 
+// marshalNative encodes a record the way the CLIs write their own files:
+// compact, and without Go's HTML escaping, so a `<user_query>` or a
+// `<system-reminder>` in the text reads as itself rather than as
+// \u003c escapes. Both are valid JSON; matching the vendor's shape keeps
+// a written session indistinguishable from one the CLI produced.
+func marshalNative(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
 // jsonLine marshals one record and appends a newline.
 func jsonLine(b *strings.Builder, v any) error {
-	raw, err := json.Marshal(v)
+	raw, err := marshalNative(v)
 	if err != nil {
 		return err
 	}

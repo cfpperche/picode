@@ -145,7 +145,7 @@ func grokFolder(root, encName, dir string) []Summary {
 }
 
 func (GrokSource) Read(ctx context.Context, ref Ref) (transcript.Timeline, error) {
-	root := filepath.Join(homeDir(), ".grok", "sessions")
+	root := grokSessionsRoot()
 	dir := grokSessionDir(root, ref)
 	if dir == "" || !underRoot(root, dir) {
 		return transcript.Timeline{}, ErrNotUnderRoot

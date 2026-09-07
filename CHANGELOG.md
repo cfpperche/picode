@@ -25,6 +25,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Every Agent CLI can now receive a session handoff** (ADR-0094). OpenCode
+  joins as a source and a target, Grok gains a native session (a live probe
+  showed `summary.json` and `chat_history.jsonl` are all `--resume` needs),
+  and Hermes becomes a target through `hermes sessions import`. For the two
+  SQLite-backed CLIs PiCode hands the conversation to the vendor's own
+  import command instead of writing their store, then reads the session
+  back. A written session records the model of the installation that will
+  answer next, never the source's, which Grok refused and Claude Code could
+  not restore; the source model rides in the handoff note instead.
+
 - **llama.cpp installation cleanup:** desktop and mobile can review and remove
   verified older installations while retaining the current version, restoration
   version and unknown files.
@@ -99,8 +109,8 @@ to the `[Unreleased]` section. The repository's official language is English
   Update/reinstall/uninstall use `opencode upgrade` and
   `opencode uninstall --keep-config --keep-data --force` (the vendor
   commands, including bun-global installs classified as npm by path).
-  OpenCode lists sessions for the Sessions tab; native read/write handoff
-  is not implemented yet (list-only).
+  OpenCode lists sessions for the Sessions tab, and gives and receives a
+  handoff (see below).
 
 - **Continue a session in another Agent CLI** (ADR-0088): the Sessions tab
   offers "Continue in <CLI>…" for every CLI the server says can receive the

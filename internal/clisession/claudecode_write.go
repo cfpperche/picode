@@ -24,6 +24,10 @@ import (
 
 var claudeNonAlnum = regexp.MustCompile(`[^A-Za-z0-9]`)
 
+// claudeProjectsRoot is ~/.claude/projects, where Claude Code keeps one
+// directory of transcripts per folder.
+func claudeProjectsRoot() string { return filepath.Join(homeDir(), ".claude", "projects") }
+
 // claudeProjectDir is Claude Code's directory name for a folder: every
 // byte outside [A-Za-z0-9] becomes "-" (observed: /home/goat/picode →
 // -home-goat-picode).
@@ -31,52 +35,44 @@ func claudeProjectDir(cwd string) string {
 	return claudeNonAlnum.ReplaceAllString(filepath.Clean(cwd), "-")
 }
 
-// claudeNewestVersion reads the "version" of the most recent transcript on
-// this machine — the format marker the installed CLI last wrote.
-func claudeNewestVersion(root string) string {
+// claudeNewestFacts reads the "version" and the newest assistant model
+// from the most recent transcript on this machine: the format marker the
+// installed CLI last wrote, and a model it can actually serve.
+func claudeNewestFacts(root string) (version, model string) {
 	newest := newestFile(jsonlFiles(root))
 	if newest == "" {
-		return ""
+		return "", ""
 	}
-	version := ""
 	n := 0
 	_ = scanLines(newest, func(line []byte) {
-		if version != "" || n > 200 {
+		if n > 2000 {
 			return
 		}
 		n++
 		var raw struct {
 			Version string `json:"version"`
+			Message struct {
+				Model string `json:"model"`
+			} `json:"message"`
 		}
-		if json.Unmarshal(line, &raw) == nil && raw.Version != "" {
+		if json.Unmarshal(line, &raw) != nil {
+			return
+		}
+		if version == "" && raw.Version != "" {
 			version = raw.Version
 		}
+		if raw.Message.Model != "" {
+			model = raw.Message.Model
+		}
 	})
-	return version
+	return version, model
 }
 
-func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req WriteRequest) (Summary, error) {
-	if strings.TrimSpace(req.Cwd) == "" {
-		return Summary{}, fmt.Errorf("a folder is required")
-	}
-	root := filepath.Join(homeDir(), ".claude", "projects")
-	version := strings.TrimSpace(req.FormatVersion)
-	if version == "" {
-		version = claudeNewestVersion(root)
-	}
-	if version == "" {
-		return Summary{}, ErrUnknownFormat
-	}
-	t = t.Prepare()
-	sid := req.SessionID
-	if sid == "" {
-		sid = transcript.NewID()
-	}
-	now := req.resolvedNow()
-	cwd := filepath.Clean(req.Cwd)
-	dir := filepath.Join(root, claudeProjectDir(cwd))
-	path := filepath.Join(dir, sid+".jsonl")
-
+// claudeTranscript renders a prepared timeline as Claude Code JSONL: the
+// bytes of one transcript file, plus the events it actually emitted.
+// ClaudeCodeSource.Write puts them in Claude's own store; the Hermes
+// writer hands the same bytes to `hermes sessions import` (ADR-0094).
+func claudeTranscript(t transcript.Timeline, sid, cwd, version, model string, textTools bool, now time.Time) ([]byte, []transcript.Event, error) {
 	var b strings.Builder
 	var emitted []transcript.Event
 	var werr error
@@ -120,7 +116,6 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 		record("user", at, map[string]any{"role": "user", "content": []any{map[string]any{"type": "text", "text": text}}})
 		emitted = append(emitted, transcript.Event{Kind: transcript.KindMessage, Role: "user"})
 	}
-	model := t.Header.Model
 	walkTurns(t.Events,
 		func(e transcript.Event) { userText(e.Text, e.Timestamp) },
 		func(turn assistantTurn) {
@@ -132,7 +127,7 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 					content = append(content, map[string]any{"type": "text", "text": blk.Text})
 					emitted = append(emitted, transcript.Event{Kind: transcript.KindMessage, Role: "assistant"})
 				case transcript.KindToolCall:
-					if req.textTools() {
+					if textTools {
 						content = append(content, map[string]any{"type": "text", "text": toolCallText(blk.Call)})
 						emitted = append(emitted, transcript.Event{Kind: transcript.KindMessage, Role: "assistant"})
 						continue
@@ -145,30 +140,26 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 			if len(content) == 0 {
 				return
 			}
-			m := turn.Model
-			if m == "" {
-				m = model
-			}
-			if m == "" {
-				m = "unknown"
-			}
 			stop := "end_turn"
 			if hasCall {
 				stop = "tool_use"
 			}
-			record("assistant", turn.Timestamp, map[string]any{
+			assistant := map[string]any{
 				"id":            "msg_" + transcript.RandomAlnum(24),
 				"type":          "message",
 				"role":          "assistant",
-				"model":         m,
 				"content":       content,
 				"stop_reason":   stop,
 				"stop_sequence": nil,
 				"usage":         map[string]any{"input_tokens": 0, "output_tokens": 0},
-			})
+			}
+			if model != "" {
+				assistant["model"] = model
+			}
+			record("assistant", turn.Timestamp, assistant)
 		},
 		func(e transcript.Event) {
-			if req.textTools() {
+			if textTools {
 				userText(toolResultText(e.Result), e.Timestamp)
 				return
 			}
@@ -182,12 +173,45 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 		},
 	)
 	if werr != nil {
-		return Summary{}, werr
+		return nil, nil, werr
 	}
 	if len(emitted) == 0 {
-		return Summary{}, fmt.Errorf("nothing to hand off: the conversation has no turns")
+		return nil, nil, fmt.Errorf("nothing to hand off: the conversation has no turns")
 	}
-	if err := writeNewFile(path, []byte(b.String())); err != nil {
+	return []byte(b.String()), emitted, nil
+}
+
+func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req WriteRequest) (Summary, error) {
+	if strings.TrimSpace(req.Cwd) == "" {
+		return Summary{}, fmt.Errorf("a folder is required")
+	}
+	root := claudeProjectsRoot()
+	localVersion, localModel := claudeNewestFacts(root)
+	version := strings.TrimSpace(req.FormatVersion)
+	if version == "" {
+		version = localVersion
+	}
+	if version == "" {
+		return Summary{}, ErrUnknownFormat
+	}
+	t = t.Prepare()
+	sid := req.SessionID
+	if sid == "" {
+		sid = transcript.NewID()
+	}
+	now := req.resolvedNow()
+	cwd := filepath.Clean(req.Cwd)
+	path := filepath.Join(root, claudeProjectDir(cwd), sid+".jsonl")
+	// The model on a written record names what answers next, so it is this
+	// installation's own; the source's model rides in the handoff note. A
+	// live probe showed the alternative: Grok refused a foreign model id
+	// and switched, and Claude Code reports a session model it cannot
+	// restore.
+	body, emitted, err := claudeTranscript(t, sid, cwd, version, localModel, req.textTools(), now)
+	if err != nil {
+		return Summary{}, err
+	}
+	if err := writeNewFile(path, body); err != nil {
 		return Summary{}, err
 	}
 	ref := Ref{ID: sid, Path: path, Cwd: cwd}
@@ -207,6 +231,6 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 		Preview:    preview(t),
 		Messages:   transcript.Timeline{Events: emitted}.Counts().Messages,
 		Size:       fileSize(path),
-		Model:      model,
+		Model:      localModel,
 	}, nil
 }

@@ -65,14 +65,11 @@ func (PISource) Write(ctx context.Context, t transcript.Timeline, req WriteReque
 	if name := title(t); name != "" {
 		entry(now, map[string]any{"type": "session_info", "name": name})
 	}
+	// pi resumes with the agent's own provider and model (PiCode sets those
+	// on the adopted agent), so these fields only annotate history: the
+	// source's values when it recorded them, nothing invented otherwise.
 	provider := t.Header.Provider
-	if provider == "" {
-		provider = t.Header.SourceCLI
-	}
 	model := t.Header.Model
-	if model == "" {
-		model = "unknown"
-	}
 	ids := map[string]string{}
 	callID := func(src string) string {
 		if id, ok := ids[src]; ok {
@@ -125,16 +122,21 @@ func (PISource) Write(ctx context.Context, t transcript.Timeline, req WriteReque
 			if hasCall {
 				stop = "toolUse"
 			}
-			entry(turn.Timestamp, map[string]any{"type": "message", "message": map[string]any{
+			msg := map[string]any{
 				"role":       "assistant",
 				"content":    content,
 				"api":        "handoff",
-				"provider":   provider,
-				"model":      m,
 				"usage":      zeroUsage,
 				"stopReason": stop,
 				"timestamp":  millis(turn.Timestamp),
-			}})
+			}
+			if provider != "" {
+				msg["provider"] = provider
+			}
+			if m != "" {
+				msg["model"] = m
+			}
+			entry(turn.Timestamp, map[string]any{"type": "message", "message": msg})
 		},
 		func(e transcript.Event) {
 			if req.textTools() {

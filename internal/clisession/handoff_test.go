@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -70,8 +71,8 @@ func TestCapabilitiesOf(t *testing.T) {
 		"pi":          {List: true, Read: true, Write: true, Prompt: true},
 		"claude-code": {List: true, Read: true, Write: true, Prompt: true},
 		"codex":       {List: true, Read: true, Write: true, Prompt: true},
-		"grok":        {List: true, Read: true, Write: false, Prompt: true},
-		"hermes":      {List: true, Read: true, Write: false, Prompt: false},
+		"grok":        {List: true, Read: true, Write: true, Prompt: true},
+		"hermes":      {List: true, Read: true, Write: true, Prompt: false},
 		"opencode":    {List: true, Read: true, Write: true, Prompt: true},
 		"nope":        {},
 	}
@@ -426,8 +427,14 @@ func TestClaudeWriteRoundTrip(t *testing.T) {
 	if filepath.Dir(got.Path) != wantDir || filepath.Base(got.Path) != got.ID+".jsonl" {
 		t.Fatalf("path = %s", got.Path)
 	}
-	if !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 || got.Model != "claude-sonnet-5" {
+	// No transcript on this machine to learn a model from, so none is
+	// claimed: the source's model belongs to the handoff note, not to a
+	// record that says what answers next.
+	if !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 || got.Model != "" {
 		t.Fatalf("summary = %+v", got)
+	}
+	if body, _ := os.ReadFile(got.Path); strings.Contains(string(body), "claude-sonnet-5") {
+		t.Fatal("the source's model must not be written as this session's model")
 	}
 	raw, _ := os.ReadFile(got.Path)
 	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
@@ -482,6 +489,10 @@ func TestClaudeWriteProbesVersionAndRefusesUnknown(t *testing.T) {
 	if !strings.Contains(string(raw), `"version":"2.1.263"`) {
 		t.Fatal("version must come from the newest local transcript")
 	}
+	// The model comes from the same place: what this installation last ran.
+	if got.Model != "claude-sonnet-5" || !strings.Contains(string(raw), `"model":"claude-sonnet-5"`) {
+		t.Fatalf("model must come from the newest local transcript: %q", got.Model)
+	}
 }
 
 func TestCodexWriteRoundTrip(t *testing.T) {
@@ -508,6 +519,9 @@ func TestCodexWriteRoundTrip(t *testing.T) {
 		t.Fatalf("session_meta = %v", meta)
 	}
 	joined := string(raw)
+	if strings.Contains(joined, "claude-sonnet-5") || strings.Contains(joined, `"turn_context"`) {
+		t.Fatal("with no local rollout to learn a model from, none is claimed")
+	}
 	if !strings.Contains(joined, `"type":"function_call"`) || !strings.Contains(joined, `"arguments":"{\"command\":\"go test ./...\"}"`) || !strings.Contains(joined, `"arguments":"const r = 1"`) {
 		t.Fatalf("function_call arguments must be JSON strings:\n%s", joined)
 	}
@@ -520,6 +534,34 @@ func TestCodexWriteRoundTrip(t *testing.T) {
 	rows, _ := (CodexSource{}).List("/home/goat/proj")
 	if len(rows) != 1 || rows[0].ID != got.ID || !reflect.DeepEqual(rows[0].ResumeArgs, []string{"resume", got.ID}) {
 		t.Fatalf("listing = %+v", rows)
+	}
+}
+
+func TestCodexWriteRecordsThisInstallationsModel(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := "/home/goat/proj"
+	seedCodexRollout(t, home, proj) // a local rollout: cli_version 0.153.2, model gpt-5.6-sol
+
+	got, err := (CodexSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: proj})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(got.Path)
+	if !strings.Contains(string(raw), `"cli_version":"0.153.2"`) || !strings.Contains(string(raw), `"model":"gpt-5.6-sol"`) {
+		t.Fatalf("version and model come from the newest local rollout:\n%s", raw)
+	}
+	if got.Model != "gpt-5.6-sol" {
+		t.Fatalf("summary model = %q", got.Model)
+	}
+	// Handing that session on again keeps the model, which is what the
+	// turn_context line is for.
+	back, err := (CodexSource{}).Read(context.Background(), Ref{ID: got.ID, Path: got.Path, Cwd: proj})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Header.Model != "gpt-5.6-sol" {
+		t.Fatalf("model lost on the way out: %+v", back.Header)
 	}
 }
 
@@ -863,5 +905,194 @@ func TestOpenCodeWritePublishesThroughItsOwnImport(t *testing.T) {
 	rows, _ := (OpenCodeSource{}).List("/home/goat/proj")
 	if len(rows) != 1 || rows[0].ID != got.ID {
 		t.Fatalf("listing = %+v", rows)
+	}
+}
+
+func TestGrokWriteRoundTripMinimalFiles(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GROK_HOME", "")
+	proj := "/home/goat/proj"
+
+	// No local session and no installed version: the chat format is unknown.
+	if _, err := (GrokSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: proj}); !errors.Is(err, ErrUnknownFormat) {
+		t.Fatalf("unknown format: %v", err)
+	}
+	seedGrokSession(t, home, proj, "019ff88b-7d95-7241-be51-acb541c88ef2")
+
+	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	got, err := (GrokSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: proj, Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 {
+		t.Fatalf("summary = %+v", got)
+	}
+	// Only the two files the spike proved `grok --resume` needs, and the
+	// folder's shared prompt history is never touched.
+	entries, err := os.ReadDir(got.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	if !reflect.DeepEqual(names, []string{"chat_history.jsonl", "summary.json"}) {
+		t.Fatalf("session dir holds %v", names)
+	}
+	ph := filepath.Join(filepath.Dir(got.Path), "prompt_history.jsonl")
+	before, err := os.ReadFile(ph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(before), got.ID) {
+		t.Fatal("the shared prompt history must not be appended to")
+	}
+	raw, _ := os.ReadFile(filepath.Join(got.Path, "chat_history.jsonl"))
+	body := string(raw)
+	if !strings.Contains(body, "<user_query>") || !strings.Contains(body, `"tool_calls"`) || !strings.Contains(body, `"type":"tool_result"`) {
+		t.Fatalf("chat history:\n%s", body)
+	}
+	if strings.Contains(body, "hmm") || strings.Contains(body, "system-reminder") {
+		t.Fatal("thinking and context must not be written")
+	}
+	var sum map[string]any
+	sb, _ := os.ReadFile(filepath.Join(got.Path, "summary.json"))
+	if json.Unmarshal(sb, &sum) != nil {
+		t.Fatalf("summary.json is not JSON: %s", sb)
+	}
+	if sum["chat_format_version"].(float64) != 1 || sum["session_summary"] != "Race fix" {
+		t.Fatalf("summary = %v", sum)
+	}
+	if info := sum["info"].(map[string]any); info["id"] != got.ID || info["cwd"] != proj {
+		t.Fatalf("summary info = %v", info)
+	}
+	// PiCode's own listing and reader agree with what was written.
+	rows, _ := (GrokSource{}).List(proj)
+	found := false
+	for _, r := range rows {
+		if r.ID == got.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("listing lost the written session: %+v", rows)
+	}
+	back, err := (GrokSource{}).Read(context.Background(), Ref{ID: got.ID, Cwd: proj})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := back.Counts(); c.Messages != 4 || c.ToolCalls != 2 || c.ToolResults != 2 {
+		t.Fatalf("counts = %+v", c)
+	}
+	if back.Events[0].Text != sample().Events[0].Text {
+		t.Fatalf("first turn = %q", back.Events[0].Text)
+	}
+}
+
+func TestHermesWriteImportsThroughItsOwnCommand(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("HERMES_HOME", "")
+	proj := "/home/goat/proj"
+	statePath := seedHermesDB(t, filepath.Join(home, ".hermes"), `CREATE TABLE messages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT,
+		tool_call_id TEXT, tool_calls TEXT, tool_name TEXT, timestamp REAL NOT NULL, reasoning TEXT,
+		active INTEGER NOT NULL DEFAULT 1, compacted INTEGER NOT NULL DEFAULT 0);`)
+
+	if _, err := (HermesSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: proj}); !errors.Is(err, ErrNoRunner) {
+		t.Fatalf("no runner: %v", err)
+	}
+	req := WriteRequest{Cwd: proj, Now: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)}
+	req.Run = func(ctx context.Context, args ...string) ([]byte, error) { return nil, nil }
+	// No Claude Code transcript on this machine: the file to hand over
+	// cannot be given a version, so nothing is attempted.
+	if _, err := (HermesSource{}).Write(context.Background(), sample(), req); !errors.Is(err, ErrUnknownFormat) {
+		t.Fatalf("unknown claude format: %v", err)
+	}
+	seedClaudeTranscript(t, home, "/home/goat/other")
+
+	// A runner that behaves like `hermes sessions import --from claude`:
+	// reads the file, flattens tool calls into the assistant's text,
+	// assigns its own id and reports it.
+	assigned := "20260907_145708_de908b"
+	var handed string
+	req.Run = func(ctx context.Context, args ...string) ([]byte, error) {
+		if len(args) != 5 || args[0] != "sessions" || args[1] != "import" || args[2] != "--from" || args[3] != "claude" {
+			t.Fatalf("import args = %v", args)
+		}
+		handed = args[4]
+		raw, err := os.ReadFile(handed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		db, err := sql.Open("sqlite", "file:"+statePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		if _, err := db.Exec(`INSERT INTO sessions (id, source, title, cwd, started_at, message_count) VALUES (?,?,?,?,?,?)`,
+			assigned, "claude-code", "Imported from Claude Code: fix the race", proj, 1788736944.5, 0); err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+			var rec struct {
+				Message struct {
+					Role    string `json:"role"`
+					Content []struct {
+						Text string `json:"text"`
+					} `json:"content"`
+				} `json:"message"`
+			}
+			if json.Unmarshal([]byte(line), &rec) != nil || rec.Message.Role == "" {
+				continue
+			}
+			text := ""
+			for _, c := range rec.Message.Content {
+				text += c.Text
+			}
+			if _, err := db.Exec(`INSERT INTO messages (session_id, role, content, timestamp) VALUES (?,?,?,?)`,
+				assigned, rec.Message.Role, text, 1788736945.0+float64(n)); err != nil {
+				t.Fatal(err)
+			}
+			n++
+		}
+		if _, err := db.Exec(`UPDATE sessions SET message_count = ? WHERE id = ?`, n, assigned); err != nil {
+			t.Fatal(err)
+		}
+		return []byte("✓ Imported Claude Code session as " + assigned + "\n  Continue it with:  hermes --resume " + assigned + "\n"), nil
+	}
+	got, err := (HermesSource{}).Write(context.Background(), sample(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != assigned || !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", assigned}) || got.Messages == 0 {
+		t.Fatalf("summary = %+v", got)
+	}
+	if _, err := os.Stat(handed); !os.IsNotExist(err) {
+		t.Fatalf("the handed file must not outlive the import: %v", err)
+	}
+	// An imported session is a coding session: the picker shows it.
+	rows, _ := (HermesSource{}).List(proj)
+	if len(rows) != 1 || rows[0].ID != assigned {
+		t.Fatalf("listing = %+v", rows)
+	}
+	// A silent import is not a handoff.
+	req.Run = func(ctx context.Context, args ...string) ([]byte, error) { return []byte("nothing to say"), nil }
+	if _, err := (HermesSource{}).Write(context.Background(), sample(), req); err == nil || !strings.Contains(err.Error(), "did not report") {
+		t.Fatalf("unreported id: %v", err)
+	}
+}
+
+func TestHermesImportedIDFromOutput(t *testing.T) {
+	out := "✓ Imported Claude Code session as 20260907_145708_de908b\n  Continue it with:  hermes --resume 20260907_145708_de908b\n"
+	if got := hermesImportedID(out); got != "20260907_145708_de908b" {
+		t.Fatalf("id = %q", got)
+	}
+	if hermesImportedID("no id here") != "" {
+		t.Fatal("must not invent an id")
 	}
 }

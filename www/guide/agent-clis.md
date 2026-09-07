@@ -85,9 +85,10 @@ Every session row has a **•••** menu with **Continue in &lt;CLI&gt;…** f
 other CLI that can receive it. PiCode reads the conversation, shows what
 will travel and what stays behind (thinking never travels; tool calls do),
 and then either writes a **native session** the other CLI resumes as its
-own — Claude Code, Codex, pi as a new agent, and OpenCode through its own
-`import` command — or, for CLIs without an import path, starts the CLI
-from a short **brief** it reads first. The
+own — Claude Code, Codex, Grok and pi as a new agent, with OpenCode and
+Hermes receiving it through their own `import` command — or, for a CLI
+without an import path, starts it from a short **brief** it reads first.
+The
 conversation you started stays where it was; the new one begins with a
 note saying where it came from and that files may have changed since.
 Both rows show the link ("from Claude Code", "continued in Codex").

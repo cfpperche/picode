@@ -17,7 +17,7 @@ import (
 // scanned — resume without `-p` looks in the active home and would miss
 // or mix them.
 //
-// Only source=cli and source=tui rows with at least one message and a
+// Only coding sources (see hermesCodingSource) with at least one message and a
 // folder (cwd or git_repo_root) are listed. Gateway, ACP, cron and
 // subagent sessions stay out of the coding-CLI picker. Preview is the
 // session title; the messages table is not queried. Size stays 0: the
@@ -148,8 +148,7 @@ func scanHermesSession(rows *sql.Rows, sel []string, path string) (Summary, bool
 	if rows.Scan(dest...) != nil || !id.Valid || strings.TrimSpace(id.String) == "" {
 		return Summary{}, false
 	}
-	src := strings.TrimSpace(source.String)
-	if src != "cli" && src != "tui" {
+	if !hermesCodingSource(strings.TrimSpace(source.String)) {
 		return Summary{}, false
 	}
 	if archived.Valid && archived.Int64 != 0 {
@@ -202,4 +201,19 @@ func unixFloat(v sql.NullFloat64) string {
 		nsec = 0
 	}
 	return time.Unix(sec, nsec).UTC().Format(time.RFC3339)
+}
+
+// hermesCodingSource reports whether a session row is a coding-CLI
+// conversation the picker should show. `cli` and `tui` are Hermes' own;
+// `claude-code` and `codex` are what `hermes sessions import` stamps on a
+// conversation pulled in from another CLI — resumable with
+// `hermes --resume <id>` exactly like its own, and the shape a handoff
+// into Hermes produces (ADR-0094). Gateway, ACP, cron and subagent
+// sessions stay out.
+func hermesCodingSource(src string) bool {
+	switch src {
+	case "cli", "tui", "claude-code", "codex":
+		return true
+	}
+	return false
 }

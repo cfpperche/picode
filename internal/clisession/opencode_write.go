@@ -3,7 +3,6 @@ package clisession
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -233,7 +232,7 @@ func (OpenCodeSource) Write(ctx context.Context, t transcript.Timeline, req Writ
 		},
 		"messages": messages,
 	}
-	body, err := json.Marshal(envelope)
+	body, err := marshalNative(envelope)
 	if err != nil {
 		return Summary{}, err
 	}

@@ -22,29 +22,37 @@ import (
 // index is not touched: the CLI discovers rollouts by scanning. The file
 // is re-read through CodexSource.Read before the write counts as done.
 
-// codexNewestVersion reads cli_version from the most recent rollout on
-// this machine.
-func codexNewestVersion(root string) string {
+// codexNewestFacts reads cli_version and the model from the most recent
+// rollout on this machine: the format marker and a model this Codex can
+// serve. The written session records the latter, never the source's.
+func codexNewestFacts(root string) (version, model string) {
 	newest := newestFile(jsonlFiles(root))
 	if newest == "" {
-		return ""
+		return "", ""
 	}
-	version := ""
 	_ = scanLines(newest, func(line []byte) {
-		if version != "" {
-			return
-		}
 		var raw struct {
 			Type    string `json:"type"`
 			Payload struct {
 				Version string `json:"cli_version"`
+				Model   string `json:"model"`
 			} `json:"payload"`
 		}
-		if json.Unmarshal(line, &raw) == nil && raw.Type == "session_meta" {
-			version = raw.Payload.Version
+		if json.Unmarshal(line, &raw) != nil {
+			return
+		}
+		switch raw.Type {
+		case "session_meta":
+			if version == "" {
+				version = raw.Payload.Version
+			}
+		case "turn_context":
+			if raw.Payload.Model != "" {
+				model = raw.Payload.Model
+			}
 		}
 	})
-	return version
+	return version, model
 }
 
 func (CodexSource) Write(ctx context.Context, t transcript.Timeline, req WriteRequest) (Summary, error) {
@@ -52,9 +60,10 @@ func (CodexSource) Write(ctx context.Context, t transcript.Timeline, req WriteRe
 		return Summary{}, fmt.Errorf("a folder is required")
 	}
 	root := filepath.Join(homeDir(), ".codex", "sessions")
+	localVersion, localModel := codexNewestFacts(root)
 	version := strings.TrimSpace(req.FormatVersion)
 	if version == "" {
-		version = codexNewestVersion(root)
+		version = localVersion
 	}
 	if version == "" {
 		return Summary{}, ErrUnknownFormat
@@ -95,6 +104,11 @@ func (CodexSource) Write(ctx context.Context, t transcript.Timeline, req WriteRe
 		"source":        "cli",
 		"thread_source": "user",
 	})
+	if localModel != "" {
+		// Without this, a session handed to Codex and then handed on again
+		// carries no model at all: the reader learns it from turn_context.
+		item(now, "turn_context", map[string]any{"cwd": cwd, "model": localModel})
+	}
 	ids := map[string]string{}
 	callID := func(src string) string {
 		if id, ok := ids[src]; ok {
@@ -169,6 +183,6 @@ func (CodexSource) Write(ctx context.Context, t transcript.Timeline, req WriteRe
 		Preview:    preview(t),
 		Messages:   transcript.Timeline{Events: emitted}.Counts().Messages,
 		Size:       fileSize(path),
-		Model:      t.Header.Model,
+		Model:      localModel,
 	}, nil
 }

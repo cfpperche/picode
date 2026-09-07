@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -22,11 +21,10 @@ type GrokSource struct{}
 func (GrokSource) CLI() string { return "grok" }
 
 func (GrokSource) List(cwd string) ([]Summary, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
+	root := grokSessionsRoot()
+	if root == "" {
 		return nil, nil
 	}
-	root := filepath.Join(home, ".grok", "sessions")
 	ents, err := os.ReadDir(root)
 	if err != nil {
 		return nil, nil

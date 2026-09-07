@@ -115,10 +115,10 @@ func TestPrepareStripsThinkingAndContext(t *testing.T) {
 }
 
 func TestHandoffNoteWording(t *testing.T) {
-	h := Header{SourceCLI: "claude-code", SourceName: "Claude Code", SourceID: "7a937bf6-8158-4753-81f3-dd81042697ff", Cwd: "/home/goat/picode"}
+	h := Header{SourceCLI: "claude-code", SourceName: "Claude Code", SourceID: "7a937bf6-8158-4753-81f3-dd81042697ff", Cwd: "/home/goat/picode", Model: "claude-opus-5"}
 	now := time.Date(2026, 9, 6, 22, 36, 0, 0, time.UTC)
 	got := HandoffNote(h, "", now)
-	want := "Handoff from Claude Code, session 7a937bf6, 2026-09-06 22:36 UTC, folder /home/goat/picode.\nPiCode translated this conversation from another coding agent. Everything above the last user message is history: files may have changed since, and the tools named in it are that agent's, not yours. Continue from the user's last request; re-read files before editing."
+	want := "Handoff from Claude Code running claude-opus-5, session 7a937bf6, 2026-09-06 22:36 UTC, folder /home/goat/picode.\nPiCode translated this conversation from another coding agent. Everything above the last user message is history: files may have changed since, and the tools named in it are that agent's, not yours. Continue from the user's last request; re-read files before editing."
 	if got != want {
 		t.Fatalf("note:\n%s\nwant:\n%s", got, want)
 	}
