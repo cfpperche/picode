@@ -20,12 +20,11 @@
   all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
-- **CLI lifecycle (ADR-0087):** the Agent CLIs surface shows update badges
-  (npm registry or vendor `--check`) and runs each CLI's own
-  update/reinstall/uninstall command as a durable `cli_jobs` lane with
-  streamed output, terminal guards and typed uninstall confirmation;
-  interrupted jobs never replay. Unknown install methods (Homebrew, manual
-  checkouts) get docs links, not controls.
+- **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
+  or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as
+  a durable `cli_jobs` lane with streamed output, terminal guards and typed
+  uninstall confirmation; interrupted jobs never replay. Unmanageable
+  installs (Homebrew, manual checkouts) get docs links, not controls.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083: durable
@@ -35,9 +34,9 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined and deployed `0.1.0+8b64862` (`PICODE_DEPLOY_FORCE=1` — terminal
-  "agent cli" was mid-turn). Pin only while the IME is up; opaque row;
-  xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
+  refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
+  (unguarded — readiness was empty). Pin only while the IME is up; opaque
+  row; xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
   coding CLIs are terminals.
 
 ## In flight (unmerged branches on disk)
@@ -53,14 +52,16 @@
 3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
-6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
-7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
 
 ## Known debts / open questions
 
-- Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06
+  (`hermes-1f19ed`; needs-you during `pre_approval_request` on `rm -r /tmp/…`,
+  then smart auto-approved so the chip did not linger); `cli-v1-*`
+  screenshots not regenerated; may write `shell-hooks-allowlist.json`.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
@@ -84,9 +85,8 @@
   fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
-- CLI lifecycle: npm registry data can lag native Claude releases by hours
-  (the badge names the source); grok uninstall is guided-only; Windows-native
-  host paths are out of scope (ADR-0087).
+- CLI lifecycle: npm data can lag native Claude releases by hours (the badge
+  names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Tutorial video freshness audits are stale after source relocation;
   recapture/render is explicit. Branch protection and CODEOWNERS need the
