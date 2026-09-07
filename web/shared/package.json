@@ -63,6 +63,7 @@
     "./domain/keyboardInset.js": "./domain/keyboardInset.js",
     "./domain/termFit.js": "./domain/termFit.js",
     "./domain/termKeys.js": "./domain/termKeys.js",
+    "./domain/termPrompt.js": "./domain/termPrompt.js",
     "./domain/termLinks.js": "./domain/termLinks.js",
     "./domain/termSticky.js": "./domain/termSticky.js",
     "./domain/termTheme.js": "./domain/termTheme.js",

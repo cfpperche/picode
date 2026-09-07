@@ -34,8 +34,8 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
-  Composer Photos picker + ADR-0089 deployed `0.1.0+d04ad3f`.
-  CLI drop/paste APIs still to ship. Managed agents remain Pi-only.
+  Composer Photos `0.1.0+d04ad3f`. ADR-0089 attach bar `0.1.0+aca6628`.
+  Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
@@ -51,7 +51,7 @@
 3. llama delivery 3 live validation; delivery 4 merge and guarded batch deploy (ADR-0090).
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
-6. CLI prompt door D2–D5 (drop/prompt APIs, attach bar); first-class CLI agents still need a parity ADR.
+6. CLI prompt door iPhone acceptance; first-class CLI agents still need a parity ADR.
 7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.

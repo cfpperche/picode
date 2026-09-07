@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ShellTerm from "./ShellTerm.jsx";
+import TermAttachBar from "./TermAttachBar.jsx";
 import { ChecklistLine } from "./WorkspaceRows.jsx";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 import { api } from "@picode/shared/client/api.js";
@@ -52,7 +53,12 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, 
           {resumeError ? <span> {resumeError}</span> : null}
         </div>
       ) : (
-        <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+        <>
+          <div className="term-body">
+            <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+          </div>
+          {term.launchCli && term.running ? <TermAttachBar term={term} /> : null}
+        </>
       )}
     </section>
   );

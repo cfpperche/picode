@@ -278,12 +278,12 @@ Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 The composer also opens a device file picker (Photos / camera / files on a
 phone) so attach does not depend on clipboard paste.
-Agent CLI terminals have no composer. ADR-0089 records a user-initiated
-prompt door (stage a file under the terminal cwd, paste `@path` into the
-TUI) so a phone can attach a photo without promoting CLIs to managed
-agents; Inspector type/run/Ask still must not target a CLI TUI (ADR-0078).
-The HTTP routes for that door follow this decision; they are not inferred
-from the terminal manager.
+Agent CLI terminals have no composer. ADR-0089 is a user-initiated prompt
+door: `POST /api/terminals/{id}/drop` writes a file under
+`<cwd>/.picode/drop/`, and `POST /api/terminals/{id}/prompt` pastes the
+caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
+to the terminal"), not model delivery. Inspector type/run/Ask still must
+not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`

@@ -18,14 +18,11 @@ to the `[Unreleased]` section. The repository's official language is English
   restart/update/rollback, durable progress, ownership-aware cache cleanup and
   redacted diagnostics. External routers are never adopted.
 
-- **llama.cpp service preparation (internal only)**: execution previews now
-  pin executable content with SHA-256, reject invalid file paths/modes and
-  emit explicit GPU, Jinja, autoload and bounded CPU-thread settings. Service
-  lifecycle controls are still under development.
-
-- **llama.cpp service ownership design** (ADR-0090): the upcoming lifecycle
-  controls are scoped to explicitly owned local profiles; external routers
-  remain read-only for service and cache management.
+- **Attach a photo or file to an Agent CLI terminal** (ADR-0089). On a
+  running Claude Code, Codex, Grok, Hermes or Pi CLI terminal, an attach
+  bar (desktop) or header paperclip (phone) stages the file in the
+  terminal folder and types the path into the TUI. Caps: four files, 4 MB
+  each. Inspector Git type/run still does not type into a CLI.
 
 - **CLI lifecycle management** (ADR-0087): update checks, update, reinstall
   and uninstall for catalogued agent CLIs. The Agent CLIs surface shows an

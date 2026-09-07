@@ -320,6 +320,9 @@ func handleTerminalType(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		if refuseInspectorCLI(w, deps, t.ID) {
+			return
+		}
 		var req struct {
 			Text string `json:"text"`
 			Root string `json:"root"`

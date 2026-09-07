@@ -3,24 +3,25 @@ import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { IconFile, IconFolder } from "./Icons.jsx";
 
-export default function WorkspaceAttach({ open, agentId, onPick, onClose }) {
+export default function WorkspaceAttach({ open, agentId, termId, onPick, onClose }) {
   const [dir, setDir] = useState("");
   const [parent, setParent] = useState("");
   const [dirs, setDirs] = useState([]);
   const [files, setFiles] = useState([]);
   const [filter, setFilter] = useState("");
   const [err, setErr] = useState("");
+  const owner = termId ? "/api/terminals/" + encodeURIComponent(termId) : (agentId ? "/api/agents/" + encodeURIComponent(agentId) : "");
 
   useEffect(() => {
-    if (!open || !agentId) return;
+    if (!open || !owner) return;
     setFilter("");
     load("");
-  }, [open, agentId]);
+  }, [open, owner]);
 
   async function load(next) {
     setErr("");
     try {
-      const data = await api("/api/agents/" + encodeURIComponent(agentId) + "/browse?dir=" + encodeURIComponent(next || ""));
+      const data = await api(owner + "/browse?dir=" + encodeURIComponent(next || ""));
       if (!data.cwdOk) {
         setErr("Can't read this workspace.");
         setDirs([]);
