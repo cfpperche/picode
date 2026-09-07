@@ -15,4 +15,4 @@ plugin; jsonc mtime unchanged; visual-review PASS scratch :8471 with
 Activity on (overlayAudit ok).
 visual-review: PASS
 Not done: live Working/Needs you unproven until deploy; no Reader/Writer.
-Merge: fast-forward ready
+Merge: merged as ba87bf2c.
