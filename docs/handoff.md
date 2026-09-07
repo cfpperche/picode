@@ -29,7 +29,7 @@
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
   adds `#/llama/service`, reviewed CPU lifecycle, rollback, cache and diagnostics
-  (ADR-0090). Delivery 3 guidance remains a separate acceptance branch.
+  (ADR-0090), deployed as `0.1.0+c694fb2`. Delivery 3 guidance remains separate.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
@@ -40,7 +40,6 @@
 ## In flight (unmerged branches on disk)
 
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
-- `feat/llama-service` — delivery 4 acceptance passed; closing gates and integration (ADR-0090).
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
 
@@ -48,7 +47,7 @@
 
 1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
 2. Renumber duplicate ADR-0082 and fix the index.
-3. llama delivery 3 live validation; delivery 4 merge and guarded batch deploy (ADR-0090).
+3. llama delivery 3 live validation; owned-service ARM64 and model-ledger acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
 6. CLI prompt door iPhone acceptance; first-class CLI agents still need a parity ADR.

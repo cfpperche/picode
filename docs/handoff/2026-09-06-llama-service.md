@@ -12,10 +12,11 @@ Ownership matrix covers new/existing/untracked/outside/symlink/alias/failed file
 visual-review: PASS; desktop/mobile empty, blocked, error, dark/light and
 confirmation captures read; overlayAudit ok after animation settling.
 Evidence: `var/screenshots/llama-service{,-states}/`; reproducible QA script.
-Scoped checks passed Go/JS/build/docs build; spelling failure corrected and
-Vale passed. Final `make close` and post-merge `make ci` are pending.
+`make close` PASS; post-merge `make ci` PASS (Go, 966 JS/package tests,
+build, docs and Vale). Public captures regenerated and read.
 Debts: ARM64 hardware and real model-download ownership ledger acceptance;
 GPU unsupported; old release directories retained; creation failure can leave
 an empty unadopted folder. Full limits and decision matrix are in the plan.
-Merge: current main must be integrated before fast-forward.
-Deploy: pending guarded batch; never force a restart while agents work.
+Merge: fast-forward to `c694fb20`; worktree cleanup follows this record.
+Deploy: guarded batch succeeded at 22:54 -03, `0.1.0+c694fb2`; systemd active,
+version/API/desktop/mobile HTTP checks passed. No llama service auto-created.
