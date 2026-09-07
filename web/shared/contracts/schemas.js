@@ -57,6 +57,14 @@ export const cliTerminalSchema = z.object({
 
 export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
 
+// Cross-CLI session handoff (ADR-0087): the choices the dialog sends.
+export const sessionHandoffSchema = z.object({
+  to: required("Target CLI"),
+  mode: z.enum(["native", "brief"], { message: "Choose how the session travels." }),
+  window: z.enum(["recent", "all"]),
+  tools: z.enum(["native", "text"]),
+});
+
 const modelPick = z.object({
   provider: required("Provider"),
   model: required("Model"),

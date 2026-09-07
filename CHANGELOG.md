@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Continue a session in another Agent CLI** (ADR-0087): the Sessions tab
+  offers "Continue in <CLI>…" for every CLI the server says can receive the
+  session. A preview shows what travels and what is left behind; the
+  handoff writes a new native session for Claude Code or Codex, adopts a
+  new Pi agent, or starts a CLI from a deterministic brief. Grok sessions
+  now list their real transcripts (title, model, size) and Hermes
+  sessions can be read. Lineage shows on both rows.
 - **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
   command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
   read-only, and resumes with `hermes --resume <id>`. Activity reporting is

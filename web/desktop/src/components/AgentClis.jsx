@@ -107,6 +107,7 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
       wsReady={!!data}
       onCliChange={(id) => navigate("/sessions" + (route.id ? "/" + encodeURIComponent(route.id) : "") + "?cli=" + encodeURIComponent(id))}
       cliNames={Object.fromEntries((data ? data.clis : []).map((c) => [c.id, c.name]))}
+      clis={data ? data.clis : []}
     /> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">

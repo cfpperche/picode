@@ -36,6 +36,10 @@
 
 ## In flight (unmerged branches on disk)
 
+- `feat/session-handoff` — continue a session in another Agent CLI
+  (ADR-0087, proposed): readers for all five CLIs, native writers for
+  Claude Code / Codex / pi, brief fallback, lineage. Live smoke on real
+  binaries owed before acceptance.
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
@@ -46,7 +50,7 @@
 2. Renumber duplicate ADR-0082 and fix the index.
 3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
+5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike (`docs/plans/session-handoff.md`).
 6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
 7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
@@ -55,6 +59,8 @@
 ## Known debts / open questions
 
 - Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
+- Handoff (ADR-0087): native formats are undocumented upstream — a version
+  bump surfaces as a refused write; Hermes/Grok native targets undecided.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
