@@ -539,7 +539,8 @@ an intent before atomically publishing the fixed service path. Linux
 `RENAME_NOREPLACE` preserves even a preexisting empty directory; the existing
 `golang.org/x/sys/unix` dependency supplies this operation. Failure or restart
 removes only the recorded attempt's empty folders. Unexpected content is
-retained for inspection; an unrecorded staging folder is never adopted.
+retained for inspection; unreadable ownership proof keeps the recovery intent
+until access is restored. An unrecorded staging folder is never adopted.
 
 The release ledger retains manifests beyond the current/rollback pair.
 Cache inventory includes older installations with verified exact contents;

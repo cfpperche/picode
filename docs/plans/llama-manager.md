@@ -373,7 +373,7 @@ is never inferred from a folder name. Linux atomic no-replace publication uses
 | Stale/expired review, changed file or promotion to rollback after review | Refuse confirmation | `TestReleaseCleanupMatrix` |
 | Directory permissions prevent removal | Record failure; preserve files | `TestReleaseCleanupMatrix/permission-failure` |
 | Restart after partial deletion | Mark interrupted, never replay; retain remaining files and refuse mismatched manifest | `TestReleaseCleanupInterrupted` |
-| Intent/final database write fails, cancellation or folder permission failure | Remove only owned empty attempt; retry after fault recovery | `TestCreationFailureMatrix` |
+| Intent/final database write fails, cancellation or folder permission failure (including unreadable ownership proof) | Remove only owned empty attempt; retry after fault recovery | `TestCreationFailureMatrix` |
 | Preexisting empty/nonempty root, or unexpected file during attempt | Preserve existing content; refuse adoption | `TestCreationFailureMatrix` |
 | Process exits after durable intent, before/after publication | Recover empty owned attempt at startup | `TestCreationCrashRecovery` |
 | Another root appears before publication | Atomic refusal; preserve that root | `TestCreationCrashRecovery/unknown-root` |

@@ -102,11 +102,20 @@ func (s *Service) rollbackCreation(attempt *Creation) error {
 		}
 		marker := filepath.Join(dir, creationMarker)
 		resolved, err := filepath.EvalSymlinks(marker)
-		if err != nil || resolved != marker {
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if resolved != marker {
 			continue
 		}
 		proof, err := os.ReadFile(marker)
-		if err != nil || string(proof) != attempt.Token {
+		if err != nil {
+			return err
+		}
+		if string(proof) != attempt.Token {
 			continue
 		}
 		entries, err := os.ReadDir(dir)

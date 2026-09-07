@@ -12,7 +12,7 @@ import (
 )
 
 func TestCreationFailureMatrix(t *testing.T) {
-	for _, scenario := range []string{"database-intent", "database-final", "interrupted", "unexpected-file", "permissions", "existing-empty", "existing-file"} {
+	for _, scenario := range []string{"database-intent", "database-final", "interrupted", "unexpected-file", "permissions", "permissions-unreadable", "existing-empty", "existing-file"} {
 		t.Run(scenario, func(t *testing.T) {
 			if runtime.GOOS != "linux" {
 				t.Skip("Linux-only creation")
@@ -57,11 +57,15 @@ func TestCreationFailureMatrix(t *testing.T) {
 							t.Fatal(err)
 						}
 						_ = s.st.Close()
-					case "permissions":
+					case "permissions", "permissions-unreadable":
 						if os.Geteuid() == 0 {
 							t.Skip("root bypasses directory permissions")
 						}
-						if err := os.Chmod(stage, 0500); err != nil {
+						mode := os.FileMode(0500)
+						if scenario == "permissions-unreadable" {
+							mode = 0000
+						}
+						if err := os.Chmod(stage, mode); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -81,7 +85,7 @@ func TestCreationFailureMatrix(t *testing.T) {
 				}
 				return
 			}
-			if scenario == "permissions" {
+			if scenario == "permissions" || scenario == "permissions-unreadable" {
 				if err := os.Chmod(stage, 0700); err != nil {
 					t.Fatal(err)
 				}
@@ -99,6 +103,11 @@ func TestCreationFailureMatrix(t *testing.T) {
 			defer recovered.Close()
 			if _, err = os.Stat(s.root); !os.IsNotExist(err) {
 				t.Fatal("empty failed setup survived recovery", err)
+			}
+			if stage != "" {
+				if _, err := os.Stat(stage); !os.IsNotExist(err) {
+					t.Fatal("owned staging directory survived recovery", err)
+				}
 			}
 			if _, err = recovered.Configure(c, recovered.rev); err != nil {
 				t.Fatal("retry failed", err)

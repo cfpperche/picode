@@ -33,6 +33,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 - **llama.cpp setup recovery:** failed or interrupted initial setup removes
   only its recorded empty folders, preserving existing or unexpected content.
+  Unreadable ownership proof retains the recovery record until access is restored.
 
 - **Phone terminal: extra keys stay off until you open the keyboard.**
   Opening a terminal no longer focuses xterm on attach, so iOS does not
