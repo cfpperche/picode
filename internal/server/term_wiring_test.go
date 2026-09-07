@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -85,8 +86,10 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 		t.Fatalf("status = %+v, want wired", page.Clis)
 	}
 
-	if res := postJSON(t, ts, "/api/terminals/wiring/claude-code/disable", map[string]any{}); res.StatusCode != http.StatusOK {
-		t.Fatalf("disable = %d", res.StatusCode)
+	for _, cli := range clilaunch.Catalog() {
+		if res := postJSON(t, ts, "/api/terminals/wiring/"+cli.ID+"/disable", map[string]any{}); res.StatusCode != http.StatusOK {
+			t.Fatalf("disable %s = %d", cli.ID, res.StatusCode)
+		}
 	}
 	if _, err := os.Stat(wrap); !os.IsNotExist(err) {
 		t.Fatal("wrapper should be gone after disable")
@@ -843,6 +846,9 @@ func TestInterceptOpencodeConfigPlugin(t *testing.T) {
 	}
 	if !strings.Contains(got, "PICODE_OPENCODE_HOOK=") {
 		t.Fatalf("opencode wrapper missing hook env:\n%s", got)
+	}
+	if !strings.Contains(got, "Starting OpenCode...") {
+		t.Fatalf("opencode wrapper missing start banner:\n%s", got)
 	}
 	if strings.Contains(got, "XDG_DATA_HOME=") || strings.Contains(got, "OPENCODE_CONFIG_DIR=") || strings.Contains(got, "OPENCODE_CONFIG_CONTENT=") || strings.Contains(got, "--pure") {
 		t.Fatalf("opencode wrapper must not overlay data dir, steal config-dir, or disable plugins:\n%s", got)

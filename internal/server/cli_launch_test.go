@@ -436,4 +436,22 @@ func TestLaunchScriptIgnoresHUP(t *testing.T) {
 	if len(lines) < 3 || !strings.HasPrefix(lines[0], "#!") || !strings.Contains(lines[2], "trap '' HUP") {
 		t.Fatalf("launch.sh head = %q", lines[:3])
 	}
+	if !strings.Contains(string(raw), "Starting Pi...") {
+		t.Fatalf("launch.sh missing start banner:\n%s", raw)
+	}
+}
+
+func TestNewWiresOpenCodeActivityByDefault(t *testing.T) {
+	ts, dataDir, _ := cleanupServer(t)
+	v := catalogCLI(t, ts, "opencode")
+	cfg, _ := v["config"].(map[string]any)
+	if cfg["integration"] != true {
+		t.Fatalf("opencode integration default = %#v", cfg["integration"])
+	}
+	if v["integrationApplied"] != true {
+		t.Fatalf("opencode integrationApplied = %#v", v["integrationApplied"])
+	}
+	if _, err := os.Stat(wrapperPath(dataDir, "opencode")); err != nil {
+		t.Fatalf("opencode wrapper missing: %v", err)
+	}
 }

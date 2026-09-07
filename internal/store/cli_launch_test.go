@@ -58,6 +58,85 @@ func TestCLIConfigImportAndAtomicEvents(t *testing.T) {
 	}
 }
 
+func TestImportCLIConfigsDefaultsIntegrationOn(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "store.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.ImportCLIConfigs(map[string]bool{"opencode": false}); err != nil {
+		t.Fatal(err)
+	}
+	off, _, _ := s.CLIConfig("opencode")
+	if off.Integration {
+		t.Fatal("explicit false was not stored")
+	}
+	on, _, _ := s.CLIConfig("pi")
+	if !on.Integration {
+		t.Fatal("missing enabled.json key must default Activity on")
+	}
+	s2, err := Open(filepath.Join(t.TempDir(), "store2.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	if err := s2.ImportCLIConfigs(nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, cli := range clilaunch.Catalog() {
+		c, found, _ := s2.CLIConfig(cli.ID)
+		if !found || !c.Integration {
+			t.Fatalf("%s: found=%v integration=%v", cli.ID, found, c.Integration)
+		}
+	}
+}
+
+func TestSeedCatalogIntegrationDefaultsDecisionTable(t *testing.T) {
+	type row struct {
+		name   string
+		before clilaunch.Config
+		seeded bool
+		wantOn bool
+	}
+	cases := []row{
+		{name: "empty false", before: clilaunch.Config{}, wantOn: true},
+		{name: "already on", before: clilaunch.Config{Integration: true}, wantOn: true},
+		{name: "customized off", before: clilaunch.Config{Executable: "/opt/opencode", Integration: false}, wantOn: false},
+		{name: "already seeded", before: clilaunch.Config{}, seeded: true, wantOn: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := Open(filepath.Join(t.TempDir(), "store.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			if err := s.SetCLIConfig("opencode", tc.before); err != nil {
+				t.Fatal(err)
+			}
+			if tc.seeded {
+				if err := s.SetSetting(catalogIntegrationSeedKey, "1"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.SeedCatalogIntegrationDefaults(); err != nil {
+				t.Fatal(err)
+			}
+			c, _, _ := s.CLIConfig("opencode")
+			if c.Integration != tc.wantOn {
+				t.Fatalf("integration=%v want %v", c.Integration, tc.wantOn)
+			}
+			if err := s.SeedCatalogIntegrationDefaults(); err != nil {
+				t.Fatal(err)
+			}
+			c2, _, _ := s.CLIConfig("opencode")
+			if c2.Integration != c.Integration {
+				t.Fatal("second seed changed the row")
+			}
+		})
+	}
+}
+
 func TestTerminalLaunchPersistenceAndCascade(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "store.db"))

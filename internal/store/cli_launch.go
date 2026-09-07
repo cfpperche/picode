@@ -72,6 +72,21 @@ func (s *Store) SetCLIConfig(id string, c clilaunch.Config) error {
 	return s.commit(tx)
 }
 
+// catalogIntegrationOn is the first-insert default: Activity reporting is
+// on for every catalog CLI unless enabled.json names it false. A missing
+// key used to read as false in Go, which froze OpenCode off on the first
+// boot after it joined the catalog.
+func catalogIntegrationOn(enabled map[string]bool, id string) bool {
+	if enabled == nil {
+		return true
+	}
+	v, ok := enabled[id]
+	if !ok {
+		return true
+	}
+	return v
+}
+
 // ImportCLIConfigs is idempotent and never overwrites a saved owner choice.
 func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 	tx, err := s.db.Begin()
@@ -80,7 +95,7 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 	}
 	defer s.rollback(tx)
 	for _, cli := range clilaunch.Catalog() {
-		c := clilaunch.Resolve(clilaunch.Config{Integration: enabled[cli.ID]}, clilaunch.Overrides{})
+		c := clilaunch.Resolve(clilaunch.Config{Integration: catalogIntegrationOn(enabled, cli.ID)}, clilaunch.Overrides{})
 		raw, _ := json.Marshal(c)
 		res, err := tx.Exec(`INSERT OR IGNORE INTO cli_configs(id,config,updated_at) VALUES(?,?,?)`, cli.ID, string(raw), nowUTC())
 		if err != nil {
@@ -93,6 +108,38 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 		}
 	}
 	return s.commit(tx)
+}
+
+const catalogIntegrationSeedKey = "cli.catalog-integration-default-v1"
+
+func isEmptyLaunchConfig(c clilaunch.Config) bool {
+	return c.Executable == "" && len(c.Args) == 0 && len(c.Env) == 0 && len(c.Path) == 0
+}
+
+// SeedCatalogIntegrationDefaults turns Activity on once for catalog CLIs
+// that were inserted with the empty default and Integration false (the
+// OpenCode-on-first-deploy bug). A later owner off-switch is a second
+// SetCLIConfig and is not revisited after this seed flag is set.
+func (s *Store) SeedCatalogIntegrationDefaults() error {
+	if v, ok, err := s.GetSetting(catalogIntegrationSeedKey); err != nil {
+		return err
+	} else if ok && v == "1" {
+		return nil
+	}
+	for _, cli := range clilaunch.Catalog() {
+		c, found, err := s.CLIConfig(cli.ID)
+		if err != nil {
+			return err
+		}
+		if !found || c.Integration || !isEmptyLaunchConfig(c) {
+			continue
+		}
+		c.Integration = true
+		if err := s.SetCLIConfig(cli.ID, c); err != nil {
+			return err
+		}
+	}
+	return s.SetSetting(catalogIntegrationSeedKey, "1")
 }
 
 func (s *Store) TerminalLaunch(id string) (*TerminalLaunch, error) {

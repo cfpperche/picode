@@ -17,10 +17,10 @@
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). Hermes
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
-  (catalog, sqlite sessions, `--session` resume, `OPENCODE_CONFIG` plugin;
-  list-only for ADR-0088), deployed `0.1.0+d65e9a1`. Terminal checklists (ADR-0081)
-  on the sidebar card only (no strip above the pane). Absent checklist
-  renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+  (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
+  banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081) on the
+  sidebar card only; absent checklist is silence (ADR-0082). Sessions live
+  under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
@@ -32,8 +32,7 @@
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
-  adds `#/llama/service`, reviewed CPU lifecycle, rollback, cache and diagnostics
-  (ADR-0090), deployed as `0.1.0+c694fb2`. On main: verified old-installation
+  (`#/llama/service`, ADR-0090) as `0.1.0+c694fb2`. On main: old-installation
   cleanup and empty setup recovery. Delivery 3 guidance remains separate.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
@@ -63,7 +62,7 @@
 
 ## Known debts / open questions
 
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode plugin loads (`debug info`); live Working/Needs you unproven.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).
 - Handoff (ADR-0088): upstream formats undocumented (bump = refused write); OpenCode list-only (no Reader/Writer); Hermes/Grok native targets undecided; Codex lists a handed-off rollout only after restart.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for

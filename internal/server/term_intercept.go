@@ -722,6 +722,7 @@ done
 		"export OPENCODE_CONFIG=" + shellQuote(plan.Environment["OPENCODE_CONFIG"]) + "\n" +
 		"export PICODE_OPENCODE_HOOK=" + shellQuote(plan.Environment["PICODE_OPENCODE_HOOK"]) + "\n" +
 		wrapperLifecycle(hook) +
+		"printf 'Starting OpenCode...\\n'\n" +
 		"\"$real\" \"$@\"\n" +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "opencode"), body)

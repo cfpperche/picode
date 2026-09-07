@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-07 (OpenCode activity plugin; OpenCode CLI catalog; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-07 (catalog CLI Activity defaults on; OpenCode activity plugin; OpenCode CLI catalog; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -354,7 +354,10 @@ list the action; a QR is only drawn when every check passes.
 `internal/clilaunch` holds a small catalog and configuration resolution; it
 does not implement an agent runtime. SQLite tables `cli_configs` and
 `terminal_launches` store defaults and terminal overrides. First boot imports
-the old intercept switches once; stored settings always win thereafter.
+catalog rows: Activity reporting defaults **on** unless `enabled.json`
+explicitly lists the CLI as false. A missing key is not false — that freeze
+left OpenCode unwired on its first deploy. `SeedCatalogIntegrationDefaults`
+flips empty default-off rows once. Stored settings always win after that.
 The legacy wiring API updates the same store. Mutators commit `cli.updated`
 or `terminal.launch` invalidation events in their own transaction.
 
@@ -1003,8 +1006,10 @@ OpenCode does not get an `XDG_DATA_HOME` overlay: `opencode.db` is SQLite
 with WAL files beside the data path, and auth lives in the same directory.
 The session wrapper sets `OPENCODE_CONFIG` to a PiCode-owned json that
 adds one local plugin; configs merge, so the user's
-`~/.config/opencode/opencode.jsonc` is not written. Maintenance
-subcommands (`session`, `auth`, `run`, …) skip the plugin. The map is
+`~/.config/opencode/opencode.jsonc` is not written. The TUI path prints
+`Starting OpenCode...` before exec — OpenCode draws nothing until the
+first frame. Maintenance subcommands (`session`, `auth`, `run`, …) skip
+the plugin and the banner. The map is
 executable in `TestOpencodeActivityMap`:
 
 | OpenCode plugin event | Lifecycle action |
