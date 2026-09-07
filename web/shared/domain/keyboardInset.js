@@ -17,8 +17,11 @@ export function keyboardInset({ innerHeight, vvHeight, vvOffsetTop }) {
   return Math.max(0, Math.round(inner - height - top));
 }
 
-export function extraKeysVisible({ termFocused, hardKeyboard }) {
-  return !!termFocused && !hardKeyboard;
+// Extra keys travel with the phone keyboard. Programmatic xterm focus on
+// attach is not a user tap — iOS will not open the IME, so the row must
+// stay hidden until the user arms it (tap the pane or the header icon).
+export function extraKeysVisible({ termFocused, hardKeyboard, userArmed }) {
+  return !!termFocused && !hardKeyboard && !!userArmed;
 }
 
 // Hardware keyboards do not shrink the visual viewport. A coarse pointer
@@ -42,8 +45,8 @@ export function inputIsFocused(el) {
 // Pin the shell only when the IME is covering the page. `restHeight` is
 // the visual viewport while no field is focused. A shrink against that
 // baseline catches iOS overlaying the keyboard without changing
-// innerHeight. Focus alone is not enough — xterm focuses on attach
-// without opening the IME, and must not leave a gap.
+// innerHeight. Focus alone is not enough — attach-time focus used to
+// leave a black strip without opening the IME.
 export function shellLayout({
   innerHeight, vvHeight, vvOffsetTop, scale, restHeight, inputFocused,
 }) {
@@ -52,8 +55,11 @@ export function shellLayout({
   const vsRest = restHeight != null
     ? Math.max(0, Math.round(Number(restHeight) - (Number(vvHeight) || 0)))
     : 0;
-  const keyboardOpen = inset >= KEYBOARD_INSET_THRESHOLD
-    || (inputFocused && vsRest >= KEYBOARD_INSET_THRESHOLD);
+  // innerHeight − vvHeight can exceed the threshold at rest on iOS
+  // (100vh vs the home indicator). That is not the IME. Pin only when
+  // a focused field actually shrank the visual viewport against the
+  // unfocused baseline — otherwise first-open focus left a black strip.
+  const keyboardOpen = !!inputFocused && vsRest >= KEYBOARD_INSET_THRESHOLD;
   if (!keyboardOpen) {
     return { keyboardOpen: false, height: 0, offsetTop: 0, inset: 0 };
   }

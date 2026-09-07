@@ -61,8 +61,9 @@ Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
 left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
 terminal or a workspace opens its uncommitted changes, read-only.
 
-Tap a terminal to attach to it. Tapping the pane opens the phone
-keyboard; a one-row **key bar** sits immediately above it with Esc, Tab,
+Tap a terminal to attach to it. Opening it does not raise the phone
+keyboard. Tapping the pane (or the header keyboard icon) opens the
+phone keyboard; a one-row **key bar** sits immediately above it with Esc, Tab,
 CTRL, Alt, arrows, `^C`, and — after a sideways scroll — Home, End,
 Page Up, Page Down, and `| ~ / -`.
 

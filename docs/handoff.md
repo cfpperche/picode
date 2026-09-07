@@ -42,6 +42,7 @@
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088); smoke passed on real binaries.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/mobile-ime-firstopen` — extra keys only after a tap; no rest-state black strip.
 
 ## Next up
 
@@ -94,6 +95,5 @@
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with
   an absent model keeps its reservation; history pruning deferred. Owned service:
   ARM64 hardware, real model-ledger download acceptance and old-release pruning remain open.
-- Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
-  owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
-  the full window with the IME up, land the focus-gated iOS fallback.
+- Mobile IME accessory (ADR-0044): first-open tap-gate is Chromium PASS on
+  `feat/mobile-ime-firstopen`; iOS 26 IME-open is still owner acceptance.

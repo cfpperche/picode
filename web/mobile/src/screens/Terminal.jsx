@@ -12,7 +12,8 @@ import TermAttachSheet from "../components/TermAttachSheet.jsx";
 
 // The pushed terminal screen (#/term/<id>): the same xterm the desktop
 // attaches to the tmux session. Extra keys are an IME accessory — they
-// open and close with the phone keyboard (ADR-0044).
+// open and close with the phone keyboard (ADR-0044). Attach does not
+// focus xterm; a tap on the pane or the header icon does.
 
 export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenChanges }) {
   const [page, setPage] = useState(null);
@@ -103,7 +104,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
               </button>
             ) : null}
             {canKeys ? (
-              <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => e.preventDefault()} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
+              <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
                 <IconKeyboard size={16} />
               </button>
             ) : null}
