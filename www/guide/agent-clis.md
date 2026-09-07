@@ -17,10 +17,10 @@ here. A missing executable offers **Customize**; the CLI's documentation link
 explains its installation. Checking setup runs `--version`, without starting
 a conversation.
 
-Attaching a photo from a phone into a CLI terminal is a separate door
-(ADR-0089): the file is saved in the terminal's folder and the path is
-typed into the TUI. That send is not on this page yet; the Pi agent
-composer already opens Photos.
+On a running CLI terminal, **Attach** (paperclip on the phone header, or
+the bar under the pane on desktop) sends a photo or a file: PiCode saves
+it in the terminal's folder and types the path into the TUI. The Pi agent
+composer still opens Photos for managed chat.
 
 ## Launch settings
 

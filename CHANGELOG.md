@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Attach a photo or file to an Agent CLI terminal** (ADR-0089). On a
+  running Claude Code, Codex, Grok, Hermes or Pi CLI terminal, an attach
+  bar (desktop) or header paperclip (phone) stages the file in the
+  terminal folder and types the path into the TUI. Caps: four files, 4 MB
+  each. Inspector Git type/run still does not type into a CLI.
+
 - **CLI lifecycle management** (ADR-0087): update checks, update, reinstall
   and uninstall for catalogued agent CLIs. The Agent CLIs surface shows an
   update badge with the latest version (npm registry or the vendor's own

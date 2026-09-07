@@ -37,8 +37,10 @@ Tap an agent to open it: the conversation (with any question the agent is
 asking), the composer with **prompt / steer / follow-up** and dictation, and
 **Stop** to abort the current turn. The image button on the composer opens
 this phone's Photos (or the camera); the paperclip still attaches a file
-from the agent's folder on the PiCode machine. An agent living in a
-terminal shows a **Chat | Terminal** switch.
+from the agent's folder on the PiCode machine. An Agent CLI terminal
+adds **Attach** in the header — Photos, a file, or a file from the
+folder — and Send types it into the TUI. An agent living in a terminal
+shows a **Chat | Terminal** switch.
 
 Replying to that terminal agent from the Inbox keeps you on its Terminal
 screen. A small card moves through **Receiving → Processing → Returning** and

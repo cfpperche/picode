@@ -1,0 +1,14 @@
+# 2026-09-07 — feat/cli-prompt-impl: ADR-0089 drop + paste + attach UI
+
+Shipped: `POST /api/terminals/{id}/drop` and `/prompt`. Desktop attach
+bar on a running Agent CLI `TermSurface`. Mobile header Attach → sheet.
+Workspace browse from the terminal cwd. Caps 4 × 4 MB. Inspector type
+on a CLI terminal is 409 `cli`.
+
+Verified: `TestTerminalPromptDecisionTable` (missing, shell, drop, size,
+escape, too many, dead pane, paste, busy, inspector). `planAttachFiles`
+JS. Visual on scratch next.
+
+visual-review: pending scratch
+Not done: iPhone Photos sheet (owner). Per-CLI mention polish (D7).
+Merge: not yet.

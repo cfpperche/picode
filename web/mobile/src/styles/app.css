@@ -1382,6 +1382,19 @@ img.ws-face.term-cli-face {
   min-height: 28px;
 }
 .composer-attach { flex: none; width: 28px; height: 28px; }
+.term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.term-attach-row { display: flex; align-items: center; gap: 6px; }
+.term-attach-input {
+  flex: 1 1 auto; min-width: 0; height: var(--ctl-h);
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-base); color: var(--text-primary);
+  padding: 0 10px; font: inherit;
+}
+.pin-att-ext {
+  font-family: var(--mono); font-size: 12px; font-weight: 650;
+  color: var(--text-primary);
+}
 .bash-block {
   margin: 4px 0;
   border: 1px solid var(--border); border-radius: 8px;

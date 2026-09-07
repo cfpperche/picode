@@ -26,6 +26,7 @@ func registerTerminalRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/terminals/{id}/blob", handleGetTerminalBlob(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/cwd", handleGetTerminalCwd(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/browse", handleTerminalBrowse(deps))
+	registerTermPromptRoutes(mux, deps)
 }
 
 func defaultShell() string {

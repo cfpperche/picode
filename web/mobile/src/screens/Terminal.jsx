@@ -6,8 +6,9 @@ import { terms } from "../lib/terms.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { termLine } from "@picode/shared/domain/repoLine.js";
-import { IconKeyboard, IconGit } from "../components/Icons.jsx";
+import { IconKeyboard, IconGit, IconClip } from "../components/Icons.jsx";
 import { useTermAccessory } from "../hooks/useTermAccessory.js";
+import TermAttachSheet from "../components/TermAttachSheet.jsx";
 
 // The pushed terminal screen (#/term/<id>): the same xterm the desktop
 // attaches to the tmux session. Extra keys are an IME accessory — they
@@ -16,6 +17,7 @@ import { useTermAccessory } from "../hooks/useTermAccessory.js";
 export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenChanges }) {
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
+  const [attach, setAttach] = useState(false);
   const hostRef = useRef(null);
   const id = term && term.id;
   const entryOf = () => terms.get("sh:" + id);
@@ -95,6 +97,11 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
             {live.git && live.git.dirty ? (
               <button type="button" className="btn btn-sm m-changes-btn" title="Uncommitted changes" onClick={() => onOpenChanges("term", term.id, live.name || "Terminal")}><IconGit size={13} /> {live.git.dirty}</button>
             ) : null}
+            {live.launchCli && live.running ? (
+              <button type="button" className="btn btn-sm" title="Attach" aria-label="Attach" onClick={() => setAttach(true)}>
+                <IconClip size={13} />
+              </button>
+            ) : null}
             {canKeys ? (
               <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => e.preventDefault()} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
                 <IconKeyboard size={16} />
@@ -114,6 +121,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenCha
         )}
       </div>
       {canKeys && keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
+      {live.launchCli && live.running ? <TermAttachSheet term={live} open={attach} onClose={() => setAttach(false)} /> : null}
     </div>
   );
 }

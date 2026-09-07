@@ -1599,6 +1599,24 @@ img.ws-face.term-cli-face {
   position: relative; background: #0e0e11;
   padding: var(--term-pad, 8px);
 }
+.term-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.term-attach {
+  flex: none;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+}
+.term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.term-attach-row { display: flex; align-items: center; gap: 6px; }
+.term-attach-input {
+  flex: 1 1 auto; min-width: 0; height: var(--ctl-h);
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-base); color: var(--text-primary);
+  padding: 0 10px; font: inherit;
+}
 .term-surface[hidden] { display: none !important; }
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
 /* ADR-0059: one same-tab state while the TUI lends its session to a
