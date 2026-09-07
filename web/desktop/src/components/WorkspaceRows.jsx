@@ -209,7 +209,8 @@ export function TermRow({
 // contract was not met), both render nothing — silence is not absence and
 // absence is not worth a line (ADR-0082, owner refinement). No parens
 // around the counter — this is a list row, not a terminal (owner refinement,
-// docs/plans/sidebar-checklist-expand.md).
+// docs/plans/sidebar-checklist-expand.md). The terminal pane does not
+// repeat this line (ADR-0081 amendment 2026-09-07).
 export function ChecklistLine({ line }) {
   if (!line || line.kind === "absent") return null;
   const pos = line.position + "/" + line.total;

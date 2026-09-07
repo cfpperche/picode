@@ -47,7 +47,7 @@ import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
 import { applyFleet, applyTui, applyUsage, touches } from "@picode/shared/domain/feedReducers.js";
-import { applyChecklists, checklistLine, indexChecklists } from "@picode/shared/domain/checklist.js";
+import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
@@ -2398,7 +2398,6 @@ export default function App() {
                 term={t}
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
-                checklist={checklistLine(t.checklist)}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
               />
             );
@@ -2669,7 +2668,6 @@ export default function App() {
                   key={"agterm-" + agent.id + "-" + (termEpochs[agent.id] || 0)}
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
-                  checklist={checklistLine(checklists[agent.id])}
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
                 />
               </>

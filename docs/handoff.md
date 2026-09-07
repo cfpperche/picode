@@ -19,7 +19,7 @@
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (catalog, sqlite sessions, `--session` resume, `OPENCODE_CONFIG` plugin;
   list-only for ADR-0088; not yet deployed). Terminal checklists (ADR-0081)
-  with the compact line aligned to the card's text column; absent checklist
+  on the sidebar card only (no strip above the pane). Absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
   or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as

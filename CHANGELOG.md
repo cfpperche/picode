@@ -11,6 +11,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Pi terminals no longer show a checklist strip above the pane.** The
+  TUI already draws the plan; the sidebar card still carries the one-line
+  step. The pane is just the terminal.
+
 ### Fixed
 
 - **Phone terminal: extra keys stay off until you open the keyboard.**
