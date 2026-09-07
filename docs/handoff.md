@@ -46,6 +46,7 @@
 
 ## In flight (unmerged branches on disk)
 
+- `feat/repo-picker` — GitHub repo picker for the clone form (`GET /api/github/repos` + combobox/picker); ff-ready.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 
 ## Next up
