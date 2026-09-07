@@ -55,9 +55,26 @@ func cleanupTerm(t *testing.T, res map[string]any) map[string]any {
 	}
 	id, _ := term["id"].(string)
 	if id != "" {
-		t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
+		t.Cleanup(func() { killTermPane(tmux.ShellSessionName(id)) })
 	}
 	return term
+}
+
+// killTermPane kills a pane and confirms it is gone. A single kill loses to
+// tmux under a loaded full-matrix run: panes named after this file's
+// fixtures kept surviving a suite that reported clean, one per run or so.
+func killTermPane(name string) {
+	m := tmux.New()
+	for i := 0; i < 5; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = m.KillSession(ctx, name)
+		alive, err := m.HasSession(ctx, name)
+		cancel()
+		if err != nil || !alive {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 }
 
 // fakeCLI installs a CLI executable that records its argv to $QA_OUTPUT.args
@@ -371,7 +388,7 @@ func TestHandoffLiveSourceNeedsForce(t *testing.T) {
 	// A running Claude Code terminal pinned to cc-1 (ADR-0084).
 	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "live claude", "cwd": proj}, 201)
 	termID := created["id"].(string)
-	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(termID)) })
+	t.Cleanup(func() { killTermPane(tmux.ShellSessionName(termID)) })
 	waitCLIFile(t, claudeOut+".args")
 	if _, ok := deps.TermRuntimes.Start(termID, TermRuntime{CLI: "claude-code", Source: "wrapper", RunID: "run-1", StartedAt: time.Now()}); !ok {
 		t.Fatal("runtime not registered")
