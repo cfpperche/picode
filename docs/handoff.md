@@ -34,8 +34,8 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
-  ADR-0089 prompt door + composer Photos: `feat/cli-prompt-door`.
-  Managed agents remain Pi-only.
+  Composer Photos picker + ADR-0089 prompt door merged `9b5f99dd`
+  (CLI drop/paste APIs still to ship). Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
@@ -43,7 +43,6 @@
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/cli-prompt-door` — ADR-0089 + device image picker on the Pi composer.
 
 ## Next up
 
