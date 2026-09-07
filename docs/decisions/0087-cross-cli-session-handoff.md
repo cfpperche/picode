@@ -1,8 +1,9 @@
 # ADR-0087: Cross-CLI session handoff — continue a conversation in another Agent CLI
 
-- **Status**: proposed (owner approved the direction, the scoped exception
+- **Status**: accepted (owner approved the direction, the scoped exception
   to the never-write rule, the first milestone and the deterministic brief
-  on 2026-09-06; acceptance follows the live smoke on real binaries)
+  on 2026-09-06; live smoke on real binaries passed the same day, see
+  `docs/handoff/2026-09-06-session-handoff.md`)
 - **Date**: 2026-09-06
 - **Extends**: ADR-0069 (Agent CLI terminals), ADR-0079 (sessions under
   Agent CLIs), ADR-0084 (pin and resume)

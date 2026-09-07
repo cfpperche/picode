@@ -4,8 +4,9 @@
 - Owner approved: the handoff direction (not a live switch), the create-only
   exception to the never-write rule, milestone 1 = Claude Code ⇄ Codex ⇄ pi
   native with Grok and Hermes via brief, and a deterministic brief (no model).
-- Status: phases 0–2 implemented in `feat/session-handoff`; live smoke on
-  real binaries pending before the ADR moves to accepted. Phases 3–4 planned.
+- Status: phases 0–2 implemented in `feat/session-handoff` and smoke-tested
+  on real binaries (Claude Code 2.1.263, Codex 0.153.4, Grok 1.0.13, pi).
+  Phases 3–4 planned.
 
 ## Outcome
 
@@ -31,7 +32,7 @@ now carries title, model, size), pi (leaf ancestry) and Hermes (SQLite);
 `session_handoffs` + `session.handoff`; preview/handoff endpoints; menu,
 dialog, lineage badges.
 
-## Phase 2 — native writers (done, smoke pending)
+## Phase 2 — native writers (done)
 
 Claude Code, Codex and pi writers with round-trip verification and the
 `tools: text` option; the installed target version comes from the setup

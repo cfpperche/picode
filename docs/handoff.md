@@ -37,9 +37,8 @@
 ## In flight (unmerged branches on disk)
 
 - `feat/session-handoff` — continue a session in another Agent CLI
-  (ADR-0087, proposed): readers for all five CLIs, native writers for
-  Claude Code / Codex / pi, brief fallback, lineage. Live smoke on real
-  binaries owed before acceptance.
+  (ADR-0087): readers for all five CLIs, native writers for Claude Code /
+  Codex / pi, brief fallback, lineage; smoke passed on real binaries.
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
@@ -60,7 +59,9 @@
 
 - Hermes: live TUI activity unproven; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
 - Handoff (ADR-0087): native formats are undocumented upstream — a version
-  bump surfaces as a refused write; Hermes/Grok native targets undecided.
+  bump surfaces as a refused write; Hermes/Grok native targets undecided;
+  Codex shows a handed-off rollout in its picker only after a restart and
+  renders no prior turns (context loads); Codex→Claude loses the model name.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").
