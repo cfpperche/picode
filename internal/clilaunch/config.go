@@ -110,7 +110,7 @@ func Validate(c Config) error {
 		if !envKey.MatchString(k) || !check(v) {
 			return fmt.Errorf("Environment variables need a valid name and a single-line value.")
 		}
-		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" {
+		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" || k == "OPENCODE_CONFIG" {
 			return fmt.Errorf("%s is managed by the launcher.", k)
 		}
 	}

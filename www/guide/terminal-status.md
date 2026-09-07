@@ -44,7 +44,7 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 | Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
 | Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
 | Hermes Agent | session Python path injection; follows the official launcher; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
-| OpenCode | presence lease only; no data-dir overlay and no write to `~/.config/opencode` | Working / Needs you land with vendor activity hooks in a later step. `session` / `auth` / `run` skip the lease |
+| OpenCode | session plugin in PiCode terminals only; does not write `~/.config/opencode` or move session data | maps session busy/idle, permission prompts and questions. `session` / `auth` / `run` skip the plugin |
 | Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |
 
 Hook coverage depends on the installed CLI version. **Check setup** verifies

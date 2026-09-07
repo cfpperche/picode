@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-06 (OpenCode CLI catalog PR1; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-07 (OpenCode activity plugin; OpenCode CLI catalog; Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -354,7 +354,7 @@ The launcher resolves process environment → CLI defaults → terminal override
 Environment keys merge (a null override removes a default), argument/PATH arrays
 replace defaults, and an explicit empty array clears them. PATH entries prepend
 the service's inherited PATH. PiCode correlation variables, HOME, SHELL,
-GROK_HOME and HERMES_HOME cannot be overridden through the environment field. An executable
+GROK_HOME, HERMES_HOME and OPENCODE_CONFIG cannot be overridden through the environment field. An executable
 may be a command name or absolute path; resolution skips PiCode's own wrappers.
 Argument and environment values are individually shell-quoted, never evaluated.
 
@@ -857,8 +857,8 @@ server is on another format.
 
 Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
 scoped wrappers inject Claude, Codex, Grok, Hermes Agent (PYTHONPATH
-sitecustomize, no `HERMES_HOME` overlay), OpenCode (presence lease only in
-this release; no data-dir overlay and no write to `~/.config/opencode`),
+sitecustomize, no `HERMES_HOME` overlay), OpenCode (`OPENCODE_CONFIG`
+session plugin, no data-dir overlay and no write to `~/.config/opencode`),
 or manual Pi TUI hooks; a wrapper
 lease becomes `terminal.runtime`, while lifecycle reports become
 `terminal.state` feed events. The lease carries a canonical CLI, run id, PID,
@@ -905,6 +905,23 @@ gate, not a status signal). The map is executable in `TestHookMapPy`:
 | `on_session_start`, `on_session_end`, `on_session_reset`, `on_session_finalize`, `post_llm_call`, `subagent_stop` | publish `idle` |
 | `pre_approval_request` | publish `needs-you` |
 | `pre_tool_call` (not injected) | no report |
+
+OpenCode does not get an `XDG_DATA_HOME` overlay: `opencode.db` is SQLite
+with WAL files beside the data path, and auth lives in the same directory.
+The session wrapper sets `OPENCODE_CONFIG` to a PiCode-owned json that
+adds one local plugin; configs merge, so the user's
+`~/.config/opencode/opencode.jsonc` is not written. Maintenance
+subcommands (`session`, `auth`, `run`, …) skip the plugin. The map is
+executable in `TestOpencodeActivityMap`:
+
+| OpenCode plugin event | Lifecycle action |
+|---|---|
+| `session.status` busy / retry | publish `working` |
+| `session.status` idle, `session.idle` | publish `idle` |
+| `permission.asked`, `permission.v2.asked`, `question.asked`, `question.v2.asked` | publish `needs-you` |
+| `permission.replied`, `permission.v2.replied`, `question.replied`, `question.v2.replied` | publish `working` |
+| `question.rejected`, `question.v2.rejected` | publish `idle` |
+| `tool.execute.before` (not mapped) | no report |
 
 PTY input closes the gap left by a CLI that omits its interruption callback:
 

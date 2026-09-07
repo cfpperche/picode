@@ -27,8 +27,10 @@ to the `[Unreleased]` section. The repository's official language is English
   command in a terminal, lists top-level sessions from
   `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
   read-only, and resumes with `opencode --session <id>`. Activity reporting
-  is a presence lease in this release — vendor activity hooks land next,
-  without writing `~/.config/opencode` or overlaying the data directory.
+  is a presence lease plus a session-only plugin injected through
+  `OPENCODE_CONFIG` (session busy/idle, permission and question prompts) —
+  not a data-dir overlay and not by writing `~/.config/opencode`.
+  Maintenance subcommands skip the plugin.
   Update/reinstall/uninstall use `opencode upgrade` and
   `opencode uninstall --keep-config --keep-data --force` (the vendor
   commands, including bun-global installs classified as npm by path).

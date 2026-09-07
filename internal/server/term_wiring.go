@@ -236,7 +236,7 @@ func wiringRows(dataDir string) []wiringRow {
 			ID: "opencode", Label: "OpenCode", Bin: "opencode",
 			Installed: installedOnPath("opencode"),
 			Wired:     interceptWired(dataDir, "opencode", "opencode"),
-			Note:      "Presence lease only. Does not write ~/.config/opencode or overlay the data dir.",
+			Note:      "Activity plugin in PiCode terminals only. Does not write your OpenCode config or move session data. Auth stays yours.",
 		},
 		{
 			ID: "pi", Label: "Pi", Bin: "pi",

@@ -40,7 +40,7 @@ New launches use the saved settings; existing processes keep running.
 Use **Customize this terminal** for exceptions. Unchanged fields inherit the
 CLI defaults; changed fields override them. Clearing arguments removes the
 defaults, and removing an environment line removes that default key. HOME,
-SHELL, PATH, GROK_HOME, HERMES_HOME and PiCode's correlation variables are launcher-owned;
+SHELL, PATH, GROK_HOME, HERMES_HOME, OPENCODE_CONFIG and PiCode's correlation variables are launcher-owned;
 use the dedicated PATH field for extra executable directories.
 
 Settings edited after a launch show **Launch changes pending**. The terminal

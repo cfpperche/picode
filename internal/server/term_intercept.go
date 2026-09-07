@@ -167,7 +167,7 @@ const hermesMaintenanceCommands = `setup|model|moa|fallback|secrets|migrate|gate
 // opencodeMaintenanceCommands is the first positional after flags that means
 // "not the interactive TUI". A path positional is the TUI project argument,
 // not a subcommand. Kept in one place so the presence lease skips the same
-// names the activity-plugin passthrough will skip in a later step.
+// names the OPENCODE_CONFIG plugin skip uses.
 const opencodeMaintenanceCommands = `session|auth|providers|mcp|models|serve|web|acp|plugin|plug|db|upgrade|uninstall|github|stats|export|import|completion|agent|debug|run|attach|pr`
 
 const wrapperLifecycleEnd = `rc=$?
@@ -604,11 +604,96 @@ done
 	return writeExecutable(wrapperPath(dataDir, "hermes"), body)
 }
 
+func opencodeInterceptDir(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "opencode")
+}
+
+func opencodeConfigFile(dataDir string) string {
+	return filepath.Join(opencodeInterceptDir(dataDir), "opencode.json")
+}
+
+func opencodePluginFile(dataDir string) string {
+	return filepath.Join(opencodeInterceptDir(dataDir), "picode-activity.js")
+}
+
+// opencodeMapEventJS is the event → terminal-state table. Kept as a
+// standalone function so tests can execute it without loading OpenCode.
+const opencodeMapEventJS = `function mapEvent(type, statusType) {
+  switch (type) {
+    case "session.status":
+      if (statusType === "busy" || statusType === "retry") return "working"
+      if (statusType === "idle") return "idle"
+      return ""
+    case "session.idle":
+      return "idle"
+    case "permission.asked":
+    case "permission.v2.asked":
+    case "question.asked":
+    case "question.v2.asked":
+      return "needs-you"
+    case "permission.replied":
+    case "permission.v2.replied":
+    case "question.replied":
+    case "question.v2.replied":
+      return "working"
+    case "question.rejected":
+    case "question.v2.rejected":
+      return "idle"
+    default:
+      return ""
+  }
+}
+`
+
+// opencodeActivityJS is a session-only OpenCode plugin. It exports one
+// default function — extra function exports would be loaded as plugins.
+const opencodeActivityJS = `import { spawn } from "node:child_process"
+
+const HOOK = process.env.PICODE_OPENCODE_HOOK || ""
+
+function report(state) {
+  if (!HOOK || !process.env.PICODE_TERM_ID) return
+  if (state !== "working" && state !== "idle" && state !== "needs-you") return
+  try {
+    const child = spawn(HOOK, [state, "opencode"], { stdio: "ignore", detached: true })
+    child.unref()
+  } catch {
+    // never throw into the TUI
+  }
+}
+
+` + opencodeMapEventJS + `
+export default async function picodeActivity() {
+  return {
+    event: async ({ event }) => {
+      const type = event && typeof event.type === "string" ? event.type : ""
+      const status = event && event.properties && event.properties.status
+      const statusType = status && typeof status.type === "string" ? status.type : ""
+      const state = mapEvent(type, statusType)
+      if (state) report(state)
+    },
+  }
+}
+`
+
+const opencodeConfigJSON = `{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["./picode-activity.js"]
+}
+`
+
 func writeOpencodeIntercept(dataDir, hook string) error {
-	passthrough := strings.Replace(`# Named maintenance subcommands skip the presence lease, even when flags
-# precede them (opencode --log-level DEBUG session list). A path positional
-# is the TUI project argument, not a subcommand. Session ids after
-# --session/-s are not subcommands.
+	if err := writeInterceptFile(opencodePluginFile(dataDir), []byte(opencodeActivityJS), 0o600); err != nil {
+		return err
+	}
+	if err := writeInterceptFile(opencodeConfigFile(dataDir), []byte(opencodeConfigJSON), 0o600); err != nil {
+		return err
+	}
+	plan := cliIntegrationPlan("opencode", dataDir, hook)
+	passthrough := strings.Replace(`# Named maintenance subcommands skip the presence lease and the session
+# plugin, even when flags precede them (opencode --log-level DEBUG session
+# list). A path positional is the TUI project argument, not a subcommand.
+# Session ids after --session/-s are not subcommands.
 picode_take=
 for picode_arg in "$@"; do
   if [ -n "$picode_take" ]; then
@@ -631,9 +716,11 @@ for picode_arg in "$@"; do
   esac
 done
 `, "OPENCODE_MAINT", opencodeMaintenanceCommands, 1)
-	body := "#!/bin/sh\n# PiCode intercept — OpenCode. Session PATH only. No data-dir overlay; no user config write.\nname=opencode\n" +
+	body := "#!/bin/sh\n# PiCode intercept — OpenCode. Session PATH only. OPENCODE_CONFIG plugin; no data-dir overlay.\nname=opencode\n" +
 		wrapperFindReal +
 		passthrough +
+		"export OPENCODE_CONFIG=" + shellQuote(plan.Environment["OPENCODE_CONFIG"]) + "\n" +
+		"export PICODE_OPENCODE_HOOK=" + shellQuote(plan.Environment["PICODE_OPENCODE_HOOK"]) + "\n" +
 		wrapperLifecycle(hook) +
 		"\"$real\" \"$@\"\n" +
 		wrapperLifecycleEnd

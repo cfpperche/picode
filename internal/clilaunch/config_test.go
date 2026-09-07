@@ -53,6 +53,7 @@ func TestValidateLaunchDecisionTable(t *testing.T) {
 		{"reserved home", Config{Env: map[string]string{"HOME": "/other"}}, false},
 		{"reserved grok home", Config{Env: map[string]string{"GROK_HOME": "/other"}}, false},
 		{"reserved hermes home", Config{Env: map[string]string{"HERMES_HOME": "/other"}}, false},
+		{"reserved opencode config", Config{Env: map[string]string{"OPENCODE_CONFIG": "/other.json"}}, false},
 		{"reserved path", Config{Env: map[string]string{"PATH": "/other"}}, false},
 		{"relative path", Config{Path: []string{"relative"}}, false},
 		{"path separator", Config{Path: []string{"/a:/b"}}, false},

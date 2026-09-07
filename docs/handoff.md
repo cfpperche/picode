@@ -41,7 +41,7 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/opencode-cli` — PR1 catalog/sessions/presence; activity plugin is PR2.
+- `feat/opencode-cli` — PR2 OPENCODE_CONFIG activity plugin (catalog already on the branch).
 - `feat/llama-service` / `feat/llama-guidance` — llama settings, pins, delivery 3.
 - `feat/picode-feature-video` — skills record clicks, not slideshows.
 

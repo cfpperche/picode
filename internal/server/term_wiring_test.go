@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -805,8 +806,27 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	}
 }
 
-func TestInterceptOpencodePresenceNoUserConfig(t *testing.T) {
+func TestInterceptOpencodeConfigPlugin(t *testing.T) {
 	ts, dataDir := wiringTestServer(t)
+	home, _ := os.UserHomeDir()
+	userDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(userDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	userJSONC := filepath.Join(userDir, "opencode.jsonc")
+	original := []byte("{\n  // user comment\n  \"$schema\": \"https://opencode.ai/config.json\"\n}\n")
+	if err := os.WriteFile(userJSONC, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	past := time.Unix(1_700_000_000, 0)
+	if err := os.Chtimes(userJSONC, past, past); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(userJSONC)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if res := postJSON(t, ts, "/api/terminals/wiring/opencode/enable", map[string]any{}); res.StatusCode != http.StatusOK {
 		t.Fatalf("opencode enable = %d", res.StatusCode)
 	}
@@ -818,15 +838,52 @@ func TestInterceptOpencodePresenceNoUserConfig(t *testing.T) {
 	if !strings.Contains(got, "name=opencode") || !strings.Contains(got, "runtime-start") {
 		t.Fatalf("opencode wrapper missing presence lease:\n%s", got)
 	}
-	if strings.Contains(got, "XDG_DATA_HOME=") || strings.Contains(got, "OPENCODE_CONFIG=") {
-		t.Fatalf("opencode wrapper must not overlay data dir or config:\n%s", got)
+	if !strings.Contains(got, "OPENCODE_CONFIG=") || !strings.Contains(got, opencodeConfigFile(dataDir)) {
+		t.Fatalf("opencode wrapper missing OPENCODE_CONFIG:\n%s", got)
 	}
-	home, _ := os.UserHomeDir()
-	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "opencode.jsonc")); !os.IsNotExist(err) {
-		t.Fatalf("enable must not write ~/.config/opencode/opencode.jsonc: %v", err)
+	if !strings.Contains(got, "PICODE_OPENCODE_HOOK=") {
+		t.Fatalf("opencode wrapper missing hook env:\n%s", got)
 	}
-	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "plugins")); !os.IsNotExist(err) {
+	if strings.Contains(got, "XDG_DATA_HOME=") || strings.Contains(got, "OPENCODE_CONFIG_DIR=") || strings.Contains(got, "OPENCODE_CONFIG_CONTENT=") || strings.Contains(got, "--pure") {
+		t.Fatalf("opencode wrapper must not overlay data dir, steal config-dir, or disable plugins:\n%s", got)
+	}
+	after, err := os.Stat(userJSONC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.ModTime() != before.ModTime() {
+		t.Fatalf("enable must not touch user jsonc mtime: before %v after %v", before.ModTime(), after.ModTime())
+	}
+	raw, err := os.ReadFile(userJSONC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != string(original) {
+		t.Fatalf("enable must not rewrite user jsonc: %s", raw)
+	}
+	if _, err := os.Stat(filepath.Join(userDir, "plugins")); !os.IsNotExist(err) {
 		t.Fatalf("enable must not create ~/.config/opencode/plugins: %v", err)
+	}
+	plugin, err := os.ReadFile(opencodePluginFile(dataDir))
+	if err != nil {
+		t.Fatalf("plugin missing: %v", err)
+	}
+	src := string(plugin)
+	if !strings.Contains(src, "session.status") || !strings.Contains(src, "permission.asked") || !strings.Contains(src, "export default") {
+		t.Fatalf("plugin: %s", src)
+	}
+	if strings.Contains(src, "console.log") {
+		t.Fatal("plugin must not write to the TUI via console.log")
+	}
+	if strings.Count(src, "export ") != 1 {
+		t.Fatalf("plugin must export only the default function:\n%s", src)
+	}
+	cfg, err := os.ReadFile(opencodeConfigFile(dataDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfg), "./picode-activity.js") || !strings.Contains(string(cfg), "$schema") {
+		t.Fatalf("session config: %s", cfg)
 	}
 	var page struct {
 		Clis []wiringRow `json:"clis"`
@@ -839,8 +896,11 @@ func TestInterceptOpencodePresenceNoUserConfig(t *testing.T) {
 			row = &page.Clis[i]
 		}
 	}
-	if row == nil || !row.Wired || !strings.Contains(row.Note, "Presence lease") {
+	if row == nil || !row.Wired || !strings.Contains(row.Note, "plugin") {
 		t.Fatalf("opencode wiring = %+v", page.Clis)
+	}
+	if strings.Contains(row.Note, "Presence lease only") {
+		t.Fatalf("stale OpenCode note: %q", row.Note)
 	}
 }
 
@@ -861,7 +921,7 @@ func TestOpencodeMaintenanceSkipsPresenceLease(t *testing.T) {
 	if err := writeExecutable(hookScriptPath(dataDir), "#!/bin/sh\nprintf '%s|%s\\n' \"$1\" \"$2\" >> \"$PICODE_TEST_HOOK_LOG\"\n"); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeExecutable(filepath.Join(root, "opencode"), "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"); err != nil {
+	if err := writeExecutable(filepath.Join(root, "opencode"), "#!/bin/sh\nprintf 'OPENCODE_CONFIG=%s|ARGS=%s\\n' \"${OPENCODE_CONFIG-}\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"); err != nil {
 		t.Fatal(err)
 	}
 	if out, err := exec.Command("sh", "-n", wrapperPath(dataDir, "opencode")).CombinedOutput(); err != nil {
@@ -896,6 +956,9 @@ func TestOpencodeMaintenanceSkipsPresenceLease(t *testing.T) {
 	if !strings.Contains(string(real), "session list") || !strings.Contains(string(real), "auth list") {
 		t.Fatalf("real argv: %q", real)
 	}
+	if strings.Contains(string(real), opencodeConfigFile(dataDir)) {
+		t.Fatalf("maintenance must not set OPENCODE_CONFIG:\n%s", real)
+	}
 	run("/tmp/some-project")
 	run("--session", "ses_x")
 	got, err = os.ReadFile(hookLog)
@@ -904,6 +967,82 @@ func TestOpencodeMaintenanceSkipsPresenceLease(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "runtime-start|opencode") {
 		t.Fatalf("TUI project path and --session must take a presence lease:\n%s", got)
+	}
+	real, err = os.ReadFile(realLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(real), opencodeConfigFile(dataDir)) {
+		t.Fatalf("TUI must set OPENCODE_CONFIG:\n%s", real)
+	}
+}
+
+func TestOpencodePluginListedByDebugInfo(t *testing.T) {
+	if _, err := exec.LookPath("opencode"); err != nil {
+		t.Skip("opencode not on PATH")
+	}
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := writeOpencodeIntercept(dataDir, filepath.Join(dataDir, "picode-hook")); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("opencode", "debug", "info")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(),
+		"HOME="+root,
+		"XDG_CONFIG_HOME="+filepath.Join(root, "config"),
+		"XDG_DATA_HOME="+filepath.Join(root, "xdg"),
+		"OPENCODE_CONFIG="+opencodeConfigFile(dataDir),
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("opencode debug info: %v: %s", err, out)
+	}
+	if !strings.Contains(string(out), "picode-activity.js") {
+		t.Fatalf("plugin not loaded:\n%s", out)
+	}
+}
+
+func TestOpencodeActivityMap(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not on PATH")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "map.js")
+	body := opencodeMapEventJS + `
+const rows = [
+  ["session.status", "busy", "working"],
+  ["session.status", "retry", "working"],
+  ["session.status", "idle", "idle"],
+  ["session.status", "other", ""],
+  ["session.idle", "", "idle"],
+  ["permission.asked", "", "needs-you"],
+  ["permission.v2.asked", "", "needs-you"],
+  ["question.asked", "", "needs-you"],
+  ["question.v2.asked", "", "needs-you"],
+  ["permission.replied", "", "working"],
+  ["permission.v2.replied", "", "working"],
+  ["question.replied", "", "working"],
+  ["question.v2.replied", "", "working"],
+  ["question.rejected", "", "idle"],
+  ["question.v2.rejected", "", "idle"],
+  ["tool.execute.before", "", ""],
+  ["message.updated", "", ""],
+]
+for (const [type, status, want] of rows) {
+  const got = mapEvent(type, status)
+  if (got !== want) {
+    console.error(type + " " + status + " = " + JSON.stringify(got) + " want " + JSON.stringify(want))
+    process.exit(1)
+  }
+}
+`
+	if err := os.WriteFile(script, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("node", script).CombinedOutput()
+	if err != nil {
+		t.Fatalf("map table: %v: %s", err, out)
 	}
 }
 
