@@ -25,6 +25,8 @@
   a durable `cli_jobs` lane with streamed output, terminal guards and typed
   uninstall confirmation; interrupted jobs never replay. Unmanageable
   installs (Homebrew, manual checkouts) get docs links, not controls.
+  Deployed `0.1.0+ba516b7`; detect fix (symlinks/wrappers) makes real
+  installs classify: pi/codex npm, claude native, grok vendor, hermes git.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
@@ -91,9 +93,8 @@
   protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
-- llama: GPU / non-b10809 cancellation unverified; an unknown download with
-  an absent model keeps its reservation; history pruning deferred. Owned service:
-  ARM64 hardware and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
+- llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
+  Owned-service ARM64 and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
 - Mobile IME accessory (ADR-0044): JSDOM cannot open a software keyboard;
   owner iPhone on iOS 26 is the acceptance. If `--vv-height` still equals
   the full window with the IME up, land the focus-gated iOS fallback.

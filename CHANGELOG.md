@@ -11,6 +11,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Update checks failed on real installs**: install-method detection now
+  resolves symlinks (`~/.local/bin/claude` → the native versions dir) and
+  reads wrapper scripts (Hermes Agent), so update/reinstall/uninstall
+  controls appear for actual installs instead of "No managed lifecycle".
+
 ### Added
 
 - **Managed local llama.cpp service**: desktop/mobile Local service page with
