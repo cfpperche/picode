@@ -53,6 +53,7 @@ import {
   Quote,
   RotateCw,
   Settings,
+  Search,
   SlidersHorizontal,
   Sparkles,
   Smartphone,
@@ -118,6 +119,7 @@ export const IconKind = lucide(MessageSquare, 13);
 export const IconSend = lucide(ArrowUp, 14);
 export const IconBack = lucide(ChevronLeft, 13);
 export const IconX = lucide(X, 16);
+export const IconSearch = lucide(Search, 16);
 export const IconCheck = lucide(Check, 16);
 export const IconMic = lucide(Mic, 16);
 export const IconWave = lucide(AudioLines, 16);

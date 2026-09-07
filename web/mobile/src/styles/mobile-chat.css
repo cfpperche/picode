@@ -1,0 +1,54 @@
+/* Mobile v2: Paseo's focused conversation and Apple's scoped action sheet.
+   The composer participates in layout so messages never hide underneath it. */
+.m-agent .m-head-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.m-agent .m-head-sub .m-state { flex: none; }
+.m-agent-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-agent .m-head-right { gap: 8px; }
+.m-agent .m-agent-state { justify-content: flex-end; padding: 4px 0; }
+.m-agent .m-agent-state .dash-range-face { height: var(--ctl-h); }
+.m-agent .m-chat .chat-main { min-height: 0; }
+.m-agent .m-chat .conversation { position: relative; inset: auto; flex: 1; min-height: 0; height: auto; padding: 8px var(--m-pad) 16px; }
+.m-agent .m-chat .composer-wrap {
+  position: relative; inset: auto; flex: none; padding: 4px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-base); pointer-events: auto;
+}
+#m-app.kb-open .m-agent .m-chat .composer-wrap { padding-bottom: 4px; }
+.m-agent .m-chat .composer { padding: 8px; box-shadow: none; }
+.m-agent .m-chat .composer-controls { flex-wrap: nowrap; gap: 8px; margin-top: 4px; min-height: 44px; }
+.m-agent .composer-left, .m-agent .composer-right, .m-agent .voice-cluster { gap: 8px; }
+.m-agent .composer-controls :is(.icon-btn, .cockpit-chip, .btn-voice-interrupt) {
+  position: relative; height: var(--ctl-h); min-height: var(--ctl-h); min-width: var(--ctl-h);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
+}
+/* Four pixels of hit padding on each side use the row's eight-pixel gaps. */
+.m-agent .composer-controls :is(.icon-btn, .cockpit-chip, .btn-voice-interrupt)::after { content: ""; position: absolute; inset: -4px; }
+.m-agent .composer-controls .icon-btn-send { width: auto; padding: 0 10px; }
+.m-agent .composer-controls .cockpit-chip { padding: 0 8px; }
+.m-agent .voice-cluster { height: var(--ctl-h); padding: 0; border: 0; }
+.m-agent .dictate-bar { height: var(--ctl-h); padding: 0; border: 0; gap: 8px; background: none; }
+.m-agent .dictate-wave { height: var(--ctl-h); width: 40px; }
+.m-agent .m-composer-recording { display: inline-flex; align-items: center; height: var(--ctl-h); font-size: 12px; color: var(--text-secondary); }
+.m-agent .composer-controls button:active { background-color: var(--bg-hover); }
+.m-agent #task-input { min-height: 36px; padding: 6px 4px; font-size: 16px; line-height: 24px; }
+.m-agent .m-chat-empty { flex: none; padding: 24px 16px 8px; text-align: center; color: var(--text-secondary); }
+.m-agent .m-chat-empty p { margin: 0 0 8px; font-size: 13px; }
+.m-agent .m-chat .m-cta { position: static; margin: 0; flex: none; }
+.m-agent .m-chat .composer-wrap.expanded { position: absolute; inset: 0; padding: 8px; background: var(--bg-base); }
+.m-agent .composer-wrap.expanded #task-input { height: 100%; }
+.m-agent .composer-wrap.expanded .composer-controls { flex: none; }
+.m-agent .composer-wrap.expanded::before { display: none; }
+.m-agent .m-composer-error { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--danger); font-size: 12px; }
+.m-agent .m-composer-error span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.m-agent .m-composer-error .btn { flex: none; }
+.dlg.dlg-sheet.m-composer-options { display: flex; flex-direction: column; gap: 12px; }
+.m-composer-option-list { display: grid; gap: 8px; }
+.m-composer-option-list .btn { width: 100%; justify-content: flex-start; position: relative; }
+.m-composer-option-list .btn::after { content: ""; position: absolute; inset: -4px 0; }
+.m-composer-delivery { display: flex; align-items: center; gap: 12px; }
+.m-composer-delivery label { display: flex; align-items: center; height: var(--ctl-h); flex: 1; font-size: 13px; }
+.m-composer-delivery select { height: var(--ctl-h); min-width: 150px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-base); color: var(--text-primary); font: inherit; }
+.m-composer-options .composer-statusbar { margin: 0; padding: 8px 0; flex-wrap: wrap; }
+.m-composer-options .dlg-actions { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .m-agent :is(.composer-pic, .m-composer-error) { animation: none; transition: none; }
+}

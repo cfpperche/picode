@@ -181,15 +181,26 @@ composer, terminal, settings and preview components are mobile-owned copies;
 secondary screens load on demand and offer retry on loading failure. Mobile
 has no desktop sidebar, file editor/tree, Git graph or Pin Studio. Its dialogs
 are always sheets, including wide previews; desktop keeps responsive dialogs.
-The composer opens agent Settings over the mounted conversation, preserving
-unsent text and attachments. Mobile composer controls wrap onto a second row
-when needed, so Send remains visible alongside Stop on narrow screens.
+The v2 composer keeps its primary message and Send/Stop row compact; message
+options (kind, attachments, voice and expansion) open on demand. Per-agent
+in-memory drafts retain text, kind and images across screen changes, clear
+only acknowledged content, and keep failed submissions available for retry.
+Enter inserts a newline; Ctrl/Cmd+Enter sends. Settings opens over the mounted
+conversation. Work uses searchable rows and a compact view selector; More
+groups and searches tools. Sessions under Agent CLIs and Automations have
+mobile-owned list/detail/editor flows using the existing server contracts.
+Fleet reads retain successful sources after partial failures and replay feed
+events received while a read is pending. Sessions and automation runs discard
+outdated responses; initial errors offer retry instead of a missing-resource
+claim or endless loading. See the [v2 acceptance table](plans/mobile-v2.md).
 `#m-app` is pinned to `visualViewport` so the composer and a one-row
 terminal extra-keys accessory stay above the software keyboard
 (ADR-0044); the accessory follows a user tap, not attach-time focus,
 and is not a second QWERTY.
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
+The model catalog parser accepts capability rows only when both final columns
+are yes/no; CLI setup diagnostics cannot become provider/model choices.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
 consume the change feed; presence follows the mounted app rather than width.
 

@@ -6,7 +6,7 @@ preference. `/desktop/` always opens the responsive desktop app. Resizing
 or rotating keeps your current app and connection.
 
 The phone app has its own interface and download, with Now, Inbox, Work
-and More for watching agents and responding while away from your desk.
+and More for managing work while away from your desk.
 Existing links and home-screen installations continue to work.
 
 ## Install it
@@ -27,17 +27,27 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
 - **Inbox** — the same Inbox as the desktop: approvals, questions, results.
 - **Work** — the same three views as the desktop sidebar: **Workspaces**
   (each folder with its agents and terminals; **+ Agent** / **+ Terminal**
-  on the card), **Agents** (free agents, outside any workspace) and
+  beside each workspace), **Agents** (free agents, outside any workspace) and
   **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row,
   **Remove** on a terminal row; **New** creates whatever the view shows.
-- **More** — Providers, Settings, Preferences, MCP, Packages, Devices, System,
-  and **Desktop layout** if you want the full shell on this screen.
+- **More** — search grouped tools: Agent CLIs and Sessions, Automations,
+  Providers, Settings, Preferences, Integrations, Packages, Devices, System
+  and Apps. **Desktop layout** opens the desktop shell on this screen.
 
-Tap an agent to open it: the conversation (with any question the agent is
-asking), the composer with **prompt / steer / follow-up** and dictation, and
-**Stop** to abort the current turn. The image button on the composer opens
-this phone's Photos (or the camera); the paperclip still attaches a file
-from the agent's folder on the PiCode machine. An Agent CLI terminal
+Work keeps its view selector and **New** action at the top. Tap **Search**
+to filter by name or folder. Failed refreshes keep the last loaded work
+visible and offer a retry.
+
+Tap an agent to open its conversation, pending question and compact message
+box. **Enter** adds a new line; tap **Send** (or Ctrl/Cmd+Enter on a hardware
+keyboard) to send. **Message options** contains prompt / steer / follow-up,
+Photos, workspace files, sketch, dictation, voice and an expanded editor.
+**Settings** opens without leaving the conversation. Unsent text and images
+stay with each agent while you move between screens in the open app; a full
+reload clears these temporary drafts. A failed send keeps the draft for
+**Retry**. **Stop** remains available while the agent is working or waiting.
+
+An Agent CLI terminal
 adds **Attach** in the header — Photos, a file, or a file from the
 folder — and Send types it into the TUI. An agent living in a terminal
 shows a **Chat | Terminal** switch.
@@ -58,8 +68,8 @@ chat or change the agent's saved run mode.
 *Video: the phone views — same server, same agents.*
 
 Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
-left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
-terminal or a workspace opens its uncommitted changes, read-only.
+left for Done, Snooze and Delete, or open the row’s action menu. A **"N changed"** button on an agent or workspace opens its uncommitted
+changes, read-only. In a terminal, use **Terminal actions → Changes**.
 
 Tap a terminal to attach to it. Opening it does not raise the phone
 keyboard. Tapping the pane (or the header keyboard icon) opens the

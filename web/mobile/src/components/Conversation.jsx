@@ -80,7 +80,7 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
             const n = acc.n++;
             const live = i === busy;
             const chip = t.user && t.user.chip;
-            const queued = !live && !!t.user && !t.user.dropped && t.replies.length === 0 && t.work.length === 0 && (chip === "steer" || (chip === "follow_up" && t.user.pending));
+            const queued = !live && !!t.user && !t.user.dropped && !t.user.undelivered && t.replies.length === 0 && t.work.length === 0 && (chip === "steer" || (chip === "follow_up" && t.user.pending));
             const ts = firstTs(t);
             const day = dayKey(ts);
             if (day && day !== acc.day) {
@@ -435,7 +435,7 @@ function FilesChanged({ it, items, onToggleFiles, agentId, onOpenTab }) {
   const i = items.indexOf(it);
   return (
     <div className={"files-changed" + (it.expanded ? " expanded" : "")}>
-      <button type="button" className="files-changed-head" onClick={() => onToggleFiles(i)}>
+      <button type="button" className="files-changed-head" aria-expanded={!!it.expanded} onClick={() => onToggleFiles(i)}>
         <span className="tp-chevron">›</span>
         {it.paths.length} {it.paths.length === 1 ? "file" : "files"} changed
       </button>

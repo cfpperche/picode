@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, humanizeError } from "@picode/shared/client/api.js";
@@ -9,12 +10,13 @@ import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "@picode/shared/domain/appSearch.js";
 import AppIcon from "./AppIcon.jsx";
-import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, IconTrash, IconPackage } from "./Icons.jsx";
+import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, IconTrash, IconPackage, IconEllipsis } from "./Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { touches } from "@picode/shared/domain/feedReducers.js";
 import { createRefreshQueue } from "@picode/shared/domain/appRefreshQueue.js";
 import { appFormSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { readGroupPreferences, writeGroupPreferences, groupIsOpen, resetGroupSearch, toggleGroup } from "@picode/shared/domain/appGroups.js";
+import "../styles/mobile-settings.css";
 
 const SKELETON_ROWS = 5;
 // A hidden tab keeps its view; revealing it refetches only when the last read
@@ -570,8 +572,14 @@ function Row({ item, onNavigate, onAction, active, pending }) {
           </span>
         </span>
       </button>
+      {item.actions.length ? <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild><button type="button" className="app-row-more" aria-label={"Actions for " + item.title} disabled={pending}><IconEllipsis size={17} /></button></DropdownMenu.Trigger>
+        <DropdownMenu.Portal><DropdownMenu.Content className="ws-row-menu m-settings-menu" side="bottom" align="end" sideOffset={4} collisionPadding={12}>
+          {item.actions.map(action => <DropdownMenu.Item key={action.id} className={"ws-row-menu-item" + (action.danger ? " danger" : "")} disabled={pending} onSelect={() => onAction(action)}>{action.label}</DropdownMenu.Item>)}
+        </DropdownMenu.Content></DropdownMenu.Portal>
+      </DropdownMenu.Root> : null}
       {item.actions.length ? (
-        <span className="app-row-actions">
+        <span className="app-row-actions" aria-hidden={!swiped}>
           {item.actions.map((a) => {
             const Glyph = ROW_ICONS[a.icon];
             return (
@@ -581,6 +589,7 @@ function Row({ item, onNavigate, onAction, active, pending }) {
                 className={"ws-icon-btn" + (a.danger ? " danger" : "")}
                 title={a.label}
                 aria-label={a.label}
+                tabIndex={swiped ? 0 : -1}
                 onClick={() => onAction(a)}
                 disabled={pending}
               >

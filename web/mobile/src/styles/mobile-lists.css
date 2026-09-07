@@ -1,0 +1,86 @@
+/* Mobile v2: focused workspace groups (Paseo) and stable destinations (HIG).
+   Scope stays on Now, Work and More; tool screens own their presentation. */
+#m-app .m-v2-lists {
+  font-family: var(--sans);
+  gap: 20px;
+}
+.m-v2-lists > * { flex-shrink: 0; }
+.m-v2-lists .m-section { gap: 8px; min-width: 0; }
+.m-v2-lists .m-section-label { font-family: var(--sans); font-size: 11px; letter-spacing: .055em; }
+.m-v2-lists .m-group-list { gap: 0; }
+.m-v2-lists .m-group-list .m-row {
+  min-height: 56px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+.m-v2-lists .m-group-list .m-row:last-child { border-bottom: 0; }
+.m-v2-lists .m-row-main { gap: 8px; padding: 8px 2px; min-height: 52px; }
+.m-v2-lists .m-row-title { font-family: var(--sans); font-size: 14px; font-weight: 600; }
+.m-v2-lists .m-row-sub { font-family: var(--sans); font-size: 12px; }
+.m-v2-lists .m-row-face { align-self: center; width: 24px; height: 24px; }
+.m-v2-lists .m-row-act { width: 44px; min-height: 44px; border-left: 0; border-radius: 8px; margin: 4px 0 4px 4px; }
+.m-v2-lists .m-row-chev { width: 12px; }
+.m-v2-lists .m-row-main:is(:hover, :focus-visible), .m-v2-lists .m-row-act:is(:hover, :focus-visible) { background: var(--bg-hover); }
+.m-v2-lists :is(button, a, input):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+#m-app .m-v2-lists .btn-sm {
+  position: relative;
+  min-height: var(--ctl-h);
+  height: var(--ctl-h);
+  font-family: var(--sans);
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* 36px visual controls, with an extra 4px touch region on each edge.
+   The containing action rows leave 8px between adjacent regions. */
+.m-v2-lists .btn-sm::after { content: ""; position: absolute; inset: -4px; }
+.m-v2-lists .m-list-head { flex-direction: column; align-items: stretch; gap: 4px; padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.m-v2-lists .m-list-toolbar { display: flex; align-items: center; gap: 12px; padding: 4px 0; min-width: 0; }
+#m-app .m-v2-lists .m-list-search { width: 100%; flex: 1; min-width: 0; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 10px; font-family: var(--sans); font-size: 16px; }
+.m-v2-lists .m-list-search::placeholder { color: var(--text-secondary); }
+.m-v2-lists .m-list-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px 0; }
+.m-v2-lists .m-list-empty p, .m-v2-lists .m-list-notice p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.m-v2-lists .m-list-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.m-v2-lists .m-list-loading { display: flex; flex-direction: column; gap: 8px; }
+.m-v2-lists .m-list-loading .m-skel { min-height: 56px; justify-content: center; border-bottom: 1px solid var(--border); }
+
+.m-work-v2 .m-work-seg { width: 100%; flex: none; border: 0; background: transparent; overflow: visible; gap: 4px; }
+.m-work-v2 .m-work-seg .dash-range-opt { height: 44px; align-items: center; min-width: 0; }
+.m-work-v2 .m-work-seg .dash-range-face { height: var(--ctl-h); border: 0; border-radius: 7px; font-family: var(--sans); font-size: 13px; }
+.m-work-v2 .m-work-group { gap: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.m-work-v2 .m-work-group:last-child { border-bottom: 0; }
+.m-work-v2 .m-work-group-head { display: flex; align-items: center; gap: 9px; min-height: 44px; padding-bottom: 4px; color: var(--text-secondary); }
+.m-work-v2 .m-work-group-title { flex: 1; min-width: 0; }
+.m-work-v2 .m-work-group-title h3 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.m-work-v2 .m-work-group-title p { margin: 1px 0 0; font: 11px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-work-v2 .m-work-group-actions { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 0; }
+.m-work-v2 .m-work-group-actions .btn { gap: 4px; padding: 0 8px; color: var(--text-secondary); }
+.m-work-v2 .m-work-group-actions .btn:hover { color: var(--text-primary); }
+.m-work-v2 .m-work-empty { padding: 8px 0 4px; }
+.m-work-v2 .m-group-list .m-row { min-height: 56px; }
+
+.m-now-v2 .m-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+.m-now-v2 .m-section-link { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; min-height: 44px; padding: 0 2px 0 10px; margin-block: -8px; color: var(--text-secondary); text-decoration: none; font-size: 12px; }
+.m-now-v2 .m-section-link:hover { color: var(--accent); }
+.m-now-v2 .m-need { padding: 12px; border-radius: 10px; }
+.m-now-v2 .m-need-title { font-family: var(--sans); font-size: 14px; }
+.m-now-v2 .m-stats { gap: 16px; grid-template-columns: 1.35fr 1fr 1fr; }
+.m-now-v2 .m-stat { padding: 0; border: 0; border-radius: 0; background: transparent; gap: 3px; }
+.m-now-v2 .m-stat-value { font-size: 18px; }
+.m-now-v2 .m-today-section { border-top: 1px solid var(--border); padding-top: 16px; }
+.m-now-v2 .m-empty-line { padding-block: 3px; }
+.m-more-v2 .m-list-head { padding-block: calc(12px + env(safe-area-inset-top)) 12px; }
+.m-more-v2 .m-menu .m-row-main { padding: 8px 2px; }
+.m-more-v2 .m-more-group { gap: 4px; }
+.m-more-v2 .m-install:empty { display: none; }
+
+@media (max-width: 359px) {
+  .m-v2-lists .m-row-main { gap: 6px; }
+  .m-v2-lists .m-row-face { width: 20px; }
+  .m-v2-lists .m-state { font-size: 10px; padding-inline: 5px; }
+  .m-work-v2 .m-row-chev { display: none; }
+}
+.m-work-v2 .m-work-view { flex: 1; min-width: 0; height: var(--ctl-h); padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 16px; }
+.m-work-v2 #mobile-work-search { margin: 0; width: 100%; flex: none; }

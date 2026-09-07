@@ -35,8 +35,9 @@ import { useFleet, flatAgents, findAgent } from "./hooks/useFleet.js";
 import { usePoll } from "./hooks/usePoll.js";
 import { useVisualViewport } from "./hooks/useVisualViewport.js";
 import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } from "./lib/whatsNew.js";
-import ScreenBoundary, { ScreenLoading } from "./components/ScreenBoundary.jsx";
+import ScreenBoundary, { ScreenError, ScreenLoading } from "./components/ScreenBoundary.jsx";
 import { saveAgentConfig } from "./lib/agentConfig.js";
+import { fleetRouteReady } from "./lib/fleetReads.js";
 import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
@@ -63,6 +64,8 @@ export default function MobileApp() {
   const [inbox, setInbox] = useState([]);
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState(null);
+  const [attentionReady, setAttentionReady] = useState(false);
+  const [attentionError, setAttentionError] = useState("");
   const [tuiWorking, setTuiWorking] = useState([]);
   const [checklists, setChecklists] = useState({});
   const [reconnect, setReconnect] = useState(false);
@@ -73,12 +76,15 @@ export default function MobileApp() {
     return () => window.removeEventListener(OPEN_EVENT, on);
   }, []);
   const [create, setCreate] = useState(null); // { kind, workspace } | null
+  // Recovery links inside the sheet navigate to a full screen. Close it
+  // only after navigation succeeds, so route guards can still cancel it.
+  useEffect(() => { setCreate(null); }, [route]);
   const [busyId, setBusyId] = useState("");
   const [lastAgentId, setLastAgentId] = useState(() => { try { return localStorage.getItem(LAST_AGENT_KEY) || ""; } catch { return ""; } });
 
   const onNowOrWork = route.screen === "now" || route.screen === "work" || route.screen === "agent" || route.screen === "term";
   const fleet = useFleet(onNowOrWork ? 5000 : 15000);
-  const { workspaces, freeAgents, terminals, loaded, reload } = fleet;
+  const { workspaces, freeAgents, terminals, loaded, error: fleetError, reload } = fleet;
   const [workSection, setWorkSection] = useState(readWorkSection);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
@@ -129,6 +135,8 @@ export default function MobileApp() {
     if (blocking) setInbox(blocking.items || []);
     if (all) setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5));
     if (appList) setApps(normalizeManifests(appList));
+    if (blocking && all) setAttentionReady(true);
+    setAttentionError(blocking && all && appList ? "" : "Couldn’t refresh activity. Try again for the latest updates.");
   }, []);
   usePoll(loadInbox, 15000);
   useEffect(() => subscribeFeed((ev) => { if (touches(ev, ["inbox", "docker"])) loadInbox().catch(() => {}); }), [loadInbox]);
@@ -218,10 +226,8 @@ export default function MobileApp() {
   // Pull-to-refresh: everything the visible screens read, at once.
   async function refreshAll() {
     await Promise.all([
-      reload().catch(() => {}),
-      api("/api/inbox?blocking=1").then((b) => setInbox(b.items || [])).catch(() => {}),
-      api("/api/inbox").then((all) => setResults((all.items || []).filter((it) => it.kind === "result").slice(0, 5))).catch(() => {}),
-      api("/api/apps").then((l) => setApps(normalizeManifests(l))).catch(() => {}),
+      reload({ force: true }).catch(() => {}),
+      loadInbox(),
       route.screen === "now" ? api("/api/sessions/stats?range=today").then(setStats).catch(() => {}) : Promise.resolve(),
     ]);
   }
@@ -235,7 +241,7 @@ export default function MobileApp() {
     try {
       const body = workspace ? JSON.stringify({ workspaceId: workspace.id }) : "{}";
       const page = await api("/api/terminals", { method: "POST", headers: { "Content-Type": "application/json" }, body });
-      await reload();
+      await reload({ force: true });
       openTerm(page.id);
     } catch (e) { toastError(e); }
   }
@@ -247,14 +253,14 @@ export default function MobileApp() {
     try {
       await api("/api/terminals/" + encodeURIComponent(t.id), { method: "DELETE" });
       closeTerm("sh:" + t.id);
-      await reload();
+      await reload({ force: true });
       if (route.screen === "term" && route.id === t.id) goBack(route);
     } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
   async function withBusy(agent, fn) {
     setBusyId(agent.id);
-    try { await fn(); await reload(); } catch (e) { toastError(e); } finally { setBusyId(""); }
+    try { await fn(); await reload({ force: true }); } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
   function startAgent(agent, workspace) {
@@ -282,8 +288,8 @@ export default function MobileApp() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: entry.dialogId, cancelled: body.cancelled, value: body.value, confirmed: body.confirmed }),
       });
-      await reload();
-    } catch (e) { toastError(e); await reload(); }
+      await reload({ force: true });
+    } catch (e) { toastError(e); await reload({ force: true }); }
   }
 
   async function respondInbox(entry, verb, text) {
@@ -298,7 +304,7 @@ export default function MobileApp() {
 
   function onCreated(res) {
     setCreate(null);
-    reload().then(() => {
+    reload({ force: true }).then(() => {
       if (res && res.kind !== "workspace" && res.created && res.created.id) openAgent(res.created.id);
       else if (res && res.kind === "workspace") setSection("workspaces");
     });
@@ -306,20 +312,24 @@ export default function MobileApp() {
 
   async function patchAgent(agent, cfg) {
     try { await saveAgentConfig(agent, cfg, api, closeTerm); }
-    finally { await reload().catch(toastError); }
+    finally { await reload({ force: true }).catch(toastError); }
   }
 
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
   const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || route.screen === "changes" || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const changeOwner = route.screen !== "changes" ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
+    : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
+    : { workspace: workspaces.find((w) => w.id === route.id) };
+  const resourceFound = current || currentTerm || changeOwner?.agent || changeOwner?.term || changeOwner?.workspace;
   let body = null;
-  if (route.screen === "app") {
+  if (!fleetRouteReady(route, fleet.known, !!resourceFound)) {
+    body = fleetError ? <ScreenError message={fleetError} onRetry={reload} /> : <ScreenLoading />;
+  } else if (route.screen === "app") {
     body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} initialPath={route.path || ""} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} onPathChange={(path) => { location.hash = "#/app/" + encodeURIComponent(route.id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : ""); }} /></div>;
   } else if (route.screen === "changes") {
-    const owner = route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
-      : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
-      : { workspace: workspaces.find((w) => w.id === route.id) };
+    const owner = changeOwner;
     const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")
       : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
     body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
@@ -346,7 +356,7 @@ export default function MobileApp() {
     body = <Inbox manifest={inboxApp} onOpenItem={(id) => push(mobileHash("inbox", id))} />;
   } else if (route.screen === "work") {
     body = (
-      <Work section={section} onSection={setSection} loaded={loaded} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
+      <Work section={section} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
@@ -354,14 +364,14 @@ export default function MobileApp() {
     );
   } else if (route.screen === "more") {
     body = (
-      <More section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode}
+      <More section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
         onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />
     );
   } else {
     body = (
-      <Now loaded={loaded} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
+      <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
         fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
         onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
         onCreate={(kind) => setCreate({ kind, workspace: null })} />

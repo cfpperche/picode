@@ -11,10 +11,10 @@ export default function ScreenHeader({ title, sub, onBack, right }) {
         </button>
       ) : <span className="m-head-spacer" />}
       <div className="m-head-title">
-        <span className="m-head-name">{title}</span>
+        <h1 className="m-head-name" title={typeof title === "string" ? title : undefined}>{title}</h1>
         {sub ? <span className="m-head-sub">{sub}</span> : null}
       </div>
-      <div className="m-head-right">{right || null}</div>
+      <div className="m-head-right" data-align-row>{right || null}</div>
     </header>
   );
 }

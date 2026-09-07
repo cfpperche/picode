@@ -8,27 +8,29 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import PullScreen from "../components/PullScreen.jsx";
+import "../styles/mobile-lists.css";
 
 // The home is a queue of decisions (PagerDuty's "top open incidents"),
 // then who is running, then today's numbers, then what finished. Nothing
 // here duplicates the Agents tab: an idle agent is one tap away, not a row.
-export default function Now({ loaded, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal, onRefresh }) {
+export default function Now({ loaded, error, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal, onRefresh }) {
   const runningCount = running.length + (liveTerms || []).length;
-  if (loaded && fleetTotal === 0) {
+  if (loaded && !error && fleetTotal === 0) {
     return (
-      <div className="m-screen">
-        <div className="m-blank">
-          <p className="m-blank-title">No agents yet</p>
-          <p className="m-blank-sub">Add a project folder to create your first agent.</p>
-          <button type="button" className="btn btn-primary" onClick={() => onCreate("workspace")}>Add workspace</button>
+      <div className="m-screen m-v2-lists m-now-v2">
+        <div className="m-list-empty">
+          <p>No agents or terminals yet.</p>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onCreate("workspace")}>Add workspace</button>
         </div>
       </div>
     );
   }
   return (
-    <PullScreen onRefresh={onRefresh}>
+    <PullScreen onRefresh={onRefresh} className="m-v2-lists m-now-v2">
+      {error ? <div className="m-list-notice" role="alert"><p>{loaded ? "Couldn’t refresh your work." : "Couldn’t load your work."}</p><button type="button" className="btn btn-sm" onClick={onRefresh}>Try again</button></div> : null}
+      {!loaded && error ? null : <>
       <section className="m-section">
-        <h2 className="m-section-label">Needs you{entries.length ? <span className="m-count">{entries.length}</span> : null}</h2>
+        <div className="m-section-heading"><h2 className="m-section-label">Needs you{entries.length ? <span className="m-count">{entries.length}</span> : null}</h2><a className="m-section-link" href="#/inbox">Inbox <IconChevronRight size={13} /></a></div>
         {!loaded ? <Skel /> : entries.length === 0 ? (
           <p className="m-empty-line">Nothing needs you right now.</p>
         ) : entries.map((e) => (
@@ -41,7 +43,7 @@ export default function Now({ loaded, entries, running, liveTerms, workingIds, s
         {!loaded ? <Skel /> : runningCount === 0 ? (
           <p className="m-empty-line">Nothing running. <button type="button" className="btn-link" onClick={() => onOpenAgent("")}>Work</button></p>
         ) : (
-          <ul className="m-list">
+          <ul className="m-list m-group-list">
             {(liveTerms || []).map((t) => (
               <li key={"t:" + t.id} className="m-row">
                 <button type="button" className="m-row-main" onClick={() => onOpenTerm(t.id)}>
@@ -73,16 +75,11 @@ export default function Now({ loaded, entries, running, liveTerms, workingIds, s
       </section>
 
       <section className="m-section">
-        <h2 className="m-section-label">Today</h2>
-        {stats ? <StatStrip stats={stats} /> : <Skel />}
-      </section>
-
-      <section className="m-section">
         <h2 className="m-section-label">Recent results</h2>
         {!loaded ? <Skel /> : results.length === 0 ? (
           <p className="m-empty-line">No finished runs yet.</p>
         ) : (
-          <ul className="m-list">
+          <ul className="m-list m-group-list">
             {results.map((it) => (
               <li key={it.id} className={"m-row" + (it.state === "unread" ? " is-unread" : "")}>
                 <button type="button" className="m-row-main" onClick={() => onOpenInbox(it.id)}>
@@ -98,6 +95,11 @@ export default function Now({ loaded, entries, running, liveTerms, workingIds, s
           </ul>
         )}
       </section>
+      <section className="m-section m-today-section">
+        <h2 className="m-section-label">Today</h2>
+        {stats ? <StatStrip stats={stats} /> : <Skel />}
+      </section>
+      </>}
     </PullScreen>
   );
 }

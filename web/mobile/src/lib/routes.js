@@ -40,3 +40,15 @@ export function prefSection(hash) {
 export function go(section) {
   location.hash = "#/more/" + encodeURIComponent(section || "providers");
 }
+
+export function automationRoute(hash) {
+  const value = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const match = /^\/(?:automations|more\/automations)(?:\/([^/]+))?$/.exec(value);
+  if (!match) return null;
+  if (!match[1]) return "";
+  try { return decodeURIComponent(match[1]); } catch { return match[1]; }
+}
+
+export function automationsHash(id) {
+  return id ? "#/automations/" + encodeURIComponent(id) : "#/automations";
+}

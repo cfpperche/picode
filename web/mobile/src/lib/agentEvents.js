@@ -196,11 +196,12 @@ export function markSent(state, { kind, text, images, ts, busy }) {
   return { ...state, items: [...state.items, item], pendingPayload: "", streaming: busy ? state.streaming : true, status: busy ? state.status : "streaming" };
 }
 
-export function markUndelivered(state, ts, reason) {
+export function markUndelivered(state, ts, reason, { preserveActivity = false } = {}) {
   const items = state.items.map((it) => (it.kind === "block" && it.cls === "user" && it.ts === ts
-    ? { ...it, text: it.text + "\n\n— not delivered: " + reason }
+    ? { ...it, undelivered: true, text: it.text + "\n\n— not delivered: " + reason }
     : it));
-  return { ...state, items, streaming: false, status: statusOf(false, state.waiting) };
+  const streaming = preserveActivity && state.streaming;
+  return { ...state, items, streaming, status: statusOf(streaming, state.waiting) };
 }
 
 export function markAborted(state) {

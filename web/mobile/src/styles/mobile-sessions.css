@@ -1,0 +1,99 @@
+.sessions-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin: 4px 0 12px;
+}
+.sessions-total { color: var(--text-secondary); font-size: 12.5px; line-height: 36px; }
+.sessions-actions { display: flex; align-items: center; gap: 10px; }
+.sessions-cleanup {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-h);
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.sessions-cleanup select {
+  height: var(--ctl-h, 30px); padding: 0 6px;
+  font: inherit; font-size: 12.5px;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.sessions-list { gap: 6px; }
+.sessions-group { margin: 0 0 10px; }
+.sessions-search { max-width: 240px; height: var(--ctl-h); }
+.sess-preview { flex: 1; min-width: 0; height: var(--ctl-h); line-height: var(--ctl-h); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
+.sessions-group-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0 6px; min-height: 28px;
+  color: var(--text-primary); font-size: 12.5px; font-weight: 600;
+}
+.sessions-group-head.unknown { color: var(--text-secondary); font-weight: 500; }
+.sessions-group-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-weight: 400; }
+.sessions-scope-link { font-size: 12.5px; color: var(--accent); text-decoration: none; line-height: 36px; display: inline-block; }
+.sessions-scope-link:hover { text-decoration: underline; }
+.sess-row { flex-wrap: wrap; row-gap: 6px; }
+.sess-name { font-family: var(--mono); font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34ch; }
+.sess-badge {
+  flex: none; font-size: 10.5px; padding: 1px 7px; border-radius: 99px;
+  border: 1px solid var(--border); color: var(--text-secondary);
+}
+.sess-badge.in-use { border-color: transparent; background: var(--bg-hover); color: var(--text-primary); }
+.sess-badge.lineage { border-style: dashed; }
+.sess-badge.lineage a { color: inherit; text-decoration: none; }
+.sess-badge.lineage a:hover { text-decoration: underline; }
+
+/* Cross-CLI handoff dialog (ADR-0088). */
+.dlg-handoff { width: min(520px, calc(100vw - 32px)); max-height: min(84vh, 760px); overflow: auto; }
+.handoff-status, .handoff-line, .handoff-live, .handoff-error { font-size: 13px; line-height: 1.45; margin: 12px 0 0; }
+.handoff-status { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.handoff-line { color: var(--text-primary); }
+.handoff-refreshing { color: var(--text-secondary); }
+.handoff-live { color: var(--warn, var(--text-primary)); }
+.handoff-error { color: var(--danger); }
+.handoff-warnings { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.handoff-options { border: 0; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.handoff-options legend { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin-bottom: 4px; padding: 0; }
+.handoff-choice { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-primary); line-height: 1.35; cursor: pointer; }
+.handoff-choice input { margin-top: 3px; accent-color: var(--accent); }
+.handoff-choice input:disabled + span { color: var(--text-secondary); }
+.handoff-choice small { display: block; font-size: 12px; color: var(--text-secondary); }
+.handoff-inline { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--text-primary); }
+.handoff-inline input { accent-color: var(--accent); }
+.handoff-brief { margin-top: 12px; }
+.handoff-brief-text {
+  margin: 8px 0 0; padding: 10px; max-height: 240px; overflow: auto;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.4; white-space: pre-wrap;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-ctl, 6px);
+}
+.dlg-handoff .dlg-actions { margin-top: 16px; }
+.sess-meta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.sess-facts {
+  display: flex; gap: 10px; flex: none;
+  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
+}
+.sess-row .mcp-row-main { flex: 1; }
+.sessions-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.sessions-pick span { font-size: 12.5px; color: var(--text-secondary); }
+.sessions-pick select {
+  height: var(--ctl-h, 30px); padding: 0 6px; font: inherit;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+
+/* Mobile owns the flow: metadata, selectors and actions form separate
+   rows instead of one desktop toolbar wider than the phone. */
+#m-app #sessions-view .sessions-toolbar { display: block; margin: 4px 0 16px; }
+#m-app #sessions-view .sessions-total { display: block; line-height: 1.4; margin-bottom: 12px; }
+#m-app #sessions-view .sessions-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+#m-app #sessions-view .sessions-cleanup { height: auto; flex: 1 1 120px; display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+#m-app #sessions-view .sessions-cleanup select { width: 100%; font-size: 16px; }
+#m-app #sessions-view .sessions-search { flex: 1 1 100%; width: 100%; max-width: none; }
+#m-app #sessions-view .sess-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+#m-app #sessions-view .mcp-row-main { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+#m-app #sessions-view .sess-name { width: 100%; max-width: 100%; font-family: var(--sans); font-size: 14px; }
+#m-app #sessions-view .sess-facts { flex-wrap: wrap; gap: 8px; }
+#m-app #sessions-view .mcp-row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+#m-app #sessions-view .sess-preview { flex-basis: 100%; }
+#m-app #sessions-view .sessions-group-head { padding: 8px 0; }
+#m-app #sessions-view .empty-card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px 0; border: 0; }
+#m-app #sessions-view .empty-card h2 { margin: 0; font-size: 15px; }
+.dlg-handoff .handoff-brief-text { overflow-wrap: anywhere; }
+
+#m-app #sessions-view .sess-name { display: block; min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+#m-app #sessions-view .sess-preview { display: block; width: 100%; max-width: 100%; height: auto; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
