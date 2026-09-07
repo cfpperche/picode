@@ -32,6 +32,15 @@ type Diagnostic struct {
 	Identity      string `json:"identity,omitempty"`
 	Fingerprint   string `json:"fingerprint,omitempty"`
 	Stale         bool   `json:"stale"`
+
+	// Lifecycle facts (ADR-0087). UpdateSource is "npm" or "vendor".
+	// InstallMethod is clilifecycle.Method: npm, native, vendor, git, unknown.
+	Latest          string `json:"latest,omitempty"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+	UpdateSource    string `json:"updateSource,omitempty"`
+	UpdateCheckedAt string `json:"updateCheckedAt,omitempty"`
+	UpdateError     string `json:"updateError,omitempty"`
+	InstallMethod   string `json:"installMethod,omitempty"`
 }
 
 type Attempt struct {

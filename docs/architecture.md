@@ -278,7 +278,7 @@ Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 The composer also opens a device file picker (Photos / camera / files on a
 phone) so attach does not depend on clipboard paste.
-Agent CLI terminals have no composer. ADR-0087 records a user-initiated
+Agent CLI terminals have no composer. ADR-0088 records a user-initiated
 prompt door (stage a file under the terminal cwd, paste `@path` into the
 TUI) so a phone can attach a photo without promoting CLIs to managed
 agents; Inspector type/run/Ask still must not target a CLI TUI (ADR-0078).
@@ -428,6 +428,26 @@ size/mtime and configuration fingerprint determine staleness. Check runs
 `--version` and tests prerequisites, while the separate repair route regenerates
 only private integration files. Observed activity remains ephemeral and is never
 inferred from a prepared file or a version check.
+
+ADR-0087 adds a lifecycle layer in `internal/clilifecycle` and
+`internal/clijob`. Detection classifies the resolved executable's realpath
+(npm, native, vendor, git, unknown) and a per-CLI plan pins the exact argv:
+checks read the npm registry (reusing `pipkg`) or the vendor's own `--check`
+command, and mutations run the vendors' update/reinstall/uninstall commands —
+npm only where the vendor has no command. Update facts (`Latest`,
+`UpdateAvailable`, `UpdateCheckedAt`, `InstallMethod`) live in the
+`cli_checks` diagnostic; `POST /api/clis/<cli>/update-check` refreshes them
+on demand and the surface triggers it once when the stored check is older
+than six hours — there is no browser polling timer. Mutations are durable
+jobs in `cli_jobs` (`cli.job` events): HTTP 202, request-key idempotency, at
+most one active lifecycle job, revision-guarded transitions, bounded output
+tail. Restart recovery marks queued/running jobs `interrupted` and never
+replays an install; a graceful shutdown cancels the command and marks the job
+`interrupted` too. A job refuses while live terminals of that CLI run unless
+the caller confirms; uninstall additionally requires typing the CLI name.
+`unknown` install methods get no mutation controls — only the docs link.
+After a succeeded job the setup check re-runs and update facts reset so no
+stale badge survives.
 
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending

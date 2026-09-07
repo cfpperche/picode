@@ -5,7 +5,7 @@
   Commit design below: git actions prepared in the terminal, an opt-in
   mode that runs them behind an interlock, and asking a running agent
   through its own prompt channel)
-- **Amended**: ADR-0087 (the *user's* Send on an Agent CLI attach bar may
+- **Amended**: ADR-0088 (the *user's* Send on an Agent CLI attach bar may
   paste a prompt into that TUI; Inspector Ask / type / run still must not)
 - **Amends**: for the Inspector's Git actions only, the write refusals of
   ADR-0022 (graph is read-only), ADR-0032 (hunk stage/discard), ADR-0038
@@ -251,7 +251,7 @@ and the per-turn `+N −M` footer beside the conversation.
 | A hash route for the rail | Per-viewer state, like the sidebar width and `termView` |
 | Steering or interrupting an agent's turn from the Git menu | A Git action is never urgent enough to cut into a turn; mid-turn asks queue (pi's follow_up, or the receiver's native queue) |
 | Starting a stopped agent to run git | Booting a model session for `git fetch` hides a cost and a wait; the terminal door is the stopped agent's door |
-| Asking a terminal that hosts a coding CLI | Inspector Ask / type / run still must not (ADR-0062). ADR-0087 lets the *user* Send on that terminal's attach bar; that is not this menu |
+| Asking a terminal that hosts a coding CLI | Inspector Ask / type / run still must not (ADR-0062). ADR-0088 lets the *user* Send on that terminal's attach bar; that is not this menu |
 
 ## Commit / Commit & Push — designed, pending the owner's decision
 

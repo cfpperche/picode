@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **CLI lifecycle management** (ADR-0087): update checks, update, reinstall
+  and uninstall for catalogued agent CLIs. The Agent CLIs surface shows an
+  update badge with the latest version (npm registry or the vendor's own
+  `--check` command) and runs each CLI's native update/reinstall/uninstall
+  command as a durable job with streamed output, terminal guards and typed
+  uninstall confirmation. Install methods PiCode cannot manage (Homebrew,
+  manual checkouts; Grok and native Claude Code uninstalls) show their
+  official guide instead of controls. Jobs survive daemon restarts as
+  `interrupted` — never replayed.
+
 - **Hermes Agent in Agent CLIs**: the catalog launches the installed `hermes`
   command in a terminal, lists cli/tui sessions from `~/.hermes/state.db`
   read-only, and resumes with `hermes --resume <id>`. Activity reporting is

@@ -206,6 +206,12 @@ func readPkgVersion(dir string) string {
 	return strings.TrimSpace(raw.Version)
 }
 
+// NpmLatest queries the registry for the latest published version of one
+// package. Exported for CLI lifecycle update checks (ADR-0087).
+func NpmLatest(ctx context.Context, name string) (string, error) {
+	return npmLatest(ctx, nil, "", name)
+}
+
 func npmLatest(ctx context.Context, client *http.Client, base, name string) (string, error) {
 	if client == nil {
 		client = registryHTTP

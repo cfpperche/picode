@@ -20,6 +20,11 @@
   all 21 `picode-*` tmux sessions alive. Terminal checklists (ADR-0081)
   with the compact line aligned to the card's text column; absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+- **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
+  or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as
+  a durable `cli_jobs` lane with streamed output, terminal guards and typed
+  uninstall confirmation; interrupted jobs never replay. Unmanageable
+  installs (Homebrew, manual checkouts) get docs links, not controls.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083: durable
@@ -28,19 +33,16 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
-  refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
-  (unguarded — readiness was empty). Pin only while the IME is up; opaque
-  row; xterm refit. iPhone IME still owed. ADR-0087: user Send may paste
-  into a CLI TUI; Inspector still must not. Composer image picker is on
-  `feat/cli-prompt-door`. Managed agents remain Pi-only.
+  at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
+  ADR-0088 prompt door + composer Photos: `feat/cli-prompt-door`.
+  Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
-- `feat/cli-prompt-door` — ADR-0087 + device image picker on the Pi composer.
+- `feat/cli-prompt-door` — ADR-0088 + device image picker on the Pi composer.
 
 ## Next up
 
@@ -83,6 +85,8 @@
   fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
+- CLI lifecycle: npm data can lag native Claude releases by hours (the badge
+  names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Tutorial video freshness audits are stale after source relocation;
   recapture/render is explicit. Branch protection and CODEOWNERS need the

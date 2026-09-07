@@ -2095,6 +2095,23 @@
         ]
       }
     },
+    "/api/cli-jobs": {
+      "get": {
+        "operationId": "getApiCli-jobs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-jobs"
+        ]
+      }
+    },
     "/api/clis": {
       "get": {
         "operationId": "getApiClis",
@@ -2235,6 +2252,41 @@
     "/api/clis/{cli}/check": {
       "post": {
         "operationId": "postApiClisCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/lifecycle": {
+      "post": {
+        "operationId": "postApiClisLifecycle",
         "parameters": [
           {
             "in": "path",
@@ -2495,6 +2547,41 @@
     "/api/clis/{cli}/terminals": {
       "post": {
         "operationId": "postApiClisTerminals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/update-check": {
+      "post": {
+        "operationId": "postApiClisUpdate-check",
         "parameters": [
           {
             "in": "path",
@@ -7156,6 +7243,9 @@
     },
     {
       "name": "checklists"
+    },
+    {
+      "name": "cli-jobs"
     },
     {
       "name": "clis"
