@@ -18,7 +18,7 @@
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
-  banner on `feat/opencode-defaults`. Terminal checklists (ADR-0081) on the
+  banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081) on the
   sidebar card only; absent checklist is silence (ADR-0082). Sessions live
   under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
@@ -44,7 +44,6 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/opencode-defaults` — catalog Activity defaults on; OpenCode start banner.
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088).
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.

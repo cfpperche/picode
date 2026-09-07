@@ -14,4 +14,4 @@ visual-review: n/a (terminal banner, no React)
 
 Not done: live Working/Needs you needs deploy + dogfood.
 
-Merge: not yet.
+Merge: merged as 06da6771.
