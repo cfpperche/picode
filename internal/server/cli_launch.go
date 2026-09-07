@@ -848,6 +848,10 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	// explicit Stop escalates to SIGTERM on the pane root, so "stop means
 	// stop" survives the trap.
 	body.WriteString("trap '' HUP\n")
+	// OpenCode (and other TUIs) paint nothing until ready; a one-line
+	// banner keeps the pane from looking stuck. The TUI alt-screen
+	// replaces it as soon as the CLI draws.
+	fmt.Fprintf(&body, "printf %%s\\n %s\n", shellQuote("Starting "+cli.Name+"..."))
 	keys := []string{}
 	for k := range c.Env {
 		keys = append(keys, k)

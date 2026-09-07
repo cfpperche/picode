@@ -43,7 +43,7 @@ New launches use the saved settings; existing processes keep running.
 | Additional arguments | One argument per line. Spaces and shell symbols stay literal. Use `""` for an empty argument; JSON-quoted strings are decoded. |
 | Extra PATH entries | Absolute directories searched before the service's PATH. |
 | Environment | One `NAME=value` per line. Values are stored locally with launch settings. |
-| Activity reporting | Adds PiCode's invocation-scoped hooks or extension. |
+| Activity reporting | Adds PiCode's invocation-scoped hooks or extension. On for every catalog CLI until you turn it off. |
 
 Use **Customize this terminal** for exceptions. Unchanged fields inherit the
 CLI defaults; changed fields override them. Clearing arguments removes the

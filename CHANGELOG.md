@@ -43,6 +43,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **New Agent CLIs get Activity reporting on.** A CLI added to the catalog
+  no longer imports with the switch off because it was missing from
+  `enabled.json`. OpenCode rows frozen that way are turned on once at boot.
+  Opening an OpenCode terminal prints `Starting OpenCode...` until the TUI
+  draws, so the pane is not a blank cursor.
+
 - **llama.cpp setup recovery:** failed or interrupted initial setup removes
   only its recorded empty folders, preserving existing or unexpected content.
   Unreadable ownership proof retains the recovery record until access is restored.

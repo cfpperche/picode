@@ -89,6 +89,7 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.Store != nil {
 		_ = deps.Store.ImportCLIConfigs(loadInterceptEnabled(deps.DataDir))
+		_ = deps.Store.SeedCatalogIntegrationDefaults()
 	}
 
 	// Coding-CLI state and presence (ADRs 0056/0062): tests and minimal

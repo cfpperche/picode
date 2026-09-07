@@ -84,6 +84,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.SaveWebhookProgress(w, after)
 		}, nil},
 		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
+		{"SeedCatalogIntegrationDefaults", func(s *Store) {
+			_ = s.SetCLIConfig("opencode", clilaunch.Config{})
+			s.OnEvent = recorder(s)
+			_ = s.SeedCatalogIntegrationDefaults()
+		}, []string{"cli.updated", "setting.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "cli", proj)
 			s.OnEvent = recorder(s)

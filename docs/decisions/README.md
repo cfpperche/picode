@@ -97,3 +97,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0089](0089-cli-terminal-prompt-door.md) | User-initiated prompt door for Agent CLI terminals: stage files in the cwd, paste paths into the TUI; Inspector still must not type into a CLI | accepted, amends 0078 and 0002 |
 
 | [0090](0090-llama-service-ownership.md) | Explicit llama.cpp service ownership, reviewed lifecycle and cache boundaries | accepted |
+| [0091](0091-pi-only-agents-acp-waits.md) | Pi-only agents hold — guest CLIs stay TUI + tier-1 sensors; no agent-protocol client (ACP, app-server, SDKs) until the market converges on one standard, named re-measure trigger | accepted, closes 0056's ACP deferral as deliberate |
