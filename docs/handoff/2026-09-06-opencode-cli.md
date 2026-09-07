@@ -14,5 +14,5 @@ PASS scratch :8471. PR2: same gates; `opencode debug info` lists the
 plugin; jsonc mtime unchanged; visual-review PASS scratch :8471 with
 Activity on (overlayAudit ok).
 visual-review: PASS
-Not done: live Working/Needs you unproven until deploy; no Reader/Writer.
-Merge: merged as ba87bf2c.
+Not done: live Working/Needs you unproven on the installed binary; no Reader/Writer.
+Merge: merged as ba87bf2c; deployed `0.1.0+d65e9a1`.

@@ -18,7 +18,7 @@
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (catalog, sqlite sessions, `--session` resume, `OPENCODE_CONFIG` plugin;
-  list-only for ADR-0088; not yet deployed). Terminal checklists (ADR-0081)
+  list-only for ADR-0088), deployed `0.1.0+d65e9a1`. Terminal checklists (ADR-0081)
   on the sidebar card only (no strip above the pane). Absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
