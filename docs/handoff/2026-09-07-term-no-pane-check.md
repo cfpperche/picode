@@ -10,4 +10,4 @@ checklist has no strip above xterm; sidebar card still shows the line.
 visual-review: PASS (desktop term with posted 2/3 plan: no .term-check,
 sidebar card still "edit the pane 2/3", overlayAudit ok).
 Not done: live Pi TUI owner glance.
-Merge: not yet.
+Merge: ff as d620ca85; `make ci` green; deployed `0.1.0+d620ca8`.
