@@ -307,6 +307,9 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		}, []string{"inbox.created", "docker.plan"}},
 		{"BeginLlamaJob", func(s *Store) { _, _, _ = s.BeginLlamaJob(testLlamaJob("request", "model")) }, []string{"llama.job"}},
 		{"BeginCLIJob", func(s *Store) { _, _, _ = s.BeginCLIJob(CLIJob{CLI: "pi", Action: "update", RequestKey: "req-cli"}) }, []string{"cli.job"}},
+		{"BeginCLIJobInstall", func(s *Store) {
+			_, _, _ = s.BeginCLIJob(CLIJob{CLI: "codex", Action: "install", RequestKey: "req-cli-3"})
+		}, []string{"cli.job"}},
 		{"UpdateCLIJob", func(s *Store) {
 			j, _, _ := s.BeginCLIJob(CLIJob{CLI: "pi", Action: "update", RequestKey: "req-cli-2"})
 			s.OnEvent = recorder(s)

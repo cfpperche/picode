@@ -23,14 +23,23 @@ import (
 // lifecyclePlanView rides on cliView: what the surface may offer for this
 // CLI's detected install method.
 type lifecycleView struct {
-	Method    string                     `json:"method"`
-	CanUpdate bool                       `json:"canUpdate"`
-	CanFix    bool                       `json:"canReinstall"`
-	Uninstall clilifecycle.UninstallKind `json:"uninstall"`
-	Docs      string                     `json:"docs,omitempty"`
+	Method     string                     `json:"method"`
+	CanInstall bool                       `json:"canInstall"`
+	CanUpdate  bool                       `json:"canUpdate"`
+	CanFix     bool                       `json:"canReinstall"`
+	Uninstall  clilifecycle.UninstallKind `json:"uninstall"`
+	Docs       string                     `json:"docs,omitempty"`
 }
 
-func describeLifecycle(cliID, executable string) lifecycleView {
+// describeLifecycle computes what the surface may offer. A missing CLI gets
+// an install plan (npm-backed CLIs) or a guided-install docs link (ADR-0088).
+func describeLifecycle(cliID string, installed bool, executable string) lifecycleView {
+	if !installed {
+		if plan, ok := clilifecycle.ForMissing(cliID); ok {
+			return lifecycleView{Method: "npm", CanInstall: true, Uninstall: plan.Uninstall}
+		}
+		return lifecycleView{Method: string(clilifecycle.MethodUnknown), Docs: clilifecycle.InstallDocs(cliID)}
+	}
 	method := clilifecycle.MethodUnknown
 	if executable != "" {
 		method = clilifecycle.DetectMethod(executable)
@@ -77,7 +86,8 @@ func registerCLILifecycleRoutes(mux Registrar, deps Deps) {
 
 // resolveLifecycleExec turns a plan into the concrete command for the job
 // runner. Under the npm method every action runs npm from the CLI's PATH;
-// vendor methods run the CLI's resolved executable.
+// vendor methods run the CLI's resolved executable. Install always targets
+// a missing CLI and always runs npm.
 func resolveLifecycleExec(deps Deps, cli clilaunch.CLI, action clilifecycle.Action) (clijob.Exec, error) {
 	unlock := terminalLock(deps, "cli-config")
 	defer unlock()
@@ -85,23 +95,37 @@ func resolveLifecycleExec(deps Deps, cli clilaunch.CLI, action clilifecycle.Acti
 	if err != nil {
 		return clijob.Exec{}, err
 	}
-	plan, ok := clilifecycle.For(cli.ID, detectMethod(deps, cli, c))
-	if !ok {
-		return clijob.Exec{}, fmt.Errorf("%s has no managed lifecycle for this install method. See its documentation.", cli.Name)
+	var plan clilifecycle.Plan
+	var managed bool
+	if action == clilifecycle.ActionInstall {
+		if _, err := resolveCLIExecutable(cli, c); err == nil {
+			return clijob.Exec{}, fmt.Errorf("%s is already installed; reinstall updates it in place.", cli.Name)
+		}
+		plan, managed = clilifecycle.ForMissing(cli.ID)
+		if !managed {
+			return clijob.Exec{}, fmt.Errorf("%s has no managed install; follow its documentation.", cli.Name)
+		}
+	} else {
+		plan, managed = clilifecycle.For(cli.ID, detectMethod(deps, cli, c))
+		if !managed {
+			return clijob.Exec{}, fmt.Errorf("%s has no managed lifecycle for this install method. See its documentation.", cli.Name)
+		}
 	}
 	args, err := plan.Args(action)
 	if err != nil {
 		return clijob.Exec{}, err
 	}
-	useNpm := false
-	switch action {
-	case clilifecycle.ActionUpdate:
-		useNpm = plan.UpdateViaNpm
-	case clilifecycle.ActionReinstall:
-		// npm reinstall args are npm-style; vendor reinstall args are not.
-		useNpm = plan.Method == clilifecycle.MethodNpm
-	case clilifecycle.ActionUninstall:
-		useNpm = plan.Uninstall == clilifecycle.UninstallNpm
+	useNpm := action == clilifecycle.ActionInstall
+	if !useNpm {
+		switch action {
+		case clilifecycle.ActionUpdate:
+			useNpm = plan.UpdateViaNpm
+		case clilifecycle.ActionReinstall:
+			// npm reinstall args are npm-style; vendor reinstall args are not.
+			useNpm = plan.Method == clilifecycle.MethodNpm
+		case clilifecycle.ActionUninstall:
+			useNpm = plan.Uninstall == clilifecycle.UninstallNpm
+		}
 	}
 	if useNpm {
 		bin, err := npmBinary(c)
@@ -245,7 +269,7 @@ func handleCLILifecycle(deps Deps) http.HandlerFunc {
 		if !readCLIJSON(w, r, &v) {
 			return
 		}
-		if v.Action != "update" && v.Action != "reinstall" && v.Action != "uninstall" {
+		if v.Action != "install" && v.Action != "update" && v.Action != "reinstall" && v.Action != "uninstall" {
 			writeErr(w, 400, "Unknown lifecycle action.")
 			return
 		}

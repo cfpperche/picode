@@ -26,6 +26,7 @@ const (
 type Action string
 
 const (
+	ActionInstall   Action = "install"
 	ActionUpdate    Action = "update"
 	ActionReinstall Action = "reinstall"
 	ActionUninstall Action = "uninstall"
@@ -238,6 +239,11 @@ func For(cliID string, m Method) (Plan, bool) {
 // and the UI shows the guided steps instead.
 func (p Plan) Args(a Action) ([]string, error) {
 	switch a {
+	case ActionInstall:
+		if p.NpmPackage == "" {
+			return nil, fmt.Errorf("%s has no managed install; follow its documentation.", p.CLI)
+		}
+		return []string{"install", "-g", p.NpmPackage + "@latest"}, nil
 	case ActionUpdate:
 		if len(p.UpdateArgs) == 0 {
 			return nil, fmt.Errorf("%s cannot be updated through PiCode for this install.", p.CLI)
@@ -282,6 +288,43 @@ func ExtractSemver(line string) string {
 		return ""
 	}
 	return line[start:end]
+}
+
+// ForMissing returns the install plan for a CLI that is not installed.
+// Only npm-backed CLIs get a managed install (same argv as reinstall);
+// vendor curl installers stay guided and return ok=false with the docs URL.
+func ForMissing(cliID string) (Plan, bool) {
+	s, ok := plans[cliID]
+	if !ok || s.npmPackage == "" {
+		return Plan{CLI: cliID, Method: MethodUnknown, Uninstall: UninstallNone}, false
+	}
+	argv := []string{"install", "-g", s.npmPackage + "@latest"}
+	return Plan{
+		CLI:           cliID,
+		Method:        MethodNpm,
+		NpmPackage:    s.npmPackage,
+		LatestFrom:    "npm",
+		UpdateViaNpm:  true,
+		UpdateArgs:    argv,
+		ReinstallArgs: argv,
+		Uninstall:     UninstallNpm,
+		UninstallArgs: []string{"remove", "-g", s.npmPackage},
+	}, true
+}
+
+// InstallDocs is the vendor's official install guide for CLIs whose
+// installer PiCode does not execute.
+func InstallDocs(cliID string) string {
+	switch cliID {
+	case "grok":
+		return "https://grok.com/build"
+	case "hermes":
+		return "https://hermes-agent.nousresearch.com/docs/getting-started/installation"
+	case "claude-code":
+		return "https://code.claude.com/docs/en/setup"
+	default:
+		return ""
+	}
 }
 
 // GrokCheck mirrors `grok update --check --json` (verified 2026-09-06,

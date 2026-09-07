@@ -13,9 +13,12 @@ not a new type of managed agent.
 3. Select **Open terminal**. Use the CLI's own interface and login flow.
 
 PiCode does not install CLIs for the first time or manage their credentials
-here. A missing executable offers **Customize**; the CLI's documentation link
-explains its installation. Checking setup runs `--version`, without starting
-a conversation.
+here — with one exception: **Install** appears for pi, Codex and Claude Code
+when the CLI is missing and npm is available, running the same npm command
+the reinstall action uses. Grok and Hermes Agent install through their own
+guides; their cards link to them. A missing executable also offers
+**Customize**; the CLI's documentation link explains its installation.
+Checking setup runs `--version`, without starting a conversation.
 
 On a running CLI terminal, **Attach** (paperclip on the phone header, or
 the bar under the pane on desktop) sends a photo or a file: PiCode saves
@@ -119,7 +122,7 @@ changing native CLI configuration or restarting terminals. A prepared file is
 not proof that every event works with that CLI version. No observed signal
 means unverified, even when a CLI process is present.
 
-## Update, reinstall or uninstall a CLI
+## Update, reinstall, uninstall or install a CLI
 
 When a newer release exists, the CLI's row shows an **Update** badge and its
 detail page offers **Update**. PiCode runs each CLI's own update command —
@@ -139,6 +142,11 @@ demand and when the saved check is older than six hours.
 **Reinstall** forces a fresh install of the same CLI. Running terminals of
 that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
+
+When a CLI is **not installed**, its detail page offers **Install** for pi,
+Codex and Claude Code (needs npm on the machine). Grok and Hermes Agent
+install through their own guides — the card links to them and PiCode never
+runs their install scripts.
 
 **Uninstall** runs the CLI's own uninstall command (Hermes Agent, OpenCode)
 or npm's for npm-installed tools, after you type the CLI's name. Grok and a native

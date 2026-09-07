@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Install a missing CLI** (ADR-0088): the Agent CLIs surface offers an
+  **Install** action when a catalogued CLI is not installed — npm-backed for
+  pi, Codex and Claude Code through the same durable job lane; Grok and
+  Hermes Agent show their vendor's install guide instead. Installing an
+  installed CLI is refused.
+
 ### Changed
 
 - **Pi terminals no longer show a checklist strip above the pane.** The

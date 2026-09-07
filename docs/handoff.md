@@ -21,13 +21,14 @@
   list-only for ADR-0088; not yet deployed). Terminal checklists (ADR-0081)
   on the sidebar card only (no strip above the pane). Absent checklist
   renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
-- **CLI lifecycle (ADR-0087):** Agent CLIs shows update badges (npm registry
-  or vendor `--check`) and runs each CLI's own update/reinstall/uninstall as
-  a durable `cli_jobs` lane with streamed output, terminal guards and typed
-  uninstall confirmation; interrupted jobs never replay. Unmanageable
-  installs (Homebrew, manual checkouts) get docs links, not controls.
-  Deployed `0.1.0+ba516b7`; detect fix (symlinks/wrappers) makes real
-  installs classify: pi/codex/opencode npm, claude native, grok vendor, hermes git.
+- **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
+  registry or vendor `--check`) and runs each CLI's own update/reinstall/
+  uninstall/install as a durable `cli_jobs` lane with streamed output,
+  terminal guards and typed uninstall confirmation; interrupted jobs never
+  replay. Unmanageable installs (Homebrew, manual checkouts) get docs
+  links, not controls. Detect fix (symlinks/wrappers) makes real installs
+  classify; E2E in production: hermes 0.18.2 -> 0.21.0 through the surface.
+  ADR-0088 adds install for missing npm-backed CLIs; grok/hermes guided.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4

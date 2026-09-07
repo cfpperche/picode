@@ -61,6 +61,61 @@ func waitForJobState(t *testing.T, ts *httptest.Server, id, state string) map[st
 	return nil
 }
 
+func TestCLIInstallMissingDecisionTable(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	// codex is configured to a not-yet-existing path inside the fake
+	// node_modules tree; the fake npm "install" creates it.
+	exe := filepath.Join(home, "fake", "node_modules", "@openai", "codex", "bin", "codex")
+	npmDir := filepath.Join(home, "fake", "bin")
+	if err := os.MkdirAll(npmDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(npmDir, "npm"), []byte("#!/bin/sh\nmkdir -p \""+filepath.Dir(exe)+"\"\ntouch \""+exe+"\" && chmod +x \""+exe+"\"\necho npm installed $3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configureCLI(t, ts, "codex", exe, npmDir)
+
+	// Missing CLI: the catalog offers install, not update.
+	lifecycle := catalogCLI(t, ts, "codex")["lifecycle"].(map[string]any)
+	if lifecycle["canInstall"] != true || lifecycle["canUpdate"] != false {
+		t.Fatalf("missing codex lifecycle: %v", lifecycle)
+	}
+	// Install runs the fake npm and flips the CLI to Installed with an npm
+	// method — the cycle closes without a restart.
+	j := cliRequest(t, ts, "POST", "/api/clis/codex/lifecycle", map[string]any{"action": "install", "requestKey": "i1"}, 202)
+	done := waitForJobState(t, ts, j["id"].(string), "succeeded")
+	if !strings.Contains(done["output"].(string), "npm installed @openai/codex@latest") {
+		t.Fatalf("install argv: %v", done["output"])
+	}
+	v := catalogCLI(t, ts, "codex")
+	if v["installed"] != true {
+		t.Fatalf("codex still not installed: %v", v["installed"])
+	}
+	lifecycle = v["lifecycle"].(map[string]any)
+	if lifecycle["canInstall"] != false || lifecycle["canUpdate"] != true || lifecycle["method"] != "npm" {
+		t.Fatalf("installed codex lifecycle: %v", lifecycle)
+	}
+	// Installing an installed CLI refuses — reinstall is that action.
+	r := cliRequest(t, ts, "POST", "/api/clis/codex/lifecycle", map[string]any{"action": "install", "requestKey": "i2"}, 400)
+	if !strings.Contains(r["error"].(string), "already installed") {
+		t.Fatalf("install on installed: %v", r)
+	}
+	// Grok has no managed install: guided docs, refused action.
+	grok := filepath.Join(home, ".grok", "bin", "grok2")
+	if err := os.MkdirAll(filepath.Dir(grok), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(grok, []byte("#!/bin/sh\necho grok\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configureCLI(t, ts, "grok", grok, "")
+	grokView := catalogCLI(t, ts, "grok")["lifecycle"].(map[string]any)
+	if grokView["canInstall"] != false || grokView["docs"] == "" {
+		t.Fatalf("grok install guidance: %v", grokView)
+	}
+	cliRequest(t, ts, "POST", "/api/clis/grok/lifecycle", map[string]any{"action": "install", "requestKey": "i3"}, 400)
+}
+
 func TestCLIUpdateCheckDecisionTable(t *testing.T) {
 	ts, _, home := cleanupServer(t)
 	orig := cliNpmLatest

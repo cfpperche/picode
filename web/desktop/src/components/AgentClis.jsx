@@ -97,6 +97,7 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
 
   const selectedJob = data?.jobs?.find((j) => j.cli === selected?.id);
   const lifecycleBusy = !!busy || (selectedJob && (selectedJob.state === "queued" || selectedJob.state === "running"));
+  const updateLine = selected ? updateCheckLine(selected) : null;
   const checkUpdates = () => run("uc:" + selected.id, () => api(`/api/clis/${selected.id}/update-check`, json("POST", {}))).catch(() => {});
   const startLifecycle = async (action) => {
     const cli = selected;
@@ -150,8 +151,9 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
         <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
-        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Executable not found")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{selected.diagnostic?.updateCheckedAt ? <p>{selected.diagnostic?.updateCheckedAt ? <>Update check {selected.diagnostic.updateError ? "failed" : "saved"} {new Date(selected.diagnostic.updateCheckedAt).toLocaleString()}</> : selected.diagnostic ? <>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</> : null}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row>
+        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Not installed")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{updateLine ? <p>{updateLine}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row>
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
+          {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
           <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button>
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
@@ -272,21 +274,35 @@ function CLIDiagnostics({ cli, terminals, busy, run }) {
 }
 
 const jobStateLabel = { queued: "Waiting to start", running: "Running", succeeded: "Done", failed: "Failed", interrupted: "Interrupted" };
+const jobActionLabel = { install: "Install", uninstall: "Uninstall", reinstall: "Reinstall", update: "Update" };
+
+// updateCheckLine is the detail header's update-check sentence. A failed
+// check on an install PiCode does not manage is not a failure — guidance
+// lives in the lifecycle card, so the line stays out.
+function updateCheckLine(cli) {
+  const d = cli.diagnostic;
+  if (!d?.updateCheckedAt) return null;
+  if (d.updateError && !cli.lifecycle?.canUpdate) return null;
+  if (d.updateError) return "Update check failed · " + d.updateError;
+  return "Update check saved " + new Date(d.updateCheckedAt).toLocaleString();
+}
 
 // CLILifecycleCard surfaces the latest lifecycle job for one CLI plus the
 // guided-uninstall facts for install methods without an uninstall command
 // (ADR-0087). One line + one action per state, never a blank well.
 function CLILifecycleCard({ cli, job, onCheck }) {
   const active = job && (job.state === "queued" || job.state === "running");
-  if (!active && !job && cli.lifecycle?.uninstall !== "guided") return null;
+  const guidedInstall = !cli.installed && !cli.lifecycle?.canInstall && !!cli.lifecycle?.docs;
+  if (!active && !job && cli.lifecycle?.uninstall !== "guided" && !guidedInstall) return null;
   return <div className="cli-job-card" role="status" data-state={job ? job.state : "guided"}>
     {job ? <>
-      <div className="cli-job-head"><span className={"cli-job-state is-" + job.state}>{jobStateLabel[job.state] || job.state}</span><span>{job.action === "uninstall" ? "Uninstall" : job.action === "reinstall" ? "Reinstall" : "Update"} · {cli.name}</span></div>
+      <div className="cli-job-head"><span className={"cli-job-state is-" + job.state}>{jobStateLabel[job.state] || job.state}</span><span>{jobActionLabel[job.action] || job.action} · {cli.name}</span></div>
       <p>{job.message}</p>
       {job.output ? <details className="cli-job-log"><summary>Output</summary><pre>{job.output}</pre></details> : null}
       {job.state === "interrupted" ? <button className="btn btn-ghost btn-sm" onClick={onCheck}>Check result</button> : null}
       {job.state === "failed" ? <button className="btn btn-ghost btn-sm" onClick={onCheck}>Check setup</button> : null}
     </> : null}
     {!active && cli.lifecycle?.uninstall === "guided" ? <p className="cli-job-guided">Uninstalling {cli.name} follows its own guide for this install type. <a href={cli.lifecycle.docs || cli.docs} target="_blank" rel="noreferrer">Open the uninstall guide ↗</a></p> : null}
+    {guidedInstall ? <p className="cli-job-guided">Installing {cli.name} follows its own guide. <a href={cli.lifecycle.docs || cli.docs} target="_blank" rel="noreferrer">Open the install guide ↗</a></p> : null}
   </div>;
 }

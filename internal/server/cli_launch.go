@@ -127,7 +127,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		v.Problem = err.Error()
 	}
-	v.Lifecycle = describeLifecycle(cli.ID, v.Executable)
+	v.Lifecycle = describeLifecycle(cli.ID, v.Installed, v.Executable)
 	if v.Installed && c.Integration && !v.IntegrationApplied {
 		v.Problem = "Activity reporting files need repair."
 	}

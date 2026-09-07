@@ -68,7 +68,7 @@ func (s *Store) CLIJobs() ([]CLIJob, error) {
 // one active lifecycle job at a time. Store write and feed event commit
 // together (ADR-0048).
 func (s *Store) BeginCLIJob(j CLIJob) (CLIJob, bool, error) {
-	if j.RequestKey == "" || len(j.RequestKey) > 128 || j.Action != "update" && j.Action != "reinstall" && j.Action != "uninstall" {
+	if j.RequestKey == "" || len(j.RequestKey) > 128 || j.Action != "install" && j.Action != "update" && j.Action != "reinstall" && j.Action != "uninstall" {
 		return j, false, fmt.Errorf("invalid CLI lifecycle request")
 	}
 	if _, ok := clilaunch.Find(j.CLI); !ok {

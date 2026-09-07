@@ -140,6 +140,38 @@ func TestForDecisionTable(t *testing.T) {
 	}
 }
 
+func TestForMissingDecisionTable(t *testing.T) {
+	for _, id := range []string{"pi", "codex", "claude-code"} {
+		p, ok := ForMissing(id)
+		if !ok || p.NpmPackage == "" || p.Method != MethodNpm {
+			t.Errorf("ForMissing(%s) = %+v ok=%v, want npm-backed plan", id, p, ok)
+			continue
+		}
+		argv, err := p.Args(ActionInstall)
+		if err != nil || strings.Join(argv, " ") != "install -g "+p.NpmPackage+"@latest" {
+			t.Errorf("ForMissing(%s) install argv = %v, err %v", id, argv, err)
+		}
+	}
+	for _, id := range []string{"grok", "hermes"} {
+		p, ok := ForMissing(id)
+		if ok {
+			t.Errorf("ForMissing(%s) = %+v, want guided (ok=false)", id, p)
+		}
+		if InstallDocs(id) == "" {
+			t.Errorf("InstallDocs(%s) empty", id)
+		}
+	}
+	if _, ok := ForMissing("nope"); ok {
+		t.Error("unknown CLI must refuse install")
+	}
+	// The install action refuses on plans without an npm package (vendor
+	// methods) — only ForMissing plans carry install argv.
+	grokPlan, _ := For("grok", MethodVendor)
+	if _, err := grokPlan.Args(ActionInstall); err == nil {
+		t.Error("vendor plan must refuse install argv")
+	}
+}
+
 func TestPlanArgsRefusals(t *testing.T) {
 	guided, _ := For("grok", MethodVendor)
 	if _, err := guided.Args(ActionUninstall); err == nil {

@@ -454,6 +454,14 @@ the caller confirms; uninstall additionally requires typing the CLI name.
 After a succeeded job the setup check re-runs and update facts reset so no
 stale badge survives.
 
+ADR-0088 closes the cycle for missing CLIs: `install` is offered only when
+the executable is absent, npm-backed for pi/codex/claude-code (the same argv
+as reinstall) through the same job lane, and guided (docs link, no
+executable action) for grok/hermes whose installers are vendor curl scripts.
+Installing an installed CLI is refused — reinstall covers it. The update
+check line no longer reports "failed" for unmanaged installs; the real check
+error text is shown for genuine failures.
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
