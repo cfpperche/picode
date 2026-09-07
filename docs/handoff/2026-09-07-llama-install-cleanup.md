@@ -5,7 +5,8 @@ rollback and unknown/changed directories retained. Durable creation intent,
 atomic no-replace publication, empty-owned-attempt recovery after failure/restart.
 Dependency: existing x/sys promoted to direct for Linux RENAME_NOREPLACE;
 no new dependency or version. Boundary remains ADR-0090.
-Verified: close PASS; llamaservice race suite PASS (17.429s), creation failure/crash and
+Verified: close PASS; full make ci PASS on main a51e5914; race PASS (17.429s).
+Creation failure/crash and
 cleanup decision matrices, partial-deletion restart without replay. Unreadable
 proof regression reproduced, fixed and covered; recovery intent is retained.
 Real scratch: b10809 -> b10826 -> b10809; desktop cancel preserves selection;
@@ -14,6 +15,7 @@ visual-review: PASS; empty/error/blocked/review/result, desktop/mobile dark/ligh
 screenshots read, overlayAudit ok, no browser errors.
 Evidence: var/screenshots/llama-installations-final/ (ignored).
 Not done: ARM64 hardware acceptance; unrecorded/partially damaged directories
-remain protected for inspection. Final main integration gate pending.
-Merge: feature merged as 44a548a1; permission follow-up pending integration.
-Deployment uses the normal batch.
+remain protected for inspection. No implementation or validation gate pending.
+Merge: 44a548a1 plus a51e5914, fast-forwarded to main.
+Deployment uses the normal batch. Scratch instances and exact data roots removed;
+reports copied to root var/qa/llama-install-cleanup before worktree removal.

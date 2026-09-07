@@ -33,7 +33,8 @@
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
   adds `#/llama/service`, reviewed CPU lifecycle, rollback, cache and diagnostics
-  (ADR-0090), deployed as `0.1.0+c694fb2`. Delivery 3 guidance remains separate.
+  (ADR-0090), deployed as `0.1.0+c694fb2`. On main: verified old-installation
+  cleanup and empty setup recovery. Delivery 3 guidance remains separate.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
@@ -94,7 +95,6 @@
   protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
-- llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-  Owned-service ARM64 remains open; verified old-installation cleanup and empty setup recovery are implemented; real model-ledger acceptance passed.
+- llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
   (Chromium PASS); iOS 26 IME-open is still owner acceptance.
