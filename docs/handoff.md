@@ -19,7 +19,7 @@
   scroll position kept (`web/shared/client/termSocket.js`). Hermes
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
-  (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
+  (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
   on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
@@ -47,7 +47,7 @@
 
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/mobile-v2` (+ `-chat`, `-lists`, `-tools`) — worktrees on disk, no commits yet.
-- `feat/handoff-round2` — ADR renumbering, OpenCode handoff, Grok spike.
+- `feat/handoff-round2` — ADR renumbering; every Agent CLI now gives and receives a handoff.
 
 ## Next up
 
@@ -63,7 +63,8 @@
 ## Known debts / open questions
 
 - Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).
-- Handoff (ADR-0088): upstream formats undocumented (bump = refused write); OpenCode list-only (no Reader/Writer); Hermes/Grok native targets undecided; Codex lists a handed-off rollout only after restart.
+- Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write);
+  Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
   terminals stopped before it shipped (Sessions → "Open in terminal").

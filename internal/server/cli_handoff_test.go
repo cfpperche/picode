@@ -100,8 +100,9 @@ func TestCLIsAdvertiseSessionCapabilities(t *testing.T) {
 		"pi":          {"list": true, "read": true, "write": true, "prompt": true},
 		"claude-code": {"list": true, "read": true, "write": true, "prompt": true},
 		"codex":       {"list": true, "read": true, "write": true, "prompt": true},
-		"grok":        {"list": true, "read": true, "write": false, "prompt": true},
-		"hermes":      {"list": true, "read": true, "write": false, "prompt": false},
+		"grok":        {"list": true, "read": true, "write": true, "prompt": true},
+		"hermes":      {"list": true, "read": true, "write": true, "prompt": false},
+		"opencode":    {"list": true, "read": true, "write": true, "prompt": true},
 	}
 	seen := 0
 	for _, row := range res["clis"].([]any) {
@@ -146,20 +147,25 @@ func TestHandoffDecisionTable(t *testing.T) {
 	cliRequest(t, ts, "POST", preview, with("to", "codex", "extra", 1), 400) // DisallowUnknownFields
 	cliRequest(t, ts, "POST", preview, with("to", "codex", "path", filepath.Join(t.TempDir(), "x.jsonl")), 400)
 
-	// Hermes can neither import nor start from a prompt.
-	r := cliRequestFull(t, ts, "POST", preview, with("to", "hermes"))
-	if r["status"] != "409" || !strings.Contains(r["body"].(map[string]any)["error"].(string), "cannot receive a handoff") {
-		t.Fatalf("hermes target: %v", r)
+	// Hermes imports but cannot be started with a prompt, so it offers the
+	// native mode only and refuses a brief.
+	fakeCLI(t, ts, home, "hermes")
+	r := cliRequestFull(t, ts, "POST", preview, with("to", "hermes", "mode", "brief"))
+	if r["status"] != "409" || !strings.Contains(r["body"].(map[string]any)["error"].(string), "cannot start from a brief") {
+		t.Fatalf("hermes brief: %v", r)
 	}
-	// Grok has no native import: native is refused, brief is offered.
+	if modes := r["body"].(map[string]any)["modes"]; !reflect.DeepEqual(modes, []any{"native"}) {
+		t.Fatalf("hermes modes = %v", modes)
+	}
+	// Grok takes either, and native is the default when both are offered.
 	fakeCLI(t, ts, home, "grok")
-	r = cliRequestFull(t, ts, "POST", preview, with("to", "grok", "mode", "native"))
-	if r["status"] != "409" || !reflect.DeepEqual(r["body"].(map[string]any)["modes"], []any{"brief"}) {
-		t.Fatalf("grok native: %v", r)
-	}
 	p := cliRequest(t, ts, "POST", preview, with("to", "grok"), 200)
-	if p["mode"] != "brief" || p["briefPreview"] == nil || !strings.Contains(p["briefPreview"].(string), "## Last request\nfix the race") {
+	if p["mode"] != "native" || !reflect.DeepEqual(p["modes"], []any{"native", "brief"}) {
 		t.Fatalf("grok default mode: %v", p)
+	}
+	p = cliRequest(t, ts, "POST", preview, with("to", "grok", "mode", "brief"), 200)
+	if p["mode"] != "brief" || p["briefPreview"] == nil || !strings.Contains(p["briefPreview"].(string), "## Last request\nfix the race") {
+		t.Fatalf("grok brief: %v", p)
 	}
 	// Codex is not installed yet: 400 before anything is created.
 	cliRequest(t, ts, "PUT", "/api/clis/codex", clilaunch.Config{Executable: "/definitely/missing"}, 200)
@@ -219,7 +225,7 @@ func TestHandoffNativeClaudeToCodexCreatesRolloutAndTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"cli_version":"9.9.9"`) || !strings.Contains(string(raw), "Handoff from Claude Code, session cc-1") || !strings.Contains(string(raw), `"type":"function_call"`) {
+	if !strings.Contains(string(raw), `"cli_version":"9.9.9"`) || !strings.Contains(string(raw), "Handoff from Claude Code running claude-sonnet-5, session cc-1") || !strings.Contains(string(raw), `"type":"function_call"`) {
 		t.Fatalf("rollout body:\n%s", raw)
 	}
 	argv := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, out+".args")), "\x00"), "\x00")
@@ -259,7 +265,7 @@ func TestHandoffBriefWritesFileAndPromptArgs(t *testing.T) {
 	_, grokOut := fakeCLI(t, ts, home, "grok")
 	_, codexOut := fakeCLI(t, ts, home, "codex")
 
-	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "grok"}, 201)
+	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "grok", "mode": "brief"}, 201)
 	term := res["terminal"].(map[string]any)
 	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(term["id"].(string))) })
 	brief := res["brief"].(map[string]any)["path"].(string)
