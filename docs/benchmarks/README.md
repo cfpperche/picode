@@ -20,6 +20,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [Devin](https://devin.ai) | Hosted autonomous engineer (Cognition) | **Automations** (triggers → session, ACU/rate caps, activity log, NL-generated config), blocked-and-wake sessions (ADR-0037). Not a runtime or editor bar | Public docs + owner's org UI — hosted, no clone |
 | [OpenWiki / docs platforms](2026-09-03-docs-harness.md) | Docs harness study: Diátaxis, Scalar, Vale, Mintlify, Remotion license, HyperFrames, D2 | Public docs completeness/beauty: theme, screenshots pipeline, API reference, prose gate, tutorial videos | Live pages + local receipts, 2026-09-03 |
 | [Provider/account managers](2026-09-03-providers-view-v2.md) | Providers-view study: agent IDEs (Kilo, Roo, Zed, Cursor), account switchers (cc-switch, claude-swap), quota monitors (ccusage, CodexBar), credential dashboards (OpenRouter, Vercel, Stripe, Zapier) | Roster row spec, quota inline, credential origin, Verify, blast radius, fallback order | Open repos + live docs, 2026-09-03 |
+| [SSH terminal access](2026-09-07-ssh-terminal.md) | Who reaches dev/agent terminals over SSH: Coder `coder ssh`, Codespaces `gh cs ssh`, Ona/Gitpod (SSH-first), VS Code Remote-SSH, Tailscale SSH; Terminal-Bench/Daytona as the no-SSH contrast | The second door to the PTYs ADR-0002 already owns — who ships it, who refuses it, what users get | Live docs, 2026-09-07 |
 
 **Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
 or CLI-terminal control. ADR-0069 records the owner's multi-CLI direction:
@@ -31,6 +32,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-07 — Reaching the agent terminals over SSH (Coder, Codespaces, Ona, VS Code, Tailscale, Terminal-Bench)](2026-09-07-ssh-terminal.md)
 - [2026-09-07 — The actions on a workspace card (VS Code, PatternFly, Carbon, WCAG, GitHub Desktop)](2026-09-07-workspace-card-toolbar.md)
 - [2026-09-06 — Attaching images and files to Agent CLI terminals](2026-09-06-cli-terminal-attach.md)
 - [2026-09-06 — The editor tab strip when tabs overflow (VS Code, Zed, JetBrains, Firefox, Chrome, UI kits)](2026-09-06-tab-strip-overflow.md)
