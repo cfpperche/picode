@@ -14,13 +14,14 @@
   at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity
   is advisory in `make ci`, strict in `close` and the batch.
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
-  recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). Hermes
+  recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). A dropped
+  terminal WebSocket (phone lock, network) reattaches by itself — same xterm,
+  scroll position kept (`web/shared/client/termSocket.js`). Hermes
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
-  banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081) on the
-  sidebar card only; absent checklist is silence (ADR-0082). Sessions live
-  under Agent CLIs (ADR-0079).
+  banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
+  on the sidebar card only; absent checklist is silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
