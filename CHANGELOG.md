@@ -27,6 +27,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **New Agent CLIs get Activity reporting on.** A CLI added to the catalog
+  no longer imports with the switch off because it was missing from
+  `enabled.json`. OpenCode rows frozen that way are turned on once at boot.
+  Opening an OpenCode terminal prints `Starting OpenCode...` until the TUI
+  draws, so the pane is not a blank cursor.
+
 - **Phone terminal: extra keys stay off until you open the keyboard.**
   Opening a terminal no longer focuses xterm on attach, so iOS does not
   show the extra-keys row without the phone keyboard. The header keyboard

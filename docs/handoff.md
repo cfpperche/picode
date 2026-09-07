@@ -17,10 +17,10 @@
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). Hermes
   Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
-  (catalog, sqlite sessions, `--session` resume, `OPENCODE_CONFIG` plugin;
-  list-only for ADR-0088), deployed `0.1.0+d65e9a1`. Terminal checklists (ADR-0081)
-  on the sidebar card only (no strip above the pane). Absent checklist
-  renders silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
+  (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
+  banner on `feat/opencode-defaults`. Terminal checklists (ADR-0081) on the
+  sidebar card only; absent checklist is silence (ADR-0082). Sessions live
+  under Agent CLIs (ADR-0079).
 - **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
@@ -44,6 +44,7 @@
 
 ## In flight (unmerged branches on disk)
 
+- `feat/opencode-defaults` — catalog Activity defaults on; OpenCode start banner.
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088).
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
@@ -62,7 +63,7 @@
 
 ## Known debts / open questions
 
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode plugin loads (`debug info`); live Working/Needs you unproven.
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).
 - Handoff (ADR-0088): upstream formats undocumented (bump = refused write); OpenCode list-only (no Reader/Writer); Hermes/Grok native targets undecided; Codex lists a handed-off rollout only after restart.
 - CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
   deploy that loses sessions is the experiment. ADR-0084 pins nothing for
@@ -94,7 +95,6 @@
   protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
-- llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-  Owned-service ARM64 and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
+- llama: GPU / non-b10809 cancellation unverified; absent-model download keeps its reservation; ARM64 and history pruning open; ledger download/cleanup passed 2026-09-07.
 - Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
   (Chromium PASS); iOS 26 IME-open is still owner acceptance.
