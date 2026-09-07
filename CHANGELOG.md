@@ -90,6 +90,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Composer attaches a photo from this device.** An image button next to
+  the paperclip opens Photos, the camera, or a file picker. The paperclip
+  still attaches a file from the agent's folder on the PiCode machine.
+  Same caps as paste/drop: four images, 4 MB each.
+
 - **Mobile extra-keys row no longer shows a vertical overlay scrollbar.**
   Dragging the row sideways is `pan-x` only; the terminal screen, the
   row and xterm hide overlay scrollbars so iOS cannot paint a gray strip

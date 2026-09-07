@@ -31,14 +31,16 @@
   at 16 px, tab strip overflow phases 2–4. Mobile extra keys (ADR-0044)
   refined `0.1.0+8b64862`; overlay-scrollbar hide deployed `0.1.0+0bc91b0`
   (unguarded — readiness was empty). Pin only while the IME is up; opaque
-  row; xterm refit. iPhone pass still owed. Managed agents remain Pi-only;
-  coding CLIs are terminals.
+  row; xterm refit. iPhone IME still owed. ADR-0087: user Send may paste
+  into a CLI TUI; Inspector still must not. Composer image picker is on
+  `feat/cli-prompt-door`. Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
 - `feat/llama-service` — explicit execution settings and binary pins.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/cli-prompt-door` — ADR-0087 + device image picker on the Pi composer.
 
 ## Next up
 
@@ -47,7 +49,7 @@
 3. llama delivery 3 live validation; delivery 4 needs a service-ownership ADR.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 5. Sessions phase 2: codex scan cache; Grok has no transcripts; Hermes titles only, no `profiles/` scan.
-6. CLI working/approval/settled matrix per vendor; first-class CLI agents need a parity ADR.
+6. CLI prompt door D2–D5 (drop/prompt APIs, attach bar); first-class CLI agents still need a parity ADR.
 7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.

@@ -26,6 +26,7 @@ import {
   FlaskConical,
   HardDrive,
   Home,
+  Image,
   Inbox,
   LayoutGrid,
   Heading2,
@@ -132,6 +133,7 @@ export const IconSparkles = lucide(Sparkles, 14);
 export const IconMcp = lucide(Plug, 14);
 export const IconPackage = lucide(Package, 14);
 export const IconClip = lucide(Paperclip, 13);
+export const IconImage = lucide(Image, 13);
 export const IconSketch = lucide(PenLine, 13);
 export const IconPencil = lucide(Pencil, 12);
 export const IconBold = lucide(Bold, 14);
