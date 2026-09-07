@@ -3,7 +3,7 @@ import "../styles/mobile-sessions.css";
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./MobileSheet.jsx";
 import { api } from "@picode/shared/client/api.js";
-import { handoffRequest, handoffSummaryLine } from "@picode/shared/domain/sessionHandoff.js";
+import { handoffRequest, handoffSessionLabel, handoffSummaryLine } from "@picode/shared/domain/sessionHandoff.js";
 import { sessionHandoffSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import PiSpinner from "./PiSpinner.jsx";
@@ -97,7 +97,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
         <Dialog.Content className="dlg dlg-handoff" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Continue in {target.name}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {sourceName} session {(session && (session.name || session.id) || "").slice(0, 60)} continues in {target.name}, in the same folder.
+            {sourceName} session {handoffSessionLabel(session)} continues in {target.name}, in the same folder.
           </Dialog.Description>
 
           {runError ? <p className="handoff-error" role="alert">{runError}</p> : null}

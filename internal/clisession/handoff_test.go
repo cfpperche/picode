@@ -691,6 +691,31 @@ func TestCrossFormatChainKeepsCounts(t *testing.T) {
 	}
 }
 
+// A session written from a source with no title of its own must not be
+// named after the handoff note: a listing then shows 120 characters of
+// "Handoff from Claude Code running…", which is how this was found in the
+// Sessions tab.
+func TestWrittenSessionIsNotNamedAfterTheHandoffNote(t *testing.T) {
+	untitled := sample()
+	untitled.Header.Title = ""
+	untitled.Events = untitled.Events[:1] // the note alone
+	untitled.Events = append(untitled.Events,
+		transcript.Event{Kind: transcript.KindContext, Role: "user", Text: "<command-name>/doctor</command-name>", Group: 2},
+		transcript.Event{Kind: transcript.KindMessage, Role: "assistant", Text: "Checked.", Group: 3})
+	if got := title(untitled); got != "From Claude Code" {
+		t.Fatalf("with nothing of the source's own to name it after: %q", got)
+	}
+	withTurn := untitled
+	withTurn.Events = append(withTurn.Events, transcript.Event{Kind: transcript.KindMessage, Role: "user", Text: "fix the race", Group: 4})
+	if got := title(withTurn); got != "fix the race" {
+		t.Fatalf("the source's own first turn names it: %q", got)
+	}
+	titled := sample()
+	if got := title(titled); got != "Race fix" {
+		t.Fatalf("a recorded title wins: %q", got)
+	}
+}
+
 func TestPromptArgs(t *testing.T) {
 	cases := []struct {
 		cli  string

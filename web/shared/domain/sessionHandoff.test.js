@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessionClis, handoffModes, handoffTargets, handoffSummaryLine, handoffRequest, lineageBadges } from "./sessionHandoff.js";
+import { sessionClis, handoffModes, handoffTargets, handoffSummaryLine, handoffSessionLabel, handoffRequest, lineageBadges } from "./sessionHandoff.js";
 
 const all = { list: true, read: true, write: true, prompt: true };
 const clis = [
@@ -37,10 +37,21 @@ test("handoffTargets excludes the source, unreadable sources and dead-end target
   assert.deepEqual(handoffTargets(clis, "nope"), []);
 });
 
-test("summary line omits zero counts and names the biggest omissions", () => {
-  assert.equal(handoffSummaryLine({ messages: 42, toolCalls: 17 }, { dropped: { thinking: 12, "claude.attachment": 3, image: 1, "codex.event_msg": 9 } }), "42 messages · 17 tool calls · thinking left out (12) · event msg left out (9) · 4 other items skipped");
+test("summary line omits zero counts and names only what a reader understands", () => {
+  // claude.attachment and codex.event_msg are a CLI's own record types:
+  // counted, never spelled out, because "bridge session left out (4)" told
+  // the reader nothing when it shipped.
+  assert.equal(handoffSummaryLine({ messages: 42, toolCalls: 17 }, { dropped: { thinking: 12, "claude.attachment": 3, image: 1, "codex.event_msg": 9 } }), "42 messages · 17 tool calls · thinking left out (12) · images left out (1) · 12 other items skipped");
   assert.equal(handoffSummaryLine({ messages: 1, toolCalls: 0 }, { dropped: {} }), "1 message");
+  assert.equal(handoffSummaryLine({ messages: 2 }, { dropped: { "claude.bridge-session": 4 } }), "2 messages · 4 other items skipped");
   assert.equal(handoffSummaryLine({}, null), "");
+});
+
+test("the dialog names a session by its title, or a short id", () => {
+  assert.equal(handoffSessionLabel({ name: "Race fix", id: "219fb973-d3b2-445d-b679-821b1a4958d7" }), "Race fix");
+  assert.equal(handoffSessionLabel({ id: "219fb973-d3b2-445d-b679-821b1a4958d7" }), "219fb973");
+  assert.equal(handoffSessionLabel({ id: "cc-1" }), "cc-1");
+  assert.equal(handoffSessionLabel(null), "");
 });
 
 test("handoffRequest is the exact body the server accepts", () => {
