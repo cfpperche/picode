@@ -42,6 +42,14 @@ func seedOpenCodeDB(t *testing.T, dir string) string {
 		time_created INTEGER,
 		time_updated INTEGER,
 		data TEXT
+	);
+	CREATE TABLE part (
+		id TEXT PRIMARY KEY,
+		message_id TEXT NOT NULL,
+		session_id TEXT NOT NULL,
+		time_created INTEGER,
+		time_updated INTEGER,
+		data TEXT
 	);`)
 	if err != nil {
 		t.Fatal(err)

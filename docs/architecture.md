@@ -493,8 +493,15 @@ create-only, atomic, re-read before it counts) and `Prompter` (launch
 arguments for an initial prompt). They are discovered by type assertion,
 never by a switch, and `GET /api/clis` advertises them as
 `sessions: {list, read, write, prompt}`; the web derives the targets from
-that. Readers exist for all five CLIs, writers for Claude Code, Codex and
-pi (as an adopted managed agent), prompters for every CLI but Hermes.
+that. Readers exist for all six CLIs, writers for Claude Code, Codex, pi
+(as an adopted managed agent) and OpenCode, prompters for every CLI but
+Hermes.
+
+A writer may also publish through the target's own import command
+(ADR-0094): `WriteRequest.Run` executes the CLI in the session's folder
+with its configured executable and environment, which is how OpenCode
+receives a session (`opencode import`) without PiCode touching its SQLite
+store. Every route still ends in the round-trip read.
 
 `POST /api/clis/{cli}/sessions/handoff/preview` and `…/handoff` share one
 plan: window (since the last compaction, or all), repair (every tool call

@@ -67,6 +67,12 @@ type WriteRequest struct {
 	// (calls and results become plain text turns).
 	Tools string
 	Now   time.Time
+	// Run executes the target CLI itself, in the session's folder, with the
+	// CLI's configured executable and environment (ADR-0094). Writers that
+	// publish through the vendor's own import command need it; nil means
+	// PiCode cannot run the CLI here, and such a writer refuses with
+	// ErrNoRunner rather than writing the store behind the CLI's back.
+	Run func(ctx context.Context, args ...string) ([]byte, error)
 }
 
 // Capabilities is what GET /api/clis advertises per CLI so the web derives
@@ -128,6 +134,9 @@ var (
 	ErrTooLarge = errors.New("That session is too large to translate; use a brief instead.")
 	// ErrNoDir: a writer that needs a caller-chosen directory got none.
 	ErrNoDir = errors.New("A directory for the new session is required.")
+	// ErrNoRunner: a writer that publishes through the target's own import
+	// command was given no way to run it.
+	ErrNoRunner = errors.New("This CLI receives a session through its own import command, which is not available here.")
 )
 
 // MaxReadBytes caps what a reader loads: a native transcript beyond this

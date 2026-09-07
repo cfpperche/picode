@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -71,7 +72,7 @@ func TestCapabilitiesOf(t *testing.T) {
 		"codex":       {List: true, Read: true, Write: true, Prompt: true},
 		"grok":        {List: true, Read: true, Write: false, Prompt: true},
 		"hermes":      {List: true, Read: true, Write: false, Prompt: false},
-		"opencode":    {List: true, Read: false, Write: false, Prompt: false},
+		"opencode":    {List: true, Read: true, Write: true, Prompt: true},
 		"nope":        {},
 	}
 	for cli, want := range cases {
@@ -657,6 +658,7 @@ func TestPromptArgs(t *testing.T) {
 		{"codex", []string{"do it"}},
 		{"grok", []string{"--session-id", "sid", "do it"}},
 		{"pi", []string{"--session-id", "sid", "do it"}},
+		{"opencode", []string{"--prompt", "do it"}},
 	}
 	for _, c := range cases {
 		p, ok := PrompterFor(c.cli)
@@ -669,5 +671,197 @@ func TestPromptArgs(t *testing.T) {
 	}
 	if _, ok := PrompterFor("hermes"); ok {
 		t.Error("hermes cannot take an initial prompt interactively")
+	}
+}
+
+// seedOpenCodeSession writes one session with its messages and parts, in
+// the shape a real store holds (OpenCode 1.18.29): a tool part carries the
+// call and its result together.
+func seedOpenCodeSession(t *testing.T, path, sid, dir string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO session (id, project_id, directory, title, version, time_created, time_updated, model) VALUES (?,?,?,?,?,?,?,?)`,
+		sid, "global", dir, "Race fix", "1.18.29", 1786547371123, 1786547376483, `{"id":"big-pickle","providerID":"opencode"}`); err != nil {
+		t.Fatal(err)
+	}
+	msgs := []struct {
+		id, data string
+		parts    []string
+	}{
+		{"msg_1", `{"role":"user","time":{"created":1786547371144},"model":{"providerID":"opencode","modelID":"big-pickle"}}`,
+			[]string{`{"type":"text","text":"fix the race"}`}},
+		{"msg_2", `{"role":"assistant","modelID":"big-pickle","providerID":"opencode","time":{"created":1786547371158}}`,
+			[]string{
+				`{"type":"step-start"}`,
+				`{"type":"reasoning","text":"let me look"}`,
+				`{"type":"text","text":"On it."}`,
+				`{"type":"tool","tool":"bash","callID":"call_1","state":{"status":"completed","input":{"command":"go test ./..."},"output":"ok","title":"go test"}}`,
+				`{"type":"tool","tool":"read","callID":"call_2","state":{"status":"error","input":{"filePath":"/x"},"error":"boom"}}`,
+				`{"type":"step-finish"}`,
+			}},
+		{"msg_3", `{"role":"assistant","modelID":"big-pickle","providerID":"opencode","time":{"created":1786547375000}}`,
+			[]string{`{"type":"text","text":"Done."}`, `{"type":"patch","hash":"abc"}`}},
+	}
+	for mi, m := range msgs {
+		if _, err := db.Exec(`INSERT INTO message (id, session_id, time_created, data) VALUES (?,?,?,?)`, m.id, sid, 1786547371000+mi, m.data); err != nil {
+			t.Fatal(err)
+		}
+		for pi, p := range m.parts {
+			if _, err := db.Exec(`INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?,?,?,?,?)`,
+				m.id+"-p"+strconv.Itoa(pi), m.id, sid, 1786547371000+mi*100+pi, p); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestOpenCodeReadMapsParts(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "")
+	path := seedOpenCodeDB(t, filepath.Join(home, ".local", "share", "opencode"))
+	seedOpenCodeSession(t, path, "ses_1", "/home/goat/proj")
+
+	tl, err := (OpenCodeSource{}).Read(context.Background(), Ref{ID: "ses_1", Cwd: "/home/goat/proj"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "message/user thinking message/assistant tool_call tool_result tool_call tool_result message/assistant"
+	if got := kinds(tl); got != want {
+		t.Fatalf("kinds:\n got %s\nwant %s", got, want)
+	}
+	if h := tl.Header; h.Title != "Race fix" || h.Cwd != "/home/goat/proj" || h.FormatVersion != "1.18.29" || h.Model != "opencode/big-pickle" {
+		t.Fatalf("header = %+v", h)
+	}
+	if c := tl.Events[3].Call; c.ID != "call_1" || c.Name != "bash" || string(c.Input) != `{"command":"go test ./..."}` {
+		t.Fatalf("call = %+v", c)
+	}
+	if r := tl.Events[4].Result; r.CallID != "call_1" || r.Text != "ok" || r.IsError {
+		t.Fatalf("result = %+v", r)
+	}
+	if r := tl.Events[6].Result; !r.IsError || r.Text != "boom" {
+		t.Fatalf("error result must carry the error text: %+v", r)
+	}
+	d := tl.Manifest.Dropped
+	if d["opencode.step-start"] != 1 || d["opencode.step-finish"] != 1 || d["opencode.patch"] != 1 {
+		t.Fatalf("manifest = %+v", d)
+	}
+	if _, err := (OpenCodeSource{}).Read(context.Background(), Ref{ID: "ses_nope"}); !errors.Is(err, ErrNotUnderRoot) {
+		t.Fatalf("unknown session: %v", err)
+	}
+}
+
+// applyOpenCodeImport is what `opencode import <file>` does to the store,
+// so the writer test can prove the envelope it produces is one the CLI's
+// own importer would land: ids kept, session filed under the invoking
+// folder, messages and parts inserted in order.
+func applyOpenCodeImport(t *testing.T, path, file, cwd string) {
+	t.Helper()
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env struct {
+		Info     map[string]any `json:"info"`
+		Messages []struct {
+			Info  map[string]any   `json:"info"`
+			Parts []map[string]any `json:"parts"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatalf("envelope is not JSON the importer could read: %v", err)
+	}
+	str := func(m map[string]any, k string) string {
+		v, _ := m[k].(string)
+		return v
+	}
+	sid := str(env.Info, "id")
+	if !strings.HasPrefix(sid, "ses_") || str(env.Info, "title") == "" {
+		t.Fatalf("session info = %v", env.Info)
+	}
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	model, _ := json.Marshal(env.Info["model"])
+	if _, err := db.Exec(`INSERT INTO session (id, project_id, directory, title, version, time_created, time_updated, model) VALUES (?,?,?,?,?,?,?,?)`,
+		sid, "global", cwd, str(env.Info, "title"), str(env.Info, "version"), 1, 2, string(model)); err != nil {
+		t.Fatal(err)
+	}
+	for mi, m := range env.Messages {
+		mid := str(m.Info, "id")
+		if !strings.HasPrefix(mid, "msg_") || str(m.Info, "sessionID") != sid {
+			t.Fatalf("message info = %v", m.Info)
+		}
+		body, _ := json.Marshal(m.Info)
+		if _, err := db.Exec(`INSERT INTO message (id, session_id, time_created, data) VALUES (?,?,?,?)`, mid, sid, mi, string(body)); err != nil {
+			t.Fatal(err)
+		}
+		for pi, p := range m.Parts {
+			pid := str(p, "id")
+			if !strings.HasPrefix(pid, "prt_") || str(p, "messageID") != mid {
+				t.Fatalf("part = %v", p)
+			}
+			pb, _ := json.Marshal(p)
+			if _, err := db.Exec(`INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?,?,?,?,?)`, pid, mid, sid, mi*100+pi, string(pb)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestOpenCodeWritePublishesThroughItsOwnImport(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "")
+	path := seedOpenCodeDB(t, filepath.Join(home, ".local", "share", "opencode"))
+	seedOpenCodeSession(t, path, "ses_seed", "/home/goat/other") // gives the store a version to probe
+
+	if _, err := (OpenCodeSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: "/home/goat/proj"}); !errors.Is(err, ErrNoRunner) {
+		t.Fatalf("no runner: %v", err)
+	}
+
+	var ranArgs []string
+	req := WriteRequest{Cwd: "/home/goat/proj", Now: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)}
+	req.Run = func(ctx context.Context, args ...string) ([]byte, error) {
+		ranArgs = args
+		if len(args) != 2 || args[0] != "import" {
+			t.Fatalf("import args = %v", args)
+		}
+		applyOpenCodeImport(t, path, args[1], req.Cwd)
+		return []byte("Imported session"), nil
+	}
+	got, err := (OpenCodeSource{}).Write(context.Background(), sample(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(got.ID, "ses_") || !reflect.DeepEqual(got.ResumeArgs, []string{"--session", got.ID}) || got.Name != "Race fix" || got.Messages != 4 {
+		t.Fatalf("summary = %+v", got)
+	}
+	if _, err := os.Stat(ranArgs[1]); !os.IsNotExist(err) {
+		t.Fatalf("the handoff file must not outlive the import: %v", err)
+	}
+	// The store now holds it, with the tool call and its result in one part.
+	back, err := (OpenCodeSource{}).Read(context.Background(), Ref{ID: got.ID, Cwd: got.Cwd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := back.Counts(); c.Messages != 4 || c.ToolCalls != 2 || c.ToolResults != 2 {
+		t.Fatalf("counts after import = %+v", c)
+	}
+	if back.Events[0].Text != sample().Events[0].Text {
+		t.Fatalf("first turn = %q", back.Events[0].Text)
+	}
+	if r := back.Events[6].Result; r == nil || !r.IsError || r.Text != "boom" {
+		t.Fatalf("the error result must survive the import: %+v", back.Events[6])
+	}
+	rows, _ := (OpenCodeSource{}).List("/home/goat/proj")
+	if len(rows) != 1 || rows[0].ID != got.ID {
+		t.Fatalf("listing = %+v", rows)
 	}
 }

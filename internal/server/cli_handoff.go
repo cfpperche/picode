@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -330,7 +331,7 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 	case handoffModeNative:
 		tl := p.nativeTimeline()
 		manifest = tl.Prepare().Manifest
-		wreq := clisession.WriteRequest{Cwd: cwd, FormatVersion: p.version, Tools: p.req.Tools, Now: p.now}
+		wreq := clisession.WriteRequest{Cwd: cwd, FormatVersion: p.version, Tools: p.req.Tools, Now: p.now, Run: cliRunner(deps, p.dst, cwd)}
 		if p.dst.ID == "pi" {
 			wsID, work := adoptHome(deps, cwd)
 			agentName := strings.TrimSpace(p.full.Header.Title)
@@ -415,6 +416,34 @@ func writeStatus(err error) int {
 		return http.StatusInternalServerError
 	}
 	return http.StatusInternalServerError
+}
+
+// cliRunner lets a writer publish through the target CLI's own import
+// command (ADR-0094): the configured executable and environment, run in
+// the session's folder, bounded in time and output. It never runs a
+// conversation — only the subcommand the writer names.
+func cliRunner(deps Deps, cli clilaunch.CLI, cwd string) func(context.Context, ...string) ([]byte, error) {
+	return func(ctx context.Context, args ...string) ([]byte, error) {
+		c, err := cliConfig(deps, cli.ID)
+		if err != nil {
+			return nil, err
+		}
+		binary, err := resolveCLIExecutable(cli, c)
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, binary, args...)
+		cmd.Dir = cwd
+		cmd.Env = cliEnvironment(c)
+		var out boundedCLIOutput
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		cmd.WaitDelay = time.Second
+		err = cmd.Run()
+		return out.Bytes(), err
+	}
 }
 
 var semverToken = regexp.MustCompile(`\d+\.\d+\.\d+`)

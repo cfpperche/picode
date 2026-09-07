@@ -99,3 +99,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0091](0091-pi-only-agents-acp-waits.md) | Pi-only agents hold — guest CLIs stay TUI + tier-1 sensors; no agent-protocol client (ACP, app-server, SDKs) until the market converges on one standard, named re-measure trigger | accepted, closes 0056's ACP deferral as deliberate |
 | [0092](0092-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
 | [0093](0093-cli-install-missing.md) | Install a missing npm-backed CLI through the same lifecycle lane; vendor curl installers stay guided | accepted, extends 0087 |
+| [0094](0094-handoff-through-vendor-import.md) | A handoff writer may publish through the target CLI's own import command (OpenCode `import`), verified by a round-trip read | accepted, extends 0088 |
