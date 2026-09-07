@@ -8,6 +8,7 @@ import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js"
 import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks, resolvePath, underCwd, relPath } from "@picode/shared/domain/termLinks.js";
 import { api, wsURL } from "@picode/shared/client/api.js";
+import { connectTermSocket, kickTermSocket } from "@picode/shared/client/termSocket.js";
 import { xtermOptions, applyXtermOptions } from "@picode/shared/domain/termTheme.js";
 
 import "@xterm/xterm/css/xterm.css";
@@ -52,6 +53,7 @@ export default function TerminalDock({
     if (terms.has(id)) {
       const entry = terms.get(id);
       if (!entry.sticky) entry.sticky = createSticky();
+      if (entry.sock && entry.sock.readyState !== WebSocket.OPEN) kickTermSocket(entry); // revive a dropped attach
       if (hostRef.current && entry.paneEl.parentElement !== hostRef.current) {
         hostRef.current.appendChild(entry.paneEl);
       }
@@ -79,45 +81,47 @@ export default function TerminalDock({
     wireTermKeys(term, sendBytes);
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
-    const sock = new WebSocket(wsURL(`/ws/term?session=picode-${id}`));
-    sock.binaryType = "arraybuffer";
-    entry.sock = sock;
-
-    sock.onopen = () => {
-      term.reset();
-      setDot(true);
-      scheduleTermFit(entry, true);
-      term.onData((data) => {
-        const out = entry.sticky.apply(termDataFilter(data));
-        if (out === "") return;
-        if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(out));
-      });
-      term.onResize(() => {
-        if (sock.readyState === WebSocket.OPEN) {
-          sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    // Key and resize handlers live on the term once — they survive a
+    // reattach and read the current socket through entry.sock.
+    term.onData((data) => {
+      const out = entry.sticky.apply(termDataFilter(data));
+      if (out === "") return;
+      if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(new TextEncoder().encode(out));
+    });
+    term.onResize(() => {
+      if (entry.sock && entry.sock.readyState === WebSocket.OPEN) {
+        entry.sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+      }
+      const dims = document.getElementById("sb-dims");
+      if (dims) dims.textContent = `${term.cols}×${term.rows}`;
+    });
+    let firstOpen = true; // a reattach must not wipe the scrollback
+    connectTermSocket(entry, wsURL(`/ws/term?session=picode-${id}`), {
+      onOpen: () => {
+        if (firstOpen) {
+          term.reset();
+          firstOpen = false;
         }
-        const dims = document.getElementById("sb-dims");
-        if (dims) dims.textContent = `${term.cols}×${term.rows}`;
-      });
-    };
-    sock.onmessage = (ev) => {
-      if (typeof ev.data === "string") {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg.type === "error") term.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`);
-        } catch { /* ignore */ }
-        return;
-      }
-      term.write(new Uint8Array(ev.data));
-    };
-    sock.onclose = () => {
-      if (entry.unwireFit) entry.unwireFit();
-      setDot(false);
-      if (!entry.closedByUser) {
-        term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
+        setDot(true);
+        scheduleTermFit(entry, true); // resize the fresh tmux attach
+      },
+      onMessage: (ev) => {
+        if (typeof ev.data === "string") {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "error") term.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`);
+          } catch { /* ignore */ }
+          return;
+        }
+        term.write(new Uint8Array(ev.data));
+      },
+      onState: () => {
+        term.writeln(`\r\n\x1b[90m— detached —\x1b[0m`);
+        setDot(false);
         if (window.__picodeKickHealth) window.__picodeKickHealth();
-      }
-    };
+      },
+      onGiveUp: () => term.writeln(`\r\n\x1b[90mSession ended. Reopen the terminal.\x1b[0m`),
+    });
 
     terms.set(id, entry);
     const sess = document.getElementById("sb-session");

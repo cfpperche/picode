@@ -15,6 +15,7 @@
     "./client/push.js": "./client/push.js",
     "./client/reconnect.js": "./client/reconnect.js",
     "./client/shell.js": "./client/shell.js",
+    "./client/termSocket.js": "./client/termSocket.js",
     "./contracts/appPrimitives.js": "./contracts/appPrimitives.js",
     "./contracts/schemas.js": "./contracts/schemas.js",
     "./data/whats-new.json": "./data/whats-new.json",

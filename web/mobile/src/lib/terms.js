@@ -1,5 +1,10 @@
+import { dropTermSocket } from "@picode/shared/client/termSocket.js";
+
 // Imperative xterm instances — not React state. One attach per agent.
 export const terms = new Map();
+// QA/diagnostics hook (same pattern as __picodeOverlayAudit): lets the
+// browser harness reach an attach to drop or inspect it.
+if (typeof window !== "undefined") window.__picodeTerms = terms;
 
 // Keep the xterm node when React unmounts the tab host (switching tabs).
 export function parkTerm(el) {
@@ -15,13 +20,14 @@ export function parkTerm(el) {
   if (el.parentElement !== box) box.appendChild(el);
 }
 
-// Dispose a live attach: close the socket, drop the xterm instance.
+// Dispose a live attach: stop the auto-reattach, close the socket,
+// drop the xterm instance.
 export function closeTerm(id) {
   const t = terms.get(id);
   if (!t) return;
   t.closedByUser = true;
+  dropTermSocket(t);
   if (t.unwireLinks) try { t.unwireLinks(); } catch { /* ignore */ }
-  try { t.sock.close(); } catch { /* ignore */ }
   t.term.dispose();
   t.paneEl.remove();
   terms.delete(id);

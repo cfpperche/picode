@@ -11,6 +11,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Terminals reattach after a phone lock:** locking the phone (or any
+  network drop) no longer leaves a dead "— detached —" terminal that
+  must be exited and reopened, losing the reader's place. The browser
+  reattaches automatically — backoff 1 s → 10 s for up to ~95 s per
+  burst, an immediate retry when the app becomes visible or the network
+  returns — keeping the same xterm pane; tmux preserves the copy-mode
+  scroll position across attaches. A tmux session that is truly gone
+  says "Session ended. Reopen the terminal." once, and heals by itself
+  if the session comes back.
+
 ### Added
 
 - **llama.cpp installation cleanup:** desktop and mobile can review and remove

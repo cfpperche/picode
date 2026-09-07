@@ -934,6 +934,16 @@ binary frames = terminal bytes, text frames = `resize` control JSON;
 closing the tab ends only the attach — the agent or shell keeps running in tmux.
 Terminal output and keepalive ping frames are serialized per connection because
 Gorilla WebSocket allows only one concurrent writer.
+On the browser side `web/shared/client/termSocket.js` owns the attach
+lifecycle: a dropped WebSocket (phone lock suspends the page, network
+hand-off) reattaches automatically — exponential backoff 1 s → 10 s,
+up to 12 consecutive failures per burst, then one honest
+"Session ended. Reopen the terminal." line; regaining visibility or
+connectivity (or remounting the pane) kicks an immediate attempt and
+restarts an exhausted burst. Reattach reuses the same xterm instance and
+resends the pane size, so the reader's place survives; tmux keeps the
+copy-mode scroll position across attaches, and the tmux session itself
+never depends on the socket — closing the tab ends only the attach.
 `RespawnPaneEnv` changes a pane's child without changing its immutable tmux
 session id (used by restart-same-mode and the explicit dead-pane recovery).
 `PasteText` types text into a pane as a bracketed paste plus Enter — the
