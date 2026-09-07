@@ -3290,6 +3290,23 @@
         ]
       }
     },
+    "/api/github/repos": {
+      "get": {
+        "operationId": "getApiGithubRepos",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "github"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getApiHealth",
@@ -7586,6 +7603,9 @@
     },
     {
       "name": "fs"
+    },
+    {
+      "name": "github"
     },
     {
       "name": "health"
