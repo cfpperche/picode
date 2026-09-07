@@ -120,8 +120,8 @@ that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
 **Uninstall** runs the CLI's own uninstall command (Hermes Agent) or npm's
-for npm-installed tools, after you type the CLI's name. Grok and a natively
-installed Claude Code have no uninstall command; PiCode links their official
+for npm-installed tools, after you type the CLI's name. Grok and a native
+Claude Code install have no uninstall command; PiCode links their official
 guide instead. Uninstalling never touches your settings or conversations
 beyond what the CLI's own uninstaller does.
 
