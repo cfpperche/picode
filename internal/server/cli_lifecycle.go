@@ -32,7 +32,7 @@ type lifecycleView struct {
 }
 
 // describeLifecycle computes what the surface may offer. A missing CLI gets
-// an install plan (npm-backed CLIs) or a guided-install docs link (ADR-0088).
+// an install plan (npm-backed CLIs) or a guided-install docs link (ADR-0093).
 func describeLifecycle(cliID string, installed bool, executable string) lifecycleView {
 	if !installed {
 		if plan, ok := clilifecycle.ForMissing(cliID); ok {

@@ -77,7 +77,7 @@ test("fleet: terminal.checklist (the plan of the pi inside the terminal, ADR-005
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [{ text: "explore", status: "completed" }, { text: "edit", status: "in-progress" }], updatedAt: "2026-09-06T10:00:00Z" } });
   assert.deepEqual(s.terminals[0].checklist, { items: [{ text: "explore", status: "completed" }, { text: "edit", status: "in-progress" }], absent: false, updatedAt: "2026-09-06T10:00:00Z" });
-  // An absent marker is a row of its own (renders as silence, ADR-0082).
+  // An absent marker is a row of its own (renders as silence, ADR-0092).
   s = applyFleet(s, { type: "terminal.checklist", data: { termId: "t1", items: [], absent: true } });
   assert.deepEqual(s.terminals[0].checklist, { items: [], absent: true, updatedAt: undefined });
   // The reset/cleared empty state is silence: the line goes away.

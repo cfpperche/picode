@@ -457,7 +457,7 @@ the caller confirms; uninstall additionally requires typing the CLI name.
 After a succeeded job the setup check re-runs and update facts reset so no
 stale badge survives.
 
-ADR-0088 closes the cycle for missing CLIs: `install` is offered only when
+ADR-0093 closes the cycle for missing CLIs: `install` is offered only when
 the executable is absent, npm-backed for pi/codex/claude-code (the same argv
 as reinstall) through the same job lane, and guided (docs link, no
 executable action) for grok/hermes whose installers are vendor curl scripts.

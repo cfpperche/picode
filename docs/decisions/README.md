@@ -86,15 +86,16 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/sessions(/<wsId>)` replaces the top-level route; old links redirect | accepted, extends 0069 |
 | [0080](0080-llama-manager.md) | Dedicated llama.cpp manager and reliable connection results | accepted |
 | [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
-| [0082](0082-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
+| [0082](0082-browser-capture-sidecar.md) | Browser capture as a standalone sidecar extension: bounded frames over RPC, no patched agent | accepted, supersedes the emitter placement of 0076 |
 | [0083](0083-llama-operation-jobs.md) | Durable model operations, progress, cancellation and reconnect | accepted |
 | [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079 |
 | [0085](0085-session-forensics.md) | Session forensics — shutdown snapshot + boot diff, SIGHUP-immune pane roots, deploy log | accepted, extends 0084 |
 | [0086](0086-process-cost.md) | The rite around a change costs less than the change: batched guarded deploys, scoped gates, `make close`, a 100-line handoff with per-session files, advisory capture parity | accepted, amends 0018 and 0084/0085 |
 | [0087](0087-cli-lifecycle.md) | CLI lifecycle — update check, update, reinstall, uninstall by orchestrating the vendors' own commands as durable jobs | accepted, extends 0069 and 0083 |
-| [0088](0088-cli-install-missing.md) | Install a missing npm-backed CLI through the same lifecycle lane; vendor curl installers stay guided | accepted, extends 0087 |
 | [0088](0088-cross-cli-session-handoff.md) | Cross-CLI session handoff — a conversation of one Agent CLI continues in another as a new native session (or a brief), with a preview of what travels and a lineage row; create-only exception to 0056 | accepted, extends 0069/0079/0084, amends 0056 |
 | [0089](0089-cli-terminal-prompt-door.md) | User-initiated prompt door for Agent CLI terminals: stage files in the cwd, paste paths into the TUI; Inspector still must not type into a CLI | accepted, amends 0078 and 0002 |
 
 | [0090](0090-llama-service-ownership.md) | Explicit llama.cpp service ownership, reviewed lifecycle and cache boundaries | accepted |
 | [0091](0091-pi-only-agents-acp-waits.md) | Pi-only agents hold — guest CLIs stay TUI + tier-1 sensors; no agent-protocol client (ACP, app-server, SDKs) until the market converges on one standard, named re-measure trigger | accepted, closes 0056's ACP deferral as deliberate |
+| [0092](0092-absent-checklist-renders-silence.md) | An absent checklist renders as silence — no line, no "No checklist"; the counter loses its accent | accepted, amends 0055 and 0081 |
+| [0093](0093-cli-install-missing.md) | Install a missing npm-backed CLI through the same lifecycle lane; vendor curl installers stay guided | accepted, extends 0087 |

@@ -2,7 +2,7 @@
 // checklist {items, absent, updatedAt} and project a single operator line
 // per agent, the way Tachyon does: the current step "(2/4) text". Nothing
 // known → null, and the row shows nothing (silence is not absence); an
-// absent marker projects {kind:"absent"} and draws nothing (ADR-0082).
+// absent marker projects {kind:"absent"} and draws nothing (ADR-0092).
 
 export const GLYPH = { pending: "☐", "in-progress": "◐", completed: "☑" };
 

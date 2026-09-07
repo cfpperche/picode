@@ -21,15 +21,15 @@
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (list-only ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
-  on the sidebar card only; absent checklist is silence (ADR-0082). Sessions live under Agent CLIs (ADR-0079).
-- **CLI lifecycle (ADR-0087/0088):** Agent CLIs shows update badges (npm
+  on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
+- **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
   terminal guards and typed uninstall confirmation; interrupted jobs never
   replay. Unmanageable installs (Homebrew, manual checkouts) get docs
   links, not controls. Detect fix (symlinks/wrappers) makes real installs
   classify; E2E in production: hermes 0.18.2 -> 0.21.0 through the surface.
-  ADR-0088 adds install for missing npm-backed CLIs; grok/hermes guided.
+  ADR-0093 adds install for missing npm-backed CLIs; grok/hermes guided.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
 - **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
@@ -45,21 +45,20 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088).
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
-- `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
+- `feat/mobile-v2` (+ `-chat`, `-lists`, `-tools`) — worktrees on disk, no commits yet.
+- `feat/handoff-round2` — ADR renumbering, OpenCode handoff, Grok spike.
 
 ## Next up
 
 1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
-2. Renumber duplicate ADR-0082 and fix the index.
-3. llama delivery 3 live validation; owned-service ARM64 acceptance.
-4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan; Grok native handoff spike.
-6. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-9. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
+2. llama delivery 3 live validation; owned-service ARM64 acceptance.
+3. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
+4. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
+5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
+6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+8. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
 
 ## Known debts / open questions
 

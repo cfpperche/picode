@@ -197,7 +197,7 @@ disposable terminal afterward. Public docs use a separate unmodified fixture;
 `docs-shots.mjs` now closes only its own browser session.
 
 
-llama.cpp manager (ADR-0082): `llama-desktop-*` and `llama-mobile-*` capture
+llama.cpp manager (ADR-0080): `llama-desktop-*` and `llama-mobile-*` capture
 empty, blocked, authentication error, download, model replacement, model list,
 light theme and Providers entry states. All 16 images were read; overlay
 and alignment audits pass (`llama-qa.json`). Reproduce with

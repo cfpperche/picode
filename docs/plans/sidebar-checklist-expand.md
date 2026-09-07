@@ -4,7 +4,7 @@ Owner request (2026-09-06): the sidebar checklist line should expand on
 click into the full list — ☑ on finished steps, a braille spinner on the
 step being executed, ☐ on the rest. This plan covers that feature; the
 companion refinements shipped with it (muted counter, absent renders as
-silence) are in ADR-0082. Status: **planned, awaiting owner go-ahead**.
+silence) are in ADR-0092. Status: **planned, awaiting owner go-ahead**.
 
 ## Why the data is already there
 
@@ -18,14 +18,14 @@ No server work is needed. The full list already reaches both shells:
 `currentStep`, `countDone` and `GLYPH` (`web/shared/domain/checklist.js`)
 already encode the projection rules; lists are bounded at 30 items
 (extension) / 50 (store). An absent or unknown checklist shows no line at
-all (ADR-0082), so the disclosure only ever opens on a real list.
+all (ADR-0092), so the disclosure only ever opens on a real list.
 
 ## Design
 
 | Area | Design |
 |---|---|
 | Component | `ChecklistDisclosure({ id, check })` in `WorkspaceRows.jsx`, used by `AgentRow` and `TermRow` in place of `ChecklistLine`. `ChecklistLine` stays the pure one-line renderer used by the terminal pane strip (the strip never expands — the pane is already the detail view) |
-| Collapsed line | Unchanged: `(2/4) current step`, muted counter (ADR-0082), one-line ellipsis, `title` holds the full step |
+| Collapsed line | Unchanged: `(2/4) current step`, muted counter (ADR-0092), one-line ellipsis, `title` holds the full step |
 | Toggle | The line becomes a real `<button>` (native control; no homemade widget): `aria-expanded`, `aria-controls="chk-<ownerId>"`, Enter/Space work. Click stops propagation so the row's own select does not fire; keyboard focus ring comes from the shared focus style |
 | Expanded list | `<ul id="chk-<ownerId>">` under the line: one `li` per step — ☑ completed (dimmed, `--text-secondary`), `PiSpinner` on the in-progress step (the existing braille spinner: same frames ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏, 80 ms, `role="status"`), ☐ pending. Step text clamps to two lines (`-webkit-box`), full text in `title`. Glyph column is `aria-hidden`; the list is plain list semantics |
 | Motion | `grid-template-rows 0fr → 1fr` + opacity, 150 ms ease-out; `prefers-reduced-motion: reduce` renders the open state with no transition (same guard the file already uses) |
@@ -54,7 +54,7 @@ step's text is not repeated inside the list.
 
 | Conditions | Observable result |
 |---|---|
-| Line absent / checklist unknown | No line, nothing clickable (ADR-0082) |
+| Line absent / checklist unknown | No line, nothing clickable (ADR-0092) |
 | Line present, collapsed | One muted line; button `aria-expanded=false` |
 | Click line | List opens in place; agent/terminal row does NOT navigate; `aria-expanded=true` |
 | Click again / Escape while focused | List closes; row still does not navigate |

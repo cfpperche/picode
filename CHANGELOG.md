@@ -29,7 +29,7 @@ to the `[Unreleased]` section. The repository's official language is English
   verified older installations while retaining the current version, restoration
   version and unknown files.
 
-- **Install a missing CLI** (ADR-0088): the Agent CLIs surface offers an
+- **Install a missing CLI** (ADR-0093): the Agent CLIs surface offers an
   **Install** action when a catalogued CLI is not installed — npm-backed for
   pi, Codex and Claude Code through the same durable job lane; Grok and
   Hermes Agent show their vendor's install guide instead. Installing an
@@ -275,7 +275,7 @@ to the `[Unreleased]` section. The repository's official language is English
   the white plate for sidebar contrast; image faces stay full-bleed. Row
   indent (`ws-meta`) re-aligned to the smaller identity mark.
 
-- **Checklist line refinements on cards** (ADR-0082). The `(x/n)` counter
+- **Checklist line refinements on cards** (ADR-0092). The `(x/n)` counter
   no longer wears the accent color — the operator line is one muted line.
   An **absent** checklist (the task required a plan and none was written)
   now renders as silence: no line, no "No checklist", on agent cards,

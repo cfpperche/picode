@@ -207,7 +207,7 @@ export function TermRow({
 // The agent's internal checklist as one operator line (ADR-0055): the
 // current step with its position. Nothing known, and an absent marker (the
 // contract was not met), both render nothing — silence is not absence and
-// absence is not worth a line (ADR-0082, owner refinement). No parens
+// absence is not worth a line (ADR-0092, owner refinement). No parens
 // around the counter — this is a list row, not a terminal (owner refinement,
 // docs/plans/sidebar-checklist-expand.md). The terminal pane does not
 // repeat this line (ADR-0081 amendment 2026-09-07).
@@ -227,7 +227,7 @@ export function ChecklistLine({ line }) {
 // finished ones, the braille spinner on the step being executed, ☐ on the
 // rest. The items are already in client state and arrive live over the
 // feed, so opening costs no fetch and updates render in place. Absent and
-// unknown checklists render nothing (ADR-0082) — there is nothing to open.
+// unknown checklists render nothing (ADR-0092) — there is nothing to open.
 //
 // Layout matches ContextLine below it: same 31px text column, no parens
 // around the counter, counter reads as a fixed column at the row's end

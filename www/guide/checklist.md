@@ -44,7 +44,7 @@ checklist package, so their terminals never show a line.
 
 - **Sidebar**: one line under the agent — `(2/4) the step it is on`.
   When a plan is finished it reads `(4/4)`. Nothing known, and a task
-  without a plan, shows no line at all (ADR-0082).
+  without a plan, shows no line at all (ADR-0092).
   Agent CLI terminal cards carry the same line.
 - **Chat**: each `checklist` call is a card with every step —
   `☐` pending, `◐` in progress, `☑` done.

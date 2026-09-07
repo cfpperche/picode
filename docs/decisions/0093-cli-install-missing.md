@@ -1,4 +1,4 @@
-# ADR-0088: Install an agent CLI that is missing
+# ADR-0093: Install an agent CLI that is missing
 
 - **Status**: accepted (owner approved closing the lifecycle cycle, 2026-09-07)
 - **Date**: 2026-09-07

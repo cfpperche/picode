@@ -265,7 +265,7 @@ function updateCheckLine(cli) {
 }
 
 // CLILifecycleCard surfaces the latest lifecycle job for one CLI plus the
-// guided facts for installs/uninstalls PiCode does not execute (ADR-0088).
+// guided facts for installs/uninstalls PiCode does not execute (ADR-0093).
 // One line + one action per state, never a blank well.
 function CLILifecycleCard({ cli, job, onCheck }) {
   const active = job && (job.state === "queued" || job.state === "running");

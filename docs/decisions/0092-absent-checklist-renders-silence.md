@@ -1,4 +1,4 @@
-# ADR-0082: An absent checklist renders as silence
+# ADR-0092: An absent checklist renders as silence
 
 - **Status**: accepted
 - **Date**: 2026-09-06
