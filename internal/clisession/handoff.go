@@ -386,15 +386,21 @@ func title(t transcript.Timeline) string {
 	if s := strings.TrimSpace(t.Header.Title); s != "" {
 		return clip(s, 120)
 	}
-	for _, e := range t.Events {
-		if e.Kind == transcript.KindMessage && e.Role == "user" && strings.TrimSpace(e.Text) != "" {
-			return clip(e.Text, 120)
-		}
+	if s := preview(t); s != "" {
+		return s
+	}
+	// Nothing of the source's own to name it after: the handoff note is
+	// not a title, and a listing showing its first 120 characters is how
+	// this was found.
+	if name := strings.TrimSpace(t.Header.DisplayName()); name != "" && t.Header.SourceCLI != "" {
+		return "From " + name
 	}
 	return ""
 }
 
-// preview is the first real user line of a timeline, for Summary.Preview.
+// preview is the first user line the source itself wrote, skipping the
+// handoff note PiCode prepends. Used for Summary.Preview and, when the
+// source recorded no title, to name the written session.
 func preview(t transcript.Timeline) string {
 	for _, e := range t.Events {
 		if e.Kind == transcript.KindMessage && e.Role == "user" && strings.TrimSpace(e.Text) != "" && !strings.HasPrefix(e.Text, "Handoff from ") {

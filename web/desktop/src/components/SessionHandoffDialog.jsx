@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api } from "@picode/shared/client/api.js";
-import { handoffRequest, handoffSummaryLine } from "@picode/shared/domain/sessionHandoff.js";
+import { handoffRequest, handoffSessionLabel, handoffSummaryLine } from "@picode/shared/domain/sessionHandoff.js";
 import { sessionHandoffSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -93,7 +93,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
         <Dialog.Content className="dlg dlg-handoff" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Continue in {target.name}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {sourceName} session {(session && (session.name || session.id) || "").slice(0, 60)} continues in {target.name}, in the same folder.
+            {sourceName} session {handoffSessionLabel(session)} continues in {target.name}, in the same folder.
           </Dialog.Description>
 
           {error ? <p className="handoff-error" role="alert">{error}</p> : null}

@@ -41,10 +41,21 @@ const DROP_LABELS = {
   "reasoning.encrypted": "encrypted reasoning",
 };
 
+// Only kinds with a human label are named. The rest are a CLI's own record
+// types (claude.bridge-session, codex.token_usage_record) and mean nothing
+// to a reader, so they are counted rather than spelled out.
 function dropLabel(key) {
-  if (DROP_LABELS[key]) return DROP_LABELS[key];
-  const tail = key.split(".").pop();
-  return tail.replace(/[-_]/g, " ");
+  return DROP_LABELS[key] || "";
+}
+
+// handoffSessionLabel names the session in the dialog's opening line: its
+// own title when it has one, else a short id — a full UUID wraps the line
+// and tells the reader nothing.
+export function handoffSessionLabel(session) {
+  const name = ((session && session.name) || "").trim();
+  if (name) return name.slice(0, 60);
+  const id = ((session && session.id) || "").trim();
+  return id.length > 12 ? id.slice(0, 8) : id;
 }
 
 // handoffSummaryLine is the one-line digest of a preview: what travels,
@@ -55,9 +66,10 @@ export function handoffSummaryLine(counts, manifest) {
   if (c.messages) parts.push(c.messages + (c.messages === 1 ? " message" : " messages"));
   if (c.toolCalls) parts.push(c.toolCalls + (c.toolCalls === 1 ? " tool call" : " tool calls"));
   const dropped = (manifest && manifest.dropped) || {};
-  const keys = Object.keys(dropped).filter((k) => dropped[k] > 0).sort((a, b) => dropped[b] - dropped[a] || a.localeCompare(b));
+  const keys = Object.keys(dropped).filter((k) => dropped[k] > 0 && dropLabel(k)).sort((a, b) => dropped[b] - dropped[a] || a.localeCompare(b));
   const named = keys.slice(0, 2).map((k) => dropLabel(k) + " left out (" + dropped[k] + ")");
-  const rest = keys.slice(2).reduce((n, k) => n + dropped[k], 0);
+  const shown = new Set(keys.slice(0, 2));
+  const rest = Object.keys(dropped).filter((k) => dropped[k] > 0 && !shown.has(k)).reduce((n, k) => n + dropped[k], 0);
   if (rest) named.push(rest + (rest === 1 ? " other item skipped" : " other items skipped"));
   return [...parts, ...named].join(" · ");
 }

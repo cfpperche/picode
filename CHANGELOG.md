@@ -23,6 +23,11 @@ to the `[Unreleased]` section. The repository's official language is English
   survives a reload and a deep link (`#/git/w/<id>`) instead of reporting
   "That agent is gone".
 
+- **Handoff dialog polish**, from the visual pass that was owed: a session
+  with no title of its own is no longer named after the handoff note, the
+  dialog names it by a short id instead of a full UUID, and the summary
+  line counts a CLI's internal record types instead of spelling them out
+  ("bridge session left out (4)" meant nothing to a reader).
 - **Repository picker in the clone form:** the New-workspace "Clone
   repository" URL field is now a filterable combobox fed by the GitHub
   repositories behind the machine's own `gh` login (`gh repo list` via the
