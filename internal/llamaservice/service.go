@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,6 +63,8 @@ type Document struct {
 	Archives  map[string]string     `json:"archives"`
 	Models    map[string]OwnedModel `json:"models"`
 	Downloads map[string][]string   `json:"downloads"`
+	Releases  map[string]Release    `json:"releases,omitempty"`
+	Creation  *Creation             `json:"creation,omitempty"`
 }
 type Snapshot struct {
 	Document
@@ -129,6 +132,17 @@ func New(st *store.Store, dataDir string, consumers func() ([]string, error)) (*
 	}
 	s.rev = rev
 	s.persisted = raw
+	if !s.doc.Created && s.doc.Creation != nil {
+		// Files left by an interrupted setup are removed only with its proof.
+		// Unexpected contents remain available for inspection and block retry.
+		if s.rollbackCreation(s.doc.Creation) == nil {
+			s.doc.Creation = nil
+			if err = s.save(); err != nil {
+				cancel()
+				return nil, err
+			}
+		}
+	}
 	changed := false
 	for i := range s.doc.Jobs {
 		if s.doc.Jobs[i].State == "running" || s.doc.Jobs[i].State == "queued" {
@@ -198,18 +212,10 @@ func (s *Service) Configure(c Config, revision int) (Snapshot, error) {
 		return Snapshot{}, errors.New("Local services require Linux or WSL on x64 or ARM64.")
 	}
 	if !s.doc.Created {
-		if err := os.Mkdir(s.root, 0700); err != nil {
-			return Snapshot{}, errors.New("The service folder already exists or cannot be created. Existing folders are never adopted.")
-		}
-		if err := os.Mkdir(filepath.Join(s.root, "models"), 0700); err != nil {
+		if err := s.createProfile(c); err != nil {
 			return Snapshot{}, err
 		}
-		if err := os.Mkdir(filepath.Join(s.root, "cache"), 0700); err != nil {
-			return Snapshot{}, err
-		}
-		s.doc.Created = true
-		s.doc.Archives = map[string]string{}
-		s.doc.Jobs = []Job{}
+		return s.snapshot(), nil
 	}
 	s.doc.Config = c
 	if err := s.save(); err != nil {
@@ -312,13 +318,9 @@ func (s *Service) preview(req Request) (Preview, error) {
 				return p, errors.New("Duplicate cache selection.")
 			}
 			seen[name] = true
-			path, pin, targetErr := s.cacheTarget(name)
-			if targetErr != nil {
-				return p, targetErr
-			}
-			h, size, e := hashRegular(path)
-			if e != nil || h != pin {
-				return p, errors.New("A selected cache file changed. Refresh and review again.")
+			h, size, e := s.cleanupFingerprint(name)
+			if e != nil {
+				return p, e
 			}
 			disk[name] = h
 			p.Bytes += size
@@ -407,6 +409,9 @@ func (s *Service) run(req Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err == nil {
+		s.rememberRelease(s.doc.Current)
+		s.rememberRelease(s.doc.Previous)
+		s.rememberRelease(installed)
 		switch req.Action {
 		case "install":
 			s.doc.Current = installed
@@ -455,15 +460,20 @@ func (s *Service) run(req Request) {
 		case "cleanup":
 			// Recheck every selected file before removing any; the worker owns the lock.
 			for _, name := range req.Files {
-				path, pin, targetErr := s.cacheTarget(name)
-				h, _, e := hashRegular(path)
-				if targetErr != nil || e != nil || h != pin {
+				_, _, e := s.cleanupFingerprint(name)
+				if e != nil {
 					err = errors.New("Cache changed after review; nothing was removed.")
 					break
 				}
 			}
 			if err == nil {
 				for _, name := range req.Files {
+					if strings.HasPrefix(name, "release-") {
+						if err = s.removeRelease(name); err != nil {
+							break
+						}
+						continue
+					}
 					path, _, targetErr := s.cacheTarget(name)
 					if targetErr != nil {
 						err = targetErr
@@ -610,6 +620,7 @@ type CacheFile struct {
 	Bytes    int64  `json:"bytes"`
 	Eligible bool   `json:"eligible"`
 	Reason   string `json:"reason"`
+	Label    string `json:"label,omitempty"`
 }
 
 func (s *Service) Cache() []CacheFile {
@@ -623,7 +634,7 @@ func (s *Service) Cache() []CacheFile {
 		if !eligible {
 			reason = "Stop the service and refresh; changed files are preserved."
 		}
-		out = append(out, CacheFile{name, size, eligible, reason})
+		out = append(out, CacheFile{Name: name, Bytes: size, Eligible: eligible, Reason: reason})
 	}
 	// Untracked model files remain ineligible, even inside the service directory.
 	_ = filepath.WalkDir(filepath.Join(s.root, "models"), func(path string, d os.DirEntry, err error) error {
@@ -649,10 +660,11 @@ func (s *Service) Cache() []CacheFile {
 					reason = "Stop the service and refresh; changed files are preserved."
 				}
 			}
-			out = append(out, CacheFile{name, info.Size(), eligible, reason})
+			out = append(out, CacheFile{Name: name, Bytes: info.Size(), Eligible: eligible, Reason: reason})
 		}
 		return nil
 	})
+	out = append(out, s.installationFiles()...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }

@@ -95,6 +95,6 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-  Owned-service ARM64 and old-release pruning remain open; real model-ledger download/cleanup passed 2026-09-07.
+  Owned-service ARM64 remains open; verified old-installation cleanup and empty setup recovery are implemented; real model-ledger acceptance passed.
 - Mobile IME accessory (ADR-0044): first-open tap-gate deployed `0.1.0+dfa9f7b`
   (Chromium PASS); iOS 26 IME-open is still owner acceptance.

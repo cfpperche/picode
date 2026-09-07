@@ -534,6 +534,21 @@ settings, effective argv, reviewed lifecycle actions, cache and diagnostics.
 It adapts Cursor's progressive disclosure and t3code's reload-safe routes from
 the [benchmark study](benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
 
+First creation stages empty folders with a random ownership marker and saves
+an intent before atomically publishing the fixed service path. Linux
+`RENAME_NOREPLACE` preserves even a preexisting empty directory; the existing
+`golang.org/x/sys/unix` dependency supplies this operation. Failure or restart
+removes only the recorded attempt's empty folders. Unexpected content is
+retained for inspection; an unrecorded staging folder is never adopted.
+
+The release ledger retains manifests beyond the current/rollback pair.
+Cache inventory includes older installations with verified exact contents;
+current, rollback, unknown, changed and symlinked installations are protected.
+Cleanup binds selection and bytes to a review, checks every target again,
+and removes only manifest-listed files, never a recursive directory tree.
+An interrupted or partially failed cleanup is not replayed; remaining files
+are retained and a mismatched manifest requires inspection.
+
 The installer embeds official b10809/b10826 Linux CPU archive hashes, verifies
 before extraction, materializes internal library links as pinned regular
 files, and checks version/required flags. It does not accept arbitrary URLs,

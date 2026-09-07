@@ -5,7 +5,7 @@ import { llamaServiceSchema, parseForm } from "@picode/shared/contracts/schemas.
 import { askConfirm } from "../lib/confirm.js";
 
 const defaults = { port: 18080, context: 4096, threads: 2, jinja: true };
-const labels = { install: "Install", update: "Update", start: "Start", stop: "Stop", restart: "Restart", rollback: "Restore previous version", cleanup: "Clean selected files" };
+const labels = { install: "Install", update: "Update", start: "Start", stop: "Stop", restart: "Restart", rollback: "Restore previous version", cleanup: "Clean selected items" };
 export default function LlamaService({ onConnect }) {
  const [state,setState]=useState(null),[error,setError]=useState(""),[config,setConfig]=useState(defaults);
  const [version,setVersion]=useState("b10809"),[pending,setPending]=useState(""),[files,setFiles]=useState([]),[selected,setSelected]=useState([]);
@@ -15,6 +15,7 @@ export default function LlamaService({ onConnect }) {
   try {
    const [next,cache]=await Promise.all([api("/api/llama/service"),api("/api/llama/service/cache")]);
    setState(current=>!current || next.revision>=current.revision?next:current);setFiles(cache.files||[]);
+   setSelected(current=>current.filter(name=>(cache.files||[]).some(f=>f.name===name&&f.eligible)));
    if(!initialized.current){setConfig(next.created?next.config:defaults);initialized.current=true;}
   } catch(e){setError(e.message||"Could not check the local service.");}
  }
@@ -36,8 +37,8 @@ export default function LlamaService({ onConnect }) {
    const review=await api("/api/llama/service/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,version,files:selected,revision:state.revision})});
    const consumers=review.consumers||[];
    const result=await askConfirm({
-    title:action==="cleanup"?"Clean selected files":actionLabel(action)+" local service",
-    message: action==="cleanup" ? "Remove "+selected.join(", ")+", freeing "+(review.bytes/1048576).toFixed(1)+" MiB. Other files are retained." :
+    title:action==="cleanup"?"Clean selected items":actionLabel(action)+" local service",
+    message: action==="cleanup" ? "Remove "+selected.map(name=>{const f=files.find(f=>f.name===name);return f?.label?f.label+" ("+name+")":name;}).join(", ")+", freeing "+(review.bytes/1048576).toFixed(1)+" MiB. Other files are retained." :
      (action==="install"||action==="update" ? "Use verified CPU release "+version+". " : "")+
      (consumers.length ? "This interrupts: "+consumers.join(", ")+". " : "")+
      "Applies only to the service created here.",
@@ -81,12 +82,13 @@ export default function LlamaService({ onConnect }) {
      </div>
     </div>
     <details><summary>Effective command</summary>{state.command?.length?<pre className="llama-owned-command">{JSON.stringify(state.command,null,2)}</pre>:<p>Install a verified version to preview its command.</p>}</details>
-    <details><summary>Cache</summary>
-     {!files.length?<p>No cache files to clean.</p>:<ul className="prov-list">{files.map(f=><li key={f.name} className="llama-cache-row">
-      <label className="llama-owned-check">{f.eligible?<input type="checkbox" checked={selected.includes(f.name)} onChange={e=>setSelected(s=>e.target.checked?[...s,f.name]:s.filter(n=>n!==f.name))}/>:null}<span>{f.name}</span></label>
-      <small>{(f.bytes/1048576).toFixed(1)} MiB · {f.reason}</small>
+    <details><summary>Cache and installations</summary>
+     {!files.length?<p>No cache files or installations to clean.</p>:<ul className="prov-list">{files.map(f=><li key={f.name} className="llama-cache-row">
+      <label className="llama-owned-check">{f.eligible?<input type="checkbox" checked={selected.includes(f.name)} onChange={e=>setSelected(s=>e.target.checked?[...s,f.name]:s.filter(n=>n!==f.name))}/>:null}<span>{f.label||f.name}</span></label>
+      {f.label?<small>{f.name}</small>:null}
+      <small>{f.label&&!f.eligible?"Retained":(f.bytes/1048576).toFixed(1)+" MiB"} · {f.reason}</small>
      </li>)}</ul>}
-     {files.some(f=>f.eligible)?<button className="btn btn-ghost btn-sm" disabled={!selected.length||!!pending||state.busy} onClick={()=>act("cleanup")}>Clean selected files</button>:null}
+     {files.some(f=>f.eligible)?<button className="btn btn-ghost btn-sm" disabled={!selected.length||!!pending||state.busy} onClick={()=>act("cleanup")}>Clean selected items</button>:null}
     </details>
     <div className="llama-toolbar"><h4>Service activity</h4><a className="btn btn-ghost btn-sm" href="/api/llama/service/diagnostics" download>Export diagnostics</a></div>
     {pending?<p className="llama-working" role="status">{pending}</p>:null}
