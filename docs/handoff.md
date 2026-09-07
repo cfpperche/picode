@@ -37,14 +37,15 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
-  Composer Photos `0.1.0+d04ad3f`. ADR-0089 attach bar `0.1.0+aca6628`.
+  Pane checklist strip dropped `0.1.0+d620ca8`. Composer Photos `0.1.0+d04ad3f`.
+  ADR-0089 attach bar `0.1.0+aca6628`.
   Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 
 - `feat/session-handoff` — continue a session in another Agent CLI (ADR-0088).
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
-- `feat/llama-guidance` — delivery 3 guidance dialog.
+- `feat/llama-guidance` — delivery 3 guidance dialog; validate on a scratch instance.
 
 ## Next up
 
