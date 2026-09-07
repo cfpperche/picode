@@ -51,6 +51,8 @@ func TestValidateLaunchDecisionTable(t *testing.T) {
 		{"invalid env name", Config{Env: map[string]string{"X-Y": "a"}}, false},
 		{"reserved correlation", Config{Env: map[string]string{"PICODE_TERM_ID": "other"}}, false},
 		{"reserved home", Config{Env: map[string]string{"HOME": "/other"}}, false},
+		{"reserved grok home", Config{Env: map[string]string{"GROK_HOME": "/other"}}, false},
+		{"reserved hermes home", Config{Env: map[string]string{"HERMES_HOME": "/other"}}, false},
 		{"reserved path", Config{Env: map[string]string{"PATH": "/other"}}, false},
 		{"relative path", Config{Path: []string{"relative"}}, false},
 		{"path separator", Config{Path: []string{"/a:/b"}}, false},

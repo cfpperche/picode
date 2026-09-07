@@ -33,9 +33,16 @@ Happy-path-only is FAIL. Capture and `read` at least:
 - **blocked** (missing dependency / cannot act)
 - **one overlay** if the flow has one
 
+## Where the evidence lives (ADR-0086)
+
+Screenshots you read stay in `var/screenshots/` (gitignored). They are not
+committed: `docs/screenshots/` is frozen history. The audit trail is the
+`visual-review:` line in your reply and in `docs/handoff/<date>-<branch>.md`.
+
 ## The loop
 
-1. **Serve** the rebuilt binary (go:embed — `make web && go build`).
+1. **Serve** a scratch instance of the rebuilt binary
+   (`scripts/qa-scratch.sh start <name>`), never production.
 2. **Act** with `agent-browser` (open the surface, click the control).
 3. **Measure** after every overlay opens:
 

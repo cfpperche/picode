@@ -3,8 +3,10 @@
 Owner-approved direction (2026-09-05): ADR-0078 accepted with Phase 0 (docs),
 Phase 1 (the read-only rail with Changes and Files) and Phase 2 (the PR tab
 through the host's `gh`). The rail opens content in the center and follows
-the selected tab's owner. Commit is designed in the ADR, with three options
-compared against the benchmarks, and waits for the owner's decision.
+the selected tab's owner. Commit is designed in the ADR with three options
+compared against the benchmarks; the owner chose (2026-09-06) three stages —
+commands prepared in the terminal, an opt-in run behind an interlock, and
+asking a running agent through its prompt channel — all shipped.
 
 ## Implementation
 
@@ -18,6 +20,7 @@ compared against the benchmarks, and waits for the owner's decision.
 | Docs pipeline | Fixture seeds a dirty repository under the picode workspace; surface `app-inspector` with profile `desktop-inspector` |
 | PR tab | `internal/server/pr.go`: `GET …/pr` for the three owners (states in 200, minute cache, gh's login as the credential) and `POST /api/terminals/{id}/type` (literal keystrokes, no Enter); `InspectorPR.jsx` + `usePullRequest`; `tmux.TypeText` |
 | Git actions (stage 1) | `gitstatus` adds `upstream`, `ahead`, `behind`, `detached`; the chip shows `↑ ↓` / unpublished / detached; a Git menu prepares Fetch, Pull, Push, Commit, Commit and push, Create PR in an idle terminal of the folder (`gitActionCommand`, `shellQuote`, `commitMessageSchema`, `InspectorCommitDialog.jsx`) |
+| Ask the agent (stage 3) | `internal/server/agent_ask.go`: `POST /api/agents/{id}/ask {text, root}` — a `prompt` task (`source: inspector`) for a managed agent, which the runtime delivers (pi's follow_up mid-turn); ADR-0060's receiver/paste door for a TUI agent (`tui_reply.go` settles through a `deliverySettle`); 409 `stopped` / `moved` / `busy`. Client: `askableAgents`, `askGitPrompt`, `askedNote`; one "Ask <name>" submenu per running agent in the Git menu; the commit form's message becomes optional when asking |
 | Run when idle (stage 2) | `internal/server/git_run.go`: `POST /api/terminals/{id}/run {text, root}` types and submits behind an interlock (`repoBusy`: agents mid-turn, TUIs working, automations, terminals working or holding a program, target pane at a shell); 409 `moved` / `foreground` / `busy` naming who; the `type` route gains the same root and foreground guards; opt-in checkbox in the Git menu (`picode-inspector-run`); the app falls back to preparing with a note |
 
 Benchmark adaptation: Paseo's folder-grouped Changes with counts and total,
@@ -41,8 +44,11 @@ with the root precondition; type-text refusals),
 detached), `gitActionCommand`/`gitActions`/`branchChip`/`shellQuote` and
 `commitMessageSchema` node tests, `TestTerminalRunRefusals` (moved,
 foreground, busy agent, busy terminals by state and by program, the type
-route's guards) and `TestTerminalRunTypesAndSubmits` (a real tmux shell runs
-the submitted command).
+route's guards), `TestTerminalRunTypesAndSubmits` (a real tmux shell runs
+the submitted command), `TestAskAgentRefusals`, `TestAskAgentQueuesForManagedAgent`
+(fake pi RPC), `TestAskAgentPastesIntoTUI` (a real tmux pane receives the
+prompt), `TestAskAgentUsesTheReceiver` (reply file, ack, JSONL row) and the
+`askableAgents` / `askGitPrompt` / `askedNote` node tests.
 
 ## Live acceptance scope
 

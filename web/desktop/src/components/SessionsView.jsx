@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { handoffTargets, lineageBadges, sessionClis } from "@picode/shared/domain/sessionHandoff.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
+import SessionHandoffDialog from "./SessionHandoffDialog.jsx";
 
 function fmtAge(iso) {
   const t = Date.parse(iso || "");
@@ -27,13 +31,44 @@ const CLEANUP_OPTIONS = [
   { v: 90, label: "90 days" },
 ];
 
-// Catalog ids with a session source (ADR-0079). Names resolve from the
-// /api/clis catalog via cliNames; the order is the picker order.
-export const SESSION_CLIS = ["pi", "claude-code", "codex", "grok"];
+// Lineage (ADR-0088): where a session came from and where it continued.
+function LineageBadges({ s, cliNames, onOpenAgent }) {
+  const badges = lineageBadges(s.handoff, cliNames);
+  if (!badges.length) return null;
+  return badges.map((b, i) => {
+    const ref = b.ref || {};
+    const title = (b.kind === "from" ? "Translated from " : "Continued in ") + (cliNames[ref.cli] || ref.cli) + (ref.id ? " · " + String(ref.id).slice(0, 8) : "") + (ref.mode ? " · " + ref.mode : "");
+    let inner = b.label;
+    if (ref.terminalId) inner = <a href={termHash(ref.terminalId)}>{b.label}</a>;
+    else if (ref.agentId && onOpenAgent) inner = <a href="#" onClick={(e) => { e.preventDefault(); onOpenAgent(ref.agentId); }}>{b.label}</a>;
+    return <span key={b.kind + i} className="sess-badge lineage" title={title}>{inner}</span>;
+  });
+}
 
-const CLI_FALLBACK_NAMES = { pi: "Pi", "claude-code": "Claude Code", codex: "Codex", grok: "Grok" };
+// "Continue in <CLI>…" — one item per target the server advertises for
+// this session's CLI (ADR-0088). Empty list: a disabled item says why.
+function HandoffMenu({ s, targets, busy, onHandoff }) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button type="button" className="btn btn-ghost btn-sm" aria-label={"More actions for " + (s.name || s.id)} disabled={busy}>•••</button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
+          {targets.length ? targets.map((t) => (
+            <DropdownMenu.Item key={t.id} className="um-item" disabled={!t.installed} title={t.installed ? "" : t.name + " is not installed"} onSelect={() => onHandoff(s, t)}>
+              Continue in {t.name}…
+            </DropdownMenu.Item>
+          )) : (
+            <DropdownMenu.Item className="um-item" disabled title="No other CLI can read this session and receive a handoff yet.">No other CLI can receive this session yet</DropdownMenu.Item>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
 
-function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
+function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact, targets, onHandoff, cliNames, onOpenAgent }) {
   const canOpen = agentsForOpen.length > 0;
   return (
     <li className={"mcp-row sess-row" + (s.inUseBy ? "" : " orphan")}>
@@ -44,6 +79,7 @@ function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
         ) : (
           <span className="sess-badge">free</span>
         )}
+        <LineageBadges s={s} cliNames={cliNames} onOpenAgent={onOpenAgent} />
         {s.model ? <span className="sess-meta">{s.model}</span> : null}
       </div>
       <div className="sess-facts">
@@ -74,17 +110,19 @@ function PiRow({ s, agentsForOpen, busy, onOpen, onDelete, onCompact }) {
         >
           Delete
         </button>
+        <HandoffMenu s={s} targets={targets} busy={busy} onHandoff={onHandoff} />
       </div>
     </li>
   );
 }
 
-function CliRow({ s, cliName, busy, onOpenTerminal }) {
+function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames, onOpenAgent }) {
   return (
     <li className="mcp-row sess-row orphan">
       <div className="mcp-row-main">
         <strong className="sess-name" title={s.name || s.path}>{s.name || s.id}</strong>
         {s.workspace ? <span className="sess-badge in-use">{s.workspace}</span> : null}
+        <LineageBadges s={s} cliNames={cliNames} onOpenAgent={onOpenAgent} />
         {s.model ? <span className="sess-meta">{s.model}</span> : null}
       </div>
       <div className="sess-facts">
@@ -103,6 +141,7 @@ function CliRow({ s, cliName, busy, onOpenTerminal }) {
         >
           Open in terminal
         </button>
+        <HandoffMenu s={s} targets={targets} busy={busy} onHandoff={onHandoff} />
       </div>
     </li>
   );
@@ -111,17 +150,22 @@ function CliRow({ s, cliName, busy, onOpenTerminal }) {
 // Sessions surface (ADR-0079): one view per CLI. Pi keeps its management
 // actions (open with, compact, delete, auto-clean); other CLIs list their
 // on-disk sessions and open them in a terminal with the CLI's verified
-// resume arguments — nothing is written, deleted or replayed for them.
-export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", onCliChange, cliNames = {}, wsReady = true }) {
+// resume arguments. Any session can continue in another CLI (ADR-0088):
+// the targets come from the capabilities /api/clis advertises, never from
+// a list kept here.
+export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", onCliChange, cliNames = {}, clis = [], wsReady = true }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [openPick, setOpenPick] = useState(null); // { session, resumeWsId }
   const [pickAgent, setPickAgent] = useState("");
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
+  const [handoff, setHandoff] = useState(null); // { session, target }
   const all = !wsId;
   const isPi = cli === "pi";
-  const cliName = cliNames[cli] || CLI_FALLBACK_NAMES[cli] || cli;
+  const cliName = cliNames[cli] || cli;
+  const pickerClis = useMemo(() => { const ids = sessionClis(clis); return ids.includes(cli) ? ids : [cli, ...ids]; }, [clis, cli]);
+  const targets = useMemo(() => handoffTargets(clis, cli), [clis, cli]);
 
   const load = useCallback(async () => {
     setError("");
@@ -146,6 +190,15 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   }, [wsId, all, isPi, cli, workspace, wsReady]);
 
   useEffect(() => { setData(null); setQuery(""); load(); }, [load]);
+
+  // A handoff anywhere changes lineage badges here; refetch on its event.
+  useEffect(() => {
+    let timer;
+    const unsub = subscribeFeed((e) => {
+      if (e.type === "session.handoff" || e.type === "feed.reset") { clearTimeout(timer); timer = setTimeout(load, 120); }
+    });
+    return () => { unsub(); clearTimeout(timer); };
+  }, [load]);
 
   const sessions = useMemo(() => (data && data.sessions) || [], [data]);
 
@@ -268,6 +321,25 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
     }
   }
 
+  // After a handoff: say where it went and go there (ADR-0088).
+  function onHandoffDone(res, target) {
+    setHandoff(null);
+    const term = res && res.terminal;
+    const agent = res && res.agent;
+    if (term && term.launchError) {
+      toastError(new Error(term.launchError));
+    } else if (term && term.id) {
+      toast.ok(target.name + " is opening with this conversation.");
+      location.hash = termHash(term.id);
+    } else if (agent && agent.id) {
+      toast.ok("Continued as a Pi agent: " + agent.name + ".");
+      if (onOpenAgent) onOpenAgent(agent.id);
+    } else {
+      toast.ok("Handoff recorded.");
+    }
+    load();
+  }
+
   const total = data ? data.totalBytes : 0;
 
   return (
@@ -281,7 +353,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
           <label className="sessions-cleanup" title="Which CLI's sessions are listed">
             CLI
             <select value={cli} onChange={(e) => onCliChange && onCliChange(e.target.value)}>
-              {SESSION_CLIS.map((id) => <option key={id} value={id}>{cliNames[id] || id}</option>)}
+              {pickerClis.map((id) => <option key={id} value={id}>{cliNames[id] || id}</option>)}
             </select>
           </label>
           {sessions.length > 6 ? (
@@ -331,14 +403,28 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
                   onOpen={(sess) => { setOpenPick({ session: sess, resumeWsId: g.resumeWsId, agents: g.agentsForOpen }); setPickAgent((g.agentsForOpen[0] || {}).id || ""); }}
                   onDelete={onDelete}
                   onCompact={onCompactAgent}
+                  targets={targets}
+                  onHandoff={(sess, target) => setHandoff({ session: sess, target })}
+                  cliNames={cliNames}
+                  onOpenAgent={onOpenAgent}
                 />
               ) : (
-                <CliRow key={s.cli + ":" + s.id + ":" + s.path} s={s} cliName={cliName} busy={busy} onOpenTerminal={onOpenTerminal} />
+                <CliRow key={s.cli + ":" + s.id + ":" + s.path} s={s} cliName={cliName} busy={busy} onOpenTerminal={onOpenTerminal} targets={targets} onHandoff={(sess, target) => setHandoff({ session: sess, target })} cliNames={cliNames} onOpenAgent={onOpenAgent} />
               ))}
             </ul>
           </section>
         ))
       )}
+
+      <SessionHandoffDialog
+        open={!!handoff}
+        session={handoff ? handoff.session : null}
+        sourceCli={cli}
+        sourceName={cliName}
+        target={handoff ? handoff.target : null}
+        onClose={() => setHandoff(null)}
+        onDone={onHandoffDone}
+      />
 
       <Dialog.Root open={!!openPick} onOpenChange={(o) => { if (!o) setOpenPick(null); }}>
         <Dialog.Portal>

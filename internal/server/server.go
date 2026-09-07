@@ -3,6 +3,7 @@
 // Routes (M1):
 //
 //	GET  /api/health, /api/version          — liveness/identity
+//	GET  /api/deploy/readiness              — who is working (loopback, no session)
 //	GET  /api/system                        — pi/tmux detection + warnings
 //	GET/POST /api/workspaces                — registry CRUD
 //	DELETE /api/workspaces/{id}             — remove (+ stop agent)
@@ -26,6 +27,7 @@ import (
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/clijob"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
@@ -67,8 +69,13 @@ type Deps struct {
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
-	CLIs         *CLITerminals    // terminal launch settings and operation locks (ADR-0069)
-	Auth         *auth.Service    // request gate (ADR-0049); nil = ungated (tests, dev)
+	// Session forensics (ADR-0085): session names that were alive at the
+	// previous graceful shutdown and did not survive to this boot. Set once
+	// by the daemon before New; nil-safe everywhere.
+	LostSessions map[string]bool
+	CLIs         *CLITerminals   // terminal launch settings and operation locks (ADR-0069)
+	CLIJobs      *clijob.Service // durable CLI lifecycle jobs (ADR-0087); nil-safe = 503 on the routes
+	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -109,6 +116,14 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.Store != nil && deps.LlamaJobs == nil {
 		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() })
 	}
+	if deps.Store != nil && deps.CLIJobs == nil {
+		deps.CLIJobs, _ = clijob.New(clijob.Deps{
+			Store:         deps.Store,
+			Resolve:       func(cli, action string) (clijob.Exec, error) { return resolveLifecycleByID(deps, cli, action) },
+			LiveTerminals: func(cli string) int { return liveTerminalsFor(deps, cli) },
+			AfterSuccess:  func(cli, action string) { refreshCLICheckAfterJob(deps, cli) },
+		})
+	}
 	registerAll(mux, deps)
 
 	var handler http.Handler = mux
@@ -122,6 +137,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.LlamaJobs != nil {
 		srv.RegisterOnShutdown(deps.LlamaJobs.Close)
+	}
+	if deps.CLIJobs != nil {
+		srv.RegisterOnShutdown(deps.CLIJobs.Close)
 	}
 	return srv
 }
@@ -164,6 +182,8 @@ func registerAll(mux Registrar, deps Deps) {
 	registerWorkDiffRoutes(mux, deps)
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)
+	registerDeployRoutes(mux, deps)
+	registerAgentAskRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)
 	registerAgentBash(mux, deps)
 	registerLlama(mux, deps)

@@ -36,7 +36,7 @@ delete the package and the mirrors have nothing to show.
 The mirrors cover agent CLI terminals too: a pi you launch in a PiCode
 terminal reports its plan under that terminal, so the terminal's sidebar
 card — and a strip above the terminal itself — shows the same line a
-managed agent's card does. Other CLIs (Claude Code, Codex, Grok) have no
+managed agent's card does. Other CLIs (Claude Code, Codex, Grok, Hermes Agent) have no
 checklist package, so their terminals never show a line.
 
 ## What you see

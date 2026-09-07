@@ -1,11 +1,13 @@
 // Package clisession is a read-only index of coding-CLI session files
 // (ADR-0079 phase 2): pi JSONL under ~/.pi/agent/sessions, Claude Code
 // transcripts under ~/.claude/projects, Codex rollouts under
-// ~/.codex/sessions and Grok prompt history under ~/.grok/sessions.
+// ~/.codex/sessions, Grok prompt history under ~/.grok/sessions and
+// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db).
 // Nothing here writes, deletes or resumes; it only lists what is on disk.
 package clisession
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -15,9 +17,9 @@ import (
 )
 
 // Summary is one session of one CLI, enough for the sessions picker.
-// Cost is intentionally pi-only: the Claude Code, Codex and Grok formats
-// found on real machines carry no per-session spend, and inventing one is
-// worse than omitting it.
+// Cost is intentionally pi-only on this surface: Claude Code, Codex, Grok
+// and Hermes listings do not populate it. Hermes stores spend in state.db,
+// but the guest session row does not render cost.
 type Summary struct {
 	CLI        string   `json:"cli"`
 	ID         string   `json:"id"`
@@ -45,7 +47,7 @@ type Source interface {
 // Sources returns every registered source keyed by catalog CLI id.
 func Sources() map[string]Source {
 	out := map[string]Source{}
-	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}} {
+	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}} {
 		out[s.CLI()] = s
 	}
 	return out
@@ -55,6 +57,34 @@ func Sources() map[string]Source {
 func Get(cli string) (Source, bool) {
 	s, ok := Sources()[cli]
 	return s, ok
+}
+
+// Latest returns the most recently updated session of one CLI in one
+// folder, or nil when the CLI has none there. Sessions last written before
+// notBefore never win — pass a run's start time so a terminal can't pin
+// another terminal's conversation in a shared folder (ADR-0084); the zero
+// time accepts any.
+func Latest(cliID, cwd string, notBefore time.Time) (*Summary, error) {
+	src, ok := Get(cliID)
+	if !ok {
+		return nil, fmt.Errorf("Unknown CLI.")
+	}
+	list, err := src.List(cwd)
+	if err != nil {
+		return nil, err
+	}
+	sortNewest(list)
+	for i := range list {
+		s := &list[i]
+		if !notBefore.IsZero() {
+			at, err := time.Parse(time.RFC3339, s.UpdatedAt)
+			if err != nil || at.Before(notBefore) {
+				continue
+			}
+		}
+		return s, nil
+	}
+	return nil, nil
 }
 
 // sortNewest orders summaries by UpdatedAt, newest first, and is the

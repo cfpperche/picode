@@ -7,11 +7,18 @@
   --m-row: 56px;
   --m-nav: 56px;
   --m-pad: 14px;
+  --vv-height: 100dvh;
+  --vv-offset-top: 0px;
+  --kb-inset: 0px;
   display: flex; flex-direction: column;
-  height: 100dvh; max-height: 100dvh; overflow: hidden;
+  position: fixed; inset: 0; overflow: hidden;
   background: var(--bg-base); color: var(--text-primary);
   font-size: 14px;
   touch-action: manipulation; /* no double-tap zoom; pinch is cancelled in App.jsx */
+}
+#m-app.kb-open {
+  top: var(--vv-offset-top); bottom: auto; right: 0; left: 0;
+  height: var(--vv-height); max-height: var(--vv-height);
 }
 #m-app.is-pushed .m-screen { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 #m-app.is-pushed .m-agent, #m-app.is-pushed .m-term-screen { padding-bottom: 0; }
@@ -195,44 +202,60 @@
 .m-term-row .m-state { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- terminal screen: xterm + the keys a soft keyboard lacks ---- */
-.m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; }
-.m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; }
-.m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+.m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; position: relative;
+  -webkit-overflow-scrolling: auto; overscroll-behavior: none; scrollbar-width: none; }
+.m-term-screen::-webkit-scrollbar, .m-agent::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.m-term-screen .m-term { flex: 1; min-height: 0; margin: 0 calc(-1 * var(--m-pad)); display: flex; flex-direction: column; overflow: hidden; }
+.m-term-screen .term-surface { flex: 1; min-height: 0; padding: 6px; overflow: hidden; }
 .m-term-screen .m-term { touch-action: none; } /* the drag is ours: wheel events for the pane, not a page scroll */
-/* The keys toggle lives in the header (a floating button sat on the
-   TUI's status lines). */
 .m-keys-btn { padding: 0 10px; }
 .m-keys-btn.on { color: var(--accent); border-color: var(--accent); }
-.m-term-screen { position: relative; }
-/* Termux's extra keys: two rows of seven equal cells on the terminal's
-   background, flat labels, nothing that can overflow — the grid divides
-   whatever width the phone has. */
+/* Opaque IME accessory so a sideways scroll never shows the TUI through
+   the gaps. z-index above xterm's canvas, which otherwise paints over it.
+   Horizontal pan only: a vertical overlay scrollbar on the screen was
+   breaking the layout when the row was dragged sideways (iOS). */
 .m-keybar {
-  flex: none; display: flex; flex-direction: column;
-  margin: 0 calc(-1 * var(--m-pad)); padding: 2px 0 calc(2px + env(safe-area-inset-bottom));
+  flex: none; display: flex; align-items: center; gap: 4px;
+  height: 44px; margin: 0 calc(-1 * var(--m-pad)); padding: 4px 6px;
   background: var(--bg-base); border-top: 1px solid var(--border);
+  z-index: 6; isolation: isolate; position: relative; overflow: hidden;
+  touch-action: pan-x;
 }
-.m-keybar-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.m-keybar-scroller {
+  flex: 1; min-width: 0; height: 36px; display: flex; align-items: center; gap: 4px;
+  overflow-x: auto; overflow-y: hidden; touch-action: pan-x;
+  overscroll-behavior: none; scrollbar-width: none; -ms-overflow-style: none;
+  background: var(--bg-base);
+}
+.m-keybar-scroller::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#m-app .xterm-viewport { scrollbar-width: none; }
+#m-app .xterm-viewport::-webkit-scrollbar { display: none; width: 0; }
 .m-key {
-  height: 46px; min-width: 0; padding: 0; border: 0; border-radius: 8px; background: transparent;
-  color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .04em;
-  font-family: var(--mono); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  flex: none; height: 36px; min-width: 44px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: var(--bg-hover); color: var(--text-primary);
+  font: 600 12px var(--sans); letter-spacing: .02em; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
 }
 .m-key-mod.on { color: var(--accent); background: var(--accent-soft); }
-.m-key:active { background: var(--bg-hover); }
+.m-key:active { filter: brightness(1.08); }
+.m-key-hide { padding: 0; width: 44px; min-width: 44px; background: var(--bg-hover); }
 
 /* ---- agent screen ---- */
-.m-agent { padding-bottom: 0; gap: 0; overflow: hidden; }
+.m-agent { padding-bottom: 0; gap: 0; overflow: hidden;
+  -webkit-overflow-scrolling: auto; overscroll-behavior: none; scrollbar-width: none; }
 .m-agent-state { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
 .m-agent-state .m-seg .dash-range-face { height: 32px; padding: 0 12px; } /* Work's segment keeps --ctl-h, level with New */
 .m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
 .m-chat .chat-main { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
 .m-chat .conversation { padding: 0 var(--m-pad) 120px; }
 .m-chat .composer-wrap { padding: 20px var(--m-pad) calc(10px + env(safe-area-inset-bottom)); }
+#m-app.kb-open .m-chat .composer-wrap { padding-bottom: 10px; }
 .m-chat .m-cta { position: absolute; left: 0; right: 0; top: 0; z-index: 3; padding: 12px var(--m-pad); background: var(--bg-base); border-bottom: 1px solid var(--border); }
-.m-term { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 calc(-1 * var(--m-pad)); }
-.m-term .dock { flex: 1; height: auto !important; min-height: 0; border-top: none; }
+.m-term { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 calc(-1 * var(--m-pad)); overflow: hidden; }
+.m-term .dock { flex: 1; height: auto !important; min-height: 0; border-top: none; overflow: hidden; }
+.m-term .terms { overflow: hidden; }
+.m-term .statusbar { display: none; }
 .m-term .dock.maximized { flex: 1; }
 .m-cta { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 

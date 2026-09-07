@@ -26,7 +26,7 @@ test("launch overrides inherit untouched fields and preserve explicit clearing",
 
 test("launch form rejects ambiguous or reserved environment settings", () => {
   const base = launchDraft();
-  for (const envText of ["PICODE_TERM_ID=x", "PATH=/other", "HOME=/other", "bad-name=x", "NAME", "NAME=x\nNAME=y"]) {
+  for (const envText of ["PICODE_TERM_ID=x", "PATH=/other", "HOME=/other", "GROK_HOME=/other", "HERMES_HOME=/other", "bad-name=x", "NAME", "NAME=x\nNAME=y"]) {
     assert.equal(parseForm(cliLaunchSchema, { ...base, envText }).ok, false, envText);
   }
   assert.equal(parseForm(cliLaunchSchema, { ...base, envText: "NAME=a=b", pathText: "/tools with spaces" }).ok, true);

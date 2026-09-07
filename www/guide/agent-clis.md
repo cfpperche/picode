@@ -2,7 +2,7 @@
 
 Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
 phone. It manages terminals — and lists each CLI's session history — for
-your installed Pi, Claude Code, Codex and Grok commands. Managed agents,
+your installed Pi, Claude Code, Codex, Grok and Hermes Agent commands. Managed agents,
 structured chat, packages and automations still use Pi; a CLI terminal is
 not a new type of managed agent.
 
@@ -12,9 +12,15 @@ not a new type of managed agent.
 2. Select **New terminal**, give it a name and choose a workspace or folder.
 3. Select **Open terminal**. Use the CLI's own interface and login flow.
 
-PiCode does not install CLIs or manage their credentials here. A missing
-executable offers **Customize**; the CLI's documentation link explains its
-installation. Checking setup runs `--version`, without starting a conversation.
+PiCode does not install CLIs for the first time or manage their credentials
+here. A missing executable offers **Customize**; the CLI's documentation link
+explains its installation. Checking setup runs `--version`, without starting
+a conversation.
+
+Attaching a photo from a phone into a CLI terminal is a separate door
+(ADR-0089): the file is saved in the terminal's folder and the path is
+typed into the TUI. That send is not on this page yet; the Pi agent
+composer already opens Photos.
 
 ## Launch settings
 
@@ -39,7 +45,7 @@ New launches use the saved settings; existing processes keep running.
 Use **Customize this terminal** for exceptions. Unchanged fields inherit the
 CLI defaults; changed fields override them. Clearing arguments removes the
 defaults, and removing an environment line removes that default key. HOME,
-SHELL, PATH, GROK_HOME and PiCode's correlation variables are launcher-owned;
+SHELL, PATH, GROK_HOME, HERMES_HOME and PiCode's correlation variables are launcher-owned;
 use the dedicated PATH field for extra executable directories.
 
 Settings edited after a launch show **Launch changes pending**. The terminal
@@ -61,13 +67,30 @@ Native model, permission and session settings are not part of this preview.
 The **Sessions** tab lists the sessions each CLI left on disk, grouped by
 folder. Pick the CLI in the toolbar and search by name, preview or folder.
 **Open in terminal** starts that CLI again in the session's folder; the
-exact arguments come from the CLI itself (for example `claude --resume`).
+exact arguments come from the CLI itself (for example `claude --resume`,
+`hermes --resume`).
 
 Pi sessions add management actions: **Open with…** moves one of the
 folder's agents to that session, **Compact** summarizes its older turns,
 **Delete** removes the file, and **Auto-clean orphans** removes abandoned
 sessions after the chosen number of days. Sessions are read from disk,
 deleting is permanent, and sessions in use by an agent refuse deletion.
+
+## Continue a session in another CLI
+
+Every session row has a **•••** menu with **Continue in &lt;CLI&gt;…** for each
+other CLI that can receive it. PiCode reads the conversation, shows what
+will travel and what stays behind (thinking never travels; tool calls do),
+and then either writes a **native session** the other CLI resumes as its
+own — Claude Code, Codex, and pi as a new agent — or, for CLIs without an
+import path, starts the CLI from a short **brief** it reads first. The
+conversation you started stays where it was; the new one begins with a
+note saying where it came from and that files may have changed since.
+Both rows show the link ("from Claude Code", "continued in Codex").
+
+If the source is still running, PiCode says so and lets you continue
+anyway. When the conversation was summarized along the way, you choose
+between what the previous agent still had in view or the whole history.
 
 ## Reuse launch profiles
 
@@ -96,12 +119,40 @@ changing native CLI configuration or restarting terminals. A prepared file is
 not proof that every event works with that CLI version. No observed signal
 means unverified, even when a CLI process is present.
 
+## Update, reinstall or uninstall a CLI
+
+When a newer release exists, the CLI's row shows an **Update** badge and its
+detail page offers **Update**. PiCode runs each CLI's own update command —
+`pi update`, `claude update`, `codex update`, `grok update`,
+`hermes update` — plus npm for npm-installed tools. Update checks refresh on
+demand and when the saved check is older than six hours.
+
+| What you see | What it means |
+|---|---|
+| Update badge with a version | A newer release exists; the exact number comes from the CLI's registry or its own check |
+| Update check failed | The registry or the CLI's check could not answer; nothing was changed |
+| Working… with a progress card | The CLI's updater is running; the card shows its output |
+| Done | The update finished and the setup check ran again |
+| Interrupted | PiCode shut down while the updater ran. Nothing was retried; run **Check setup** to see the CLI's state |
+| No update controls | The install method is one PiCode cannot manage (for example Homebrew or a manual checkout) |
+
+**Reinstall** forces a fresh install of the same CLI. Running terminals of
+that CLI keep the old version until you restart them; PiCode asks before it
+touches a CLI with live terminals.
+
+**Uninstall** runs the CLI's own uninstall command (Hermes Agent) or npm's
+for npm-installed tools, after you type the CLI's name. Grok and a native
+Claude Code install have no uninstall command; PiCode links their official
+guide instead. Uninstalling never touches your settings or conversations
+beyond what the CLI's own uninstaller does.
+
 ## Control a terminal
 
 | Action | Result |
 |---|---|
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
+| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |
@@ -113,6 +164,36 @@ Preparation failure leaves the old process intact. A later process-start
 failure is still possible; the terminal retains its settings and last failed
 attempt so you can repair and retry. Removing a workspace also removes the
 private launch files for its terminals, without removing native CLI data.
+
+### Resume after a restart or crash (ADR-0084)
+
+While a CLI runs, PiCode pins the conversation it is writing (the newest
+session of that CLI in the terminal's folder, refreshed as the CLI
+reports activity). When a deploy, crash or daemon restart ends the
+terminal, its surface offers **Resume last session** — the CLI comes back
+in the same conversation. The pin records what was running, so the button
+shows the recovered work even after the process is gone. Nothing resumes
+automatically: a plain Start still opens a fresh conversation. Terminals
+stopped before this feature shipped have no pin; their conversations stay
+reachable in the Sessions tab via "Open in terminal".
+
+When the terminal died in a daemon restart (not a CLI exit), the surface
+says so: "PiCode restarted while this terminal was running." (ADR-0085:
+the daemon records its live sessions at shutdown and diffs them at boot.)
+
+### Flight recorder (ADR-0085)
+
+PiCode keeps forensics under the data dir's `var/` folder:
+
+- `shutdown-snapshot.json` — the tmux sessions alive when the daemon
+  exited gracefully (root process id, root command, folder).
+- `restart-report-*.json` — the boot verdict for each restart: which of
+  those sessions survived, which did not. Last 10 kept.
+- `deploy-log.jsonl` — one line per deploy: time, binary version, the
+  terminal it ran from, and the folder.
+
+If sessions ever vanish around a restart, these three files answer when,
+what and who without any forensics archaeology.
 
 The **Terminals** tab includes configured CLI terminals and ordinary terminals
 where a supported CLI is observed. Launch identity, live CLI presence and

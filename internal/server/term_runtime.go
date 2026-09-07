@@ -123,6 +123,8 @@ func normalizeTerminalCLI(id string) string {
 		return "codex"
 	case "grok":
 		return "grok"
+	case "hermes":
+		return "hermes"
 	case "pi":
 		return "pi"
 	default:
@@ -400,6 +402,11 @@ func handleSetTerminalRuntime(deps Deps) http.HandlerFunc {
 				return
 			}
 			runtime, _ := finishTermRuntime(deps, id, runID)
+			if runtime.CLI != "" {
+				// The run ended; pin whatever native conversation it leaves
+				// behind (ADR-0084).
+				pinTerminalLastSession(deps, id, runtime)
+			}
 			writeJSON(w, http.StatusOK, runtimeView(id, runtime))
 		default:
 			writeErr(w, http.StatusBadRequest, "action must be start or end")

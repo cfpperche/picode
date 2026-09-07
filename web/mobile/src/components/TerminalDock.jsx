@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms } from "../lib/terms.js";
 import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
+import { createSticky } from "@picode/shared/domain/termSticky.js";
 import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
 import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks, resolvePath, underCwd, relPath } from "@picode/shared/domain/termLinks.js";
@@ -50,6 +51,7 @@ export default function TerminalDock({
     };
     if (terms.has(id)) {
       const entry = terms.get(id);
+      if (!entry.sticky) entry.sticky = createSticky();
       if (hostRef.current && entry.paneEl.parentElement !== hostRef.current) {
         hostRef.current.appendChild(entry.paneEl);
       }
@@ -69,7 +71,7 @@ export default function TerminalDock({
     term.loadAddon(fit);
     term.open(paneEl);
 
-    const entry = { term, fit, paneEl, sock: null, closedByUser: false };
+    const entry = { term, fit, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
     const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
@@ -86,7 +88,7 @@ export default function TerminalDock({
       setDot(true);
       scheduleTermFit(entry, true);
       term.onData((data) => {
-        const out = termDataFilter(data);
+        const out = entry.sticky.apply(termDataFilter(data));
         if (out === "") return;
         if (sock.readyState === WebSocket.OPEN) sock.send(new TextEncoder().encode(out));
       });

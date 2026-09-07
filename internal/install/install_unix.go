@@ -3,11 +3,14 @@
 package install
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/cfpperche/picode/internal/version"
 )
 
 // Install copies the current binary, writes the user unit, and starts it.
@@ -45,8 +48,14 @@ func Install(exe, home, pathEnv string) error {
 	return nil
 }
 
-// Deploy copies this binary over the installed one and restarts the unit.
+// Deploy copies this binary over the installed one and restarts the unit,
+// unless the daemon reports agents mid-turn (ADR-0086).
 func Deploy(exe, home, pathEnv string) error {
+	return DeployForce(exe, home, pathEnv, false)
+}
+
+// DeployForce is Deploy with the readiness guard optionally skipped.
+func DeployForce(exe, home, pathEnv string, force bool) error {
 	if !systemdAvailable() {
 		return fmt.Errorf("need systemd (user). In WSL set systemd=true in /etc/wsl.conf")
 	}
@@ -60,6 +69,10 @@ func Deploy(exe, home, pathEnv string) error {
 	p := ForHome(home)
 	if _, err := os.Stat(p.Unit); err != nil {
 		return fmt.Errorf("not installed — run picode install first")
+	}
+	// Before anything irreversible: the restart must not cost a conversation.
+	if err := guardDeploy(p.Data, force); err != nil {
+		return err
 	}
 	// Same reason as Install: copying the new binary and failing to restart
 	// leaves the old one running and looks like a successful deploy.
@@ -79,7 +92,49 @@ func Deploy(exe, home, pathEnv string) error {
 	if err := Run("systemctl", "--user", "restart", UnitName); err != nil {
 		return fmt.Errorf("systemctl restart: %w", err)
 	}
+	AppendDeployRecord(p.Data)
 	return nil
+}
+
+// deployRecord is one line of <data>/var/deploy-log.jsonl (ADR-0085): who
+// deployed is the first question every session-loss post-mortem asks.
+type deployRecord struct {
+	At      string `json:"at"`
+	Version string `json:"version"`
+	TermID  string `json:"termId,omitempty"`
+	Cwd     string `json:"cwd,omitempty"`
+}
+
+// AppendDeployRecord appends the current deploy to the deploy log. Best
+// effort — a failed append never fails the deploy. The terminal id rides
+// the environment when the deploy ran inside a PiCode terminal, which is
+// exactly the common case (agents deploying from their own panes).
+func AppendDeployRecord(dataDir string) {
+	if dataDir == "" {
+		return
+	}
+	rec := deployRecord{
+		At:      time.Now().UTC().Format(time.RFC3339),
+		Version: version.Build(),
+		TermID:  os.Getenv("PICODE_TERM_ID"),
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		rec.Cwd = cwd
+	}
+	raw, err := json.Marshal(rec)
+	if err != nil {
+		return
+	}
+	dir := filepath.Join(dataDir, "var")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "deploy-log.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(raw, '\n'))
 }
 
 // Uninstall stops the unit and removes it. purge deletes ~/.picode.

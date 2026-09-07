@@ -1,4 +1,4 @@
-# ADR-0084: Explicit llama.cpp service ownership
+# ADR-0090: Explicit llama.cpp service ownership
 
 - **Status**: accepted
 - **Date**: 2026-09-06

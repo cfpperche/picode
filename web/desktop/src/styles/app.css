@@ -512,6 +512,34 @@ body {
   border: 1px solid var(--border); color: var(--text-secondary);
 }
 .sess-badge.in-use { border-color: transparent; background: var(--bg-hover); color: var(--text-primary); }
+.sess-badge.lineage { border-style: dashed; }
+.sess-badge.lineage a { color: inherit; text-decoration: none; }
+.sess-badge.lineage a:hover { text-decoration: underline; }
+
+/* Cross-CLI handoff dialog (ADR-0088). */
+.dlg-handoff { width: min(520px, calc(100vw - 32px)); max-height: min(84vh, 760px); overflow: auto; }
+.handoff-status, .handoff-line, .handoff-live, .handoff-error { font-size: 13px; line-height: 1.45; margin: 12px 0 0; }
+.handoff-status { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.handoff-line { color: var(--text-primary); }
+.handoff-refreshing { color: var(--text-secondary); }
+.handoff-live { color: var(--warn, var(--text-primary)); }
+.handoff-error { color: var(--danger); }
+.handoff-warnings { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.handoff-options { border: 0; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.handoff-options legend { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin-bottom: 4px; padding: 0; }
+.handoff-choice { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-primary); line-height: 1.35; cursor: pointer; }
+.handoff-choice input { margin-top: 3px; accent-color: var(--accent); }
+.handoff-choice input:disabled + span { color: var(--text-secondary); }
+.handoff-choice small { display: block; font-size: 12px; color: var(--text-secondary); }
+.handoff-inline { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--text-primary); }
+.handoff-inline input { accent-color: var(--accent); }
+.handoff-brief { margin-top: 12px; }
+.handoff-brief-text {
+  margin: 8px 0 0; padding: 10px; max-height: 240px; overflow: auto;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.4; white-space: pre-wrap;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-ctl, 6px);
+}
+.dlg-handoff .dlg-actions { margin-top: 16px; }
 .sess-meta { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 .sess-facts {
   display: flex; gap: 10px; flex: none;
@@ -948,8 +976,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-chev.open { transform: rotate(90deg); }
 .ws-faces { display: flex; align-items: center; flex: none; }
+/* Agent/terminal faces match the workspace favicon: same 16px box, same
+   3px radius, natural image shape (never forced circular). The white
+   plate + ring below only dress the letter/glyph fallbacks for contrast
+   on the dark sidebar; image faces strip both where they render full
+   bleed (identity marks, tabs). */
 .ws-face {
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 16px; height: 16px; border-radius: 3px;
   border: 1.5px solid var(--bg-panel); background: #fff;
   margin-left: -6px; object-fit: contain; padding: 1px;
   display: grid; place-items: center;
@@ -984,18 +1017,18 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .ws-row-hit:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .ws-identity-mark {
-  position: relative; width: 24px; height: 24px; display: grid; place-items: center;
+  position: relative; width: 16px; height: 16px; display: grid; place-items: center;
   align-self: flex-start; flex: none; color: var(--text-secondary);
 }
-.ws-identity-mark > .ws-face { width: 22px; height: 22px; margin: 0; font-size: 9px; }
-/* Runtime favicons fill the same 22px slot as agent faces, but without the
+.ws-identity-mark > .ws-face { margin: 0; }
+/* Runtime favicons fill the same 16px slot as agent faces, but without the
    white plate and ring — those read as a chip around sparse marks (Claude). */
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
 /* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
-   plus 1px padding shrank the agent art to ~18px beside a full 22px terminal
-   mark. The white plate stays — dark currentColor marks need it on the dark
+   plus 1px padding shrank the agent art below the workspace favicon's 16px.
+   The white plate stays — dark currentColor marks need it on the dark
    sidebar, and it is invisible on light chrome. */
 .ws-identity-mark img.ws-face { border: 0; padding: 0; }
 .ws-activity-dot {
@@ -1049,7 +1082,13 @@ img.ws-face.term-cli-face {
 .ws-row-menu-item svg { flex: none; color: currentColor; }
 .ws-context {
   display: flex; align-items: center; gap: 5px; min-width: 0;
-  margin: 3px 31px 0 31px; overflow: hidden;
+  /* Left inset = identity-mark (16px) + row-hit gap (7px), so this line
+     starts under the title above it. Was 31px against a 24px identity
+     mark; the runtime-favicon resize (2026-09-06) shrank the mark to
+     16px without updating this constant, so every row's folder/branch
+     line drifted 8px right of its own title — caught while chasing a
+     related checklist-line alignment report the same day. */
+  margin: 3px 31px 0 23px; overflow: hidden;
 }
 .ws-context-btn {
   display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
@@ -1066,13 +1105,13 @@ img.ws-face.term-cli-face {
   background: var(--bg-hover); color: var(--warn); text-align: center;
   font-size: 10px; line-height: 14px;
 }
-.ws-meta { display: block; margin: 2px 31px 0; font-size: 10px; color: var(--text-secondary); }
+.ws-meta { display: block; margin: 2px 23px 0; font-size: 10px; color: var(--text-secondary); }
 .term-cli-badge {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  width: 22px; height: 22px; flex: none; box-sizing: border-box;
-  border: 1px solid var(--border-strong); border-radius: 6px;
+  width: 16px; height: 16px; flex: none; box-sizing: border-box;
+  border: 1px solid var(--border-strong); border-radius: 3px;
   background: var(--bg-base); color: var(--text-primary);
-  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: 8px; font-weight: 700; line-height: 1;
 }
 .term-cli-badge.is-shell { color: var(--text-secondary); }
 .term-cli-badge.cli-claude-code { color: #d97757; border-color: color-mix(in srgb, #d97757 45%, var(--border)); }
@@ -1082,11 +1121,11 @@ img.ws-face.term-cli-face {
 /* Loaded favicons skip the chip (see TerminalCliBadge). Keep this after the
    cli-* color rules so they cannot restore a border on .has-favicon. */
 .term-cli-badge.has-favicon {
-  width: auto; height: 22px; padding: 0;
+  width: auto; height: 16px; padding: 0;
   border: 0; background: transparent; border-radius: 0;
 }
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
-.term-cli-favicon { width: 22px; height: 22px; display: block; object-fit: contain; }
+.term-cli-favicon { width: 16px; height: 16px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
 /* Keep the group header actions usable without reserving a second row. */
 .ws-group-head { position: relative; }
@@ -1518,15 +1557,13 @@ img.ws-face.term-cli-face {
 .mtab-dot.running { background: var(--ok); }
 /* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
 .mtab-dot.attn { background: var(--accent); }
+/* Tab faces wear the workspace favicon's 16px box — same size as the
+   sidebar — with no overlap margin and no ring/padding on images. */
 .mtab-term .term-cli-badge {
-  width: 18px; height: 18px; border: 0; background: none; font-size: 8px;
+  border: 0; background: none; font-size: 8px;
 }
-.mtab-term .ws-face { width: 16px; height: 16px; margin: 0; }
-/* Tab provider faces match the terminal mark's optical size: full-bleed
-   art (no ring, no padding) at the 18px box the boxed badge already uses.
-   The white plate from .ws-face stays — it is invisible on light chrome
-   and keeps currentColor marks from vanishing on the dark tab strip. */
-.mtab-term img.ws-face { width: 18px; height: 18px; border: 0; padding: 0; }
+.mtab-term .ws-face { margin: 0; }
+.mtab-term img.ws-face { border: 0; padding: 0; }
 .mtab-close {
   border: none; background: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
@@ -1630,9 +1667,10 @@ img.ws-face.term-cli-face {
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
 /* The plan line above the pane (ADR-0055, terminals). The sidebar's
-   .ws-check adapts to full width; the surface keeps the pane bg. */
+   .ws-check carries a 31px margin to align under the identity mark there;
+   the pane strip has no such column, so it resets to flush width. */
 .term-check { flex: none; padding: 2px 8px 6px; }
-.term-check .ws-check { padding-left: 0; }
+.term-check .ws-check { margin-left: 0; margin-right: 0; }
 :root[data-term-theme="light"] .term-check .ws-check { color: var(--text-secondary); }
 .mtab-term { display: grid; place-items: center; color: var(--text-secondary); flex: none; }
 /* Same header UI as the file tree's .ft-head — one look across surfaces. */
@@ -2584,21 +2622,49 @@ img.ws-face.term-cli-face {
 .ws-wait {
   flex: none; margin-left: 6px; font-size: 11px; font-weight: 500; color: var(--accent);
 }
-/* The agent's checklist as one operator line (ADR-0055). */
-.ws-check { display: flex; align-items: baseline; gap: 5px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
-.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; }
-.ws-check-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The agent's checklist as one operator line (ADR-0055). Same left text
+   column as .ws-context below it (owner refinement,
+   docs/plans/sidebar-checklist-expand.md) — no more flush-left padding
+   that put it out of the card's grid. 23px = identity-mark (16px) + the
+   row-hit gap (7px); kept as one constant with .ws-context, both updated
+   together when the runtime-favicon resize was caught (see there). The
+   counter is a fixed column at the row's end, not a prefix (Linear/GitHub
+   sub-issue idiom): the step text is flex:1 with an ellipsis, so the
+   counter always lands at the right edge instead of trailing ragged text. */
+.ws-check { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 3px 31px 0 23px; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-text { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 /* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
    a real button; opening reveals every step — ☑ dimmed, the braille spinner
-   on the one being executed, ☐ pending. Live over the feed, no fetch. */
-.ws-check-disclosure { min-width: 0; }
-button.ws-check-line { display: flex; align-items: baseline; gap: 5px; min-width: 0; width: calc(100% - 4px); font-size: 11.5px; color: var(--text-secondary); padding: 1px 2px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
-button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }
-button.ws-check-line:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+   on the one being executed, ☐ pending. Live over the feed, no fetch. The
+   chevron reuses .ws-chev (the workspace group header's own disclosure
+   affordance) so the same rotate-on-open language reads across the sidebar.
+   The chevron sits in its own gutter *before* the text column instead of
+   sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
+   touches its box edge the way the title's plain text does, so aligning the
+   chevron's box to the column still reads as offset from the title above
+   it. The gutter is exactly the chevron's box (16px, --tree-chev) plus the
+   button's gap (5px) = 21px, so the *text* — not the icon — lands on the
+   same 23px column as the title, folder and branch lines (23 − 21 = 2px
+   left margin here), whatever the icon's own inset is. */
+.ws-check-disclosure { margin: 3px 31px 0 2px; min-width: 0; }
+button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
+button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
+button.ws-check-line:hover .ws-chev, button.ws-check-line:focus-visible .ws-chev { color: var(--text-primary); }
+button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+/* A finished plan (n/n, every step completed) drops to the same weight as a
+   completed step in the expanded list — it stops reading as live activity. */
+button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-check-pos { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
 .ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
-.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 2px 0 2px 16px; list-style: none; display: flex; flex-direction: column; gap: 1px; }
-.ws-check-list li { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
+/* Step glyphs (☑ ◐ ☐) start in the same gutter as the collapsed line's
+   chevron (padding-left: 0, the container is already inset by the gutter);
+   the 7px li gap plus the 14px glyph width match the chevron's own 21px
+   gutter, so step text lands on the same column as the chevron line's
+   text above it. */
+.ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.ws-check-list li { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
 .ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
 .ws-check-step-glyph { flex: none; width: 14px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
@@ -4557,7 +4623,7 @@ button.ws-check-line:focus-visible { outline: 1px solid var(--accent); outline-o
   border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
 }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
-.insp-face .ws-face { width: 18px; height: 18px; margin: 0; }
+.insp-face .ws-face { margin: 0; }
 .insp-face img.ws-face { border: 0; padding: 0; }
 .insp-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; }
 .insp-name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; flex: none; }
@@ -4671,4 +4737,9 @@ button.ws-check-line:focus-visible { outline: 1px solid var(--accent); outline-o
 .insp-commit-error { margin: 6px 0 0; }
 .insp-commit-preview { margin: 10px 0 0; font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .insp-menu-check { padding-left: 6px; }
+/* "Ask <agent>" submenu triggers (ADR-0078 stage 3): the channel hint sits
+   where the other rows show their command; the chevron marks the submenu. */
+.insp-menu-hint { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.insp-menu-chev { flex: none; margin-left: 6px; color: var(--text-secondary); }
+.composer-more-item[data-state="open"] { background: var(--bg-hover); }
 .insp-menu-tick { width: 16px; height: 16px; display: grid; place-items: center; flex: none; color: var(--accent); }

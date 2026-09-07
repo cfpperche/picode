@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-05 (ADRs 0071/0072/0073/0074).
+> Status: v0.1 — evolves with the project. Last reviewed: 2026-09-06 (Hermes Agent CLI catalog; ADRs 0071–0074; mobile IME accessory in 0044).
 > Changing anything described here requires updating this file (see [AGENTS.md](/AGENTS.md)).
 
 ## The one-paragraph version
@@ -16,7 +16,7 @@ agents through a Pi extension, so agents talk to each other using Pi's own
 tool-calling protocol.
 
 Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
-Code, Codex and Grok commands. It reuses terminal records, tmux, invocation
+Code, Codex, Grok and Hermes Agent commands. It reuses terminal records, tmux, invocation
 wrappers and the event feed. These are not Agent records: structured chat,
 JSON-RPC, packages, orchestration and session ownership remain Pi-only until
 a future decision supplies those contracts for another CLI.
@@ -25,7 +25,11 @@ a future decision supplies those contracts for another CLI.
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
 terminals alive across daemon restarts; transient RPC children are separately
 parent-bound and pane holders restore the TUI. `picode deploy` / `make deploy`
-copies a repo build and restarts that unit. The supervised daemon does not
+copies a repo build and restarts that unit — but first asks the daemon
+`GET /api/deploy/readiness` and refuses while any agent or terminal is
+mid-turn (ADR-0086; `--force` overrides). `main` ships in batches through
+`make deploy-batch` and the `picode-deploy.timer`, not per merged branch.
+The supervised daemon does not
 re-exec when the binary on disk changes — that same-PID `Exec` used to
 swallow systemd's SIGTERM and sit in `stop-sigterm` until `TimeoutStopSec=30`.
 SIGTERM now cancels the binary watcher, drains HTTP for at most 8s, and
@@ -180,6 +184,10 @@ are always sheets, including wide previews; desktop keeps responsive dialogs.
 The composer opens agent Settings over the mounted conversation, preserving
 unsent text and attachments. Mobile composer controls wrap onto a second row
 when needed, so Send remains visible alongside Stop on narrow screens.
+`#m-app` is pinned to `visualViewport` so the composer and a one-row
+terminal extra-keys accessory stay above the software keyboard
+(ADR-0044); the accessory follows terminal focus and is not a second
+QWERTY.
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The mobile agent socket uses `web/mobile/src/lib/agentEvents.js`. Both clients
@@ -218,7 +226,7 @@ stay on their own routes.
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
-| `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. |
+| `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
 
 A tab owns its surface's state for as long as it is open: terminals, file
 trees, git graphs and apps each keep one mounted instance per tab, hidden
@@ -248,8 +256,9 @@ Composer `/` also lists **extension commands** from the running managed agent
 sends `/name` as a prompt. Stopped agents omit that list. Names that collide
 with a PiCode command are dropped.
 Click a path on an `edit`/`write` card (or the turn's file names) opens a closable card in the thread. **Open in tab** is the same `#/file/a/<id>/<path>` as the terminal. Save writes the file in the tab. A stale mtime is 409 (open again). Keep/Undo on the diff card: Undo rewrites the old lines (or Open if the file moved).
-The desktop shell is three columns: the left sidebar, the center (tab strip and one surface at a time) and, since ADR-0078, a right **Inspector** rail. The rail follows the selected tab's owner (agent, terminal or workspace — the same owner that authorises file reads, resolved from the tab id like the git graph and folder tabs do) and keeps its last anchor beside tabs without a folder (apps). **Changes** (default) lists the working tree as a folder tree with per-file and per-folder `+N −M` from `…/gitstatus`, an `Uncommitted · +N −M` total, the branch and worktree, and beside an agent an `All | This agent` scope that intersects the tree with the paths the session's `edit`/`write` tools named; **Files** is the lazy project tree with a filter over loaded rows. The rail hosts no editor: a file opens the existing `#/file/…` tab, a change opens the same tab in a **Diff** view (`WorkingDiff`), and "View diff" / "Open file" swap the two in place — the view is per-tab viewer state, not part of the tab id or the hash. Every read pins the anchor's folder as the `root` precondition (ADR-0074); a background 409 becomes one blocked line — "This terminal moved to …" with **Follow** — that reads the live cwd and never retargets on its own. Live updates: `git.updated` for the pinned root, feed open/reset, focus/visibility, and the terminal row's live cwd/dirty facts; no interval. Width (260–560, default 320), open state and tab are localStorage preferences (`picode-inspector-*`, no hash route); a viewer who never toggled gets the rail open at ≥1440px; it shrinks before it hides and hides when even 260px would push the conversation under 640px, or in the ≤767px shell. Toggle: the tab-strip button, `Ctrl+.` / `Cmd+.` (`app.inspector.toggle`) or the palette. A third tab, **PR**, shows the branch's pull request through the host's `gh` (`…/pr`): number, state, review decision, checks, `+N −M`, an "Open on GitHub" link; "No pull request" and "not logged in" offer one action that pre-types `gh pr create --fill` or `gh auth login` into the owner's terminal (`POST /api/terminals/{id}/type`), never submitting it. A **Git actions** menu prepares Fetch, Pull, Push, Commit, Commit and push and Create pull request as exact commands in a plain idle terminal of the folder (reused when one exists, never a terminal hosting a CLI), through the same `type` route — the human presses Enter; with the menu's "Run when no agent is working here" checkbox on (per viewer), the `run` route presses Enter itself when its interlock finds the repository idle and otherwise prepares the command with a note saying who is busy; the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached`. Its More menu offers Reveal, Open git graph and Open as tab (the ADR-0074 folder tab stays the deep-review host). The rail is the host for later right-hand panels (PR, browser preview, search, tasks): one rail, never two.
-The sidebar has five flat tabs, one kind each (ADR-0026, fifth added by ADR-0036), in order: **Workspaces** (the landing tab — one collapsible card per workspace holding its agents and its terminals; no section-level collapse), **Agents** (free agents, name-sorted, no hierarchy — agent and terminal rows share one flat supervision shape), **Terminals** (free terminals only), **Apps** (a grid of app tiles drawn from `GET /api/apps` manifests — numeric badge for actionable counts, dot for activity, aggregated onto the tab icon; a tile opens the app as a main tab `x:<id>` / `#/app/<id>`) and **Pins**. Nothing appears in two tabs. Terminals are first-class shells (ADR-0017): **+** on the Terminals tab creates a free one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`); the terminal button on a workspace card creates one owned by it, born in the workspace folder (`workspaceId` in the POST body). Either opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux; removing a workspace kills its terminals with it (the cleanup dialog warns with the count from the preview). Not tied to an agent. A terminal row separates **CLI presence** from **activity** (ADR-0062): a wrapper lease identifies Claude Code, Codex, Grok, or Pi with a run id, while lifecycle hooks report `Working`, `Needs you`, or quiet `Ready`; when no wrapper announcement is in memory (daemon restart, unwired sessions), reconciliation revives presence from the pane's process tree — exact pane command, or a `/proc` walk that matches the wrapped CLI through wrapper shells and interpreters, validated by PID plus process-start token, and dropped the moment the CLI exits. No presence or activity is inferred from terminal pixels. Supported CLI badges use each runtime's official mark — the same transparent SVG source the provider faces use, then the vendor's own assets as fallback links — filling the same 22px face slot as agent rows with no chip behind the image; the compact text mark in a boxed badge is only an asset-load fallback. Agent and terminal rows lead with identity/status, keep live path and branch as subdued actions, and put secondary actions behind a menu. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear after **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
+The desktop shell is three columns: the left sidebar, the center (tab strip and one surface at a time) and, since ADR-0078, a right **Inspector** rail. The rail follows the selected tab's owner (agent, terminal or workspace — the same owner that authorises file reads, resolved from the tab id like the git graph and folder tabs do) and keeps its last anchor beside tabs without a folder (apps). **Changes** (default) lists the working tree as a folder tree with per-file and per-folder `+N −M` from `…/gitstatus`, an `Uncommitted · +N −M` total, the branch and worktree, and beside an agent an `All | This agent` scope that intersects the tree with the paths the session's `edit`/`write` tools named; **Files** is the lazy project tree with a filter over loaded rows. The rail hosts no editor: a file opens the existing `#/file/…` tab, a change opens the same tab in a **Diff** view (`WorkingDiff`), and "View diff" / "Open file" swap the two in place — the view is per-tab viewer state, not part of the tab id or the hash. Every read pins the anchor's folder as the `root` precondition (ADR-0074); a background 409 becomes one blocked line — "This terminal moved to …" with **Follow** — that reads the live cwd and never retargets on its own. Live updates: `git.updated` for the pinned root, feed open/reset, focus/visibility, and the terminal row's live cwd/dirty facts; no interval. Width (260–560, default 320), open state and tab are localStorage preferences (`picode-inspector-*`, no hash route); a viewer who never toggled gets the rail open at ≥1440px; it shrinks before it hides and hides when even 260px would push the conversation under 640px, or in the ≤767px shell. Toggle: the tab-strip button, `Ctrl+.` / `Cmd+.` (`app.inspector.toggle`) or the palette. A third tab, **PR**, shows the branch's pull request through the host's `gh` (`…/pr`): number, state, review decision, checks, `+N −M`, an "Open on GitHub" link; "No pull request" and "not logged in" offer one action that pre-types `gh pr create --fill` or `gh auth login` into the owner's terminal (`POST /api/terminals/{id}/type`), never submitting it. A **Git actions** menu prepares Fetch, Pull, Push, Commit, Commit and push and Create pull request as exact commands in a plain idle terminal of the folder (reused when one exists, never a terminal hosting a CLI), through the same `type` route — the human presses Enter; with the menu's "Run when no agent is working here" checkbox on (per viewer), the `run` route presses Enter itself when its interlock finds the repository idle and otherwise prepares the command with a note saying who is busy; the branch chip shows `↑ahead ↓behind`, `unpublished` or `detached`. For every agent running in that repository (managed or in its own terminal, anchored one first, at most three) the menu adds an "Ask <name>" submenu with the same actions: `POST /api/agents/{id}/ask {text, root}` enqueues a plain-language prompt (the folder, the branch, the action and its rules) through the agent's own channel — a `prompt` task the runtime delivers at once or as pi's `follow_up` once a streaming turn ends, or ADR-0060's receiver/bracketed-paste door into a TUI's pane — so the agent runs git in its own turn, under its own judgment; nothing new runs git here. Its More menu offers Reveal, Open git graph and Open as tab (the ADR-0074 folder tab stays the deep-review host). The rail is the host for later right-hand panels (PR, browser preview, search, tasks): one rail, never two.
+The sidebar has five flat tabs, one kind each (ADR-0026, fifth added by ADR-0036), in order: **Workspaces** (the landing tab — one collapsible card per workspace holding its agents and its terminals; no section-level collapse), **Agents** (free agents, name-sorted, no hierarchy — agent and terminal rows share one flat supervision shape), **Terminals** (free terminals only), **Apps** (a grid of app tiles drawn from `GET /api/apps` manifests — numeric badge for actionable counts, dot for activity, aggregated onto the tab icon; a tile opens the app as a main tab `x:<id>` / `#/app/<id>`) and **Pins**. Nothing appears in two tabs. Terminals are first-class shells (ADR-0017): **+** on the Terminals tab creates a free one (`POST /api/terminals` → tmux `picode-sh-<id>` in `$HOME`); the terminal button on a workspace card creates one owned by it, born in the workspace folder (`workspaceId` in the POST body). Either opens on the main tab strip (`#/term/<id>`). Closing the tab detaches; Remove kills tmux; removing a workspace kills its terminals with it (the cleanup dialog warns with the count from the preview). Not tied to an agent. A terminal row separates **CLI presence** from **activity** (ADR-0062): a wrapper lease identifies Claude Code, Codex, Grok, Hermes Agent, or Pi with a run id, while lifecycle hooks report `Working`, `Needs you`, or quiet `Ready`; when no wrapper announcement is in memory (daemon restart, unwired sessions), reconciliation revives presence from the pane's process tree — exact pane command, or a `/proc` walk that matches the wrapped CLI through wrapper shells and interpreters, validated by PID plus process-start token, and dropped the moment the CLI exits. No presence or activity is inferred from terminal pixels. Supported CLI badges use each runtime's official mark — the same transparent SVG source the provider faces use, then the vendor's own assets as fallback links — filling the same 22px face slot as agent rows with no chip behind the image; the compact text mark in a boxed badge is only an asset-load fallback. Agent and terminal rows lead with identity/status, keep live path and branch as subdued actions, and put secondary actions behind a menu. The agent's Pi TUI view renders through the **same TermSurface/ShellTerm component** as terminals (same xterm.js options, wheel, keys, links, envelope) — one engine, one look; managed mode shows a one-line hint with an Open TUI action instead. Ctrl/Cmd+click a path under the **live** pane cwd (`tmux #{pane_current_path}`, `GET /api/terminals/{id}/cwd`) opens `#/file/…` on the same strip (`GET/PUT /api/terminals/{id}/text`). `cd` then a relative path opens the file in the new folder. http(s) opens in the browser. Paths outside that live cwd are not links. Keys (Preferences → Terminal): Shift+drag select, Ctrl+C copy if selected, Ctrl+V paste. A gear after **+** opens the defaults every terminal inherits; a gear on a row opens that terminal's overrides (ADR-0024).
+
 An Inbox answer to a TUI agent lands directly in its running terminal
 (ADR-0060). Every spawned agent TUI carries PiCode's receiver extension
 (`<dataDir>/intercept/pi-inbox-reply.ts`, injected with `-e`); it says hello to
@@ -267,6 +276,14 @@ holders, leases, or fail-closed startup remain. `POST
 Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
+The composer also opens a device file picker (Photos / camera / files on a
+phone) so attach does not depend on clipboard paste.
+Agent CLI terminals have no composer. ADR-0089 records a user-initiated
+prompt door (stage a file under the terminal cwd, paste `@path` into the
+TUI) so a phone can attach a photo without promoting CLIs to managed
+agents; Inspector type/run/Ask still must not target a CLI TUI (ADR-0078).
+The HTTP routes for that door follow this decision; they are not inferred
+from the terminal manager.
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`
@@ -344,8 +361,8 @@ or `terminal.launch` invalidation events in their own transaction.
 The launcher resolves process environment → CLI defaults → terminal overrides.
 Environment keys merge (a null override removes a default), argument/PATH arrays
 replace defaults, and an explicit empty array clears them. PATH entries prepend
-the service's inherited PATH. PiCode correlation variables, HOME, SHELL and
-GROK_HOME cannot be overridden through the environment field. An executable
+the service's inherited PATH. PiCode correlation variables, HOME, SHELL,
+GROK_HOME and HERMES_HOME cannot be overridden through the environment field. An executable
 may be a command name or absolute path; resolution skips PiCode's own wrappers.
 Argument and environment values are individually shell-quoted, never evaluated.
 
@@ -366,13 +383,17 @@ reporter prerequisites. It does not certify authentication or every hook.
 `GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
 (ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
 Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
-rollouts and Grok its `~/.grok/sessions` prompt history, each parsed
+rollouts, Grok its `~/.grok/sessions` prompt history, and Hermes Agent its
+`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, each parsed
 defensively (malformed files are skipped, missing roots are an empty list).
+Hermes listing is the active home only (no `profiles/` scan), `source` cli/tui
+with a folder and at least one message; preview is the session title.
 Rows carry the server-verified resume arguments for that CLI (verified
 2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
-<id>` positional, `grok --resume <id>`); pi's row carries none — pi resumes
-through its own chat flow. Cost is pi-only: the other formats carry no
-per-session spend. Non-Pi sessions open through
+<id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
+Agent v0.18.2); pi's row carries none — pi resumes
+through its own chat flow. Cost is pi-only on this surface: guest formats
+are not shown with per-session spend. Non-Pi sessions open through
 `POST /api/clis/<cli>/terminals` with the resume arguments as launch
 argument overrides — no transcript replay, no writes, no deletes for other
 CLIs' sessions. pi's management surface (delete, auto-clean, resume,
@@ -408,6 +429,26 @@ size/mtime and configuration fingerprint determine staleness. Check runs
 only private integration files. Observed activity remains ephemeral and is never
 inferred from a prepared file or a version check.
 
+ADR-0087 adds a lifecycle layer in `internal/clilifecycle` and
+`internal/clijob`. Detection classifies the resolved executable's realpath
+(npm, native, vendor, git, unknown) and a per-CLI plan pins the exact argv:
+checks read the npm registry (reusing `pipkg`) or the vendor's own `--check`
+command, and mutations run the vendors' update/reinstall/uninstall commands —
+npm only where the vendor has no command. Update facts (`Latest`,
+`UpdateAvailable`, `UpdateCheckedAt`, `InstallMethod`) live in the
+`cli_checks` diagnostic; `POST /api/clis/<cli>/update-check` refreshes them
+on demand and the surface triggers it once when the stored check is older
+than six hours — there is no browser polling timer. Mutations are durable
+jobs in `cli_jobs` (`cli.job` events): HTTP 202, request-key idempotency, at
+most one active lifecycle job, revision-guarded transitions, bounded output
+tail. Restart recovery marks queued/running jobs `interrupted` and never
+replays an install; a graceful shutdown cancels the command and marks the job
+`interrupted` too. A job refuses while live terminals of that CLI run unless
+the caller confirms; uninstall additionally requires typing the CLI name.
+`unknown` install methods get no mutation controls — only the docs link.
+After a succeeded job the setup check re-runs and update facts reset so no
+stale badge survives.
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
@@ -423,6 +464,31 @@ navigation through a hash guard installed before route observers, use shared
 Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
+
+### Cross-CLI session handoff (ADR-0088)
+
+Any session of an Agent CLI can continue in another one from the Sessions
+tab ("Continue in <CLI>…"). `internal/transcript` is the portable model —
+ordered events (message, tool call, tool result, thinking, compaction,
+context), a header and a manifest of what a reader could not carry.
+`internal/clisession` adds optional capabilities next to `Source`:
+`Reader` (native → timeline), `Writer` (timeline → a new native session,
+create-only, atomic, re-read before it counts) and `Prompter` (launch
+arguments for an initial prompt). They are discovered by type assertion,
+never by a switch, and `GET /api/clis` advertises them as
+`sessions: {list, read, write, prompt}`; the web derives the targets from
+that. Readers exist for all five CLIs, writers for Claude Code, Codex and
+pi (as an adopted managed agent), prompters for every CLI but Hermes.
+
+`POST /api/clis/{cli}/sessions/handoff/preview` and `…/handoff` share one
+plan: window (since the last compaction, or all), repair (every tool call
+answered), prepare (no thinking, no injected context), a handoff note as
+the first user message, then the target's Writer — or, in brief mode, a
+deterministic markdown brief under `<dataDir>/handoffs/<id>/brief.md` and
+the target started with a one-line prompt. Lineage lives in
+`session_handoffs` (event `session.handoff`) and is shown on both session
+listings. The installed target version comes from the setup check (run on
+demand); an unknown format refuses native and keeps brief.
 
 ### llama.cpp manager (ADR-0080)
 
@@ -656,7 +722,7 @@ HTTP API (Go 1.22 method patterns):
 - `DELETE /api/agents/{id}` — unregister. Optional `?sessions=1&work=1`
   (work only if cwd is under `~/.picode/work/` and nobody else uses it).
 - `GET /api/clis/{cli}/sessions` — the per-CLI session index (ADR-0079
-  phase 2): pi plus Claude Code, Codex and Grok, read-only from disk
+  phase 2): pi plus Claude Code, Codex, Grok and Hermes Agent, read-only from disk
   (`internal/clisession`), each row with size/age/messages and
   server-verified resume arguments, tagged with the PiCode workspace that
   owns its folder. For pi the row also carries `inUseBy` (the agent whose
@@ -830,7 +896,8 @@ the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
 Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
-scoped wrappers inject Claude, Codex, Grok, or manual Pi TUI hooks; a wrapper
+scoped wrappers inject Claude, Codex, Grok, Hermes Agent (PYTHONPATH
+sitecustomize, no `HERMES_HOME` overlay), or manual Pi TUI hooks; a wrapper
 lease becomes `terminal.runtime`, while lifecycle reports become
 `terminal.state` feed events. The lease carries a canonical CLI, run id, PID,
 and process start token when available. The server watcher removes a lease
@@ -856,8 +923,28 @@ is executable in `TestPiTerminalStateExtensionDecisionTable`:
 | present | TUI | `ui_prompt_end`, `ctx.isIdle() == true` | publish `idle` |
 
 The two guards keep managed RPC agents, `pi -p`, JSON streams, and inherited
-sub-processes out of terminal state. PTY input closes the gap left by a CLI
-that omits its interruption callback:
+sub-processes out of terminal state.
+
+Hermes Agent does not get a `HERMES_HOME` overlay: its `state.db` is SQLite
+with WAL files beside the home path, so relocating the home would split the
+user's sessions. The session wrapper unwraps the official trampoline (which
+`unset`s `PYTHONPATH`), sets a session `PYTHONPATH` sitecustomize, and execs
+`--accept-hooks`. sitecustomize patches `agent.shell_hooks.register_from_config`
+with a deepcopy so `load_config` / `save_config` never see PiCode's entries
+and `~/.hermes/config.yaml` is not written. Hermes itself may still record
+the hook command in `shell-hooks-allowlist.json` when auto-accepting.
+Maintenance subcommands (`setup`, `model`, `auth`, …), including after
+`-p`/`--profile`, skip the patch. `pre_tool_call` is not registered (it is a
+gate, not a status signal). The map is executable in `TestHookMapPy`:
+
+| Hermes shell-hook event | Lifecycle action |
+|---|---|
+| `pre_llm_call`, `post_approval_response` | publish `working` |
+| `on_session_start`, `on_session_end`, `on_session_reset`, `on_session_finalize`, `post_llm_call`, `subagent_stop` | publish `idle` |
+| `pre_approval_request` | publish `needs-you` |
+| `pre_tool_call` (not injected) | no report |
+
+PTY input closes the gap left by a CLI that omits its interruption callback:
 
 | Input | Current terminal state | Session | Lifecycle action |
 |---|---|---|---|
@@ -925,7 +1012,9 @@ Agents communicate through their native protocol — no internals hacked.
 
 ### SessionReader
 Parses Pi session JSONL files (version 3, tree-structured via `id`/`parentId`)
-to render session history, branching and diffs in the UI. Read-only.
+to render session history, branching and diffs in the UI. Read-only. The
+cross-CLI readers and writers (ADR-0088) live in `internal/clisession`,
+not here.
 
 ### Compaction policy (ADR-0061)
 

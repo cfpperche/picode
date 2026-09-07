@@ -202,3 +202,52 @@ ALT ← ↓ → PGDN`), flat labels on the terminal's background, nothing
 that can overflow. The ⌨ and × keys went: tapping the terminal opens
 the phone keyboard, the header icon toggles the grid. Sticky Ctrl/Alt,
 the viewport lift and the hardware-keyboard heuristic stay underneath.
+
+## Amendment 2026-09-06 — extra keys are an IME accessory
+
+Owner screenshots on iOS 26: the Termux 2×7 grid and the chat composer
+sat under the software keyboard, so typing was invisible, and the grid
+could be on while the keyboard was off. Native apps (Fable, Blink Smart
+Keys) dock extra keys *to* the IME via `inputAccessoryView`. A PWA cannot
+do that, so the bar is faked by pinning `#m-app` to `visualViewport`
+(`--vv-height`, `--vv-offset-top`, `--kb-inset`) and showing the keys
+only while the terminal host holds focus.
+
+The grid reverts to one horizontally scrolling row (the 2026-09-02
+benchmark, Fable-first order: `esc tab ctrl alt arrows ^C`, then
+home/end/pages and `| ~ / -`). Hide is pinned on the right and blurs
+xterm, so the row and the OS keyboard open and close together. Sticky
+Ctrl/Alt and the home-grown bar (no simple-keyboard) stay. The same
+row is mounted on the agent Terminal segment; that attach now carries
+`createSticky()` like `ShellTerm`. Chat gets the viewport lift only —
+no extra keys.
+
+The previous `innerHeight - vv.height > 120` gate is gone: it is why
+the lift did not fire when iOS reported equal heights. Pinch-zoom
+(`scale !== 1`) does not rewrite the variables. A hardware keyboard is
+detected only with a fine pointer, no inset, and a 300 ms wait; a
+coarse pointer with a 0 inset still shows the row. iOS's own undo/Done
+pill cannot be replaced from the web; if it still covers the prompt
+after a correct `--vv-height`, pad from a measured value on the owner's
+phone, do not guess it.
+
+## Amendment 2026-09-06 (evening) — pin only while the IME is up
+
+Owner screenshots after deploy: a black strip under the TUI with the
+keyboard closed (`#m-app` was always sized to `visualViewport.height`,
+plus safe-area padding below xterm); the prompt stayed behind the extra
+keys when the IME opened (xterm's canvas overflowed the pane); scrolling
+the row showed TUI ink through the gaps. Safari's undo/Done pill is
+system chrome over the web view — a PWA cannot hide it.
+
+`#m-app` is `position: fixed; inset: 0` at rest. `--vv-height` is written
+only while the IME covers pixels (inset vs `innerHeight`, or a shrink
+against the unfocused visual-viewport baseline). The extra-keys row is
+opaque (`--bg-base`) with `z-index` above xterm, and the pane clips
+overflow then refits. The TUI draws to the bottom of the pane (no extra
+home-indicator padding) so a closed keyboard is not a dead strip.
+
+A sideways drag on the row must not show iOS's overlay scrollbar on the
+screen: the row is `touch-action: pan-x`, the terminal screen turns off
+`-webkit-overflow-scrolling`, and overlay scrollbars are hidden on the
+row, the screen and xterm's viewport.

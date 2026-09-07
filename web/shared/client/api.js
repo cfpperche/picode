@@ -11,7 +11,10 @@ export async function api(path, opts) {
     if (res.status === 401 && body && (body.pair || body.login) && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { path, login: body.login || "" } }));
     }
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = body;
+    throw err;
   }
   if (res.status === 204) return null;
   return res.json();

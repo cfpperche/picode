@@ -22,6 +22,8 @@ func TestTerminalCLIFromCommand(t *testing.T) {
 		{"/usr/local/bin/claude", "claude-code"},
 		{"codex", "codex"},
 		{"grok", "grok"},
+		{"hermes", "hermes"},
+		{"/home/goat/.local/bin/hermes", "hermes"},
 		{"bash", ""},
 		{"", ""},
 	}

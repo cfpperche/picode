@@ -89,6 +89,8 @@ Decision table (each row is a test in `internal/auth`):
 | mode off, no principal | pass, anonymous |
 | mode remote, loopback (no proxy header), no principal, browser-like | session minted, cookie set; reused (secret rotated) when a live session with the same label exists and no browser is using it (amended 2026-09-03) |
 | mode remote, loopback, no principal, not browser-like (curl, scripts) | anonymous loopback principal, no row |
+| auto-minted loopback browser session with no authenticated request for 10 min | revoked by the housekeeping sweep (`session.revoked`); the browser's next visit re-mints transparently (amended 2026-09-06) |
+| paired session (device id set) or token session, idle | never auto-revoked — a phone returns, the token is an install |
 | mode remote, non-loopback, no principal | 401 (stale cookie cleared) |
 | mode all, loopback, no principal | 401 |
 | revoked or expired session | 401 |
@@ -124,6 +126,24 @@ Decision table (each row is a test in `internal/auth`):
   once, the older still pinging past the 30 s burst window) each get
   their own row; they age out offline and the batch Forget cleans them —
   growth is bounded by concurrency, not by run count.
+- **Amended 2026-09-06 (sessions are ephemeral on loopback):** the
+  trade-off above still left every closed browser's row alive for its
+  90-day TTL — the Devices page piled up offline "Headless browser"
+  rows from the QA fleet. An auto-minted loopback browser session now
+  ends when its access ends: `RevokeStaleLoopbackSessions` (a minute
+  sweep in `cmd/picode`) revokes rows whose `last_seen_at` — refreshed
+  by every authenticated request, the presence ping included — is 10
+  minutes old, each with a `session.revoked` event so open Devices views
+  drop the row live; the daily prune deletes the rows a week later. The
+  grace rides liveness, not presence expiry: an open tab pings every 15 s
+  foreground and about once a minute backgrounded (Chrome's timer
+  throttle), so only a genuinely gone browser trips it; two tabs on one
+  profile share the session and the survivor keeps it. Paired sessions
+  (device id set — phones, and loopbacks paired deliberately) and token
+  sessions are out of scope. Consequence: Devices shows who is here, not
+  who has ever visited; the cost is a `session.revoked` event per closed
+  browser and a fresh mint on return, which the loopback path makes
+  invisible.
 
 ## Alternatives considered
 

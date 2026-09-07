@@ -37,6 +37,13 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Summary = "Private activity overlay via GROK_HOME"
 		p.Environment["GROK_HOME"] = grokHomeDir(dir)
 		p.Files = append(p.Files, filepath.Join(grokHomeDir(dir), "hooks", "picode.json"))
+	case "hermes":
+		p.Summary = "Activity hooks via session PYTHONPATH (no HERMES_HOME overlay)"
+		p.Environment["PYTHONPATH"] = hermesPythonDir(dir)
+		p.Environment["HERMES_ACCEPT_HOOKS"] = "1"
+		p.Environment["PICODE_HERMES_HOOK"] = hook + " auto hermes"
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not setup/model/auth/…)", Args: []string{"--accept-hooks"}})
+		p.Files = append(p.Files, filepath.Join(hermesPythonDir(dir), "sitecustomize.py"))
 	}
 	return p
 }

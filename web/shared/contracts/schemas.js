@@ -43,7 +43,7 @@ export const cliLaunchSchema = z.object({
   for (const line of v.envText.split("\n").filter((x) => x.trim())) {
     const i = line.indexOf("="); const key = line.slice(0, i).trim();
     if (i < 1 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) { fail("Use NAME=value for each environment variable."); break; }
-    if (key.startsWith("PICODE_") || ["PATH", "HOME", "SHELL", "GROK_HOME"].includes(key)) { fail(`${key} is managed by the launcher.`); break; }
+    if (key.startsWith("PICODE_") || ["PATH", "HOME", "SHELL", "GROK_HOME", "HERMES_HOME"].includes(key)) { fail(`${key} is managed by the launcher.`); break; }
     if (keys.has(key)) { fail(`${key} appears more than once.`); break; }
     keys.add(key);
   }
@@ -56,6 +56,14 @@ export const cliTerminalSchema = z.object({
 });
 
 export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
+
+// Cross-CLI session handoff (ADR-0088): the choices the dialog sends.
+export const sessionHandoffSchema = z.object({
+  to: required("Target CLI"),
+  mode: z.enum(["native", "brief"], { message: "Choose how the session travels." }),
+  window: z.enum(["recent", "all"]),
+  tools: z.enum(["native", "text"]),
+});
 
 const modelPick = z.object({
   provider: required("Provider"),

@@ -1,55 +1,54 @@
 ---
 name: quality-gate
-description: Run PiCode's code quality gates before declaring work done — fmt, vet, tests, build, changelog. UI work without visual-review PASS (screenshot read) is this gate FAIL.
+description: Run PiCode's review checklist before declaring work done — `make close` for the mechanical gates, this file for the judgement (tests, decision tables, changelog, visual). UI work without visual-review PASS (screenshot read) is this gate FAIL.
 ---
 
 # Quality gate
 
-Run this checklist **before declaring any code work done** in PiCode.
-Rules come from `docs/benchmarks.md` (engineering section); the contract
-is in `AGENTS.md`. Be honest — a failed gate reported honestly beats a
-passed gate reported falsely.
+Run this **before declaring any code work done** in PiCode. The rules come
+from `docs/benchmarks.md` (engineering section) and `AGENTS.md`. Be honest —
+a failed gate reported honestly beats a passed gate reported falsely.
 
-## Steps
+## The mechanical part is one command (ADR-0086)
 
-1. **Formatting**: run `gofmt -l .` from the repo root.
-   - Any output = fix with `gofmt -w` before proceeding.
-2. **Vet**: run `go vet ./...`. Must be clean.
-3. **Tests**: run `go test ./...`. All pass, no skips without a linked
-   issue/TODO in `docs/handoff.md`.
-4. **UI build** (if `web/` changed): `cd web && npm run build`. Must succeed.
-5. **Build**: run `make build` (UI + Go) or `go build ./cmd/picode` after `make web`. Must compile.
-5b. **Running binary**: the process on :8445 MUST be the binary you just built (`go:embed` is compile-time). After a UI/Go build, run `make restart` or overwrite `bin/picode` so the running process self-reloads (mtime watch). Incognito still sees yesterday's UI if the old process is alive. Verify: `curl -sk https://localhost:8445/` asset names match `internal/web/public/index.html`.
-6. **Diff review**: `git diff --stat` —
-   - One logical change? If not, propose splitting the commit.
-   - New code without tests? Add tests (table-driven) before finishing.
-   - Interacting conditions (delete/restore/auth/cascade/mode)? A decision
-     table exists and every row is tested or named as debt. Two clicks ≠ matrix.
-   - Timed UI (jobs, overlays, lists)? Motion on enter/step/exit. Optimistic
-     next state, not a static wait then a jump.
-   - New non-stdlib dependency? It needs explicit justification in the
-     commit/PR description (AGENTS.md rule #3). No justification = remove it.
-   - Store mutation without an event, or a new poll against `/api/*`
-     without a stated reason the feed cannot cover (ADR-0048) → FAIL.
-7. **Changelog check**: is anything in this diff user-visible?
-   - Yes → there must be a new entry under `[Unreleased]` in
-     `CHANGELOG.md` (Keep a Changelog verbs: Added/Changed/Fixed/Removed).
-8. **Docs check**: did behavior or architecture change?
-   - Yes → `docs/architecture.md` (and an ADR if architectural) must
-     change in the same commit.
-9. **Visual gate** (if `web/` or any user-facing surface changed):
-   `read` `/skill:visual-review` and `/skill:uiux-review`. Must be PASS
-   (empty/blocked/error screenshots **read**, overlayAudit ok, visual-card
-   in the reply). Skipped or FAIL → this quality-gate is FAIL.
-   `eval` JSON is not a visual pass.
-10. **Handoff**: run `/skill:handoff-update` to close the session state.
+```bash
+make ci-scoped   # while iterating: only the gates this diff can break
+make close       # at the end: gates + regenerated artifacts + ff check + summary
+```
+
+`make close` refuses a dirty tree, regenerates OpenAPI/llms.txt/captures
+when the diff invalidated them (and commits them), and tells you whether
+`main` can fast-forward. Do not hand-run gofmt/vet/tests/build one by one
+in twenty turns; if `close` fails, fix the cause and rerun it.
+
+## The judgement part (read the diff: `git diff --stat main...HEAD`)
+
+1. **One logical change?** If not, split the commit.
+2. **New code without tests?** Table-driven tests before finishing.
+3. **Interacting conditions** (delete/restore/auth/cascade/mode)? A decision
+   table exists and every row is tested or named as debt. Two clicks ≠ matrix.
+4. **Timed UI** (jobs, overlays, lists)? Motion on enter/step/exit; the
+   optimistic next state, not a static wait then a jump.
+5. **New non-stdlib dependency?** Justified in the commit/PR description
+   (AGENTS.md rule #3). No justification = remove it.
+6. **Store mutation without an event**, or a new poll against `/api/*`
+   without a stated reason the feed cannot cover (ADR-0048) → FAIL.
+7. **Changelog**: user-visible → an entry under `[Unreleased]`.
+8. **Docs**: behavior/architecture changed → `docs/architecture.md`; a
+   boundary (protocol, persistence, security, process) → ADR.
+9. **Visual gate** (any user-facing surface changed): `/skill:visual-review`
+   and `/skill:uiux-review` on a **scratch instance**
+   (`scripts/qa-scratch.sh`), never on production. Screenshots read,
+   overlayAudit ok, visual-card in the reply. Skipped or FAIL → this gate
+   is FAIL. `eval` JSON is not a visual pass.
+10. **Handoff**: `/skill:handoff-update` (one note in `docs/handoff/`).
+
+Deploy is **not** a step: `main` ships in batches (`make deploy-batch`).
 
 ## Report format
 
-End with a one-line verdict, e.g.:
-
 ```
-quality-gate: PASS (fmt ✓ vet ✓ 12 tests ✓ build ✓ visual ✓ changelog +1)
+quality-gate: PASS (close ✓ tests +4 decision-table 6/6 changelog +1 visual ✓)
 quality-gate: FAIL (visual: overlay clipped — see visual-review)
-quality-gate: FAIL (vet: 1 finding in internal/server/server.go:42)
+quality-gate: FAIL (close: go test internal/server — 1 failure)
 ```

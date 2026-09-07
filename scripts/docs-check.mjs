@@ -21,13 +21,21 @@ import { screenshotInputFailures } from "./lib/docs-surfaces.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const imgDir = join(root, "www", "img");
 
+// Capture freshness is advisory unless --strict / DOCS_STRICT=1 (ADR-0086):
+// a stale fingerprint used to fail `make ci` for every CSS change, and the
+// recapture it demanded produced binary conflicts between parallel
+// sessions. The deploy batch and `make close` run the strict form and
+// recapture when it says so; a committed image that was edited by hand
+// still fails everywhere.
+const strict = process.argv.includes("--strict") || process.env.DOCS_STRICT === "1";
 const fails = [];
+const stale = [];
 const manifestPath = join(imgDir, "manifest.json");
 if (!existsSync(manifestPath)) {
   fails.push("manifest.json missing — run `make docs-shots`");
 } else {
   const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-  fails.push(...screenshotInputFailures(root, m));
+  stale.push(...screenshotInputFailures(root, m));
   for (const [name, s] of Object.entries(m.surfaces ?? {})) {
     const p = join(imgDir, s.file);
     if (!existsSync(p)) {
@@ -84,9 +92,16 @@ try {
   fails.push(String(e.stderr || e.message).trim().slice(0, 400));
 }
 
+if (stale.length) {
+  if (strict) fails.push(...stale);
+  else {
+    console.warn("docs-check: public captures are stale (the deploy batch or `make close` recaptures):");
+    for (const f of stale) console.warn("  - " + f);
+  }
+}
 if (fails.length) {
   console.error("docs-check FAILED:");
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log("docs-check ok: current images/generated docs and video integrity verified");
+console.log(stale.length ? "docs-check ok (captures stale, advisory)" : "docs-check ok: current images/generated docs and video integrity verified");

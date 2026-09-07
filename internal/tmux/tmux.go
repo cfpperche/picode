@@ -28,6 +28,17 @@ type Session struct {
 	Windows  int       `json:"windows"`
 }
 
+// OwnedSession is a PiCode-owned session with its pane facts — the flight-
+// recorder view (ADR-0085): enough to tell, after a restart, what was
+// running, through which root command, and whether it survived.
+type OwnedSession struct {
+	Name       string `json:"name"`
+	PanePID    int    `json:"panePid"`
+	RootCmd    string `json:"rootCmd"`
+	Attached   bool   `json:"attached"`
+	WorkingDir string `json:"workingDir,omitempty"`
+}
+
 // Manager wraps tmux CLI operations. All methods are safe for concurrent
 // use (each spawns its own tmux invocation).
 type Manager struct{}
@@ -431,4 +442,39 @@ func (m *Manager) ExtendedKeysFormat(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("tmux show-options: %s", strings.TrimSpace(out))
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// ListOwned returns every PiCode-owned session with its pane facts
+// (ADR-0085 flight recorder). A server that is not running yields an empty
+// list, never an error.
+func (m *Manager) ListOwned(ctx context.Context) ([]OwnedSession, error) {
+	out, err := m.run(ctx, "list-panes", "-a", "-F",
+		"#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{session_attached}\t#{pane_current_path}")
+	if err != nil {
+		if strings.Contains(out, "no server running") || strings.Contains(out, "error connecting") {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("tmux list-panes: %s", out)
+	}
+	var owned []OwnedSession
+	seen := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 5 || !OwnedSessionName(parts[0]) || seen[parts[0]] {
+			continue
+		}
+		seen[parts[0]] = true
+		pid, _ := strconv.Atoi(parts[1])
+		owned = append(owned, OwnedSession{
+			Name:       parts[0],
+			PanePID:    pid,
+			RootCmd:    parts[2],
+			Attached:   parts[3] == "1",
+			WorkingDir: parts[4],
+		})
+	}
+	return owned, nil
 }

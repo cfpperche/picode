@@ -6,11 +6,11 @@ import AgentPageBar from "./AgentPageBar.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
-import { IconClip, IconSketch } from "./Icons.jsx";
+import { IconClip, IconImage, IconSketch } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
 import { Command } from "cmdk";
 import { api } from "@picode/shared/client/api.js";
-import { sniffImage, readImage, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
+import { sniffImage, readImage, planDeviceImages, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { filterSlash } from "@picode/shared/domain/slash.js";
 import { atQuery, insertAtPath, mergeAtHits, skillsFromSlash } from "@picode/shared/domain/atMention.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
@@ -35,6 +35,7 @@ export default function Composer({
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
   const dictateKeyHint = formatChord(primaryChord("composer.dictate", appKeyOverrides));
   const ta = useRef(null);
+  const devicePick = useRef(null);
   const hist = useRef(newHist());
   const rec = useRef(null);
   const wantListen = useRef(false);
@@ -195,10 +196,12 @@ export default function Composer({
   async function addPics(files) {
     const incoming = [...(files || [])].filter(Boolean);
     if (!incoming.length) return;
+    const plan = planDeviceImages(incoming, pics.length);
+    if (plan.tooMany) toast.error("Up to 4 images.");
+    if (plan.tooLarge) toast.error("Each image must be under 4 MB.");
+    if (plan.notImage && !plan.files.length) toast.error("That isn't an image.");
     const next = pics.slice();
-    for (const f of incoming) {
-      if (!sniffImage(f)) continue;
-      if (next.length >= MAX_IMAGES) { toast.error("Up to 4 images."); break; }
+    for (const f of plan.files) {
       try {
         const im = await readImage(f);
         next.push({ id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + next.length, ...im });
@@ -718,6 +721,24 @@ export default function Composer({
               </div>
             ) : (
               <>
+                <input
+                  id="composer-device-images"
+                  ref={devicePick}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => { addPics(e.target.files); e.target.value = ""; }}
+                />
+                <button
+                  type="button"
+                  className="icon-btn composer-attach"
+                  title="Attach image"
+                  aria-label="Attach image"
+                  onClick={() => devicePick.current && devicePick.current.click()}
+                >
+                  <IconImage />
+                </button>
                 {agentId ? (
                   <>
                     <button

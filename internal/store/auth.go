@@ -225,6 +225,66 @@ func (s *Store) RevokeSession(id string) error {
 	return nil
 }
 
+// LoopbackMintIP is the ip recorded on every auto-minted loopback
+// browser session (internal/auth mints with the literal, whatever the
+// dial address is). Paired sessions always carry a device id, so
+// kind=browser + empty device_id + this ip is exactly the auto-mints.
+const LoopbackMintIP = "127.0.0.1"
+
+// StaleLoopbackBrowserSessions returns auto-minted loopback browser
+// sessions whose last authenticated request is older than idleFor —
+// closed browsers: the access ended, so the row is ready to be revoked
+// (ADR-0049 amendment 2026-09-06). Paired sessions, tokens and paired
+// loopbacks never match; unparsable last_seen_at is never guessed stale.
+func (s *Store) StaleLoopbackBrowserSessions(idleFor time.Duration) ([]Session, error) {
+	rows, err := s.db.Query(`SELECT `+sessionCols+` FROM auth_sessions
+		WHERE revoked_at IS NULL AND kind = ? AND device_id = '' AND ip = ?`, SessionBrowser, LoopbackMintIP)
+	if err != nil {
+		return nil, fmt.Errorf("store: stale loopback sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []Session
+	for rows.Next() {
+		var sess Session
+		if err := scanSession(rows, &sess); err != nil {
+			return nil, err
+		}
+		if sess.ExpiresAt != nil {
+			if t, err := time.Parse(time.RFC3339Nano, *sess.ExpiresAt); err == nil && !time.Now().Before(t) {
+				continue // expired: already invisible, the daily prune deletes the row
+			}
+		}
+		last, err := time.Parse(time.RFC3339Nano, sess.LastSeenAt)
+		if err != nil || time.Since(last) < idleFor {
+			continue
+		}
+		out = append(out, sess)
+	}
+	return out, rows.Err()
+}
+
+// RevokeStaleLoopbackSessions ends every auto-minted loopback browser
+// session idle longer than idleFor, through RevokeSession — one
+// session.revoked event per row, so open Devices views drop the row
+// live. The daily PruneSessions deletes the rows a week later.
+func (s *Store) RevokeStaleLoopbackSessions(idleFor time.Duration) (int, error) {
+	stale, err := s.StaleLoopbackBrowserSessions(idleFor)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, sess := range stale {
+		if err := s.RevokeSession(sess.ID); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				continue // revoked or rotated in a race — nothing left to do
+			}
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
 // PruneSessions deletes revoked or expired rows older than t.
 func (s *Store) PruneSessions(t time.Time) (int, error) {
 	cut := t.UTC().Format(time.RFC3339Nano)

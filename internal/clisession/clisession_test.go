@@ -230,7 +230,7 @@ func TestPIListAdaptsProviderAndModel(t *testing.T) {
 
 func TestSourcesRegistry(t *testing.T) {
 	all := Sources()
-	for _, cli := range []string{"pi", "claude-code", "codex", "grok"} {
+	for _, cli := range []string{"pi", "claude-code", "codex", "grok", "hermes"} {
 		if _, ok := all[cli]; !ok {
 			t.Errorf("source %q missing from registry", cli)
 		}
@@ -241,7 +241,7 @@ func TestSourcesRegistry(t *testing.T) {
 	// A machine where none of the non-pi CLIs ever ran still lists cleanly.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, cli := range []string{"claude-code", "codex", "grok"} {
+	for _, cli := range []string{"claude-code", "codex", "grok", "hermes"} {
 		src, ok := Get(cli)
 		if !ok {
 			t.Fatalf("source %q missing", cli)
@@ -250,5 +250,45 @@ func TestSourcesRegistry(t *testing.T) {
 		if err != nil || len(rows) != 0 {
 			t.Errorf("%s on an empty machine = %v, %v; want empty, no error", cli, rows, err)
 		}
+	}
+}
+
+// Latest is the pin source for CLI-terminal resume (ADR-0084): the newest
+// session of one CLI in one folder, filtered by a run's start time so one
+// terminal can't steal another's conversation in a shared folder.
+func TestLatestFiltersByRunStart(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	seedClaude(t, home, "-home-goat-proj", "old-session", "/home/goat/proj",
+		`{"type":"user","message":{"role":"user","content":[{"text":"older work","type":"text"}]},"timestamp":"2026-09-01T10:00:00.000Z","cwd":"/home/goat/proj","session_id":"old-session"}`,
+	)
+	seedClaude(t, home, "-home-goat-proj", "new-session", "/home/goat/proj",
+		`{"type":"user","message":{"role":"user","content":[{"text":"newer work","type":"text"}]},"timestamp":"2026-09-01T11:00:00.000Z","cwd":"/home/goat/proj","session_id":"new-session"}`,
+	)
+
+	// No floor: the newest wins, with verified resume args.
+	s, err := Latest("claude-code", "/home/goat/proj", time.Time{})
+	if err != nil || s == nil {
+		t.Fatalf("latest = %+v, %v", s, err)
+	}
+	if s.ID != "new-session" {
+		t.Errorf("latest ID = %q, want new-session", s.ID)
+	}
+	if !reflect.DeepEqual(s.ResumeArgs, []string{"--resume", "new-session"}) {
+		t.Errorf("resumeArgs = %v", s.ResumeArgs)
+	}
+
+	// Run started after both writes: nothing qualifies, no pin.
+	s, err = Latest("claude-code", "/home/goat/proj", time.Now().Add(time.Hour))
+	if err != nil || s != nil {
+		t.Fatalf("filtered latest = %+v, %v (want nil, nil)", s, err)
+	}
+
+	// Unknown CLI and empty folders are errors/nil, never a panic.
+	if _, err := Latest("nope", "/home/goat/proj", time.Time{}); err == nil {
+		t.Error("unknown CLI: want error")
+	}
+	if s, err := Latest("claude-code", "/home/goat/elsewhere", time.Time{}); err != nil || s != nil {
+		t.Errorf("empty folder = %+v, %v (want nil, nil)", s, err)
 	}
 }

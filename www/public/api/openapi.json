@@ -160,6 +160,41 @@
         ]
       }
     },
+    "/api/agents/{id}/ask": {
+      "post": {
+        "operationId": "postApiAgentsAsk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "agents"
+        ]
+      }
+    },
     "/api/agents/{id}/bash": {
       "post": {
         "operationId": "postApiAgentsBash",
@@ -2060,6 +2095,23 @@
         ]
       }
     },
+    "/api/cli-jobs": {
+      "get": {
+        "operationId": "getApiCli-jobs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-jobs"
+        ]
+      }
+    },
     "/api/clis": {
       "get": {
         "operationId": "getApiClis",
@@ -2200,6 +2252,41 @@
     "/api/clis/{cli}/check": {
       "post": {
         "operationId": "postApiClisCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/lifecycle": {
+      "post": {
+        "operationId": "postApiClisLifecycle",
         "parameters": [
           {
             "in": "path",
@@ -2457,6 +2544,76 @@
         ]
       }
     },
+    "/api/clis/{cli}/sessions/handoff": {
+      "post": {
+        "operationId": "postApiClisSessionsHandoff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/sessions/handoff/preview": {
+      "post": {
+        "operationId": "postApiClisSessionsHandoffPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
     "/api/clis/{cli}/terminals": {
       "post": {
         "operationId": "postApiClisTerminals",
@@ -2489,6 +2646,58 @@
         },
         "tags": [
           "clis"
+        ]
+      }
+    },
+    "/api/clis/{cli}/update-check": {
+      "post": {
+        "operationId": "postApiClisUpdate-check",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cli",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "clis"
+        ]
+      }
+    },
+    "/api/deploy/readiness": {
+      "get": {
+        "operationId": "getApiDeployReadiness",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "deploy"
         ]
       }
     },
@@ -7106,7 +7315,13 @@
       "name": "checklists"
     },
     {
+      "name": "cli-jobs"
+    },
+    {
       "name": "clis"
+    },
+    {
+      "name": "deploy"
     },
     {
       "name": "devices"

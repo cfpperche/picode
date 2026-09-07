@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { checklistLine, checklistRows } from "@picode/shared/domain/checklist.js";
+import { checklistLine, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 
@@ -151,8 +151,8 @@ export function AgentRow({
           </RowMenu>
         ) : null}
       </div>
-      <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />
       <ChecklistDisclosure id={ag.id} check={check} />
+      <ContextLine line={repo} ownerKind="agent" ownerId={ag.id} ownerLabel={label} onFileTree={onFileTree} onGitGraph={onGitGraph} />
       {meta && stamp ? <span className="ws-meta" title={absTime(stamp)}>{relTime(stamp)}</span> : null}
     </li>
   );
@@ -198,8 +198,8 @@ export function TermRow({
           </RowMenu>
         ) : null}
       </div>
-      <ContextLine line={line} ownerKind="term" ownerId={t.id} ownerLabel={t.name || "Terminal"} onFileTree={onFileTree} onGitGraph={onGitGraph} />
       <ChecklistDisclosure id={t.id} check={check} />
+      <ContextLine line={line} ownerKind="term" ownerId={t.id} ownerLabel={t.name || "Terminal"} onFileTree={onFileTree} onGitGraph={onGitGraph} />
     </li>
   );
 }
@@ -207,14 +207,16 @@ export function TermRow({
 // The agent's internal checklist as one operator line (ADR-0055): the
 // current step with its position. Nothing known, and an absent marker (the
 // contract was not met), both render nothing — silence is not absence and
-// absence is not worth a line (ADR-0082, owner refinement).
+// absence is not worth a line (ADR-0082, owner refinement). No parens
+// around the counter — this is a list row, not a terminal (owner refinement,
+// docs/plans/sidebar-checklist-expand.md).
 export function ChecklistLine({ line }) {
   if (!line || line.kind === "absent") return null;
-  const pos = "(" + line.position + "/" + line.total + ")";
+  const pos = line.position + "/" + line.total;
   return (
-    <div className="ws-check" title={pos + " " + line.text}>
-      <span className="ws-check-pos">{pos}</span>
+    <div className="ws-check" title={pos + " · " + line.text}>
       <span className="ws-check-text">{line.text}</span>
+      <span className="ws-check-pos">{pos}</span>
     </div>
   );
 }
@@ -225,24 +227,35 @@ export function ChecklistLine({ line }) {
 // rest. The items are already in client state and arrive live over the
 // feed, so opening costs no fetch and updates render in place. Absent and
 // unknown checklists render nothing (ADR-0082) — there is nothing to open.
+//
+// Layout matches ContextLine below it: same 31px text column, no parens
+// around the counter, counter reads as a fixed column at the row's end
+// (Linear/GitHub sub-issue idiom) instead of a prefix. A finished plan
+// (position === total and every item completed) dims to the same weight as
+// a completed step, so it stops reading as an open task.
 export function ChecklistDisclosure({ id, check }) {
   const [open, setOpen] = useState(false);
   const line = checklistLine(check);
   if (!line) return null;
   const listId = "chk-" + id;
+  const pos = line.position + "/" + line.total;
+  const items = (check && check.items) || [];
+  const done = line.position === line.total && items.length > 0 && countDone(items) === items.length;
   return (
     <div className="ws-check-disclosure">
       <button
         type="button"
-        className="ws-check-line"
+        className={"ws-check-line" + (done ? " is-done" : "")}
         aria-expanded={open}
         aria-controls={listId}
-        title={"(" + line.position + "/" + line.total + ") " + line.text}
+        aria-label={"Plan, step " + pos + ": " + line.text}
+        title={pos + " · " + line.text}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}
       >
-        <span className="ws-check-pos">({line.position}/{line.total})</span>
+        <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight /></span>
         <span className="ws-check-text">{line.text}</span>
+        <span className="ws-check-pos">{pos}</span>
       </button>
       <div id={listId} className={"ws-check-list" + (open ? " open" : "")} aria-hidden={!open}>
         <ul>

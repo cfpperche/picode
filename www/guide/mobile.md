@@ -35,8 +35,10 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
 
 Tap an agent to open it: the conversation (with any question the agent is
 asking), the composer with **prompt / steer / follow-up** and dictation, and
-**Stop** to abort the current turn. An agent living in a terminal shows a
-**Chat | Terminal** switch.
+**Stop** to abort the current turn. The image button on the composer opens
+this phone's Photos (or the camera); the paperclip still attaches a file
+from the agent's folder on the PiCode machine. An agent living in a
+terminal shows a **Chat | Terminal** switch.
 
 Replying to that terminal agent from the Inbox keeps you on its Terminal
 screen. A small card moves through **Receiving → Processing → Returning** and
@@ -57,29 +59,35 @@ Pull down on Now, Work or the Inbox to refresh. Swipe an Inbox row to the
 left for Done, Snooze and Delete. A **"N changed"** button on an agent, a
 terminal or a workspace opens its uncommitted changes, read-only.
 
-Tap a terminal to attach to it. Under the terminal a **key bar** gives you
-what the phone keyboard lacks: Esc, Tab, Ctrl+C, Ctrl+D, Ctrl+Z, Ctrl+L,
-arrows, and `/ | - ~`.
+Tap a terminal to attach to it. Tapping the pane opens the phone
+keyboard; a one-row **key bar** sits immediately above it with Esc, Tab,
+CTRL, Alt, arrows, `^C`, and — after a sideways scroll — Home, End,
+Page Up, Page Down, and `| ~ / -`.
 
 ## Terminal keys
 
-A terminal on the phone has Termux's extra keys: two rows of seven
-cells on the terminal's own background. Tap the header's keyboard icon
-to show or hide them.
+A terminal on the phone has extra keys the software keyboard lacks. They
+are an accessory: they appear with the phone keyboard and go away with
+it. Tap the pane, or the header's keyboard icon, to show both. Hide on
+the row (or the header icon again) dismisses both.
 
 ```
-ESC   /   —   HOME  ↑   END   PGUP
-⇆   CTRL  ALT  ←    ↓   →    PGDN
+esc  tab  ctrl  alt  ◀  ▲  ▼  ▶  ^C  …  hide
 ```
+
+Swipe the row sideways for Home, End, Page Up, Page Down, and `| ~ / -`.
+The hide button stays pinned on the right.
 
 - **CTRL** and **ALT** are sticky: tap once, then the next key — from
-  the phone keyboard or the grid — is sent with that modifier. CTRL then
+  the phone keyboard or the row — is sent with that modifier. CTRL then
   `c` interrupts; ALT then `b` moves back a word; CTRL then ↑ is the
   modified arrow. An armed modifier lights up and expires after five
   seconds if nothing uses it.
-- The grid never opens the phone keyboard; tapping the terminal does,
-  and the grid rises above the keyboard while you type.
-- With a hardware keyboard attached, the grid steps aside (the header
+- A key on the row never opens the phone keyboard; tapping the terminal
+  does. The row rises above the keyboard so the prompt stays visible.
+- The small undo/Done bar just above the phone keyboard is Safari's,
+  not PiCode's — a web app cannot hide it.
+- With a hardware keyboard attached, the row steps aside (the header
   icon brings it back).
 
 ## Push notifications

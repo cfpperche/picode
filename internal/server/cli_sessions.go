@@ -25,6 +25,7 @@ func registerCLISessionRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/clis/{cli}/sessions/adopt", handleCLIAdoptSession(deps))
 	mux.HandleFunc("GET /api/clis/{cli}/sessions/cleanup", handleCLICleanupSetting(deps))
 	mux.HandleFunc("PUT /api/clis/{cli}/sessions/cleanup", handleCLICleanupSetting(deps))
+	registerCLIHandoffRoutes(mux, deps)
 }
 
 // handleCLISessions answers GET /api/clis/{cli}/sessions with optional
@@ -40,6 +41,7 @@ func registerCLISessionRoutes(mux Registrar, deps Deps) {
 //	malformed or undeclared files           → skipped, never a 500
 //	session cwd matches a PiCode workspace  → tagged workspaceId/workspace
 //	pi rows                                 → inUseBy + cleanupDays ride along
+//	session was handed off / came from one  → handoff.{to,from} (ADR-0088)
 func handleCLISessions(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli, ok := clilaunch.Find(r.PathValue("cli"))
@@ -84,11 +86,12 @@ func handleCLISessions(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		lineage := lineageIndex(deps)
 		views := make([]cliSessionView, 0, len(rows))
 		var total int64
 		for _, s := range rows {
 			total += s.Size
-			v := cliSessionView{Summary: s}
+			v := cliSessionView{Summary: s, Handoff: lineage[[2]string{cli.ID, s.ID}]}
 			if cli.ID == "pi" {
 				if u, inUse := use[s.Path]; inUse {
 					v.InUseBy = &u
@@ -312,7 +315,8 @@ func handleCLICleanupSetting(deps Deps) http.HandlerFunc {
 // cliSessionView adds the PiCode workspace context (if any) to a session.
 type cliSessionView struct {
 	clisession.Summary
-	WorkspaceID string      `json:"workspaceId,omitempty"`
-	Workspace   string      `json:"workspace,omitempty"`
-	InUseBy     *sessionUse `json:"inUseBy,omitempty"`
+	WorkspaceID string        `json:"workspaceId,omitempty"`
+	Workspace   string        `json:"workspace,omitempty"`
+	InUseBy     *sessionUse   `json:"inUseBy,omitempty"`
+	Handoff     *handoffLinks `json:"handoff,omitempty"` // lineage (ADR-0088)
 }
