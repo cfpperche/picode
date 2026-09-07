@@ -34,8 +34,8 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys `0.1.0+0bc91b0`.
-  Composer Photos picker + ADR-0089 prompt door merged `9b5f99dd`
-  (CLI drop/paste APIs still to ship). Managed agents remain Pi-only.
+  Composer Photos picker + ADR-0089 deployed `0.1.0+d04ad3f`.
+  CLI drop/paste APIs still to ship. Managed agents remain Pi-only.
 
 ## In flight (unmerged branches on disk)
 

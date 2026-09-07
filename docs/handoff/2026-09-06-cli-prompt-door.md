@@ -17,4 +17,5 @@ uiux-review: PASS (native file input; existing attach height; no jargon)
 Not done: D2–D6 (drop/prompt HTTP, CLI attach bar/sheet, artifacts).
 iPhone Photos sheet is owner acceptance (Chromium file chooser here).
 
-Merge: not yet — `make close` next.
+Merge: fast-forwarded to `main` as `9b5f99dd`.
+Deployed: `0.1.0+d04ad3f` (unguarded; health ok).
