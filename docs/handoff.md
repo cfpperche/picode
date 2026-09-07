@@ -40,10 +40,11 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
-  Pane checklist strip dropped `0.1.0+d620ca8`. Composer Photos `0.1.0+d04ad3f`.
   ADR-0089 attach bar `0.1.0+aca6628`. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live).
   Workspace card: two actions instead of five, with Files/Git graph reading through the workspace (a project with no agents reaches its history — ADR-0027/0030 routes desktop never called), `0.1.0+0dd28c0`; the header's own path/branch line was withdrawn the same day as noise over the rows that already carry it.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges.
+  **Desktop user menu v2:** grouped rows with subtitles + in-menu search (mobile More
+  pattern, shared matcher `@picode/shared/domain/listSearch.js`); theme/layout radios stay.
 
 ## In flight (unmerged branches on disk)
 

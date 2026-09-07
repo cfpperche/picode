@@ -40,6 +40,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **The desktop user menu follows the mobile v2 pattern:** rows are grouped
+  (Tools / Agents and connections / PiCode / Continue) and each carries a
+  one-line description; a search field filters the menu with the same
+  matcher as the phone's More screen; a no-match search says so with a
+  Clear search action. Theme and layout radios stay in the menu; the
+  install button and version hide while searching.
+  Cites `docs/benchmarks/2026-09-07-mobile-v2.md`.
+
 - **The workspace card's actions are two, not five:** a **New** menu (agent,
   shell terminal, Agent CLI terminal) and one overflow menu holding Files,
   Git graph, Sessions and Remove workspace. Both triggers stay visible at
