@@ -93,7 +93,7 @@ export function tabTermId(id) {
 
 // Owner kinds encode as one letter: t = terminal, a = agent, and since
 // ADR-0030 w = workspace (a folder can be read with nobody in it, ADR-0027).
-function ownerLetter(kind) {
+export function ownerLetter(kind) {
   if (kind === "term") return "t";
   if (kind === "workspace") return "w";
   return "a";
@@ -210,16 +210,15 @@ export function go(name, agentId) {
 // owner is what authorises the read; the tab id names the *repository*, so two
 // agents in two worktrees of one repo land on the same tab.
 export function gitHash(kind, id) {
-  const k = kind === "term" ? "t" : "a";
-  return "#/git/" + k + "/" + encodeURIComponent(id || "");
+  return "#/git/" + ownerLetter(kind) + "/" + encodeURIComponent(id || "");
 }
 
 export function gitRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  const m = /^\/git\/(t|a)\/([^/]+)$/.exec(h);
+  const m = /^\/git\/(t|a|w)\/([^/]+)$/.exec(h);
   if (!m) return null;
   try {
-    return { kind: m[1] === "t" ? "term" : "agent", id: decodeURIComponent(m[2]) };
+    return { kind: ownerKind(m[1]), id: decodeURIComponent(m[2]) };
   } catch {
     return null;
   }

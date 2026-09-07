@@ -67,6 +67,11 @@ test("the git hash names the owner, the tab id names the repository", () => {
   assert.equal(gitHash("term", "sh1"), "#/git/t/sh1");
   assert.deepEqual(gitRoute(gitHash("agent", "a/b")), { kind: "agent", id: "a/b" });
 
+  // A folder with nobody in it is an owner too (ADR-0027/ADR-0030): the
+  // workspace asks for its own repository, exactly as the file tree does.
+  assert.equal(gitHash("workspace", "ws1"), "#/git/w/ws1");
+  assert.deepEqual(gitRoute("#/git/w/ws1"), { kind: "workspace", id: "ws1" });
+
   const key = "/home/goat/picode/.git";
   assert.equal(gitTabId(key), "g:" + key);
   assert.ok(isGitTab(gitTabId(key)));

@@ -52,6 +52,11 @@ test("git owners survive a round trip and reject junk", () => {
   writeGitOwners({ "g:/r/.git": { kind: "agent", id: "opus", name: "Opus" } });
   assert.deepEqual(readGitOwners(), { "g:/r/.git": { kind: "agent", id: "opus", name: "Opus" } });
 
+  // A workspace owner survives the reload: downgrading it to an agent sent
+  // the restored tab to /api/agents/<workspace id> and 404ed (ADR-0030).
+  store["picode-git-owners"] = JSON.stringify({ "g:/w/.git": { kind: "workspace", id: "ws1", name: "picode" } });
+  assert.deepEqual(readGitOwners(), { "g:/w/.git": { kind: "workspace", id: "ws1", name: "picode" } });
+
   // An unknown kind falls back to agent; an entry with no id is dropped.
   store["picode-git-owners"] = JSON.stringify({
     "g:/a": { kind: "wat", id: "x" },

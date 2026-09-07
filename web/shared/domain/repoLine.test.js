@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { repoLine, termLine, shortPath } from "./repoLine.js";
+import { repoLine, termLine, wsLine, shortPath } from "./repoLine.js";
 
 test("a repo shows path / branch, spaced", () => {
   const r = repoLine({ workPath: "/home/goat/picode", git: { branch: "main" } }, null);
@@ -36,6 +36,14 @@ test("termLine mirrors the agent line, from the live cwd", () => {
   assert.equal(termLine({ cwd: "/home/goat/picode", git: { branch: "main" } }).text, "~/picode / main");
   assert.deepEqual(termLine({ cwd: "/tmp/scratch" }), { git: null, dir: "/tmp/scratch", text: "/tmp/scratch" });
   assert.equal(termLine({ cwd: "/home/goat" }).text, "~");
+});
+
+test("wsLine speaks for the folder itself, with nobody in it", () => {
+  assert.equal(wsLine({ path: "/home/goat/picode", git: { branch: "main", dirty: 3 } }).text, "~/picode / main");
+  assert.equal(wsLine({ path: "/home/goat/picode", git: { branch: "main" } }).git.branch, "main");
+  // A registered folder that is not a repository still has its path pill.
+  assert.deepEqual(wsLine({ path: "/home/goat/notes" }), { git: null, dir: "~/notes", text: "~/notes" });
+  assert.deepEqual(wsLine(null), { git: null, dir: "—", text: "—" });
 });
 
 test("an agent on a non-repo workPath never borrows the workspace's branch", () => {

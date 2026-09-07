@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { hunksFromDiff, countOf } from "@picode/shared/domain/diff.js";
+import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import DiffLine from "./DiffLine.jsx";
 import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
@@ -18,9 +19,7 @@ export default function UncommittedDetail({ owner, worktree, onClose }) {
   const [open, setOpen] = useState({});
   const [diffs, setDiffs] = useState({});
 
-  // Owner kinds: agent (default), term, and — for the phone's Changes
-  // screen — a workspace folder itself.
-  const base = owner && owner.kind === "term" ? "/api/terminals/" : owner && owner.kind === "workspace" ? "/api/workspaces/" : "/api/agents/";
+  const base = ownerBase(owner);
   const ownerId = owner ? owner.id : "";
   // A sibling worktree is named by the ref git knows it by — its branch, or
   // its full HEAD hash when detached. The URL never carries a path. A named

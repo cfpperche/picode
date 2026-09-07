@@ -39,7 +39,7 @@ import ContextMenu from "./components/ContextMenu.jsx";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -79,7 +79,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, askedNote, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -588,13 +588,7 @@ export default function App() {
         setAppsLoaded(appsOk);
         const owners = readGitOwners();
         const towners = readTreeOwners();
-        const ownerAlive = (o) =>
-          !!o &&
-          (o.kind === "term"
-            ? terms.some((t) => t.id === o.id)
-            : o.kind === "workspace"
-              ? list.some((w) => w.id === o.id)
-              : !!locate(list, free, o.id));
+        const ownerAlive = (o) => ownerExists(o, { workspaces: list, freeAgents: free, terminals: terms });
         const exists = (id) => {
           if (isTermTab(id)) return terms.some((t) => t.id === tabTermId(id));
           // A failed /api/apps fetch must not wipe persisted app tabs.
@@ -778,11 +772,7 @@ export default function App() {
     const fromFile = fileRoute(hash);
     if (fromFile) {
       const fid = fileTabId(fromFile.kind, fromFile.id, fromFile.path);
-      const ok = fromFile.kind === "term"
-        ? terminals.some((t) => t.id === fromFile.id)
-        : fromFile.kind === "workspace"
-          ? workspaces.some((w) => w.id === fromFile.id)
-          : !!locate(workspaces, freeAgents, fromFile.id);
+      const ok = ownerExists(fromFile, { workspaces, freeAgents, terminals });
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         if (selectedRef.current !== fid) {
@@ -797,9 +787,7 @@ export default function App() {
     }
     const fromGit = gitRoute(hash);
     if (fromGit) {
-      const ok = fromGit.kind === "term"
-        ? terminals.some((t) => t.id === fromGit.id)
-        : !!locate(workspaces, freeAgents, fromGit.id);
+      const ok = ownerExists(fromGit, { workspaces, freeAgents, terminals });
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         const known = Object.entries(gitOwners).find(([, o]) => o && o.kind === fromGit.kind && o.id === fromGit.id);
@@ -813,11 +801,7 @@ export default function App() {
     }
     const fromTree = treeRoute(hash);
     if (fromTree) {
-      const ok = fromTree.kind === "term"
-        ? terminals.some((t) => t.id === fromTree.id)
-        : fromTree.kind === "workspace"
-          ? workspaces.some((w) => w.id === fromTree.id)
-          : !!locate(workspaces, freeAgents, fromTree.id);
+      const ok = ownerExists(fromTree, { workspaces, freeAgents, terminals });
       if (ok) {
         setGoneId((g) => (g ? "" : g));
         const known = Object.entries(treeOwners).find(([, o]) => o && o.kind === fromTree.kind && o.id === fromTree.id);
@@ -1056,7 +1040,7 @@ export default function App() {
   }
 
   function provisionalGitId(kind, ownerId) {
-    return gitTabId("@" + (kind === "term" ? "t" : "a") + ":" + ownerId);
+    return gitTabId("@" + ownerLetter(kind) + ":" + ownerId);
   }
 
   // The repository is unknown until the server answers, so a graph tab opens
@@ -1096,7 +1080,7 @@ export default function App() {
   }
 
   function provisionalTreeId(kind, ownerId) {
-    return treeTabId("@" + (kind === "term" ? "t" : kind === "workspace" ? "w" : "a") + ":" + ownerId);
+    return treeTabId("@" + ownerLetter(kind) + ":" + ownerId);
   }
 
   // The root folder is unknown until the server answers, so a tree tab opens
@@ -2366,7 +2350,7 @@ export default function App() {
             <div className="empty-card">
               {missing ? (
                 <>
-                  <h2>{isAppTab(goneId) ? "That app is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : isTreeTab(goneId) && goneId.startsWith("d:@w:") ? "That workspace is gone." : "That agent is gone."}</h2>
+                  <h2>{isAppTab(goneId) ? "That app is gone." : isFileTab(goneId) ? "That file is gone." : isTermTab(goneId) || (isGitTab(goneId) && goneId.startsWith("g:@t:")) || (isTreeTab(goneId) && goneId.startsWith("d:@t:")) ? "That terminal is gone." : (isTreeTab(goneId) && goneId.startsWith("d:@w:")) || (isGitTab(goneId) && goneId.startsWith("g:@w:")) ? "That workspace is gone." : "That agent is gone."}</h2>
                   {hasData ? (
                     <p>Pick another from the sidebar.</p>
                   ) : (

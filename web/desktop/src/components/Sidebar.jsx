@@ -3,14 +3,15 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { aggregateBadge } from "@picode/shared/contracts/appPrimitives.js";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
+import { wsLine } from "@picode/shared/domain/repoLine.js";
 import { freeTerminals, workspaceTerminals } from "../lib/termGroups.js";
 import ProviderFaces from "./ProviderFaces.jsx";
-import { AgentRow, TermRow } from "./WorkspaceRows.jsx";
+import { AgentRow, ContextLine, RowMenu, RowMenuItem, TermRow } from "./WorkspaceRows.jsx";
 
 // Workspace cards wear the project's favicon when it has one (ADR-0027).
 // The list advertises whether one exists, so a normal workspace without an
@@ -216,31 +217,51 @@ export default function Sidebar({
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => {
             const wsTerms = workspaceTerminals(terminals, ws.id);
+            const wsRepo = wsLine(ws);
+            const wsAgents = agentsOf(ws);
             return (
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
                 <span className={"ws-chev" + (isOpen(ws.id) ? " open" : "")}><IconChevronRight /></span>
                 <span className="tree-icon"><WsFavicon ws={ws} /></span>
                 <span className="ws-group-name" title={ws.path}>{ws.name}</span>
-                <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(agentsOf(ws), wsTerms) : null}</span>
+                <span className="tree-meta">{!isOpen(ws.id) ? collapsedMark(wsAgents, wsTerms) : null}</span>
+                {/* Two controls, not five: one creates, one holds the rest
+                    (VS Code caps a row at three; the child rows already read
+                    this way). Both stay visible — a control hidden until
+                    hover is unreachable by touch (WCAG 1.4.13). */}
                 <span className="ws-group-actions" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" className="ws-icon-btn" title="Files in this folder" onClick={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={12} /></button>
-                  <button type="button" className="ws-icon-btn" title="New agent in this folder" onClick={() => onNewAgent && onNewAgent(ws.id)}><IconPlus /></button>
-                  <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="ws-icon-btn" title="New terminal in this folder" aria-label={"New terminal in " + ws.name}><IconTerminal size={12} /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" side="bottom" align="start" sideOffset={6} collisionPadding={12}>
+                  <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="ws-icon-btn" title="New in this folder" aria-label={"New in " + ws.name}><IconPlus /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" side="bottom" align="end" sideOffset={6} collisionPadding={12}>
+                    <DropdownMenu.Item className="um-item" onSelect={() => onNewAgent && onNewAgent(ws.id)}>Agent</DropdownMenu.Item>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
                     <DropdownMenu.Item className="um-item" onSelect={() => { location.hash = "#/clis/new/pi?workspace=" + encodeURIComponent(ws.id); }}>Agent CLI terminal</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
-                  <button type="button" className="ws-icon-btn" title="Sessions — every Pi session in this folder" aria-label={"Sessions for " + ws.name} onClick={() => onSessions && onSessions(ws.id)}><IconSession /></button>
-                  <button type="button" className="ws-icon-btn danger" title="Remove workspace" onClick={() => onRemove(ws)}><IconX size={12} /></button>
+                  <RowMenu label={ws.name}>
+                    <RowMenuItem onSelect={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={13} /> Files</RowMenuItem>
+                    {wsRepo.git ? <RowMenuItem onSelect={() => onGitGraph && onGitGraph("workspace", ws.id, ws.name)}><IconGit size={13} /> Git graph</RowMenuItem> : null}
+                    {/* Sessions read through an agent — an empty workspace
+                        answers 409, so it does not offer the item (ADR-0027). */}
+                    {wsAgents.length ? <RowMenuItem onSelect={() => onSessions && onSessions(ws.id)}><IconSession size={13} /> Sessions</RowMenuItem> : null}
+                    <RowMenuItem danger onSelect={() => onRemove(ws)}><IconX size={13} /> Remove workspace</RowMenuItem>
+                  </RowMenu>
                 </span>
               </div>
+              {/* The workspace's own folder and branch, the same line its
+                  agents and terminals carry — and the only way into the
+                  files and the history of a project with nobody in it. */}
+              <ContextLine line={wsRepo} ownerKind="workspace" ownerId={ws.id} ownerLabel={ws.name} onFileTree={onFileTree} onGitGraph={onGitGraph} />
               {isOpen(ws.id) ? (
-                (agentsOf(ws).length || wsTerms.length) ? (
+                (wsAgents.length || wsTerms.length) ? (
                   <>
-                    {agentsOf(ws).length ? <ul className="ws-list tree-children">{agentsOf(ws).map((ag) => agentRow(ag, ws))}</ul> : null}
+                    {wsAgents.length ? <ul className="ws-list tree-children">{wsAgents.map((ag) => agentRow(ag, ws))}</ul> : null}
                     {wsTerms.length ? <ul className="ws-list tree-children">{wsTerms.map(termRow)}</ul> : null}
                   </>
-                ) : <p className="side-empty">Empty — add an agent or a terminal.</p>
+                ) : (
+                  <p className="side-empty">
+                    Empty — <button type="button" className="side-empty-act" onClick={() => onNewAgent && onNewAgent(ws.id)}>add an agent</button>
+                    {" or "}<button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm(ws.id)}>a terminal</button>.
+                  </p>
+                )
               ) : null}
             </li>
             );

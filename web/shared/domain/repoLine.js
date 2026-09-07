@@ -1,7 +1,8 @@
 // The sidebar's second line: where this thing lives, and on what branch.
-// One shape for agents and terminals, so the two lists read the same. The
-// line renders as two pills — dir (opens the file tree) and branch (opens
-// the git graph) — so `dir` is exposed on its own beside the joined text.
+// One shape for workspaces, agents and terminals, so every list reads the
+// same. The line renders as two pills — dir (opens the file tree) and branch
+// (opens the git graph) — so `dir` is exposed on its own beside the joined
+// text.
 
 export function shortPath(p) {
   const s = String(p || "").replace(/\\/g, "/").replace(/\/+$/, "");
@@ -18,6 +19,16 @@ function gitText(path, g) {
   return [shortPath(path), g.branch].filter(Boolean).join(" / ");
 }
 
+// The line itself, once: the three owner kinds differ only in where the path
+// and the git info come from. A folder that is not a repository keeps its
+// path and drops the branch pill.
+function line(path, g) {
+  if (g && (g.branch || g.worktree)) {
+    return { git: g, dir: shortPath(path), text: gitText(path, g) };
+  }
+  return { git: null, dir: shortPath(path), text: shortPath(path) };
+}
+
 // repoLine describes an agent's line. `git` is the git info object itself
 // (or null) — a caller wanting the branch for a tooltip reads it directly;
 // the earlier boolean made `repo.git.branch` silently undefined.
@@ -29,18 +40,22 @@ export function repoLine(ag, ws) {
   const ownPath = ag && ag.workPath;
   const g = (ownPath ? ag.git : (ag && ag.git) || (ws && ws.git)) || null;
   const path = ownPath || (ws && ws.path) || "";
-  if (g && (g.branch || g.worktree)) {
-    return { git: g, dir: shortPath(path), text: gitText(path, g) };
-  }
-  return { git: null, dir: shortPath(path), text: shortPath(path) };
+  return line(path, g);
+}
+
+// wsLine is the same line for a workspace: the folder it registers and the
+// branch that folder is on. A workspace has this line even with nobody in it
+// (ADR-0027), which is the only way an empty project reaches its own files
+// and history.
+export function wsLine(ws) {
+  const g = (ws && ws.git) || null;
+  const path = (ws && ws.path) || "";
+  return line(path, g);
 }
 
 // termLine is the same line for a terminal, whose path is its live pane cwd.
 export function termLine(t) {
   const g = (t && t.git) || null;
   const path = (t && t.cwd) || "";
-  if (g && (g.branch || g.worktree)) {
-    return { git: g, dir: shortPath(path), text: gitText(path, g) };
-  }
-  return { git: null, dir: shortPath(path), text: shortPath(path) };
+  return line(path, g);
 }

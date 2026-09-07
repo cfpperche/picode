@@ -66,7 +66,7 @@ export function readGitOwners() {
     const out = {};
     for (const [tab, owner] of Object.entries(j)) {
       if (!owner || typeof owner !== "object") continue;
-      const kind = owner.kind === "term" ? "term" : "agent";
+      const kind = owner.kind === "term" || owner.kind === "workspace" ? owner.kind : "agent";
       const id = String(owner.id || "");
       if (id) out[tab] = { kind, id, name: String(owner.name || "") };
     }

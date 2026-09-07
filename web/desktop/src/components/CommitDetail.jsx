@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { hunksFromDiff, countOf } from "@picode/shared/domain/diff.js";
+import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import DiffLine from "./DiffLine.jsx";
 import GitAssetPreview from "./GitAssetPreview.jsx";
 import { IconChevronRight } from "./Icons.jsx";
@@ -21,7 +22,7 @@ export default function CommitDetail({ owner, hash, onClose, onSelectCommit }) {
   const [error, setError] = useState("");
   const [open, setOpen] = useState({});
 
-  const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
+  const base = ownerBase(owner);
   const ownerId = owner ? owner.id : "";
 
   useEffect(() => {

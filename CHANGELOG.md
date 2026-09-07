@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **A workspace reaches its own files and history with nobody in it:** the
+  sidebar card now carries the workspace's folder and branch as the same two
+  pills its agent and terminal rows have. The branch pill (with its dirty
+  count) opens the git graph of the project, the folder pill its file tree —
+  no agent and no terminal required. The graph, the commit details and the
+  uncommitted changes read through `/api/workspaces/{id}/…`, which the
+  server has answered since ADR-0030; a workspace-owned graph tab now also
+  survives a reload and a deep link (`#/git/w/<id>`) instead of reporting
+  "That agent is gone".
+
 - **Repository picker in the clone form:** the New-workspace "Clone
   repository" URL field is now a filterable combobox fed by the GitHub
   repositories behind the machine's own `gh` login (`gh repo list` via the
@@ -24,6 +34,18 @@ to the `[Unreleased]` section. The repository's official language is English
   one line with the one action that fixes it (install guide / copy the
   `gh auth login` command); mobile gets the same list as a tap-to-open
   picker next to the URL field.
+
+### Changed
+
+- **The workspace card's actions are two, not five:** a **New** menu (agent,
+  shell terminal, Agent CLI terminal) and one overflow menu holding Files,
+  Git graph, Sessions and Remove workspace. Both triggers stay visible at
+  rest — the old strip appeared only on hover, out of reach of touch — and
+  the destructive action no longer sits beside the creative one. The menu
+  hides Git graph on a folder that is not a repository and Sessions while
+  the workspace has no agents, where the route answers 409. The empty state
+  gained its two actions: "Empty — *add an agent* or *a terminal*".
+  See `docs/benchmarks/2026-09-07-workspace-card-toolbar.md`.
 
 ### Fixed
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
+import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import { useDebounced } from "../lib/useDebounced.js";
 import { matchCommits, MIN_QUERY } from "../lib/gitgraphSearch.js";
 import { walkParams, resolveSelection } from "../lib/gitgraphBranches.js";
@@ -118,7 +119,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
     setMatchIdx((i) => (i + (e.shiftKey ? -1 : 1) + matchList.length) % matchList.length);
   };
 
-  const base = owner && owner.kind === "term" ? "/api/terminals/" : "/api/agents/";
+  const base = ownerBase(owner);
   const ownerId = owner ? owner.id : "";
 
   // onKey lives in a ref so `load` stays stable across parent re-renders. The

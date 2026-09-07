@@ -11,7 +11,7 @@ import { checklistLine, checklistRows, countDone } from "@picode/shared/domain/c
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 
-function RowMenu({ label, children }) {
+export function RowMenu({ label, children }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -34,7 +34,7 @@ function RowMenu({ label, children }) {
   );
 }
 
-function RowMenuItem({ children, onSelect, danger = false }) {
+export function RowMenuItem({ children, onSelect, danger = false }) {
   return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect}>{children}</DropdownMenu.Item>;
 }
 
@@ -70,7 +70,7 @@ function TerminalStatus({ term }) {
   );
 }
 
-function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGraph }) {
+export function ContextLine({ line, ownerKind, ownerId, ownerLabel, onFileTree, onGitGraph }) {
   return (
     <div className="ws-context">
       <button

@@ -1127,14 +1127,31 @@ img.ws-face.term-cli-face {
 .term-cli-glyph { display: inline-flex; align-items: center; justify-content: center; }
 .term-cli-favicon { width: 16px; height: 16px; display: block; object-fit: contain; }
 .term-cli-label { white-space: nowrap; }
-/* Keep the group header actions usable without reserving a second row. */
+/* Keep the group header actions usable without reserving a second row. The
+   two triggers stay legible at rest — hiding a control until hover puts it
+   out of reach of touch and of anyone scanning the card (WCAG 1.4.13) — and
+   come forward on hover, focus or while their menu is open. */
 .ws-group-head { position: relative; }
 .ws-group-actions {
-  display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity .12s;
+  display: flex; gap: 2px; flex: none; opacity: .55; transition: opacity .12s;
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  padding-left: 8px; background: linear-gradient(90deg, transparent, var(--bg-panel) 8px);
 }
-.ws-group:hover .ws-group-actions, .ws-group:focus-within .ws-group-actions { opacity: 1; }
+/* The triggers now hold a fixed gutter on the right of every header, so the
+   collapsed face strip ends before them and the name ellipsizes instead of
+   sliding underneath (it used to be masked by a gradient, which only worked
+   while the actions were invisible at rest). */
+.ws-group-head .tree-meta { padding-right: 56px; }
+.ws-group:hover .ws-group-actions, .ws-group:focus-within .ws-group-actions,
+.ws-group-actions:has([data-state="open"]) { opacity: 1; }
+/* The row menu's trigger is tuned to the taller agent row; in this header it
+   matches the icon button beside it. */
+.ws-group-actions .ws-row-menu-trigger { width: 24px; height: 22px; margin-top: 0; }
+/* The workspace's own folder/branch pills, in the same column as the empty
+   state below them, so both sub-lines start under the workspace name. */
+.ws-group > .ws-context {
+  margin: 1px 4px 2px;
+  padding-left: calc(var(--tree-chev) + var(--tree-gap) + var(--tree-icon) + var(--tree-gap));
+}
 
 .side-foot { padding: 8px; border-top: 1px solid var(--border); }
 
