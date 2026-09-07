@@ -27,6 +27,7 @@ import (
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/clijob"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/docker"
 	"github.com/cfpperche/picode/internal/feed"
@@ -72,8 +73,9 @@ type Deps struct {
 	// previous graceful shutdown and did not survive to this boot. Set once
 	// by the daemon before New; nil-safe everywhere.
 	LostSessions map[string]bool
-	CLIs         *CLITerminals // terminal launch settings and operation locks (ADR-0069)
-	Auth         *auth.Service // request gate (ADR-0049); nil = ungated (tests, dev)
+	CLIs         *CLITerminals   // terminal launch settings and operation locks (ADR-0069)
+	CLIJobs      *clijob.Service // durable CLI lifecycle jobs (ADR-0087); nil-safe = 503 on the routes
+	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -114,6 +116,14 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.Store != nil && deps.LlamaJobs == nil {
 		deps.LlamaJobs, _ = llamajob.New(deps.Store, func() (string, string) { return llamaURL(), catalog.LlamaKey() })
 	}
+	if deps.Store != nil && deps.CLIJobs == nil {
+		deps.CLIJobs, _ = clijob.New(clijob.Deps{
+			Store:         deps.Store,
+			Resolve:       func(cli, action string) (clijob.Exec, error) { return resolveLifecycleByID(deps, cli, action) },
+			LiveTerminals: func(cli string) int { return liveTerminalsFor(deps, cli) },
+			AfterSuccess:  func(cli, action string) { refreshCLICheckAfterJob(deps, cli) },
+		})
+	}
 	registerAll(mux, deps)
 
 	var handler http.Handler = mux
@@ -127,6 +137,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.LlamaJobs != nil {
 		srv.RegisterOnShutdown(deps.LlamaJobs.Close)
+	}
+	if deps.CLIJobs != nil {
+		srv.RegisterOnShutdown(deps.CLIJobs.Close)
 	}
 	return srv
 }
