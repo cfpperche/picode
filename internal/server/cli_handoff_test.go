@@ -43,6 +43,23 @@ func handoffServer(t *testing.T) (ts *httptest.Server, deps Deps, dataDir, home 
 	return ts, deps, dataDir, home
 }
 
+// cleanupTerm kills the tmux session of a terminal a handoff opened. It is
+// registered before anything is asserted about the response: a failed
+// assertion must not leak a live pane, which is how 39 of them piled up
+// during this feature's own test runs.
+func cleanupTerm(t *testing.T, res map[string]any) map[string]any {
+	t.Helper()
+	term, _ := res["terminal"].(map[string]any)
+	if term == nil {
+		return nil
+	}
+	id, _ := term["id"].(string)
+	if id != "" {
+		t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id)) })
+	}
+	return term
+}
+
 // fakeCLI installs a CLI executable that records its argv to $QA_OUTPUT.args
 // and then stays attached, and registers it for the catalog id.
 func fakeCLI(t *testing.T, ts *httptest.Server, home, cli string) (bin, out string) {
@@ -211,10 +228,9 @@ func TestHandoffNativeClaudeToCodexCreatesRolloutAndTerminal(t *testing.T) {
 	_, out := fakeCLI(t, ts, home, "codex")
 
 	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "codex"}, 201)
+	term := cleanupTerm(t, res)
 	target := res["target"].(map[string]any)
-	term := res["terminal"].(map[string]any)
-	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(term["id"].(string))) })
-	if term["launchError"] != nil {
+	if term == nil || term["launchError"] != nil {
 		t.Fatalf("launch error: %v", term["launchError"])
 	}
 	rollout := target["path"].(string)
@@ -266,8 +282,7 @@ func TestHandoffBriefWritesFileAndPromptArgs(t *testing.T) {
 	_, codexOut := fakeCLI(t, ts, home, "codex")
 
 	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "grok", "mode": "brief"}, 201)
-	term := res["terminal"].(map[string]any)
-	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(term["id"].(string))) })
+	cleanupTerm(t, res)
 	brief := res["brief"].(map[string]any)["path"].(string)
 	if !strings.HasPrefix(brief, filepath.Join(dataDir, "handoffs")) || !strings.HasSuffix(brief, "brief.md") {
 		t.Fatalf("brief path = %s", brief)
@@ -293,8 +308,7 @@ func TestHandoffBriefWritesFileAndPromptArgs(t *testing.T) {
 
 	// Codex cannot pre-assign an id: no targetId, positional prompt only.
 	res = cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "codex", "mode": "brief"}, 201)
-	term = res["terminal"].(map[string]any)
-	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(term["id"].(string))) })
+	cleanupTerm(t, res)
 	argv = strings.Split(strings.TrimSuffix(string(waitCLIFile(t, codexOut+".args")), "\x00"), "\x00")
 	if len(argv) != 1 || !strings.HasPrefix(argv[0], "Continue a session handed off") {
 		t.Fatalf("codex launched with %q", argv)
@@ -381,8 +395,7 @@ func TestHandoffLiveSourceNeedsForce(t *testing.T) {
 	}
 	body["force"] = true
 	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", body, 201)
-	term := res["terminal"].(map[string]any)
-	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(term["id"].(string))) })
+	cleanupTerm(t, res)
 	warnings := res["manifest"].(map[string]any)["warnings"].([]any)
 	if len(warnings) != 1 || !strings.Contains(warnings[0].(string), "live claude was still writing") {
 		t.Fatalf("forced handoff must warn: %v", warnings)
