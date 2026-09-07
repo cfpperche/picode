@@ -48,7 +48,6 @@
 
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 - `feat/mobile-v2` (+ `-chat`, `-lists`, `-tools`) — worktrees on disk, no commits yet.
-- `feat/handoff-round2` — ADR renumbering; every Agent CLI now gives and receives a handoff.
 
 ## Next up
 

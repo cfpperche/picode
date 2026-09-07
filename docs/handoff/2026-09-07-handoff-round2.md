@@ -26,4 +26,6 @@ the session and every message; stamps must move forward, so the note leads
 the conversation in time. Also killed 39 tmux panes leaked by this
 feature's own failing test runs; the tests now clean up before asserting.
 
+Merge: fast-forwarded main to `5c0ca4da`; `make ci` green on main. Deploy rides the next batch.
+
 Not done: lineage polish; codex scan cache.
