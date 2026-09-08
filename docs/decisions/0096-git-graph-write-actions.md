@@ -242,3 +242,11 @@ contract: the `type` / `run` routes accept what they always accepted. Nothing
 here makes the doors safer against a hostile client than ADR-0078 left them;
 what changed is that an honest client can no longer get the quoting or the
 tier wrong.
+
+## Amendment (2026-09-08, later): the ask door reaches pi terminals
+
+The review above still listed the ask door as unexercised. Trying it on the
+owner's own instance showed why: the owner runs pi as an Agent CLI terminal,
+and the door reached only agents of the store. ADR-0089's amendment of the
+same day opens it, narrowly, to pi terminals with a live receiver; the graph
+lists them as occupants and asks them through `POST /api/terminals/{id}/ask`.

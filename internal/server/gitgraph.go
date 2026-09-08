@@ -32,6 +32,13 @@ const (
 type occupant struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Kind is "agent" (omitted, the default) or "terminal": a pi launched as
+	// an Agent CLI terminal lives in a worktree as much as an agent does, and
+	// since ADR-0089's amendment it can be asked the same way. Live says its
+	// CLI is up right now (authoritative presence, ADR-0062); the browser
+	// has no other source of that fact for a terminal.
+	Kind string `json:"kind,omitempty"`
+	Live bool   `json:"live,omitempty"`
 }
 
 type worktreeView struct {
@@ -321,6 +328,37 @@ func (deps Deps) occupantsByWorktree(g *gitgraph.Graph) map[string][]occupant {
 			}
 		}
 		out[root] = append(out[root], occupant{ID: a.ID, Name: a.Name})
+	}
+	// Terminals hosting pi (ADR-0089 amendment). The recorded cwd is used
+	// rather than the live pane cwd: a TUI owns its pane, so the folder it
+	// was launched in is the folder it is in, and reading the live one would
+	// cost a tmux call per terminal on every graph load.
+	if terms, err := deps.Store.ListTerminals(); err == nil {
+		for _, t := range terms {
+			if !termHostsPi(deps, t.ID) {
+				continue
+			}
+			cwd := canonDir(t.Cwd)
+			if cwd == "" {
+				continue
+			}
+			root, exact := deepestRoot(roots, cwd)
+			if root == "" {
+				continue
+			}
+			if !exact {
+				key, seen := keyOf[cwd]
+				if !seen {
+					key = gitKeyOf(cwd)
+					keyOf[cwd] = key
+				}
+				if key != g.Key {
+					continue
+				}
+			}
+			_, live := deps.TermRuntimes.Get(t.ID)
+			out[root] = append(out[root], occupant{ID: t.ID, Name: t.Name, Kind: "terminal", Live: live})
+		}
 	}
 	return out
 }

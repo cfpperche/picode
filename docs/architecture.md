@@ -946,6 +946,15 @@ HTTP API (Go 1.22 method patterns):
   a human does not press Enter, asks for a typed phrase first. Before typing
   anything, the door clears the prompt line, so a command an earlier Prepare
   left unsubmitted cannot take the next one onto its end.
+- `POST /api/terminals/{id}/ask` and `…/tui-hello`, `…/tui-ack` — the ask
+  door for a pi running as an Agent CLI terminal (ADR-0089, amended
+  2026-09-08). The receiver extension is injected into pi terminals by the
+  wrapper and identifies itself by `PICODE_TERM_ID`; its hello names the
+  session it shows. An ask is delivered only through that receiver
+  (`tui-inbox/term-<id>/`), never pasted; refusals are `no-receiver`,
+  `no-session`, `moved`, `busy`, `stopped`, and `cli` for any other CLI.
+  Provenance is an event, since the task queue belongs to agents. The graph
+  lists such terminals as worktree occupants (`kind: "terminal"`, `live`).
 - `GET /api/{agents|terminals|workspaces}/{id}/git/commit?hash=`
   — one commit with its message body and its patch, already split per file.
   `hash` must be a full object name (40/64 hex): it is the only user-supplied

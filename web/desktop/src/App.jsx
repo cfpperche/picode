@@ -1132,7 +1132,7 @@ export default function App() {
     // transient failure at boot does not leave the graph read-only for the
     // rest of the session.
     if (!gitCatalog) loadGitCatalog();
-    const menu = graphActions(target, graph, { workspaces, freeAgents, catalog: gitCatalog });
+    const menu = graphActions(target, graph, { workspaces, freeAgents, terminals, catalog: gitCatalog });
     if (!menu.title) return;
     if (!gitCatalog && gitCatalogFailed) menu.state = [menu.state, "Git actions are unavailable: the server did not answer the action catalog."].filter(Boolean).join(" ");
     const here = (menu.occupants || []).filter((o) => o.running !== false);
@@ -1177,7 +1177,10 @@ export default function App() {
   // own form, instead of also being toasted — one report per failure.
   async function askAgentGit(who, text, root, action, verb, { quiet = false } = {}) {
     try {
-      const res = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", {
+      // A pi running as an Agent CLI terminal is asked through its receiver
+      // (ADR-0089 amendment); an agent through its own channel (ADR-0078).
+      const base = who.kind === "terminal" ? "/api/terminals/" : "/api/agents/";
+      const res = await api(base + encodeURIComponent(who.id) + "/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, root }),
@@ -3064,6 +3067,7 @@ export default function App() {
         onTheme={setTheme}
         termHandlers={termMenuHandlers}
         onOpenAgent={revealAgent}
+        onOpenTerminal={openTermTab}
         onGraphAction={openGraphAction}
       />
 

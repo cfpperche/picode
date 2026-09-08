@@ -37,20 +37,44 @@ function agentsById(ctx) {
   return map;
 }
 
-// repoOccupants names every agent living in a worktree of this repository,
-// with the liveness the sidebar already knows. The server decided who lives
-// where; this only joins on id.
+// terminalsById indexes the app's terminal list the same way, for the pi
+// CLI terminals the server lists as occupants (ADR-0089 amendment).
+function terminalsById(ctx) {
+  const map = new Map();
+  for (const t of (ctx && ctx.terminals) || []) if (t && t.id) map.set(t.id, t);
+  return map;
+}
+
+// repoOccupants names everyone living in a worktree of this repository —
+// agents, and pi launched as an Agent CLI terminal — with the liveness the
+// sidebar already knows. The server decided who lives where; this only
+// joins on id. A terminal's `running` is the server's own presence fact
+// (`live`), refined by the sidebar's `running: false` when it has one.
 export function repoOccupants(graph, ctx = {}) {
-  const known = agentsById(ctx);
+  const agents = agentsById(ctx);
+  const terminals = terminalsById(ctx);
   const seen = new Set();
   const out = [];
   for (const wt of (graph && graph.worktrees) || []) {
     for (const a of (wt && wt.agents) || []) {
       if (!a || !a.id || seen.has(a.id)) continue;
       seen.add(a.id);
-      const live = known.get(a.id) || {};
+      if (a.kind === "terminal") {
+        const live = terminals.get(a.id) || {};
+        out.push({
+          id: a.id,
+          kind: "terminal",
+          name: a.name || live.name || "terminal",
+          streaming: String(live.state || "") === "working",
+          running: !!a.live && live.running !== false,
+          worktree: wt.path || "",
+        });
+        continue;
+      }
+      const live = agents.get(a.id) || {};
       out.push({
         id: a.id,
+        kind: "agent",
         name: a.name || live.name || "agent",
         streaming: !!live.streaming,
         running: live.running !== false,
@@ -83,18 +107,19 @@ function worktreeOf(graph, ref) {
   return wts.find((wt) => wt.branch && ref && wt.branch === ref.name) || null;
 }
 
+// openAgentItems: one row per occupant of the worktree, opening the tab that
+// already exists — an agent's conversation, or a pi terminal's pane.
 function openAgentItems(worktree, occupants) {
   const here = (worktree && worktree.agents) || [];
   return here
     .filter((a) => a && a.id)
     .map((a) => {
       const live = occupants.find((o) => o.id === a.id);
-      return {
-        id: "open-agent:" + a.id,
-        label: `Open ${a.name || (live && live.name) || "agent"}`,
-        kind: "open-agent",
-        agentId: a.id,
-      };
+      const name = a.name || (live && live.name) || (a.kind === "terminal" ? "terminal" : "agent");
+      if (a.kind === "terminal") {
+        return { id: "open-terminal:" + a.id, label: `Open ${name}`, kind: "open-terminal", terminalId: a.id };
+      }
+      return { id: "open-agent:" + a.id, label: `Open ${name}`, kind: "open-agent", agentId: a.id };
     });
 }
 

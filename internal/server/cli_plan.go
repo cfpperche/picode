@@ -22,9 +22,12 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Branches = append(p.Branches, clilaunch.Injection{When: "Every launch", Args: []string{"--settings", claudeSettingsFile(dir)}})
 		p.Files = append(p.Files, claudeSettingsFile(dir))
 	case "pi":
-		p.Summary = "Activity extension via -e"
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance or help/version)", Args: []string{"-e", piTerminalStateExtensionFile(dir)}})
-		p.Files = append(p.Files, piTerminalStateExtensionFile(dir))
+		p.Summary = "Activity and Ask-receiver extensions via -e"
+		// The receiver (ADR-0060) rides along since ADR-0089's amendment: it is
+		// what lets the git graph and the Inspector ask this pi to do a git
+		// action in its own turn, with the session row as proof.
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance or help/version)", Args: []string{"-e", piTerminalStateExtensionFile(dir), "-e", piReplyExtensionFile(dir)}})
+		p.Files = append(p.Files, piTerminalStateExtensionFile(dir), piReplyExtensionFile(dir))
 	case "codex":
 		p.Summary = "Hooks or completion fallback via -c"
 		full := []string{}

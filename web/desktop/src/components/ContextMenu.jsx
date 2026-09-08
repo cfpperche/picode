@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
-  IconAgent, IconGit, IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
+  IconAgent, IconGit, IconMonitor, IconTerminal, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
@@ -29,7 +29,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onGraphAction }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -81,6 +81,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
       ran.current = true;
       if (item.kind === "copy") copyText(item.value);
       else if (item.kind === "open-agent" && onOpenAgent) onOpenAgent(item.agentId);
+      else if (item.kind === "open-terminal" && onOpenTerminal) onOpenTerminal(item.terminalId);
       // A write row opens the form; nothing is composed or sent from a menu.
       else if (item.kind === "action" && onGraphAction) onGraphAction(item, graphCtx);
     };
@@ -150,6 +151,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
 function graphIcon(item) {
   if (item.kind === "copy") return <IconCopy />;
   if (item.kind === "open-agent") return <IconAgent />;
+  if (item.kind === "open-terminal") return <IconTerminal />;
   return <IconGit />;
 }
 

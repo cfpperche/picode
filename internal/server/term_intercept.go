@@ -386,6 +386,11 @@ func writePiIntercept(dataDir, hook string) error {
 	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
+	// The wrapper names the receiver too (cliIntegrationPlan), so it has to
+	// exist before the first pi launches through it.
+	if _, err := ensurePiReplyExtension(dataDir); err != nil {
+		return err
+	}
 	piArgs := quotedCLIArgs(cliIntegrationPlan("pi", dataDir, hook).Branches[0].Args)
 	wrapper := "#!/bin/sh\n# PiCode intercept — Pi TUI. Session PATH only.\nname=pi\n" +
 		wrapperFindReal +

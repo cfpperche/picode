@@ -99,3 +99,37 @@ reads its path once, at paste time, and nothing deletes the file after —
 a project accumulates every image ever attached, forever. `dropMaxAge`
 (7 days) is now swept opportunistically on the next drop into the same
 project; no daemon, no ticker to forget to wire up.
+
+## Amendment (2026-09-08): a pi terminal can be asked, through its receiver
+
+Owner's decision, 2026-09-08, after ADR-0096 shipped the graph's three doors:
+the owner works in pi **as an Agent CLI terminal** for now (the managed chat
+still has bugs), and the graph's *ask* door had nobody to ask there — it
+reached only agents of the store.
+
+Rule 3 above ("Only this user-initiated Send") gains one named exception,
+and only one: **a terminal hosting pi whose ADR-0060 receiver has said hello
+within the TTL and named the session it is showing** may be asked by the git
+graph and the Inspector — `POST /api/terminals/{id}/ask {text, root}`. The
+prompt travels as a one-shot reply file under `tui-inbox/term-<id>/`, the TUI
+submits it through `pi.sendUserMessage`, the receiver acks, and the JSONL
+row is the proof, exactly as for an interactive agent. Nothing is ever pasted
+or typed into the pane: no receiver, no session, another repository, a
+message already in flight, pi not running — each is a 409 that names itself
+(`no-receiver`, `no-session`, `moved`, `busy`, `stopped`), and a terminal
+hosting any other CLI, or a plain shell, answers `cli` as before.
+
+What made it possible without a new mechanism: the receiver extension now
+takes its identity from `PICODE_TERM_ID` when it has no `PICODE_AGENT_ID`,
+and the pi wrapper injects it (`-e`) beside the activity extension, so a pi
+launched as a terminal carries the same receiver an interactive agent does.
+Its hello carries the session file — the one fact a terminal, unlike an
+agent, has no record of. Provenance is an event (`terminal_ask_delivered` /
+`terminal_ask_failed`), not a task: `tasks.agent_id` references `agents`,
+and a terminal is not one.
+
+The graph lists such terminals as occupants of their worktree
+(`kind: "terminal"`, with the server's own presence as `live`), offers
+**Open \<name\>** into the pane, and **Ask \<name\>** in the action form.
+Claude Code, Codex, Grok, Hermes and OpenCode terminals stay exactly where
+rule 3 left them: no receiver, no ask.

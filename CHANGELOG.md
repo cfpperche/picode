@@ -102,6 +102,14 @@ to the `[Unreleased]` section. The repository's official language is English
   longer describes a bar that stands under the pane on desktop; it opens
   from the menu now.
   [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
+- **"Ask Pi" reaches pi running as a terminal.** A pi launched from Agent
+  CLIs now carries the same receiver an interactive agent does, so the git
+  graph lists it beside the agents of its worktree, offers **Open Pi** into
+  its pane, and can ask it to do a git action in its own turn — delivered
+  through the receiver with the session row as proof, never pasted. Without
+  a live receiver or a named session the option is absent and the request
+  says why. Other CLIs (Claude Code, Codex…) are unchanged: no receiver, no
+  ask.
 - **The git graph acts on what you point at.** Thirty-odd git actions bound
   to the row or pill under the cursor — create a branch, tag or worktree,
   check out, merge, rebase, cherry-pick, revert, reset, pull, push, delete —

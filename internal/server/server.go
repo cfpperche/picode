@@ -209,6 +209,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPRRoutes(mux, deps)
 	registerGitRunRoutes(mux, deps)
 	registerGitComposeRoutes(mux, deps)
+	registerTerminalAskRoutes(mux, deps)
 	registerDeployRoutes(mux, deps)
 	registerAgentAskRoutes(mux, deps)
 	registerWorkspaceFileRoutes(mux, deps)

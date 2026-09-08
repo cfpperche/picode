@@ -133,16 +133,22 @@ type replyAck struct {
 type TuiReplies struct {
 	Controls *AgentControls
 
-	mu     sync.Mutex
-	hello  map[string]time.Time
-	active map[string]bool
-	acks   map[string]chan replyAck
+	mu    sync.Mutex
+	hello map[string]time.Time
+	// session is the JSONL a terminal's receiver said it was showing at its
+	// last hello (ADR-0089 amendment). Agents keep their session on the
+	// agent record; a terminal has no such record, so the hello is the one
+	// place the daemon learns which conversation an Ask would land in.
+	session map[string]string
+	active  map[string]bool
+	acks    map[string]chan replyAck
 }
 
 func newTuiReplies() *TuiReplies {
 	return &TuiReplies{
 		Controls: newAgentControls(),
 		hello:    map[string]time.Time{},
+		session:  map[string]string{},
 		active:   map[string]bool{},
 		acks:     map[string]chan replyAck{},
 	}
@@ -156,6 +162,36 @@ func (t *TuiReplies) Hello(agentID string) {
 	t.mu.Lock()
 	t.hello[agentID] = time.Now()
 	t.mu.Unlock()
+}
+
+// HelloSession records a hello together with the session file the receiver
+// reported. An empty session still counts as a hello — the receiver is alive
+// — but leaves nothing to ask into until the next one names a file.
+func (t *TuiReplies) HelloSession(key, sessionPath string) {
+	if t == nil || strings.TrimSpace(key) == "" {
+		return
+	}
+	t.mu.Lock()
+	t.hello[key] = time.Now()
+	if p := strings.TrimSpace(sessionPath); p != "" {
+		t.session[key] = p
+	}
+	t.mu.Unlock()
+}
+
+// receiverSession is the session file a fresh receiver last reported, or ""
+// when the hello is stale or never carried one.
+func (t *TuiReplies) receiverSession(key string) string {
+	if t == nil {
+		return ""
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	at, ok := t.hello[key]
+	if !ok || time.Since(at) > receiverHelloTTL {
+		return ""
+	}
+	return t.session[key]
 }
 
 // receiverFresh reports whether this agent's TUI recently announced a

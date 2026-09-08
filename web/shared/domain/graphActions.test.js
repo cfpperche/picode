@@ -554,3 +554,50 @@ test("a detached checkout's dirty row offers commit but never commit-and-push", 
   assert.ok(actions.includes("commit"));
   assert.ok(!actions.includes("commit-push"));
 });
+
+
+// --- pi terminals as occupants (ADR-0089 amendment) -----------------------
+
+function graphWithTerminal() {
+  const g = graph();
+  g.worktrees[0].agents = [{ id: "t1", name: "Pi", kind: "terminal", live: true }];
+  return g;
+}
+
+test("a pi terminal is an occupant, running by the server's presence fact", () => {
+  const list = repoOccupants(graphWithTerminal(), { ...ctx, terminals: [{ id: "t1", name: "Pi", state: "working" }] });
+  const term = list.find((o) => o.id === "t1");
+  assert.deepEqual([term.kind, term.name, term.running, term.streaming], ["terminal", "Pi", true, true]);
+  // The agent beside it keeps its own shape.
+  assert.equal(list.find((o) => o.id === "a1").kind, "agent");
+});
+
+test("a pi terminal whose CLI exited is not running, whatever the sidebar says", () => {
+  const g = graphWithTerminal();
+  g.worktrees[0].agents[0].live = false;
+  const term = repoOccupants(g, { ...ctx, terminals: [{ id: "t1", name: "Pi", running: true }] }).find((o) => o.id === "t1");
+  assert.equal(term.running, false);
+  // And the sidebar's explicit `running: false` wins over a stale live flag.
+  const g2 = graphWithTerminal();
+  const term2 = repoOccupants(g2, { ...ctx, terminals: [{ id: "t1", name: "Pi", running: false }] }).find((o) => o.id === "t1");
+  assert.equal(term2.running, false);
+});
+
+test("a working pi terminal is what the busy line names", () => {
+  const list = repoOccupants(graphWithTerminal(), { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "Pi", state: "working" }] });
+  assert.equal(busyLine(list), "Pi is mid-turn in this repository.");
+});
+
+test("a worktree row opens a pi terminal's pane, not an agent's conversation", () => {
+  const g = graphWithTerminal();
+  const menu = graphActions({ kind: "worktree", worktree: g.worktrees[0] }, g, wctx);
+  const open = menu.items.find((i) => i.id === "open-terminal:t1");
+  assert.ok(open, "no open-terminal row");
+  assert.deepEqual([open.kind, open.label, open.terminalId], ["open-terminal", "Open Pi", "t1"]);
+});
+
+test("every menu's occupants carry their kind, so the ask door can route", () => {
+  const g = graphWithTerminal();
+  const menu = graphActions({ kind: "commit", commit: { hash: "z".repeat(40) } }, g, { ...wctx, terminals: [{ id: "t1", name: "Pi" }] });
+  assert.deepEqual(menu.occupants.map((o) => [o.id, o.kind]), [["t1", "terminal"], ["a1", "agent"]]);
+});

@@ -1,9 +1,12 @@
 // PiCode Inbox reply receiver (ADR-0060). Injected with -e into interactive
-// agents spawned by PiCode. It consumes the daemon's one-shot reply files and
-// submits each reply through the TUI's own message path, so it renders in
-// this terminal exactly like a typed message — queued natively while a turn
-// is streaming. It also says hello every few minutes so the daemon knows a
-// live receiver exists before choosing this channel over tmux paste.
+// agents spawned by PiCode and, since ADR-0089's 2026-09-08 amendment, into
+// pi launched as an Agent CLI terminal. It consumes the daemon's one-shot
+// reply files and submits each reply through the TUI's own message path, so
+// it renders in this terminal exactly like a typed message — queued natively
+// while a turn is streaming. It also says hello every few minutes so the
+// daemon knows a live receiver exists before choosing this channel over tmux
+// paste; a terminal's hello carries its session file, which is how the
+// daemon learns which conversation an Ask would land in.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, watch as fsWatch } from "node:fs";
 import { homedir } from "node:os";
@@ -12,10 +15,22 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
 const agentID = (process.env.PICODE_AGENT_ID || "").trim();
+const termID = (process.env.PICODE_TERM_ID || "").trim();
+// An agent's identity wins: a pi spawned by PiCode as an agent also has a
+// terminal id, and its replies must keep landing where they always did.
+const owner = agentID ? { kind: "agents", id: agentID, dir: agentID } : termID ? { kind: "terminals", id: termID, dir: "term-" + termID } : null;
 const dataDir = process.env.PICODE_DATA || join(homedir(), ".picode");
 
-/** Re-read server.json every post: the port can rebind at runtime. */
+/**
+ * Where the daemon answers. A terminal is told outright through
+ * PICODE_TERM_URL (ADR-0056 — the same variable the activity hook uses), which
+ * also keeps a pi launched by a scratch instance from reporting to the
+ * production one; an agent re-reads server.json every post, since the port
+ * can rebind at runtime.
+ */
 function serverBase() {
+	const told = (process.env.PICODE_TERM_URL || "").trim();
+	if (owner && owner.kind === "terminals" && told) return told.replace("//127.0.0.1:", "//localhost:");
 	try {
 		const raw = JSON.parse(readFileSync(join(dataDir, "server.json"), "utf8"));
 		const url = String(raw.url || "").trim();
@@ -62,9 +77,9 @@ function post(path, body) {
 }
 
 export default function (pi) {
-	if (!agentID) return;
+	if (!owner) return;
 
-	const replyDir = join(dataDir, "tui-inbox", agentID);
+	const replyDir = join(dataDir, "tui-inbox", owner.dir);
 	let latestCtx = null;
 	let draining = false;
 
@@ -77,7 +92,7 @@ export default function (pi) {
 	};
 
 	const hello = () => {
-		void post(`/api/agents/${agentID}/tui-hello`, { session: sessionFile() });
+		void post(`/api/${owner.kind}/${owner.id}/tui-hello`, { session: sessionFile() });
 	};
 
 	async function drain() {
@@ -99,7 +114,7 @@ export default function (pi) {
 					try {
 						unlinkSync(file);
 					} catch {}
-					await post(`/api/agents/${agentID}/tui-ack`, { nonce: doc.nonce, ok, reason });
+					await post(`/api/${owner.kind}/${owner.id}/tui-ack`, { nonce: doc.nonce, ok, reason });
 				};
 				const age = Date.now() - (doc.createdAt ? Date.parse(doc.createdAt) : 0);
 				if (!doc.nonce || !doc.payload || (Number.isFinite(age) && age > 24 * 60 * 60 * 1000)) {
