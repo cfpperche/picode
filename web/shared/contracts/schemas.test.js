@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema } from "./schemas.js";
+import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
@@ -63,4 +63,26 @@ test("commit message is one readable line that cannot read as a flag", () => {
   assert.match(parseForm(commitMessageSchema, { message: "line one\nline two" }).error, /One line/);
   assert.match(parseForm(commitMessageSchema, { message: "--amend" }).error, /dash/);
   assert.match(parseForm(commitMessageSchema, { message: "x".repeat(201) }).error, /200/);
+});
+
+test("roles config validates like the extension (ADR-0028/0033)", () => {
+  const ok = parseForm(rolesConfigSchema, {
+    builtin: { default: { model: "zai/glm-5.3", thinking: "medium" }, vision: null, plan: undefined },
+    custom: [{ name: "redteam", model: "kimi-coding/k3", thinking: "low" }],
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.value.builtin.vision ?? null, null);
+
+  assert.match(parseForm(rolesConfigSchema, {
+    builtin: { default: { model: "glm-5.3" } }, custom: [],
+  }).error, /provider\/id/);
+  assert.match(parseForm(rolesConfigSchema, {
+    builtin: {}, custom: [{ name: "1bad", model: "p/m" }],
+  }).error, /start with a letter/);
+  assert.match(parseForm(rolesConfigSchema, {
+    builtin: {}, custom: [{ name: "auto", model: "p/m" }],
+  }).error, /reserved/);
+  assert.match(parseForm(rolesConfigSchema, {
+    builtin: {}, custom: [{ name: "x", model: "p/m" }, { name: "x", model: "p/q" }],
+  }).error, /duplicated/);
 });

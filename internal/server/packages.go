@@ -20,6 +20,7 @@ func registerPackageRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/packages", handleInstallPackage(deps))
 	mux.HandleFunc("POST /api/packages/update", handleUpdatePackage(deps))
 	mux.HandleFunc("DELETE /api/packages", handleRemovePackage(deps))
+	registerPackageConfigRoutes(mux, deps)
 }
 
 func handlePackageUpdates(deps Deps) http.HandlerFunc {

@@ -11,6 +11,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Packages: view, edit and reset package configuration (pi-roles first,
+  ADR-0098).** Installed packages render as a compact, filterable list
+  (marketplace keeps its cards) and a package with a known config adapter
+  shows **Configure**. The pi-roles editor (`#/packages/config/pi-roles`)
+  edits the same files the extension reads — the workspace
+  `.pi/roles.json` and the per-agent overlay `.pi/roles/<agentId>.json` —
+  and shows the effective merge: inherited slots are visible (and can be
+  overridden for one agent), overrides can fall back to the workspace
+  value with one click, and each layer can be cleared with a confirmed
+  "Clear file…". A file the parser rejects is reported, never silently
+  overwritten (explicit replace). Saves write atomically, preserve
+  unknown keys, announce on the change feed, and say when they apply
+  ("on the agent's next message").
+
 ### Fixed
 
 - **Mobile: the active-tab pill covers the label, and the installed web

@@ -2,9 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
+import { packagesConfigHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
+
+// One-line purpose for packages with a known config editor (ADR-0033
+// amendment #3). Unknown packages stay honest: source and scope only.
+const PKG_DESC = {
+  "pi-roles": "Model roles — route vision, plan or named presets to their own model.",
+};
 
 export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates }) {
   const [data, setData] = useState(null);
@@ -15,6 +22,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const [searching, setSearching] = useState(true);
   const [job, setJob] = useState(null);
   const [tab, setTab] = useState("installed"); // installed | marketplace
+  const [iq, setIq] = useState("");
   const [ownUpdates, setOwnUpdates] = useState([]);
   const behind = updates || ownUpdates;
 
@@ -151,6 +159,11 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   }
 
   const list = data && data.packages ? data.packages : [];
+  const filtered = useMemo(() => {
+    const needle = iq.trim().toLowerCase();
+    if (!needle) return list;
+    return list.filter((p) => (p.source + " " + (PKG_DESC[pkgName(p.source)] || "")).toLowerCase().includes(needle));
+  }, [list, iq]);
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
@@ -227,39 +240,53 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
             <button type="button" className="btn btn-sm" onClick={() => setTab("marketplace")}>Open the Marketplace</button>
           </div>
         ) : (
-          <ul className="pkg-grid" role="tabpanel">
-            {list.map((p) => {
-              const u = behindOf(p);
-              const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
-              return (
-                <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
-                  <div className="pkg-preview" aria-hidden="true">
-                    <div className="pkg-preview-frame"><span /><span /><span /></div>
-                  </div>
-                  <div className="pkg-card-body">
-                    <div className="pkg-card-head">
-                      <span className="pkg-card-name" title={p.source}>{pkgName(p.source)}</span>
+          <>
+            {list.length > 1 ? (
+              <div className="pkg-installed-toolbar" data-align-row>
+                <input
+                  className="pkg-search"
+                  value={iq}
+                  onChange={(e) => setIq(e.target.value)}
+                  placeholder="Filter installed packages…"
+                  aria-label="Filter installed packages"
+                />
+                <span className="pkg-count">{filtered.length === list.length ? list.length + " installed" : filtered.length + " of " + list.length}</span>
+              </div>
+            ) : null}
+            {filtered.length === 0 ? (
+              <p className="pkg-fine">No installed package matches “{iq}”. <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIq("")}>Clear filter</button></p>
+            ) : (
+              <ul className="pkg-rows" role="tabpanel">
+                {filtered.map((p) => {
+                  const u = behindOf(p);
+                  const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
+                  return (
+                    <li key={p.scope + ":" + p.source} className="pkg-row">
+                      <div className="pkg-row-main">
+                        <span className="pkg-row-name" title={p.source}>{pkgName(p.source)}</span>
+                        {PKG_DESC[pkgName(p.source)] ? <span className="pkg-row-desc">{PKG_DESC[pkgName(p.source)]}</span> : null}
+                      </div>
                       <span className="pkg-type">{scopeLabel}</span>
-                    </div>
-                    <p className="pkg-card-desc pkg-src" title={p.source}>{p.kind === "path" && p.installedPath ? p.installedPath : p.source}</p>
-                    <div className="pkg-card-meta">
-                      {p.kind ? <span>{p.kind}</span> : null}
-                      {u && u.current ? <span>{u.current}</span> : null}
-                      {u && u.latest ? <span className="pkg-behind">{u.latest} available</span> : null}
-                      {p.kind !== "path" && p.installedPath ? <span className="pkg-path" title={p.installedPath}>{p.installedPath}</span> : null}
-                    </div>
-                    <div className="pkg-card-foot">
-                      {u ? (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
-                      ) : null}
-                      <span className="pkg-foot-spacer" />
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <span className="pkg-row-meta">
+                        {p.kind || ""}
+                        {u && u.latest ? <em className="pkg-behind">{u.latest} available</em> : null}
+                        {p.installedPath ? <em className="pkg-path" title={p.installedPath}>{p.installedPath}</em> : null}
+                      </span>
+                      <span className="pkg-row-actions">
+                        {p.configKind === "roles" ? (
+                          <a className="btn btn-sm" href={packagesConfigHash("pi-roles")}>Configure</a>
+                        ) : null}
+                        {u ? (
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
+                        ) : null}
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
         )
       ) : (
         <>

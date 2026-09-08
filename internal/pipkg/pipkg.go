@@ -23,6 +23,9 @@ type Pkg struct {
 	Kind          string `json:"kind"`  // npm | git | path
 	Filtered      bool   `json:"filtered,omitempty"`
 	InstalledPath string `json:"installedPath,omitempty"`
+	// ConfigKind names a known config adapter ("roles" for pi-roles),
+	// empty when the package has no GUI editor yet.
+	ConfigKind string `json:"configKind,omitempty"`
 }
 
 // Capabilities are facts derived from installed sources (for later UI gates).
@@ -105,7 +108,7 @@ func WithAgent(rep Report, sources []string) Report {
 		if s == "" {
 			continue
 		}
-		rep.Packages = append(rep.Packages, Pkg{Source: s, Scope: "agent", Kind: KindOf(s)})
+		rep.Packages = append(rep.Packages, Pkg{Source: s, Scope: "agent", Kind: KindOf(s), ConfigKind: ConfigKindOf(s)})
 	}
 	rep.Capabilities.WebSearch = DetectWebSearch(rep.Packages)
 	return rep
@@ -153,6 +156,7 @@ func readSettingsPackages(path, scope, baseDir string) ([]Pkg, error) {
 		p.Scope = scope
 		p.Kind = KindOf(p.Source)
 		p.InstalledPath = existingInstallPath(p, baseDir)
+		p.ConfigKind = ConfigKindOf(p.Source, p.InstalledPath)
 		out = append(out, p)
 	}
 	return out, nil

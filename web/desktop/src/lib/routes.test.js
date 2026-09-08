@@ -6,7 +6,7 @@ test("integrations deep links remain reload-safe", () => {
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) assert.equal(parseRoute(hash), "integrations");
   assert.equal(parseRoute("#/mcps"), "mcps");
 });
-import { parseRoute, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute } from "./routes.js";
+import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -158,4 +158,12 @@ test("app tabs are distinct from every other tab family", () => {
 test("llama manager owns its routes and the legacy link", () => {
  for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
  assert.equal(parseRoute("#/providers/new"), "providers");
+});
+
+test("packages config is a packages subroute carrying the adapter name", () => {
+  assert.equal(parseRoute("#/packages"), "packages");
+  assert.equal(parseRoute("#/packages/config/pi-roles"), "packages");
+  assert.equal(packagesConfigRoute("#/packages/config/pi-roles"), "pi-roles");
+  assert.equal(packagesConfigRoute("#/packages"), null);
+  assert.equal(packagesConfigHash("pi-roles"), "#/packages/config/pi-roles");
 });
