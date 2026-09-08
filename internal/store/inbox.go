@@ -41,6 +41,7 @@ const (
 	InboxQuestion = "question"
 	InboxApproval = "approval"
 	InboxResult   = "result"
+	InboxReminder = "reminder" // a pin's reminder fired (ADR-0100)
 )
 
 // Response verbs (Agent Inbox convention: per-item allow flags).
@@ -67,6 +68,7 @@ const (
 	// (ADR-0045); SourceID is the automation id. Nobody replies to them,
 	// so RespondAndForward never forwards for this kind.
 	InboxFromAutomation = "automation"
+	InboxFromPin        = "pin" // ADR-0100: source_id is the pin
 )
 
 const (
@@ -112,6 +114,7 @@ type InboxItemParams struct {
 // InboxFilter narrows ListInboxItems.
 type InboxFilter struct {
 	State          string // "" = not-done (unread+read)
+	Kind           string // "" = every kind
 	Blocking       *bool
 	IncludeSnoozed bool
 	Limit          int
@@ -159,14 +162,14 @@ func defaultVerbs(kind string) []string {
 
 func normalizeInboxItem(p InboxItemParams) (InboxItemParams, error) {
 	switch p.Kind {
-	case InboxFYI, InboxQuestion, InboxApproval, InboxResult:
+	case InboxFYI, InboxQuestion, InboxApproval, InboxResult, InboxReminder:
 	default:
-		return p, fmt.Errorf("kind must be fyi, question, approval or result")
+		return p, fmt.Errorf("kind must be fyi, question, approval, result or reminder")
 	}
 	switch p.SourceKind {
-	case InboxFromAgent, InboxFromTerminal, InboxFromSystem, InboxFromAutomation:
+	case InboxFromAgent, InboxFromTerminal, InboxFromSystem, InboxFromAutomation, InboxFromPin:
 	default:
-		return p, fmt.Errorf("sourceKind must be agent, terminal, system or automation")
+		return p, fmt.Errorf("sourceKind must be agent, terminal, system, automation or pin")
 	}
 	p.Reason = strings.TrimSpace(p.Reason)
 	if p.Reason == "" {
@@ -264,6 +267,10 @@ func (s *Store) ListInboxItems(f InboxFilter) ([]InboxItem, error) {
 		q += ` AND blocking = ?`
 		args = append(args, boolInt(*f.Blocking))
 	}
+	if f.Kind != "" {
+		q += ` AND kind = ?`
+		args = append(args, f.Kind)
+	}
 	if !f.IncludeSnoozed {
 		q += ` AND (snoozed_until IS NULL OR snoozed_until <= ?)`
 		args = append(args, time.Now().UTC().Format(time.RFC3339))
@@ -360,7 +367,13 @@ func (s *Store) SetInboxItemState(id, state string, snoozedUntil *string) (Inbox
 	if n, _ := res.RowsAffected(); n == 0 {
 		return InboxItem{}, ErrNotFound
 	}
-	return s.inboxChanged(id)
+	it, err := s.inboxChanged(id)
+	if err == nil && state == InboxDone && it.Kind == InboxReminder {
+		// Closing a reminder is the moment a completion-anchored interval
+		// starts counting (ADR-0100).
+		s.reminderClosed(it, now)
+	}
+	return it, err
 }
 
 // AnnotateInboxItem appends a visible note to the item body (e.g. a

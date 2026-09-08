@@ -26,6 +26,7 @@ type Presence interface {
 //	inbox item, blocking, prefs.actions         → push "needs you", tag inbox:<id>
 //	inbox item, non-blocking fyi/question       → skip (the badge is enough)
 //	live dialog (agent waiting), prefs.actions  → push "needs you", tag ask:<agent>
+//	pin.reminded, prefs.reminders               → push "reminder", tag reminder:<inbox item>
 type Notifier struct {
 	Store    *store.Store
 	Sender   *Sender
@@ -73,7 +74,35 @@ func (n *Notifier) OnEvent(ev store.Event) {
 			return
 		}
 		n.OnWaiting(w.AgentID, w.AgentName, w.Title, w.Message)
+	case "pin.reminded":
+		var f store.ReminderFire
+		if err := json.Unmarshal(ev.Data, &f); err != nil || f.PinID == "" || f.InboxID == "" {
+			return
+		}
+		n.OnReminder(f)
 	}
+}
+
+// OnReminder is a pin reminder firing (ADR-0100). The tag doubles as the
+// push Topic, so a retried send replaces the pending one instead of
+// doubling it; the service worker keeps this tag on screen until the
+// person acts (requireInteraction, where the platform honours it).
+func (n *Notifier) OnReminder(f store.ReminderFire) {
+	if n == nil {
+		return
+	}
+	body := f.Label
+	if f.CatchUp {
+		body = firstNonEmpty(f.Label, "reminder") + " · was due earlier"
+	}
+	msg := Message{
+		Title:   "Reminder: " + firstNonEmpty(f.Title, "a pin"),
+		Body:    clip(body, 140),
+		Hash:    "#/pins/" + f.PinID,
+		Tag:     "reminder:" + f.InboxID,
+		Urgency: "high",
+	}
+	go n.deliver("reminders", msg)
 }
 
 // OnInbox decides for one inbox item (created, or a superseded result).

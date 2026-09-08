@@ -38,8 +38,13 @@ self.addEventListener("fetch", event => {
 self.addEventListener("push", event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { title: "PiCode", body: event.data ? event.data.text() : "" }; }
+  // A reminder waits for the person (ADR-0100): requireInteraction where
+  // the platform honours it (Chromium desktop; ignored on Android, absent
+  // on Safari). The Inbox row is the state either way.
+  const sticky = typeof data.tag === "string" && data.tag.startsWith("reminder:");
   event.waitUntil(self.registration.showNotification(data.title || "PiCode", {
     body: data.body || "", tag: data.tag || undefined, renotify: !!data.tag,
+    requireInteraction: sticky || undefined,
     icon: "/icon-192.png", badge: "/icon-192.png",
     data: { hash: typeof data.hash === "string" && data.hash.startsWith("#/") ? data.hash : "#/" },
   }));

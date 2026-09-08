@@ -13,6 +13,27 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Pins: reminders, server side (ADR-0100).** `PUT /api/pins/{id}/reminder`
+  sets one cadence per pin — `once` at a date and time, `interval` every
+  N minutes (at least 5) counted from the schedule or from the moment you
+  close the reminder, or `cron` (five fields) evaluated in the IANA zone
+  the browser sends — and `DELETE` removes it; the rule rides
+  `GET /api/pins/{id}` and the list summary with its next fire and a
+  plain-language label ("every day at 09:00", "every 3 h after you close
+  it"). A one-minute engine (`internal/remind`, same shape as
+  Automations) files each fire as an Inbox item of the new kind
+  `reminder` (source `pin`): the item is the acknowledgement — unread
+  means owed, snoozed means snoozed, done means closed — and the feed
+  announces `pin.reminded`. A fire while the previous item is still open
+  re-raises that item instead of piling up; a snoozed item stays quiet and
+  is re-raised once the snooze ends; a slot missed while PiCode was down
+  fires once with "Was due …" in the body; deleting the pin or the rule
+  closes its open item. Phones with push get a `reminder:<item>` push
+  under a new `reminders` preference (on by default), kept on screen where
+  the platform honours `requireInteraction`. The Inbox app shows the kind
+  with an "Open pin" action. `GET /api/inbox?kind=` filters. The in-app
+  sticky card and the picker are the next slice.
+
 - **Packages: view, edit and reset package configuration (pi-roles first,
   ADR-0099).** Installed packages render as a compact, filterable list
   (marketplace keeps its cards) and a package with a known config adapter
@@ -48,6 +69,13 @@ to the `[Unreleased]` section. The repository's official language is English
   commit; ADR-0086 amended in place (owner-approved).
 
 ### Fixed
+
+- **Schedules in a zone with daylight-saving time no longer hang the
+  daemon.** `internal/cron`'s next-match search stepped the wall clock by
+  hour and looped forever across the spring-forward gap (02:00 does not
+  exist, so the step went backwards); it now steps by duration through the
+  gap. Automations never hit it because the host zone has no DST; pin
+  reminders in a named zone would have.
 
 - **Pins: limits refuse instead of truncating, large screenshots can be
   annotated, an edited sketch shows its new picture, and two editors no

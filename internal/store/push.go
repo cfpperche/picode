@@ -9,17 +9,24 @@ import (
 
 // PushPrefs is what one device wants to be woken for (ADR-0047).
 type PushPrefs struct {
-	Actions  bool `json:"actions"`  // an agent or inbox item needs a decision
-	Finished bool `json:"finished"` // a run finished unobserved
+	Actions   bool `json:"actions"`   // an agent or inbox item needs a decision
+	Finished  bool `json:"finished"`  // a run finished unobserved
+	Reminders bool `json:"reminders"` // a pin reminder fired (ADR-0100)
 }
 
-// Wants maps the notifier's kind ("actions" | "finished") to the prefs.
+// DefaultPushPrefs is what a subscription wants until it says otherwise;
+// a stored prefs JSON without a key keeps the default for that key.
+func DefaultPushPrefs() PushPrefs { return PushPrefs{Actions: true, Finished: true, Reminders: true} }
+
+// Wants maps the notifier's kind ("actions" | "finished" | "reminders") to the prefs.
 func (p PushPrefs) Wants(kind string) bool {
 	switch kind {
 	case "actions":
 		return p.Actions
 	case "finished":
 		return p.Finished
+	case "reminders":
+		return p.Reminders
 	}
 	return false
 }
@@ -47,7 +54,7 @@ func scanPush(row interface{ Scan(...any) error }) (PushSubscription, error) {
 	if err := row.Scan(&s.ID, &s.Endpoint, &s.P256dh, &s.Auth, &s.DeviceID, &s.UserAgent, &prefs, &s.CreatedAt, &lastOK, &s.Failures); err != nil {
 		return PushSubscription{}, err
 	}
-	s.Prefs = PushPrefs{Actions: true, Finished: true}
+	s.Prefs = DefaultPushPrefs()
 	_ = json.Unmarshal([]byte(prefs), &s.Prefs)
 	if lastOK.Valid {
 		v := lastOK.String

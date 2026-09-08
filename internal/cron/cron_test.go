@@ -88,3 +88,25 @@ func TestNext(t *testing.T) {
 		t.Fatalf("daily interval = %v", iv)
 	}
 }
+
+// A zone with DST: the spring-forward gap must not trap the search (it
+// looped forever before 2026-09-08), and "09:00" stays 09:00 local.
+func TestNextAcrossDSTGap(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Skip("no tz database")
+	}
+	s, _ := Parse("0 9 * * *")
+	from := time.Date(2026, 3, 7, 10, 0, 0, 0, loc) // Sat; DST starts Sun 08 Mar 02:00
+	got, ok := s.Next(from)
+	if !ok || got.Hour() != 9 || got.Day() != 8 || got.UTC().Hour() != 13 {
+		t.Fatalf("next = %v ok=%v", got, ok)
+	}
+	// A rule inside the gap itself lands on the first real hour after it.
+	g, _ := Parse("30 2 * * *")
+	got, ok = g.Next(time.Date(2026, 3, 8, 0, 0, 0, 0, loc))
+	if !ok || got.Day() != 9 {
+		// 02:30 does not exist on the 8th; the next real 02:30 is the 9th.
+		t.Fatalf("gap rule next = %v ok=%v", got, ok)
+	}
+}

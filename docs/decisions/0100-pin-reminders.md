@@ -1,6 +1,6 @@
 # ADR-0100: Pin reminders — a scheduled fire that lives in the Inbox
 
-- **Status**: proposed
+- **Status**: accepted (owner, 2026-09-08 — with slice 2 of `docs/plans/pins-v2.md`)
 - **Date**: 2026-09-08
 - **Number**: 0100 (renumbered from a provisional 0099 at merge; 0099 is the package configuration GUI)
 

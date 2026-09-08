@@ -47,6 +47,7 @@ import (
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/proclock"
 	"github.com/cfpperche/picode/internal/push"
+	"github.com/cfpperche/picode/internal/remind"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/screenshot"
 	"github.com/cfpperche/picode/internal/server"
@@ -599,6 +600,8 @@ func serve() {
 	autoCtx, autoCancel := context.WithCancel(context.Background())
 	defer autoCancel()
 	go (&automate.Engine{Store: st, Runner: server.AutomationRunner(deps)}).Loop(autoCtx)
+	// Pin reminders (ADR-0100): same one-minute shape, same process context.
+	go (&remind.Engine{Store: st}).Loop(autoCtx)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

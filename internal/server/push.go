@@ -57,7 +57,7 @@ func handlePushSubscribe(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		prefs := store.PushPrefs{Actions: true, Finished: true}
+		prefs := store.DefaultPushPrefs()
 		if req.Prefs != nil {
 			prefs = *req.Prefs
 		}

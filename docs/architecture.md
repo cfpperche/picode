@@ -1363,6 +1363,32 @@ edited sketch keeps its id. Downloads name files per RFC 6266
 `web/shared/domain/pinDraft.js` holds the pure rules (limits, tag folding,
 auto-title from the first file, draft retention, scene stripping).
 
+**Reminders (ADR-0100, migration 036).** One `pin_reminders` row per pin:
+`kind` ∈ {`once`, `interval`, `cron`}, `at` (UTC) for once, `interval_min`
++ `anchor` ∈ {`schedule`, `completion`} for intervals, a 5-field `cron`
+evaluated in the reminder's IANA `tz` (`internal/cron`, which now steps
+through the DST gap), and a materialised `next_at`. `PUT` / `DELETE
+/api/pins/{id}/reminder` write it; the rule rides the pin and the list
+summary with a `label` in words. `internal/remind` is the pure rule set
+(`First`, `AfterFire`, `AfterClose`, `CatchUp`, `Label`) plus a one-minute
+engine that asks the store for due ids and calls `FireReminder`, one
+transaction each: file an Inbox item (`kind = reminder`, `source_kind =
+pin`, non-blocking, title = the pin's, body = its first prose line) or,
+if one is still open, touch it (or stay silent while it is snoozed); append
+`pin.reminded {pinId, reminderId, inboxId, title, label, at, catchUp}`;
+advance `next_at` — once → NULL and disabled, cron → next match in `tz`,
+interval from the schedule → slot + interval (a backlog restarts from now),
+interval from completion → nothing until the item goes `done`, then close
++ interval. A slot older than 90 s at fire time is a catch-up and says
+"Was due …". The tick also wakes reminder items whose snooze ended
+(clears `snoozed_until`, announces again). The Inbox row is the
+acknowledgement state; deleting the pin or the rule closes its open item.
+`inbox_items` was rebuilt (as 017) to admit the two enumerations. Push:
+`pin.reminded` → tag `reminder:<inboxId>` under the `reminders`
+preference, `requireInteraction` in `sw.js` where honoured. The Inbox app
+gives the kind an "Open pin" action (`goto: pin:<id>`, resolved by the
+shells in the UI slice).
+
 ### Automations (ADR-0045)
 
 `internal/automate` ticks every minute (same shape as the backup loop,

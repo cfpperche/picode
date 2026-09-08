@@ -57,7 +57,7 @@ func handleCreateInboxItem(deps Deps) http.HandlerFunc {
 
 func handleListInbox(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		f := store.InboxFilter{State: r.URL.Query().Get("state")}
+		f := store.InboxFilter{State: r.URL.Query().Get("state"), Kind: r.URL.Query().Get("kind")}
 		if v := r.URL.Query().Get("blocking"); v != "" {
 			b := v == "1" || v == "true"
 			f.Blocking = &b

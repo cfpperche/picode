@@ -46,22 +46,25 @@ type Pin struct {
 	UpdatedAt string    `json:"updatedAt"`
 	FileCount int       `json:"fileCount"`
 	Files     []PinFile `json:"files,omitempty"`
+	// Reminder is the pin's cadence, if any (ADR-0100).
+	Reminder *PinReminder `json:"reminder,omitempty"`
 }
 
 // PinSummary is what a list and a feed event carry: never the body. The
 // sidebar renders title, tags and a count; a 100 KB note has no business
 // riding every SSE connection or every tab switch.
 type PinSummary struct {
-	ID        string   `json:"id"`
-	Title     string   `json:"title"`
-	Tags      []string `json:"tags"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
-	FileCount int      `json:"fileCount"`
+	ID        string       `json:"id"`
+	Title     string       `json:"title"`
+	Tags      []string     `json:"tags"`
+	CreatedAt string       `json:"createdAt"`
+	UpdatedAt string       `json:"updatedAt"`
+	FileCount int          `json:"fileCount"`
+	Reminder  *PinReminder `json:"reminder,omitempty"`
 }
 
 func (p Pin) Summary() PinSummary {
-	return PinSummary{ID: p.ID, Title: p.Title, Tags: p.Tags, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, FileCount: p.FileCount}
+	return PinSummary{ID: p.ID, Title: p.Title, Tags: p.Tags, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, FileCount: p.FileCount, Reminder: p.Reminder}
 }
 
 func scanPin(row interface{ Scan(...any) error }, p *Pin) error {
@@ -143,7 +146,18 @@ func (s *Store) ListPins() ([]PinSummary, error) {
 		}
 		out = append(out, p)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	rems, err := s.remindersByPin()
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Reminder = rems[out[i].ID]
+	}
+	return out, nil
 }
 
 // PinIDs lists every pin id, for the boot sweep that removes attachment
@@ -180,6 +194,9 @@ func (s *Store) GetPin(id string) (Pin, error) {
 	}
 	p.Files = files
 	p.FileCount = len(files)
+	if p.Reminder, err = s.GetPinReminder(p.ID); err != nil {
+		return Pin{}, err
+	}
 	return p, nil
 }
 
@@ -192,6 +209,9 @@ func (s *Store) pinSummary(id string) (PinSummary, error) {
 	}
 	if err != nil {
 		return PinSummary{}, fmt.Errorf("store: pin summary: %w", err)
+	}
+	if p.Reminder, err = s.GetPinReminder(id); err != nil {
+		return PinSummary{}, err
 	}
 	return p, nil
 }
@@ -249,15 +269,28 @@ func (s *Store) UpdatePin(id, title string, tags []string, body, ifUpdatedAt str
 	return p, nil
 }
 
+// DeletePin removes the pin, its files and reminder (cascade) and closes
+// any reminder item still open for it — nothing is owed for a pin that
+// is gone (ADR-0100).
 func (s *Store) DeletePin(id string) error {
-	res, err := s.db.Exec(`DELETE FROM pins WHERE id = ?`, id)
+	tx, err := s.db.Begin()
 	if err != nil {
+		return err
+	}
+	res, err := tx.Exec(`DELETE FROM pins WHERE id = ?`, id)
+	if err != nil {
+		s.rollback(tx)
 		return fmt.Errorf("store: delete pin: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
+		s.rollback(tx)
 		return ErrNotFound
 	}
-	s.note("pin.deleted", nil, nil, idData(id))
-	return nil
+	s.closeReminderItems(tx, id)
+	if err := s.AppendEventTx(tx, "pin.deleted", nil, nil, idData(id)); err != nil {
+		s.rollback(tx)
+		return err
+	}
+	return s.commit(tx)
 }

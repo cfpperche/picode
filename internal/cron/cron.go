@@ -152,18 +152,28 @@ func (s Schedule) Next(t time.Time) (time.Time, bool) {
 	c := t.Truncate(time.Minute).Add(time.Minute)
 	limit := t.AddDate(5, 0, 0)
 	for c.Before(limit) {
+		var n time.Time
 		switch {
 		case !has(s.month, int(c.Month())):
-			c = time.Date(c.Year(), c.Month()+1, 1, 0, 0, 0, 0, c.Location())
+			n = time.Date(c.Year(), c.Month()+1, 1, 0, 0, 0, 0, c.Location())
 		case !s.dayMatches(c):
-			c = time.Date(c.Year(), c.Month(), c.Day()+1, 0, 0, 0, 0, c.Location())
+			n = time.Date(c.Year(), c.Month(), c.Day()+1, 0, 0, 0, 0, c.Location())
 		case !has(s.hour, c.Hour()):
-			c = time.Date(c.Year(), c.Month(), c.Day(), c.Hour()+1, 0, 0, 0, c.Location())
+			n = time.Date(c.Year(), c.Month(), c.Day(), c.Hour()+1, 0, 0, 0, c.Location())
 		case !has(s.minute, c.Minute()):
-			c = c.Add(time.Minute)
+			n = c.Add(time.Minute)
 		default:
 			return c, true
 		}
+		// A wall-clock hour that does not exist (the DST spring-forward
+		// gap) makes time.Date answer a time *before* c; stepping by
+		// duration instead keeps the search moving. The instant lands on
+		// the first real hour after the gap, which is what a schedule in
+		// that zone means (RFC 5545 §3.3.10 skips the gap's instances).
+		if !n.After(c) {
+			n = c.Truncate(time.Hour).Add(time.Hour)
+		}
+		c = n
 	}
 	return time.Time{}, false
 }

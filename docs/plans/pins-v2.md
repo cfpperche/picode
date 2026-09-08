@@ -250,6 +250,8 @@ and its own action row (Done / Snooze / Open pin).
    feed."
 2. **Reminders, server** — migration, store, `internal/remind`, Inbox kind,
    `pin.reminded`, push case, OpenAPI. ADR-0100 accepted with this slice.
+   **Done 2026-09-08** (`docs/handoff/2026-09-08-pins-reminders.md`);
+   found and fixed a DST-gap infinite loop in `internal/cron` on the way.
 3. **Reminders, UI** — picker in the studio, sticky notice + collapse card,
    Inbox rows, announce and push prefs, sidebar line; mobile notice twin
    and the read-only viewer.

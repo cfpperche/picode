@@ -133,3 +133,19 @@ func TestNotifierSendTestIgnoresPresence(t *testing.T) {
 		t.Fatal("unknown endpoint must error")
 	}
 }
+
+// A pin reminder (ADR-0100) pushes under its own preference with the
+// item's tag as topic, and lands on the pin.
+func TestNotifierReminder(t *testing.T) {
+	n, c, _ := newNotifier(t, false, store.DefaultPushPrefs())
+	n.OnReminder(store.ReminderFire{PinID: "p1", InboxID: "i9", Title: "Water the plants", Label: "every day at 09:00", CatchUp: true})
+	got := c.wait(1)
+	if len(got) != 1 || c.tags[0] != "reminder:i9" || got[0].Hash != "#/pins/p1" || got[0].Title != "Reminder: Water the plants" {
+		t.Fatalf("reminder push = %+v tags=%v", got, c.tags)
+	}
+	off, c2, _ := newNotifier(t, false, store.PushPrefs{Actions: true, Finished: true, Reminders: false})
+	off.OnReminder(store.ReminderFire{PinID: "p1", InboxID: "i9", Title: "x"})
+	if got := c2.wait(0); len(got) != 0 {
+		t.Fatalf("reminders off still pushed: %+v", got)
+	}
+}

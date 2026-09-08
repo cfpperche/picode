@@ -219,6 +219,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerSnippet(mux, deps)
 	registerPins(mux, deps)
 	registerPinFiles(mux, deps)
+	registerPinReminders(mux, deps)
 	registerFolderRoutes(mux)
 	registerOAuthRoutes(mux)
 	registerBackupRoutes(mux, deps)

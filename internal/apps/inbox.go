@@ -271,6 +271,8 @@ func kindTone(kind string) string {
 		return "warn"
 	case store.InboxResult:
 		return "ok"
+	case store.InboxReminder:
+		return "info"
 	}
 	return ""
 }
@@ -367,6 +369,9 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			}
 		} else {
 			// News: Done is the whole triage; Ignore would say the same thing twice.
+			if it.Kind == store.InboxReminder && it.SourceKind == store.InboxFromPin {
+				acts = append(acts, Action{ID: "open-pin", Label: "Open pin", Icon: "pin", Primary: true, Args: map[string]string{"item": it.ID}})
+			}
 			acts = append(acts, Action{ID: "done", Label: "Done", Icon: "check", Args: map[string]string{"item": it.ID}})
 			acts = append(acts, Action{ID: "snooze", Label: "Snooze 1h", Icon: "clock", Args: map[string]string{"item": it.ID}})
 		}
@@ -415,6 +420,14 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		return a.backTo(h, returnPath, "Done")
+	case "open-pin":
+		// A reminder's way out: the shell resolves "pin:<id>" to the pin
+		// studio (ADR-0100); the item stays open until the person closes it.
+		it, err := h.Store.GetInboxItem(id)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		return ActionResult{Goto: "pin:" + it.SourceID}, nil
 	case "snooze":
 		until := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 		if _, err := h.Store.SetInboxItemState(id, "", &until); err != nil {
