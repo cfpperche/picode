@@ -230,6 +230,11 @@ func handleTerminalRun(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": busyMessage(busy), "reason": "busy", "busy": busy})
 			return
 		}
+		// The pane is at a shell prompt (checked above), but that prompt may
+		// already hold a command an earlier Prepare typed and nobody
+		// submitted. Typing onto its end would glue two commands into one
+		// word; clear the line first (ADR-0096).
+		_ = deps.Tmux.ClearLine(ctx, session)
 		if err := deps.Tmux.TypeText(ctx, session, req.Text); err != nil {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"})
 			return

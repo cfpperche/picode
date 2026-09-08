@@ -355,6 +355,9 @@ func handleTerminalType(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "This terminal is running " + cmd + ".", "reason": "foreground"})
 			return
 		}
+		// A command still sitting unsubmitted from an earlier Prepare would
+		// otherwise take this one onto its end (ADR-0096).
+		_ = deps.Tmux.ClearLine(ctx, tmux.ShellSessionName(t.ID))
 		if err := deps.Tmux.TypeText(ctx, tmux.ShellSessionName(t.ID), req.Text); err != nil {
 			writeErr(w, http.StatusConflict, "Open the terminal first, then try again.")
 			return

@@ -25,6 +25,7 @@ func TestComposeEveryAction(t *testing.T) {
 		{"create-tag", Args{Target: hash, Name: "v1.2.0"}, "git tag v1.2.0 " + hash, TierA},
 		{"create-worktree", Args{Target: "feat/x", Name: "x"}, "git worktree add .worktrees/x feat/x", TierA},
 		{"prune-worktrees", Args{}, "git worktree prune", TierA},
+		{"restore-branch", Args{Target: hash, Name: "feat/x"}, "git branch feat/x " + hash, TierA},
 		// Tier B
 		{"pull", Args{}, "git pull --ff-only", TierB},
 		{"pull-remote", Args{Target: "origin/main"}, "git pull --ff-only origin main", TierB},

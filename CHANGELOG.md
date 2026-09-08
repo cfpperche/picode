@@ -13,6 +13,12 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **A prepared command no longer swallows the next one.** A git command typed
+  into a terminal and never submitted stayed on the prompt; the next one
+  landed glued to its end and the shell answered `fatal: only one reference
+  expected`. The line is cleared before anything is typed — for the Inspector
+  rail's Git menu as well as the graph's.
+
 - **Browser-tab icon is back on `/desktop/` and `/mobile/`.** Since the
   desktop/mobile split (2026-09-05) the app pages linked the favicon, Apple
   touch icon and PWA manifest under the application path (`/desktop/favicon.svg`),
@@ -21,6 +27,26 @@ to the `[Unreleased]` section. The repository's official language is English
   site-root files (as ADR-0072 intends), and the build enforces it.
 
 ### Added
+
+- **The git graph acts on what you point at.** Thirty-four git actions bound
+  to the row or pill under the cursor — create a branch, tag or worktree,
+  check out, merge, rebase, cherry-pick, revert, reset, pull, push, delete —
+  each delivered through a door that already existed: prepared in your
+  terminal for you to press Enter, run there when nobody else is working in
+  the repository, or asked of an agent that lives in that folder. PiCode
+  still never runs git itself. Actions carry a risk tier: the ones that
+  publish or destroy work are marked, and when PiCode is the one pressing
+  Enter they ask you to type a word first. The exact command is composed on
+  the server and shown before anything is sent, so the preview and the
+  command are the same string.
+- **A worktree and the agent that lives in it, in one gesture.** "Create a
+  worktree…" on any commit or branch can also start an agent in it once the
+  folder exists.
+- **Undo, where there is an honest one.** After an action that only moved the
+  branch — merge, rebase, pull, reset, commit — the graph offers to put it
+  back where it was, and says plainly that it prepares the command rather
+  than undoing anything by itself. A push or a `git clean` gets no such
+  offer, because there is no inverse to give.
 
 - **The git graph answers a right-click.** Every row and pill now carries a
   menu naming what you pointed at: a commit offers its hash and subject, a

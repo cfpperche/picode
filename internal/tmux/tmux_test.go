@@ -314,3 +314,52 @@ func TestLooksWorkingDecisionTable(t *testing.T) {
 		}
 	}
 }
+
+// A prepared command nobody submitted must not take the next one onto its
+// end: ClearLine empties the prompt first (ADR-0096).
+func TestClearLineEmptiesTheTypedLine(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("clearline-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(ctx, name, t.TempDir(), "bash", "--norc", "--noprofile", "-i"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	// Give the shell a moment to draw a prompt; keystrokes that arrive first
+	// are echoed by the tty, not by readline, and the test would be a lie.
+	time.Sleep(700 * time.Millisecond)
+
+	if err := m.TypeText(ctx, name, "echo first-never-submitted"); err != nil {
+		t.Fatalf("TypeText: %v", err)
+	}
+	if err := m.ClearLine(ctx, name); err != nil {
+		t.Fatalf("ClearLine: %v", err)
+	}
+	if err := m.TypeText(ctx, name, "echo second-only"); err != nil {
+		t.Fatalf("TypeText: %v", err)
+	}
+	if err := m.SendKeys(ctx, name, "Enter"); err != nil {
+		t.Fatalf("SendKeys: %v", err)
+	}
+	deadline := time.Now().Add(6 * time.Second)
+	tail := ""
+	for time.Now().Before(deadline) {
+		tail, _ = m.CaptureTail(ctx, name, 12)
+		if strings.Contains(tail, "second-only") {
+			break
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	if !strings.Contains(tail, "second-only") {
+		t.Skipf("this shell never echoed the command; nothing to assert:\n%s", tail)
+	}
+	if strings.Contains(tail, "first-never-submitted") {
+		t.Errorf("the abandoned command survived into the run:\n%s", tail)
+	}
+}
+
+func TestClearLineRefusesAnEmptyName(t *testing.T) {
+	if err := requireTmux(t).ClearLine(context.Background(), " "); err == nil {
+		t.Error("an empty session name must be refused")
+	}
+}

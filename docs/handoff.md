@@ -63,7 +63,7 @@
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-8. Git graph write actions (ADR-0096): phase 1 shipped (right-click menus, ref tracking/worktree/merged, shared `gitCommands.js`); phase 2 next — tiers A/B through the three doors, `POST …/git/deliver`, the `git/head` pending watch. Inspector debts left: `git ls-files` search, per-anchor watch, `+N −M` footer.
+8. Git graph write actions (ADR-0096): all four phases shipped — 34 actions in risk tiers through ADR-0078's three doors, server-side composer (`internal/gitcmd`), typed confirmation for tier C by the run door, worktree+agent in one gesture, undo where an honest inverse exists. Inspector debts left: `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 

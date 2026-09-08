@@ -41,6 +41,10 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
   const [door, setDoor] = useState("prepare");
   const [typed, setTyped] = useState("");
   const [composed, setComposed] = useState(null);
+  // The one gesture no other client can make (ADR-0096 phase 4): the worktree
+  // and the agent that lives in it, from the row under the cursor.
+  const [alsoAgent, setAlsoAgent] = useState(false);
+  const [agentName, setAgentName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const firstRef = useRef(null);
@@ -57,6 +61,8 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
     setError("");
     setComposed(null);
     setDoor(run ? "run" : "prepare");
+    setAlsoAgent(false);
+    setAgentName("");
   }, [open, item, run]);
 
   // The preview is a server answer, so it follows the fields rather than
@@ -95,7 +101,14 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
     setBusy(true);
     try {
       if (asking && agent) await onAsk(agent, composed.prompt, action, composed.verb);
-      else await onDeliver(composed.command, { run: door === "run", verb: composed.verb, tier: composed.tier });
+      else await onDeliver(composed.command, {
+        run: door === "run",
+        verb: composed.verb,
+        tier: composed.tier,
+        name: name.trim(),
+        alsoAgent: alsoAgent && action === "create-worktree",
+        agentName: agentName.trim(),
+      });
       onClose();
     } catch (e) {
       setError(e?.message || "That action could not be sent.");
@@ -156,6 +169,28 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
                 </select>
               </label>
             </fieldset>
+            {action === "create-worktree" ? (
+              <div className="gg-action-also">
+                <label className="dlg-choice">
+                  <input type="checkbox" checked={alsoAgent} disabled={busy} onChange={(e) => setAlsoAgent(e.target.checked)} />
+                  <span>Also start an agent in it, once the folder exists.</span>
+                </label>
+                {alsoAgent ? (
+                  <label className="gg-action-field gg-action-indent">
+                    <span>Agent name</span>
+                    <input
+                      className="dlg-input"
+                      value={agentName}
+                      autoComplete="off"
+                      maxLength={80}
+                      placeholder={name.trim() || "the worktree's name"}
+                      disabled={busy}
+                      onChange={(e) => setAgentName(e.target.value)}
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
             {gate.typed ? (
               <div className="dlg-typed">
                 <p className="dlg-typed-hint">

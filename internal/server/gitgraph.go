@@ -78,6 +78,11 @@ func registerGitGraphRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces/{id}/git/commit", handleWorkspaceCommit(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/head", handleAgentGitHead(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/head", handleTerminalGitHead(deps))
+	// The workspace variant was missing from ADR-0038, which shipped the
+	// token for agents and terminals only. A workspace is an owner like the
+	// other two (ADR-0027), and the graph opened through one has to be able
+	// to watch for an action's outcome as well.
+	mux.HandleFunc("GET /api/workspaces/{id}/git/head", handleWorkspaceGitHead(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/blob", handleAgentGitBlob(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/blob", handleTerminalGitBlob(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/git/blob", handleWorkspaceGitBlob(deps))
@@ -102,6 +107,16 @@ func handleTerminalGitHead(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeGitHead(w, liveTermCwd(deps, r, term))
+	}
+}
+
+func handleWorkspaceGitHead(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		writeGitHead(w, cwd)
 	}
 }
 

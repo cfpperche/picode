@@ -247,9 +247,15 @@ func Token(dir string) (key, token string, dirty int) {
 	head := git(dir, "rev-parse", "HEAD")
 	refs := git(dir, "for-each-ref", "--format=%(objectname)"+fieldSep+"%(refname)",
 		"refs/heads", "refs/remotes", "refs/tags")
+	// The worktree list is in the token because the graph draws one row per
+	// checkout, and because adding or removing a worktree changes no ref and
+	// no HEAD — an action that did exactly that would otherwise be watched
+	// until the deadline and then reported as "still running" when it had
+	// already finished (ADR-0096).
+	worktrees := git(dir, "worktree", "list", "--porcelain")
 	_, changes := Status(dir)
 	dirty = len(changes)
-	sum := sha256.Sum256([]byte(head + "\n" + refs + "\n" + strconv.Itoa(dirty)))
+	sum := sha256.Sum256([]byte(head + "\n" + refs + "\n" + worktrees + "\n" + strconv.Itoa(dirty)))
 	return key, hex.EncodeToString(sum[:]), dirty
 }
 

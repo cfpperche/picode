@@ -517,3 +517,47 @@ export function gateFor({ tier = "", door = "prepare", action = "", target = "",
   if (door !== "run" || tier !== "C") return { typed: "" };
   return { typed: confirmPhrase(action, { target, name, branch }) };
 }
+
+// --- Undo (ADR-0096 phase 4) ----------------------------------------------
+
+// undoFor names the action that puts the repository back, given what was true
+// before. It is offered only where an honest inverse exists.
+//
+// This is not GitButler's oplog. PiCode does not own the working tree, so it
+// records a position, not a snapshot: what comes back is a *command* the
+// reader still sends through a door, and only for the branch pointer or the
+// ref that moved. Anything that published, or deleted files rather than refs,
+// has no inverse here and is not offered one — saying "Undo" over a push or a
+// `git clean` would be a lie.
+//
+//   before: { head, ref: {name, hash} }  what the graph held before the act
+//
+// Returns {action, target, name, why} or null.
+export function undoFor(action, before = {}) {
+  const head = before.head || "";
+  const ref = before.ref || null;
+  // Actions that only move the branch pointer: the reflog still holds the old
+  // position, and resetting to it is exactly what a reader would type.
+  const movesHead = [
+    "merge", "rebase", "cherry-pick", "revert", "pull", "pull-remote",
+    "reset-soft", "reset-mixed", "reset-hard", "commit",
+  ];
+  if (movesHead.includes(action)) {
+    if (!head) return null;
+    return { action: "reset-hard", target: head, name: "", why: `Put this branch back at ${head.slice(0, 7)}.` };
+  }
+  if ((action === "delete-branch" || action === "delete-branch-force") && ref && ref.name && ref.hash) {
+    return { action: "restore-branch", target: ref.hash, name: ref.name, why: `Put ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
+  }
+  if (action === "delete-tag" && ref && ref.name && ref.hash) {
+    return { action: "create-tag", target: ref.hash, name: ref.name, why: `Put the tag ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
+  }
+  return null;
+}
+
+// undoNote is the sentence beside the offer. It never promises more than a
+// prepared command: the reader still reads it and sends it.
+export function undoNote(undo) {
+  if (!undo) return "";
+  return undo.why + " It is prepared like any other action — nothing is undone until you send it.";
+}

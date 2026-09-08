@@ -973,3 +973,22 @@ func TestGraphCarriesRemotes(t *testing.T) {
 		t.Errorf("graph remotes = %v; want [origin]", g.Remotes)
 	}
 }
+
+// A worktree added or removed changes no ref and no HEAD, so the token has to
+// carry the worktree list or an action that only did that is watched until
+// the deadline and then called "still running" (ADR-0096).
+func TestTokenTracksWorktrees(t *testing.T) {
+	dir := repo(t)
+	_, before, _ := Token(dir)
+	side := filepath.Join(t.TempDir(), "side")
+	run(t, dir, "git", "worktree", "add", "-q", side, "-b", "side")
+	_, after, _ := Token(dir)
+	if before == after {
+		t.Error("adding a worktree left the token unchanged")
+	}
+	run(t, dir, "git", "worktree", "remove", side)
+	_, back, _ := Token(dir)
+	if back == after {
+		t.Error("removing a worktree left the token unchanged")
+	}
+}

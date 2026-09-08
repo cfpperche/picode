@@ -10,6 +10,7 @@ import GitGraphBranches from "./GitGraphBranches.jsx";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
+import { undoNote } from "@picode/shared/domain/graphActions.js";
 
 const SKELETON_ROWS = 14;
 const DEFAULT_LIMIT = 250;
@@ -55,7 +56,7 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0 }) {
+export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0, done = null, onUndo }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -120,11 +121,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   // The completion signal is ADR-0038's cheap token endpoint — three execs,
   // no log — polled only while an action is pending and this tab is visible.
   // No standing timer: ADR-0030 and 0073 refused one, and this one stops.
+  const doneRef = useRef(null);
+  doneRef.current = done;
   const tokenRef = useRef("");
   tokenRef.current = graph ? graph.token || "" : "";
   const loadRef = useRef(null);
   useEffect(() => {
-    if (!actionTick || !ownerIdRef.current) return undefined;
+    // The tick is app-wide, but an action belongs to the tab it was sent
+    // from: `done` is handed only to that surface, so the others neither
+    // watch nor announce it.
+    if (!actionTick || !doneRef.current || !ownerIdRef.current) return undefined;
     const started = tokenRef.current;
     setPending({ since: Date.now(), settled: false });
     let live = true;
@@ -384,8 +390,15 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
           {pending.settled ? (
             <>Still running. Watch it in the terminal it was sent to, then Refresh.</>
           ) : (
-            <><span className="gg-pending-dot" aria-hidden="true" />Waiting for the repository to change…</>
+            <><span className="gg-pending-dot" aria-hidden="true" />
+              {done && done.verb ? `Sent — ${done.verb}. Waiting for the repository to change…` : "Waiting for the repository to change…"}</>
           )}
+        </p>
+      ) : null}
+      {done && done.undo && onUndo && (!pending || pending.settled) ? (
+        <p className="gg-pending gg-pending-undo" role="status">
+          <span>{undoNote(done.undo)}</span>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => onUndo(done.undo)}>Undo</button>
         </p>
       ) : null}
       {error ? <p className="gg-warn">{error}</p> : null}

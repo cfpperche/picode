@@ -275,6 +275,20 @@ var specs = map[string]spec{
 	"prune-worktrees": {TierA, nil, func(Args) string { return "prune stale worktrees" }, func(Args) (string, error) {
 		return "git worktree prune", nil
 	}},
+	// restore-branch exists for undo (ADR-0096 phase 4): it puts a deleted
+	// branch back where it was, without checking it out — which is what
+	// distinguishes it from create-branch.
+	"restore-branch": {TierA, []string{"target", "name"}, func(a Args) string { return "put " + a.Name + " back at " + short(a.Target) }, func(a Args) (string, error) {
+		n, err := name(a)
+		if err != nil {
+			return "", err
+		}
+		t, err := target(a)
+		if err != nil {
+			return "", err
+		}
+		return one("git branch %s %s", n, t)
+	}},
 
 	// --- Tier B: moves HEAD or history, still recoverable ---------------
 	"pull": {TierB, nil, func(Args) string { return "pull" }, func(Args) (string, error) {

@@ -924,7 +924,28 @@ HTTP API (Go 1.22 method patterns):
   plus the line naming any agent mid-turn in this repository. The command
   composer those later phases deliver through lives in
   `@picode/shared/domain/gitCommands.js`, shared by desktop, mobile and the
-  graph (it was duplicated between the first two until ADR-0096).
+  graph (it was duplicated between the first two until ADR-0096). Phase 1's
+  read-only menus grew into the full write vocabulary: see the compose route
+  below.
+- `POST /api/{agents|terminals|workspaces}/{id}/git/compose` — the exact git
+  command an action means, its risk tier, its plain-words verb and the
+  sentence an agent would be asked (`internal/gitcmd`, ADR-0096). Composing is
+  not delivering: what comes back travels to ADR-0078's `type` / `run` / `ask`
+  routes, which keep their own guards, and the response is also the preview
+  the form shows — so the promise and the command are the same string. Every
+  ref that reaches argv is *validated*, never quoted: a leading dash, `..`,
+  `@{`, a traversal or a shell metacharacter is refused. The branch a push
+  publishes is read from the checkout, not taken from the caller.
+  `GET /api/git/actions` serves the catalog (id, tier, required fields) the
+  browser gates on; with none loaded the graph offers no write action at all.
+  `GET …/git/head` (ADR-0038, now answered for workspaces too) is polled only
+  while a delivered action is pending and the tab is visible; its token covers
+  the worktree list as well, since adding or removing a checkout changes no
+  ref. Risk tiers: **A** additive and reflog-recoverable, **B** moves HEAD or
+  history, **C** publishes or destroys — C through the run door, the one place
+  a human does not press Enter, asks for a typed phrase first. Before typing
+  anything, the door clears the prompt line, so a command an earlier Prepare
+  left unsubmitted cannot take the next one onto its end.
 - `GET /api/{agents|terminals|workspaces}/{id}/git/commit?hash=`
   — one commit with its message body and its patch, already split per file.
   `hash` must be a full object name (40/64 hex): it is the only user-supplied

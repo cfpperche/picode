@@ -3748,6 +3748,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 @keyframes gg-pending-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .gg-pending-dot { animation: none; opacity: .8; } }
+/* The undo offer, after an action that has an honest inverse. It prepares a
+   command like any other; the copy says so, and the button is not primary. */
+.gg-pending-undo { justify-content: space-between; }
+.gg-pending-undo span { min-width: 0; }
+.gg-action-also { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.gg-action-indent { margin-left: 22px; }
 /* The agent living in the worktree checked out on this branch. */
 .gg-occupant {
   font-size: 10.5px; padding: 1px 5px; border-radius: 3px;

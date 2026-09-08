@@ -250,3 +250,50 @@ func TestGitActionCatalogIsServed(t *testing.T) {
 		}
 	}
 }
+
+// The token endpoint is how a delivered action reports back (ADR-0096), so
+// every owner kind that can open a graph has to answer it — the workspace
+// variant was missing from ADR-0038.
+func TestGitHeadThroughEveryOwnerKind(t *testing.T) {
+	repo := gitRepo(t)
+	st := testStore(t)
+	ws, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminalIn(ws.ID, "sh", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	tokens := map[string]string{}
+	for _, path := range []string{
+		"/api/agents/" + agent.ID + "/git/head",
+		"/api/terminals/" + term.ID + "/git/head",
+		"/api/workspaces/" + ws.ID + "/git/head",
+	} {
+		res, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var page struct {
+			Key   string `json:"key"`
+			Token string `json:"token"`
+		}
+		_ = json.NewDecoder(res.Body).Decode(&page)
+		res.Body.Close()
+		if res.StatusCode != http.StatusOK || page.Token == "" {
+			t.Errorf("%s: status = %d, token = %q", path, res.StatusCode, page.Token)
+		}
+		tokens[path] = page.Token
+	}
+	// Three owners, one repository: the token is a fact about the repository,
+	// so they must agree.
+	seen := map[string]bool{}
+	for _, v := range tokens {
+		seen[v] = true
+	}
+	if len(seen) != 1 {
+		t.Errorf("owners of one repository disagreed about its token: %v", tokens)
+	}
+}

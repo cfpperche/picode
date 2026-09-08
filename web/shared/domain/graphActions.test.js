@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { graphActions, repoActions, repoOccupants, busyLine, trackingLabel, trackingTitle, worktreeSlug, confirmPhrase, gateFor } from "./graphActions.js";
+import { graphActions, repoActions, repoOccupants, busyLine, trackingLabel, trackingTitle, worktreeSlug, confirmPhrase, gateFor, undoFor, undoNote } from "./graphActions.js";
 
 // A repository with two checkouts: the reader's own on main, and a sibling on
 // feat/x where an agent lives. This is the shape ADR-0073 draws and the one
@@ -469,4 +469,43 @@ test("the HEAD commit's groups drop what would be a no-op but keep the rest", ()
   assert.deepEqual(groups["Apply"], ["revert"]);
   assert.ok(!groups["Move this branch"].includes("checkout-detach"));
   assert.ok(groups["Create"].includes("create-branch"));
+});
+
+// --- Undo -----------------------------------------------------------------
+
+// An undo PiCode can honour is one where the recorded position is a true
+// inverse. Everything else gets none, because "Undo" over a push is a lie.
+test("undo is offered only where an honest inverse exists", () => {
+  const before = { head: "a".repeat(40), ref: { name: "feat/x", hash: "b".repeat(40) } };
+  for (const action of ["merge", "rebase", "cherry-pick", "revert", "pull", "reset-hard", "reset-soft", "commit"]) {
+    const undo = undoFor(action, before);
+    assert.equal(undo.action, "reset-hard", `${action} should undo by resetting`);
+    assert.equal(undo.target, before.head);
+  }
+  for (const action of ["push", "push-force", "commit-push", "discard", "clean", "delete-remote-branch", "worktree-remove-force", "create-branch", "fetch"]) {
+    assert.equal(undoFor(action, before), null, `${action} must not claim an undo`);
+  }
+});
+
+test("a deleted branch or tag comes back where it was", () => {
+  const before = { head: "a".repeat(40), ref: { name: "feat/x", hash: "b".repeat(40) } };
+  const branch = undoFor("delete-branch-force", before);
+  assert.deepEqual([branch.action, branch.name, branch.target], ["restore-branch", "feat/x", "b".repeat(40)]);
+  const tag = undoFor("delete-tag", { ref: { name: "v1", hash: "c".repeat(40) } });
+  assert.deepEqual([tag.action, tag.name, tag.target], ["create-tag", "v1", "c".repeat(40)]);
+});
+
+test("without a recorded position there is nothing to offer", () => {
+  assert.equal(undoFor("merge", {}), null);
+  assert.equal(undoFor("delete-branch", { head: "a".repeat(40) }), null, "a deleted branch needs its own hash");
+  assert.equal(undoFor("nonsense", { head: "a".repeat(40) }), null);
+});
+
+// The copy must not promise a restore: it prepares a command, like everything
+// else this surface does.
+test("the undo note says a command is prepared, not that anything was undone", () => {
+  const note = undoNote(undoFor("merge", { head: "a".repeat(40) }));
+  assert.match(note, /Put this branch back at aaaaaaa\./);
+  assert.match(note, /nothing is undone until you send it/);
+  assert.equal(undoNote(null), "");
 });
