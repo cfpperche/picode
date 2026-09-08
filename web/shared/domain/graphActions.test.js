@@ -215,7 +215,7 @@ for (const [id, tier, needs] of [
   ["create-tag", "A", ["target", "name"]], ["create-worktree", "A", ["target", "name"]],
   ["prune-worktrees", "A", []], ["merge", "B", ["target"]], ["rebase", "B", ["target"]],
   ["cherry-pick", "B", ["target"]], ["revert", "B", ["target"]], ["reset-soft", "B", ["target"]],
-  ["reset-mixed", "B", ["target"]], ["rename-branch", "B", ["target", "name"]],
+  ["reset-mixed", "B", ["target"]], ["reset-keep", "B", ["target"]], ["rename-branch", "B", ["target", "name"]],
   ["delete-branch", "B", ["target"]], ["commit", "B", ["message"]], ["pr", "B", []],
   ["push", "C", []], ["push-force", "C", []], ["commit-push", "C", ["message"]],
   ["push-tag", "C", ["target"]], ["delete-branch-force", "C", ["target"]],
@@ -477,13 +477,31 @@ test("the HEAD commit's groups drop what would be a no-op but keep the rest", ()
 // inverse. Everything else gets none, because "Undo" over a push is a lie.
 test("undo is offered only where an honest inverse exists", () => {
   const before = { head: "a".repeat(40), ref: { name: "feat/x", hash: "b".repeat(40) } };
-  for (const action of ["merge", "rebase", "cherry-pick", "revert", "pull", "reset-hard", "reset-soft", "commit"]) {
+  // History that merged, rebased, picked or pulled goes back with --keep,
+  // which refuses rather than lose a local change — never --hard.
+  for (const action of ["merge", "rebase", "cherry-pick", "revert", "pull", "pull-remote"]) {
     const undo = undoFor(action, before);
-    assert.equal(undo.action, "reset-hard", `${action} should undo by resetting`);
+    assert.equal(undo.action, "reset-keep", `${action} should undo with --keep`);
     assert.equal(undo.target, before.head);
   }
+  // A commit is uncommitted, not thrown away: the changes come back staged.
+  assert.equal(undoFor("commit", before).action, "reset-soft");
+  assert.match(undoFor("commit", before).why, /keeping the changes staged/);
+  // Each reset is undone by its own kind in the other direction.
+  assert.equal(undoFor("reset-soft", before).action, "reset-soft");
+  assert.equal(undoFor("reset-mixed", before).action, "reset-mixed");
+  assert.equal(undoFor("reset-hard", before).action, "reset-hard");
   for (const action of ["push", "push-force", "commit-push", "discard", "clean", "delete-remote-branch", "worktree-remove-force", "create-branch", "fetch"]) {
     assert.equal(undoFor(action, before), null, `${action} must not claim an undo`);
+  }
+});
+
+// The one undo that must never be composed: --hard over work that was just
+// committed or that sat in the tree before a merge.
+test("no undo of a commit, merge or soft reset composes a hard reset", () => {
+  const before = { head: "a".repeat(40) };
+  for (const action of ["commit", "merge", "rebase", "pull", "cherry-pick", "revert", "reset-soft", "reset-mixed"]) {
+    assert.notEqual(undoFor(action, before).action, "reset-hard", `${action} undo would destroy work`);
   }
 });
 
@@ -505,7 +523,34 @@ test("without a recorded position there is nothing to offer", () => {
 // else this surface does.
 test("the undo note says a command is prepared, not that anything was undone", () => {
   const note = undoNote(undoFor("merge", { head: "a".repeat(40) }));
-  assert.match(note, /Put this branch back at aaaaaaa\./);
+  assert.match(note, /back to aaaaaaa, keeping local changes\./);
   assert.match(note, /nothing is undone until you send it/);
   assert.equal(undoNote(null), "");
+});
+
+test("ref-targeted rows carry the kind of what they point at", () => {
+  const g = graph();
+  const branch = graphActions({ kind: "ref", ref: g.refs[0] }, g, wctx).items.find((i) => i.kind === "action");
+  assert.equal(branch.refKind, "head");
+  const tag = graphActions({ kind: "ref", ref: g.refs[4] }, g, wctx).items.find((i) => i.kind === "action");
+  assert.equal(tag.refKind, "tag");
+  const remote = graphActions({ kind: "ref", ref: g.refs[3] }, g, wctx).items.find((i) => i.kind === "action");
+  assert.equal(remote.refKind, "remote");
+});
+
+test("a remote branch's form opens with the obvious local name filled", () => {
+  const g = graph();
+  const menu = graphActions({ kind: "ref", ref: { name: "origin/feat/new", kind: "remote", hash: "e" } }, g, wctx);
+  const co = menu.items.find((i) => i.action === "checkout-remote");
+  assert.equal(co.name, "feat/new");
+  assert.equal(menu.items.find((i) => i.action === "fetch-into-local").name, "feat/new");
+});
+
+test("a detached checkout's dirty row offers commit but never commit-and-push", () => {
+  const g = graph();
+  const wt = { ...g.worktrees[0], detached: true, branch: "" };
+  const menu = graphActions({ kind: "worktree", worktree: wt, uncommitted: true }, g, wctx);
+  const actions = menu.items.filter((i) => i.kind === "action").map((i) => i.action);
+  assert.ok(actions.includes("commit"));
+  assert.ok(!actions.includes("commit-push"));
 });

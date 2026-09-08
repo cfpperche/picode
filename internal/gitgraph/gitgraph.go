@@ -447,6 +447,16 @@ func Checkout(dir string) (branch, upstream string, detached bool) {
 	return branch, upstream, false
 }
 
+// HeadHash is the full object name HEAD points at, or "" outside a
+// repository or before the first commit.
+func HeadHash(dir string) string {
+	h := strings.TrimSpace(git(dir, "rev-parse", "HEAD"))
+	if !isHash(h) {
+		return ""
+	}
+	return h
+}
+
 func loadRemotes(dir string) []string {
 	out := git(dir, "remote")
 	remotes := []string{}

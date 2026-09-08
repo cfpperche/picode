@@ -130,15 +130,20 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     // The tick is app-wide, but an action belongs to the tab it was sent
     // from: `done` is handed only to that surface, so the others neither
     // watch nor announce it.
-    if (!actionTick || !doneRef.current || !ownerIdRef.current) return undefined;
-    const started = tokenRef.current;
+    const record = doneRef.current;
+    if (!actionTick || !record || !ownerIdRef.current) return undefined;
+    // The baseline is the token read just before delivery — never the last
+    // load's, which a still-pending earlier action may already have moved.
+    const started = record.token || tokenRef.current;
     setPending({ since: Date.now(), settled: false });
     let live = true;
     let tries = 0;
     const tick = async () => {
       if (!live) return;
-      tries += 1;
+      // A hidden tab neither polls nor spends its budget: the reader who
+      // comes back after a minute gets a watch that still has its 30 s.
       if (document.hidden) return;
+      tries += 1;
       try {
         const head = await api(`${baseRef.current}${encodeURIComponent(ownerIdRef.current)}/git/head`);
         if (!live) return;
@@ -146,12 +151,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
           setPending(null);
           if (loadRef.current) loadRef.current();
           clearInterval(timer);
+          return;
         }
       } catch {
         /* a poll that fails is not an outcome; the deadline still applies */
       }
       if (tries >= 30) {
+        // Out of patience is not "nothing happened": show whatever state
+        // the repository is in now, under the honest line.
         setPending((p) => (p ? { ...p, settled: true } : null));
+        if (loadRef.current) loadRef.current();
         clearInterval(timer);
       }
     };
@@ -388,7 +397,9 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
       {pending ? (
         <p className={"gg-pending" + (pending.settled ? " gg-pending-slow" : "")} role="status" aria-live="polite">
           {pending.settled ? (
-            <>Still running. Watch it in the terminal it was sent to, then Refresh.</>
+            done && done.door === "ask"
+              ? <>No change yet. The agent has it — watch its tab, then Refresh.</>
+              : <>Still running. Watch it in the terminal it was sent to, then Refresh.</>
           ) : (
             <><span className="gg-pending-dot" aria-hidden="true" />
               {done && done.verb ? `Sent — ${done.verb}. Waiting for the repository to change…` : "Waiting for the repository to change…"}</>

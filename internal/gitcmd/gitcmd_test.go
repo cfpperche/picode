@@ -24,6 +24,9 @@ func TestComposeEveryAction(t *testing.T) {
 		{"create-branch", Args{Target: hash, Name: "feat/new"}, "git switch -c feat/new " + hash, TierA},
 		{"create-tag", Args{Target: hash, Name: "v1.2.0"}, "git tag v1.2.0 " + hash, TierA},
 		{"create-worktree", Args{Target: "feat/x", Name: "x"}, "git worktree add .worktrees/x feat/x", TierA},
+		{"create-worktree", Args{Target: "feat/x", Name: "x", RepoRoot: "/home/me/my repo"}, "git worktree add '/home/me/my repo/.worktrees/x' feat/x", TierA},
+		{"reset-keep", Args{Target: hash}, "git reset --keep " + hash, TierB},
+		{"delete-remote-branch", Args{Target: "upstream/feat-x", Remotes: []string{"origin", "upstream"}}, "git push upstream --delete feat-x", TierC},
 		{"prune-worktrees", Args{}, "git worktree prune", TierA},
 		{"restore-branch", Args{Target: hash, Name: "feat/x"}, "git branch feat/x " + hash, TierA},
 		// Tier B
@@ -53,6 +56,7 @@ func TestComposeEveryAction(t *testing.T) {
 		{"discard", Args{}, "git restore --source=HEAD --staged --worktree -- .", TierC},
 		{"clean", Args{}, "git clean -fd", TierC},
 		{"worktree-remove", Args{Name: "x"}, "git worktree remove .worktrees/x", TierC},
+		{"worktree-remove", Args{Name: "x", RepoRoot: "/r"}, "git worktree remove '/r/.worktrees/x'", TierC},
 		{"worktree-remove-force", Args{Name: "x"}, "git worktree remove --force .worktrees/x", TierC},
 	}
 	seen := map[string]bool{}
@@ -118,8 +122,9 @@ func TestRefusesNamesThatWouldNotSurviveACommandLine(t *testing.T) {
 		if _, _, err := Compose("create-branch", Args{Target: hash, Name: n}); !errors.Is(err, ErrName) {
 			t.Errorf("create-branch with name %q: err = %v; want ErrName", n, err)
 		}
-		if _, _, err := Compose("worktree-remove", Args{Name: n}); !errors.Is(err, ErrName) {
-			t.Errorf("worktree-remove with name %q: err = %v; want ErrName", n, err)
+		// A worktree folder has its own, stricter rule, and its own error.
+		if _, _, err := Compose("worktree-remove", Args{Name: n}); !errors.Is(err, ErrSlug) {
+			t.Errorf("worktree-remove with name %q: err = %v; want ErrSlug", n, err)
 		}
 	}
 }
@@ -165,12 +170,17 @@ func TestPushWithoutABranchOrUpstreamIsRefused(t *testing.T) {
 // silently pushing to a branch of that name would be a different act.
 func TestRemoteActionsRequireARemoteTrackingName(t *testing.T) {
 	for _, action := range []string{"fetch-into-local", "pull-remote", "delete-remote-branch"} {
-		if _, _, err := Compose(action, Args{Target: "feat-x", Name: "feat-x"}); !errors.Is(err, ErrTarget) {
-			t.Errorf("%s with a bare branch name: err = %v; want ErrTarget", action, err)
+		if _, _, err := Compose(action, Args{Target: "feat-x", Name: "feat-x"}); !errors.Is(err, ErrRemoteBranch) {
+			t.Errorf("%s with a bare branch name: err = %v; want ErrRemoteBranch", action, err)
 		}
 	}
 	if _, _, err := Compose("delete-remote-branch", Args{Target: "upstream/feat-x", Remote: "upstream"}); err != nil {
 		t.Errorf("a non-origin remote must work: %v", err)
+	}
+	// A bare name that is nobody's branch is refused with the reason, not
+	// with "not a branch, tag or commit name".
+	if _, _, err := Compose("pull-remote", Args{Target: "nowhere/x", Remotes: []string{"origin", "upstream"}}); !errors.Is(err, ErrRemoteBranch) {
+		t.Errorf("unknown remote: err = %v; want ErrRemoteBranch", err)
 	}
 }
 
@@ -321,5 +331,58 @@ func TestFillingTheDeclaredNeedsIsEnough(t *testing.T) {
 		if _, _, err := Compose(info.ID, a); err != nil {
 			t.Errorf("%s with its declared needs filled: %v", info.ID, err)
 		}
+	}
+}
+
+// Two remotes: the remote is read from the target's own prefix, and the
+// longest known name wins so "gh/x" and "gh" cannot be confused.
+func TestRemoteComesFromTheTargetNotTheDefault(t *testing.T) {
+	a := Args{Remotes: []string{"origin", "upstream", "up"}}
+	cases := map[string]string{
+		"origin/main":     "git pull --ff-only origin main",
+		"upstream/feat/x": "git pull --ff-only upstream feat/x",
+		"up/x":            "git pull --ff-only up x",
+	}
+	for target, want := range cases {
+		a.Target = target
+		got, _, err := Compose("pull-remote", a)
+		if err != nil || got != want {
+			t.Errorf("%s = %q, %v; want %q", target, got, err, want)
+		}
+	}
+}
+
+// A worktree folder is one segment: a nested name would leave the graph
+// unable to find it again, and an absolute or traversing one is refused as
+// before.
+func TestWorktreeNameIsASingleSegment(t *testing.T) {
+	for _, n := range []string{"a/b", "x/", "../y", "/abs"} {
+		if _, _, err := Compose("create-worktree", Args{Target: "main", Name: n}); err == nil {
+			t.Errorf("create-worktree accepted %q", n)
+		}
+		if _, _, err := Compose("worktree-remove", Args{Name: n}); err == nil {
+			t.Errorf("worktree-remove accepted %q", n)
+		}
+	}
+	// A branch name may still carry a slash; the rule is the folder's only.
+	if _, _, err := Compose("create-branch", Args{Target: "main", Name: "feat/x"}); err != nil {
+		t.Errorf("a slashed branch name must still compose: %v", err)
+	}
+}
+
+// With a root, a worktree command names its checkout absolutely — the same
+// action read from a sibling worktree must not nest a checkout inside it.
+func TestWorktreePathIsAbsoluteUnderTheRoot(t *testing.T) {
+	got, _, err := Compose("create-worktree", Args{Target: "main", Name: "x", RepoRoot: "/repo/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "git worktree add '/repo/.worktrees/x' main" {
+		t.Errorf("got %q", got)
+	}
+	// A root with a quote in it survives the shell.
+	got, _, _ = Compose("worktree-remove", Args{Name: "x", RepoRoot: "/it's/here"})
+	if got != `git worktree remove '/it'\''s/here/.worktrees/x'` {
+		t.Errorf("got %q", got)
 	}
 }

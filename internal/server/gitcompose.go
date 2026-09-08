@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/gitcmd"
@@ -26,8 +27,10 @@ import (
 func registerGitComposeRoutes(mux Registrar, deps Deps) {
 	// The catalog is static: which actions exist, their risk tier and the
 	// fields each needs. The browser reads it instead of carrying its own
-	// copy of the tiers, so a tier C action can never be rendered with a
-	// tier B gate.
+	// copy of the tiers, so an honest client cannot drift into rendering a
+	// tier C action behind a tier B gate. It is a correctness contract, not a
+	// security boundary: the type/run routes accept any text they always
+	// accepted, and the typed confirmation lives in the browser.
 	mux.HandleFunc("GET /api/git/actions", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"actions": gitcmd.Catalog()})
 	})
@@ -46,9 +49,13 @@ type composeRequest struct {
 
 type composeView struct {
 	Command string `json:"command"`
-	Tier    string `json:"tier"`
-	Verb    string `json:"verb"`
-	Prompt  string `json:"prompt"`
+	// Head is the commit the checkout is on at composition time — the
+	// position an undo is recorded against, read now rather than taken from
+	// whatever the graph showed when the menu opened.
+	Head   string `json:"head"`
+	Tier   string `json:"tier"`
+	Verb   string `json:"verb"`
+	Prompt string `json:"prompt"`
 	// Branch and Upstream are what the server read from the checkout, not
 	// what the caller claimed: a push publishes the branch that is really
 	// checked out here.
@@ -129,18 +136,24 @@ func writeCompose(w http.ResponseWriter, r *http.Request, cwd string) {
 		})
 		return
 	}
-	if gitgraph.Key(cwd) == "" {
+	key := gitgraph.Key(cwd)
+	if key == "" {
 		writeErr(w, http.StatusNotFound, "not a git repository")
 		return
 	}
 	branch, upstream, detached := gitgraph.Checkout(cwd)
+	remotes := gitgraph.Remotes(cwd)
 	args := gitcmd.Args{
 		Target:   strings.TrimSpace(req.Target),
 		Name:     strings.TrimSpace(req.Name),
 		Message:  req.Message,
 		Branch:   branch,
 		Upstream: upstream,
-		Remote:   pickRemote(gitgraph.Remotes(cwd)),
+		Remote:   pickRemote(remotes),
+		Remotes:  remotes,
+		// The common dir is <root>/.git for every worktree of a repository,
+		// so its parent is the root a worktree command names absolutely.
+		RepoRoot: filepath.Dir(key),
 	}
 	cmd, tier, err := gitcmd.Compose(req.Action, args)
 	if err != nil {
@@ -149,6 +162,7 @@ func writeCompose(w http.ResponseWriter, r *http.Request, cwd string) {
 	}
 	writeJSON(w, http.StatusOK, composeView{
 		Command:  cmd,
+		Head:     gitgraph.HeadHash(cwd),
 		Tier:     string(tier),
 		Verb:     gitcmd.Verb(req.Action, args),
 		Prompt:   gitcmd.Prompt(req.Action, args, canonDir(cwd)),

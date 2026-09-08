@@ -17,7 +17,26 @@ to the `[Unreleased]` section. The repository's official language is English
   into a terminal and never submitted stayed on the prompt; the next one
   landed glued to its end and the shell answered `fatal: only one reference
   expected`. The line is cleared before anything is typed — for the Inspector
-  rail's Git menu as well as the graph's.
+  rail's Git menu as well as the graph's. Stated plainly: anything you had
+  typed at that prompt and not submitted is discarded, where before it was
+  corrupted.
+- **Undo never composes `reset --hard` over work you just made.** Undoing a
+  commit uncommits it and leaves the changes staged; undoing a merge, rebase,
+  pull, cherry-pick or revert moves the branch back with `--keep`, which
+  refuses rather than lose a local change. A hard reset is offered only to
+  undo a hard reset.
+- **A git action that could not be sent no longer reads as sent.** A busy
+  repository or a moved terminal keeps the form open with the reason; the
+  graph does not wait for a change that was never asked for.
+- **A worktree created from inside a worktree is a sibling, not a child.**
+  The command names `<repository>/.worktrees/<name>` absolutely instead of a
+  path relative to wherever the terminal sat.
+- **Branches of a second remote work.** `upstream/feat-x` is fetched from,
+  pulled from and deleted on `upstream`, not refused as "not a branch".
+- **Keyboard focus stays inside a git action form** that has no field of its
+  own (merge, fetch, rebase…); it landed on the page behind before.
+- **The graph's "waiting" line no longer spends its patience while the tab is
+  hidden**, and when it does give up it shows the repository as it is now.
 
 - **Browser-tab icon is back on `/desktop/` and `/mobile/`.** Since the
   desktop/mobile split (2026-09-05) the app pages linked the favicon, Apple
@@ -35,7 +54,7 @@ to the `[Unreleased]` section. The repository's official language is English
   longer describes a bar that stands under the pane on desktop; it opens
   from the menu now.
   [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
-- **The git graph acts on what you point at.** Thirty-four git actions bound
+- **The git graph acts on what you point at.** Thirty-odd git actions bound
   to the row or pill under the cursor — create a branch, tag or worktree,
   check out, merge, rebase, cherry-pick, revert, reset, pull, push, delete —
   each delivered through a door that already existed: prepared in your

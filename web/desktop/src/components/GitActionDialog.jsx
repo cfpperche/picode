@@ -100,11 +100,14 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
     if (!ready) return;
     setBusy(true);
     try {
-      if (asking && agent) await onAsk(agent, composed.prompt, action, composed.verb);
+      if (asking && agent) await onAsk(agent, composed.prompt, action, composed.verb, composed.head || "");
       else await onDeliver(composed.command, {
         run: door === "run",
         verb: composed.verb,
         tier: composed.tier,
+        // The position an undo is recorded against: read at composition,
+        // not from whatever the graph showed when the menu opened.
+        head: composed.head || "",
         name: name.trim(),
         alsoAgent: alsoAgent && action === "create-worktree",
         agentName: agentName.trim(),
@@ -123,7 +126,12 @@ export default function GitActionDialog({ open, owner, root, item, agents = [], 
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay" />
-        <Dialog.Content className="dlg gg-action-dlg" onOpenAutoFocus={(e) => { e.preventDefault(); firstRef.current?.focus(); }}>
+        <Dialog.Content className="dlg gg-action-dlg" onOpenAutoFocus={(e) => {
+            // Only steer focus when there is a field to steer it to; an
+            // action with none keeps Radix's default, which lands on the
+            // first control — otherwise focus escapes to the page behind.
+            if (firstRef.current) { e.preventDefault(); firstRef.current.focus(); }
+          }}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
           <Dialog.Description className="dlg-body">
             {item.target ? <>On <code className="gg-code-inline">{shortTarget(item.target)}</code></> : <>In this repository</>}

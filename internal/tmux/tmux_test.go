@@ -325,9 +325,20 @@ func TestClearLineEmptiesTheTypedLine(t *testing.T) {
 		t.Fatalf("NewSession: %v", err)
 	}
 	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
-	// Give the shell a moment to draw a prompt; keystrokes that arrive first
-	// are echoed by the tty, not by readline, and the test would be a lie.
-	time.Sleep(700 * time.Millisecond)
+	// Wait for a prompt: keystrokes that arrive before readline is up are
+	// echoed by the tty, not edited, and the test would be a lie. A shell
+	// that never draws one is a failure of the fixture, not a skip.
+	promptBy := time.Now().Add(5 * time.Second)
+	for {
+		tail, _ := m.CaptureTail(ctx, name, 4)
+		if strings.Contains(tail, "$") {
+			break
+		}
+		if time.Now().After(promptBy) {
+			t.Fatalf("bash never drew a prompt:\n%s", tail)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	if err := m.TypeText(ctx, name, "echo first-never-submitted"); err != nil {
 		t.Fatalf("TypeText: %v", err)
@@ -351,7 +362,7 @@ func TestClearLineEmptiesTheTypedLine(t *testing.T) {
 		time.Sleep(150 * time.Millisecond)
 	}
 	if !strings.Contains(tail, "second-only") {
-		t.Skipf("this shell never echoed the command; nothing to assert:\n%s", tail)
+		t.Fatalf("the second command never ran:\n%s", tail)
 	}
 	if strings.Contains(tail, "first-never-submitted") {
 		t.Errorf("the abandoned command survived into the run:\n%s", tail)

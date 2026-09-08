@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -295,5 +296,40 @@ func TestGitHeadThroughEveryOwnerKind(t *testing.T) {
 	}
 	if len(seen) != 1 {
 		t.Errorf("owners of one repository disagreed about its token: %v", tokens)
+	}
+}
+
+// A worktree command names its checkout under the repository root, not
+// relative to wherever the terminal sits — read through a sibling worktree,
+// the same action must not nest a checkout inside it (ADR-0096 review).
+func TestComposeWorktreePathIsUnderTheRepositoryRoot(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	st := testStore(t)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", side)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	_, view, _ := postCompose(t, ts, "/api/agents/"+agent.ID+"/git/compose",
+		map[string]any{"action": "create-worktree", "target": "main", "name": "x"})
+	want := "git worktree add '" + canonDir(repo) + "/.worktrees/x' main"
+	if view.Command != want {
+		t.Errorf("command = %q; want %q", view.Command, want)
+	}
+	if view.Head == "" {
+		t.Error("compose must report the checkout's head for the undo record")
+	}
+}
+
+// A second remote's branches are that remote's, not origin's.
+func TestComposeReadsTheRemoteFromTheTarget(t *testing.T) {
+	ts, agent, repo := composeAgent(t)
+	gitRun(t, repo, "remote", "add", "upstream", "https://example.invalid/u.git")
+	_, view, _ := postCompose(t, ts, "/api/agents/"+agent.ID+"/git/compose",
+		map[string]any{"action": "delete-remote-branch", "target": "upstream/feat-x"})
+	if view.Command != "git push upstream --delete feat-x" {
+		t.Errorf("command = %q", view.Command)
 	}
 }

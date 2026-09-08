@@ -154,6 +154,7 @@ export const LABELS = {
   revert: "Revert this commit",
   "reset-soft": "Reset here, keep changes staged",
   "reset-mixed": "Reset here, keep changes",
+  "reset-keep": "Move back here, keep local changes",
   "rename-branch": "Rename this branch…",
   "delete-branch": "Delete this branch",
   commit: "Commit…",
@@ -187,7 +188,7 @@ export const FIELD_LABELS = {
 
 // actionItem turns an id into a menu row, or nothing when the catalog has
 // never heard of it. The catalog is the only source of the tier.
-function actionItem(id, catalog, target) {
+function actionItem(id, catalog, target, refKind = "") {
   const info = catalog && catalog[id];
   if (!info || !LABELS[id]) return null;
   return {
@@ -198,13 +199,16 @@ function actionItem(id, catalog, target) {
     tier: info.tier,
     needs: info.needs || [],
     target,
+    // A branch and a tag may share a name; what was pointed at is recorded
+    // by kind as well, so an undo puts back the right one.
+    refKind,
   };
 }
 
-function actionItems(ids, catalog, target) {
+function actionItems(ids, catalog, target, refKind = "") {
   const out = [];
   for (const id of ids) {
-    const item = actionItem(id, catalog, target);
+    const item = actionItem(id, catalog, target, refKind);
     if (item) out.push(item);
   }
   return out;
@@ -258,7 +262,7 @@ function branchWriteActions(ref, graph, catalog, { checkedOut, isCurrent }) {
   if (!checkedOut) {
     ids.push(ref.merged ? "delete-branch" : "delete-branch-force");
   }
-  return actionItems(ids, catalog, ref.name);
+  return actionItems(ids, catalog, ref.name, "head");
 }
 
 function remoteWriteActions(ref, graph, catalog) {
@@ -266,12 +270,16 @@ function remoteWriteActions(ref, graph, catalog) {
   const ids = [];
   if (!localNamed(graph, local)) ids.push("checkout-remote", "fetch-into-local");
   ids.push("pull-remote", "delete-remote-branch");
-  return actionItems(ids, catalog, ref.name);
+  const items = actionItems(ids, catalog, ref.name, "remote");
+  // origin/feat-x wants a local branch called feat-x nine times in ten; the
+  // form opens with it filled and lets the reader change it.
+  for (const item of items) if (item.needs.includes("name")) item.name = local;
+  return items;
 }
 
 function tagWriteActions(ref, graph, catalog) {
   const ids = hasRemote(graph) ? ["push-tag", "delete-tag"] : ["delete-tag"];
-  return actionItems(ids, catalog, ref.name);
+  return actionItems(ids, catalog, ref.name, "tag");
 }
 
 // worktreeWriteActions: only a sibling checkout under the repository's own
@@ -318,7 +326,9 @@ export function worktreeSlug(wt, graph) {
 function uncommittedWriteActions(wt, graph, catalog) {
   if (!wt.self) return [];
   const ids = ["commit"];
-  if (hasRemote(graph)) ids.push("commit-push");
+  // A detached HEAD has no branch for `git push` to publish; the composer
+  // would refuse, so the row is absent rather than an error waiting.
+  if (hasRemote(graph) && !wt.detached) ids.push("commit-push");
   ids.push("discard", "clean");
   return actionItems(ids, catalog, "");
 }
@@ -536,23 +546,45 @@ export function gateFor({ tier = "", door = "prepare", action = "", target = "",
 export function undoFor(action, before = {}) {
   const head = before.head || "";
   const ref = before.ref || null;
-  // Actions that only move the branch pointer: the reflog still holds the old
-  // position, and resetting to it is exactly what a reader would type.
-  const movesHead = [
-    "merge", "rebase", "cherry-pick", "revert", "pull", "pull-remote",
-    "reset-soft", "reset-mixed", "reset-hard", "commit",
-  ];
-  if (movesHead.includes(action)) {
-    if (!head) return null;
-    return { action: "reset-hard", target: head, name: "", why: `Put this branch back at ${head.slice(0, 7)}.` };
+  const back = (undoAction, why) => (head ? { action: undoAction, target: head, name: "", why } : null);
+  const at = head.slice(0, 7);
+  switch (action) {
+    // `git add -A && git commit` is undone by moving HEAD back and keeping
+    // the index: the changes are staged again, exactly as they were. A
+    // --hard here would delete the very work that was just committed.
+    case "commit":
+      return back("reset-soft", `Uncommit, keeping the changes staged, back at ${at}.`);
+    // Each reset is undone by the same reset in the other direction: soft
+    // touches only HEAD, mixed only HEAD and the index, and neither loses
+    // what was in the working tree before.
+    case "reset-soft":
+      return back("reset-soft", `Put this branch back at ${at}.`);
+    case "reset-mixed":
+      return back("reset-mixed", `Put this branch back at ${at}.`);
+    // A hard reset already discarded the tree; going back hard restores the
+    // committed state, which is everything that survived.
+    case "reset-hard":
+      return back("reset-hard", `Put this branch back at ${at}.`);
+    // History that merged, rebased, picked or reverted goes back with
+    // --keep: HEAD moves, local changes stay, and git refuses rather than
+    // lose one — never --hard over a tree that may have been dirty.
+    case "merge":
+    case "rebase":
+    case "cherry-pick":
+    case "revert":
+    case "pull":
+    case "pull-remote":
+      return back("reset-keep", `Move this branch back to ${at}, keeping local changes.`);
+    case "delete-branch":
+    case "delete-branch-force":
+      if (!ref || !ref.name || !ref.hash) return null;
+      return { action: "restore-branch", target: ref.hash, name: ref.name, why: `Put ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
+    case "delete-tag":
+      if (!ref || !ref.name || !ref.hash) return null;
+      return { action: "create-tag", target: ref.hash, name: ref.name, why: `Put the tag ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
+    default:
+      return null;
   }
-  if ((action === "delete-branch" || action === "delete-branch-force") && ref && ref.name && ref.hash) {
-    return { action: "restore-branch", target: ref.hash, name: ref.name, why: `Put ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
-  }
-  if (action === "delete-tag" && ref && ref.name && ref.hash) {
-    return { action: "create-tag", target: ref.hash, name: ref.name, why: `Put the tag ${ref.name} back at ${ref.hash.slice(0, 7)}.` };
-  }
-  return null;
 }
 
 // undoNote is the sentence beside the offer. It never promises more than a

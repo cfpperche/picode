@@ -1035,18 +1035,20 @@ export default function App() {
     prepareSurface(loc.agent);
   }
 
-  useEffect(() => {
-    let live = true;
-    api("/api/git/actions")
+  const [gitCatalogFailed, setGitCatalogFailed] = useState(false);
+  const loadGitCatalog = useCallback(() => {
+    return api("/api/git/actions")
       .then((page) => {
-        if (!live) return;
         const byId = {};
         for (const a of (page && page.actions) || []) if (a && a.id) byId[a.id] = a;
         setGitCatalog(byId);
+        setGitCatalogFailed(false);
       })
-      .catch(() => { /* no catalog, no write actions — the graph fails closed */ });
-    return () => { live = false; };
+      // No catalog, no write actions — the graph fails closed, and the menu
+      // says why rather than silently offering less.
+      .catch(() => setGitCatalogFailed(true));
   }, []);
+  useEffect(() => { loadGitCatalog(); }, [loadGitCatalog]);
 
   function revealAgent(id, list) {
     openTab(id, list);
@@ -1061,11 +1063,27 @@ export default function App() {
   // opened on, so a command is never composed for another repository.
   function openGraphAction(item, ctx) {
     if (!item || !ctx || !ctx.owner) return;
-    // What the repository held before the act, recorded now so an undo can
-    // name a position rather than guess one.
-    const ref = (ctx.refs || []).find((r) => r && r.name === item.target) || null;
-    const before = { head: ctx.head || "", ref: ref ? { name: ref.name, hash: ref.hash } : null };
-    setGitAction({ item, owner: ctx.owner, root: ctx.root || "", agents: ctx.agents || [], before });
+    // The ref the row points at, by name *and* kind: a tag and a branch may
+    // share a name, and an undo has to put back the right one. Its hash is
+    // what the graph showed — a deleted ref cannot be re-read afterwards.
+    const ref = (ctx.refs || []).find((r) => r && r.name === item.target && (!item.refKind || r.kind === item.refKind)) || null;
+    setGitAction({
+      item, owner: ctx.owner, root: ctx.root || "", agents: ctx.agents || [],
+      ref: ref ? { name: ref.name, hash: ref.hash } : null,
+    });
+  }
+
+  // The token the repository had before an action was delivered. Read right
+  // before delivery, never from the graph's last load: a second action sent
+  // while the first is still pending would otherwise compare against a
+  // baseline the first already moved, and report done at once.
+  async function gitTokenBefore(owner) {
+    try {
+      const head = await api(ownerBase(owner) + encodeURIComponent(owner.id) + "/git/head");
+      return (head && head.token) || "";
+    } catch {
+      return "";
+    }
   }
 
   // "Also start an agent here" (ADR-0096 phase 4). The worktree is created by
@@ -1110,8 +1128,13 @@ export default function App() {
   }
 
   function openGraphMenu({ x, y, target, graph, owner, root }) {
+    // A catalog that never arrived is asked for again on every menu, so a
+    // transient failure at boot does not leave the graph read-only for the
+    // rest of the session.
+    if (!gitCatalog) loadGitCatalog();
     const menu = graphActions(target, graph, { workspaces, freeAgents, catalog: gitCatalog });
     if (!menu.title) return;
+    if (!gitCatalog && gitCatalogFailed) menu.state = [menu.state, "Git actions are unavailable: the server did not answer the action catalog."].filter(Boolean).join(" ");
     const here = (menu.occupants || []).filter((o) => o.running !== false);
     setCtxMenu({ x, y, graph: menu, graphCtx: { owner, root, agents: here, head: graph.head, refs: graph.refs } });
   }
@@ -1150,7 +1173,9 @@ export default function App() {
   // (task queue for a managed agent, receiver or paste for a TUI) and says
   // which, so the note is honest about when the agent acts. The view is not
   // retargeted: the agent's own tab shows the turn.
-  async function askAgentGit(who, text, root, action, verb) {
+  // With `quiet` the failure is thrown to the caller, which shows it in its
+  // own form, instead of also being toasted — one report per failure.
+  async function askAgentGit(who, text, root, action, verb, { quiet = false } = {}) {
     try {
       const res = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", {
         method: "POST",
@@ -1161,12 +1186,12 @@ export default function App() {
       // knew; when the server named one, that name is what the toast says.
       toast.info(askedNote(who.name, action, res, verb));
     } catch (e) {
+      if (quiet) throw e;
       toastError(e);
-      throw e;
     }
   }
 
-  async function typeIntoTerminal(owner, root, command, { run = false } = {}) {
+  async function typeIntoTerminal(owner, root, command, { run = false, quiet = false } = {}) {
     if (!owner || !command) return;
     const post = (tid, resource, body) => api("/api/terminals/" + encodeURIComponent(tid) + "/" + resource, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -1226,7 +1251,12 @@ export default function App() {
         if (!/^This terminal (moved to|is running)/i.test((err && err.message) || "")) throw err;
         await deliver(await create());
       }
-    } catch (err) { toastError(err); }
+    } catch (err) {
+      // A caller that announces the outcome (the graph's pending banner)
+      // must hear about the failure, or it would say "Sent" over a 409.
+      if (quiet) throw err;
+      toastError(err);
+    }
   }
 
   function provisionalGitId(kind, ownerId) {
@@ -2657,7 +2687,7 @@ export default function App() {
                 done={gitActionDone && gitActionDone.ownerId === o.id ? gitActionDone : null}
                 onUndo={(undo) => openGraphAction(
                   { id: "act:" + undo.action, kind: "action", action: undo.action, label: "Undo", tier: "B", needs: undo.name ? ["target", "name"] : ["target"], target: undo.target, name: undo.name },
-                  { owner: o, root: (gitAction && gitAction.root) || "", agents: [], head: "", refs: [] },
+                  { owner: o, root: (gitAction && gitAction.root) || "", agents: [], refs: [] },
                 )}
               />
             );
@@ -3046,20 +3076,25 @@ export default function App() {
         run={!!inspectorPrefs.run}
         onClose={() => setGitAction(null)}
         onDeliver={async (command, opts) => {
-          const { owner, root, item, before } = gitAction;
-          await typeIntoTerminal(owner, root, command, opts);
+          const { owner, root, item, ref } = gitAction;
+          const token = await gitTokenBefore(owner);
+          // A failure is thrown into the form, which stays open and shows it;
+          // nothing below runs, so the graph never says "Sent" over a 409.
+          await typeIntoTerminal(owner, root, command, { run: opts.run, quiet: true });
           // The graph learns the outcome by watching, not by return value:
           // the command was typed or submitted, not finished (ADR-0096).
-          setGitActionDone({ ownerId: owner.id, verb: opts.verb, undo: undoFor(item.action, before) });
+          const before = { head: opts.head || "", ref };
+          setGitActionDone({ ownerId: owner.id, verb: opts.verb, door: opts.run ? "run" : "prepare", token, undo: undoFor(item.action, before) });
           setGitActionTick((n) => n + 1);
           if (opts.alsoAgent && item.action === "create-worktree") {
             startAgentInWorktree(owner, opts.name, opts.agentName);
           }
         }}
-        onAsk={async (who, text, action, verb) => {
-          const { root, item, before } = gitAction;
-          await askAgentGit(who, text, root, action, verb);
-          setGitActionDone({ ownerId: gitAction.owner.id, verb, undo: undoFor(item.action, before) });
+        onAsk={async (who, text, action, verb, head) => {
+          const { owner, root, item, ref } = gitAction;
+          const token = await gitTokenBefore(owner);
+          await askAgentGit(who, text, root, action, verb, { quiet: true });
+          setGitActionDone({ ownerId: owner.id, verb, door: "ask", token, undo: undoFor(item.action, { head: head || "", ref }) });
           setGitActionTick((n) => n + 1);
         }}
       />

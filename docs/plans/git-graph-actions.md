@@ -1,6 +1,6 @@
 # Git graph — the write generation
 
-> **Status: direction approved by the owner (2026-09-07), not yet built.**
+> **Status: all four phases shipped (2026-09-08); reviewed adversarially the same day — see ADR-0096's amendment.**
 > The owner chose **phases 1–2 first**, **tier C reachable by run-when-idle
 > behind the opt-in plus a typed confirmation**, and **the command composer
 > moving to the server in phase 2** (§10). The boundary decision is recorded

@@ -209,3 +209,36 @@ otherwise, and none of them blocks phases 1–2.
 | Server-side snapshot before every action (GitButler's oplog) | PiCode does not own the working tree; a snapshot it cannot restore atomically is a promise it cannot keep |
 
 [sublimehq/sublime_merge#1846]: https://github.com/sublimehq/sublime_merge/issues/1846
+
+## Amendment (2026-09-08): what the composer really does, and what a review found
+
+§5 said the composer uses `--end-of-options` wherever a ref could be read as a
+flag. It does not; it **refuses** any ref that could be — a leading dash,
+`..`, `@{`, a traversal, a shell metacharacter — so nothing reaching argv needs
+a terminator. The guard is the validation, and the sentence is corrected here
+rather than the code made to match a sentence.
+
+An adversarial review the same day found, and this amendment records:
+
+- **Undo composed `reset --hard` for a commit**, which deletes the work that
+  was just committed. The inverses are now honest per action: `--soft` for a
+  commit, each reset by its own kind, and `--keep` — which refuses rather than
+  lose a local change — for merge, rebase, pull, cherry-pick and revert.
+  `--hard` is offered only to undo a `--hard`.
+- A delivery that failed (409 busy, terminal moved) was announced as *Sent*.
+  The form now keeps the failure and the graph never watches for it.
+- A worktree command was relative to the terminal's folder, so one read from
+  a sibling worktree nested a checkout inside it. It names
+  `<root>/.worktrees/<name>` absolutely now, and a worktree folder is one
+  segment.
+- A second remote's branches were refused as "not a branch": the remote is
+  read from the target's own prefix.
+- The undo position is read at composition time, not from the graph's last
+  load, and the pending watch compares against a token read just before
+  delivery — not against a baseline an earlier pending action may have moved.
+
+The typed confirmation is a browser gate and the catalog is a correctness
+contract: the `type` / `run` routes accept what they always accepted. Nothing
+here makes the doors safer against a hostile client than ADR-0078 left them;
+what changed is that an honest client can no longer get the quoting or the
+tier wrong.

@@ -319,8 +319,15 @@ func (m *Manager) TypeText(ctx context.Context, name, text string) error {
 // line and the next one lands glued to its end — measured: a prepared
 // `git switch -c …17210e9` and a later `git worktree add …` arrived as one
 // word and the shell answered "fatal: only one reference expected"
-// (ADR-0096). End-of-line then kill-to-start is what every shell in the
-// caller's own isShell list binds, in emacs and vi insert mode alike.
+// (ADR-0096). End-of-line then kill-to-start: verified in bash and zsh
+// (readline/zle, emacs and vi insert mode), fish, and a shell with no line
+// editor at all, where C-u is the tty's own kill character. nu and pwsh are
+// in isShell's list and were not verified; there the worst case is the old
+// behaviour, a line that keeps what it held.
+//
+// The cost, stated: anything the human was typing at that prompt and had not
+// submitted is discarded. Before this it was corrupted instead — the command
+// landed on its end and the shell ran the concatenation.
 //
 // Callers must already have established that the pane sits at a shell prompt;
 // this sends no signal and interrupts nothing.

@@ -57,6 +57,18 @@ type Args struct {
 	Name string
 	// Message is a commit subject. One line, quoted for a POSIX shell.
 	Message string
+	// RepoRoot is the repository's top-level folder — the parent of its
+	// common dir. A worktree command names its checkout absolutely under
+	// RepoRoot/.worktrees/, so the same action read from a sibling worktree
+	// does not nest a checkout inside that worktree (the command would
+	// otherwise be relative to wherever the terminal sits). Empty means the
+	// relative form, for callers that have no repository at hand.
+	RepoRoot string
+	// Remotes are the repository's configured remote names. A remote-branch
+	// action finds its remote in the target's own prefix — origin/feat-x
+	// belongs to origin, upstream/feat-x to upstream — rather than assuming
+	// origin, which turned a second remote's branches into "not a branch".
+	Remotes []string
 }
 
 // Errors callers translate into a 400. They name the field, so the browser
@@ -68,6 +80,8 @@ var (
 	ErrMessage       = errors.New("a commit message is one line, at most 200 characters")
 	ErrNoBranch      = errors.New("this action needs a branch, and the checkout has none")
 	ErrRemote        = errors.New("that remote name is not valid")
+	ErrRemoteBranch  = errors.New("that is not a branch of a known remote")
+	ErrSlug          = errors.New("a worktree folder is a single name, without slashes")
 )
 
 // refPattern is what git allows and a shell reads literally. git already
@@ -99,6 +113,56 @@ func validRef(s string) bool {
 
 func validName(s string) bool {
 	return validRef(s) && namePattern.MatchString(s)
+}
+
+// validSlug is a worktree folder: one path segment under .worktrees/, so the
+// command can never name a directory outside it, nested or not.
+func validSlug(s string) bool {
+	return validName(s) && !strings.Contains(s, "/")
+}
+
+// slug reads the worktree folder name.
+func slug(a Args) (string, error) {
+	if !validSlug(a.Name) {
+		return "", ErrSlug
+	}
+	return a.Name, nil
+}
+
+// worktreePath is where a worktree action points: absolute under the
+// repository root when the caller knows it, relative to the terminal's
+// folder when it does not. Quoted either way — a root may hold a space.
+func worktreePath(a Args, name string) string {
+	if a.RepoRoot == "" {
+		return ".worktrees/" + name
+	}
+	return quote(strings.TrimRight(a.RepoRoot, "/") + "/.worktrees/" + name)
+}
+
+// remoteBranch splits a remote-tracking name into the remote it belongs to
+// and the branch on that remote, using the caller's remote list so that a
+// remote whose name contains a slash still resolves. The longest match wins.
+func remoteBranch(a Args) (remote, branch string, err error) {
+	t, err := target(a)
+	if err != nil {
+		return "", "", err
+	}
+	candidates := a.Remotes
+	if len(candidates) == 0 {
+		candidates = []string{remoteOf(a)}
+	}
+	for _, r := range candidates {
+		if !validRef(r) {
+			continue
+		}
+		if rest := strings.TrimPrefix(t, r+"/"); rest != t && rest != "" && len(r) > len(remote) {
+			remote, branch = r, rest
+		}
+	}
+	if remote == "" {
+		return "", "", ErrRemoteBranch
+	}
+	return remote, branch, nil
 }
 
 // quote wraps a string for a POSIX shell: single quotes, with any single
@@ -191,24 +255,15 @@ var specs = map[string]spec{
 		return "git fetch --prune", nil
 	}},
 	"fetch-into-local": {TierA, []string{"target", "name"}, func(a Args) string { return "fetch " + a.Target + " into " + a.Name }, func(a Args) (string, error) {
-		t, err := target(a)
-		if err != nil {
-			return "", err
-		}
 		n, err := name(a)
 		if err != nil {
 			return "", err
 		}
-		r := remoteOf(a)
-		if !validRef(r) {
-			return "", ErrRemote
-		}
-		// origin/feat-x -> feat-x, the shape `git fetch <remote> <src>:<dst>`
-		// wants. A remote-tracking name that does not start with its remote
-		// is not one.
-		src := strings.TrimPrefix(t, r+"/")
-		if src == t {
-			return "", ErrTarget
+		// origin/feat-x -> origin, feat-x: the shape `git fetch <remote>
+		// <src>:<dst>` wants.
+		r, src, err := remoteBranch(a)
+		if err != nil {
+			return "", err
 		}
 		return one("git fetch %s %s:%s", r, src, n)
 	}},
@@ -259,8 +314,8 @@ var specs = map[string]spec{
 		}
 		return one("git tag %s %s", n, t)
 	}},
-	"create-worktree": {TierA, []string{"target", "name"}, func(a Args) string { return "create a worktree for " + a.Target }, func(a Args) (string, error) {
-		n, err := name(a)
+	"create-worktree": {TierA, []string{"target", "name"}, func(a Args) string { return "create a worktree for " + short(a.Target) }, func(a Args) (string, error) {
+		n, err := slug(a)
 		if err != nil {
 			return "", err
 		}
@@ -269,8 +324,10 @@ var specs = map[string]spec{
 			return "", err
 		}
 		// The repository's own convention (make worktree): a sibling
-		// checkout under .worktrees/, named for the work.
-		return one("git worktree add .worktrees/%s %s", n, t)
+		// checkout under <root>/.worktrees/, named for the work — a sibling
+		// of every other checkout, never nested inside the one the terminal
+		// happens to sit in.
+		return one("git worktree add %s %s", worktreePath(a, n), t)
 	}},
 	"prune-worktrees": {TierA, nil, func(Args) string { return "prune stale worktrees" }, func(Args) (string, error) {
 		return "git worktree prune", nil
@@ -295,17 +352,9 @@ var specs = map[string]spec{
 		return "git pull --ff-only", nil
 	}},
 	"pull-remote": {TierB, []string{"target"}, func(a Args) string { return "pull " + a.Target }, func(a Args) (string, error) {
-		t, err := target(a)
+		r, src, err := remoteBranch(a)
 		if err != nil {
 			return "", err
-		}
-		r := remoteOf(a)
-		if !validRef(r) {
-			return "", ErrRemote
-		}
-		src := strings.TrimPrefix(t, r+"/")
-		if src == t {
-			return "", ErrTarget
 		}
 		return one("git pull --ff-only %s %s", r, src)
 	}},
@@ -343,6 +392,17 @@ var specs = map[string]spec{
 			return "", err
 		}
 		return one("git reset --soft %s", t)
+	}},
+	// reset-keep exists for undo (ADR-0096 phase 4): it moves the branch back
+	// and keeps local changes, and git refuses outright if a change would be
+	// lost — which is why it, and not --hard, is the inverse of a merge or a
+	// rebase that ran over a dirty tree.
+	"reset-keep": {TierB, []string{"target"}, func(a Args) string { return "move back to " + short(a.Target) + ", keeping local changes" }, func(a Args) (string, error) {
+		t, err := target(a)
+		if err != nil {
+			return "", err
+		}
+		return one("git reset --keep %s", t)
 	}},
 	"reset-mixed": {TierB, []string{"target"}, func(a Args) string { return "reset to " + short(a.Target) + ", keeping the changes" }, func(a Args) (string, error) {
 		t, err := target(a)
@@ -417,17 +477,9 @@ var specs = map[string]spec{
 		return one("git branch -D %s", t)
 	}},
 	"delete-remote-branch": {TierC, []string{"target"}, func(a Args) string { return "delete " + a.Target + " on the remote" }, func(a Args) (string, error) {
-		t, err := target(a)
+		r, src, err := remoteBranch(a)
 		if err != nil {
 			return "", err
-		}
-		r := remoteOf(a)
-		if !validRef(r) {
-			return "", ErrRemote
-		}
-		src := strings.TrimPrefix(t, r+"/")
-		if src == t {
-			return "", ErrTarget
 		}
 		return one("git push %s --delete %s", r, src)
 	}},
@@ -452,20 +504,20 @@ var specs = map[string]spec{
 		return "git clean -fd", nil
 	}},
 	"worktree-remove": {TierC, []string{"name"}, func(a Args) string { return "remove the worktree " + a.Name }, func(a Args) (string, error) {
-		n, err := name(a)
+		n, err := slug(a)
 		if err != nil {
 			return "", err
 		}
 		// git refuses a checkout with modified or untracked files, which is
 		// what makes this the non-force twin.
-		return one("git worktree remove .worktrees/%s", n)
+		return one("git worktree remove %s", worktreePath(a, n))
 	}},
 	"worktree-remove-force": {TierC, []string{"name"}, func(a Args) string { return "remove the worktree " + a.Name + " and its uncommitted work" }, func(a Args) (string, error) {
-		n, err := name(a)
+		n, err := slug(a)
 		if err != nil {
 			return "", err
 		}
-		return one("git worktree remove --force .worktrees/%s", n)
+		return one("git worktree remove --force %s", worktreePath(a, n))
 	}},
 }
 
