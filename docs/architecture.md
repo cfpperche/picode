@@ -910,6 +910,21 @@ HTTP API (Go 1.22 method patterns):
   server never resolves a repository from a path in the URL (ADR-0022). The
   workspace is an owner like the other two: a project with no agents and no
   terminals still reads its own history, through its folder (ADR-0027).
+  Since ADR-0096 each local-branch ref also carries `upstream`, `ahead`,
+  `behind`, `gone`, the `worktree` that holds it and `merged` (reachable from
+  the HEAD the graph was read through), and the payload carries `remotes`.
+  The tracking and checkout fields ride the `for-each-ref` call the graph
+  already makes (measured: 9-22 ms either way); `merged` and `remotes` are one
+  cheap exec each (7 ms). They exist so a menu can decide *before* the click:
+  a branch checked out in a sibling worktree cannot be checked out or deleted,
+  and the graph offers the way into that checkout instead of a command git
+  would refuse. Phase 1 of ADR-0096 is read-only — a right-click on any row or
+  pill opens the one PiCode context menu (`components/ContextMenu.jsx`) with
+  clipboard and open-a-tab rows composed by `@picode/shared/domain/graphActions.js`,
+  plus the line naming any agent mid-turn in this repository. The command
+  composer those later phases deliver through lives in
+  `@picode/shared/domain/gitCommands.js`, shared by desktop, mobile and the
+  graph (it was duplicated between the first two until ADR-0096).
 - `GET /api/{agents|terminals|workspaces}/{id}/git/commit?hash=`
   — one commit with its message body and its patch, already split per file.
   `hash` must be a full object name (40/64 hex): it is the only user-supplied

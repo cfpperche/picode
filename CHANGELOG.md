@@ -22,6 +22,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **The git graph answers a right-click.** Every row and pill now carries a
+  menu naming what you pointed at: a commit offers its hash and subject, a
+  branch its name, a worktree row its path and the agents living there. A
+  local branch says which checkout holds it — and when that is a sibling
+  worktree, the menu offers **Open <agent>** instead of a checkout git would
+  refuse. Branch pills show how far they have drifted from their upstream
+  (`↑182`). The pills on a row are also reachable from the row's own menu, so
+  a keyboard reaches everything a right-click does. This is the read-only
+  first phase of ADR-0096; nothing here runs git yet.
+
 - **Find inside a terminal** (`Ctrl+Shift+F`, or **Find…** in the pane's
   right-click menu): a field floats over the terminal — searching never
   resizes the pane — highlights every match, counts them (`3/14`), and walks

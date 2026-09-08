@@ -40,10 +40,28 @@ type Commit struct {
 }
 
 // Ref is a branch, remote branch or tag pointing at a commit.
+//
+// The tracking and checkout fields (ADR-0096) are what lets a menu decide
+// what to offer before the user clicks: a branch already checked out
+// elsewhere cannot be checked out again, and one merged into the reader's
+// HEAD is safe to delete. They cost nothing — the same for-each-ref call
+// that lists the refs emits them (measured: 9-22 ms either way).
+//
+// Upstream, Ahead, Behind and Gone describe a local branch only. Gone means
+// the upstream ref is configured but no longer exists on the remote, which
+// git reports as "gone" instead of a distance. Worktree is the checkout that
+// holds this branch, empty when none does. Merged says the branch is
+// reachable from the HEAD the graph was read through.
 type Ref struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"` // head | remote | tag
-	Hash string `json:"hash"`
+	Name     string `json:"name"`
+	Kind     string `json:"kind"` // head | remote | tag
+	Hash     string `json:"hash"`
+	Upstream string `json:"upstream,omitempty"`
+	Ahead    int    `json:"ahead,omitempty"`
+	Behind   int    `json:"behind,omitempty"`
+	Gone     bool   `json:"gone,omitempty"`
+	Worktree string `json:"worktree,omitempty"`
+	Merged   bool   `json:"merged,omitempty"`
 }
 
 // Worktree is one checkout of the repository. Branch is empty when detached.
@@ -71,7 +89,10 @@ type UncommittedInfo struct {
 	Count int `json:"count"`
 }
 
-// Graph is everything the browser needs to draw in one payload.
+// Graph is everything the browser needs to draw in one payload. Remotes are
+// the configured remote names: a repository with none offers no push and no
+// pull, and the menu hides those rather than letting git refuse them
+// (ADR-0096).
 type Graph struct {
 	Key         string           `json:"key"`
 	Name        string           `json:"name"`
@@ -79,6 +100,7 @@ type Graph struct {
 	Commits     []Commit         `json:"commits"`
 	Refs        []Ref            `json:"refs"`
 	Worktrees   []Worktree       `json:"worktrees"`
+	Remotes     []string         `json:"remotes"`
 	Uncommitted *UncommittedInfo `json:"uncommitted,omitempty"`
 	More        bool             `json:"more"`
 }
@@ -178,6 +200,7 @@ func LoadFiltered(dir string, opts LoadOptions) *Graph {
 	g.Commits = loadCommits(dir, limit, branches, !opts.ExcludeRemotes)
 	g.More = len(g.Commits) == limit
 	g.Worktrees = loadWorktrees(dir)
+	g.Remotes = loadRemotes(dir)
 	// Status guards the bare case itself: no toplevel, no changes, no row.
 	top, changes := Status(dir)
 	if len(changes) > 0 {
@@ -316,25 +339,101 @@ func isHash(s string) bool {
 }
 
 func loadRefs(dir string) []Ref {
-	out := git(dir, "for-each-ref", "--format=%(objectname)"+fieldSep+"%(refname)",
+	// One call still answers everything: the tracking and checkout fields
+	// ride the format the graph already asks for. nobracket is what makes
+	// the track field parseable — "ahead 2, behind 1" rather than "[…]".
+	out := git(dir, "for-each-ref", "--format=%(objectname)"+fieldSep+"%(refname)"+
+		fieldSep+"%(upstream:short)"+fieldSep+"%(upstream:track,nobracket)"+fieldSep+"%(worktreepath)",
 		"refs/heads", "refs/remotes", "refs/tags")
+	merged := mergedBranches(dir)
 	refs := []Ref{}
 	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		line = strings.TrimRight(line, "\r\n")
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		f := strings.SplitN(line, fieldSep, 2)
-		if len(f) != 2 {
+		f := strings.Split(line, fieldSep)
+		if len(f) < 5 {
 			continue
 		}
 		name, kind, ok := classifyRef(f[1])
 		if !ok {
 			continue
 		}
-		refs = append(refs, Ref{Name: name, Kind: kind, Hash: f[0]})
+		ref := Ref{Name: name, Kind: kind, Hash: f[0]}
+		if kind == "head" {
+			ref.Upstream = strings.TrimSpace(f[2])
+			ref.Ahead, ref.Behind, ref.Gone = parseTrack(f[3])
+			// canonicalPath("") resolves to the process cwd, which would
+			// claim every unchecked-out branch lives somewhere. Empty in,
+			// empty out.
+			if wt := strings.TrimSpace(f[4]); wt != "" {
+				ref.Worktree = canonicalPath(wt)
+			}
+			_, ref.Merged = merged[name]
+		}
+		refs = append(refs, ref)
 	}
 	return refs
+}
+
+// parseTrack reads what `%(upstream:track,nobracket)` emits: "", "gone",
+// "ahead 2", "behind 1" or "ahead 2, behind 1". Anything else is no
+// information rather than an error — a branch without an upstream is the
+// ordinary case, not a failure.
+func parseTrack(s string) (ahead, behind int, gone bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, 0, false
+	}
+	if s == "gone" {
+		return 0, 0, true
+	}
+	for _, part := range strings.Split(s, ",") {
+		fields := strings.Fields(part)
+		if len(fields) != 2 {
+			continue
+		}
+		n, err := strconv.Atoi(fields[1])
+		if err != nil {
+			continue
+		}
+		switch fields[0] {
+		case "ahead":
+			ahead = n
+		case "behind":
+			behind = n
+		}
+	}
+	return ahead, behind, false
+}
+
+// mergedBranches names the local branches reachable from the HEAD the graph
+// was read through — the ones `git branch -d` will delete without arguing.
+// The reader's own branch is in the set; the caller decides what that means.
+func mergedBranches(dir string) map[string]struct{} {
+	out := git(dir, "for-each-ref", "--format=%(refname:short)", "--merged", "HEAD", "refs/heads")
+	set := map[string]struct{}{}
+	for _, line := range strings.Split(out, "\n") {
+		if name := strings.TrimSpace(line); name != "" {
+			set[name] = struct{}{}
+		}
+	}
+	return set
+}
+
+// loadRemotes lists the configured remote names. A repository with none can
+// neither push nor pull, and the menu hides both instead of offering a
+// command git would refuse.
+func loadRemotes(dir string) []string {
+	out := git(dir, "remote")
+	remotes := []string{}
+	for _, line := range strings.Split(out, "\n") {
+		if name := strings.TrimSpace(line); name != "" {
+			remotes = append(remotes, name)
+		}
+	}
+	return remotes
 }
 
 // classifyRef turns a full refname into a short name and a kind. A remote's

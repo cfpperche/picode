@@ -37,6 +37,7 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import { graphActions } from "@picode/shared/domain/graphActions.js";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
@@ -1026,6 +1027,15 @@ export default function App() {
   function revealAgent(id, list) {
     openTab(id, list);
     go("workspace", id);
+  }
+
+  // The git graph's context menu (ADR-0096). The graph resolves what the
+  // reader pointed at; the app knows which agents are alive, so the menu is
+  // composed here and rendered by the one PiCode context menu.
+  function openGraphMenu({ x, y, target, graph }) {
+    const menu = graphActions(target, graph, { workspaces, freeAgents });
+    if (!menu.title) return;
+    setCtxMenu({ x, y, graph: menu });
   }
 
   function prepareSurface(a) {
@@ -2561,6 +2571,7 @@ export default function App() {
                 hidden={selectedId !== id}
                 onKey={(key) => onGitKey(id, key)}
                 onClose={() => closeTab(id)}
+                onMenu={openGraphMenu}
               />
             );
           })}
@@ -2929,7 +2940,7 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
-      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} termHandlers={termMenuHandlers} />
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} termHandlers={termMenuHandlers} onOpenAgent={revealAgent} />
       <Toasts />
       <CreateForm
         open={showForm}

@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
-  IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
+  IconAgent, IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
@@ -29,7 +29,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -38,6 +38,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   const selection = open ? state.selection || "" : "";
   const target = open ? state.target : null;
   const link = open ? state.link : null;
+  const graph = open ? state.graph : null;
   const NextThemeIcon = THEME_ICON[themeMode] || IconMonitor;
   const ran = useRef(false);
 
@@ -61,9 +62,23 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   }
 
   function copySelection() {
-    navigator.clipboard.writeText(selection)
+    copyText(selection);
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text)
       .then(() => toast.ok("Copied."))
       .catch(() => toast.error("Clipboard blocked — copy manually with Ctrl+C."));
+  }
+
+  // A graph row acts on the repository the reader is looking at: copying is
+  // done here, and opening an agent belongs to the app that owns the tabs.
+  function runGraph(item) {
+    return () => {
+      ran.current = true;
+      if (item.kind === "copy") copyText(item.value);
+      else if (item.kind === "open-agent" && onOpenAgent) onOpenAgent(item.agentId);
+    };
   }
 
   function pasteInto() {
@@ -87,7 +102,9 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <Tooltip.Provider delayDuration={300}>
-            {term ? (
+            {graph ? (
+              <GraphMenu menu={graph} onRun={runGraph} />
+            ) : term ? (
               buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")) })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
@@ -115,6 +132,51 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  );
+}
+
+// The git graph's menu (ADR-0096). The header is what you pointed at plus
+// the facts that decide what may be done to it; phase 1 carries tier 0 rows
+// only, so nothing here runs git. An empty item list renders as the header
+// alone — the reader still learns which checkout holds the branch.
+function GraphMenu({ menu, onRun }) {
+  return (
+    <>
+      <div className="um-head">
+        <span className="um-head-name">{menu.title}</span>
+        {menu.state ? <span className="um-note">{menu.state}</span> : null}
+        {menu.busy ? <span className="um-note um-note-busy">{menu.busy}</span> : null}
+      </div>
+      {menu.items.length ? <div className="um-divider" /> : null}
+      {menu.items.map((item) => (item.kind === "sub"
+        ? (
+          <DropdownMenu.Sub key={item.id}>
+            <DropdownMenu.SubTrigger className="um-item">
+              <span className="um-item-name">{item.label}</span>
+              <IconChevronRight size={13} className="um-chev" />
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
+                <div className="um-head">
+                  <span className="um-head-name">{item.name}</span>
+                  {item.state ? <span className="um-note">{item.state}</span> : null}
+                </div>
+                <div className="um-divider" />
+                {item.items.map((sub) => (
+                  <DropdownMenu.Item key={sub.id} className="um-item" onSelect={onRun(sub)}>
+                    <span className="um-item-name">{sub.kind === "copy" ? <IconCopy /> : <IconAgent />}{sub.label}</span>
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Sub>
+        )
+        : (
+          <DropdownMenu.Item key={item.id} className="um-item" onSelect={onRun(item)}>
+            <span className="um-item-name">{item.kind === "copy" ? <IconCopy /> : <IconAgent />}{item.label}</span>
+          </DropdownMenu.Item>
+        )))}
+    </>
   );
 }
 

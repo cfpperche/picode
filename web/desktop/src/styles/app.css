@@ -1210,6 +1210,17 @@ img.ws-face.term-cli-face {
 .um-account-name { font-weight: 550; font-size: 12.5px; }
 .um-account-sub { font-size: 11px; color: var(--text-secondary); }
 .um-divider { height: 1px; background: var(--border); margin: 6px 4px; }
+
+/* The git graph's menu header (ADR-0096): what you pointed at, then the
+   facts that decide what may be done to it — the checkout that holds a
+   branch, and whether an agent is mid-turn in this repository. */
+.um-head { padding: 4px 8px 6px; display: flex; flex-direction: column; gap: 3px; max-width: 300px; }
+.um-head-name {
+  font-family: var(--mono); font-size: 12px; color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.um-note { font-size: 11px; color: var(--text-secondary); line-height: 1.35; }
+.um-note-busy { color: var(--warn); }
 .um-label {
   padding: 2px 8px 6px; font-size: 11px; text-transform: uppercase;
   letter-spacing: .08em; color: var(--text-secondary);
@@ -3678,6 +3689,13 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .gg-ref-origin { color: color-mix(in srgb, var(--remote) 60%, var(--text-secondary)); font-weight: 400; }
 .gg-ref-origin::after { content: "/"; opacity: .6; }
 .gg-ref-tag { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
+/* How far a branch has drifted from its upstream (ADR-0096). It rides inside
+   the pill because it is a fact about that branch, not a badge of its own;
+   silence means level, which is the ordinary case. */
+.gg-ref-track {
+  font-size: 10px; letter-spacing: .02em;
+  color: color-mix(in srgb, currentColor 65%, var(--text-secondary));
+}
 /* The agent living in the worktree checked out on this branch. */
 .gg-occupant {
   font-size: 10.5px; padding: 1px 5px; border-radius: 3px;

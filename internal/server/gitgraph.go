@@ -46,6 +46,7 @@ type graphView struct {
 	Commits     []gitgraph.Commit         `json:"commits"`
 	Refs        []gitgraph.Ref            `json:"refs"`
 	Worktrees   []worktreeView            `json:"worktrees"`
+	Remotes     []string                  `json:"remotes"`
 	Uncommitted *gitgraph.UncommittedInfo `json:"uncommitted,omitempty"`
 	More        bool                      `json:"more"`
 	Token       string                    `json:"token,omitempty"`
@@ -226,6 +227,7 @@ func (deps Deps) graphView(g *gitgraph.Graph) graphView {
 	view := graphView{
 		Key: g.Key, Name: g.Name, Head: g.Head,
 		Commits: g.Commits, Refs: g.Refs, More: g.More,
+		Remotes:     g.Remotes,
 		Uncommitted: g.Uncommitted,
 		Worktrees:   make([]worktreeView, 0, len(g.Worktrees)),
 	}

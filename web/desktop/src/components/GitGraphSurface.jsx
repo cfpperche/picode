@@ -55,7 +55,7 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
+export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -351,6 +351,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose }) {
           onSizerDown={onSizerDown}
           onEndReached={onEndReached}
           loadingEarlier={busy}
+          onMenu={onMenu && graph ? (m) => onMenu({ ...m, graph }) : null}
           detail={
             isUncommittedHash(selected) ? (
               anchorFor(selected) ? (

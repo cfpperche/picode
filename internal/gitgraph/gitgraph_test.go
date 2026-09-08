@@ -828,3 +828,148 @@ func TestTokenOutsideARepoIsEmpty(t *testing.T) {
 		t.Fatalf("non-repo token: %q %q", key, token)
 	}
 }
+
+// --- ADR-0096: what a ref carries so a menu can decide before the click ---
+
+func TestParseTrack(t *testing.T) {
+	cases := []struct {
+		in     string
+		ahead  int
+		behind int
+		gone   bool
+	}{
+		{"", 0, 0, false},
+		{"gone", 0, 0, true},
+		{"ahead 2", 2, 0, false},
+		{"behind 1", 0, 1, false},
+		{"ahead 2, behind 1", 2, 1, false},
+		{"  ahead 180  ", 180, 0, false},
+		{"nonsense", 0, 0, false},
+		{"ahead x", 0, 0, false},
+	}
+	for _, c := range cases {
+		ahead, behind, gone := parseTrack(c.in)
+		if ahead != c.ahead || behind != c.behind || gone != c.gone {
+			t.Errorf("parseTrack(%q) = %d,%d,%v; want %d,%d,%v", c.in, ahead, behind, gone, c.ahead, c.behind, c.gone)
+		}
+	}
+}
+
+func refNamed(refs []Ref, name, kind string) *Ref {
+	for i := range refs {
+		if refs[i].Name == name && refs[i].Kind == kind {
+			return &refs[i]
+		}
+	}
+	return nil
+}
+
+// A branch checked out in a sibling worktree is the case git refuses and the
+// menu must predict (ADR-0096): the ref names the checkout that holds it.
+func TestRefsCarryWorktreeAndMerged(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "checkout", "-q", "-b", "feature")
+	write(t, dir, "f.txt", "one")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-qm", "feature work")
+	run(t, dir, "git", "checkout", "-q", "main")
+	run(t, dir, "git", "branch", "unmerged-elsewhere", "feature")
+	sibling := filepath.Join(t.TempDir(), "wt")
+	run(t, dir, "git", "worktree", "add", "-q", sibling, "feature")
+
+	refs := loadRefs(dir)
+
+	feature := refNamed(refs, "feature", "head")
+	if feature == nil {
+		t.Fatal("feature branch missing from refs")
+	}
+	if feature.Worktree == "" {
+		t.Error("feature is checked out in a sibling worktree but carries no worktree path")
+	}
+	if got, want := feature.Worktree, canonicalPath(sibling); got != want {
+		t.Errorf("feature worktree = %q; want %q", got, want)
+	}
+	if feature.Merged {
+		t.Error("feature is not reachable from master's HEAD but is marked merged")
+	}
+
+	main := refNamed(refs, "main", "head")
+	if main == nil {
+		t.Fatal("main missing from refs")
+	}
+	if main.Worktree != canonicalPath(dir) {
+		t.Errorf("main worktree = %q; want the reader's own checkout %q", main.Worktree, canonicalPath(dir))
+	}
+	if !main.Merged {
+		t.Error("the branch the graph is read through must count as merged into its own HEAD")
+	}
+}
+
+// An unchecked-out branch must carry no path: canonicalPath("") resolves to
+// the process cwd, which would claim every branch lives somewhere.
+func TestUncheckedOutBranchCarriesNoWorktree(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "branch", "parked")
+	parked := refNamed(loadRefs(dir), "parked", "head")
+	if parked == nil {
+		t.Fatal("parked branch missing from refs")
+	}
+	if parked.Worktree != "" {
+		t.Errorf("parked branch carries worktree %q; want empty", parked.Worktree)
+	}
+}
+
+// Tags and remote branches have no upstream, no checkout and no merge
+// relation of their own; only local branches carry the tracking fields.
+func TestOnlyLocalBranchesCarryTrackingFields(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "tag", "v1")
+	for _, ref := range loadRefs(dir) {
+		if ref.Kind == "head" {
+			continue
+		}
+		if ref.Upstream != "" || ref.Ahead != 0 || ref.Behind != 0 || ref.Gone || ref.Worktree != "" || ref.Merged {
+			t.Errorf("%s ref %q carries local-branch fields: %+v", ref.Kind, ref.Name, ref)
+		}
+	}
+}
+
+// A separator inside a branch name would desynchronise a positional split.
+// git forbids it in refnames, so the guard is the field count, not trust.
+func TestLoadRefsSkipsShortRecords(t *testing.T) {
+	dir := repo(t)
+	refs := loadRefs(dir)
+	if len(refs) == 0 {
+		t.Fatal("expected at least the default branch")
+	}
+	for _, ref := range refs {
+		if ref.Name == "" || ref.Hash == "" {
+			t.Errorf("malformed ref survived parsing: %+v", ref)
+		}
+	}
+}
+
+func TestLoadRemotes(t *testing.T) {
+	dir := repo(t)
+	if got := loadRemotes(dir); len(got) != 0 {
+		t.Errorf("a fresh repository has no remotes; got %v", got)
+	}
+	run(t, dir, "git", "remote", "add", "origin", "https://example.invalid/r.git")
+	run(t, dir, "git", "remote", "add", "fork", "https://example.invalid/f.git")
+	got := loadRemotes(dir)
+	if len(got) != 2 || !contains(got, "origin") || !contains(got, "fork") {
+		t.Errorf("loadRemotes = %v; want origin and fork", got)
+	}
+}
+
+func TestGraphCarriesRemotes(t *testing.T) {
+	dir := repo(t)
+	run(t, dir, "git", "remote", "add", "origin", "https://example.invalid/r.git")
+	g := Load(dir, 10)
+	if g == nil {
+		t.Fatal("Load returned nil for a repository")
+	}
+	if len(g.Remotes) != 1 || g.Remotes[0] != "origin" {
+		t.Errorf("graph remotes = %v; want [origin]", g.Remotes)
+	}
+}
