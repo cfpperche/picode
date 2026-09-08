@@ -1,6 +1,8 @@
 # Native settings under Agent CLIs
 
-Status: implemented and browser-validated; closing gates in progress for the owner-approved plan (2026-09-08). ADR-0101.
+Status: implemented and validated (2026-09-08). ADR-0101.
+Local `make ci-scoped`, `make close`, native Pi API tests and both browser
+regression scripts passed. Integration CI is recorded in the session handoff.
 
 ## Scope
 

@@ -43,7 +43,6 @@
 
 ## In flight (unmerged branches on disk)
 
-- `feat/cli-native-settings` — validated refactor; closing gates and integration pending.
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
 
 ## Next up
