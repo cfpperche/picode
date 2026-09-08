@@ -74,15 +74,22 @@ export function rejectUnauthorizedFor(url: string): boolean {
 	}
 }
 
-/** The identity PiCode stamps on managed and TUI spawns (ADR-0037). */
+/**
+ * The identity PiCode stamps on managed and TUI spawns (ADR-0037), on pi
+ * launched as an Agent CLI terminal (ADR-0089's amendment), or none.
+ */
 export function agentIdentity(env: Record<string, string | undefined>): {
-	sourceKind: "agent" | "system";
+	sourceKind: "agent" | "terminal" | "system";
 	sourceId: string;
 } {
 	const id = (env.PICODE_AGENT_ID || "").trim();
 	if (id) return { sourceKind: "agent", sourceId: id };
-	// A raw terminal `pi` has no agent identity; items still carry honest
-	// provenance so the human knows where they came from.
+	// A pi running in a PiCode Agent CLI terminal has a terminal identity:
+	// the Inbox reply rides the same terminal's receiver back (ADR-0089).
+	const term = (env.PICODE_TERM_ID || "").trim();
+	if (term) return { sourceKind: "terminal", sourceId: term };
+	// A raw terminal `pi` has no PiCode identity at all; items still carry
+	// honest provenance so the human knows where they came from.
 	return { sourceKind: "system", sourceId: "pi (unmanaged)" };
 }
 
@@ -95,7 +102,7 @@ export type AskArgs = { question: string; context?: string };
 
 export type InboxPayload = {
 	kind: "fyi" | "question";
-	sourceKind: "agent" | "system";
+	sourceKind: "agent" | "terminal" | "system";
 	sourceId: string;
 	reason: string;
 	title: string;

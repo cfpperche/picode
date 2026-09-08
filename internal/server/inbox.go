@@ -88,9 +88,30 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "text is required for a "+req.Verb)
 			return
 		}
+		id := r.PathValue("id")
+		// A question filed by pi in an Agent CLI terminal (sourceKind
+		// "terminal", ADR-0089's amendment) is answered through that
+		// terminal's receiver — the task queue is an agent's.
+		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromTerminal {
+			if _, err := deps.DeliverTerminalReply(id, req.Verb, req.Text); err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					writeErr(w, http.StatusConflict, "terminal no longer exists — reply not delivered; the item stays open")
+					return
+				}
+				writeErr(w, http.StatusConflict, err.Error())
+				return
+			}
+			it, _ = deps.Store.GetInboxItem(id)
+			writeJSON(w, http.StatusOK, it)
+			return
+		}
 		deliverable := func(agentID string) bool { return !deps.agentInteractive(r.Context(), agentID) }
 		it, err := deps.Store.RespondAndForward(r.PathValue("id"), req.Verb, req.Text, deliverable)
 		if err != nil {
+			if errors.Is(err, store.ErrNoReplyChannel) {
+				writeErr(w, http.StatusConflict, "this question came from a session PiCode has no reply channel for — answer it in its terminal; the item stays open")
+				return
+			}
 			if errors.Is(err, store.ErrAgentInteractive) {
 				writeErr(w, http.StatusConflict, "agent is running in an interactive terminal — reply not delivered automatically; the item stays open")
 				return

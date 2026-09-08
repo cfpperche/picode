@@ -7,7 +7,7 @@
   tab to an existing PiCode agent.
 
 Canonical: [ADR-0043](../decisions/0043-browser-extension-native-host.md) ·
-user guide [www/guide/browser-extension.md](../../www/guide/browser-extension.md).
+user guide [docs-site/guide/browser-extension.md](../../docs-site/guide/browser-extension.md).
 
 Owner calls (2026-09-01): no CDP spike; stopped = Start and send;
 screenshot opt-in; agent tool (Track D) out of v1; Chrome-only.

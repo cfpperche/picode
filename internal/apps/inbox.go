@@ -332,10 +332,14 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			allowed[verb] = true
 		}
 		if (it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) && allowed[store.VerbRespond] {
+			// The delivery hint: an agent currently in its TUI and a
+			// terminal-sourced item both receive the reply inside a
+			// terminal, not through the delivery loop.
+			inTUI := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID)
 			detail = append(detail, Block{Type: "form", Pane: "detail", Form: &Form{
 				ID:       "respond",
 				Submit:   "Send reply",
-				Terminal: h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID),
+				Terminal: inTUI || it.SourceKind == store.InboxFromTerminal,
 				Fields: []Field{{
 					Name: "reply", Method: "editor", Title: "Your reply",
 					Placeholder: "Type your answer…", Prefill: priorInboxReply(it),
@@ -441,13 +445,26 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		}
 		// ADR-0060: a TUI agent receives the reply in its own terminal —
 		// receiver extension or tmux paste — and the host owns delivery
-		// proof. Anything else falls through to the ordinary durable gate.
+		// proof. A question filed by pi in an Agent CLI terminal (sourceKind
+		// "terminal", ADR-0089's amendment) rides that terminal's receiver.
+		// Anything else falls through to the ordinary durable gate.
 		it, err := h.Store.GetInboxItem(id)
 		if err != nil {
 			return ActionResult{}, err
 		}
 		interactive := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
 			it.SourceKind == store.InboxFromAgent
+		if it.SourceKind == store.InboxFromTerminal && h.DeliverTerminalReply != nil &&
+			it.State != store.InboxDone &&
+			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
+			if _, err := h.DeliverTerminalReply(id, verb, text); err != nil {
+				if strings.Contains(err.Error(), "no longer exists") {
+					return ActionResult{}, fmt.Errorf("Reply not delivered — the terminal no longer exists; the item stays open")
+				}
+				return ActionResult{}, err
+			}
+			return a.backTo(h, returnPath, "Reply sent to the terminal.")
+		}
 		if interactive && h.DeliverReply != nil && it.State != store.InboxDone &&
 			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
 			if _, err := h.DeliverReply(id, verb, text); err != nil {
@@ -462,6 +479,9 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			// These surface verbatim as a toast (handleAppAction writes
 			// err.Error() straight through), so they read as UI copy —
 			// sentence case, not the lowercase Go error-string convention.
+			if errors.Is(err, store.ErrNoReplyChannel) {
+				return ActionResult{}, fmt.Errorf("Reply not delivered — this question came from a session PiCode has no reply channel for; answer it in its terminal. The item stays open")
+			}
 			if errors.Is(err, store.ErrAgentInteractive) {
 				return ActionResult{}, fmt.Errorf("Reply not delivered — the agent is running in an interactive terminal; the item stays open")
 			}
@@ -510,6 +530,11 @@ func sourceLabel(h Host, it store.InboxItem) string {
 		}
 		return "agent"
 	case store.InboxFromTerminal:
+		if h.Store != nil {
+			if t, err := h.Store.GetTerminal(it.SourceID); err == nil && t.Name != "" {
+				return t.Name
+			}
+		}
 		if it.SourceID != "" {
 			return "terminal " + it.SourceID
 		}

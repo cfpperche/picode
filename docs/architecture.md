@@ -129,7 +129,7 @@ newer run on the same ref cancels its predecessor.
 | Changed paths | Frontend + artifact | Public docs | Three-OS Go | Embedded build |
 |---|---:|---:|---:|---:|
 | Unknown, empty, product/toolchain, or mixed | Run | Run | Run | Run |
-| `www/`, `docs-videos/`, Vale styles, or docs tooling only | Skip | Run | Skip | Skip |
+| `docs-site/`, `docs-videos/`, Vale styles, or docs tooling only | Skip | Run | Skip | Skip |
 | `docs/` and root Markdown only | Skip | Skip | Skip | Skip |
 
 `scripts/ci-scope.test.mjs` is the executable decision table. The lightweight
@@ -305,6 +305,17 @@ prefilled. Boot reconciliation settles pending replies the same way — no
 holders, leases, or fail-closed startup remain. `POST
 /api/agents/{id}/open?restart=1` still force-replaces a genuinely dead pane.
 Mobile start/stop uses agent-scoped routes inside multi-agent workspaces.
+A question filed by `ask_human` from pi running as an Agent CLI terminal
+arrives with `sourceKind: "terminal"` (pi-inbox stamps `PICODE_TERM_ID`,
+ADR-0037's 2026-09-09 amendment), and its Inbox reply takes the same
+receiver door in reverse: `DeliverTerminalReply` preflights the terminal
+(is pi, live, receiver fresh, the item's exact session still shown) and
+parks done on send, reopening with the response preserved on every
+failure — no task row, the queue belongs to agents. A source with no
+identity at all (`system`) has no channel: `RespondAndForward` refuses
+with `ErrNoReplyChannel`, the item stays open, and the UI says to answer
+it in the terminal — replying never closes an item while nothing was
+sent.
 
 Paste/drop images send `POST /api/agents/{id}/prompt` (live RPC, not the task table).
 The composer also opens a device file picker (Photos / camera / files on a
@@ -802,7 +813,11 @@ HTTP API (Go 1.22 method patterns):
   The reply counts only when the session JSONL gains the full-payload user
   row; failure reopens the same Inbox item with the prior response retained
   for prefill. A deleted agent yields 409 and the item stays
-  open. `POST /api/inbox/{id}/state` triages (`unread|read|done`,
+  open. A terminal-sourced item (pi in an Agent CLI terminal, ADR-0037's
+  2026-09-09 amendment) is delivered through that terminal's receiver the
+  same way — never through the task queue. A blocking question from a source
+  with no channel at all is refused (409, `ErrNoReplyChannel`) and stays
+  open: replying never closes an item while nothing was sent. `POST /api/inbox/{id}/state` triages (`unread|read|done`,
   `snoozedUntil`).
   PiCode itself files items from the RPC pump: a run that settles with
   no `/ws/agent` subscriber becomes a `result` carrying the agent's
@@ -1318,7 +1333,7 @@ receiver response or credential-bearing URL enters delivery errors or audit.
 This is outbound data disclosure to an owner-selected service, not agent tool
 access. The ordinary device gate protects all `/api/webhooks` CRUD/test/secret
 routes. See [acceptance tables](plans/integrations.md) and the
-[public guide](../www/guide/integrations.md).
+[public guide](../docs-site/guide/integrations.md).
 
 ### Automations (ADR-0045)
 
@@ -1498,7 +1513,7 @@ renders plain text, `Block.Empty` names an empty list, and busy metadata adds
 motion to pending jobs. The host prevents repeated clicks while submitting.
 The phone's More → Apps grid opens the shared AppSurface at `#/app/<id>`;
 Inbox keeps its specialized route. Public instructions live in the
-[Docker guide](../www/guide/docker.md).
+[Docker guide](../docs-site/guide/docker.md).
 
 Docker inventory groups containers by their exact Compose project label
 (ADR-0066); unlabeled containers appear last under Standalone containers.
@@ -1561,7 +1576,7 @@ and high memory. No dependency topology or root cause is inferred from names.
 Restart-loop previews allow advancing counters/timestamps while preserving the
 exact identity and restarting precondition. Memory verification uses the reviewed
 threshold. No automatic repair, backup/restore, blanket prune or remote Engine
-access is enabled. API/package details: [Docker guide](../www/guide/docker.md).
+access is enabled. API/package details: [Docker guide](../docs-site/guide/docker.md).
 
 ## Explicit non-goals
 

@@ -45,7 +45,7 @@ Code and docs change together, in the same commit:
 |---|---|
 | Behavior or architecture | `docs/architecture.md` (+ ADR if architectural) |
 | Anything user-visible | `CHANGELOG.md` → `[Unreleased]` |
-| A slash command users can type | `www/commands.md` heading `{#id}` + pi correlation per [docs/guidelines.md](docs/guidelines.md) |
+| A slash command users can type | `docs-site/commands.md` heading `{#id}` + pi correlation per [docs/guidelines.md](docs/guidelines.md) |
 | Project state at all | `docs/handoff/<date>-<branch>.md` (≤ 25 lines) + `docs/handoff.md` kept true (≤ 100 lines) |
 | A benchmark we hold | `docs/benchmarks.md` with rationale |
 

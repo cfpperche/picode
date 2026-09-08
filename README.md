@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="www/public/favicon.svg" width="80" alt="PiCode logo">
+  <img src="docs-site/public/favicon.svg" width="80" alt="PiCode logo">
 </p>
 
 <h1 align="center">PiCode</h1>
@@ -29,7 +29,7 @@
 > PiCode is pre-alpha. The core workflow is usable, but interfaces, storage
 > migrations and installation paths may still change between releases.
 
-![PiCode desktop showing a multi-workspace agent fleet and its activity dashboard](www/img/app-fleet.png)
+![PiCode desktop showing a multi-workspace agent fleet and its activity dashboard](docs-site/img/app-fleet.png)
 
 ## Why PiCode
 

@@ -37,4 +37,4 @@ Three short tutorials, one per guide, all built from the same grain:
 ## Customizations
 
 - Canvas 1280x720 @ 30fps; durations: V1 17s, V2 17s, V3 15.5s.
-- Output: `renders/<id>.mp4` → copied to `www/videos/` by the Makefile target.
+- Output: `renders/<id>.mp4` → copied to `docs-site/public/video/` by the Makefile target.

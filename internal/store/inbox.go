@@ -16,6 +16,14 @@ import (
 // tell the human "sent" for a message that silently sits forever.
 var ErrAgentInteractive = errors.New("store: agent is running interactively; replies are not delivered automatically")
 
+// ErrNoReplyChannel is returned by RespondAndForward when a blocking
+// question's source has no delivery channel PiCode can drive — a raw pi
+// with neither an agent nor a terminal identity (ADR-0037: a reply to an
+// unreachable source degrades to a visible failure, not a lost message).
+// Replying must fail visibly and leave the item open, never close it as
+// "done" while nothing was sent.
+var ErrNoReplyChannel = errors.New("store: this source has no delivery channel; reply not sent")
+
 // AgentDeliverable answers whether a queued reply for this agent will be
 // drained automatically. The store package has no tmux or RPC-runtime
 // import, so the caller (internal/server, internal/apps) supplies this —
@@ -370,6 +378,25 @@ func (s *Store) AnnotateInboxItem(id, note string) error {
 	return nil
 }
 
+// ReopenInboxItem reopens a done item after a failed delivery: back to
+// unread, response kept for prefill, a truthful note appended. It is the
+// task-less twin of EndInboxReply's reopen leg — terminal replies have no
+// task row (ADR-0089: the task queue belongs to agents), so the server's
+// terminal delivery path calls this directly.
+func (s *Store) ReopenInboxItem(id, note string) (InboxItem, error) {
+	note = strings.TrimSpace(note)
+	res, err := s.db.Exec(`UPDATE inbox_items SET state = ?, responded_at = NULL, snoozed_until = NULL,
+		body = CASE WHEN ? = '' OR instr(body, ?) > 0 THEN body ELSE body || ? END, updated_at = ?
+		WHERE id = ? AND state = ?`, InboxUnread, note, note, "\n\n> "+note, nowUTC(), id, InboxDone)
+	if err != nil {
+		return InboxItem{}, fmt.Errorf("store: reopen inbox item: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return InboxItem{}, ErrNotFound
+	}
+	return s.inboxChanged(id)
+}
+
 // CountInboxBadge feeds the app badge: how many blocking items are not
 // done, and whether any non-blocking unread news exists. Snoozed items
 // don't count.
@@ -499,6 +526,23 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 	needsForward := it.SourceKind == InboxFromAgent &&
 		(it.Kind == InboxQuestion || it.Kind == InboxApproval) &&
 		verb != VerbIgnore
+	// A blocking question answered with a reply must never close without a
+	// delivery. Agent-sourced items forward above; terminal-sourced ones
+	// are delivered by the caller through the terminal's receiver (the
+	// store has no channel to a tmux pane). Anything else — today a raw
+	// pi filing as "system" — has no channel at all: refuse visibly and
+	// leave the item open (ADR-0037's visible-failure rule).
+	if !needsForward && verb == VerbRespond && it.Blocking &&
+		(it.Kind == InboxQuestion || it.Kind == InboxApproval) {
+		if it.SourceKind == InboxFromTerminal {
+			_ = s.AnnotateInboxItem(id, "Reply not delivered: terminal replies go through the terminal's receiver, not the task queue. Deliver it from the Inbox.")
+			return InboxItem{}, ErrNoReplyChannel
+		}
+		if it.SourceKind != InboxFromAgent {
+			_ = s.AnnotateInboxItem(id, "Reply not delivered: this question came from a session PiCode has no reply channel for ("+it.SourceID+"). Answer it in its terminal — the item stays open.")
+			return InboxItem{}, ErrNoReplyChannel
+		}
+	}
 	if needsForward {
 		if deliverable != nil && !deliverable(it.SourceID) {
 			_ = s.AnnotateInboxItem(id, "Reply not delivered: the agent is running in an interactive terminal, "+
@@ -506,7 +550,7 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 				"or stop the agent and start it managed so replies deliver on their own.")
 			return InboxItem{}, ErrAgentInteractive
 		}
-		payload := inboxForwardPayload(it, verb, text)
+		payload := InboxForwardPayload(it, verb, text)
 		if _, err := s.EnqueueTask(it.SourceID, TaskFollowUp, payload, "inbox"); err != nil {
 			if err == ErrNotFound {
 				_ = s.AnnotateInboxItem(id, "Reply could not be delivered: agent no longer exists.")
@@ -553,7 +597,7 @@ func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, Task, error) {
 		return InboxItem{}, Task{}, err
 	}
 
-	payload := inboxForwardPayload(it, verb, text)
+	payload := InboxForwardPayload(it, verb, text)
 	task := Task{
 		ID: newID("task", "task"), AgentID: it.SourceID, Kind: TaskFollowUp,
 		Payload: payload, Source: "inbox-tui:" + id, Status: TaskQueued, CreatedAt: nowUTC(),
@@ -597,7 +641,9 @@ func (s *Store) RespondAndPark(id, verb, text string) (InboxItem, Task, error) {
 	return it, task, nil
 }
 
-func inboxForwardPayload(it InboxItem, verb, text string) string {
+// InboxForwardPayload is the reply text an agent or terminal receives for
+// a human answer: one shape for every delivery channel.
+func InboxForwardPayload(it InboxItem, verb, text string) string {
 	if verb == VerbAccept && strings.TrimSpace(text) == "" {
 		return fmt.Sprintf("The human accepted: %q", it.Title)
 	}

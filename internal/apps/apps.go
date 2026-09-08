@@ -51,6 +51,11 @@ type Host struct {
 	// durable JSONL proof with reopen-on-failure. It returns the source
 	// agent. Optional means this host cannot deliver to a TUI agent.
 	DeliverReply func(itemID, verb, text string) (agentID string, err error)
+	// DeliverTerminalReply sends an Inbox reply into a pi running in an
+	// Agent CLI terminal (sourceKind "terminal", ADR-0089's amendment)
+	// through that terminal's receiver. It returns the source terminal.
+	// Optional means this host cannot deliver to terminals.
+	DeliverTerminalReply func(itemID, verb, text string) (termID string, err error)
 }
 
 // App is one first-party app. Implementations must be safe for

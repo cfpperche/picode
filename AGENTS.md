@@ -30,7 +30,7 @@ add only what the change needs:
 | New or redesigned surface | above + `docs/benchmarks.md` (UI/UX section) + the one `docs/benchmarks/` note it adapts |
 | Handler / store / RPC | the `docs/architecture.md` section for that component; the ADRs its comments cite |
 | Protocol, persistence, security model, process | the ADRs it touches (index in `docs/decisions/README.md`); `docs/decisions/template.md` |
-| Docs site (`www/`) | `docs/guidelines.md` |
+| Docs site (`docs-site/`) | `docs/guidelines.md` |
 
 Do not read `docs/handoff-archive.md`, `docs/handoff/`, or the ADR corpus
 to "get context"; `git log` and `make close-summary` are cheaper and current.
@@ -38,7 +38,7 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
 ## The non-negotiables
 
 1. **Documentation is a living system.** Code and docs travel in the same
-   commit. User-facing command help lives in `www/` (VitePress → GitHub
+   commit. User-facing command help lives in `docs-site/` (VitePress → GitHub
    Pages), not in the app — see [docs/guidelines.md](docs/guidelines.md).
    - Behavior/architecture changed → update `docs/architecture.md`; add an
      ADR only for a **boundary**: protocol, persistence, security model,
@@ -153,7 +153,7 @@ For any UI work:
 ```
 AGENTS.md          this contract
 docs/              living documentation (handoff.md = project state; handoff/ = session notes)
-www/               public docs (VitePress Markdown → GitHub Pages)
+docs-site/         public docs (VitePress Markdown → GitHub Pages)
 docs/decisions/    ADRs — one decision per file, immutable once accepted
 docs/screenshots/  frozen visual history (ADR-0086); new evidence stays in var/screenshots/
 .pi/               Pi harness: skills, project settings, roles

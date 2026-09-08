@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// docs-shots — capture the CURRENT app UI into www/img/.
+// docs-shots — capture the CURRENT app UI into docs-site/img/.
 //
 // Parity principle (docs/benchmarks/2026-09-03-docs-harness.md): every image
 // on the docs site is generated from the codebase, never hand-placed and
@@ -35,7 +35,7 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = process.argv.includes("--out")
   ? process.argv[process.argv.indexOf("--out") + 1]
-  : join(root, "www", "img");
+  : join(root, "docs-site", "img");
 const base = process.argv.includes("--base")
   ? process.argv[process.argv.indexOf("--base") + 1]
   : "http://127.0.0.1:18740";

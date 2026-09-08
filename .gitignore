@@ -14,8 +14,8 @@ internal/web/public/
 node_modules
 dist/
 web/dist/
-www/.vitepress/cache/
-www/.vitepress/dist/
+docs-site/.vitepress/cache/
+docs-site/.vitepress/dist/
 
 # OS / editor
 .DS_Store

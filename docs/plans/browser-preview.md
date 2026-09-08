@@ -95,7 +95,7 @@ Build the UI and embedded `cmd/picode-docs-fixture`; run it on the private
 address `127.0.0.1:18785`. Do not point this fixture at the installed service.
 Generate an init script by prepending
 `globalThis.__captureFixtureImage = "data:image/png;base64,...";` (the bounded
-`www/img/app-fleet.png` encoded as base64) to
+`docs-site/img/app-fleet.png` encoded as base64) to
 `scripts/fixtures/tool-preview-init.js`. Open the fixture's Atlas agent in a
 fresh native `agent_browser` session with `--init-script <generated path>`.
 

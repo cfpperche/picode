@@ -27,8 +27,42 @@ to the `[Unreleased]` section. The repository's official language is English
   unknown keys, announce on the change feed, and say when they apply
   ("on the agent's next message").
 
+### Changed
+
+- **Development: the public docs site moved from `www/` to `docs-site/`** —
+  same VitePress build and GitHub Pages URL (`cfpperche.github.io/picode/`);
+  the `www/` name is reserved for the future product website. Make targets
+  (`DOCS_STAMP`), CI workflows, scripts and living docs updated in the same
+  commit; ADR-0086 amended in place (owner-approved).
+
 ### Fixed
 
+- **Inbox: replies to `ask_human` questions asked from a terminal pi now
+  actually reach the terminal.** A pi running as an Agent CLI terminal
+  filed questions as `pi (unmanaged)`; the reply path only delivers to
+  agent-sourced items, so replying marked the item done with a "Reply
+  sent" toast while nothing was ever delivered. Terminal-sourced items
+  now carry the terminal's identity and the reply rides that terminal's
+  receiver back into the exact session that asked (ADR-0037 amendment,
+  ADR-0089's door in reverse); failures reopen the item with the reply
+  preserved. A blocking question from a source with no channel at all is
+  now refused visibly and stays open — it can no longer be closed while
+  nothing was sent. Requires pi-inbox 0.2.0 installed in the pi session
+  (`pi install -l …/packages/pi-inbox`); items filed by 0.1.x as
+  `pi (unmanaged)` must still be answered by hand.
+
+- **Mobile: the installed web app's tab buttons sit as low as the platform
+  allows.** In standalone the tab content was centered in a 56px bar that
+  ends at the (shortened) layout viewport, leaving ~11px of dead nav below
+  the labels on top of WebKit's unreachable strip; the content and its pill
+  now anchor to the bar's bottom edge there. The standalone detection also
+  **measures instead of assuming** (screen height vs. visual viewport;
+  WebKit 317153 reports the behavior varies with the iOS generation and the
+  icon's install date), so edge-to-edge installs keep their real insets.
+  An opt-in probe, opening the app with `?strip-probe=1`, extends the shell
+  into the unreachable strip to test whether element painting survives —
+  if labels survive at the screen's physical bottom, that offset can become
+  the default; if they are clipped, the answer is no.
 - **Mobile: the active-tab pill covers the label, and the installed web
   app no longer shows a dead band above the home indicator.** The active
   pill used to hug the icon only (28px tall) and its bottom edge cut
