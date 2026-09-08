@@ -6,7 +6,7 @@
 ## Current state
 
 - **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet.
-- **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`.
+- **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
   (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
   timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close with `make close`; `make ci` once on `main` at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict in `close` and the batch.
