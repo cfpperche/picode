@@ -54,7 +54,7 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
       ) : sec === "workspaces" ? groups.map(({ workspace: ws, agents: wsAgents, terminals: wsTerms }) => (
         <section key={ws.id} className="m-section m-work-group" aria-label={ws.name}>
           <div className="m-work-group-head">
-            <WsFavicon ws={ws} size={17} />
+            <span className="m-work-group-face"><WsFavicon ws={ws} size={22} /></span>
             <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
             {ws.git?.dirty ? <button type="button" className="btn btn-ghost btn-sm m-changes-btn" aria-label={ws.git.dirty + " changes in " + ws.name} onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button> : null}
           </div>

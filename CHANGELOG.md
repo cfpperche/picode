@@ -79,6 +79,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile Work: workspace favicons match agent and terminal marks.** The group head uses the same 24px slot and 22px glyph as the rows under it, so a project icon is no longer smaller than the CLI faces in the same list.
+
 - **Mobile Work empty states sit in the well.** Agents, terminals and workspaces with nothing to list center one line and a primary create button in the remaining space (muted icon, no essay); a search miss stays at the top with Clear search. Copy drops "free".
 
 - **Sending a message to the terminal no longer toasts "Sent to the
