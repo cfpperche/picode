@@ -57,6 +57,7 @@
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; plan in `docs/plans/windows-clean-install.md`. Owner: Azure Trusted Signing account.
 8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
    pi terminals (ADR-0089 amendment, proven live). Inspector debts left:
    `git ls-files` search, per-anchor watch, `+N −M` footer.
@@ -89,6 +90,7 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
+- Rename watch: a branch adding files under `www/` (pre-rename base) would resurrect the dir — they belong in `docs-site/` (open branches touch none, checked 2026-09-08).
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
 - Screenshot fingerprints went stale-advisory with the docs-site rename (docs-shots.mjs hashes into the fingerprint); the next deploy batch recaptures on its own.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only

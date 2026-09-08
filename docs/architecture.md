@@ -255,7 +255,7 @@ stay on their own routes.
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
-| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed rows are compact and filterable; a package with a known config adapter shows **Configure** → `#/packages/config/<pkg>` (ADR-0098: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
+| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed rows are compact and filterable; a package with a known config adapter shows **Configure** → `#/packages/config/<pkg>` (ADR-0099: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
 | `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
 
@@ -1278,7 +1278,7 @@ ADR-0009. `/roles edit|add|remove` writes the workspace file, or
 `<cwd>/.pi/roles/<id>.json` when `PI_ROLES_AGENT` is set (PiCode puts the
 agent id in that env on RPC and TUI start). Overlay slots win; the rest is
 inherited. Composer `/` lists those commands only while the agent is running
-(ADR-0029). Since ADR-0098, `#/packages/config/pi-roles` views and edits both
+(ADR-0029). Since ADR-0099, `#/packages/config/pi-roles` views and edits both
 layers (workspace file + agent overlay, effective merge, scoped reset) — the
 files stay the only source of truth.
 

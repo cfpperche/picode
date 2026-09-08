@@ -1,4 +1,4 @@
-# ADR-0098: Package configuration in the Packages view
+# ADR-0099: Package configuration in the Packages view
 
 - **Status**: accepted
 - **Date**: 2026-09-08
