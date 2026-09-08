@@ -28,14 +28,13 @@
      tracks the iOS generation AND when the icon was added (WebKit 317153:
      pre-27-beta icons keep true edge-to-edge, fresh installs letterbox, some
      report env 0) — so measure, don't assume: flag only when the visual
-     viewport is really shorter than the screen. navigator.standalone is
-     iOS-only, so Android/Chrome standalone keeps real env() insets. */
+     viewport is really shorter than the screen. The layout preferences
+     (Preferences → Layout) build on this flag; "auto" bottom bar resolves
+     low only for letterboxed installs. navigator.standalone is iOS-only, so
+     Android/Chrome standalone keeps real env() insets. */
   if (navigator.standalone === true && window.innerWidth < window.innerHeight) {
     var vvH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
     if (window.screen.height - vvH > 24) document.documentElement.dataset.standalone = "1";
-    if (new URLSearchParams(location.search).has("strip-probe")) {
-      document.documentElement.dataset.stripProbe = "1"; /* experimental: see mobile.css */
-    }
   }
 })();
 </script>
