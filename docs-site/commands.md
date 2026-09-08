@@ -38,7 +38,7 @@ Duplicate this timeline into a new session. This one stays.
 
 ## /settings {#settings}
 
-Opens `#/settings` — pi JSON for the selected agent. Not PiCode chrome (`#/preferences`).
+Opens **Agent CLIs → Settings → Pi** (`#/clis/settings/pi?agentId=<id>`) for the selected agent. PiCode preferences remain at `#/preferences`.
 
 See [Settings](/guide/settings).
 

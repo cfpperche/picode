@@ -10,6 +10,9 @@ import { cliLocation, launchDraft, launchConfig, editLaunchOverrides, resolveLau
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
+import CliTabs from "./CliTabs.jsx";
+import CliSettings from "./CliSettings.jsx";
+import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
 import SessionsView from "./SessionsView.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
@@ -24,7 +27,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
+export default function AgentClis({ hidden = false, catalog, legacyAgentId = "", onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -48,13 +51,13 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (hidden) return;
+    if (hidden || route.view === "settings") return;
     if (hash === "#/preferences/status") location.replace("#/clis");
     // ADR-0079: the old top-level sessions route moved under Agent CLIs.
     if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
-  }, [hidden, hash]);
+  }, [hidden, hash, route.view]);
   useEffect(() => {
-    if (hidden) return;
+    if (hidden || route.view === "settings") return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -72,7 +75,7 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
     });
     const focus = () => refresh(); window.addEventListener("focus", focus);
     return () => { unsub(); clearTimeout(timer); window.removeEventListener("focus", focus); };
-  }, [hidden, refresh]);
+  }, [hidden, route.view, refresh]);
 
   const run = async (key, fn) => {
     if (busy) return;
@@ -123,12 +126,10 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
     });
   };
 
+  if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
+
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
-    <nav className="cli-tabs" aria-label="Agent CLIs">
-      <a href="#/clis" aria-current={route.view !== "terminals" && route.view !== "sessions" ? "page" : undefined}>CLIs</a>
-      <a href="#/clis/terminals" aria-current={route.view === "terminals" ? "page" : undefined}>Terminals</a>
-      <a href="#/clis/sessions" aria-current={route.view === "sessions" ? "page" : undefined}>Sessions</a>
-    </nav>
+    <CliTabs view={route.view} />
     {error && route.view !== "sessions" ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error && route.view !== "sessions" ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {route.view === "sessions" ? <SessionsView
@@ -155,6 +156,7 @@ export default function AgentClis({ hidden = false, onOpenAgent = () => {}, onCo
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
           {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
+          {supportsCliSettings(selected.id) ? <a className="btn btn-ghost btn-sm" href={cliSettingsHash(selected.id)}>Settings</a> : null}
           <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button>
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>

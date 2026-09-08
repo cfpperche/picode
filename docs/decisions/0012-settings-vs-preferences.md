@@ -1,6 +1,6 @@
 # ADR-0012: Preferences is PiCode; Settings is pi
 
-- **Status**: accepted
+- **Status**: accepted; navigation in points 2 and 3 superseded by [ADR-0101](0101-settings-under-agent-clis.md)
 - **Date**: 2026-08-25
 
 ## Context

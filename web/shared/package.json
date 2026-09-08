@@ -85,7 +85,8 @@
     "./domain/turns.js": "./domain/turns.js",
     "./tokens/theme.css": "./tokens/theme.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
-    "./domain/sessionHandoff.js": "./domain/sessionHandoff.js"
+    "./domain/sessionHandoff.js": "./domain/sessionHandoff.js",
+    "./domain/cliSettings.js": "./domain/cliSettings.js"
   },
   "scripts": {
     "test": "node --test client/*.test.js contracts/*.test.js domain/*.test.js"

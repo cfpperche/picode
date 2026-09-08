@@ -1,11 +1,12 @@
-// Hash routes. Preferences is PiCode-the-product. Settings is pi (ADR-0012).
+import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+// Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
 export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/settings",
+  settings: "/clis/settings/pi",
   system: "/system",
   providers: "/providers",
   llama: "/llama/models",
@@ -22,7 +23,7 @@ export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
-  if (h === "/settings") return "settings";
+  if (cliSettingsLocation(h)) return "clis";
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || h === "/providers/llama") return "llama";
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
@@ -191,6 +192,7 @@ export function providersLlama(hash) {
 }
 
 export function go(name, agentId) {
+  if (name === "settings") { location.hash = cliSettingsHash("pi", { agentId }); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";
