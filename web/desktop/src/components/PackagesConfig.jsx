@@ -17,6 +17,14 @@ import PiSpinner from "./PiSpinner.jsx";
 const BUILTIN = ["default", "vision", "plan"];
 const THINKING_NONE = "none"; // placeholder: leave the thinking level alone
 
+// One line of state per builtin role (what triggers it), so a row reads
+// without the README. Custom presets carry no descriptor — the name is it.
+const ROLE_DESC = {
+  default: "Text-only messages in auto mode",
+  vision: "Messages with images or image paths",
+  plan: "/plan — model plus plan-mode instructions",
+};
+
 const EMPTY = { builtin: { default: null, vision: null, plan: null }, custom: [] };
 
 function layerToDraft(layer) {
@@ -222,13 +230,15 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
 
   return (
     <PageFrame id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
-      <a className="pkg-back" href="#/packages">← All packages</a>
-
-      <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Which roles file to edit">
-        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>Workspace — shared</button>
-        {hasAgentLayer ? (
-          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"} — overrides</button>
-        ) : null}
+      <div className="pkc-top">
+        <a className="pkg-back" href="#/packages">← All packages</a>
+        <span className="pkg-foot-spacer" />
+        <div className="pkg-scope" role="radiogroup" aria-label="Which roles file to edit">
+          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>Workspace — shared</button>
+          {hasAgentLayer ? (
+            <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"} — overrides</button>
+          ) : null}
+        </div>
       </div>
 
       {loadErr ? (
@@ -271,6 +281,7 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
                 <RoleRow
                   key={name}
                   name={name}
+                  desc={ROLE_DESC[name]}
                   own={draft.builtin[name]}
                   inherited={inheritedBuiltin}
                   agentScope={scope === "agent"}
@@ -281,7 +292,8 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
                   onOverride={inheritedBuiltin ? () => setSlot(name, { __override: true, model: inheritedBuiltin.model, thinking: inheritedBuiltin.thinking || "" }) : undefined}
                 />
               );
-            })}          </div>
+            })}
+          </div>
 
           <div className="pkc-section">
             <h3>Custom presets</h3>
@@ -320,8 +332,8 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
             )}
           </div>
 
-          <div className="pkc-foot" data-align-row>
-            <span className="pkg-fine" title={layer?.path || ""}>
+          <div className={(dirty ? "pkc-foot dirty" : "pkc-foot")} data-align-row>
+            <span className={dirty ? "pkg-fine pkc-file dirty" : "pkg-fine pkc-file"} title={layer?.path || ""}>
               {layer && layer.exists ? layer.rel : "No file yet"}
               {scope === "agent" ? " · unset slots inherit the workspace file" : ""}
             </span>
@@ -364,26 +376,29 @@ function ModelSelect({ id, model, inheritedModel, providers, disabled, onChange 
 function ThinkingSelect({ id, value, inheritedValue, levels, disabled, onChange }) {
   return (
     <select
-      className="pkc-select"
+      className="pkc-select thinking"
       aria-label={id + " thinking level"}
       disabled={disabled}
       value={value || THINKING_NONE}
       onChange={(e) => onChange({ thinking: e.target.value === THINKING_NONE ? "" : e.target.value })}
     >
-      <option value={THINKING_NONE}>{value ? "" : inheritedValue ? "Inherits " + inheritedValue : "Thinking: leave as is"}</option>
+      <option value={THINKING_NONE}>{value ? "" : inheritedValue ? "Inherits " + inheritedValue : "Thinking: unchanged"}</option>
       {levels.map((t) => <option key={t} value={t}>{t}</option>)}
     </select>
   );
 }
 
-function RoleRow({ name, custom, own, inherited, agentScope, providers, thinkingLevels, disabled, onChange, onRemove, onOverride }) {
+function RoleRow({ name, desc, custom, own, inherited, agentScope, providers, thinkingLevels, disabled, onChange, onRemove, onOverride }) {
   const isOverride = agentScope && !!own;
   const isInherited = agentScope && !own && !!inherited;
   const effective = own || inherited;
   return (
     <div className={"pkc-row" + (isInherited ? " inherited" : "")}>
       <div className="pkc-row-head">
-        <span className="pkc-role-name">{name}</span>
+        <div className="pkc-role-id">
+          <span className="pkc-role-name">{name}</span>
+          {desc ? <span className="pkc-role-desc">{desc}</span> : null}
+        </div>
         {isInherited ? <span className="pkg-type">inherited</span> : null}
         {isOverride ? <span className="pkg-type">this agent</span> : null}
         <span className="pkg-foot-spacer" />
@@ -426,7 +441,7 @@ function RoleRow({ name, custom, own, inherited, agentScope, providers, thinking
             value={own?.thinking || ""}
             inheritedValue={effective?.thinking || ""}
             levels={thinkingLevels}
-            disabled={disabled}
+            disabled={disabled || !(own && own.model)}
             onChange={onChange}
           />
         </div>
@@ -447,7 +462,7 @@ function AddPreset({ providers, thinkingLevels, existing, disabled, onAdd, onCan
     <div className="pkc-row add">
       <div className="pkc-row-fields" data-align-row>
         <input
-          className="dlg-input pkc-name"
+          className="pkc-input"
           value={name}
           placeholder="preset name"
           aria-label="Preset name"
@@ -455,7 +470,7 @@ function AddPreset({ providers, thinkingLevels, existing, disabled, onAdd, onCan
           onChange={(e) => setName(e.target.value)}
         />
         <ModelSelect id="new preset" model={model} providers={providers} disabled={disabled} onChange={(p) => { setModel(p.model); setThinking(p.thinking || ""); }} />
-        <ThinkingSelect id="new preset" value={thinking} levels={thinkingLevels} disabled={disabled} onChange={(p) => setThinking(p.thinking || "")} />
+        <ThinkingSelect id="new preset" value={thinking} levels={thinkingLevels} disabled={disabled || !model} onChange={(p) => setThinking(p.thinking || "")} />
       </div>
       {nameBad ? (
         <p className="pkg-fine">{duplicate ? '"' + name + '" already exists in this layer.' : reserved ? '"' + name + '" is reserved.' : "Use letters, digits, - or _ (must start with a letter)."}</p>
