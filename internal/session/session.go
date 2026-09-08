@@ -324,15 +324,7 @@ func previewFrom(msg any) string {
 }
 
 func costFrom(msg any) float64 {
-	m, _ := msg.(map[string]any)
-	if m == nil {
-		return 0
-	}
-	u, _ := m["usage"].(map[string]any)
-	if u == nil {
-		return 0
-	}
-	c, _ := u["cost"].(map[string]any)
+	c := costMap(msg)
 	if c == nil {
 		return 0
 	}
@@ -341,6 +333,39 @@ func costFrom(msg any) float64 {
 		return v
 	}
 	return 0
+}
+
+// costSplitFrom reads the per-type costs pi writes beside the total. A
+// message that carries only a total yields the zero split, so callers must
+// treat the split as a breakdown of the total, never as the total itself.
+func costSplitFrom(msg any) CostSplit {
+	c := costMap(msg)
+	if c == nil {
+		return CostSplit{}
+	}
+	get := func(key string) float64 {
+		v, _ := c[key].(float64)
+		return v
+	}
+	return CostSplit{
+		Input:      get("input"),
+		Output:     get("output"),
+		CacheRead:  get("cacheRead"),
+		CacheWrite: get("cacheWrite"),
+	}
+}
+
+func costMap(msg any) map[string]any {
+	m, _ := msg.(map[string]any)
+	if m == nil {
+		return nil
+	}
+	u, _ := m["usage"].(map[string]any)
+	if u == nil {
+		return nil
+	}
+	c, _ := u["cost"].(map[string]any)
+	return c
 }
 
 func clip(s string, n int) string {

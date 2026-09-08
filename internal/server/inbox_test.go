@@ -193,6 +193,10 @@ func TestInboxAppActionRespondInteractiveAgent(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not available")
 	}
+	// session.Dir() resolves under $HOME; without this the fixture below
+	// writes into the developer's real ~/.pi/agent/sessions.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {
 		t.Fatalf("open store: %v", err)

@@ -32,6 +32,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-07 — What each agent CLI records about itself (Claude Code OTel, Codex OTel, ccusage, codex-trace, CliDeck, cli-agent-orchestrator)](2026-09-07-cross-cli-agent-telemetry.md)
 - [2026-09-07 — Write actions on a commit graph (Git Graph, GitLens, GitKraken, Tower, GitButler, lazygit, Conductor)](2026-09-07-git-graph-write-actions.md)
 - [2026-09-07 — The right-click menu on a terminal pane (VS Code, Windows Terminal, Ghostty, iTerm2, Warp, Cursor)](2026-09-07-terminal-context-menu.md)
 - [2026-09-07 — Agent notifications and the toast payload (Superset)](2026-09-07-superset-notifications.md)

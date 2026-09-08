@@ -23,7 +23,17 @@ type OpenCodeSource struct{}
 
 func (OpenCodeSource) CLI() string { return "opencode" }
 
+// OpenCodeTestDB, when set, is OpenCodeDBPath() (tests only).
+var OpenCodeTestDB string
+
+// OpenCodeDBPath is OpenCode's SQLite store. Exported so climetrics opens
+// the same file this package lists from.
+func OpenCodeDBPath() string { return opencodeDBPath() }
+
 func opencodeDBPath() string {
+	if OpenCodeTestDB != "" {
+		return OpenCodeTestDB
+	}
 	if x := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); x != "" {
 		return filepath.Join(x, "opencode", "opencode.db")
 	}
@@ -93,6 +103,14 @@ func listOpenCodeDB(path, cwd string) ([]Summary, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// SQLiteTableColumns probes a table's columns so a reader can select only
+// what a given vendor's schema version actually has. Exported for
+// climetrics, which reads more columns than the picker does and must
+// degrade rather than fail when one is missing.
+func SQLiteTableColumns(db *sql.DB, table string) (map[string]bool, error) {
+	return sqliteTableColumns(db, table)
 }
 
 func sqliteTableColumns(db *sql.DB, table string) (map[string]bool, error) {

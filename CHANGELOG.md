@@ -11,6 +11,44 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **The dashboard counts every agent CLI, not just Pi.** `GET
+  /api/sessions/stats` now aggregates all six agent CLIs — Pi, Claude Code,
+  Codex, OpenCode, Hermes Agent and Grok — so spend, activity, tokens, tools and turns
+  describe the machine rather than one CLI. On the machine this was built
+  on, the same 7-day window went from **$517.04** to **$1,916.35** — the old
+  number was 27% of the truth, with nothing on screen to say so. Two new
+  breakdowns ride along: `byCli` (which CLI the money went to) and
+  `coverage` (what each CLI can and cannot report), plus code impact,
+  timings and quota windows where a CLI records them. A metric a CLI never
+  writes is reported as *not reported*, never as `0` — Codex is never given
+  an invented price, and shows the quota window it does record instead
+  (81% of a weekly limit, resetting Saturday, on the machine this was built
+  on). Parsing is cached per file, so the minute-by-minute refresh costs
+  46 ms rather than the 2.4 s a full re-read would. A new
+  `?scope=machine|picode` narrows the window to folders a PiCode workspace
+  claims; the default counts everything, as before. (ADR-0097)
+- **The dashboard shows which CLI the money went to.** A **By CLI** card
+  ranks spend per agent CLI with a billing badge (`api` / `sub`), and four
+  new panels read what the guest CLIs record and Pi never did: **Code
+  impact** (lines added/removed, cost per line), **Agent time** (waiting on
+  models vs. running tools — agent time, not elapsed, since sessions run at
+  once), **Limits** (a quota window's headroom and reset), and
+  **Efficiency** (cache hit, cost per turn). A **What each CLI reports**
+  matrix shows the blind spots as data. A **This machine / PiCode** control
+  narrows the window to claimed workspaces.
+- **The dashboard never prints `$0.00` for spend it could not measure.** A
+  day whose sessions are all still running has no price on disk yet; it now
+  reads `—` with "not priced by any CLI that ran" instead of a zero that
+  looked like "free". Sub-cent spend reads `<$0.01`, a plan-covered CLI
+  reads "not priced", and a period with no activity says so instead of
+  ranking six CLIs at zero.
+- **Spend now lands on the day it was earned.** A compaction marker is
+  counted on its own timestamp instead of the session file's modification
+  time, so a long-running session no longer dumps its whole compaction
+  history onto the day it was last touched.
+
 ### Fixed
 
 - **A prepared command no longer swallows the next one.** A git command typed

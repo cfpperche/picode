@@ -1339,7 +1339,8 @@ img.ws-face.term-cli-face {
    bar in the middle of a wide window). */
 .dashboard-view { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 40px; }
 .dash-inner { max-width: 1040px; width: 100%; margin: 0 auto; }
-.dash-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.dash-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.dash-head .dash-asof-wrap { margin-left: auto; }
 .dash-asof-wrap { display: inline-flex; align-items: center; gap: 6px; }
 .dash-asof { font-size: 11.5px; color: var(--text-secondary); }
 .dash-refresh { width: 26px; height: 26px; }
@@ -1452,6 +1453,40 @@ img.ws-face.term-cli-face {
 .spend-bar-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width var(--motion-med) var(--ease-out); }
 .spend-amount { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; }
 .spend-skel { display: flex; flex-direction: column; gap: 8px; }
+
+/* Cross-CLI marks (ADR-0097). The badge is a label, never a colour code:
+   a coloured pill would imply a judgement the product has no budget to
+   make, and the row's words already carry the meaning. */
+.spend-badge {
+  flex: none; font-size: 10px; line-height: 1; padding: 2px 4px;
+  border: 1px solid var(--border-strong); border-radius: 4px;
+  color: var(--text-secondary); text-transform: lowercase;
+}
+.spend-amount.is-unmeasured { font-size: 11.5px; font-style: italic; }
+.limit-reset { grid-column: 2 / -1; font-size: 11px; color: var(--text-secondary); margin-top: -2px; }
+
+/* One line under a panel naming what its number does *not* cover. It
+   appears only when something is missing, so seeing one is information. */
+.top-session-cli {
+  display: inline-block; margin-right: 6px; font-size: 10px; line-height: 1;
+  padding: 2px 4px; border: 1px solid var(--border-strong); border-radius: 4px;
+  color: var(--text-secondary); vertical-align: 1px;
+}
+
+.dash-note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--text-secondary); }
+
+/* Coverage matrix: the panel that lets every other number be read at face
+   value. Glyphs, not colour — the row and column labels carry the meaning,
+   and the title on each cell spells it out. */
+.dash-coverage-section { break-inside: avoid; }
+.dash-coverage { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.dash-coverage th, .dash-coverage td { padding: 4px 2px; text-align: center; font-weight: 400; }
+.dash-coverage thead th { color: var(--text-secondary); font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
+.dash-coverage .dash-coverage-cli { text-align: left; white-space: nowrap; padding-right: 8px; color: var(--text-primary); }
+.dash-coverage td.is-on { color: var(--accent); }
+.dash-coverage td.is-off { color: var(--text-secondary); opacity: .6; }
+.dash-coverage-notes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+.dash-coverage-note-cli { color: var(--text-primary); }
 
 /* Tokens: four tones of the one accent, parts of one whole. */
 .token-bar-total { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }

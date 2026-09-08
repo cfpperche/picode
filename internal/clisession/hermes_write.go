@@ -35,7 +35,7 @@ func (HermesSource) Write(ctx context.Context, t transcript.Timeline, req WriteR
 	}
 	// The file handed over is a Claude Code transcript, so the format that
 	// must be known is Claude's, not the version of Hermes reading it.
-	version, model := claudeNewestFacts(claudeProjectsRoot())
+	version, model := claudeNewestFacts(ClaudeProjectsRoot())
 	if version == "" {
 		return Summary{}, ErrUnknownFormat
 	}

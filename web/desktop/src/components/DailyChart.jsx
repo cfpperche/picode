@@ -3,9 +3,13 @@ import { dayLabel } from "@picode/shared/domain/dashboardStats.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 
 const METRICS = [
-  { key: "cost", label: "Spend", fmt: (v) => formatMoney(v, "usd") },
-  { key: "messages", label: "Messages", fmt: (v) => Number(v || 0).toLocaleString() },
-  { key: "turns", label: "Turns", fmt: (v) => Number(v || 0).toLocaleString() },
+  // `empty` is per metric on purpose. An all-zero spend series next to an
+  // activity tile reading 299 messages used to say "No session activity in
+  // this period", which contradicted the card beside it — the days were
+  // real, the *price* was not (ADR-0097).
+  { key: "cost", label: "Spend", fmt: (v) => formatMoney(v, "usd"), empty: "No spend recorded in this period." },
+  { key: "messages", label: "Messages", fmt: (v) => Number(v || 0).toLocaleString(), empty: "No messages in this period." },
+  { key: "turns", label: "Turns", fmt: (v) => Number(v || 0).toLocaleString(), empty: "No turns in this period." },
 ];
 
 // One bar per calendar day of the period. Hover reads the exact day and
@@ -32,7 +36,7 @@ export default function DailyChart({ series, metric, onMetric }) {
         </div>
       </div>
       {!chart || chart.max === 0 ? (
-        <p className="dash-empty">No session activity in this period.</p>
+        <p className="dash-empty">{m.empty}</p>
       ) : (
         <>
           <svg className="dash-chart-svg" viewBox={"0 0 " + chart.width + " " + chart.height} preserveAspectRatio="none" role="img" aria-label={m.label + " per day"}>

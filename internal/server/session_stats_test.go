@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -68,12 +70,36 @@ func TestStatsWindow(t *testing.T) {
 	}
 }
 
+// withTestSessionRoot isolates every agent CLI's session store, not just
+// pi's. The dashboard went cross-CLI, so a test that isolates one store
+// reads the developer's own machine for the other five — which is how these
+// tests first failed, with a real $2,327 of Claude Code spend leaking into
+// an assertion about a single 0.5 fixture.
+//
+// Anything added to climetrics.Meters() must be isolated here too.
 func withTestSessionRoot(t *testing.T) string {
 	t.Helper()
-	old := session.TestRoot
 	dir := t.TempDir()
+	empty := filepath.Join(dir, "empty")
+
+	oldPi := session.TestRoot
+	oldClaude := clisession.ClaudeTestRoot
+	oldCodex := clisession.CodexTestRoot
+	oldOpenCode := clisession.OpenCodeTestDB
+	oldHermes := clisession.HermesTestDB
 	session.TestRoot = dir
-	t.Cleanup(func() { session.TestRoot = old })
+	clisession.ClaudeTestRoot = filepath.Join(empty, "claude")
+	clisession.CodexTestRoot = filepath.Join(empty, "codex")
+	clisession.OpenCodeTestDB = filepath.Join(empty, "opencode.db")
+	clisession.HermesTestDB = filepath.Join(empty, "hermes.db")
+	t.Setenv("GROK_HOME", filepath.Join(empty, "grok"))
+	t.Cleanup(func() {
+		session.TestRoot = oldPi
+		clisession.ClaudeTestRoot = oldClaude
+		clisession.CodexTestRoot = oldCodex
+		clisession.OpenCodeTestDB = oldOpenCode
+		clisession.HermesTestDB = oldHermes
+	})
 	return dir
 }
 
@@ -172,7 +198,7 @@ func TestHandleSessionStatsCacheServesUntilTreeChanges(t *testing.T) {
 	if got := call(); got.Current.Cost != 0.5 {
 		t.Fatalf("first = %+v", got.Current)
 	}
-	key := root + "|all"
+	key := root + "|all|" + string(climetrics.ScopeMachine)
 	sessionStats.mu.Lock()
 	_, cached := sessionStats.entries[key]
 	sessionStats.mu.Unlock()

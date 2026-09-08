@@ -3,7 +3,10 @@
 // is needed (dataviz form: magnitude comparison with a direct label ->
 // sequential one hue, not categorical). Generalised from v1's provider
 // list so model / workspace / tool rankings all read the same way.
-//   items: [{ key, label, sub?, face?, value, display }]
+//   items: [{ key, label, sub?, face?, value, display, badge?, badgeTitle?, muted? }]
+//     badge is the small mark a cross-CLI row carries (a billing mode, per
+//     ADR-0097). A row whose value is unmeasured passes display text such as
+//     "not priced" and a zero value: the bar collapses, the words explain.
 //   empty: the one-line empty state for this ranking
 //   limit / more: past `limit` rows the tail collapses into one muted row
 //     labelled by more(count) with the tail's summed value — a dashboard
@@ -27,11 +30,12 @@ export default function RankedBars({ items, empty, limit, more, format }) {
             {i.face ? <span className="spend-face">{i.face}</span> : null}
             <span className="spend-label">{i.label}</span>
             {i.sub ? <span className="spend-sub">{i.sub}</span> : null}
+            {i.badge ? <span className="spend-badge" title={i.badgeTitle || ""}>{i.badge}</span> : null}
           </span>
           <span className="spend-bar-track">
             <span className="spend-bar-fill" style={{ width: Math.max(2, (i.value / max) * 100) + "%" }} />
           </span>
-          <span className="spend-amount">{i.display}</span>
+          <span className={"spend-amount" + (i.unmeasured ? " is-unmeasured" : "")}>{i.display}</span>
         </li>
       ))}
     </ul>

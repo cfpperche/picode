@@ -26,7 +26,17 @@ type HermesSource struct{}
 
 func (HermesSource) CLI() string { return "hermes" }
 
+// HermesTestDB, when set, is HermesStatePath() (tests only).
+var HermesTestDB string
+
+// HermesStatePath is Hermes Agent's SQLite store. Exported so climetrics
+// opens the same file this package lists from.
+func HermesStatePath() string { return hermesStatePath() }
+
 func hermesStatePath() string {
+	if HermesTestDB != "" {
+		return HermesTestDB
+	}
 	if h := strings.TrimSpace(os.Getenv("HERMES_HOME")); h != "" {
 		return filepath.Join(h, "state.db")
 	}
