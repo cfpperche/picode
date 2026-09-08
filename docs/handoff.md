@@ -63,7 +63,7 @@
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-8. Inspector: merge/rebase/branch picker; `git ls-files` search; per-anchor watch; `+N −M` footer.
+8. Git graph write actions (ADR-0096, `docs/plans/git-graph-actions.md`): phases 1–2 approved, nothing built; absorbs the Inspector's merge/rebase/branch picker. Inspector debts left: `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 

@@ -32,6 +32,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-07 — Write actions on a commit graph (Git Graph, GitLens, GitKraken, Tower, GitButler, lazygit, Conductor)](2026-09-07-git-graph-write-actions.md)
 - [2026-09-07 — The right-click menu on a terminal pane (VS Code, Windows Terminal, Ghostty, iTerm2, Warp, Cursor)](2026-09-07-terminal-context-menu.md)
 - [2026-09-07 — Agent notifications and the toast payload (Superset)](2026-09-07-superset-notifications.md)
 - [2026-09-07 — Reaching the agent terminals over SSH (Coder, Codespaces, Ona, VS Code, Tailscale, Terminal-Bench)](2026-09-07-ssh-terminal.md)
