@@ -307,7 +307,14 @@ door: `POST /api/terminals/{id}/drop` writes a file under
 `<cwd>/.picode/drop/`, and `POST /api/terminals/{id}/prompt` pastes the
 caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
 to the terminal"), not model delivery. Inspector type/run/Ask still must
-not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
+not target a CLI TUI (ADR-0078). Plain shells have no attach bar. The
+staging folder stays inside the project deliberately — the CLI reads the
+path itself, confined to its own cwd — but is never global-data material
+and never touches the project's own tracked `.gitignore`: a nested,
+uncommitted `.picode/.gitignore` (`drop/`) covers it even in a project
+with no root `.gitignore` at all, and a drop older than 7 days is swept
+on the next one into the same project (no daemon; nothing else ever
+deletes a staged attachment once the CLI has read its path).
 `!cmd` runs in the agent cwd via `POST /api/agents/{id}/bash` (`abort_bash` cancels); output renders in the chat and joins the next prompt.
 MCP manager: `GET/POST/PATCH/DELETE /api/mcp` reads and writes the adapter files
 (`~/.pi/agent/mcp.json`, `<cwd>/.mcp.json`, `<agent cwd>/.pi/mcp.json`). `?agent=`

@@ -28,9 +28,12 @@ A **prompt door** exists on Agent CLI terminals only (plain shells wait).
 1. **Stage.** `POST /api/terminals/{id}/drop` writes a regular file under
    the terminal's recorded cwd, in `.picode/drop/`, cwd-confined. Images
    are png/jpeg/gif/webp; other artifacts are allowed as files. Caps: 4
-   attachments per prompt, 4 MB each. Touch `.gitignore` for that folder
-   when a `.gitignore` already exists and lacks it. Return a cwd-relative
-   path. Bytes are not stored in SQLite.
+   attachments per prompt, 4 MB each. A nested, uncommitted
+   `.picode/.gitignore` (`drop/`) keeps the folder out of git — never the
+   project's own tracked `.gitignore` (2026-09-07 amendment below). Return
+   a cwd-relative path. Bytes are not stored in SQLite. Anything older
+   than 7 days is swept on the next drop into the same project — no
+   daemon; nothing else ever removes a staged attachment.
 2. **Send.** `POST /api/terminals/{id}/prompt` `{message, paths}` builds
    one bracketed paste (caption plus `@path` lines) and `PasteText`s it
    into `picode-sh-<id>`, then Enter. Proof is honest: tmux accepted the
@@ -71,3 +74,28 @@ delivery, or if Inspector git starts using this door.
 | Replace the TUI with PiCode chat (ACP) | First-class CLI agents; separate ADR |
 | Swap a Pi CLI for managed RPC | Owner rejected that for Inbox (0059→0060); useless for Claude |
 | OSC 52 clipboard read | Guest CLIs must not read the system clipboard |
+
+## Amendment (2026-09-07): the project's own `.gitignore` stops being touched
+
+The owner noticed `.picode/drop/` sitting in a project's file tree and
+asked whether it should live in PiCode's global data dir instead
+(`~/.picode`). It cannot: the door pastes a **path**, not bytes, and the
+CLI reads that path itself, typically confined to its own cwd — a path
+outside the project risks landing outside whatever sandbox the CLI reads
+files under. The folder stays in the repo on purpose.
+
+Two real defects surfaced chasing that question, both in the original
+"touch `.gitignore` for that folder when a `.gitignore` already exists"
+line above: a project with **no** root `.gitignore` left every staged
+attachment fully untracked and visible to `git status` forever, and a
+project that had one got a silent, uncommitted `.picode/drop/` line
+appended to a file the user tracks — every attach dirtied `git status`
+until someone committed or reverted it. Fix: a nested `.picode/.gitignore`
+(`drop/`), created once, unconditionally, never touching the project's
+own file.
+
+Also: nothing in this ADR gave a staged attachment a lifetime. The CLI
+reads its path once, at paste time, and nothing deletes the file after —
+a project accumulates every image ever attached, forever. `dropMaxAge`
+(7 days) is now swept opportunistically on the next drop into the same
+project; no daemon, no ticker to forget to wire up.

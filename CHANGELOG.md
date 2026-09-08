@@ -120,6 +120,18 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Agent CLI attachments no longer dirty the project's `.gitignore` or
+  pile up forever:** attaching an image or file to a Claude Code/Codex/
+  Grok/Hermes/Pi terminal (ADR-0089) used to append a silent, uncommitted
+  `.picode/drop/` line to the project's own tracked `.gitignore` on the
+  first attach — showing up as an unexplained `M .gitignore` in `git
+  status` — and did nothing at all in a project with no root `.gitignore`,
+  leaving every staged attachment fully untracked. A nested
+  `.picode/.gitignore` now covers the folder unconditionally, without
+  touching the project's file either way. Staged attachments older than
+  7 days are also swept the next time anything is attached in that
+  project — nothing removed them before.
+
 - **Terminals reattach after a phone lock:** locking the phone (or any
   network drop) no longer leaves a dead "— detached —" terminal that
   must be exited and reopened, losing the reader's place. The browser
