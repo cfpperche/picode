@@ -55,10 +55,11 @@ export default function TermAttachSheet({ term, open, onClose }) {
         const d = await api("/api/terminals/" + encodeURIComponent(term.id) + "/drop", json({ name: it.name, mime: it.mime, data: it.data }));
         paths.push(d.path);
       }
+      // No success toast: the user is looking at the terminal and sees the
+      // message land. Toasts stay reserved for failures (toastError below).
       await api("/api/terminals/" + encodeURIComponent(term.id) + "/prompt", json({ message: text, paths }));
       setItems([]);
       setText("");
-      toast.ok("Sent to the terminal.");
       onClose();
     } catch (e) {
       toastError(e);

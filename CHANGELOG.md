@@ -62,6 +62,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Sending a message to the terminal no longer toasts "Sent to the
+  terminal."** The user is looking at the pane and sees the message land —
+  the confirmation was chrome talking to itself. The message bar/sheet
+  closes over the visible delivery instead; toasts stay reserved for
+  failures (send errors still surface via `toastError`). Both surfaces
+  changed together: desktop bar (`TermAttachBar.jsx`) and mobile sheet
+  (`TermAttachSheet.jsx`).
+
 - **Settings now lives under Agent CLIs → Settings → Pi (ADR-0101).** Desktop and mobile retain global, trusted workspace, agent and key settings. Old links redirect; contextual URLs preserve the agent on reload. Native settings load independently of terminal setup, and failed saves retain edits.
 
 
