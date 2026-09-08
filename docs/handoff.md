@@ -39,7 +39,7 @@
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
-- **Packages config GUI (ADR-0100):** installed list is a filterable row list; pi-roles gets `#/packages/config/pi-roles` — workspace file + agent overlay (AgentCwd rule), effective merge, scoped reset, 409 before overwriting an unparsable file; pi files stay the only source of truth (supersedes 0033 §5). Delivery 2: pi-compact + declarative adapter manifest; mobile config UI still open.
+- **Packages config GUI (ADR-0100):** installed list is a filterable card grid; pi-roles gets `#/packages/config/pi-roles` — workspace file + agent overlay (AgentCwd rule), effective merge, scoped reset, 409 before overwriting an unparsable file; pi files stay the only source of truth (supersedes 0033 §5). Delivery 2: pi-compact + declarative adapter manifest; mobile config UI still open.
 
 ## In flight (unmerged branches on disk)
 
@@ -52,9 +52,9 @@
 3. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 4. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy; pins v2 slice 4 — search, starred, archive (migration 037; `docs/plans/pins-v2.md`).
+6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; plan in `docs/plans/windows-clean-install.md`. Owner: Azure Trusted Signing account.
+9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing (Trusted Signing excludes Brazil; SignPath needs OSI). Plan: `docs/plans/windows-clean-install.md`.
 8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
    pi terminals (ADR-0089 amendment, proven live). Inspector debts left:
    `git ls-files` search, per-anchor watch, `+N −M` footer.

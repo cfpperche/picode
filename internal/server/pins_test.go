@@ -242,3 +242,45 @@ func TestPinSweepOrphanDirs(t *testing.T) {
 		t.Fatal("swept a directory that is not a pin id")
 	}
 }
+
+func TestPinListV2Routes(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	a := newPin(t, ts, "Alpha")
+	b := newPin(t, ts, "Beta")
+	code, out := pinReqJSON(t, ts, http.MethodPost, "/api/pins/"+b["id"].(string)+"/starred", map[string]any{"starred": true}, nil)
+	if code != http.StatusOK || out["starred"] != true {
+		t.Fatalf("star = %d %v", code, out)
+	}
+	code, out = pinReqJSON(t, ts, http.MethodPost, "/api/pins/"+a["id"].(string)+"/archived", map[string]any{"archived": true}, nil)
+	if code != http.StatusOK || out["archivedAt"] == nil {
+		t.Fatalf("archive = %d %v", code, out)
+	}
+	var list struct {
+		Pins     []map[string]any
+		Archived int
+	}
+	getJSON(t, ts, "/api/pins", &list)
+	if len(list.Pins) != 1 || list.Pins[0]["id"] != b["id"] || list.Archived != 1 {
+		t.Fatalf("live list = %+v", list)
+	}
+	list = struct {
+		Pins     []map[string]any
+		Archived int
+	}{}
+	getJSON(t, ts, "/api/pins?archived=1", &list)
+	if len(list.Pins) != 1 || list.Pins[0]["id"] != a["id"] {
+		t.Fatalf("archived list = %+v", list)
+	}
+	list = struct {
+		Pins     []map[string]any
+		Archived int
+	}{}
+	getJSON(t, ts, "/api/pins?q=alpha", &list)
+	if len(list.Pins) != 1 || list.Pins[0]["archivedAt"] == nil {
+		t.Fatalf("search = %+v", list)
+	}
+	code, _ = pinReqJSON(t, ts, http.MethodPost, "/api/pins/nope-000000/starred", map[string]any{"starred": true}, nil)
+	if code != http.StatusNotFound {
+		t.Fatalf("star missing = %d", code)
+	}
+}

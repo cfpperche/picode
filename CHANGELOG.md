@@ -13,6 +13,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Pins: search, keep on top, archive.** The Pins tab has a search box
+  over title, tags and note (every word must match; archived pins are
+  found too and say so). A star keeps a pin on top of the list; Archive
+  takes it out of the sidebar into an "N archived" view one click away,
+  pauses its reminder and closes an open reminder item, and Unarchive
+  brings it back (a slot missed meanwhile fires once). The studio has
+  Archive and Keep on top beside Delete; the phone's pin screen shows
+  "on top" / "archived". `GET /api/pins?q=` and `?archived=1`,
+  `POST /api/pins/{id}/starred` and `/archived` (migration 037).
+
 - **Pins: reminders on screen (ADR-0100, slice 3).** The studio has a
   "Remind me" chip: presets first (in 1 h, in 3 h, tomorrow morning, next
   Monday morning, every day, every weekday — day presets at a morning hour
@@ -52,9 +62,9 @@ to the `[Unreleased]` section. The repository's official language is English
   sticky card and the picker are the next slice.
 
 - **Packages: view, edit and reset package configuration (pi-roles first,
-  ADR-0099).** Installed packages render as a compact, filterable list
-  (marketplace keeps its cards) and a package with a known config adapter
-  shows **Configure**. The pi-roles editor (`#/packages/config/pi-roles`)
+  ADR-0099).** Installed packages render as the familiar card grid, now filterable,
+  with **Configure** beside Update/Remove on packages with a known config
+  adapter. The pi-roles editor (`#/packages/config/pi-roles`)
   edits the same files the extension reads — the workspace
   `.pi/roles.json` and the per-agent overlay `.pi/roles/<agentId>.json` —
   and shows the effective merge: inherited slots are visible (and can be

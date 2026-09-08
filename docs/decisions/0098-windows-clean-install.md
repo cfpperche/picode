@@ -1,6 +1,6 @@
 # ADR-0098: Windows clean-machine install — the desktop exe finishes the job
 
-- **Status**: accepted (owner approved 2026-09-08; extends 0020, amends 0003's first-run boundary, extends 0093)
+- **Status**: accepted (owner approved 2026-09-08; extends 0020, amends 0003's first-run boundary, extends 0093); amended 2026-09-08 — no paid signing, `install.ps1` is the install line (see Amendment)
 - **Date**: 2026-09-08
 
 ## Context
@@ -139,3 +139,48 @@ window mode if the PWA proves insufficient.
 | Ubuntu's `nodejs` package instead of NodeSource | Ubuntu LTS ships a Node major that pi's `engines` may not accept; a pinned NodeSource major is the version the package declares |
 | Leave `pi` to the Agent CLIs "Install" button (ADR-0093) | The button needs npm, which a clean Ubuntu does not have (the job fails with "npm was not found"), and it is a manual step inside the UI — the promise here is no manual step. First run has to close the loop itself |
 | Ship unsigned and document the SmartScreen "More info → Run anyway" | Works for developers; the request is for users who should not need to know what SmartScreen is |
+
+## Amendment 2026-09-08 — no paid signing; the install line is a script
+
+The owner ruled out spending on signing for now, and two facts checked the
+same day close the free alternatives: Azure Trusted Signing (now Artifact
+Signing) validates organizations only in the USA, Canada, the EU and the UK,
+so a Brazilian company cannot use it; SignPath Foundation requires an
+OSI-approved license without commercial dual-licensing, which PolyForm
+Noncommercial plus a commercial license is not.
+
+SmartScreen's wall appears when Explorer runs a file carrying the Mark of
+the Web, which browsers stamp on downloads. For an unsigned file the
+reputation is per hash, so every release starts over. A file fetched by a
+script and unblocked carries no mark; the logon task and the exe's own
+self-update never carry one either. The wall is therefore a first-run
+problem only, and the fix is to not hand the first run to Explorer.
+
+Decision, replacing the distribution paragraph above:
+
+- The documented install line is a PowerShell one-liner,
+  `irm https://cfpperche.github.io/picode/install.ps1 | iex`. The script
+  lives in the repo, is short enough to read, pins the release tag, verifies
+  the exe against the release's `SHA256SUMS`, writes it to
+  `%LOCALAPPDATA%\PiCode`, runs `Unblock-File` and calls
+  `picode-desktop.exe install`. Nothing else is downloaded or executed.
+- A winget manifest (`cfpperche.PiCode`, type `portable`) is still
+  submitted, as a second door. winget stamps the mark on installers before
+  running them and an unsigned exe has been seen to stop there; the
+  manifest becomes the documented line only after a real `winget install`
+  on a clean machine passes without a prompt.
+- The GitHub release page keeps the exe with the sentence "More info → Run
+  anyway" documented once, in the Windows guide.
+- No signing job in CI, no signature check in the self-update. The
+  `SHA256SUMS` check is the integrity boundary on both paths.
+- Paid signing returns to the table only with a legal entity in a
+  supported region or a budget for an OV certificate (around US$ 200 a
+  year). This amendment does not change phases 1 and 3.
+
+Relation to ADR-0093: that ADR refuses to *execute vendors'* `curl | bash`
+installers on the user's behalf. Publishing PiCode's own script, which the
+user chooses to run, is a different act; the constraints above (repo-hosted,
+tag-pinned, checksum-verified, one binary) are what keep it defensible.
+The alternatives row "Ship unsigned and document the SmartScreen wall" is
+superseded: the script removes the wall for the documented path.
+

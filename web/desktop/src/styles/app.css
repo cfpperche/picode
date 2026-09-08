@@ -327,6 +327,24 @@ body {
 .pin-att-name { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-att-size { font-size: 10px; color: var(--text-secondary); }
 .pin-card-files { margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
+.pins-search {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 0 8px;
+  height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+  color: var(--text-secondary);
+}
+.pins-search:focus-within { border-color: var(--accent); }
+.pins-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12.5px; outline: none; }
+.pins-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.pin-card-acts { display: inline-flex; align-items: center; gap: 2px; opacity: 0; transition: opacity 120ms; }
+.pin-card:hover .pin-card-acts, .pin-card.active .pin-card-acts, .pin-card:focus-within .pin-card-acts, .pin-card.starred .pin-card-acts { opacity: 1; }
+.pin-card.starred .pin-star, .pin-star.on { color: var(--accent); }
+.pin-star.on svg, .pin-star-btn.on svg { fill: currentColor; }
+.pin-card.archived .pin-card-title { color: var(--text-secondary); }
+.pin-card-archived { margin-top: 2px; font-size: 11px; color: var(--text-secondary); font-style: italic; }
+.pins-archived-link { margin-top: 8px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; padding: 4px 8px; text-align: left; }
+.pins-archived-link:hover { color: var(--text); }
+.pin-star-btn.on { color: var(--accent); }
+.pin-archived-note { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 .pin-card-remind { margin-top: 2px; font-size: 11px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-tags {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
@@ -736,30 +754,23 @@ body {
 .pkg-tab[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); }
 .pkg-tab-count { font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; }
 .pkg-card-installed .pkg-card-desc.pkg-src { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Installed list: compact rows, not cards (ADR-0033 am. #3). */
-.pkg-installed-toolbar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+/* Installed list: cards again (owner call), with a filter in the same
+   control language as the rest of the system: --ctl-h height, --radius-ctl,
+   same border/background as .dlg-input. */
+.pkg-installed-toolbar {
+  display: flex; align-items: center; gap: 8px; margin: 14px 0 12px;
+}
+.pkg-installed-toolbar > * {
+  box-sizing: border-box; height: var(--ctl-h); min-height: var(--ctl-h);
+}
 .pkg-installed-toolbar .pkg-search { flex: 1; }
-.pkg-rows { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.pkg-row {
-  display: grid; grid-template-columns: minmax(180px, 1.4fr) auto minmax(120px, 1fr) auto;
-  align-items: center; gap: 12px;
+.pkg-search {
+  width: 100%; padding: 0 10px; font: inherit; font-size: 13px;
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
-  background: var(--bg-panel); padding: 8px 12px; min-height: 44px;
+  background: var(--bg-base); color: var(--text-primary);
 }
-.pkg-row-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.pkg-row-name { font-family: var(--mono); font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pkg-row-desc { font-size: 11.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pkg-row-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--text-secondary); min-width: 0; }
-.pkg-row-meta em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
-.pkg-row-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-.pkg-row-actions .btn { height: 28px; min-height: 28px; }
-@media (max-width: 900px) {
-  .pkg-row { grid-template-columns: 1fr auto; grid-template-areas: "main actions" "meta actions"; }
-  .pkg-row-main { grid-area: main; }
-  .pkg-row .pkg-type { grid-area: actions; }
-  .pkg-row-meta { grid-area: meta; }
-  .pkg-row-actions { grid-area: actions; flex-direction: column; align-items: stretch; }
-}
+.pkg-search:focus { outline: none; border-color: var(--accent); }
+.pkg-search::placeholder { color: var(--text-secondary); }
 /* Package configuration page (pi-roles). */
 .pkg-back { display: inline-block; margin: 2px 0 10px; font-size: 12px; color: var(--text-secondary); }
 .pkg-back:hover { color: var(--text-primary); }

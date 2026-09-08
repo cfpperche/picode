@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -35,7 +36,7 @@ func TestPinsCRUD(t *testing.T) {
 		t.Fatalf("update = %+v %v", upd, err)
 	}
 
-	list, err := s.ListPins()
+	list, err := s.ListPins(PinListFilter{})
 	if err != nil || len(list) != 1 || list[0].Title != "Bye" {
 		t.Fatalf("list = %v %v", list, err)
 	}
@@ -91,7 +92,7 @@ func TestPinLimitsRefuse(t *testing.T) {
 	if !utf8.ValidString(p.Title) || !utf8.ValidString(p.Body) || utf8.RuneCountInString(p.Title) != 200 {
 		t.Fatalf("limit pin mangled: %d runes", utf8.RuneCountInString(p.Title))
 	}
-	if list, _ := s.ListPins(); len(list) != 1 {
+	if list, _ := s.ListPins(PinListFilter{}); len(list) != 1 {
 		t.Fatalf("refused pins were stored: %d", len(list))
 	}
 }
@@ -185,7 +186,7 @@ func TestPinFiles(t *testing.T) {
 	if err != nil || got.FileCount != 1 || len(got.Files) != 1 {
 		t.Fatalf("get files = %+v %v", got, err)
 	}
-	list, _ := s.ListPins()
+	list, _ := s.ListPins(PinListFilter{})
 	if list[0].FileCount != 1 {
 		t.Fatalf("list count = %d", list[0].FileCount)
 	}
@@ -212,4 +213,101 @@ func TestPinFiles(t *testing.T) {
 	if len(ids) != 1 || ids[0] != p.ID {
 		t.Fatalf("ids = %v", ids)
 	}
+}
+
+// List v2 (docs/plans/pins-v2.md slice 4): starred first, archive out of
+// the list but in the search, reminders paused while archived.
+func TestPinListV2(t *testing.T) {
+	s := openTest(t)
+	a, _ := s.CreatePin("Alpha deploy", []string{"ops"}, "run the smoke test")
+	b, _ := s.CreatePin("Beta notes", []string{"home"}, "buy 100% cotton_towels")
+	c, _ := s.CreatePin("Gamma", nil, "Ação com acento")
+	if _, err := s.SetPinStarred(c.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListPins(PinListFilter{})
+	if err != nil || len(list) != 3 || list[0].ID != c.ID || !list[0].Starred {
+		t.Fatalf("starred first: %+v %v", ids(list), err)
+	}
+	// Archive Beta: gone from the list, counted, found by search with archivedAt.
+	arch, err := s.SetPinArchived(b.ID, true)
+	if err != nil || arch.ArchivedAt == nil {
+		t.Fatalf("archive = %+v %v", arch, err)
+	}
+	list, _ = s.ListPins(PinListFilter{})
+	if len(list) != 2 {
+		t.Fatalf("archived pin still listed: %v", ids(list))
+	}
+	if n, _ := s.CountArchivedPins(); n != 1 {
+		t.Fatalf("archived count = %d", n)
+	}
+	archived, _ := s.ListPins(PinListFilter{Archived: true})
+	if len(archived) != 1 || archived[0].ID != b.ID {
+		t.Fatalf("archived list = %v", ids(archived))
+	}
+	cases := map[string][]string{
+		"smoke":         {a.ID},
+		"OPS":           {a.ID}, // tag, case-insensitive
+		"cotton":        {b.ID}, // archived, still found
+		"100%":          {b.ID}, // LIKE metacharacters are literal
+		"cotton_towels": {b.ID},
+		"ação":          {c.ID},       // non-ASCII lower()
+		"beta notes":    {b.ID},       // every word
+		"beta smoke":    {},           // words across pins do not match
+		"":              {c.ID, a.ID}, // empty = the live list
+	}
+	for q, want := range cases {
+		got, err := s.ListPins(PinListFilter{Q: q})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(ids(got), ",") != strings.Join(want, ",") {
+			t.Errorf("q=%q: got %v, want %v", q, ids(got), want)
+		}
+	}
+	// Search order: starred first, then live before archived.
+	if _, err := s.SetPinStarred(b.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.ListPins(PinListFilter{Q: "e"}) // matches all three
+	if strings.Join(ids(got), ",") != strings.Join([]string{c.ID, b.ID, a.ID}, ",") {
+		t.Fatalf("search order = %v", ids(got))
+	}
+	// Reminders pause while archived: due before, not due after, due again
+	// after unarchiving; archiving closes the open item.
+	r, _ := s.SetPinReminder(a.ID, PinReminderParams{Kind: "interval", IntervalMin: 5, TZ: "UTC"})
+	slot, _ := time.Parse(time.RFC3339Nano, *r.NextAt)
+	if due, _ := s.DueReminderIDs(slot); len(due) != 1 {
+		t.Fatalf("due before archive = %v", due)
+	}
+	_ = s.FireReminder(r.ID, slot)
+	if items, _ := s.ListInboxItems(InboxFilter{Kind: InboxReminder}); len(items) != 1 {
+		t.Fatal("no open item")
+	}
+	if _, err := s.SetPinArchived(a.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if items, _ := s.ListInboxItems(InboxFilter{Kind: InboxReminder}); len(items) != 0 {
+		t.Fatalf("archiving left the reminder item open: %+v", items)
+	}
+	if due, _ := s.DueReminderIDs(slot.Add(time.Hour)); len(due) != 0 {
+		t.Fatalf("archived pin's reminder still due: %v", due)
+	}
+	if _, err := s.SetPinArchived(a.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if due, _ := s.DueReminderIDs(slot.Add(time.Hour)); len(due) != 1 {
+		t.Fatalf("unarchived pin's reminder not due: %v", due)
+	}
+	if _, err := s.SetPinStarred("nope-000000", true); err != ErrNotFound {
+		t.Fatalf("star missing = %v", err)
+	}
+}
+
+func ids(list []PinSummary) []string {
+	out := make([]string, 0, len(list))
+	for _, p := range list {
+		out = append(out, p.ID)
+	}
+	return out
 }

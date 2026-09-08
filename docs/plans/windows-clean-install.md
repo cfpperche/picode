@@ -1,8 +1,9 @@
 # Windows clean-machine install
 
 Scope: [ADR-0098](../decisions/0098-windows-clean-install.md). Make
-`picode-desktop.exe` finish on a Windows machine that never had PiCode, sign
-it, and publish a winget manifest. Phase 3 (imported PiCode distro) is
+`picode-desktop.exe` finish on a Windows machine that never had PiCode, give
+it a first run that never meets SmartScreen (`install.ps1`), and publish a
+winget manifest as a second door. No paid signing (amendment 2026-09-08). Phase 3 (imported PiCode distro) is
 designed here but starts only after the owner approves it separately.
 
 Do not: bundle a browser, add a WebView, produce MSI/MSIX/Inno packages,
@@ -77,29 +78,46 @@ from report to fix.
 - Owner acceptance: a Windows 11 VM without WSL → download exe → reboot →
   PiCode tab. Record the timeline in the handoff note.
 
-## Phase 2 — signing and winget (CI only)
+## Phase 2 — `install.ps1` and winget (free)
 
-### 2a. Code signing
+### 2a. `install.ps1`
 
-- `.github/workflows/release.yml`: after the build step, a
-  `windows-latest` job signs `dist/picode-desktop-windows-amd64.exe` with
-  `azure/trusted-signing-action` when `AZURE_*` secrets exist; skipped with
-  a visible notice otherwise. `SHA256SUMS` is regenerated **after** signing.
-- `cmd/picode-desktop/update.go`: the self-update verifies the downloaded
-  exe's Authenticode signature (`Get-AuthenticodeSignature` via PowerShell,
-  or `wintrust` through `golang.org/x/sys/windows`) when the running exe is
-  itself signed; unsigned dev builds skip the check.
-- Owner action: create the Azure Trusted Signing account and identity;
-  store secrets in the repo. Not scriptable from here.
+- `docs-site/public/install.ps1`, served at
+  `https://cfpperche.github.io/picode/install.ps1` by the existing Pages
+  build. Under 80 lines, PowerShell 5.1 compatible (what Windows ships),
+  `Set-StrictMode`, `$ErrorActionPreference = 'Stop'`.
+- Steps: resolve the tag (`latest` by default, `$env:PICODE_VERSION`
+  overrides), download `picode-desktop-windows-amd64.exe` and `SHA256SUMS`
+  from that release with `Invoke-WebRequest`, compare
+  `Get-FileHash -Algorithm SHA256`, refuse on mismatch, write to
+  `%LOCALAPPDATA%\PiCode\picode-desktop.exe`, `Unblock-File`, then
+  `& $exe install` with the caller's console attached so the ADR-0020
+  dialogs and the reboot notice are visible. Exit code passes through.
+- Re-running the script over an existing install is a no-op when the hash
+  matches, an update otherwise (the exe's own `update` stays for later).
+- No proxy, mirror or telemetry logic. No `Start-Process -Verb RunAs`; the
+  exe asks for elevation itself where ADR-0071 already does.
+- `scripts/install-ps1.test.mjs`: static checks in `make ci` — the file is
+  ASCII, has no `iex`/`Invoke-Expression` inside, references only
+  `github.com/cfpperche/picode/releases`, and the asset names match
+  `release.yml`.
+- `docs-site/guide/windows-desktop.md`: the one-liner first, then the
+  release-page fallback with the "More info → Run anyway" sentence, then
+  winget once 2b is proven.
 
-### 2b. winget
+### 2b. winget (second door, experiment first)
 
 - `scripts/winget-manifest.mjs <version>` writes the three manifest files
   (`version`, `installer`, `defaultLocale`) for `cfpperche.PiCode`,
   installer type `portable`, with the release asset URL and SHA256.
+  Dry-run in `make ci`.
+- Before the first submission: `winget install --manifest <dir>` on a
+  clean Windows 11 VM; record whether the first launch shows any SmartScreen
+  prompt. Only a clean run promotes winget into the guide.
 - Release workflow opens the PR against `microsoft/winget-pkgs` with
-  `wingetcreate` (token in secrets) once per Stable tag; patch tags too.
-- `docs/release-process.md`: two new steps and the manual fallback.
+  `wingetcreate` (GitHub token in secrets) once per Stable tag; patch tags
+  too.
+- `docs/release-process.md`: the manifest step and the manual fallback.
 
 ## Phase 3 — imported PiCode distro (after separate approval)
 
@@ -131,10 +149,12 @@ from report to fix.
 | Non-Debian distro | Report missing tools, stop; doctor names them | Table test |
 | `/mnt/c` unavailable | Stream the binary through stdin | Runner test with automount off |
 | Download fails | Stage fails with URL and reason; rerun resumes | Error path test |
-| Release has secrets | Signed exe, SHA256SUMS regenerated after signing | Workflow run on a tag; `Get-AuthenticodeSignature` Valid |
-| Release lacks secrets | Unsigned exe, notice in job summary | Workflow run |
-| Stable tag | winget PR opened with correct SHA | Dry-run of `winget-manifest.mjs` in `make ci` |
-| Self-update, running exe signed | Refuse an unsigned or mismatched download | Update path test with a fake signature check |
+| `install.ps1`, hash matches SHA256SUMS | Write, unblock, run `install`; exit code passes through | Static checks in `make ci`; clean-VM run without a SmartScreen prompt |
+| `install.ps1`, hash mismatch or asset missing | Refuse, name the asset and tag, leave nothing behind | Script test with a tampered file |
+| `install.ps1` re-run, same hash | No-op, still runs `install` (idempotent by ADR-0020) | Clean-VM second run |
+| Release page download, double-click | SmartScreen wall once; documented "More info → Run anyway" | Guide sentence present |
+| Stable tag | winget manifest generated with the right SHA; PR only after 2b's clean run | Dry-run of `winget-manifest.mjs` in `make ci` |
+| `winget install` shows a prompt on a clean VM | winget stays out of the guide; issue noted in handoff | Clean-VM run recorded |
 
 ## Validation
 

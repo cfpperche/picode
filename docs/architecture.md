@@ -255,7 +255,7 @@ stay on their own routes.
 | `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
-| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed rows are compact and filterable; a package with a known config adapter shows **Configure** → `#/packages/config/<pkg>` (ADR-0099: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
+| `#/packages` | Pi packages | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed cards are filterable; a package with a known config adapter shows **Configure** → `#/packages/config/<pkg>` (ADR-0099: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
 | `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
 | `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
 
@@ -1382,6 +1382,21 @@ edited sketch keeps its id. Downloads name files per RFC 6266
 (`filename*`). Boot sweeps `pins/<id>` directories without a row.
 `web/shared/domain/pinDraft.js` holds the pure rules (limits, tag folding,
 auto-title from the first file, draft retention, scene stripping).
+
+**List v2 (migration 037).** `pins.starred` keeps a pin on top (`ORDER BY
+starred DESC, updated_at DESC`; starring is not an edit and leaves
+`updated_at` alone); `pins.archived_at` takes it out of the live list.
+`GET /api/pins` is the live list with an `archived` count, `?archived=1`
+the archived list, `?q=words` a search over both — every word must appear
+in the title, a tag or the body (`lower()` on both sides, LIKE
+metacharacters escaped), starred first, live before archived. `POST
+/api/pins/{id}/starred {starred}` and `/archived {archived}` write the
+flags and announce `pin.updated`. Archiving pauses the reminder (the
+engine's due query joins `pins.archived_at IS NULL`) and closes an open
+reminder item; unarchiving resumes the rule, catching up once. The
+sidebar's search input debounces 150 ms and ignores answers to a query
+the person has already replaced; the card's star, archive and delete show
+on hover, on the active card and on starred cards.
 
 **Reminders (ADR-0100, migration 036).** One `pin_reminders` row per pin:
 `kind` ∈ {`once`, `interval`, `cron`}, `at` (UTC) for once, `interval_min`

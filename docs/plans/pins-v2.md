@@ -257,7 +257,8 @@ and its own action row (Done / Snooze / Open pin).
    and the read-only viewer. **Done 2026-09-08**
    (`docs/handoff/2026-09-08-pins-reminders-ui.md`); the mobile viewer pays
    slice 1's carry-over.
-4. **List v2** — search, starred, archive.
+4. **List v2** — search, starred, archive. **Done 2026-09-08**
+   (`docs/handoff/2026-09-08-pins-list-v2.md`).
 
 Slice 2 and 3 land together in one deploy batch; a server that fires
 reminders nobody can see is not "done".
