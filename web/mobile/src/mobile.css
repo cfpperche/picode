@@ -12,6 +12,12 @@
    never the dead band iOS would otherwise fill. */
 html[data-standalone], html[data-standalone] body { --sa-bottom: 0px; background-color: var(--bg-panel); }
 html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] body { background-color: var(--bg-base); }
+/* Experimental (?strip-probe=1): push the whole shell into the letterboxed
+   strip. If WebKit paints elements below the layout viewport, the tab bar
+   lands on the physical bottom edge — labels visible at screen bottom. If
+   it clips, the labels vanish and the probe answer is NO; reload without
+   the parameter. Never ship this on by default. */
+html[data-strip-probe] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 0px)); }
 #m-app {
   --m-tap: 44px;
   --m-row: 56px;
@@ -86,6 +92,11 @@ html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] b
   background: transparent; transition: background 140ms var(--ease-out);
 }
 .m-tab.on::before { background: var(--accent-soft); }
+/* Letterboxed standalone: the layout viewport ends right below the nav, so
+   every scrap of nav padding under the labels is dead reach — anchor the
+   content (and the pill with it) as low as the platform allows. */
+html[data-standalone] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
+html[data-standalone] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
 .m-tab-icon, .m-tab-label { position: relative; }
 .m-tab.on .m-tab-label { font-weight: 650; }
 .m-tab-icon { display: inline-flex; }
