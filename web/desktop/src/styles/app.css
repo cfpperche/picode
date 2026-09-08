@@ -1094,6 +1094,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
+/* Transparent monochrome vendor SVGs (claude, openai, grok, …) need a light
+   face on dark panels everywhere they render — rows, tabs, inspector, the
+   CLI catalog. Pi and colored raster fallbacks keep their native colors. */
+:root:not([data-theme="light"]) img.term-cli-face[src*="/icons/"],
+:root:not([data-theme="light"]) img.term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
 /* Identity marks (agent + terminal rows) meet at full bleed: the 1.5px ring
    plus 1px padding shrank the agent art below the workspace favicon's 16px.
    The white plate stays — dark currentColor marks need it on the dark
