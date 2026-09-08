@@ -1430,8 +1430,15 @@ zone and the viewer's morning hour from `picode-reminder-prefs`), the
 sidebar line (`reminderLine` / `whenNext`: "every day at 09:00 · next
 tomorrow 09:00") and the snooze instant. The desktop studio mounts
 `PinReminderPicker` (Radix Popover) beside Attach and Sketch on an existing
-pin; the chip follows `pin.updated` so a change from elsewhere shows at
-once. `web/shared/client/reminders.js` (`watchReminders`) is the one shell
+pin: a form with nothing preset — Once (date and time) or Repeat (every N
+hours; every N days at HH:MM, which is a cron for one day and an interval
+with a named first fire `at` for more; "count from when I close it") and
+one Set; `formFromReminder` opens it on the rule that is set; the chip
+follows `pin.updated` so a change from elsewhere shows at once. On the
+phone, More → Pins (`screens/PinsList.jsx`, route `more/pins`) lists and
+searches; `#/pins/new` and `#/pins/<id>/edit` (`screens/PinEdit.jsx`)
+create and edit title, tags and the note with the same retained draft and
+`ifUpdatedAt` rules; the read-only pin screen gains Edit. `web/shared/client/reminders.js` (`watchReminders`) is the one shell
 integration, called by both apps: on start, `feed.open`/`reset`,
 `pin.reminded` and any `inbox.*` for a reminder item it lists
 `GET /api/inbox?kind=reminder` and runs `reminderPlan` (`notice.js`) —

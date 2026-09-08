@@ -14,12 +14,14 @@ const Packages = lazy(() => import("../components/Packages.jsx"));
 import InstallButton from "../components/InstallButton.jsx";
 import PushPrefs from "../components/PushPrefs.jsx";
 import AppsGrid from "../components/AppsGrid.jsx";
-import { IconChevronRight, IconMonitor, IconQR, IconSparkles } from "../components/Icons.jsx";
+import { IconChevronRight, IconMonitor, IconQR, IconSparkles, IconPlus } from "../components/Icons.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
 import { matchesListSearch } from "../lib/mobileListSearch.js";
+import PinsList from "./PinsList.jsx";
 import "../styles/mobile-lists.css";
 
 const SECTIONS = [
+  ["pins", "Pins", "Notes, files and reminders"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["clis", "Agent CLIs", "Pi settings, launches and sessions"],
   ["apps", "Apps", "Docker and other tools"],
@@ -35,7 +37,7 @@ const SECTIONS = [
 
 const TITLES = { ...Object.fromEntries(SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 const GROUPS = [
-  ["Tools", ["clis", "automations", "apps", "llama"]],
+  ["Tools", ["pins", "clis", "automations", "apps", "llama"]],
   ["Agents and connections", ["providers", "integrations", "packages"]],
   ["PiCode", ["preferences", "notifications", "devices", "system"]],
 ];
@@ -92,7 +94,9 @@ export default function More({ section, apps, catalog, system, version, themeMod
   const agentName = agent ? (agent.name && agent.name !== "default" ? agent.name : (workspace ? workspace.name : "")) : "";
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && cliSettingsLocation(location.hash) ? () => { location.hash = "#/clis"; } : onBack} />
+      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && cliSettingsLocation(location.hash) ? () => { location.hash = "#/clis"; } : onBack}
+        right={section === "pins" ? <button type="button" className="m-head-btn" aria-label="New pin" onClick={() => { location.hash = "#/pins/new"; }}><IconPlus size={18} /></button> : null} />
+      {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}

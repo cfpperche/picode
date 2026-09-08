@@ -13,6 +13,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Pins on the phone: create and edit.** More → Pins lists your pins
+  (starred first, search over title, tags and note) with a **+** that
+  opens a form — title, tags, the note as markdown — and the pin screen
+  gains Edit. Drafts are retained and a stale save answers with the
+  conflict message, as on the desk. Files, sketches and reminders stay
+  with the desktop studio.
+
 - **Pins: search, keep on top, archive.** The Pins tab has a search box
   over title, tags and note (every word must match; archived pins are
   found too and say so). A star keeps a pin on top of the list; Archive
@@ -91,6 +98,15 @@ to the `[Unreleased]` section. The repository's official language is English
   tab click silently fell back to Appearance; tabs are now component state.
 
 ### Changed
+
+- **Pins: the reminder picker is a form, not a menu of presets.** Once —
+  a date and a time; Repeat — every N hours, or every N days at a time of
+  day (one day at a time is a wall-clock rule; several days count as a
+  duration and say so), optionally counted from when you close the card.
+  One Set, Remove beside it; opening starts from the rule that is set. The
+  "morning hour" preference went with the presets. An interval may now
+  name its first fire (`at` on `PUT /api/pins/{id}/reminder`), and its
+  label says the time of day ("every 2 days at 18:30").
 
 - **Mobile Work: workspace favicons match agent and terminal marks.** The group head uses the same 24px slot and 22px glyph as the rows under it, so a project icon is no longer smaller than the CLI faces in the same list.
 

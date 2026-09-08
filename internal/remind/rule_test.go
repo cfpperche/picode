@@ -103,6 +103,20 @@ func TestFirstAndValidate(t *testing.T) {
 	if f, _ := iv.First(now); f.Format(time.RFC3339) != "2026-09-08T13:30:00Z" {
 		t.Fatalf("interval first = %s", f)
 	}
+	// An interval with a named first fire starts there, then steps.
+	named := Rule{Kind: KindInterval, Interval: 3 * 24 * time.Hour, Anchor: AnchorSchedule, TZ: "UTC", At: at("2026-09-10T09:00:00Z")}
+	if err := named.Validate(now); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ := named.First(now); f.Format(time.RFC3339) != "2026-09-10T09:00:00Z" {
+		t.Fatalf("named first = %s", f)
+	}
+	if n, _ := named.AfterFire(at("2026-09-10T09:00:00Z"), at("2026-09-10T09:00:30Z")); n.Format(time.RFC3339) != "2026-09-13T09:00:00Z" {
+		t.Fatalf("named step = %s", n)
+	}
+	if err := (Rule{Kind: KindInterval, Interval: time.Hour, Anchor: AnchorSchedule, TZ: "UTC", At: at("2026-09-08T10:00:00Z")}).Validate(now); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("past first fire accepted: %v", err)
+	}
 	cr := Rule{Kind: KindCron, Cron: "30 8 * * 1-5", TZ: "America/Sao_Paulo"}
 	if f, _ := cr.First(now); f.Format(time.RFC3339) != "2026-09-09T11:30:00Z" { // Wed 08:30 BRT
 		t.Fatalf("cron first = %s", f)

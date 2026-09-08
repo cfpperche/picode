@@ -254,10 +254,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             </Switch.Root>
           </div>
           <div className="set-row">
-            <label htmlFor="remind-morning">Morning reminders at</label>
-            <input id="remind-morning" type="time" className="set-time" value={remPrefs.morning} onChange={(e) => setRemPrefs(persistReminderPrefs({ ...remPrefs, morning: e.target.value || "09:00" }))} />
-          </div>
-          <div className="set-row">
             <label htmlFor="remind-snooze">Snooze a reminder for</label>
             <select id="remind-snooze" className="set-select" value={String(remPrefs.snoozeMin)} onChange={(e) => setRemPrefs(persistReminderPrefs({ ...remPrefs, snoozeMin: Number(e.target.value) }))}>
               <option value="10">10 minutes</option>

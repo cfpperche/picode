@@ -5120,29 +5120,29 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .pin-remind-chip.has-reminder { color: var(--accent); }
 .pin-remind-label { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-remind-pop {
-  z-index: 60; width: 320px; max-width: calc(100vw - 16px); padding: 8px;
+  z-index: 60; width: 360px; max-width: calc(100vw - 16px); padding: 10px;
   background: var(--bg-elevated, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   display: flex; flex-direction: column; gap: 8px;
   max-height: calc(100vh - 24px); overflow: auto;
 }
-.pin-remind-group { display: flex; flex-direction: column; gap: 2px; }
-.pin-remind-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); padding: 2px 6px; }
-.pin-remind-preset {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: inherit;
-  font: inherit; text-align: left; cursor: pointer;
+.pin-remind-modes { display: flex; gap: 4px; padding: 2px; border-radius: 8px; background: var(--bg-hover); }
+.pin-remind-mode { flex: 1; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12.5px; cursor: pointer; }
+.pin-remind-mode.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+.pin-remind-field { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; padding: 0 2px; }
+.pin-remind-field > span { color: var(--text-secondary); }
+.pin-remind-field input, .pin-remind-field select {
+  height: 30px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; font-size: 12.5px;
 }
-.pin-remind-preset:hover, .pin-remind-preset:focus-visible { background: var(--bg-hover); outline: none; }
-.pin-remind-hint { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.pin-remind-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 6px; font-size: 12px; }
-.pin-remind-row input[type="number"], .pin-remind-row input[type="datetime-local"], .pin-remind-row input[type="text"] {
-  height: 28px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; font-size: 12px;
-}
-.pin-remind-num { width: 64px; }
-.pin-remind-when { flex: 1; min-width: 160px; }
-.pin-remind-cron { flex: 1; min-width: 160px; font-family: ui-monospace, monospace; }
-.pin-remind-check { display: flex; align-items: center; gap: 6px; width: 100%; color: var(--text-secondary); }
+.pin-remind-num { width: 56px; }
+.pin-remind-unit { width: auto; }
+.pin-remind-time { width: auto; }
+.pin-remind-when { flex: 1; min-width: 200px; }
+.pin-remind-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); padding: 0 2px; }
+.pin-remind-note { margin: 0; padding: 0 2px; font-size: 11.5px; color: var(--text-secondary); }
+.pin-remind-error { margin: 0; padding: 0 2px; font-size: 12px; color: var(--danger); }
+.pin-remind-btns { display: inline-flex; align-items: center; gap: 6px; }
 .pin-remind-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; }
+.pin-remind-current.none { color: var(--text-secondary); }
 .pin-remind-current { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notice-face.is-pin { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }

@@ -109,11 +109,17 @@ it("opens editor/tree/Git links with owner identity and folder preconditions", (
   assert.equal(mobileRoute("#/git/x/nope").screen, "work");
 });
 
-it("a pin is a read-only screen under the Inbox tab (ADR-0100)", () => {
+it("pins on the phone: list under More, read-only screen, new and edit forms", () => {
   assert.deepEqual(mobileRoute("#/pins/deploy-abc123"), { screen: "pin", id: "deploy-abc123", section: "" });
-  assert.equal(mobileRoute("#/pins/new").screen, "now", "the editor stays on the desk");
-  assert.equal(mobileRoute("#/pins").screen, "now");
+  assert.deepEqual(mobileRoute("#/pins/new"), { screen: "pinEdit", id: "", section: "" });
+  assert.deepEqual(mobileRoute("#/pins/deploy-abc123/edit"), { screen: "pinEdit", id: "deploy-abc123", section: "" });
+  assert.deepEqual(mobileRoute("#/pins"), { screen: "more", id: "", section: "pins" });
   assert.equal(mobileHash("pin", "deploy-abc123"), "#/pins/deploy-abc123");
-  assert.equal(tabOf({ screen: "pin", id: "x" }), "inbox");
-  assert.equal(parentHash({ screen: "pin", id: "x" }), "#/inbox");
+  assert.equal(mobileHash("pinEdit", "deploy-abc123"), "#/pins/deploy-abc123/edit");
+  assert.equal(mobileHash("pinEdit", ""), "#/pins/new");
+  assert.equal(tabOf({ screen: "pin", id: "x" }), "more");
+  assert.equal(tabOf({ screen: "pinEdit", id: "" }), "more");
+  assert.equal(parentHash({ screen: "pin", id: "x" }), "#/more/pins");
+  assert.equal(parentHash({ screen: "pinEdit", id: "x" }), "#/pins/x");
+  assert.equal(parentHash({ screen: "pinEdit", id: "" }), "#/more/pins");
 });

@@ -28,6 +28,7 @@ import Now from "./screens/Now.jsx";
 const Inbox = lazy(() => import("./screens/Inbox.jsx"));
 const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ default: module.InboxItem })));
 const PinScreen = lazy(() => import("./screens/Pin.jsx"));
+const PinEdit = lazy(() => import("./screens/PinEdit.jsx"));
 import Work from "./screens/Work.jsx";
 const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
@@ -372,7 +373,7 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["changes", "files", "git"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["changes", "files", "git", "pin", "pinEdit"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   // iOS standalone: the unreachable bottom strip continues the surface it
   // sits under — the tab bar's panel, or plain content when pushed.
   useEffect(() => { document.documentElement.dataset.pushed = pushed ? "1" : ""; }, [pushed]);
@@ -415,7 +416,9 @@ export default function MobileApp() {
       />
     );
   } else if (route.screen === "pin") {
-    body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} />;
+    body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/pins/" + encodeURIComponent(id) + "/edit")} />;
+  } else if (route.screen === "pinEdit") {
+    body = <PinEdit key={route.id || "new"} pinId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/pins/" + encodeURIComponent(id)); }} />;
   } else if (route.screen === "inbox" && route.id) {
     body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {

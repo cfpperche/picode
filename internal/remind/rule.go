@@ -38,7 +38,7 @@ func invalid(format string, args ...any) error {
 // Rule is one reminder's cadence.
 type Rule struct {
 	Kind     string
-	At       time.Time     // once
+	At       time.Time     // once: the instant; interval: the first fire (optional)
 	Interval time.Duration // interval
 	Cron     string        // cron
 	Anchor   string        // interval only
@@ -73,6 +73,9 @@ func (r Rule) Validate(now time.Time) error {
 		if r.Interval < MinInterval {
 			return invalid("the interval is at least %d minutes", int(MinInterval/time.Minute))
 		}
+		if !r.At.IsZero() && !r.At.After(now.Add(-time.Minute)) {
+			return invalid("the first time has already passed")
+		}
 		if r.Interval > MaxInterval {
 			return invalid("the interval is at most a year")
 		}
@@ -95,6 +98,12 @@ func (r Rule) First(now time.Time) (time.Time, bool) {
 	case KindOnce:
 		return r.At.UTC(), true
 	case KindInterval:
+		// "Every 3 days at 09:00": the person names the first fire and
+		// the interval counts from there (drifting across DST, as a
+		// duration does — the picker says so).
+		if !r.At.IsZero() {
+			return r.At.UTC(), true
+		}
 		return now.Add(r.Interval).UTC(), true
 	case KindCron:
 		return r.nextCron(now)
@@ -160,6 +169,9 @@ func (r Rule) Label() string {
 		return "at " + r.At.In(loc).Format("Mon 2 Jan 15:04")
 	case KindInterval:
 		s := "every " + humanDuration(r.Interval)
+		if r.Interval%(24*time.Hour) == 0 && !r.At.IsZero() && r.Anchor != AnchorCompletion {
+			s += " at " + r.At.In(loc).Format("15:04")
+		}
 		if r.Anchor == AnchorCompletion {
 			s += " after you close it"
 		}

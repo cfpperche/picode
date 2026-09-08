@@ -5,17 +5,15 @@
 
 const PREFS_KEY = "picode-reminder-prefs";
 
-// The morning hour behind every day-only preset (Slack's 9 a.m., Keep's
-// editable Morning). Stored per viewer, "HH:MM".
+// Snooze length behind the card's Snooze. Stored per viewer.
 export function defaultReminderPrefs() {
-  return { morning: "09:00", snoozeMin: 60 };
+  return { snoozeMin: 60 };
 }
 
 export function readReminderPrefs(store) {
   const d = defaultReminderPrefs();
   try {
     const j = JSON.parse((store || localStorage).getItem(PREFS_KEY) || "{}");
-    if (/^\d{2}:\d{2}$/.test(j.morning || "")) d.morning = j.morning;
     const n = Number(j.snoozeMin);
     if (Number.isFinite(n) && n >= 5 && n <= 24 * 60) d.snoozeMin = n;
   } catch { /* defaults */ }
@@ -33,77 +31,77 @@ export function browserZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
 }
 
-function hm(morning) {
-  const m = /^(\d{2}):(\d{2})$/.exec(morning || "09:00") || [null, "09", "00"];
-  return { h: Number(m[1]), m: Number(m[2]) };
-}
+export const REMINDER_UNITS = Object.freeze(["hours", "days"]);
 
-// A Date at `morning` on `day` (local calendar of the runtime).
-function atMorning(day, morning) {
-  const { h, m } = hm(morning);
-  const d = new Date(day);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
-
-// Presets, in the order the popover shows them. `once` presets resolve to
-// an instant at build time; recurring ones to a cron or an interval.
-export const REMINDER_PRESETS = Object.freeze([
-  { id: "in1h", label: "In 1 hour", group: "once" },
-  { id: "in3h", label: "In 3 hours", group: "once" },
-  { id: "tomorrow", label: "Tomorrow morning", group: "once" },
-  { id: "nextMonday", label: "Next Monday morning", group: "once" },
-  { id: "daily", label: "Every day", group: "repeat" },
-  { id: "weekdays", label: "Every weekday", group: "repeat" },
-  { id: "everyNh", label: "Every N hours", group: "repeat" },
-  { id: "pick", label: "Pick date & time", group: "custom" },
-  { id: "cron", label: "Cron (advanced)", group: "custom" },
-]);
-
-// buildReminder turns a preset (plus its inputs) into the request body.
-//   opts: { now: Date, tz, morning: "HH:MM", hours: N, at: Date|string,
-//           cron: "…", fromClose: bool }
-export function buildReminder(presetId, opts = {}) {
-  const now = opts.now instanceof Date ? opts.now : new Date();
-  const tz = opts.tz || browserZone();
-  const morning = opts.morning || "09:00";
-  const { h, m } = hm(morning);
-  switch (presetId) {
-    case "in1h":
-      return { kind: "once", at: new Date(now.getTime() + 3600_000).toISOString(), tz };
-    case "in3h":
-      return { kind: "once", at: new Date(now.getTime() + 3 * 3600_000).toISOString(), tz };
-    case "tomorrow": {
-      const d = atMorning(now, morning);
-      d.setDate(d.getDate() + 1);
-      return { kind: "once", at: d.toISOString(), tz };
-    }
-    case "nextMonday": {
-      const d = atMorning(now, morning);
-      const dow = d.getDay(); // 0 = Sunday
-      const ahead = ((8 - dow) % 7) || 7;
-      d.setDate(d.getDate() + ahead);
-      return { kind: "once", at: d.toISOString(), tz };
-    }
-    case "daily":
-      return { kind: "cron", cron: m + " " + h + " * * *", tz };
-    case "weekdays":
-      return { kind: "cron", cron: m + " " + h + " * * 1-5", tz };
-    case "everyNh": {
-      const hours = Math.max(1, Math.min(24 * 366, Math.round(Number(opts.hours) || 24)));
-      return { kind: "interval", intervalMin: hours * 60, anchor: opts.fromClose ? "completion" : "schedule", tz };
-    }
-    case "pick": {
-      const at = opts.at instanceof Date ? opts.at : new Date(opts.at || NaN);
-      if (Number.isNaN(at.getTime())) return null;
-      return { kind: "once", at: at.toISOString(), tz };
-    }
-    case "cron": {
-      const cron = String(opts.cron || "").trim();
-      return cron ? { kind: "cron", cron, tz } : null;
-    }
+// buildReminder turns the picker's form into the request body. Nothing is
+// preset: the person names the date and time, or the cadence.
+//   form: { mode: "once" | "repeat", at: "YYYY-MM-DDTHH:MM" | Date,
+//           every: N, unit: "hours" | "days", time: "HH:MM",
+//           fromClose: bool, tz }
+//   once            → { kind: "once", at }
+//   repeat N hours  → { kind: "interval", intervalMin: N*60, anchor }
+//   repeat 1 day    → { kind: "cron", cron: "M H * * *" } (a wall-clock
+//                     rule: 09:00 stays 09:00 across DST)
+//   repeat N days   → { kind: "interval", intervalMin: N*1440, at: the
+//                     next HH:MM, anchor } (a duration: it drifts an
+//                     hour across DST, as the picker says)
+// Returns { body } or { error } for what the server would refuse.
+export function buildReminder(form = {}) {
+  const tz = form.tz || browserZone();
+  const now = form.now instanceof Date ? form.now : new Date();
+  if (form.mode === "once") {
+    const at = form.at instanceof Date ? form.at : new Date(form.at || NaN);
+    if (Number.isNaN(at.getTime())) return { error: "Pick a date and time." };
+    if (at.getTime() <= now.getTime()) return { error: "That time has already passed." };
+    return { body: { kind: "once", at: at.toISOString(), tz } };
   }
-  return null;
+  if (form.mode === "repeat") {
+    const every = Math.round(Number(form.every));
+    if (!Number.isFinite(every) || every < 1) return { error: "Repeat every how many?" };
+    const anchor = form.fromClose ? "completion" : "schedule";
+    if (form.unit === "hours") {
+      if (every > 24 * 366) return { error: "At most a year apart." };
+      return { body: { kind: "interval", intervalMin: every * 60, anchor, tz } };
+    }
+    if (form.unit === "days") {
+      const m = /^(\d{2}):(\d{2})$/.exec(form.time || "");
+      if (!m) return { error: "Pick a time of day." };
+      const h = Number(m[1]);
+      const mm = Number(m[2]);
+      if (every > 366) return { error: "At most a year apart." };
+      if (every === 1 && !form.fromClose) return { body: { kind: "cron", cron: mm + " " + h + " * * *", tz } };
+      const first = new Date(now);
+      first.setHours(h, mm, 0, 0);
+      if (first.getTime() <= now.getTime()) first.setDate(first.getDate() + 1);
+      return { body: { kind: "interval", intervalMin: every * 24 * 60, anchor, at: first.toISOString(), tz } };
+    }
+    return { error: "Hours or days." };
+  }
+  return { error: "Once or repeat." };
+}
+
+// formFromReminder fills the picker with the rule it shows, so "edit"
+// starts from what is set rather than from blanks.
+export function formFromReminder(r) {
+  const blank = { mode: "once", at: "", every: 24, unit: "hours", time: "09:00", fromClose: false };
+  if (!r) return blank;
+  if (r.kind === "once") return { ...blank, mode: "once", at: toLocalInput(r.at || r.nextAt || "") };
+  if (r.kind === "cron") {
+    const f = String(r.cron || "").split(/\s+/);
+    const time = f.length === 5 && /^\d+$/.test(f[0]) && /^\d+$/.test(f[1]) ? pad(Number(f[1])) + ":" + pad(Number(f[0])) : "09:00";
+    return { ...blank, mode: "repeat", every: 1, unit: "days", time };
+  }
+  if (r.kind === "interval") {
+    const mins = Number(r.intervalMin) || 60;
+    const fromClose = r.anchor === "completion";
+    if (mins % (24 * 60) === 0 && (r.at || mins > 24 * 60 || fromClose)) {
+      const when = r.at ? new Date(r.at) : null;
+      const time = when && !Number.isNaN(when.getTime()) ? pad(when.getHours()) + ":" + pad(when.getMinutes()) : "09:00";
+      return { ...blank, mode: "repeat", every: mins / (24 * 60), unit: "days", time, fromClose };
+    }
+    return { ...blank, mode: "repeat", every: Math.max(1, Math.round(mins / 60)), unit: "hours", fromClose };
+  }
+  return blank;
 }
 
 function sameDay(a, b) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ScreenHeader from "../components/ScreenHeader.jsx";
+import { IconPencil } from "../components/Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { pinFileSrc } from "@picode/shared/domain/pinDraft.js";
@@ -12,7 +13,7 @@ import { safeImgSrc } from "@picode/shared/domain/mdSafe.js";
 // the desk): title, tags, the reminder line, the note and its pictures.
 // It is where a reminder's "Open" lands, so it follows the feed for the
 // pin's own updates.
-export default function Pin({ pinId, onBack }) {
+export default function Pin({ pinId, onBack, onEdit }) {
   const [pin, setPin] = useState(null);
   const [error, setError] = useState("");
 
@@ -37,7 +38,7 @@ export default function Pin({ pinId, onBack }) {
 
   return (
     <div className="m-screen m-pin">
-      <ScreenHeader title={pin ? pin.title : "Pin"} onBack={onBack} />
+      <ScreenHeader title={pin ? pin.title : "Pin"} onBack={onBack} right={pin && onEdit ? <button type="button" className="m-head-btn" aria-label="Edit pin" onClick={() => onEdit(pin.id)}><IconPencil size={16} /></button> : null} />
       {error ? <p className="m-pin-msg">{error}</p> : null}
       {!pin && !error ? <p className="m-pin-msg">Loading…</p> : null}
       {pin ? (

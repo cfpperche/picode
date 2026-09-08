@@ -129,7 +129,7 @@ func (s *Store) SetPinReminder(pinID string, p PinReminderParams) (PinReminder, 
 	if rule.Kind != remind.KindInterval {
 		rule.Anchor = remind.AnchorSchedule
 	}
-	if rule.Kind == remind.KindOnce && strings.TrimSpace(p.At) != "" {
+	if (rule.Kind == remind.KindOnce || rule.Kind == remind.KindInterval) && strings.TrimSpace(p.At) != "" {
 		at, err := time.Parse(time.RFC3339, strings.TrimSpace(p.At))
 		if err != nil {
 			return PinReminder{}, invalid("the date and time must be RFC 3339")
@@ -150,7 +150,7 @@ func (s *Store) SetPinReminder(pinID string, p PinReminderParams) (PinReminder, 
 	}
 	stamp := now.Format(time.RFC3339Nano)
 	r := PinReminder{ID: newID("reminder", "rem"), PinID: pinID, Kind: rule.Kind, IntervalMin: p.IntervalMin, Cron: rule.Cron, Anchor: rule.Anchor, TZ: rule.TZ, NextAt: next, Enabled: enabled, CreatedAt: stamp, UpdatedAt: stamp}
-	if rule.Kind == remind.KindOnce {
+	if !rule.At.IsZero() && (rule.Kind == remind.KindOnce || rule.Kind == remind.KindInterval) {
 		r.At = rule.At.Format(time.RFC3339Nano)
 	}
 	if rule.Kind != remind.KindInterval {

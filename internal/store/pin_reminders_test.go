@@ -48,6 +48,12 @@ func TestPinReminderSetAndRead(t *testing.T) {
 	if list[0].Reminder == nil || list[0].Reminder.Label != "every day at 09:00" {
 		t.Fatalf("list reminder = %+v", list[0].Reminder)
 	}
+	// An interval may name its first fire.
+	first := time.Now().UTC().Add(48 * time.Hour).Truncate(time.Minute)
+	named, err := s.SetPinReminder(p.ID, PinReminderParams{Kind: "interval", IntervalMin: 3 * 24 * 60, At: first.Format(time.RFC3339), TZ: "UTC"})
+	if err != nil || named.NextAt == nil || *named.NextAt != first.Format(time.RFC3339Nano) || named.At == "" {
+		t.Fatalf("named interval = %+v %v", named, err)
+	}
 	// Replacing keeps the id; the rule starts over.
 	r2, err := s.SetPinReminder(p.ID, PinReminderParams{Kind: "interval", IntervalMin: 180, Anchor: "completion", TZ: "UTC"})
 	if err != nil || r2.ID != r.ID || r2.Cron != "" || r2.Label != "every 3 h after you close it" {
