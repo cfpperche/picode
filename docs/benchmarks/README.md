@@ -31,6 +31,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-07 — Agent notifications and the toast payload (Superset)](2026-09-07-superset-notifications.md)
 - [2026-09-07 — The actions on a workspace card (VS Code, PatternFly, Carbon, WCAG, GitHub Desktop)](2026-09-07-workspace-card-toolbar.md)
 - [2026-09-06 — Attaching images and files to Agent CLI terminals](2026-09-06-cli-terminal-attach.md)
 - [2026-09-06 — The editor tab strip when tabs overflow (VS Code, Zed, JetBrains, Firefox, Chrome, UI kits)](2026-09-06-tab-strip-overflow.md)

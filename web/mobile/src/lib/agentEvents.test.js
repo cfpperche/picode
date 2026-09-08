@@ -16,6 +16,14 @@ function run(events, start = initialAgentState) {
 const ask = { type: "extension_ui_request", id: "ui-1", method: "confirm", title: "Allow this?", message: "yes or no" };
 
 describe("reduceAgentEvent", () => {
+  it("a settled turn asks the hook to announce it", () => {
+    const { state, effects } = run([{ type: "agent_start" }, { type: "agent_settled" }]);
+    assert.equal(state.streaming, false);
+    assert.equal(state.status, "idle");
+    // The reducer knows the turn ended; the hook owns who ended it.
+    assert.deepEqual(effects.filter((e) => e.type === "finished"), [{ type: "finished" }]);
+  });
+
   it("snapshot restores streaming/waiting and the open dialog", () => {
     const { state } = run([{ type: "snapshot", streaming: false, waiting: true, dialog: { id: "d1", method: "select", title: "Pick", options: ["a", "b"] } }]);
     assert.equal(state.waiting, true);

@@ -13,6 +13,21 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Toasts are notice cards, and a finished agent turn is one of them:**
+  an announcement now carries who spoke, how long they worked, what
+  changed and one way out — `claude · finished · worked for 7s`, the
+  agent's own last sentence, `1 file +46 −1`, and an **Open** pill —
+  instead of a bare string. When a turn settles while you are looking at
+  another tab, another view, or another application, that card is what
+  tells you; it stays quiet when the agent's own conversation is the
+  focused surface, and a second finish from the same agent replaces its
+  card instead of stacking a new one. Errors now live 12–30 s instead of
+  4, because an error nobody was looking at was a lost error. The 317
+  existing one-line toasts keep their wording and gain a level glyph.
+  Position, duration, visible-at-once, expand, close button, close
+  position and rich colours all keep working. Adapted from the Superset
+  study in `docs/benchmarks/2026-09-07-superset-notifications.md`.
+
 - **Public docs for moving a conversation between agents:** the Agent CLIs
   guide now explains the two ways a session arrives (a native session, or
   the vendor's own `import` for the SQLite-backed CLIs), the choices in the

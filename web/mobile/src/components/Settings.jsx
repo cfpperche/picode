@@ -6,7 +6,8 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconSun, IconMonitor, IconMoon, IconMore } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import ThemeCard from "./ThemeCard.jsx";
-import { toast, toastError } from "../lib/toast.js";
+import { notify, toast, toastError } from "../lib/toast.js";
+import { agentFinishNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
 import AppKeys from "./AppKeys.jsx";
@@ -18,6 +19,21 @@ import { prefSection } from "../lib/routes.js";
 import { z } from "zod";
 
 const publicUrlSchema = z.string().trim().regex(/^https?:\/\/[^\s/]+\/?$/, "An origin like https://box.tailxxxx.ts.net:8445").or(z.literal(""));
+
+// What an agent's finished turn looks like, so the preferences above can
+// be judged against the card they actually change rather than a bare line.
+function previewNotice() {
+  notify(agentFinishNotice({
+    agent: { id: "preview", name: "Sample agent", cli: "pi" },
+    turn: {
+      kind: "turn",
+      user: { kind: "block", cls: "user", text: "ship it", ts: 1000 },
+      work: [{ kind: "tool", name: "edit", change: { path: "a.js", add: 46, del: 1 }, ts: 3000 }],
+      replies: [{ kind: "block", cls: "", text: "Pushed and opened a draft PR.", ts: 8000 }],
+    },
+    target: "#/",
+  }));
+}
 
 export default function Settings({ hidden, themeMode, onTheme }) {
   const [port, setPort] = useState("");
@@ -204,7 +220,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             </Switch.Root>
           </div>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => toast.ok("Sample notification")}>Preview</button>
+        <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={previewNotice}>Preview</button>
       </section>
 
       <section className="settings-section" hidden={sec !== "server"}>
