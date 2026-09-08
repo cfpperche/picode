@@ -96,5 +96,5 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits. iOS standalone bottom-strip workaround (WebKit 313800) needs a real-device re-check after the next deploy.
 - Notices (2026-09-07): needs-you covers the whole fleet (`agent.state`), but the *finish* card still only fires for the agent whose socket is open — a background agent's completion arrives via Inbox + phone. Neither card has been exercised against a real pi dialog; both were staged at the HTTP boundary.
