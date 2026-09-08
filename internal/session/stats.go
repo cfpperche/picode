@@ -97,6 +97,7 @@ type TurnStats struct {
 	User        int `json:"user"`
 	Errors      int `json:"errors"`
 	Aborted     int `json:"aborted"`
+	Refusals    int `json:"refusals"` // the model declined the turn outright (Claude Code's "refusal" stop)
 	Compactions int `json:"compactions"`
 }
 

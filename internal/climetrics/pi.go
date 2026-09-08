@@ -79,8 +79,15 @@ func (m PiMeter) Meter(req Request) (Window, error) {
 	return Window{
 		CLI:      m.CLI(),
 		Stats:    st,
-		Coverage: piCoverage(m, billing),
+		Coverage: piCoverage(m, billing, acc),
 	}, nil
+}
+
+// piCan is what pi is capable of recording: cost, tokens, tools and turns
+// natively; nothing about lines changed, request duration or quota windows.
+var piCan = map[Signal]bool{
+	SigCost: true, SigTokens: true, SigModel: true, SigMessages: true,
+	SigTurns: true, SigTools: true, SigErrors: true,
 }
 
 // billing is api unless the operator says otherwise, and that is a fact
@@ -109,7 +116,10 @@ func piParse(path string, mtime time.Time) *parsed {
 			role: e.Role, model: e.Model, prov: e.Provider,
 			cost: e.Cost, split: e.Split, toks: e.Usage, tools: e.Tools,
 			abort: e.StopReason == "aborted",
-			errs:  boolToInt(e.StopReason == "error"),
+			// pi stamps a stopReason on every assistant turn, so each one
+			// is an inspected outcome whether or not it failed.
+			results: boolToInt(e.Role == "assistant"),
+			errs:    boolToInt(e.StopReason == "error"),
 		})
 		out.units += e.Usage.Input + e.Usage.Output + e.Usage.CacheRead + e.Usage.CacheWrite
 	}
@@ -137,24 +147,11 @@ func piProviders(acc *guestAcc, b Billing) []session.ProviderBucket {
 	return out
 }
 
-func piCoverage(m PiMeter, b Billing) CoverageRow {
+func piCoverage(m PiMeter, b Billing, acc *guestAcc) CoverageRow {
 	return CoverageRow{
-		CLI:     m.CLI(),
-		Label:   m.Label(),
-		Billing: b,
-		Signals: map[Signal]State{
-			SigCost:     StateReported,
-			SigTokens:   StateReported,
-			SigModel:    StateReported,
-			SigMessages: StateReported,
-			SigTurns:    StateReported,
-			SigTools:    StateReported,
-			SigErrors:   StateReported,
-			SigImpact:   StateNotReported,
-			SigTiming:   StateNotReported,
-			SigLimits:   StateNotReported,
-		},
-		Note: "Records no edit counts, request durations or quota windows.",
+		CLI: m.CLI(), Label: m.Label(), Billing: b,
+		Signals: acc.evidence(piCan, nil),
+		Note:    "Records no edit counts, request durations or quota windows.",
 	}
 }
 

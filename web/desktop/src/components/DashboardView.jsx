@@ -373,6 +373,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
                   <div><dt>Turns</dt><dd>{turns.assistant.toLocaleString()}</dd></div>
                   <div><dt>Errors</dt><dd>{turns.errors.toLocaleString()}{percent(turns.errors, turns.assistant) ? <span className="dash-fact-sub"> {percent(turns.errors, turns.assistant)}</span> : null}</dd></div>
                   <div><dt>Aborted</dt><dd>{turns.aborted.toLocaleString()}</dd></div>
+                  <div><dt>Refusals</dt><dd>{Number(turns.refusals || 0).toLocaleString()}</dd></div>
                   <div><dt>Compactions</dt><dd>{turns.compactions.toLocaleString()}</dd></div>
                   <div><dt>Prompts</dt><dd>{turns.user.toLocaleString()}</dd></div>
                   <div><dt>Output tokens</dt><dd>{formatTokens(stats.tokens.output)}</dd></div>

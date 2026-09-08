@@ -52,24 +52,27 @@ func (m OpenCodeMeter) Meter(req Request) (Window, error) {
 		return Window{}, err
 	}
 
-	w := Window{CLI: m.CLI(), Stats: acc.result(), Coverage: opencodeCoverage(m, req.BillingFor(m.CLI()))}
-	if impact.LinesAdded != 0 || impact.LinesRemoved != 0 {
+	hasImpact := impact.LinesAdded != 0 || impact.LinesRemoved != 0
+	w := Window{CLI: m.CLI(), Stats: acc.result(), Coverage: opencodeCoverage(m, req.BillingFor(m.CLI()), acc, hasImpact)}
+	if hasImpact {
 		i := impact
 		w.Impact = &i
 	}
 	return w, nil
 }
 
-func opencodeCoverage(m OpenCodeMeter, b Billing) CoverageRow {
+// opencodeCan is what OpenCode is capable of recording. Tool calls live in
+// its part rows, which this window does not read.
+var opencodeCan = map[Signal]bool{
+	SigCost: true, SigTokens: true, SigModel: true, SigMessages: true,
+	SigTurns: true, SigErrors: true, SigImpact: true,
+}
+
+func opencodeCoverage(m OpenCodeMeter, b Billing, acc *guestAcc, hasImpact bool) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
-		Signals: map[Signal]State{
-			SigCost: StateReported, SigTokens: StateReported, SigModel: StateReported,
-			SigMessages: StateReported, SigTurns: StateReported, SigTools: StateNotReported,
-			SigErrors: StateReported, SigImpact: StateReported,
-			SigTiming: StateNotReported, SigLimits: StateNotReported,
-		},
-		Note: "Tool calls live in its part rows, which this window does not read; it records no request duration or quota window.",
+		Signals: acc.evidence(opencodeCan, map[Signal]bool{SigImpact: hasImpact}),
+		Note:    "Tool calls live in its part rows, which this window does not read; it records no request duration or quota window.",
 	}
 }
 
@@ -189,6 +192,11 @@ func opencodeMessages(db *sql.DB, req Request, dirs map[string]string, acc *gues
 				CacheWrite: m.Tokens.Cache.Write,
 				Reasoning:  m.Tokens.Reasoning,
 			},
+		}
+		// Every assistant row is an inspected outcome: `error` is an
+		// optional key on the message JSON, absent when the turn succeeded.
+		if m.Role == "assistant" {
+			e.results = 1
 		}
 		if m.Error != nil {
 			e.errs = 1

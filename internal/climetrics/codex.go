@@ -81,31 +81,24 @@ func (m CodexMeter) Meter(req Request) (Window, error) {
 		}
 	}
 
-	w := Window{CLI: m.CLI(), Stats: acc.result(), Coverage: codexCoverage(m, req.BillingFor(m.CLI()), len(limits) > 0)}
+	w := Window{CLI: m.CLI(), Stats: acc.result(), Coverage: codexCoverage(m, req.BillingFor(m.CLI()), acc, len(limits) > 0)}
 	w.Limits = limits
 	return w, nil
 }
 
-func codexCoverage(m CodexMeter, b Billing, sawLimits bool) CoverageRow {
-	limits := StateNotReported
-	if sawLimits {
-		limits = StateReported
-	}
+// codexCan is what Codex is capable of recording. No cost, no per-turn
+// error state, no edit counts — and its quota window is the one signal
+// nobody else has.
+var codexCan = map[Signal]bool{
+	SigTokens: true, SigModel: true, SigMessages: true,
+	SigTurns: true, SigTools: true, SigLimits: true,
+}
+
+func codexCoverage(m CodexMeter, b Billing, acc *guestAcc, sawLimits bool) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
-		Signals: map[Signal]State{
-			SigCost:     StateNotReported,
-			SigTokens:   StateReported,
-			SigModel:    StateReported,
-			SigMessages: StateReported,
-			SigTurns:    StateReported,
-			SigTools:    StateReported,
-			SigErrors:   StateNotReported,
-			SigImpact:   StateNotReported,
-			SigTiming:   StateNotReported,
-			SigLimits:   limits,
-		},
-		Note: "Never prices a token, so it is not counted in spend — its quota windows stand in for cost instead. It records no per-turn error state or edit counts.",
+		Signals: acc.evidence(codexCan, map[Signal]bool{SigLimits: sawLimits}),
+		Note:    "Never prices a token, so it is not counted in spend — its quota windows stand in for cost instead. It records no per-turn error state or edit counts.",
 	}
 }
 
@@ -187,6 +180,9 @@ type codexLine struct {
 		// response_item
 		Role string `json:"role"`
 		Name string `json:"name"`
+		Meta *struct {
+			Kinds []string `json:"content_item_kinds"`
+		} `json:"internal_chat_message_metadata_passthrough"`
 		// event_msg: token_count
 		Info *struct {
 			Last struct {
@@ -267,13 +263,20 @@ func codexParse(path string) *parsed {
 			if p.Type == "function_call" && p.Name != "" {
 				pendingTools = append(pendingTools, p.Name)
 			}
-			if p.Type == "message" && p.Role == "user" {
+			// A user-role response_item is a prompt only when Codex does not
+			// mark it as something it injected itself. AGENTS.md, environment
+			// context and plugin hints all arrive as user-role items, named
+			// in content_item_kinds; counting them reported 620 prompts
+			// against 455 real ones over a month. The event_msg user_message
+			// is *not* the answer either: interactive (codex-tui) sessions
+			// never emit it, so counting only the event found 136 and zeroed
+			// every TUI prompt on this machine. Items older than the metadata (no kinds at all) are
+			// counted — there is nothing to tell them apart by.
+			if p.Type == "message" && p.Role == "user" && !codexInjected(p.Meta) {
 				add(guestEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "user"})
 			}
 		case "event_msg":
 			switch p.Type {
-			case "user_message":
-				add(guestEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "user"})
 			case "token_count":
 				if p.RateLimits != nil && at.After(out.limitAt) {
 					out.limits, out.limitAt = codexLimits(*p.RateLimits, at), at
@@ -312,6 +315,22 @@ func codexParse(path string) *parsed {
 		}
 	}
 	return out
+}
+
+// codexInjected says whether a user-role item is Codex's own injection
+// rather than the person's prompt, by the kinds Codex stamps on it.
+func codexInjected(meta *struct {
+	Kinds []string `json:"content_item_kinds"`
+}) bool {
+	if meta == nil {
+		return false
+	}
+	for _, k := range meta.Kinds {
+		if strings.Contains(k, "instructions") || strings.Contains(k, "environment") || strings.HasPrefix(k, "plugins.") {
+			return true
+		}
+	}
+	return false
 }
 
 func codexKey(path, id string) string {

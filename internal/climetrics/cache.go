@@ -15,6 +15,7 @@ import (
 // survives every range, and the windowing that remains is arithmetic over
 // a slice.
 type parsed struct {
+	key         string // the session identity every entry in this file carries
 	ents        []guestEntry
 	units       int64 // sum of ents' token units, the denominator for proration
 	impact      Impact
@@ -23,6 +24,7 @@ type parsed struct {
 	limitAt     time.Time
 	compactions []compaction // pi's markers; counted when they fall in window
 	priced      bool         // the file carried a cost record of its own
+	underpriced bool         // …and that record admits a model it could not price
 }
 
 // parseCache memoises parses by (path, size, mtime).
@@ -51,7 +53,9 @@ type cacheEntry struct {
 	val         *parsed
 }
 
-// maxCachedEntries caps the cache at roughly 45 MB of parsed messages. The
+// maxCachedEntries caps the cache at roughly 60–80 MB of parsed messages —
+// a guestEntry carries strings and a tools slice, so the first estimate of
+// 45 MB was optimistic. The
 // common windows (today / 7d / 30d) hold their working set well inside it;
 // `all` may evict, and pays a full parse when it does — a deliberate trade,
 // since it is a rare deliberate click and the fingerprint cache holds its

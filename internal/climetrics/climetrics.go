@@ -344,6 +344,7 @@ func merge(req Request, windows []Window) FleetStats {
 		out.Turns.User += st.Turns.User
 		out.Turns.Errors += st.Turns.Errors
 		out.Turns.Aborted += st.Turns.Aborted
+		out.Turns.Refusals += st.Turns.Refusals
 		out.Turns.Compactions += st.Turns.Compactions
 
 		for _, p := range st.ByProvider {

@@ -51,6 +51,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **The dashboard's reliability numbers were wrong for every guest CLI, and
+  said otherwise.** Claude Code showed 0 errors against 409 real ones (a
+  tool's failure comes back on the *user* turn, which the counter skipped),
+  45 aborts that never happened (a normal `stop_sequence` was read as one)
+  and none of its 4 refusals; Codex showed 620 prompts against 455 (its own
+  AGENTS.md injections were counted as the person's); a week of Claude Code
+  showed 42 sessions where 30 ran (subagent transcripts counted as their
+  own). The "What each CLI reports" matrix now derives from what the parser
+  actually saw instead of a per-CLI claim, and the tests parse real lines
+  from each CLI's store. (ADR-0097)
 - **A prepared command no longer swallows the next one.** A git command typed
   into a terminal and never submitted stayed on the prompt; the next one
   landed glued to its end and the shell answered `fatal: only one reference

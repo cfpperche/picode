@@ -67,8 +67,13 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 		scope := normalizeScope(r.URL.Query().Get("scope"))
 		from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
 		meters := climetrics.Meters()
+		claimed := claimedDirs(deps)
 
-		fp := climetrics.Fingerprint(meters)
+		// The claimed folders are part of the cache identity, not just the
+		// request: a picode-scoped window answered from cache after a new
+		// workspace was added would keep excluding that folder until some
+		// unrelated session file happened to move the fingerprint.
+		fp := climetrics.Fingerprint(meters) + "|ws=" + strings.Join(claimed, ",")
 		key := session.Root() + "|" + rng + "|" + string(scope)
 		st, hit := sessionStats.get(key, fp, from, to)
 		if !hit {
@@ -79,7 +84,7 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 				// climetrics never sees the store: the handler is the only
 				// layer that knows which folders PiCode claims, the same
 				// boundary ADR-0042 drew for workspace labels.
-				Claimed: claimedDirs(deps),
+				Claimed: claimed,
 			}, meters)
 			sessionStats.put(key, fp, from, to, st)
 		}

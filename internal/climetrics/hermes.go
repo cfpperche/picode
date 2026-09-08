@@ -81,35 +81,32 @@ func (m HermesMeter) Meter(req Request) (Window, error) {
 	return Window{
 		CLI:      m.CLI(),
 		Stats:    acc.result(),
-		Coverage: hermesCoverage(m, billing, stated != "", costed, included),
+		Coverage: hermesCoverage(m, billing, stated != "", costed, included, acc),
 	}, nil
 }
 
-func hermesCoverage(m HermesMeter, b Billing, stated bool, costed, included int) CoverageRow {
+// hermesCan is what Hermes Agent is capable of recording.
+var hermesCan = map[Signal]bool{
+	SigCost: true, SigTokens: true, SigModel: true, SigMessages: true,
+	SigTurns: true, SigTools: true, SigErrors: true,
+}
+
+func hermesCoverage(m HermesMeter, b Billing, stated bool, costed, included int, acc *guestAcc) CoverageRow {
 	note := "Totals are per session; cost and tokens are spread over that session's messages by token share."
 	if stated {
 		note += " Billing mode comes from its own record, not the operator's setting."
 	}
-	cost := StateReported
+	sig := acc.evidence(hermesCan, nil)
 	switch {
 	case included > 0 && costed == 0:
-		cost = StateNotReported
+		sig[SigCost] = StateNotReported
 		note = "Marks every session in this window plan-included and prices none of them, so its spend is unmeasured rather than zero. " + note
 	case included > 0:
-		cost = StatePartial
+		sig[SigCost] = StatePartial
 		note = "Priced from " + itoa(costed) + " of " + itoa(costed+included) +
 			" sessions — Hermes marks the rest plan-included and does not price them. " + note
 	}
-	return CoverageRow{
-		CLI: m.CLI(), Label: m.Label(), Billing: b,
-		Signals: map[Signal]State{
-			SigCost: cost, SigTokens: StateReported, SigModel: StateReported,
-			SigMessages: StateReported, SigTurns: StateReported, SigTools: StateReported,
-			SigErrors: StateReported, SigImpact: StateNotReported,
-			SigTiming: StateNotReported, SigLimits: StateNotReported,
-		},
-		Note: note,
-	}
+	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
 
 func hermesSessions(db *sql.DB, req Request) (map[string]*hermesSession, error) {
@@ -204,11 +201,13 @@ func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAc
 	defer rows.Close()
 
 	type msg struct {
-		at    time.Time
-		role  string
-		tool  string
-		toks  int64
-		abort bool
+		at      time.Time
+		role    string
+		tool    string
+		toks    int64
+		abort   bool
+		results int // finish_reason present: an inspected outcome
+		errs    int
 	}
 	byS := map[string][]msg{}
 	for rows.Next() {
@@ -224,10 +223,13 @@ func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAc
 		if at.IsZero() {
 			continue
 		}
+		fin := strings.ToLower(strings.TrimSpace(row["finish_reason"]))
 		byS[sid] = append(byS[sid], msg{
 			at: at, role: row["role"], tool: row["tool_name"],
-			toks:  atoi64(row["token_count"]),
-			abort: strings.EqualFold(row["finish_reason"], "aborted") || strings.EqualFold(row["finish_reason"], "cancelled"),
+			toks:    atoi64(row["token_count"]),
+			abort:   fin == "aborted" || fin == "cancelled",
+			results: boolToInt(fin != ""),
+			errs:    boolToInt(strings.Contains(fin, "error")),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -254,9 +256,11 @@ func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAc
 			e := guestEntry{
 				at: m.at, key: sid, cwd: s.cwd, name: s.title,
 				role: m.role, model: s.model, prov: "hermes",
-				cost:  s.cost * share,
-				toks:  scaleTokens(s.toks, share),
-				abort: m.abort,
+				cost:    s.cost * share,
+				toks:    scaleTokens(s.toks, share),
+				abort:   m.abort,
+				results: m.results,
+				errs:    m.errs,
 			}
 			if m.tool != "" {
 				e.tools = []string{m.tool}
@@ -271,6 +275,13 @@ func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAc
 // RFC3339 for any build that writes text instead.
 func hermesTime(raw string) time.Time {
 	if raw == "" {
+		return time.Time{}
+	}
+	// Text first: atof("2026-09-08T…") is 2026, which would land in 1970.
+	if strings.ContainsAny(raw, "T:-") {
+		if t, err := time.Parse(time.RFC3339, raw); err == nil {
+			return t
+		}
 		return time.Time{}
 	}
 	if f := atof(raw); f > 0 {

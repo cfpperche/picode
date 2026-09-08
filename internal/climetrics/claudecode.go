@@ -48,7 +48,13 @@ func (ClaudeCodeMeter) Fingerprint() string {
 func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	root := clisession.ClaudeProjectsRoot()
 	acc := newGuestAcc(req, m.CLI())
-	priced, unpriced := 0, 0
+	// A session is priced if any of its files carried a snapshot. Keyed by
+	// session rather than file because a subagent transcript (agent-*.jsonl)
+	// is a second file of the same session and never has one of its own —
+	// counted per file, 75 of 120 files in one week were unpriced "sessions"
+	// that were really this machine's Explore agents.
+	pricedBy := map[string]bool{}
+	underBy := map[string]bool{} // the snapshot itself admits a model it could not price
 
 	for _, dir := range ccProjectDirs(root) {
 		ents, err := os.ReadDir(dir)
@@ -72,11 +78,20 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 			if !replay(p, acc, req) {
 				continue
 			}
-			if p.priced {
-				priced++
-			} else {
-				unpriced++
-			}
+			pricedBy[p.key] = pricedBy[p.key] || p.priced
+			underBy[p.key] = underBy[p.key] || p.underpriced
+		}
+	}
+	priced, unpriced, under := 0, 0, 0
+	for key := range acc.files {
+		switch {
+		case !pricedBy[key]:
+			unpriced++
+		case underBy[key]:
+			under++
+			priced++
+		default:
+			priced++
 		}
 	}
 
@@ -84,7 +99,7 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	w := Window{
 		CLI:      m.CLI(),
 		Stats:    acc.result(),
-		Coverage: ccCoverage(m, billing, priced, unpriced),
+		Coverage: ccCoverage(m, billing, priced, unpriced, under, acc),
 	}
 	if acc.impact != (Impact{}) {
 		i := acc.impact
@@ -97,38 +112,38 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	return w, nil
 }
 
-func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced int) CoverageRow {
-	cost := StateReported
+// ccCan is what Claude Code is capable of recording. Whether it *did* in a
+// given window is the accumulator's evidence, not this table's claim.
+var ccCan = map[Signal]bool{
+	SigCost: true, SigTokens: true, SigModel: true, SigMessages: true,
+	SigTurns: true, SigTools: true, SigErrors: true,
+	SigImpact: true, SigTiming: true,
+}
+
+func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *guestAcc) CoverageRow {
+	sig := acc.evidence(ccCan, map[Signal]bool{
+		SigImpact: acc.impact != (Impact{}),
+		SigTiming: acc.timing != (Timing{}),
+	})
 	note := ""
 	switch {
 	case priced == 0 && unpriced == 0:
-		cost = StateReported // nothing in window; nothing to qualify
+		// nothing in window; nothing to qualify
 	case priced == 0:
-		cost = StateNotReported
+		sig[SigCost] = StateNotReported
 		note = "No session in this window recorded a cost snapshot; tokens and activity are complete."
 	case unpriced > 0:
-		cost = StatePartial
+		sig[SigCost] = StatePartial
 		note = "Priced from " + itoa(priced) + " of " + itoa(priced+unpriced) +
 			" sessions — cost is written only on a session snapshot, and a live session has none."
+	case under > 0:
+		// Every session has a snapshot, but Claude Code itself flagged one
+		// (hasUnknownModelCost) as carrying a model it could not price.
+		// The total is a floor by the vendor's own admission.
+		sig[SigCost] = StatePartial
+		note = itoa(under) + " of " + itoa(priced) + " sessions carry a model Claude Code could not price, so the total is a floor."
 	}
-	return CoverageRow{
-		CLI:     m.CLI(),
-		Label:   m.Label(),
-		Billing: b,
-		Signals: map[Signal]State{
-			SigCost:     cost,
-			SigTokens:   StateReported,
-			SigModel:    StateReported,
-			SigMessages: StateReported,
-			SigTurns:    StateReported,
-			SigTools:    StateReported,
-			SigErrors:   StateReported,
-			SigImpact:   StateReported,
-			SigTiming:   StateReported,
-			SigLimits:   StateNotReported,
-		},
-		Note: note,
-	}
+	return CoverageRow{CLI: m.CLI(), Label: m.Label(), Billing: b, Signals: sig, Note: note}
 }
 
 func ccProjectDirs(root string) []string {
@@ -147,18 +162,20 @@ func ccProjectDirs(root string) []string {
 
 // ccMsg is one transcript entry before pricing.
 type ccMsg struct {
-	at     time.Time
-	role   string
-	model  string
-	units  int64
-	tokens session.TokenTotals
-	stop   string
-	errs   int
-	tools  []string
+	at      time.Time
+	role    string
+	model   string
+	units   int64
+	tokens  session.TokenTotals
+	stop    string
+	results int // tool_result blocks inspected — they arrive on the user turn
+	errs    int
+	tools   []string
 }
 
 type ccState struct {
 	modelCost map[string]float64 // model -> USD for the whole session
+	unknownPx bool               // Claude Code flagged a model it could not price
 	linesAdd  int64
 	linesDel  int64
 	apiMs     int64
@@ -180,7 +197,7 @@ func ccParse(path string) *parsed {
 
 	var msgs []ccMsg
 	var st ccState
-	cwd, name := "", ""
+	cwd, name, sid := "", "", ""
 
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -195,6 +212,9 @@ func ccParse(path string) *parsed {
 		}
 		if c, _ := raw["cwd"].(string); c != "" && cwd == "" {
 			cwd = c
+		}
+		if id, _ := raw["sessionId"].(string); id != "" && sid == "" {
+			sid = id
 		}
 		switch raw["type"] {
 		case "summary":
@@ -215,12 +235,19 @@ func ccParse(path string) *parsed {
 		// claimed workspace — the right verdict for a folder we cannot place.
 		cwd = filepath.Base(filepath.Dir(path))
 	}
-	return ccPrice(path, cwd, name, msgs, st)
+	// The session id is the identity, not the file: a subagent's transcript
+	// carries its parent's sessionId and folds into that session. Only a
+	// file that never names one falls back to its own path.
+	key := sid
+	if key == "" {
+		key = path
+	}
+	return ccPrice(key, cwd, name, msgs, st)
 }
 
 // ccPrice turns the raw messages into priced entries.
-func ccPrice(path, cwd, name string, msgs []ccMsg, st ccState) *parsed {
-	out := &parsed{priced: st.hasCost}
+func ccPrice(key, cwd, name string, msgs []ccMsg, st ccState) *parsed {
+	out := &parsed{key: key, priced: st.hasCost, underpriced: st.unknownPx}
 	observed := map[string]int64{}
 	for _, m := range msgs {
 		out.units += m.units
@@ -235,10 +262,14 @@ func ccPrice(path, cwd, name string, msgs []ccMsg, st ccState) *parsed {
 			cost += r * float64(m.units)
 		}
 		out.ents = append(out.ents, guestEntry{
-			at: m.at, key: path, cwd: cwd, name: name,
+			at: m.at, key: key, cwd: cwd, name: name,
 			role: m.role, model: m.model, prov: ccProvider(m.model),
-			cost: cost, toks: m.tokens, tools: m.tools, errs: m.errs,
-			abort: m.stop == "aborted" || m.stop == "stop_sequence",
+			cost: cost, toks: m.tokens, tools: m.tools,
+			results: m.results, errs: m.errs,
+			// Claude Code writes no "aborted" stop; an interrupt is not a
+			// stop_reason at all. Counting stop_sequence here reported 45
+			// aborts against a real zero. A refusal is its own beat.
+			refusal: m.stop == "refusal",
 		})
 	}
 	out.impact = Impact{LinesAdded: st.linesAdd, LinesRemoved: st.linesDel}
@@ -305,6 +336,7 @@ func ccProvider(model string) string {
 // readCostState turns one cumulative snapshot into per-model costs.
 func readCostState(raw map[string]any, st *ccState) {
 	st.hasCost = true
+	st.unknownPx, _ = raw["hasUnknownModelCost"].(bool)
 	st.linesAdd = int64(num(raw["totalLinesAdded"]))
 	st.linesDel = int64(num(raw["totalLinesRemoved"]))
 	st.apiMs = int64(num(raw["totalAPIDuration"]))
@@ -371,6 +403,7 @@ func ccMessage(raw map[string]any) (ccMsg, bool) {
 					out.tools = append(out.tools, n)
 				}
 			case "tool_result":
+				out.results++
 				if e, _ := bm["is_error"].(bool); e {
 					out.errs++
 				}

@@ -28,8 +28,15 @@ type guestEntry struct {
 	split session.CostSplit
 	toks  session.TokenTotals
 	tools []string
-	errs  int
-	abort bool
+	// results is how many tool results this entry carried and the parser
+	// inspected, errs how many of those were failures. Both are kept for
+	// every role: Claude Code returns a tool's result as a *user* turn, and
+	// counting errors only on assistant turns reported 0 against 456 on the
+	// deployed dashboard.
+	results int
+	errs    int
+	abort   bool
+	refusal bool
 }
 
 // guestAcc files entries into one CLI's window.
@@ -55,6 +62,12 @@ type guestAcc struct {
 	// lifetime figures against this window's share of its tokens.
 	impact Impact
 	timing Timing
+
+	// seen is what the parser actually observed in this window, per signal.
+	// Coverage is derived from it rather than declared: a hand-written
+	// "reported" beside a counter nothing ever incremented is how the
+	// dashboard shipped a silent zero for Claude Code's errors.
+	seen map[Signal]int
 }
 
 func newGuestAcc(req Request, cli string) *guestAcc {
@@ -70,6 +83,7 @@ func newGuestAcc(req Request, cli string) *guestAcc {
 		tools:      map[string]int{},
 		files:      map[string]*session.SessionSpend{},
 		priorFiles: map[string]bool{},
+		seen:       map[Signal]int{},
 	}
 }
 
@@ -95,6 +109,14 @@ func (a *guestAcc) add(e guestEntry) {
 	a.current.Cost += e.cost
 	a.current.Messages++
 	a.split.Add(e.split)
+	a.seen[SigMessages]++
+	if e.cost > 0 {
+		a.seen[SigCost]++
+	}
+	// Tool results ride on whichever role the CLI returns them under, so
+	// their evidence and their failures are counted here, before the split.
+	a.seen[SigErrors] += e.results
+	a.turns.Errors += e.errs
 
 	day := e.at.In(a.loc).Format("2006-01-02")
 	db := a.byDay[day]
@@ -134,9 +156,21 @@ func (a *guestAcc) add(e guestEntry) {
 	}
 	a.turns.Assistant++
 	db.Turns++
-	a.turns.Errors += e.errs
+	a.seen[SigTurns]++
 	if e.abort {
 		a.turns.Aborted++
+	}
+	if e.refusal {
+		a.turns.Refusals++
+	}
+	if e.model != "" {
+		a.seen[SigModel]++
+	}
+	if e.toks != (session.TokenTotals{}) {
+		a.seen[SigTokens]++
+	}
+	if len(e.tools) > 0 {
+		a.seen[SigTools]++
 	}
 
 	model := e.model
@@ -199,6 +233,38 @@ func (a *guestAcc) result() session.WindowStats {
 	// No ByProvider rows: that breakdown answers "what did the credential
 	// PiCode holds cost", and a guest CLI signs in with its own account.
 	return st
+}
+
+// evidence turns what the accumulator observed into signal states.
+//
+// can says which signals this CLI is capable of recording at all; a signal
+// it cannot record is not-reported regardless of the window. For the rest,
+// an active window answers from evidence — reported only when the parser
+// actually saw the field — and an empty window answers from capability,
+// since there is nothing to have seen. extra carries the adapter-level
+// signals (impact, timing, limits) the accumulator never sees.
+func (a *guestAcc) evidence(can map[Signal]bool, extra map[Signal]bool) map[Signal]State {
+	out := make(map[Signal]State, len(Signals))
+	active := a.current.Messages > 0
+	for _, sig := range Signals {
+		switch {
+		case !can[sig]:
+			out[sig] = StateNotReported
+		case !active:
+			out[sig] = StateReported
+		case sig == SigImpact || sig == SigTiming || sig == SigLimits:
+			if extra[sig] {
+				out[sig] = StateReported
+			} else {
+				out[sig] = StateNotReported
+			}
+		case a.seen[sig] > 0:
+			out[sig] = StateReported
+		default:
+			out[sig] = StateNotReported
+		}
+	}
+	return out
 }
 
 // absentWindow is what a meter returns when its CLI was never installed

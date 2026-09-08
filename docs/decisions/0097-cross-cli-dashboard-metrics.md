@@ -159,6 +159,43 @@ The pattern is worth naming because it will recur: a contract that
 distinguishes unmeasured from zero only helps if every renderer honours the
 distinction, and `formatMoney(0)` does not.
 
+## What an adversarial pass found (2026-09-08)
+
+Every test was green and three numbers on the deployed surface were wrong.
+Each was confirmed against the real stores before it was fixed.
+
+| Showed | Was | Cause |
+|---|---|---|
+| Claude Code errors **0**, matrix said "reported" | **409** in 30 days | `tool_result.is_error` rides on the *user* turn; the accumulator dropped `errs` for every role but assistant |
+| Claude Code **45 aborted** | zero — no `aborted` stop exists | `stop_sequence`, a normal stop, was counted as an abort; the 4 `refusal` stops that matter were counted nowhere |
+| Codex **620 prompts** | **455** | AGENTS.md and environment context arrive as user-role `response_item`s, named in `content_item_kinds`; they were counted beside the person's prompt. (The `event_msg user_message` is not the answer either: `codex-tui` never emits it, and counting only the event found 136.) |
+| Claude Code **42 sessions** in a week | 30 | 75 of 120 transcripts were subagents (`agent-*.jsonl`); each carries its parent's `sessionId` and now folds into it |
+| Hermes errors "reported" | never populated | same class as the first row |
+
+The structural cause behind three of the five: the coverage matrix was
+**declared** per adapter, not **derived** from what the parser saw. A
+hand-written "reported" beside a counter nothing ever incremented is the
+silent zero this ADR exists to forbid, one layer up. Coverage now comes from
+evidence — a signal is reported in an active window only when the parser
+actually inspected the field — and the hand-built test dicts that let this
+through are replaced by real lines from each CLI's store
+(`internal/climetrics/testdata/`).
+
+Two more, found the same way: the parse cache's memory estimate was
+optimistic (60–80 MB, not 45), and the server cache key ignored the claimed
+workspaces, so a `picode`-scoped window could keep excluding a folder added
+a minute ago. Both fixed.
+
+## Still open
+
+| # | Question | Recommendation |
+|---|---|---|
+| 1 | No singleflight on a cold miss: desktop and mobile opening together each pay a 1.8–4.8 s parse. | Add one when it is observed, not before; the v2 design had the same shape at a fifth of the cost. |
+| 2 | Scope compares a session's raw cwd with the workspace's canonicalised path. A workspace reached through a symlink drops out of the `picode` scope silently — ADR-0042 accepted this for labels; for a filter it is data loss. | Canonicalise both sides once `canonDir` is cheap enough to run per entry, or accept and name it on the coverage panel. |
+| 3 | "By CLI" ranks by cost, so Codex (4,362 messages, a billion tokens) sits under OpenCode (4 messages, $0.0014). The label says CLI; the sort says money. | Sort unpriced CLIs by messages among themselves is what ships; whether they belong *above* a priced $0.0014 row is the owner's call. |
+| 4 | Codex repeats an identical `last_token_usage` on 2.4% of consecutive `token_count` events. Duplicate emission or two genuinely identical turns — undetermined. | Leave; ~2% is inside the noise of every other approximation here. Revisit if Codex documents the event. |
+| 5 | Codex items written before `content_item_kinds` existed carry no marker, so an old injection is indistinguishable from an old prompt. | Counted as prompts; nothing to tell them apart by. Ages out. |
+
 ## Reopened refusals
 
 ADR-0042 refused three things *for lack of data*, and AGENTS.md requires

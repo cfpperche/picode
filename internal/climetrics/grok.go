@@ -71,21 +71,18 @@ func (m GrokMeter) Meter(req Request) (Window, error) {
 	return Window{
 		CLI:      m.CLI(),
 		Stats:    acc.result(),
-		Coverage: grokCoverage(m, req.BillingFor(m.CLI())),
+		Coverage: grokCoverage(m, req.BillingFor(m.CLI()), acc),
 	}, nil
 }
 
-func grokCoverage(m GrokMeter, b Billing) CoverageRow {
+// grokCan is what the Grok CLI records: prompts, and nothing else.
+var grokCan = map[Signal]bool{SigMessages: true}
+
+func grokCoverage(m GrokMeter, b Billing, acc *guestAcc) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
-		Signals: map[Signal]State{
-			SigCost: StateNotReported, SigTokens: StateNotReported,
-			SigModel: StateNotReported, SigMessages: StateReported,
-			SigTurns: StateNotReported, SigTools: StateNotReported,
-			SigErrors: StateNotReported, SigImpact: StateNotReported,
-			SigTiming: StateNotReported, SigLimits: StateNotReported,
-		},
-		Note: "Records prompt history only — no cost, tokens, model or tool calls reach disk. Prompt counts are real; everything else is unmeasured, not zero.",
+		Signals: acc.evidence(grokCan, nil),
+		Note:    "Records prompt history only — no cost, tokens, model or tool calls reach disk. Prompt counts are real; everything else is unmeasured, not zero.",
 	}
 }
 
