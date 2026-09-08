@@ -26,10 +26,10 @@ to the `[Unreleased]` section. The repository's official language is English
   right-click menu): a field floats over the terminal — searching never
   resizes the pane — highlights every match, counts them (`3/14`), and walks
   them with Enter and Shift+Enter; Escape closes it and gives the keyboard
-  back to the terminal. **Match case** and **regular expression** are two
-  toggles in the field, kept for the life of the page; a pattern that does
-  not compile yet says *Invalid pattern* rather than pretending there is
-  nothing to find. The plain `Ctrl+F` still belongs to whatever runs in the
+  back to the terminal. **Match case**, **whole word** and **regular
+  expression** are three toggles in the field, kept for the life of the page;
+  a pattern that does not compile yet says *Invalid pattern* rather than
+  pretending there is nothing to find. The plain `Ctrl+F` still belongs to whatever runs in the
   pane (`less`, `vim`, readline), and the chord is rebindable in
   Settings → Shortcuts.
 - **A waiting agent says so on the screen you are on, whatever agent it

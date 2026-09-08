@@ -73,8 +73,9 @@ guest TUI redraw for nothing. Highlights are VS Code's terminal find colours,
 painted through xterm's decoration API — proposed API, so `xtermOptions()`
 now sets `allowProposedApi`.
 
-**Match case** and **regular expression** are two toggles in the field (VS
-Code's `Aa` / `.*`), remembered for the life of the page but never persisted —
+**Match case**, **whole word** and **regular expression** are three toggles in
+the field (VS Code's `Aa` / `ab` / `.*`), remembered for the life of the page
+but never persisted —
 a mode that outlives a reload turns the next plain search into a mystery. A
 half-typed pattern is named ("Invalid pattern") instead of reaching the addon,
 which throws on it. One upstream quirk earns a line: the addon caches its

@@ -33,20 +33,31 @@ export const FIND_DECORATIONS = Object.freeze({
   activeMatchColorOverviewRuler: "#a0a0a0cc",
 });
 
-// Match case and regular expression, remembered for the life of the page —
-// the same span VS Code's find widget remembers them for. Deliberately not
-// persisted: a mode that outlives a reload turns the next plain search into
-// a mystery ("No results" for text that is plainly on the screen).
-const mode = { caseSensitive: false, regex: false };
+// Match case, whole word and regular expression, remembered for the life of
+// the page — the same span VS Code's find widget remembers them for.
+// Deliberately not persisted: a mode that outlives a reload turns the next
+// plain search into a mystery ("No results" for text that is plainly on the
+// screen). The names are the addon's own ISearchOptions, so the object is
+// handed to it as it stands.
+export const FIND_FLAGS = ["caseSensitive", "wholeWord", "regex"];
+
+const mode = { caseSensitive: false, wholeWord: false, regex: false };
 
 export function findMode() {
   return { ...mode };
 }
 
 export function setFindMode(patch) {
-  if (patch && typeof patch.caseSensitive === "boolean") mode.caseSensitive = patch.caseSensitive;
-  if (patch && typeof patch.regex === "boolean") mode.regex = patch.regex;
+  for (const flag of FIND_FLAGS) {
+    if (patch && typeof patch[flag] === "boolean") mode[flag] = patch[flag];
+  }
   return findMode();
+}
+
+// True when two modes would search differently — the addon caches its match
+// list per term and re-scans only when told (see TermFindBar).
+export function modeChanged(a, b) {
+  return FIND_FLAGS.some((flag) => !!(a && a[flag]) !== !!(b && b[flag]));
 }
 
 // A half-typed pattern is the normal state of a regex field, and the addon
