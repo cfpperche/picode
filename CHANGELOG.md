@@ -62,9 +62,9 @@ to the `[Unreleased]` section. The repository's official language is English
   sticky card and the picker are the next slice.
 
 - **Packages: view, edit and reset package configuration (pi-roles first,
-  ADR-0099).** Installed packages render as a compact, filterable list
-  (marketplace keeps its cards) and a package with a known config adapter
-  shows **Configure**. The pi-roles editor (`#/packages/config/pi-roles`)
+  ADR-0099).** Installed packages render as the familiar card grid, now filterable,
+  with **Configure** beside Update/Remove on packages with a known config
+  adapter. The pi-roles editor (`#/packages/config/pi-roles`)
   edits the same files the extension reads — the workspace
   `.pi/roles.json` and the per-agent overlay `.pi/roles/<agentId>.json` —
   and shows the effective merge: inherited slots are visible (and can be
