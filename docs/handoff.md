@@ -5,7 +5,7 @@
 
 ## Current state
 
-- **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet.
+- **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet. Recovery preserves drafts, blocks stale writes and reports failed restarts; malformed defaults no longer block mobile agent controls.
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned. Workspace favicons share the 22px row-mark size.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
   (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
@@ -61,7 +61,7 @@
 
 ## Known debts / open questions
 
-- Native settings: physical iPhone/PWA/IME and real running-agent tool-mode restart untested here; automated restart matrix and stopped-agent browser saves cover the refactor.
+- Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
   address — answered by hand until updated per pi session; daemon death
   between park and JSONL row = accepted gap (as the terminal ask).
