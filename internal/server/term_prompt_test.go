@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -75,6 +76,8 @@ func TestDecodeDropData(t *testing.T) {
 
 func TestWriteDropFileGitignore(t *testing.T) {
 	cwd := t.TempDir()
+	// A project's own .gitignore, tracked in git, must come out untouched:
+	// the staging folder used to gain a silent line in exactly this file.
 	if err := os.WriteFile(filepath.Join(cwd, ".gitignore"), []byte("node_modules\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -90,8 +93,79 @@ func TestWriteDropFileGitignore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), dropIgnoreLine) {
-		t.Fatalf("gitignore = %q", raw)
+	if string(raw) != "node_modules\n" {
+		t.Fatalf("project .gitignore was rewritten: %q", raw)
+	}
+	nested, err := os.ReadFile(filepath.Join(cwd, ".picode", ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(nested) != "drop/\n" {
+		t.Fatalf("nested gitignore = %q", nested)
+	}
+}
+
+func TestWriteDropFileNoProjectGitignore(t *testing.T) {
+	// A project with no .gitignore at all used to leave staged attachments
+	// fully untracked and visible in `git status` — nothing ever covered
+	// them. The nested one must exist regardless.
+	cwd := t.TempDir()
+	if _, err := writeDropFile(cwd, "shot.png", []byte("png")); err != nil {
+		t.Fatal(err)
+	}
+	nested, err := os.ReadFile(filepath.Join(cwd, ".picode", ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(nested) != "drop/\n" {
+		t.Fatalf("nested gitignore = %q", nested)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, ".gitignore")); err == nil {
+		t.Fatal("no project .gitignore should have been created")
+	}
+}
+
+func TestSweepDropDirAge(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, "old.png")
+	fresh := filepath.Join(dir, "fresh.png")
+	for _, p := range []string{old, fresh} {
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chtimes(old, time.Now().Add(-8*24*time.Hour), time.Now().Add(-8*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	sweepDropDir(dir, 7*24*time.Hour)
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Fatalf("old file should be gone, err = %v", err)
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Fatalf("fresh file should survive: %v", err)
+	}
+}
+
+func TestWriteDropFileSweepsStaleSiblings(t *testing.T) {
+	// The sweep runs opportunistically on the next drop into the same
+	// project — nothing else ever calls it.
+	cwd := t.TempDir()
+	dropDir := filepath.Join(cwd, ".picode", "drop")
+	if err := os.MkdirAll(dropDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(dropDir, "ancient-shot.png")
+	if err := os.WriteFile(stale, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(stale, time.Now().Add(-30*24*time.Hour), time.Now().Add(-30*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeDropFile(cwd, "new.png", []byte("png")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("stale attachment should have been swept, err = %v", err)
 	}
 }
 

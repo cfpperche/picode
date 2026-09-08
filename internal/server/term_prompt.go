@@ -23,10 +23,14 @@ import (
 // TUI. Inspector type/run still must not use this door.
 
 const (
-	maxDropBytes   = 4 * 1024 * 1024
-	maxDropFiles   = 4
-	dropRelDir     = ".picode/drop"
-	dropIgnoreLine = ".picode/drop/"
+	maxDropBytes = 4 * 1024 * 1024
+	maxDropFiles = 4
+	dropRelDir   = ".picode/drop"
+	// dropMaxAge bounds how long a staged attachment survives. Nothing ever
+	// deletes it otherwise: the CLI reads the path once, at paste time, and
+	// keeps no reference of its own. Swept opportunistically on the next
+	// drop in the same project — no daemon, no ticker to forget to wire up.
+	dropMaxAge = 7 * 24 * time.Hour
 )
 
 func registerTermPromptRoutes(mux Registrar, deps Deps) {
@@ -229,7 +233,8 @@ func writeDropFile(cwd, name string, raw []byte) (map[string]any, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("can't write in this folder")
 	}
-	touchDropGitignore(cwdAbs)
+	touchDropGitignore(filepath.Dir(dir))
+	sweepDropDir(dir, dropMaxAge)
 	base := dropFileName(name)
 	abs := filepath.Join(dir, base)
 	if err := os.WriteFile(abs, raw, 0o644); err != nil {
@@ -265,20 +270,43 @@ func dropFileName(name string) string {
 	return hex.EncodeToString(id[:]) + "-" + clean
 }
 
-func touchDropGitignore(cwd string) {
-	p := filepath.Join(cwd, ".gitignore")
-	raw, err := os.ReadFile(p)
+// touchDropGitignore keeps staged attachments out of git without ever
+// touching the project's own tracked .gitignore (that file used to gain a
+// silent, uncommitted `.picode/drop/` line the moment anyone attached a
+// file — a surprise diff, and one that never appeared at all in a project
+// with no root .gitignore to append to). picodeDir is the project's
+// .picode folder (the parent of drop/); its own nested, never-committed
+// .gitignore covers drop/ unconditionally.
+func touchDropGitignore(picodeDir string) {
+	p := filepath.Join(picodeDir, ".gitignore")
+	if _, err := os.Stat(p); err == nil {
+		return
+	}
+	_ = os.WriteFile(p, []byte("drop/\n"), 0o644)
+}
+
+// sweepDropDir deletes staged attachments older than maxAge. Nothing else
+// ever removes them: the CLI reads a path once, at paste time, and keeps no
+// reference of its own, so without this a project accumulates every image
+// ever attached. Run opportunistically on the next drop into the same
+// project rather than a background ticker — simpler, and guaranteed to run
+// exactly when the folder is touched again.
+func sweepDropDir(dir string, maxAge time.Duration) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
-	text := string(raw)
-	if strings.Contains(text, dropIgnoreLine) {
-		return
+	cutoff := time.Now().Add(-maxAge)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || info.ModTime().After(cutoff) {
+			continue
+		}
+		_ = os.Remove(filepath.Join(dir, e.Name()))
 	}
-	if !strings.HasSuffix(text, "\n") && text != "" {
-		text += "\n"
-	}
-	_ = os.WriteFile(p, []byte(text+dropIgnoreLine+"\n"), 0o644)
 }
 
 func checkPromptPaths(cwd string, paths []string) ([]string, error) {
