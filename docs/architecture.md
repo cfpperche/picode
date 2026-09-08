@@ -936,7 +936,13 @@ HTTP API (Go 1.22 method patterns):
   the agents living in each worktree (`?limit=`, default 250). Each worktree
   also carries its own dirty count, `self` (the checkout the graph was read
   through) and `bare`/`detached`/`prunable` health flags, so the browser can
-  draw one uncommitted row per dirty worktree (ADR-0073). One graph per
+  draw one uncommitted row per dirty worktree (ADR-0073). Each commit
+  carries `add`/`del` — its own diff totalled into one +/- pair for the
+  listing column — read by one extra `--shortstat` walk over the same
+  window with `-m --first-parent`, the very diff the commit detail shows
+  per file, so row and detail can never disagree (measured ~0.8 s on this
+  repository's 250-commit window; a failed or timed-out walk leaves the
+  rows without numbers instead of stalling the graph). One graph per
   repository: the identity is `git rev-parse --git-common-dir`, canonicalized
   through filesystem symlinks, so every worktree (including macOS
   `/var`/`/private/var` aliases) answers with the same key and collapses onto

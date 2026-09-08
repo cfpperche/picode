@@ -264,6 +264,7 @@ export default function GitGraph({
                       {wt.self ? <span className="gg-occupant gg-occupant-self">this worktree</span> : null}
                     </span>
                     <span className="gg-subject">Uncommitted Changes ({count})</span>
+                    <span className="gg-stat" />
                     <span className="gg-author" />
                     <span className="gg-date" />
                     <span className="gg-hash" />
@@ -325,6 +326,20 @@ export default function GitGraph({
                   ))}
                 </span>
                 <span className="gg-subject" title={c.subject}>{c.subject}</span>
+                <span
+                  className="gg-stat"
+                  title={(c.add || 0) + (c.del || 0) > 0
+                    ? `${c.add || 0} lines added, ${c.del || 0} removed`
+                    : undefined}
+                >
+                  {(c.add || 0) + (c.del || 0) > 0 ? (
+                    <>
+                      {c.add > 0 ? <span className="gg-add">+{c.add}</span> : null}
+                      {c.add > 0 && c.del > 0 ? " " : null}
+                      {c.del > 0 ? <span className="gg-del">−{c.del}</span> : null}
+                    </>
+                  ) : null}
+                </span>
                 <span className="gg-author">{c.author}</span>
                 <span className="gg-date">{shortDate(c.at)}</span>
                 <span className="gg-hash">{c.hash.slice(0, 7)}</span>

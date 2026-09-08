@@ -18,6 +18,72 @@ func TestKeyNotRepo(t *testing.T) {
 	}
 }
 
+func TestParseShortStat(t *testing.T) {
+	tests := []struct {
+		name, line string
+		add, del   int
+		ok         bool
+	}{
+		{"full", " 3 files changed, 10 insertions(+), 2 deletions(-)", 10, 2, true},
+		{"singular", " 1 file changed, 1 insertion(+)", 1, 0, true},
+		{"deletions only", " 2 files changed, 4 deletions(-)", 0, 4, true},
+		{"binary is zeroed", " 1 file changed, 0 insertions(+), 0 deletions(-)", 0, 0, true},
+		{"not a stat line", "cf23665181e55e52adba61b7347b924a00c9aa43", 0, 0, false},
+		{"blank", "", 0, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			add, del, ok := parseShortStat(tt.line)
+			if add != tt.add || del != tt.del || ok != tt.ok {
+				t.Fatalf("parseShortStat(%q) = %d, %d, %v; want %d, %d, %v", tt.line, add, del, ok, tt.add, tt.del, tt.ok)
+			}
+		})
+	}
+}
+
+// The listing's +/- must agree with the detail view: the commit's own diff
+// against its first parent, merges included, and an empty commit showing no
+// numbers rather than a lie.
+func TestListingStatsMatchTheFirstParentDiff(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "f", "one\ntwo\nthree\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "root")
+
+	write(t, dir, "f", "one\nTWO\nthree\nfour\nfive\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "edit")
+
+	run(t, dir, "git", "commit", "--allow-empty", "-m", "empty")
+
+	run(t, dir, "git", "checkout", "-b", "side", "HEAD~2")
+	write(t, dir, "side.txt", "a\nb\n")
+	run(t, dir, "git", "add", ".")
+	run(t, dir, "git", "commit", "-m", "side work")
+	run(t, dir, "git", "checkout", "main")
+	run(t, dir, "git", "merge", "--no-ff", "side", "-m", "merge side")
+
+	bySubject := map[string]Commit{}
+	for _, c := range Load(dir, 50).Commits {
+		bySubject[c.Subject] = c
+	}
+	for subject, want := range map[string][2]int{
+		"root":       {3, 0},
+		"edit":       {3, 1},
+		"empty":      {0, 0},
+		"side work":  {2, 0},
+		"merge side": {2, 0},
+	} {
+		c, ok := bySubject[subject]
+		if !ok {
+			t.Fatalf("commit %q missing from the graph", subject)
+		}
+		if c.Add != want[0] || c.Del != want[1] {
+			t.Fatalf("%s: got +%d/-%d, want +%d/-%d", subject, c.Add, c.Del, want[0], want[1])
+		}
+	}
+}
+
 // The whole of ADR-0022 rests on this: a worktree is a different checkout of
 // the same repository, so it must answer with the same key.
 func TestWorktreeSharesTheKey(t *testing.T) {

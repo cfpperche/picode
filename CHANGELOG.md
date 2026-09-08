@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Git graph: per-commit +/- in the listing.** Every commit row shows
+  the lines its own diff adds and removes (`+178 −80`, green/red, blank
+  when a commit changes no text — empty or binary-only commits), so the
+  shape of history reads without opening each commit. The numbers are
+  git's own shortstat totals over the commit's first-parent diff — the
+  same diff the opened commit detail shows per file (they reconcile
+  exactly, merges included).
+
 - **Pins: search, keep on top, archive.** The Pins tab has a search box
   over title, tags and note (every word must match; archived pins are
   found too and say so). A star keeps a pin on top of the list; Archive
