@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { IconCase, IconChevronDown, IconChevronUp, IconRegex, IconX } from "./Icons.jsx";
+import { IconCase, IconChevronDown, IconChevronUp, IconRegex, IconWholeWord, IconX } from "./Icons.jsx";
 import { terms } from "../lib/terms.js";
-import { findKey, findLabel, findMode, findProblem, setFindMode, FIND_DECORATIONS } from "../lib/termFind.js";
+import { findKey, findLabel, findMode, findProblem, modeChanged, setFindMode, FIND_DECORATIONS } from "../lib/termFind.js";
 
 const DEBOUNCE_MS = 120;
 
@@ -52,14 +52,14 @@ export default function TermFindBar({ termId, onClose }) {
       // only the options change (@xterm/addon-search 0.16.0): toggling case
       // or regex on the same query keeps the old count and highlights.
       // Dropping the decorations drops that cache with them.
-      if (ranWith.current.caseSensitive !== mode.caseSensitive || ranWith.current.regex !== mode.regex) {
+      if (modeChanged(ranWith.current, mode)) {
         search.clearDecorations();
         ranWith.current = mode;
       }
       run(search, "next", { incremental: true });
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query, termId, mode.caseSensitive, mode.regex, problem]);
+  }, [query, termId, mode.caseSensitive, mode.wholeWord, mode.regex, problem]);
 
   // The addon reaches xterm's proposed decoration API and throws when a
   // terminal was built without it (termTheme.js). Say so in the counter
@@ -114,6 +114,9 @@ export default function TermFindBar({ termId, onClose }) {
       />
       <button type="button" className="icon-btn" title="Match case" aria-label="Match case" aria-pressed={mode.caseSensitive} onClick={() => toggle("caseSensitive")}>
         <IconCase />
+      </button>
+      <button type="button" className="icon-btn" title="Match whole word" aria-label="Match whole word" aria-pressed={mode.wholeWord} onClick={() => toggle("wholeWord")}>
+        <IconWholeWord />
       </button>
       <button type="button" className="icon-btn" title="Use a regular expression" aria-label="Use a regular expression" aria-pressed={mode.regex} onClick={() => toggle("regex")}>
         <IconRegex />
