@@ -7,7 +7,37 @@ const STEP = 12, OFFSET = 10;
 const colours = ["var(--accent)", "var(--ok)", "var(--warn)", "var(--danger)"];
 const colour = i => colours[i % colours.length];
 
-export default function GitAncestry({ graph, refs, query, matches, activeMatch, onCommit, onWorktree }) {
+// A press held for half a second, without moving, is the phone's right-click
+// (ADR-0096 on mobile). The click that follows a fired press is swallowed so
+// the row does not also open. A real contextmenu (the desktop preview, a
+// mouse) takes the same door.
+function usePress(onLongPress) {
+  const timer = useRef(0);
+  const fired = useRef(false);
+  const start = useRef(null);
+  const cancel = () => { clearTimeout(timer.current); timer.current = 0; };
+  return {
+    onPointerDown: (e, payload) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      fired.current = false;
+      start.current = { x: e.clientX, y: e.clientY };
+      cancel();
+      timer.current = setTimeout(() => { fired.current = true; onLongPress(payload); }, 500);
+    },
+    onPointerMove: (e) => {
+      if (!timer.current || !start.current) return;
+      if (Math.abs(e.clientX - start.current.x) > 8 || Math.abs(e.clientY - start.current.y) > 8) cancel();
+    },
+    onPointerUp: cancel,
+    onPointerCancel: cancel,
+    onPointerLeave: cancel,
+    onContextMenu: (e, payload) => { e.preventDefault(); cancel(); fired.current = true; onLongPress(payload); },
+    swallowClick: () => { const f = fired.current; fired.current = false; return f; },
+  };
+}
+
+export default function GitAncestry({ graph, refs, query, matches, activeMatch, onCommit, onWorktree, onActions }) {
+  const press = usePress((payload) => onActions?.(payload));
   const list = useRef(null);
   const [geometry, setGeometry] = useState({ centers: [], height: 0 });
   const anchors = useMemo(() => (graph.worktrees || []).filter(wt => wt.uncommitted?.count > 0 && !wt.bare && !wt.prunable).map(wt => ({ hash: wt.head, wt })), [graph.worktrees]);
@@ -42,7 +72,17 @@ export default function GitAncestry({ graph, refs, query, matches, activeMatch, 
         const dirty = isUncommittedHash(row.hash), wt = row.anchor?.wt;
         const dim = query && !matches.has(row.hash);
         return <li key={row.hash} data-hash={row.hash} className={"m-git-graph-row" + (dim ? " is-dim" : "") + (row.hash === activeMatch ? " is-match" : "")}>
-          <button type="button" className="m-git-commit-row" onClick={() => dirty ? onWorktree(wt) : onCommit(row.hash)}>
+          <button
+            type="button"
+            className="m-git-commit-row"
+            onClick={() => { if (press.swallowClick()) return; dirty ? onWorktree(wt) : onCommit(row.hash); }}
+            onPointerDown={(e) => press.onPointerDown(e, dirty ? { worktree: wt, uncommitted: true } : { commit: row, refs })}
+            onPointerMove={press.onPointerMove}
+            onPointerUp={press.onPointerUp}
+            onPointerCancel={press.onPointerCancel}
+            onPointerLeave={press.onPointerLeave}
+            onContextMenu={(e) => press.onContextMenu(e, dirty ? { worktree: wt, uncommitted: true } : { commit: row, refs })}
+          >
             <span className="m-git-commit-subject">{dirty ? `Uncommitted · ${worktreeName(wt)}` : row.subject || shortHash(row.hash)}</span>
             {dirty ? <span className="m-git-commit-meta">{wt.uncommitted.count} changed {wt.uncommitted.count === 1 ? "file" : "files"}{wt.self ? " · this worktree" : ""}{wt.agents?.length ? " · " + wt.agents.map(a => a.name).join(", ") : ""}</span> : <>
               {refs.some(ref => ref.hash === row.hash) ? <span className="m-git-refs">{refs.filter(ref => ref.hash === row.hash).map(ref => <span key={ref.kind + ref.name}>{ref.name}</span>)}</span> : null}

@@ -260,7 +260,10 @@ export default function MobileApp() {
     return result;
   }
   async function askGit(who, text, root, action) {
-    const result = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, root }) });
+    // A pi running as an Agent CLI terminal is asked through its receiver
+    // (ADR-0089 amendment); an agent through its own channel (ADR-0078).
+    const base = who?.kind === "terminal" ? "/api/terminals/" : "/api/agents/";
+    const result = await api(base + encodeURIComponent(who.id) + "/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, root }) });
     toast.info(result.mode === "interactive" ? "Sent to " + who.name + " in its terminal." : result.busy ? "Queued for " + who.name + " after the current turn." : "Sent to " + who.name + ".");
     return result;
   }
@@ -377,7 +380,7 @@ export default function MobileApp() {
     const title = changeOwner?.agent?.name || changeOwner?.term?.name || changeOwner?.workspace?.name || "Project";
     body = route.screen === "files"
       ? <Files key={JSON.stringify([route.section, route.id, route.path, route.root, route.navigation])} owner={owner} title={title} root={route.root || ""} initialPath={route.path || ""} onBack={() => goBack(route)} onPathChange={(path, root) => { history.replaceState(history.state, "", toolHash("files", owner, { path, root })); }} onOpenGit={(target, root) => openGit(target || owner, root)} />
-      : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} workspaces={workspaces} freeAgents={freeAgents} />;
+      : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} onOpen={(kind, id) => { location.hash = (kind === "term" ? "#/term/" : "#/agent/") + encodeURIComponent(id); }} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />;
   } else if (route.screen === "changes") {
     const owner = changeOwner;
     const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")

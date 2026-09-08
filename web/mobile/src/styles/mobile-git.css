@@ -105,3 +105,17 @@
 .m-git-pending > span { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: m-git-spin .8s linear infinite; }
 @keyframes m-git-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .m-git-pending > span { animation: none; } }
+
+/* The graph's action sheet (ADR-0096 on mobile): grouped rows with the
+   shared module's section labels; a tier C row wears the danger colour, as
+   on desktop; the typed phrase sits under the door it gates. */
+.m-gg-group { display: flex; flex-direction: column; }
+.m-gg-group + .m-gg-group { margin-top: 6px; }
+.m-gg-group-label { display: flex; flex-direction: column; gap: 2px; margin: 10px 0 2px; font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.m-gg-group-label span { font-weight: 400; }
+.m-git-action.is-danger { color: var(--danger); }
+.m-gg-busy { display: block; margin-top: 4px; color: var(--warn); }
+.m-gg-typed strong { color: var(--text-primary); }
+.m-gg-typed input { font-family: var(--mono); }
+.m-gg-preview pre { margin: 0; }
+.m-git-commit-row { -webkit-touch-callout: none; user-select: none; }
