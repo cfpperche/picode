@@ -34,6 +34,7 @@
 - **llama.cpp manager:** deliveries 1–2 + 4 deployed (ADR-0080/0083/0090;
   `#/llama/service` as `0.1.0+c694fb2`). On main: old-installation cleanup
   and empty setup recovery; delivery 3 guidance separate.
+- **Git graph listing +/-:** every commit row shows its own diff's line total (`+N −M`, first-parent, merges included; reconciles with the commit detail); hides ≤900px.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
