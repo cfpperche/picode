@@ -129,7 +129,7 @@ newer run on the same ref cancels its predecessor.
 | Changed paths | Frontend + artifact | Public docs | Three-OS Go | Embedded build |
 |---|---:|---:|---:|---:|
 | Unknown, empty, product/toolchain, or mixed | Run | Run | Run | Run |
-| `www/`, `docs-videos/`, Vale styles, or docs tooling only | Skip | Run | Skip | Skip |
+| `docs-site/`, `docs-videos/`, Vale styles, or docs tooling only | Skip | Run | Skip | Skip |
 | `docs/` and root Markdown only | Skip | Skip | Skip | Skip |
 
 `scripts/ci-scope.test.mjs` is the executable decision table. The lightweight
@@ -1331,7 +1331,7 @@ receiver response or credential-bearing URL enters delivery errors or audit.
 This is outbound data disclosure to an owner-selected service, not agent tool
 access. The ordinary device gate protects all `/api/webhooks` CRUD/test/secret
 routes. See [acceptance tables](plans/integrations.md) and the
-[public guide](../www/guide/integrations.md).
+[public guide](../docs-site/guide/integrations.md).
 
 ### Automations (ADR-0045)
 
@@ -1511,7 +1511,7 @@ renders plain text, `Block.Empty` names an empty list, and busy metadata adds
 motion to pending jobs. The host prevents repeated clicks while submitting.
 The phone's More → Apps grid opens the shared AppSurface at `#/app/<id>`;
 Inbox keeps its specialized route. Public instructions live in the
-[Docker guide](../www/guide/docker.md).
+[Docker guide](../docs-site/guide/docker.md).
 
 Docker inventory groups containers by their exact Compose project label
 (ADR-0066); unlabeled containers appear last under Standalone containers.
@@ -1574,7 +1574,7 @@ and high memory. No dependency topology or root cause is inferred from names.
 Restart-loop previews allow advancing counters/timestamps while preserving the
 exact identity and restarting precondition. Memory verification uses the reviewed
 threshold. No automatic repair, backup/restore, blanket prune or remote Engine
-access is enabled. API/package details: [Docker guide](../www/guide/docker.md).
+access is enabled. API/package details: [Docker guide](../docs-site/guide/docker.md).
 
 ## Explicit non-goals
 

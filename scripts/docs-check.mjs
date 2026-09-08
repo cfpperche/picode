@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { screenshotInputFailures } from "./lib/docs-surfaces.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const imgDir = join(root, "www", "img");
+const imgDir = join(root, "docs-site", "img");
 
 // Capture freshness is advisory unless --strict / DOCS_STRICT=1 (ADR-0086):
 // a stale fingerprint used to fail `make ci` for every CSS change, and the
@@ -53,9 +53,9 @@ if (!existsSync(manifestPath)) {
 // ── generated docs artifacts: openapi.json + llms.txt ──────────────────
 // Same parity rule as the screenshots: the committed artifact must be
 // byte-identical to what the generator produces from the CURRENT tree.
-const openapiPath = join(root, "www", "public", "api", "openapi.json");
+const openapiPath = join(root, "docs-site", "public", "api", "openapi.json");
 if (!existsSync(openapiPath)) {
-  fails.push("www/public/api/openapi.json missing — run `make openapi`");
+  fails.push("docs-site/public/api/openapi.json missing — run `make openapi`");
 } else {
   try {
     const fresh = execFileSync("go", ["run", "./cmd/picode-openapi"], {

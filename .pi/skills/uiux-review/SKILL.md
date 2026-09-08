@@ -15,7 +15,7 @@ surfaces, `docs/benchmarks/` (Cursor / t3code / paseo).
 
 - Chrome carries **state + the next action**. Setup essays, architecture
   ("Pi has no native X"), npm specs, and file-path lectures belong in
-  `www/`, not in the view.
+  `docs-site/`, not in the view.
 - Zero items or a missing dependency: **one line + one action** on that
   surface. "No X." in a tall well, with Add hidden, is FAIL.
 - Unavailable choices are **hidden**, or the reason is visible text — not

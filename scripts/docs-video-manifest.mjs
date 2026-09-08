@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// docs-video-manifest — copy rendered tutorial MP4s into www/public/video/
+// docs-video-manifest — copy rendered tutorial MP4s into docs-site/public/video/
 // and write the parity manifest.
 //
 // The manifest records, per video: sha256 of the composition source, every
@@ -93,7 +93,7 @@ export function manifestFailures(
     }
     const shipped = publishedHash(v.file);
     if (!shipped) {
-      fails.push(`www/public/video/${v.file} missing`);
+      fails.push(`docs-site/public/video/${v.file} missing`);
     } else if (c.mp4 === "MISSING" || c.mp4 !== v.mp4 || c.mp4 !== shipped) {
       fails.push(`${id}: rendered MP4 does not match manifest — run \`make docs-videos\``);
     }
@@ -103,7 +103,7 @@ export function manifestFailures(
 
 function main() {
   const project = join(root, "docs-videos");
-  const outDir = join(root, "www", "public", "video");
+  const outDir = join(root, "docs-site", "public", "video");
   const fresh = buildManifest();
   if (!checkOnly) {
     mkdirSync(outDir, { recursive: true });
@@ -118,7 +118,7 @@ function main() {
   const manifestPath = join(outDir, "manifest.json");
   let fails = [];
   if (!existsSync(manifestPath)) {
-    fails.push("www/public/video/manifest.json missing — run `make docs-videos`");
+    fails.push("docs-site/public/video/manifest.json missing — run `make docs-videos`");
   } else {
     const committed = JSON.parse(readFileSync(manifestPath, "utf8"));
     fails = manifestFailures(committed, fresh, {

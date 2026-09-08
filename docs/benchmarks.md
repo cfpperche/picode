@@ -37,7 +37,7 @@ how-to / reference / explanation), **VitePress** (Markdown → static HTML,
 heading anchors, local search — Vite/Vue/Vitest), **pi**
 (`packages/coding-agent/docs`: command tables, no duplicate source of truth).
 
-Public user docs are Markdown in `www/`, built by VitePress, hosted on
+Public user docs are Markdown in `docs-site/`, built by VitePress, hosted on
 GitHub Pages. The app never hosts a docs viewer. See
 [guidelines.md](guidelines.md).
 
@@ -108,7 +108,7 @@ state = one line + one action; statusbar = live state, not hints).
 
 - Homemade widgets when Radix/cmdk/native already cover it (AGENTS.md Style).
 - Empty list with no placeholder, or a "0" count on a collapsed empty group.
-- Setup essays, architecture, or npm specs in chrome (those live in `www/`).
+- Setup essays, architecture, or npm specs in chrome (those live in `docs-site/`).
 - Disabled segmented controls with only a `title` tooltip; hide or explain.
 - Tall empty `settings-card` (hug content).
 - AI-slop UI: generic dashboard shells, 12-card grids of nothing, gradients

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// docs-llms — generate www/public/llms.txt from the docs sources.
+// docs-llms — generate docs-site/public/llms.txt from the docs sources.
 //
 // llms.txt is the emerging convention for giving LLMs a curated map of a
 // site (llmstxt.org): H1 title, blockquote summary, then H2 sections of
@@ -7,7 +7,7 @@
 // frontmatter so it cannot drift from the site structure. The API
 // section always points at the generated OpenAPI spec.
 //
-//   make llms            # write www/public/llms.txt
+//   make llms            # write docs-site/public/llms.txt
 //   node scripts/docs-llms.mjs --check   # exit 1 if the file is stale
 
 import { createHash } from "node:crypto";
@@ -16,15 +16,15 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const www = join(root, "www");
-// Public base URL — must match www/.vitepress/config.mjs `base` + the
+const docsSite = join(root, "docs-site");
+// Public base URL — must match docs-site/.vitepress/config.mjs `base` + the
 // Pages origin.
 const BASE = "https://cfpperche.github.io/picode";
 
 const argv = process.argv.slice(2);
 const checkOnly = argv.includes("--check");
 const outIdx = argv.indexOf("--out");
-const outPath = outIdx >= 0 ? argv[outIdx + 1] : join(www, "public", "llms.txt");
+const outPath = outIdx >= 0 ? argv[outIdx + 1] : join(docsSite, "public", "llms.txt");
 
 // ── collect pages in sidebar/IA order ──────────────────────────────────
 // Importing .vitepress/config.mjs would drag VitePress in; instead read
@@ -56,7 +56,7 @@ const CURATED = [
 ];
 
 function pageMeta(rel) {
-  const p = join(www, rel);
+  const p = join(docsSite, rel);
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, "utf8");
   const lines = raw.split("\n");
@@ -115,12 +115,12 @@ function sourceHash() {
         if (["node_modules", ".vitepress", "public", "img"].includes(e.name)) continue;
         walk(p);
       } else if (e.name.endsWith(".md")) {
-        h.update(relative(www, p) + "\n");
+        h.update(relative(docsSite, p) + "\n");
         h.update(readFileSync(p));
       }
     }
   };
-  walk(www);
+  walk(docsSite);
   return h.digest("hex");
 }
 

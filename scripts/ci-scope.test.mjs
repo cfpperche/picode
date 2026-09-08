@@ -39,7 +39,7 @@ const cases = [
   },
   {
     name: "public docs build and validate without the platform matrix",
-    paths: ["www/guide/getting-started.md"],
+    paths: ["docs-site/guide/getting-started.md"],
     want: { scope: "docs", full: false, docs: true },
   },
   {
@@ -54,7 +54,7 @@ const cases = [
   },
   {
     name: "one product file promotes a mixed change set to full",
-    paths: ["docs/handoff.md", "www/index.md", "go.mod"],
+    paths: ["docs/handoff.md", "docs-site/index.md", "go.mod"],
     want: { scope: "full", full: true, docs: true },
   },
   {
@@ -117,7 +117,7 @@ const localCases = [
   { name: "CSS only is a web scope", paths: ["web/desktop/src/styles/app.css"], want: { full: false, go: false, web: true } },
   { name: "a handler is a go scope with its path", paths: ["internal/server/server.go"], want: { full: false, go: true, web: false, goPaths: ["internal/server/server.go"] } },
   { name: "a pi package is test-js only", paths: ["packages/pi-checklist/index.ts"], want: { full: false, packages: true, go: false } },
-  { name: "public docs are the docs scope", paths: ["www/guide/api.md"], want: { full: false, docs: true, packages: false } },
+  { name: "public docs are the docs scope", paths: ["docs-site/guide/api.md"], want: { full: false, docs: true, packages: false } },
   { name: "docs scripts are docs and test-js", paths: ["scripts/docs-shots.mjs"], want: { docs: true, packages: true, full: false } },
   { name: "handoff is metadata", paths: ["docs/handoff/2026-09-06-x.md"], want: { metadata: true, full: false } },
   { name: "the Makefile fails safe to full", paths: ["Makefile", "web/a.jsx"], want: { full: true } },

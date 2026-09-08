@@ -5,7 +5,7 @@ Two layers. Do not mix them.
 | Layer | Path | Audience | Published |
 |---|---|---|---|
 | Internal | `docs/` | agents, contributors | git only |
-| Public | `www/` (Markdown → VitePress) | users | GitHub Pages |
+| Public | `docs-site/` (Markdown → VitePress) | users | GitHub Pages |
 
 Internal rules stay in [AGENTS.md](../AGENTS.md) (code and docs in the
 same commit, handoff, changelog, **isolated git worktree per agent**).
@@ -26,18 +26,18 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
   Anchored popovers stay Radix Popover. A sheet focuses a field only after
   the user taps or types; do not bypass the primitive's focus handling.
 
-## Public site (`www/`)
+## Public site (`docs-site/`)
 
-- Markdown in `www/`. VitePress builds static HTML (`make docs`).
+- Markdown in `docs-site/`. VitePress builds static HTML (`make docs`).
 - Live: `https://cfpperche.github.io/picode/`
 - Slash-menu hints open **a new tab** at `/commands#{id}` (`id` = `SLASH[].id`).
   No in-app docs route, no iframe.
-- Command copy lives in `www/commands.md` as `## /name {#id}` headings.
+- Command copy lives in `docs-site/commands.md` as `## /name {#id}` headings.
 - English. Short paragraphs. Tables for TUI vs PiCode.
 - Example local URLs (`https://localhost:8445`) are **inline code**, not
   markdown links. VitePress treats a bare `https://…` as a crawlable
   link and fails the build — that froze GitHub Pages from 2026-08-29.
-  `ignoreDeadLinks` in `www/.vitepress/config.mjs` also skips localhost
+  `ignoreDeadLinks` in `docs-site/.vitepress/config.mjs` also skips localhost
   and 127.0.0.1. `make docs` is in `make ci`; do not rely on the Pages
   workflow as the first gate.
 
