@@ -21,10 +21,56 @@ guides; their cards link to them. A missing executable also offers
 **Customize**; the CLI's documentation link explains its installation.
 Checking setup runs `--version`, without starting a conversation.
 
-On a running CLI terminal, **Attach** (paperclip on the phone header, or
-the bar under the pane on desktop) sends a photo or a file: PiCode saves
-it in the terminal's folder and types the path into the TUI. The Pi agent
-composer still opens Photos for managed chat.
+On a running CLI terminal, **Attach** sends a photo or a file: PiCode saves
+it in the terminal's folder and types the path into the TUI. On a phone it is
+the paperclip in the header; on desktop, right-click the pane and choose
+**Attach files…**. The Pi agent composer still opens Photos for managed chat.
+
+## Inside the terminal pane
+
+Right-click anywhere in a terminal for PiCode's own menu: copy, paste and
+select all, **Find…**, the text size, the folder in **Files**, and rename,
+settings, close the tab or remove the terminal. Point at a path or a link
+before you right-click and the menu offers to open it. On a running Agent CLI
+the menu adds an **Ask** row that names it — **Ask Claude Code about this** —
+carrying the selected text into the message bar, and **Attach files…**.
+Hold **Shift** while you right-click for the browser's own menu instead; that
+modifier is yours to change under **Settings → Context menu**.
+
+The message bar is not permanent chrome. It opens from that menu and closes
+with its close button or `Esc`, so the terminal keeps the whole editor the
+rest of the time. One selected line arrives as the message; a longer
+selection is attached as `selection.txt`, which the CLI reads as a file.
+
+### Find in the terminal
+
+`Ctrl+Shift+F`, or **Find…** in the menu, opens a field over the pane —
+searching never resizes the terminal, so nothing running inside it redraws.
+It highlights every match and counts them; `Enter` and `Shift+Enter` walk
+forward and back, `Esc` closes. Three toggles narrow the search: `Aa`
+matches case, `ab` matches whole words, and `.*` reads what you typed as a
+regular expression. A pattern that does not compile yet says *Invalid
+pattern* instead of reporting nothing found. The toggles are remembered until
+you reload the page.
+
+### Keyboard
+
+| Key | What it does |
+|---|---|
+| `Ctrl+Shift+F` | Find in the terminal |
+| `Enter` / `Shift+Enter` | Next / previous match, while the find field is open |
+| `Esc` | Close the find field |
+| `Ctrl+Shift+C` / `Ctrl+Shift+V` | Copy / paste |
+| `Ctrl+C` | Copy when text is selected; interrupt otherwise |
+| `Ctrl+V` | Paste |
+| `Shift+drag` | Select text |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Bigger, smaller and default text size |
+| `Shift+Enter` | New line in the CLI's prompt (the key is a terminal setting) |
+| `` Ctrl+` `` | New terminal |
+
+Plain `Ctrl+F` stays with whatever runs in the pane — `less`, `vim` and the
+shell's own line editor all use it — which is why find takes the shifted
+chord. You can change every key here under **Settings → Shortcuts**.
 
 ## Launch settings
 

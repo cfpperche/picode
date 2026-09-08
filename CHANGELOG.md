@@ -28,6 +28,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Public docs: working inside a terminal.** The Agent CLIs guide gains
+  *Inside the terminal pane* — the right-click menu, the `Shift` bypass to
+  the browser's own menu, the message bar that opens from it, find with its
+  three toggles, and a table of every terminal key. The Attach paragraph no
+  longer describes a bar that stands under the pane on desktop; it opens
+  from the menu now.
+  [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
 - **The git graph acts on what you point at.** Thirty-four git actions bound
   to the row or pill under the cursor — create a branch, tag or worktree,
   check out, merge, rebase, cherry-pick, revert, reset, pull, push, delete —
