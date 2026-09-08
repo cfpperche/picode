@@ -70,22 +70,35 @@ func TestStatsWindow(t *testing.T) {
 	}
 }
 
-// withTestSessionRoot isolates pi's session tree and, since the dashboard
-// went cross-CLI, every other CLI's store too. Isolating only pi would let
-// these tests read the developer's own Claude Code transcripts, which is
-// how they first failed: a real machine's $2,327 leaking into an assertion
-// about a single 0.5 fixture.
+// withTestSessionRoot isolates every agent CLI's session store, not just
+// pi's. The dashboard went cross-CLI, so a test that isolates one store
+// reads the developer's own machine for the other five — which is how these
+// tests first failed, with a real $2,327 of Claude Code spend leaking into
+// an assertion about a single 0.5 fixture.
+//
+// Anything added to climetrics.Meters() must be isolated here too.
 func withTestSessionRoot(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	empty := filepath.Join(dir, "empty")
 
 	oldPi := session.TestRoot
-	session.TestRoot = dir
 	oldClaude := clisession.ClaudeTestRoot
-	clisession.ClaudeTestRoot = filepath.Join(dir, "..", "claude-projects-empty")
+	oldCodex := clisession.CodexTestRoot
+	oldOpenCode := clisession.OpenCodeTestDB
+	oldHermes := clisession.HermesTestDB
+	session.TestRoot = dir
+	clisession.ClaudeTestRoot = filepath.Join(empty, "claude")
+	clisession.CodexTestRoot = filepath.Join(empty, "codex")
+	clisession.OpenCodeTestDB = filepath.Join(empty, "opencode.db")
+	clisession.HermesTestDB = filepath.Join(empty, "hermes.db")
+	t.Setenv("GROK_HOME", filepath.Join(empty, "grok"))
 	t.Cleanup(func() {
 		session.TestRoot = oldPi
 		clisession.ClaudeTestRoot = oldClaude
+		clisession.CodexTestRoot = oldCodex
+		clisession.OpenCodeTestDB = oldOpenCode
+		clisession.HermesTestDB = oldHermes
 	})
 	return dir
 }

@@ -78,6 +78,14 @@ the cent with what the vendor wrote. **Codex is never priced**: its cost
 cell shows the quota window it does report (`used_percent`, `resets_at`,
 `plan_type`), because PiCode will not ship a price list that ages silently.
 
+Parsing is cached per file, keyed by `(path, size, mtime)`, and what is
+cached is the *parse* rather than a windowed result — so one read answers
+every range and survives every poll. This is not an optimisation detail: the
+six stores are 3.1 GB on this machine, agents write to them constantly, and
+the fingerprint therefore changes on almost every 60-second poll. Measured
+here, a warm cross-CLI refresh went from **2.37 s to 46 ms** once the last
+CLI joined the cache.
+
 Guest CLIs contribute **no** `byProvider` rows. That breakdown feeds the
 Providers view, which answers "what did the credential PiCode holds cost";
 a guest signs in with its own account, so an `anthropic` row there would
@@ -106,6 +114,31 @@ is named.
   a doc — the badge, the partial state and the coverage matrix — and the
   fallback is the two-column split the owner declined, which the `Billing`
   field already carries enough information to build.
+
+## Measured
+
+All on this machine, 2026-09-07, across all six CLIs.
+
+| | cold (first parse) | warm (cached) |
+|---|---|---|
+| `today` | 1.78 s | **31 ms** |
+| `7d` | 3.76 s | **46 ms** |
+| `all` | 4.76 s | **112 ms** |
+
+Fingerprint (the stat sweep every poll pays): **14 ms**.
+
+The warm path is what the 60-second poll actually costs, and it is ~50x
+better than the surface needs. The cold path misses the 3 s target this
+work set itself for `range=all` — it is 4.76 s, the price of first-parsing
+3.1 GB — and that is accepted rather than fixed: it is paid once per process
+for a range the operator has to deliberately choose, behind the skeleton the
+view already renders.
+
+One correction worth recording: pi was the last CLI to join the cache and
+turned out to be **2.32 s of a 2.37 s** warm refresh on its own, because it
+alone still re-read its 437 MB tree every poll. The fix moved pi's parse
+into `session.ParseFile` and drove it through the same cache as the guests,
+which is also how the two parsers became one.
 
 ## Reopened refusals
 

@@ -121,10 +121,6 @@ func TestClaudeCodePricesFromTheSessionsOwnSnapshot(t *testing.T) {
 	if w.Impact == nil || w.Impact.LinesAdded != 40 || w.Impact.LinesRemoved != 5 {
 		t.Fatalf("impact = %+v, want 40/5", w.Impact)
 	}
-	// Files is a pointer precisely so it stays absent rather than reading 0.
-	if w.Impact.Files != nil {
-		t.Fatalf("files = %v, want absent: Claude Code never counts files", *w.Impact.Files)
-	}
 	if w.Timing == nil || w.Timing.APIMs != 3000 || w.Timing.ToolMs != 1000 {
 		t.Fatalf("timing = %+v", w.Timing)
 	}

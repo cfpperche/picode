@@ -31,10 +31,6 @@ import (
 // have to maintain — and spreads it across that model's messages in
 // proportion to their tokens. A window covering the whole session reports
 // exactly what Claude Code said it cost; a shorter window reports its share.
-// The rate divides by the tokens actually observed in the transcript rather
-// than by the snapshot's own totals, because the two disagree (sidechains
-// and compacted-away turns are billed but no longer on disk) and dividing
-// by the larger number would quietly under-report every session.
 // Sessions with no snapshot contribute tokens and activity but no cost, and
 // say so: coverage reports cost as partial with both counts, never as a zero
 // that would read as "Claude Code was free".
@@ -49,39 +45,9 @@ func (ClaudeCodeMeter) Fingerprint() string {
 	return session.Fingerprint(clisession.ClaudeProjectsRoot())
 }
 
-// ccUnits is the denominator the per-model rate is expressed in. Any
-// consistent definition makes a session's total reconcile exactly, because
-// the rate is that session's own cost divided by that session's own units.
-// Raw token count is the one definition that invents nothing: weighting
-// output above cache reads would be truer to how vendors bill and would be
-// a number PiCode made up. The consequence is bounded and worth naming: the
-// daily *shape* of a session's spend is approximate, its total is exact.
-type ccUnits = int64
-
-type ccMsg struct {
-	at     time.Time
-	role   string
-	model  string
-	units  ccUnits
-	tokens session.TokenTotals
-	stop   string
-	errs   int
-	tools  []string
-}
-
-type ccState struct {
-	modelCost map[string]float64 // model -> USD for the whole session
-	linesAdd  int64
-	linesDel  int64
-	apiMs     int64
-	toolMs    int64
-	wallMs    int64
-	hasCost   bool
-}
-
 func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	root := clisession.ClaudeProjectsRoot()
-	acc := newCCAcc(req)
+	acc := newGuestAcc(req, m.CLI())
 	priced, unpriced := 0, 0
 
 	for _, dir := range ccProjectDirs(root) {
@@ -102,11 +68,11 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 			if !req.PriorFrom.IsZero() && info.ModTime().Before(req.PriorFrom) {
 				continue
 			}
-			ok, hadCost := acc.scanFile(filepath.Join(dir, e.Name()))
-			if !ok {
+			p := cachedParse(filepath.Join(dir, e.Name()), ccParse)
+			if !replay(p, acc, req) {
 				continue
 			}
-			if hadCost {
+			if p.priced {
 				priced++
 			} else {
 				unpriced++
@@ -114,17 +80,13 @@ func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 		}
 	}
 
-	st := acc.result()
 	billing := req.BillingFor(m.CLI())
-	for i := range st.ByProvider {
-		st.ByProvider[i].Billing = string(billing)
-	}
 	w := Window{
 		CLI:      m.CLI(),
-		Stats:    st,
+		Stats:    acc.result(),
 		Coverage: ccCoverage(m, billing, priced, unpriced),
 	}
-	if acc.impact.LinesAdded != 0 || acc.impact.LinesRemoved != 0 {
+	if acc.impact != (Impact{}) {
 		i := acc.impact
 		w.Impact = &i
 	}
@@ -183,56 +145,42 @@ func ccProjectDirs(root string) []string {
 	return out
 }
 
-// ccAcc accumulates across files. It mirrors what session.statsAcc holds for
-// pi, so merge() can treat both the same way.
-type ccAcc struct {
-	req        Request
-	current    session.PeriodTotals
-	prior      session.PeriodTotals
-	byModel    map[string]*session.ModelBucket
-	byFolder   map[string]*session.WorkspaceBucket
-	byDay      map[string]*session.DayBucket
-	tools      map[string]int
-	tokens     session.TokenTotals
-	turns      session.TurnStats
-	sessions   []session.SessionSpend
-	impact     Impact
-	timing     Timing
-	priorPaths map[string]bool
-	pathSeen   map[string]bool
-	loc        *time.Location
+// ccMsg is one transcript entry before pricing.
+type ccMsg struct {
+	at     time.Time
+	role   string
+	model  string
+	units  int64
+	tokens session.TokenTotals
+	stop   string
+	errs   int
+	tools  []string
 }
 
-func newCCAcc(req Request) *ccAcc {
-	loc := req.Loc
-	if loc == nil {
-		loc = time.Local
-	}
-	return &ccAcc{
-		req:        req,
-		byModel:    map[string]*session.ModelBucket{},
-		byFolder:   map[string]*session.WorkspaceBucket{},
-		byDay:      map[string]*session.DayBucket{},
-		tools:      map[string]int{},
-		priorPaths: map[string]bool{},
-		pathSeen:   map[string]bool{},
-		loc:        loc,
-	}
+type ccState struct {
+	modelCost map[string]float64 // model -> USD for the whole session
+	linesAdd  int64
+	linesDel  int64
+	apiMs     int64
+	toolMs    int64
+	wallMs    int64
+	hasCost   bool
 }
 
-// scanFile reads one transcript. It returns whether the file contributed to
-// the current window at all, and whether it carried a cost snapshot.
-func (a *ccAcc) scanFile(path string) (contributed, hadCost bool) {
+// ccParse reads one transcript into a window-independent parse: every
+// message priced at its session's own rate, plus the lifetime figures that
+// replay will prorate. Nothing here depends on the range, which is what
+// lets one parse answer every window and survive in the cache.
+func ccParse(path string) *parsed {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, false
+		return &parsed{}
 	}
 	defer f.Close()
 
 	var msgs []ccMsg
 	var st ccState
-	cwd := ""
-	name := ""
+	cwd, name := "", ""
 
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -247,11 +195,6 @@ func (a *ccAcc) scanFile(path string) (contributed, hadCost bool) {
 		}
 		if c, _ := raw["cwd"].(string); c != "" && cwd == "" {
 			cwd = c
-			// Claude Code names the cwd on ordinary entries rather than a
-			// header, so the verdict cannot be taken before the first one.
-			if a.req.Scope == ScopePiCode && !a.req.InScope(cwd) {
-				return false, false
-			}
 		}
 		switch raw["type"] {
 		case "summary":
@@ -266,138 +209,41 @@ func (a *ccAcc) scanFile(path string) (contributed, hadCost bool) {
 			}
 		}
 	}
-	if len(msgs) == 0 {
-		return false, st.hasCost
-	}
 	if cwd == "" {
+		// No entry named a folder: fall back to Claude Code's encoded
+		// directory name, which is not a real path and so matches no
+		// claimed workspace — the right verdict for a folder we cannot place.
 		cwd = filepath.Base(filepath.Dir(path))
-		if a.req.Scope == ScopePiCode && !a.req.InScope(cwd) {
-			return false, st.hasCost
-		}
 	}
-	return a.fold(path, cwd, name, msgs, st), st.hasCost
+	return ccPrice(path, cwd, name, msgs, st)
 }
 
-// fold prices the file's messages and files them into the window.
-func (a *ccAcc) fold(path, cwd, name string, msgs []ccMsg, st ccState) bool {
-	var inWindow, total int64
+// ccPrice turns the raw messages into priced entries.
+func ccPrice(path, cwd, name string, msgs []ccMsg, st ccState) *parsed {
+	out := &parsed{priced: st.hasCost}
 	observed := map[string]int64{}
 	for _, m := range msgs {
-		total += m.units
+		out.units += m.units
 		observed[ccModelKey(m.model)] += m.units
-		if a.inCurrent(m.at) {
-			inWindow += m.units
-		}
 	}
-	rates, flat := ccRates(st.modelCost, observed, total)
+	rates, flat := ccRates(st.modelCost, observed, out.units)
 
-	var fileCost float64
-	var fileMsgs int
-	var last time.Time
-	contributed := false
-
+	out.ents = make([]guestEntry, 0, len(msgs))
 	for _, m := range msgs {
 		cost := flat * float64(m.units)
 		if r, ok := rates[ccModelKey(m.model)]; ok {
 			cost += r * float64(m.units)
 		}
-		switch {
-		case !a.req.PriorFrom.IsZero() && m.at.Before(a.req.PriorFrom):
-			continue
-		case !m.at.Before(a.req.To):
-			continue
-		case !a.req.From.IsZero() && m.at.Before(a.req.From):
-			a.prior.Cost += cost
-			a.prior.Messages++
-			a.priorPaths[path] = true
-			continue
-		}
-
-		contributed = true
-		a.current.Cost += cost
-		a.current.Messages++
-		fileCost += cost
-		fileMsgs++
-		if m.at.After(last) {
-			last = m.at
-		}
-
-		day := m.at.In(a.loc).Format("2006-01-02")
-		db := a.byDay[day]
-		if db == nil {
-			db = &session.DayBucket{Date: day}
-			a.byDay[day] = db
-		}
-		db.Cost += cost
-		db.Messages++
-
-		wb := a.byFolder[cwd]
-		if wb == nil {
-			wb = &session.WorkspaceBucket{Cwd: cwd}
-			a.byFolder[cwd] = wb
-		}
-		wb.Cost += cost
-		wb.Messages++
-
-		if m.role != "assistant" {
-			a.turns.User++
-			continue
-		}
-		a.turns.Assistant++
-		db.Turns++
-		a.turns.Errors += m.errs
-		if m.stop == "aborted" || m.stop == "stop_sequence" {
-			a.turns.Aborted++
-		}
-		model := m.model
-		if model == "" {
-			model = "unknown"
-		}
-		mb := a.byModel[model]
-		if mb == nil {
-			mb = &session.ModelBucket{Provider: ccProvider(model), Model: model, CLI: "claude-code"}
-			a.byModel[model] = mb
-		}
-		mb.Cost += cost
-		mb.Messages++
-		a.tokens.Input += m.tokens.Input
-		a.tokens.Output += m.tokens.Output
-		a.tokens.CacheRead += m.tokens.CacheRead
-		a.tokens.CacheWrite += m.tokens.CacheWrite
-		a.tokens.Reasoning += m.tokens.Reasoning
-		for _, t := range m.tools {
-			a.tools[t]++
-		}
+		out.ents = append(out.ents, guestEntry{
+			at: m.at, key: path, cwd: cwd, name: name,
+			role: m.role, model: m.model, prov: ccProvider(m.model),
+			cost: cost, toks: m.tokens, tools: m.tools, errs: m.errs,
+			abort: m.stop == "aborted" || m.stop == "stop_sequence",
+		})
 	}
-
-	if !contributed {
-		return false
-	}
-	if !a.pathSeen[path] {
-		a.pathSeen[path] = true
-		a.byFolder[cwd].Sessions++
-		a.current.Sessions++
-	}
-	a.sessions = append(a.sessions, session.SessionSpend{
-		Path: path, CLI: "claude-code", Name: name, Cwd: cwd,
-		Cost: fileCost, Messages: fileMsgs,
-		LastAt: last.In(a.loc).Format(time.RFC3339),
-	})
-
-	// Lines changed and durations are session-lifetime totals on the
-	// snapshot. Prorate them by the share of the session's tokens that fall
-	// inside the window — the same proportional rule the cost rate uses, and
-	// the only one that does not charge a whole session's edits to whichever
-	// day the window happens to end on.
-	if total > 0 && inWindow > 0 {
-		share := float64(inWindow) / float64(total)
-		a.impact.LinesAdded += scale(st.linesAdd, share)
-		a.impact.LinesRemoved += scale(st.linesDel, share)
-		a.timing.APIMs += scale(st.apiMs, share)
-		a.timing.ToolMs += scale(st.toolMs, share)
-		a.timing.WallMs += scale(st.wallMs, share)
-	}
-	return true
+	out.impact = Impact{LinesAdded: st.linesAdd, LinesRemoved: st.linesDel}
+	out.timing = Timing{APIMs: st.apiMs, ToolMs: st.toolMs, SessionMs: st.wallMs}
+	return out
 }
 
 // ccRates turns a session's per-model snapshot costs into per-token rates.
@@ -445,60 +291,18 @@ func ccModelKey(model string) string {
 	return model
 }
 
-func scale(v int64, share float64) int64 { return int64(float64(v) * share) }
-
-func (a *ccAcc) inCurrent(t time.Time) bool {
-	if !t.Before(a.req.To) {
-		return false
-	}
-	return a.req.From.IsZero() || !t.Before(a.req.From)
-}
-
-func (a *ccAcc) result() session.WindowStats {
-	st := session.WindowStats{Current: a.current, Tokens: a.tokens, Turns: a.turns}
-	st.Current.Sessions = len(a.pathSeen)
-	if !a.req.PriorFrom.IsZero() {
-		p := a.prior
-		p.Sessions = len(a.priorPaths)
-		st.Prior = &p
-	}
-	for _, m := range a.byModel {
-		st.ByModel = append(st.ByModel, *m)
-	}
-	for _, w := range a.byFolder {
-		st.ByWorkspace = append(st.ByWorkspace, *w)
-	}
-	for _, d := range a.byDay {
-		st.Series = append(st.Series, *d)
-	}
-	for n, c := range a.tools {
-		st.Tools = append(st.Tools, session.ToolBucket{Name: n, CLI: "claude-code", Calls: c})
-	}
-	st.TopSessions = a.sessions
-	// No ByProvider rows, deliberately. That breakdown feeds the Providers
-	// view, which answers "what did the credential I hold cost" by joining
-	// provider ids onto PiCode's own credential roster. Claude Code
-	// authenticates itself against an account PiCode does not hold, so
-	// adding an "anthropic" row here would bill a subscription's list-price
-	// equivalent to an API key that never paid it. The cross-CLI spend
-	// story lives in ByCLI and ByModel, where the CLI is named.
-	return st
-}
-
 // ccProvider is the vendor behind a Claude Code model id. Claude Code only
 // ever talks to Anthropic, so this is a constant rather than a lookup — but
 // it is written as a function so a future Bedrock/Vertex id has one place
 // to land.
 func ccProvider(model string) string {
-	switch {
-	case strings.HasPrefix(model, "<"): // "<synthetic>" — Claude Code's own placeholder
+	if strings.HasPrefix(model, "<") { // "<synthetic>" — Claude Code's own placeholder
 		return "unknown"
-	default:
-		return "anthropic"
 	}
+	return "anthropic"
 }
 
-// readCostState turns one cumulative snapshot into per-model unit rates.
+// readCostState turns one cumulative snapshot into per-model costs.
 func readCostState(raw map[string]any, st *ccState) {
 	st.hasCost = true
 	st.linesAdd = int64(num(raw["totalLinesAdded"]))

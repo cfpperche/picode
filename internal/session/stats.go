@@ -1,8 +1,6 @@
 package session
 
 import (
-	"bufio"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"sort"
@@ -326,106 +324,32 @@ type msgFacts struct {
 	tools      []string
 }
 
+// scanFile parses one session file and files it into the accumulator.
+// The parse itself lives in ParseFile so a caching caller (climetrics) can
+// reuse it across polls; this path keeps the direct, uncached route the
+// package's own tests exercise.
 func (a *statsAcc) scanFile(path string, mtime time.Time) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
+	fs := ParseFile(path, mtime)
+	for _, c := range fs.Compactions {
+		if a.keep != nil && !a.keep(c.Cwd) {
+			continue
+		}
+		if a.inCurrent(c.At) {
+			a.turns.Compactions++
+		}
 	}
-	defer f.Close()
-
-	provider := ""
-	model := ""
-	cwd := filepath.Base(filepath.Dir(path)) // fallback: pi's encoded folder name
-	// allow tracks the caller's verdict on the cwd known so far. A file that
-	// never declares one keeps the encoded folder name, which is not a real
-	// path and so matches no claimed workspace — the same verdict a caller
-	// would reach anyway, and why pi's leaked test-fixture directories drop
-	// out of the picode scope for free.
-	allow := a.keep == nil || a.keep(cwd)
-	name := ""
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	for sc.Scan() {
-		line := sc.Bytes()
-		if len(line) == 0 {
+	for _, e := range fs.Entries {
+		if a.keep != nil && !a.keep(e.Cwd) {
 			continue
 		}
-		var raw map[string]any
-		if json.Unmarshal(line, &raw) != nil {
-			continue
-		}
-		switch raw["type"] {
-		case "session":
-			if c, _ := raw["cwd"].(string); c != "" {
-				cwd = c
-				// pi writes this header on line 1 whenever it names a cwd
-				// at all (verified across every session file on disk,
-				// 2026-09-07), so a rejection here skips the whole file
-				// rather than half of it.
-				if a.keep != nil && !a.keep(cwd) {
-					return
-				}
-				allow = true
-			}
-		case "session_info":
-			if n, _ := raw["name"].(string); n != "" {
-				name = n
-			}
-		case "model_change":
-			if p, _ := raw["provider"].(string); p != "" {
-				provider = p
-			}
-			if m, _ := raw["modelId"].(string); m != "" {
-				model = m
-			}
-		case "compaction", "compaction_summary":
-			// The marker carries its own RFC3339 timestamp — verified on
-			// 2026-09-07 across every compaction line on this machine's
-			// tree (62/62). mtime stays the fallback for files written
-			// before pi added it. Bucketing by mtime alone charged a long
-			// session's entire compaction history to the day it was last
-			// touched: the fabricated-spike failure ADR-0041 refused for
-			// cost, reached through a different door.
-			if !allow {
-				continue
-			}
-			t := mtime
-			if s, _ := raw["timestamp"].(string); s != "" {
-				if p, err := time.Parse(time.RFC3339, s); err == nil {
-					t = p
-				}
-			}
-			if a.inCurrent(t) {
-				a.turns.Compactions++
-			}
-		case "message":
-			if !allow {
-				continue
-			}
-			ts := entryTS(raw)
-			t := mtime
-			if ts > 0 {
-				// pi writes message.timestamp in epoch milliseconds
-				// (JS Date.now() convention), not seconds.
-				t = time.UnixMilli(ts)
-			}
-			facts := factsFrom(raw["message"])
-			// An assistant message names its own provider/model and
-			// becomes the running truth for the user/tool lines that
-			// follow it; a model_change line is only the fallback for
-			// messages that carry neither (older pi versions).
-			if facts.provider != "" {
-				provider = facts.provider
-			} else {
-				facts.provider = provider
-			}
-			if facts.model != "" {
-				model = facts.model
-			} else {
-				facts.model = model
-			}
-			a.add(path, cwd, name, t, facts, costFrom(raw["message"]), costSplitFrom(raw["message"]))
-		}
+		a.add(path, e.Cwd, e.Name, e.At, msgFacts{
+			role:       e.Role,
+			provider:   e.Provider,
+			model:      e.Model,
+			stopReason: e.StopReason,
+			usage:      e.Usage,
+			tools:      e.Tools,
+		}, e.Cost, e.Split)
 	}
 }
 

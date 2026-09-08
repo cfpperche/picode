@@ -196,6 +196,10 @@ func grokHome() string {
 }
 
 // grokSessionsRoot is the sessions directory of the active Grok home.
+// GrokSessionsRoot is where the Grok CLI keeps prompt history. Exported so
+// climetrics reads the same path this package lists from.
+func GrokSessionsRoot() string { return grokSessionsRoot() }
+
 func grokSessionsRoot() string {
 	h := grokHome()
 	if h == "" {

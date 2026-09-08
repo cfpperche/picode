@@ -21,12 +21,28 @@ type CodexSource struct{}
 
 func (CodexSource) CLI() string { return "codex" }
 
-func (CodexSource) List(cwd string) ([]Summary, error) {
+// CodexTestRoot, when set, is CodexSessionsRoot() (tests only).
+var CodexTestRoot string
+
+// CodexSessionsRoot is ~/.codex/sessions, where Codex keeps rollouts under
+// a YYYY/MM/DD tree. Exported so climetrics reads the same path this
+// package lists from.
+func CodexSessionsRoot() string {
+	if CodexTestRoot != "" {
+		return CodexTestRoot
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".codex", "sessions")
+}
+
+func (CodexSource) List(cwd string) ([]Summary, error) {
+	root := CodexSessionsRoot()
+	if root == "" {
 		return nil, nil
 	}
-	root := filepath.Join(home, ".codex", "sessions")
 	var out []Summary
 	for _, p := range jsonlFiles(root) {
 		s, ok := summarizeCodex(p)

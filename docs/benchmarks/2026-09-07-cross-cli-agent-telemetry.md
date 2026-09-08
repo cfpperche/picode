@@ -63,6 +63,21 @@ turns are billed but no longer on disk.
 | Quota headroom is the real constraint on a plan | CodexBar and ccusage's 5-hour blocks; Codex records `used_percent` and `resets_at` itself | Codex's cost cell shows its quota window instead of a price — the owner's call, 2026-09-07 |
 | One dashboard across several coordinated CLIs | CliDeck, awslabs/cli-agent-orchestrator | The by-CLI pivot and the coverage panel |
 
+## What the measurements changed
+
+Two numbers moved the design after the study was written, both from running
+the thing against 3.1 GB of real stores:
+
+- **A merged file count is not a fleet metric.** Only OpenCode records
+  `summary_files`. Summed beside Claude Code's line counts it rendered
+  "0 files" next to 21,346 changed lines, because the one CLI that counts
+  files had touched none that week. The field was dropped from the
+  aggregate; the capability stays visible in the coverage matrix.
+- **Wall time is agent time, not clock time.** Summed session durations came
+  to 226 hours in a 7-day window — 32 hours a day — because sessions run
+  concurrently. The field is named `sessionMs` for that reason; a surface
+  that labels it "elapsed" would be lying.
+
 ## What PiCode explicitly does not copy
 
 | Not copied | Why |

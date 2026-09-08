@@ -224,9 +224,12 @@ func TestInScopeRollsWorktreesUp(t *testing.T) {
 	}
 }
 
-// TestImpactFilesStayAbsent guards the pointer: a window whose CLIs count
-// lines but not files must not render "0 files".
-func TestImpactFilesStayAbsent(t *testing.T) {
+// TestImpactCarriesNoFileCount locks in a deliberate omission. Only
+// OpenCode counts changed files; summing it beside Claude Code's line
+// counts produced "0 files" next to 21,346 changed lines on the machine
+// this was built on, because the one CLI that counts files had touched
+// none. A number describing 4 messages out of 59,043 is not a fleet metric.
+func TestImpactCarriesNoFileCount(t *testing.T) {
 	m := fakeMeter{cli: "claude-code", win: Window{Impact: &Impact{LinesAdded: 10, LinesRemoved: 2}}}
 	out := Aggregate(testReq(), []Meter{m})
 	blob, err := json.Marshal(out.Impact)
@@ -234,6 +237,6 @@ func TestImpactFilesStayAbsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := string(blob); got != `{"linesAdded":10,"linesRemoved":2}` {
-		t.Fatalf("impact = %s, want no files key", got)
+		t.Fatalf("impact = %s, want lines only", got)
 	}
 }

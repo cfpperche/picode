@@ -134,6 +134,11 @@ func clip(s string, n int) string {
 
 // decodePathDir undoes an URL-escaped directory name (Grok encodes the
 // cwd as one path segment: %2Fhome%2Fgoat). A malformed name decodes to "".
+// DecodePathDir turns a url-encoded directory name back into a path.
+// Exported so climetrics resolves Grok's folders the same way this package
+// does, instead of re-deriving the encoding.
+func DecodePathDir(name string) string { return decodePathDir(name) }
+
 func decodePathDir(name string) string {
 	d, err := url.PathUnescape(name)
 	if err != nil {

@@ -81,44 +81,44 @@ const (
 // Impact is what a window changed on disk. Only CLIs that count their own
 // edits report it; the rest leave it nil.
 //
-// Files is a pointer because the CLIs disagree: Claude Code counts lines but
-// never files, OpenCode counts both. A plain int64 would render "0 files"
-// for a window that changed hundreds — the silent zero this package exists
-// to refuse — so an unreported count stays absent from the payload.
+// There is no file count here, on purpose. OpenCode records
+// summary_files and Claude Code does not, so a merged total would cover a
+// sliver of the lines beside it — on this machine, a "0 files" sitting next
+// to 21,346 changed lines, because the one CLI that counts files happened
+// to touch none. A number that describes 4 messages out of 59,043 is not a
+// fleet metric. The capability stays visible in the coverage matrix, and
+// the field comes back the day a second CLI reports it.
 type Impact struct {
-	LinesAdded   int64  `json:"linesAdded"`
-	LinesRemoved int64  `json:"linesRemoved"`
-	Files        *int64 `json:"files,omitempty"`
+	LinesAdded   int64 `json:"linesAdded"`
+	LinesRemoved int64 `json:"linesRemoved"`
 }
 
 // Timing separates the time a window spent waiting on a model from the time
-// it spent running tools, and both from wall-clock. ADR-0042 refused
-// latency because pi's JSONL carries no duration; Claude Code's does.
+// it spent running tools, and both from the sessions' own elapsed time.
+// ADR-0042 refused latency because pi's JSONL carries no duration; Claude
+// Code's does.
+//
+// SessionMs is *agent* time, not clock time: sessions run concurrently, so
+// on this machine a 7-day window summed to 226 hours — 32 per day. A
+// surface that labels it "elapsed" is lying; it is how long the fleet was
+// busy, added up.
 type Timing struct {
-	APIMs  int64 `json:"apiMs"`
-	ToolMs int64 `json:"toolMs"`
-	WallMs int64 `json:"wallMs"`
+	APIMs     int64 `json:"apiMs"`
+	ToolMs    int64 `json:"toolMs"`
+	SessionMs int64 `json:"sessionMs"`
 }
 
 // Add sums another Timing into this one.
 func (t *Timing) Add(o Timing) {
 	t.APIMs += o.APIMs
 	t.ToolMs += o.ToolMs
-	t.WallMs += o.WallMs
+	t.SessionMs += o.SessionMs
 }
 
-// Add sums another Impact into this one. A nil Files stays nil until some
-// CLI actually reports one.
+// Add sums another Impact into this one.
 func (i *Impact) Add(o Impact) {
 	i.LinesAdded += o.LinesAdded
 	i.LinesRemoved += o.LinesRemoved
-	if o.Files != nil {
-		n := *o.Files
-		if i.Files != nil {
-			n += *i.Files
-		}
-		i.Files = &n
-	}
 }
 
 // LimitWindow is one quota window a CLI reported against its own plan. This
@@ -242,7 +242,10 @@ type Meter interface {
 // the whole wiring: coverage, the by-CLI pivot and every breakdown pick it
 // up from the Window it returns.
 func Meters() []Meter {
-	return []Meter{PiMeter{}, ClaudeCodeMeter{}}
+	return []Meter{
+		PiMeter{}, ClaudeCodeMeter{}, CodexMeter{},
+		OpenCodeMeter{}, HermesMeter{}, GrokMeter{},
+	}
 }
 
 // Fingerprint joins every meter's own change detector. An empty component
