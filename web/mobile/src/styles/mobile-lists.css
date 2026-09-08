@@ -61,8 +61,15 @@
 .m-work-v2 .m-work-seg .dash-range-face { height: var(--ctl-h); border: 0; border-radius: 7px; font-family: var(--sans); font-size: 13px; }
 .m-work-v2 .m-work-group { gap: 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 .m-work-v2 .m-work-group:last-child { border-bottom: 0; }
-.m-work-v2 .m-work-group-head { display: flex; align-items: center; gap: 9px; min-height: 44px; padding-bottom: 4px; color: var(--text-secondary); }
-.m-work-v2 .ws-favicon { width: 17px; height: 17px; border-radius: 3px; object-fit: contain; display: block; flex: none; }
+.m-work-v2 .m-work-group-head { display: flex; align-items: center; gap: 8px; min-height: 44px; padding-bottom: 4px; color: var(--text-secondary); }
+/* Same 24px slot / 22px mark as .m-row-face + .ws-face on agent and terminal rows. */
+.m-work-v2 .m-work-group-face {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; flex: none; color: inherit;
+}
+.m-work-v2 .ws-favicon, .m-work-v2 .m-work-group-face svg {
+  width: 22px; height: 22px; border-radius: 3px; object-fit: contain; display: block; flex: none;
+}
 .m-work-v2 .m-work-group-title { flex: 1; min-width: 0; }
 .m-work-v2 .m-work-group-title h3 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
 .m-work-v2 .m-work-group-title p { margin: 1px 0 0; font: 11px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
