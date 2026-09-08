@@ -96,5 +96,5 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2: physical IME/PWA/push/resume and microphone acceptance remain open.
-- File writes retain the existing lexical/symlink and non-atomic mtime limits; ADR-0095 documents them.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits.
+- Notices (2026-09-07): only the agent whose socket is open produces a finish card — a background agent's completion still arrives only via Inbox + phone. Owner's call: retire `closePlace`/`richColors` for *announce finished* / *announce needs-you* switches, and whether needs-you should toast in the browser.

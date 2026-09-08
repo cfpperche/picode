@@ -3105,50 +3105,106 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
     bottom: calc(56px + env(safe-area-inset-bottom) + var(--mobile-offset-bottom) + var(--front-toast-height, 0px)) !important;
   }
 }
-[data-sonner-toast].picode-toast {
-  --normal-bg: var(--bg-elevated);
-  --normal-border: var(--border-strong);
-  --normal-text: var(--text-primary);
-  --success-bg: var(--bg-elevated);
-  --success-border: color-mix(in srgb, var(--ok) 45%, var(--border-strong));
-  --success-text: var(--text-primary);
-  --error-bg: var(--bg-elevated);
-  --error-border: color-mix(in srgb, var(--danger) 45%, var(--border-strong));
-  --error-text: var(--text-primary);
+/* ============ notices ============
+   Every toast is a notice card (study:
+   docs/benchmarks/2026-09-07-superset-notifications.md), so sonner paints
+   no chrome of its own (custom toasts are data-styled="false") and
+   .notice owns the whole surface. Three zones, each drawn only when the
+   notice filled it: identity, the sentence, and a footer with metadata
+   left and at most two ways out right. */
+.notice {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex; flex-direction: column;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, #000 12%, transparent),
+    0 10px 28px color-mix(in srgb, #000 16%, transparent);
   color: var(--text-primary);
-  border-radius: 10px;
-  box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
   font-size: 13px;
 }
-.picode-toaster.close-inside-right [data-sonner-toast][data-styled="true"] {
-  padding-inline-end: 36px;
+/* Level is a hairline on the border and a coloured glyph — the card stays
+   the same surface as every other panel. Rich colours (a preference) tint
+   the whole card for people who want the old loud success/error. */
+.notice-ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--border-strong)); }
+.notice-warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--border-strong)); }
+.notice-error { border-color: color-mix(in srgb, var(--danger) 45%, var(--border-strong)); }
+.notice-ok.is-rich { background: color-mix(in srgb, var(--ok) 10%, var(--bg-elevated)); }
+.notice-warn.is-rich { background: color-mix(in srgb, var(--warn) 10%, var(--bg-elevated)); }
+.notice-error.is-rich { background: color-mix(in srgb, var(--danger) 10%, var(--bg-elevated)); }
+.notice-glyph { flex: none; margin-top: 1px; color: var(--text-secondary); }
+.notice-ok .notice-glyph { color: var(--ok); }
+.notice-warn .notice-glyph { color: var(--warn); }
+.notice-error .notice-glyph { color: var(--danger); }
+
+.notice-head { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 9px 12px 0; }
+.notice-face {
+  width: 14px; height: 14px; flex: none;
+  border-radius: 3px; object-fit: contain;
 }
-.picode-toaster.close-inside-right [data-sonner-toast][data-styled="true"] [data-close-button] {
-  left: auto;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 22px; height: 22px;
+.notice-face.is-mark {
+  display: grid; place-items: center;
+  background: var(--bg-hover);
+  font-family: var(--mono); font-size: 9px; font-weight: 650; color: var(--text-secondary);
+}
+.notice-who { font-size: 12px; font-weight: 550; flex: none; }
+.notice-status {
+  font-size: 11px; color: var(--text-secondary);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.notice-body { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; }
+.notice-head + .notice-body { padding-top: 5px; }
+.notice-text {
+  min-width: 0; line-height: 1.45; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.notice-detail {
+  margin: 0; padding: 0 12px 9px; max-height: 40dvh; overflow-y: auto;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.45;
+}
+
+/* One control height for the row, the way every other control row does it
+   — just a smaller one, because a 36px button owns a 96px card. */
+.notice-foot {
+  --ctl-h: 26px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 7px 10px 7px 12px;
+  border-top: 1px solid var(--border);
+}
+.notice-meta {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums;
+}
+.notice-meta-icon { color: var(--text-secondary); flex: none; }
+.notice-chip.tone-muted { color: var(--text-secondary); }
+.notice-chip.tone-add { color: var(--ok); }
+.notice-chip.tone-del { color: var(--danger); }
+.notice-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.notice-foot .btn { font-size: 11.5px; padding: 0 11px; border-radius: 99px; }
+
+.notice-x {
+  position: absolute; z-index: 1;
+  width: 22px; height: 22px; padding: 0;
+  display: grid; place-items: center;
   border: 0; background: transparent; border-radius: 6px;
-  color: var(--text-secondary);
+  color: var(--text-secondary); cursor: pointer;
 }
-.picode-toaster.close-inside-right [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
-  background: var(--bg-hover); color: var(--text-primary);
+.notice-x:hover { background: var(--bg-hover); color: var(--text-primary); }
+.notice.x-inside-right .notice-x { top: 6px; right: 6px; }
+/* A one-line notice has no header to align with: centre the control. */
+.notice.no-head.x-inside-right .notice-x { top: 50%; right: 6px; transform: translateY(-50%); }
+.notice.has-x.x-inside-right .notice-head,
+.notice.has-x.x-inside-right .notice-body { padding-inline-end: 34px; }
+.notice.x-edge-right .notice-x, .notice.x-edge-left .notice-x {
+  top: 0; width: 20px; height: 20px; border-radius: 99px;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
 }
-.picode-toaster.close-edge-right [data-sonner-toast][data-styled="true"] [data-close-button] {
-  left: auto;
-  right: 0;
-  top: 0;
-  transform: translate(35%, -35%);
-}
-.picode-toaster.close-edge-left [data-sonner-toast][data-styled="true"] [data-close-button] {
-  left: 0;
-  right: auto;
-  top: 0;
-  transform: translate(-35%, -35%);
-}
+.notice.x-edge-right .notice-x { right: 0; transform: translate(35%, -35%); }
+.notice.x-edge-left .notice-x { left: 0; transform: translate(-35%, -35%); }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;

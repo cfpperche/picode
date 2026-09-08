@@ -41,18 +41,17 @@ export default function Toasts() {
     };
   }, []);
 
+  // Close button, close placement and rich colours are properties of the
+  // notice card, not of the toaster: every toast is a custom notice now
+  // (lib/toast.js), so sonner renders no chrome to configure.
   return (
     <Toaster
       theme={theme}
       position={prefs.position}
       offset={railInset && String(prefs.position || "").endsWith("-right") ? { right: railInset + 24 } : undefined}
       expand={prefs.expand}
-      richColors={prefs.richColors}
-      closeButton={prefs.closeButton}
       duration={prefs.duration}
       visibleToasts={prefs.visibleToasts}
-      className={"picode-toaster close-" + prefs.closePlace}
-      toastOptions={{ className: "picode-toast" }}
     />
   );
 }

@@ -54,7 +54,9 @@ import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklis
 import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
-import { toast, toastError } from "./lib/toast.js";
+import { notify, toast, toastError } from "./lib/toast.js";
+import { agentFinishNotice } from "@picode/shared/domain/notice.js";
+import { groupTurns } from "@picode/shared/domain/turns.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "./lib/queue.js";
 import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, slashNoteTarget, BACK } from "@picode/shared/domain/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "./lib/askMemory.js";
@@ -1282,6 +1284,27 @@ export default function App() {
     };
   }
 
+  // A turn that finished while the user was looking somewhere else is the
+  // one notice worth interrupting for (study:
+  // docs/benchmarks/2026-09-07-superset-notifications.md). Everything the
+  // card shows — how long the turn took, which files it touched, what the
+  // agent said last — is already in `items`; notify() drops it when this
+  // agent's conversation is the focused surface.
+  function announceFinish(agentId) {
+    if (!agentId) return;
+    const turns = groupTurns(itemsRef.current);
+    let last = null;
+    for (const t of turns) if (t.kind === "turn" && t.replies.length) last = t;
+    if (!last) return;
+    const loc = locate(fleetRef.current.workspaces, fleetRef.current.freeAgents, agentId);
+    const found = loc && loc.agent;
+    notify(agentFinishNotice({
+      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: "pi" },
+      turn: last,
+      target: workspaceHash(agentId),
+    }));
+  }
+
   function handleEvent(env, panel) {
     if (panelRef.current !== panel || panel.stopped || selectedRef.current !== panel.agentId) return;
     const ev = env.event || {};
@@ -1320,6 +1343,7 @@ export default function App() {
           queueMicrotask(() => loadSessions(null, { preferNewest: true }));
         }
         if (automateRef.current) { const aid = env.agentId || (panel && panel.agentId); setTimeout(() => finishAutomate(aid), 0); }
+        announceFinish(panel.agentId);
         if (selectedId) loadStatus();
         fetchRoleState();
         pinNewestSession();

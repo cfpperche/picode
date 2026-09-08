@@ -18,6 +18,7 @@ import { startTool } from "@picode/shared/domain/transcriptMerge.js";
 //
 //   state   := { items, streaming, waiting, status, pendingPayload }
 //   effect  := { type: "toast", level: "info"|"error", text }
+//            | { type: "finished" }                  // the turn settled
 //            | { type: "replyUI", id, value }        // auto-answer BACK while walking
 //            | { type: "scroll" }
 export const initialAgentState = Object.freeze({
@@ -67,7 +68,11 @@ export function reduceAgentEvent(state, ev, now = Date.now()) {
     case "agent_start":
       return { state: { ...s, streaming: true, status: statusOf(true, s.waiting) }, effects: [{ type: "scroll" }] };
     case "agent_settled":
-      return { state: { ...s, streaming: false, status: statusOf(false, s.waiting) }, effects: [] };
+      // The reducer knows the turn settled but not whose turn it was, nor
+      // where its conversation lives: the hook owns the identity, so it
+      // composes the notice (study:
+      // docs/benchmarks/2026-09-07-superset-notifications.md).
+      return { state: { ...s, streaming: false, status: statusOf(false, s.waiting) }, effects: [{ type: "finished" }] };
     case "message_update": {
       const d = e.assistantMessageEvent;
       if (!d) return { state: s, effects: [] };
