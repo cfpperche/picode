@@ -47,7 +47,14 @@ export function overlayAudit(win = globalThis) {
       rs.push({ top: r.top, height: r.height });
     }
     if (rs.length < 2) continue;
-    const misaligned = rs.some((r) => Math.abs(r.height - rs[0].height) > 1 || Math.abs(r.top - rs[0].top) > 1);
+    // Wrapped controls still share a height and align within each visual line.
+    // A label beside a multi-line control group is not itself a control row.
+    const wraps = row.hasAttribute?.("data-align-wrap");
+    const misaligned = rs.some((r) => Math.abs(r.height - rs[0].height) > 1)
+      || (wraps
+        ? rs.some((r, i) => rs.slice(i + 1).some((other) => Math.abs(r.top - other.top) > 1
+          && Math.max(r.top, other.top) < Math.min(r.top + r.height, other.top + other.height)))
+        : rs.some((r) => Math.abs(r.top - rs[0].top) > 1));
     rows.push({
       misaligned,
       heights: rs.map((r) => Math.round(r.height)),

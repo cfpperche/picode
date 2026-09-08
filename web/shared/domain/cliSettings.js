@@ -25,20 +25,24 @@ export function cliSettingsLocation(hash = "", legacyAgentId = "") {
     redirect: legacy || path === "/clis/settings" ? cliSettingsHash(cli, { agentId, focus }) : "" };
 }
 
+function unavailable(message) {
+  return Object.assign(new Error(message), { status: 404 });
+}
+
 // Pi's report validates the explicit identity before any workspace lookup.
 export async function loadPiSettingsContext(agentId, request) {
   let report;
   try { report = await request("/api/pi-settings?agentId=" + encodeURIComponent(agentId)); }
   catch (error) {
-    if (error.status === 404) throw new Error("This agent is no longer available.");
+    if (error.status === 404) throw unavailable("This agent is no longer available.");
     throw error;
   }
-  if (!report.agent || report.agent.id !== agentId) throw new Error("This agent is no longer available.");
+  if (!report.agent || report.agent.id !== agentId) throw unavailable("This agent is no longer available.");
   const free = !report.agent.workspaceId || report.agent.workspaceId === "ws_free";
   const rows = await request(free ? "/api/agents?free=1" : "/api/workspaces");
   const workspace = free ? null : rows.find(row => row.id === report.agent.workspaceId);
-  if (!free && !workspace) throw new Error("This workspace is no longer available.");
+  if (!free && !workspace) throw unavailable("This workspace is no longer available.");
   const agent = (free ? rows : workspace.agents || []).find(row => row.id === agentId);
-  if (!agent) throw new Error("This agent is no longer available.");
+  if (!agent) throw unavailable("This agent is no longer available.");
   return { agent, workspace };
 }

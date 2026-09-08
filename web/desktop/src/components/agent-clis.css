@@ -146,3 +146,11 @@
 
 .cli-settings-body { padding: 0 24px 24px; }
 @media (max-width: 719px) { .cli-settings-body { padding: 0 16px 16px; } }
+
+.pi-settings-notice {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; padding: 12px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--danger); font-size: 13px;
+}
+.pi-settings-notice > span { overflow-wrap: anywhere; }

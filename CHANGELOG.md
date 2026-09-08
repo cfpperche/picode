@@ -102,6 +102,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Native settings recovery.** Keep unsaved model patterns across temporary refresh failures, block stale writes until retry succeeds, and leave mobile agent settings and global key bindings usable when Pi defaults cannot be read. Desktop tool-mode restart failures stay visible as partial success and stop the sequence. Tools and Checklist menus now fit within the desktop viewport.
+
 - **Pins: opening a pin with a heading or a list no longer restores an
   "unsaved" draft nobody typed.** The editor normalizes the markdown it
   loads and announced that as an edit; loading is silent now.

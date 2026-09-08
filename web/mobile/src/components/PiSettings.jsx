@@ -6,14 +6,14 @@ import ModeChip from "./ModeChip.jsx";
 import ChecklistChip from "./ChecklistChip.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { api } from "@picode/shared/client/api.js";
-import { toast, toastError } from "../lib/toast.js";
+import { toast } from "../lib/toast.js";
 import { catalogBase, PI_TOOLS, resolveLayer } from "@picode/shared/domain/resolveLayer.js";
 import { IconX } from "./Icons.jsx";
 import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false, embedded = false, focus = "" }) {
+export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false, embedded = false, focus = "", disabled = false }) {
   const [rep, setRep] = useState(null);
   const [pending, setPending] = useState(null);
   const agentSavingRef = useRef(false);
@@ -21,7 +21,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   const [configStatus, setConfigStatus] = useState("");
   const agent = originalAgent && { ...originalAgent, ...(pending || {}) };
   async function changeAgent(cfg) {
-    if (agentSavingRef.current) return;
+    if (disabled || agentSavingRef.current) return;
     agentSavingRef.current = true;
     setPending(cfg);
     setConfigError("");
@@ -57,7 +57,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   }, [hidden, !!rep, focus]);
 
   async function save(layer, patch, okMsg) {
-    if (savingRef.current) return false;
+    if (disabled || savingRef.current) return false;
     savingRef.current = true;
     setSaving(true);
     setSaveError("");
@@ -83,7 +83,8 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   const floor = catalogBase(catalog);
   const g = rep && rep.global ? resolveLayer(rep.global, floor) : null;
   const p = rep && rep.project ? resolveLayer(rep.project, g || floor) : null;
-  const parent = p || g || floor;
+  // Unreadable defaults must not become inferred agent overrides on save.
+  const parent = rep ? (p || g || floor) : {};
   const ag = agent ? {
     provider: agent.provider || parent.defaultProvider || "",
     model: agent.model || parent.defaultModel || "",
@@ -93,10 +94,11 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
 
   return (
     <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} context={!agentOnly && agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
-      {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : <>
-      {saveError ? <div className="cli-notice is-error" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
+      {loadError ? <div className="pi-settings-notice" role="alert"><span title={loadError}>Could not load Pi defaults.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : null}
+      {saveError ? <div className="pi-settings-notice" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
       {saving ? <p role="status">Saving…</p> : null}
-      <fieldset className="pi-settings-fields" disabled={saving || !!pending || !rep} aria-busy={saving || !!pending || !rep}>
+      <fieldset className="pi-settings-fields" disabled={disabled || saving || !!pending} aria-busy={saving || !!pending}>
+      <fieldset className="pi-settings-fields" disabled={!rep || !!loadError} hidden={!rep && !!loadError}>
       {!agentOnly ? <section className="settings-section" data-layer="global">
         <h3>Global</h3>
         <p className="settings-desc">This machine</p>
@@ -123,6 +125,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           )}
         </section>
       ) : null}
+      </fieldset>
       {agent ? (
         <section className="settings-section" data-layer="agent">
           <h3>Agent</h3>
@@ -155,9 +158,8 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           </fieldset>
         </section>
       ) : null}
-      {!agentOnly ? <PiKeys /> : null}
+      {!agentOnly ? <PiKeys disabled={disabled || saving || !!pending} /> : null}
       </fieldset>
-      </>}
     </PageFrame>
   );
 }
