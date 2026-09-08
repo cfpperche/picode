@@ -1346,8 +1346,10 @@ runtime's every dialog edge rides `agent.state` (ADR-0048, published in
 agent, and `needsYou` shapes the queue both shells already render.
 `needsYouPlan` diffs that queue against what has been announced —
 arrivals become sticky cards, answers withdraw them — and the first pass
-after a page load only records, so a reload never toasts a backlog the
-badge already shows. Mobile keeps quiet on the Now screen, which *is* the
+over a *read* fleet only records, so a reload never toasts a backlog the
+badge already shows. Both shells gate that pass on having read the fleet
+once (`fleetLoaded`, mobile's `loaded`): seeding from the empty first
+render would make the first real answer look like an arrival. Mobile keeps quiet on the Now screen, which *is* the
 queue.
 
 The toast layer persists nothing. The Inbox (ADR-0037) owns the durable

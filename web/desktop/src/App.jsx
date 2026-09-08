@@ -110,6 +110,7 @@ export default function App() {
   const [formWs, setFormWs] = useState("");
   const [tabs, setTabs] = useState(() => readOpenTabs().ids);
   const [tabsReady, setTabsReady] = useState(false);
+  const [fleetLoaded, setFleetLoaded] = useState(false);
   const [dashboardPinned, setDashboardPinned] = useState(false);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
@@ -461,6 +462,11 @@ export default function App() {
     setWorkspaces(list);
     try { setFreeAgents(await api("/api/agents?free=1")); }
     catch { setFreeAgents([]); }
+    // The needs-you pass has to tell "nothing is waiting" from "nothing
+    // has been read yet": before this flag the first render's empty fleet
+    // was the seed, so the first real answer looked like an arrival and a
+    // reload announced the whole backlog.
+    setFleetLoaded(true);
     return list;
   }, []);
 
@@ -826,6 +832,7 @@ export default function App() {
   // stay out: they have a badge, a queue and a push of their own.
   const announcedAsks = useRef(null);
   useEffect(() => {
+    if (!fleetLoaded) return;
     const entries = needsYou({ workspaces, freeAgents, inbox: [] });
     const plan = needsYouPlan(entries, announcedAsks.current, workspaceHash);
     announcedAsks.current = plan.keys;
@@ -835,7 +842,7 @@ export default function App() {
     const here = new Set(asksOnSurface(entries, hash, workspaceHash));
     for (const key of here) dismissNotice(key);
     for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
-  }, [workspaces, freeAgents, hash]);
+  }, [workspaces, freeAgents, hash, fleetLoaded]);
 
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
