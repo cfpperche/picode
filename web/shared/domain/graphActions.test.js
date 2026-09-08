@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { graphActions, repoActions, repoOccupants, busyLine, trackingLabel, trackingTitle, worktreeSlug, confirmPhrase, gateFor, undoFor, undoNote } from "./graphActions.js";
+import { graphActions, repoActions, repoOccupants, busyLine, trackingLabel, trackingTitle, worktreeSlug, confirmPhrase, gateFor, undoFor, undoNote, FIELD_LABELS } from "./graphActions.js";
 
 // A repository with two checkouts: the reader's own on main, and a sibling on
 // feat/x where an agent lives. This is the shape ADR-0073 draws and the one
@@ -619,5 +619,14 @@ test("a branch checked out in a sibling worktree offers that worktree's removal"
   for (const ref of [g.refs[0], g.refs[2]]) {
     const own = graphActions({ kind: "ref", ref }, g, wctx).items.filter((i) => i.kind === "action").map((i) => i.action);
     assert.ok(!own.includes("worktree-remove"), `${ref.name} must not offer a removal`);
+  }
+});
+
+// Every action that collects a name says which name, in that action's words;
+// a bare "Name" over a worktree folder is what the owner saw and asked about.
+test("every name-collecting action labels its field", () => {
+  for (const [id, info] of Object.entries(catalog)) {
+    if (!info.needs.includes("name")) continue;
+    assert.ok(FIELD_LABELS[id] && FIELD_LABELS[id].name, `${id} collects a name with no label`);
   }
 });

@@ -207,6 +207,8 @@ export const FIELD_LABELS = {
   "create-tag": { name: "Tag name" },
   "create-worktree": { name: "Worktree folder name" },
   "rename-branch": { name: "New branch name" },
+  "worktree-remove": { name: "Worktree folder name" },
+  "worktree-remove-force": { name: "Worktree folder name" },
   commit: { message: "Commit message" },
   "commit-push": { message: "Commit message" },
 };

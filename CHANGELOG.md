@@ -102,6 +102,8 @@ to the `[Unreleased]` section. The repository's official language is English
   longer describes a bar that stands under the pane on desktop; it opens
   from the menu now.
   [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
+- **The worktree removal form names its field.** "Name" over a worktree folder
+  read as nothing; it says *Worktree folder name* now, like the create form.
 - **A clean sibling worktree can be removed from its branch pill.** A checkout
   with nothing uncommitted draws no row of its own, so the graph had no place
   to offer *Remove this worktree* for it; the branch pill of a branch checked
