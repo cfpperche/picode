@@ -4,6 +4,7 @@ import { api } from "@picode/shared/client/api.js";
 import { CLI_SETTINGS, cliSettingsHash, cliSettingsLocation, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
 import PageFrame from "./PageFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
+import CliCombo from "./CliCombo.jsx";
 import PiSettings from "./PiSettings.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
@@ -19,11 +20,9 @@ export default function CliSettings({ hidden, hash, legacyAgentId, catalog, onAg
     <div className="cli-settings-body">
     <div className="cli-settings-heading">
       <h3>Settings</h3>
-      {supported ? <label className="cli-settings-picker">CLI
-        <select aria-label="Settings CLI" value={route.id} onChange={event => { location.hash = cliSettingsHash(event.target.value); }}>
-          {CLI_SETTINGS.map(cli => <option key={cli.id} value={cli.id}>{cli.name}</option>)}
-        </select>
-      </label> : null}
+      {supported ? <div className="cli-settings-picker">CLI
+        <CliCombo ariaLabel="Settings CLI" value={route.id} options={CLI_SETTINGS} align="end" onChange={id => { location.hash = cliSettingsHash(id); }} />
+      </div> : null}
     </div>
     {!supported ? <div className="cli-notice" role="status"><span>Settings are not available for this CLI.</span><a className="btn btn-ghost btn-sm" href="#/clis">Back to CLIs</a></div>
       : !hidden && !route.redirect ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}

@@ -37,6 +37,12 @@ type Commit struct {
 	Author  string   `json:"author"`
 	At      int64    `json:"at"`
 	Subject string   `json:"subject"`
+	// Add and Del total the commit's own diff — first parent, merges
+	// included, the same diff the detail view shows per file — for the
+	// listing's +/- column. 0/0 also covers "no text changes" (empty or
+	// binary-only commit), which the row shows as no value.
+	Add int `json:"add,omitempty"`
+	Del int `json:"del,omitempty"`
 }
 
 // Ref is a branch, remote branch or tag pointing at a commit.
@@ -279,23 +285,28 @@ func repoName(key string) string {
 // git allows creating one (`git branch -- -x`), and without this a selected
 // branch called "-x" would be parsed as a flag instead of a revision —
 // exactly the class of bug isHash exists to prevent for commit hashes.
+// seedArgs is the revision set both of the graph's log walks share: the
+// commit list and its per-commit line counts must come out of exactly the
+// same window, so a narrowed selection cannot desync one from the other.
+func seedArgs(limit int, branches []string, includeRemotes bool) []string {
+	args := []string{"--max-count=" + strconv.Itoa(limit), "--date-order"}
+	if branches != nil {
+		args = append(args, "--end-of-options")
+		return append(args, branches...)
+	}
+	args = append(args, "--branches", "--tags")
+	if includeRemotes {
+		args = append(args, "--remotes")
+	}
+	return append(args, "HEAD")
+}
+
 func loadCommits(dir string, limit int, branches []string, includeRemotes bool) []Commit {
 	if branches != nil && len(branches) == 0 {
 		return []Commit{}
 	}
 	format := "--format=" + strings.Join([]string{"%H", "%P", "%an", "%at", "%s"}, fieldSep) + recordSep
-	args := []string{"-c", "log.showSignature=false", "log",
-		"--max-count=" + strconv.Itoa(limit), format, "--date-order"}
-	if branches != nil {
-		args = append(args, "--end-of-options")
-		args = append(args, branches...)
-	} else {
-		args = append(args, "--branches", "--tags")
-		if includeRemotes {
-			args = append(args, "--remotes")
-		}
-		args = append(args, "HEAD")
-	}
+	args := append([]string{"-c", "log.showSignature=false", "log", format}, seedArgs(limit, branches, includeRemotes)...)
 	args = append(args, "--")
 	out := git(dir, args...)
 	if out == "" {
@@ -326,7 +337,91 @@ func loadCommits(dir string, limit int, branches []string, includeRemotes bool) 
 		}
 		commits = append(commits, c)
 	}
+	applyShortStats(dir, commits, seedArgs(limit, branches, includeRemotes))
 	return commits
+}
+
+// applyShortStats fills each commit's listing +/- with one extra log walk.
+// `--shortstat -m --first-parent` totals the same diff the detail view shows
+// per file, so a row and its opened detail can never disagree — including on
+// merges, which carry their first-parent diff here and in Show alike. The
+// walk pays one diff computation per commit (measured ~0.8 s on this
+// repository's 250-commit window) and runs under the same gitTimeout as the
+// rest; a walk that fails or times out leaves the rows without numbers
+// instead of stalling the graph.
+func applyShortStats(dir string, commits []Commit, seed []string) {
+	if len(commits) == 0 {
+		return
+	}
+	args := append([]string{"-c", "log.showSignature=false", "log",
+		"--format=%H", "--shortstat", "-m", "--first-parent", "--no-color"}, seed...)
+	args = append(args, "--")
+	out := git(dir, args...)
+	if out == "" {
+		return
+	}
+	stats := make(map[string][2]int, len(commits))
+	var curHash string
+	var add, del int
+	flush := func() {
+		if isHash(curHash) {
+			stats[curHash] = [2]int{add, del}
+		}
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if h := strings.TrimSpace(line); isHash(h) {
+			flush()
+			curHash, add, del = h, 0, 0
+			continue
+		}
+		if a, d, ok := parseShortStat(line); ok {
+			add, del = a, d
+		}
+	}
+	flush()
+	for i := range commits {
+		if s, ok := stats[commits[i].Hash]; ok {
+			commits[i].Add, commits[i].Del = s[0], s[1]
+		}
+	}
+}
+
+// parseShortStat reads git's summary line — " 2 files changed, 7
+// insertions(+), 7 deletions(-)". Either count clause is optional (a commit
+// can be pure additions or pure deletions), so each is read independently
+// from the word that names it; the file count carries no sign and is not
+// wanted. ok is false for every other line the walk prints.
+func parseShortStat(line string) (add, del int, ok bool) {
+	if !strings.Contains(line, " changed") {
+		return 0, 0, false
+	}
+	if i := strings.Index(line, "insertion"); i >= 0 {
+		add = trailingInt(line[:i])
+	}
+	if i := strings.Index(line, "deletion"); i >= 0 {
+		del = trailingInt(line[:i])
+	}
+	return add, del, true
+}
+
+// trailingInt reads the decimal that ends a string just before the word it
+// names: git writes "178 insertions(+)", so the caller hands back everything
+// before "insertion" and this reads the digits at the end, past the space.
+// 0 when there is none — the honest value for a clause git left out.
+func trailingInt(s string) int {
+	s = strings.TrimRight(s, " \t")
+	end := len(s)
+	for end > 0 && s[end-1] >= '0' && s[end-1] <= '9' {
+		end--
+	}
+	if end == len(s) {
+		return 0
+	}
+	n, err := strconv.Atoi(s[end:])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // isHash reports whether s is an object name as %H writes it: lowercase hex,

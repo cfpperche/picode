@@ -20,6 +20,14 @@ to the `[Unreleased]` section. The repository's official language is English
   conflict message, as on the desk. Files, sketches and reminders stay
   with the desktop studio.
 
+- **Git graph: per-commit +/- in the listing.** Every commit row shows
+  the lines its own diff adds and removes (`+178 −80`, green/red, blank
+  when a commit changes no text — empty or binary-only commits), so the
+  shape of history reads without opening each commit. The numbers are
+  git's own shortstat totals over the commit's first-parent diff — the
+  same diff the opened commit detail shows per file (they reconcile
+  exactly, merges included).
+
 - **Pins: search, keep on top, archive.** The Pins tab has a search box
   over title, tags and note (every word must match; archived pins are
   found too and say so). A star keeps a pin on top of the list; Archive
@@ -121,6 +129,8 @@ to the `[Unreleased]` section. The repository's official language is English
   (`TermAttachSheet.jsx`).
 
 - **Settings now lives under Agent CLIs → Settings → Pi (ADR-0101).** Desktop and mobile retain global, trusted workspace, agent and key settings. Old links redirect; contextual URLs preserve the agent on reload. Native settings load independently of terminal setup, and failed saves retain edits.
+
+- **Agent CLIs: one CLI combobox with favicons.** Settings, Sessions and the new-terminal form share a `--ctl-h` combobox that shows each CLI's mark instead of an unstyled native select.
 
 
 - **Development: the public docs site moved from `www/` to `docs-site/`** —

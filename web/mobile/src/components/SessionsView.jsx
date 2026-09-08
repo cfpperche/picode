@@ -10,6 +10,7 @@ import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
+import CliCombo from "./CliCombo.jsx";
 import SessionHandoffDialog from "./SessionHandoffDialog.jsx";
 
 function fmtAge(iso) {
@@ -353,12 +354,10 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
           {!all ? (
             <a className="sessions-scope-link" href={"#/clis/sessions" + (cli !== "pi" ? "?cli=" + encodeURIComponent(cli) : "")} title={"Every " + cliName + " session on this machine, grouped by folder"}>All folders →</a>
           ) : null}
-          <label className="sessions-cleanup" title="Which CLI's sessions are listed">
+          <div className="sessions-cleanup" title="Which CLI's sessions are listed">
             CLI
-            <select value={cli} onChange={(e) => onCliChange && onCliChange(e.target.value)}>
-              {pickerClis.map((id) => <option key={id} value={id}>{cliNames[id] || id}</option>)}
-            </select>
-          </label>
+            <CliCombo ariaLabel="Sessions CLI" value={cli} options={pickerClis.map((id) => ({ id, name: cliNames[id] }))} align="end" onChange={(id) => onCliChange && onCliChange(id)} />
+          </div>
           {sessions.length > 6 ? (
             <input className="sessions-search" aria-label="Search sessions" placeholder="Find a session…" value={query} onChange={(e) => setQuery(e.target.value)} />
           ) : null}
