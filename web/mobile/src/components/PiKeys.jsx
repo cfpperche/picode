@@ -3,7 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { effectiveKeys, fromEvent, isOverride, matchKeys } from "@picode/shared/domain/piKey.js";
 
-export default function PiKeys() {
+export default function PiKeys({ disabled = false }) {
   const [rep, setRep] = useState(null);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
@@ -17,7 +17,7 @@ export default function PiKeys() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    if (!listen) return undefined;
+    if (!listen || disabled) return undefined;
     function onKey(ev) {
       if (ev.key === "Escape") {
         ev.preventDefault();
@@ -37,9 +37,10 @@ export default function PiKeys() {
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [listen, rep]);
+  }, [listen, rep, disabled]);
 
   async function save(action, keys, reset) {
+    if (disabled) return;
     try {
       const next = await api("/api/pi-keys", {
         method: "PUT",
@@ -105,7 +106,7 @@ export default function PiKeys() {
             return (
               <div key={a.id} className="key-row">
                 <span className="key-label">{a.label}</span>
-                <div className="key-keys" data-align-row>
+                <div className="key-keys" data-align-row data-align-wrap>
                   {waiting ? (
                     <span className="key-listen">Press a key</span>
                   ) : keys.length === 0 ? (

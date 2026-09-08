@@ -50,3 +50,15 @@ test("missing identities and failed reads never choose another agent or workspac
   await assert.rejects(loadPiSettingsContext("A", async path => path.startsWith("/api/pi-settings") ? { agent: { id: "A", workspaceId: "gone" } } : [{ id: "other" }]), /workspace is no longer/);
   await assert.rejects(loadPiSettingsContext("A", async () => { throw new Error("offline"); }), /offline/);
 });
+
+test("missing context is distinguishable from a recoverable refresh failure", async () => {
+  for (const missing of ["http", "agent", "workspace", "fleet"]) {
+    await assert.rejects(loadPiSettingsContext("A", async path => {
+      if (missing === "http") throw Object.assign(new Error("Not found"), { status: 404 });
+      if (path.startsWith("/api/pi-settings")) return { agent: missing === "agent" ? null : { id: "A", workspaceId: "W" } };
+      return missing === "workspace" ? [] : [{ id: "W", agents: [] }];
+    }), { status: 404 });
+  }
+  const temporary = Object.assign(new Error("Temporarily unavailable"), { status: 503 });
+  await assert.rejects(loadPiSettingsContext("A", async () => { throw temporary; }), error => error === temporary);
+});

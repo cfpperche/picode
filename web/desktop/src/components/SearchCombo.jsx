@@ -21,7 +21,7 @@ export default function SearchCombo({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className="cockpit-pop cockpit-combo-pop"
+          className="cockpit-pop cockpit-combo-pop search-combo-pop"
           side={side}
           align="start"
           sideOffset={6}
