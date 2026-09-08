@@ -40,8 +40,7 @@ export default function Notice({ n, id, prefs }) {
   const p = prefs || {};
   const hasFoot = n.meta.length > 0 || n.actions.length > 0;
   const cls = ["notice", "notice-" + n.level, n.actor ? "has-head" : "no-head"];
-  if (p.richColors) cls.push("is-rich");
-  if (p.closeButton) cls.push("has-x", "x-" + (p.closePlace || "inside-right"));
+  if (p.closeButton) cls.push("has-x");
 
   return (
     <div className={cls.join(" ")} role="status" aria-live={n.level === "error" ? "assertive" : "polite"}>

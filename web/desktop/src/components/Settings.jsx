@@ -8,7 +8,7 @@ import PageFrame from "./PageFrame.jsx";
 import ThemeCard from "./ThemeCard.jsx";
 import { notify, toast, toastError } from "../lib/toast.js";
 import { agentFinishNotice } from "@picode/shared/domain/notice.js";
-import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS, TOAST_CLOSE_PLACES } from "../lib/toastPrefs.js";
+import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
@@ -207,15 +207,18 @@ export default function Settings({ hidden, themeMode, onTheme }) {
               <Switch.Thumb className="rx-switch-thumb" />
             </Switch.Root>
           </div>
+        </div>
+        <h4 className="push-prefs-sub">Announce on this screen</h4>
+        <div className="set-rows">
           <div className="set-row">
-            <label htmlFor="toast-close-place">Close position</label>
-            <select id="toast-close-place" value={toastPrefs.closePlace} disabled={!toastPrefs.closeButton} onChange={(e) => saveToast({ closePlace: e.target.value })}>
-              {TOAST_CLOSE_PLACES.map((p) => <option key={p} value={p}>{p.replaceAll("-", " ")}</option>)}
-            </select>
+            <label htmlFor="toast-needs-you">When an agent needs me</label>
+            <Switch.Root id="toast-needs-you" className="rx-switch" checked={toastPrefs.announceNeedsYou} onCheckedChange={(v) => saveToast({ announceNeedsYou: v })}>
+              <Switch.Thumb className="rx-switch-thumb" />
+            </Switch.Root>
           </div>
           <div className="set-row">
-            <label htmlFor="toast-rich">Rich colors</label>
-            <Switch.Root id="toast-rich" className="rx-switch" checked={toastPrefs.richColors} onCheckedChange={(v) => saveToast({ richColors: v })}>
+            <label htmlFor="toast-finished">When a run finishes</label>
+            <Switch.Root id="toast-finished" className="rx-switch" checked={toastPrefs.announceFinished} onCheckedChange={(v) => saveToast({ announceFinished: v })}>
               <Switch.Thumb className="rx-switch-thumb" />
             </Switch.Root>
           </div>
