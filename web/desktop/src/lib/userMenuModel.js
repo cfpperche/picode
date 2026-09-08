@@ -4,10 +4,9 @@ import { matchesListSearch } from "@picode/shared/domain/listSearch.js";
 // (docs/benchmarks/2026-09-07-mobile-v2.md). Mobile-only sections (Apps,
 // llama.cpp, Notifications) have no desktop route and stay out of the menu.
 export const MENU_SECTIONS = [
-  ["clis", "Agent CLIs", "Launch settings and terminals"],
+  ["clis", "Agent CLIs", "Pi settings, launches and sessions"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["providers", "Providers", "Accounts, keys, usage"],
-  ["settings", "Settings", "Pi: model, thinking, prompt"],
   ["integrations", "Integrations", "Connectors and event delivery"],
   ["packages", "Packages", "Skills, extensions, updates"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
@@ -17,7 +16,7 @@ export const MENU_SECTIONS = [
 
 export const MENU_GROUPS = [
   ["Tools", ["clis", "automations"]],
-  ["Agents and connections", ["providers", "settings", "integrations", "packages"]],
+  ["Agents and connections", ["providers", "integrations", "packages"]],
   ["PiCode", ["preferences", "devices", "system"]],
 ];
 
@@ -28,12 +27,14 @@ export const MENU_ACTIONS = [
 ];
 
 export function menuGroups(query) {
-  return MENU_GROUPS
+  const groups = MENU_GROUPS
     .map(([title, ids]) => ({
       title,
       rows: ids.map(id => MENU_SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, ...row)),
     }))
     .filter(group => group.rows.length);
+  if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["settings", "Pi settings", "Model, thinking, tools and keys"]] });
+  return groups;
 }
 
 export function menuActions(query) {

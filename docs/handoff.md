@@ -1,18 +1,15 @@
 # Handoff — living project state
 
 > Read this first. At most 100 lines (the pre-commit hook refuses more).
-> Session notes: `docs/handoff/` (newest by filename). Deploy history:
-> `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
+> Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
 
 ## Current state
 
+- **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet.
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
   (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
-  timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close
-  with `make close`; `make ci` once on `main` at the merge. `make worktree
-  NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict
-  in `close` and the batch.
+  timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close with `make close`; `make ci` once on `main` at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict in `close` and the batch.
 - **Docs site:** `docs-site/` (renamed from `www/` 2026-09-08, owner call): same VitePress build and Pages URL; `www/` reserved for the product website. Make var `DOCS_STAMP`; ADR-0086 emended ("née www/").
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). A dropped
@@ -64,6 +61,7 @@
 
 ## Known debts / open questions
 
+- Native settings: physical iPhone/PWA/IME and real running-agent tool-mode restart untested here; automated restart matrix and stopped-agent browser saves cover the refactor.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
   address — answered by hand until updated per pi session; daemon death
   between park and JSONL row = accepted gap (as the terminal ask).

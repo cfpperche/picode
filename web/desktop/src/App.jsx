@@ -27,7 +27,7 @@ import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
 import AgentClis from "./components/AgentClis.jsx";
-import PiSettings from "./components/PiSettings.jsx";
+import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
 import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
@@ -2511,12 +2511,13 @@ export default function App() {
     } catch (e) { toastError(e); }
   }
 
-  async function patchAgent(cfg) {
-    if (!agent) return;
+  async function patchAgent(cfg, target = agent, reportError = true) {
+    if (!target) return;
+    const agent = target;
     const modeChanged = Object.prototype.hasOwnProperty.call(cfg, "opMode")
       && (cfg.opMode || "full") !== (agent.opMode || "full");
     const was = agent.mode;
-    const dockWasOpen = !!(selectedId && termWanted.has(selectedId));
+    const dockWasOpen = termWanted.has(agent.id);
     try {
       await api("/api/agents/" + agent.id, {
         method: "PATCH",
@@ -2524,12 +2525,12 @@ export default function App() {
         body: JSON.stringify(cfg),
       });
       await loadWorkspaces();
-      if (modeChanged && selectedId && was && was !== "stopped") {
-        await stopAgent(selectedId);
-        if (was === "managed") await startManaged(selectedId);
-        else if (was === "interactive") await openInteractive(selectedId, { dock: dockWasOpen });
+      if (modeChanged && was && was !== "stopped") {
+        await stopAgent(agent.id);
+        if (was === "managed") await startManaged(agent.id);
+        else if (was === "interactive") await openInteractive(agent.id, { dock: dockWasOpen });
       }
-    } catch (e) { toastError(e); }
+    } catch (e) { if (reportError) toastError(e); else throw e; }
   }
 
   const onPane = route !== "workspace";
@@ -2817,10 +2818,7 @@ export default function App() {
                 return;
               }
               if (cmd.run === "go-settings" || cmd.run === "go-scoped") {
-                go("settings");
-                if (cmd.run === "go-scoped") {
-                  requestAnimationFrame(() => document.getElementById("scoped-models")?.scrollIntoView({ block: "center" }));
-                }
+                location.hash = cliSettingsHash("pi", { agentId: agent?.id, focus: cmd.run === "go-scoped" ? "scoped-models" : "" });
                 return;
               }
               if (!agent) return;
@@ -2883,7 +2881,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
-              slashExtra, atAgents, onAgentPage: go, pkgUpdates,
+              slashExtra, atAgents, onAgentPage: (name) => go(name, name === "settings" ? agent?.id : undefined), pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,
               onAbort: abortTurn,
@@ -2957,8 +2955,7 @@ export default function App() {
           ) : null}
         </div>
 
-        <PiSettings hidden={route !== "settings"} agent={agent} workspace={selected} catalog={catalog} onAgentConfig={patchAgent} />
-        <AgentClis hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
+        <AgentClis catalog={catalog} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -3064,7 +3061,7 @@ export default function App() {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, a.kind === "settings" ? agent?.id : undefined); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);

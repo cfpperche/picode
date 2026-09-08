@@ -1,13 +1,16 @@
-# Settings
+# CLI settings
 
 Two different screens. Do not mix them.
 
 | Hash | What | Writes |
 |---|---|---|
-| `#/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (global), `<cwd>/.pi/settings.json` (workspace, if trusted), and **Keys** (`~/.pi/agent/keybindings.json`) |
+| `#/clis/settings/pi` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (global), `<cwd>/.pi/settings.json` (workspace, if trusted), and **Keys** (`~/.pi/agent/keybindings.json`) |
 | `#/preferences` | **PiCode** chrome | theme, server port |
 
-Composer `/settings` opens `#/settings`. Depth is like skills: workspace beats global, agent beats both.
+Open **Agent CLIs → Settings → Pi**. Composer `/settings` preserves the selected agent in the URL. A direct link without an agent opens Global and Keys.
+
+Contextual links use `?agentId=<id>`. Old `#/settings` and mobile `#/more/settings` links redirect here. Workspace values override global values; agent values override both.
+
 
 Workspace writes require the folder in pi's `trust.json`. Untrusted → 409; run `/trust` in the TUI.
 
@@ -15,7 +18,7 @@ Workspace writes require the folder in pi's `trust.json`. Untrusted → 409; run
 
 Canonical: [pi Settings](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md)
 
-| | pi TUI `/settings` | PiCode `#/settings` |
+| | pi TUI `/settings` | PiCode `#/clis/settings/pi` |
 |---|---|---|
 | File | **global only** | global + workspace + agent |
 | Project file | `pi config` / `pi install -l` | workspace card, if trusted |

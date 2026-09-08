@@ -9,3 +9,10 @@ test("CLI routes and old preferences reach both application managers", () => {
     assert.equal(mobileRoute(hash).section, "clis");
   }
 });
+
+test("native settings and legacy URLs reach the CLI manager on both applications", () => {
+  for (const hash of ["#/settings", "#/more/settings", "#/settings?agentId=A", "#/clis/settings", "#/clis/settings/pi?agentId=A", "#/clis/settings/codex"]) {
+    assert.equal(parseRoute(hash), "clis", hash);
+    assert.equal(mobileRoute(hash).section, "clis", hash);
+  }
+});

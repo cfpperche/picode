@@ -49,7 +49,7 @@ export default function Palette({ open, workspaces, apps, onClose, onRun }) {
 function buildActions(workspaces, apps) {
   const out = [
     { id: "whats-new", label: "What’s new in PiCode", group: "app", kind: "whats-new" },
-    { id: "settings", label: "Settings", group: "app", kind: "settings" },
+    { id: "settings", label: "Pi settings", group: "Agent CLIs", kind: "settings" },
     { id: "inspector", label: "Toggle inspector", group: "app", kind: "inspector" },
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
     { id: "clis", label: "Agent CLIs", group: "app", kind: "clis" },

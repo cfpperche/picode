@@ -133,3 +133,16 @@
 .cli-job-guided { margin: 0; }
 .cli-job-guided a { color: var(--accent); }
 .um-item.cli-danger-item { color: var(--danger); }
+
+/* Native settings retain one page frame and one scrolling surface. */
+.cli-settings-heading, .cli-settings-picker, .cli-settings-context { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cli-settings-heading { justify-content: space-between; margin: 16px 0; }
+.cli-settings-heading h3 { margin: 0; }
+.cli-settings-picker select { height: var(--ctl-h); min-width: 100px; }
+.cli-settings-context { margin: 0 0 16px; }
+
+.pi-settings-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pi-settings-fields:disabled { opacity: .7; }
+
+.cli-settings-body { padding: 0 24px 24px; }
+@media (max-width: 719px) { .cli-settings-body { padding: 0 16px 16px; } }

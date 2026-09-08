@@ -1,10 +1,10 @@
 import { lazy, useState } from "react";
+import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 const Devices = lazy(() => import("../components/Devices.jsx"));
 const Settings = lazy(() => import("../components/Settings.jsx"));
 const AgentClis = lazy(() => import("../components/AgentClis.jsx"));
 const Automations = lazy(() => import("../components/Automations.jsx"));
-const PiSettings = lazy(() => import("../components/PiSettings.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
 const LlamaPanel = lazy(() => import("../components/LlamaPanel.jsx"));
 const Providers = lazy(() => import("../components/Providers.jsx"));
@@ -21,12 +21,11 @@ import "../styles/mobile-lists.css";
 
 const SECTIONS = [
   ["automations", "Automations", "Scheduled and triggered work"],
-  ["clis", "Agent CLIs", "Launch settings and terminals"],
+  ["clis", "Agent CLIs", "Pi settings, launches and sessions"],
   ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
   ["llama", "llama.cpp", "Models and server connection"],
   ["providers", "Providers", "Accounts, keys, usage"],
-  ["settings", "Settings", "Pi: model, thinking, prompt"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
   ["integrations", "Integrations", "Connectors and event delivery"],
   ["packages", "Packages", "Skills, extensions, updates"],
@@ -37,15 +36,16 @@ const SECTIONS = [
 const TITLES = { ...Object.fromEntries(SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 const GROUPS = [
   ["Tools", ["clis", "automations", "apps", "llama"]],
-  ["Agents and connections", ["providers", "settings", "integrations", "packages"]],
+  ["Agents and connections", ["providers", "integrations", "packages"]],
   ["PiCode", ["preferences", "notifications", "devices", "system"]],
 ];
 
 // Mobile-owned settings, loaded only when their section opens.
-export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [] }) {
+export default function More({ section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
   const [query, setQuery] = useState("");
   if (!section) {
     const groups = GROUPS.map(([title, ids]) => ({ title, rows: ids.map(id => SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, title, ...row)) })).filter(group => group.rows.length);
+    if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["pi-settings", "Pi settings", "Model, thinking, tools and keys"]] });
     const actions = [
       { id: "updates", title: "What’s new", sub: "Release highlights", Icon: IconSparkles, action: onWhatsNew, unread: whatsNewUnread },
       { id: "pair", title: "Open on another phone", sub: "Pair with a QR code", Icon: IconQR, action: onShare },
@@ -61,7 +61,7 @@ export default function More({ section, apps, catalog, system, version, themeMod
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={"#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>
@@ -92,13 +92,12 @@ export default function More({ section, apps, catalog, system, version, themeMod
   const agentName = agent ? (agent.name && agent.name !== "default" ? agent.name : (workspace ? workspace.name : "")) : "";
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={TITLES[section] || "More"} onBack={onBack} />
+      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && cliSettingsLocation(location.hash) ? () => { location.hash = "#/clis"; } : onBack} />
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
-      {section === "clis" ? <AgentClis /> : null}
+      {section === "clis" ? <AgentClis catalog={catalog} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}
       {section === "automations" ? <Automations hidden={false} catalog={catalog} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
-      {section === "settings" ? <PiSettings hidden={false} agent={agent} workspace={workspace} catalog={catalog} onAgentConfig={cfg => onAgentConfig(agent, cfg)} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
       {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
       {section === "providers" ? <Providers hidden={false} catalog={catalog} onRefresh={onRefreshCatalog} /> : null}

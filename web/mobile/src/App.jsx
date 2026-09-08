@@ -418,7 +418,7 @@ export default function MobileApp() {
     );
   } else if (route.screen === "more") {
     body = (
-      <More section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
+      <More legacyAgentId={lastAgentId} section={route.section} apps={apps} catalog={catalog} system={system} version={version} themeMode={themeMode} workspaces={workspaces} freeAgents={freeAgents}
         onAgentConfig={patchAgent}
         onTheme={(m) => { persistTheme(m); setThemeMode(m); }} last={last} onRefreshCatalog={loadCatalog}
         onShare={() => setShareOpen(true)} onWhatsNew={openWhatsNew} whatsNewUnread={whatsNewUnread} onBack={() => goBack(route)} />

@@ -62,6 +62,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Settings now lives under Agent CLIs → Settings → Pi (ADR-0101).** Desktop and mobile retain global, trusted workspace, agent and key settings. Old links redirect; contextual URLs preserve the agent on reload. Native settings load independently of terminal setup, and failed saves retain edits.
+
+
 - **Development: the public docs site moved from `www/` to `docs-site/`** —
   same VitePress build and GitHub Pages URL (`cfpperche.github.io/picode/`);
   the `www/` name is reserved for the future product website. Make targets

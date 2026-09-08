@@ -1,4 +1,8 @@
+import { cliSettingsLocation } from "./cliSettings.js";
+
 export function cliLocation(hash = "") {
+  const settings = cliSettingsLocation(hash);
+  if (settings) return settings;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");
   const params = new URLSearchParams(query);

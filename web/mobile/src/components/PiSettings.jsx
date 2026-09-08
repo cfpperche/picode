@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import PageFrame from "./PageFrame.jsx";
 import ConfigFields from "./ConfigFields.jsx";
@@ -13,14 +13,16 @@ import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false }) {
+export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false, embedded = false, focus = "" }) {
   const [rep, setRep] = useState(null);
   const [pending, setPending] = useState(null);
+  const agentSavingRef = useRef(false);
   const [configError, setConfigError] = useState("");
   const [configStatus, setConfigStatus] = useState("");
   const agent = originalAgent && { ...originalAgent, ...(pending || {}) };
   async function changeAgent(cfg) {
-    if (pending) return;
+    if (agentSavingRef.current) return;
+    agentSavingRef.current = true;
     setPending(cfg);
     setConfigError("");
     setConfigStatus("");
@@ -28,20 +30,40 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
       await onAgentConfig(cfg);
       setConfigStatus("Saved.");
     } catch (error) { setConfigError(error.message || "Could not save agent settings."); }
-    finally { setPending(null); }
+    finally { agentSavingRef.current = false; setPending(null); }
   }
 
+  const [loadError, setLoadError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const savingRef = useRef(false);
   useEffect(() => {
     if (hidden) return;
     let alive = true;
+    setLoadError("");
+    setRep(null);
     const q = agent ? "?agentId=" + encodeURIComponent(agent.id) : "";
-    api("/api/pi-settings" + q).then((data) => {
+    api("/api/pi-settings" + q).then(data => {
       if (alive) setRep(data);
-    }).catch((e) => { if (alive) toastError(e); });
+    }).catch(error => { if (alive) setLoadError(error.message); });
     return () => { alive = false; };
-  }, [hidden, agent && agent.id]);
+  }, [hidden, agent && agent.id, retry]);
+
+  useEffect(() => {
+    if (hidden || !rep || focus !== "scoped-models") return;
+    const frame = requestAnimationFrame(() => document.getElementById("scoped-models")?.scrollIntoView({ block: "center" }));
+    return () => cancelAnimationFrame(frame);
+  }, [hidden, !!rep, focus]);
 
   async function save(layer, patch, okMsg) {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError("");
+    const previous = rep;
+    const key = layer === "project" ? "project" : "global";
+    setRep(current => ({ ...current, [key]: { ...current[key], ...patch } }));
     try {
       const next = await api("/api/pi-settings", {
         method: "PUT",
@@ -50,7 +72,12 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
       });
       setRep(next);
       toast.ok(okMsg);
-    } catch (e) { toastError(e); }
+      return true;
+    } catch (error) {
+      setRep(previous);
+      setSaveError(error.message);
+      return false;
+    } finally { savingRef.current = false; setSaving(false); }
   }
 
   const floor = catalogBase(catalog);
@@ -65,7 +92,11 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
-    <PageFrame id="pi-settings-view" title="Settings" context={!agentOnly && agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
+    <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} context={!agentOnly && agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
+      {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : <>
+      {saveError ? <div className="cli-notice is-error" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
+      {saving ? <p role="status">Saving…</p> : null}
+      <fieldset className="pi-settings-fields" disabled={saving || !!pending || !rep} aria-busy={saving || !!pending || !rep}>
       {!agentOnly ? <section className="settings-section" data-layer="global">
         <h3>Global</h3>
         <p className="settings-desc">This machine</p>
@@ -81,7 +112,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           <h3>Workspace</h3>
           <p className="settings-desc">{workspace.name}</p>
           {!canProject ? (
-            <p className="settings-desc">This folder is not trusted. Run the agent and use Trust.</p>
+            <div className="cli-notice" role="status"><span>This folder is not trusted.</span><a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a></div>
           ) : (
             <LayerKnobs
               prefix="w"
@@ -125,6 +156,8 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
         </section>
       ) : null}
       {!agentOnly ? <PiKeys /> : null}
+      </fieldset>
+      </>}
     </PageFrame>
   );
 }
@@ -219,12 +252,12 @@ function PatternField({ list, onSave }) {
     <div className="set-pats">
       <form
         className="set-pat-add"
-        onSubmit={(e) => {
+        noValidate
+        onSubmit={async (e) => {
           e.preventDefault();
           const s = draft.trim();
           if (!s || list.includes(s)) return;
-          onSave([...list, s]);
-          setDraft("");
+          if (await onSave([...list, s])) setDraft("");
         }}
       >
         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="claude-* · gpt-4o" aria-label="Model pattern" />

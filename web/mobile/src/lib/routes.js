@@ -1,3 +1,4 @@
+import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 // Mobile route helpers. Tool links live in mobileRoutes; desktop tab identities are absent.
 const PREF_SECTIONS = ["appearance", "layout", "shortcuts", "notifications", "server", "backup"];
 

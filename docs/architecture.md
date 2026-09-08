@@ -238,7 +238,7 @@ finished run filed to the inbox, a managed agent's dialog with no socket
 open. Suppressed while any host-machine browser is online (presence).
 
 Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
-**Settings** is pi JSON for the selected agent. Auth, MCP, packages
+**Settings** lives under Agent CLIs (ADR-0101), initially editing Pi configuration. Auth, MCP, packages
 stay on their own routes.
 
 | Hash | Surface | Owns |
@@ -248,7 +248,7 @@ stay on their own routes.
 | `#/file/t/<id>/<path>` | File tab | text editor for a path under that terminal's cwd (Ctrl+click in xterm). `#/file/a/<id>/<path>` is the same for the Pi TUI dock; `#/file/w/<id>/<path>` reads through a workspace (ADR-0030). Preview \| Raw for svg, mermaid, md, png, pdf, audio, video, glb/gltf (`GET …/blob`). |
 | `#/tree/<w\|t\|a>/<id>` | File tree tab | lazy per-level browse and a **Changes** list from `…/gitstatus`, with changed files and their folders dotted. Tab identity is the canonical root (`d:<root>`), so owners of one folder share a tab. Files and Changes select the editor/preview or diff in one resizable local detail pane (ADR-0074). |
 | *(no route)* | Inspector rail | the right-hand Changes/Files rail beside the center (ADR-0078). Per-viewer state (`picode-inspector-open`, `-w`, `-tab`), like `termView` and the sidebar width; it follows the selected tab's owner and opens content as `#/file/…` tabs. |
-| `#/settings` | pi config | global + workspace + agent (composer `/settings`) + **Keys** (`keybindings.json`) |
+| `#/clis/settings/pi` | Native CLI settings (Pi first) | Global + Keys without context; `?agentId=<id>` adds the actual workspace and agent layers. Composer `/settings` includes the agent; `/scoped-models` adds `focus=scoped-models`. Old `#/settings` and mobile `#/more/settings` redirect by replacement. |
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches; `#/clis/sessions[?cli=]` (machine-wide, grouped by folder) and `#/clis/sessions/<workspaceId>` (one folder) are the per-CLI session views — pi with full management, Claude Code / Codex / Grok listing and resume-in-terminal (ADR-0079 — the old top-level `#/sessions*` addresses redirect here). Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
@@ -393,10 +393,23 @@ file just stays large".
 fetches older turns on demand. **From a Pi session** copies a JSONL
 and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
-Entry: user menu (Settings, Agent CLIs, Preferences, Providers, MCPs) and `Ctrl+K`.
+Entry: user menu (Agent CLIs, Preferences, Providers, MCPs) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):
 HTTPS + bind + reachable IP + cert SAN + mkcert CA. Missing checks
 list the action; a QR is only drawn when every check passes.
+
+### Native CLI settings (ADR-0101)
+
+Agent CLIs has CLIs, Terminals, Sessions and Settings tabs. The shared
+`cliSettings` domain module parses canonical/legacy routes and declares native
+settings capabilities, currently Pi only. Each app owns `CliSettings`,
+`CliTabs` and the embedded Pi editor; no presentation crosses app boundaries.
+The native settings view does not load terminal inventory or installation jobs.
+Explicit agent IDs are validated against Pi's report before looking up their
+workspace. Free agents have no project layer; missing identities and unsupported
+CLIs show recovery actions without falling back to Pi or another agent.
+Pi settings/keys APIs, native files, trust and agent PATCH/restart semantics
+remain unchanged. The mobile conversation keeps its quick settings sheet.
 
 ### CLI terminal launch settings (ADR-0069)
 
