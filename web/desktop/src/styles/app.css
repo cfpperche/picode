@@ -1663,6 +1663,10 @@ img.ws-face.term-cli-face {
 /* One control height across the row (shadcn h-9 / HIG), like the message
    bar below it. */
 .term-find .icon-btn { width: var(--ctl-h); height: var(--ctl-h); }
+.term-find .icon-btn[aria-pressed="true"] {
+  color: var(--accent); background: var(--bg-base);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
 .term-find .icon-btn:disabled { opacity: .45; cursor: default; }
 .term-find .icon-btn:disabled:hover { background: none; color: var(--text-secondary); }
 .term-attach {

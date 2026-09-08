@@ -32,3 +32,32 @@ export const FIND_DECORATIONS = Object.freeze({
   matchOverviewRuler: "#d186167e",
   activeMatchColorOverviewRuler: "#a0a0a0cc",
 });
+
+// Match case and regular expression, remembered for the life of the page —
+// the same span VS Code's find widget remembers them for. Deliberately not
+// persisted: a mode that outlives a reload turns the next plain search into
+// a mystery ("No results" for text that is plainly on the screen).
+const mode = { caseSensitive: false, regex: false };
+
+export function findMode() {
+  return { ...mode };
+}
+
+export function setFindMode(patch) {
+  if (patch && typeof patch.caseSensitive === "boolean") mode.caseSensitive = patch.caseSensitive;
+  if (patch && typeof patch.regex === "boolean") mode.regex = patch.regex;
+  return findMode();
+}
+
+// A half-typed pattern is the normal state of a regex field, and the addon
+// throws on it. Say "Invalid pattern" — a real answer about the query —
+// rather than letting it land in the counter's failure state.
+export function findProblem(query, regex) {
+  if (!regex || !query) return "";
+  try {
+    new RegExp(query);
+    return "";
+  } catch {
+    return "Invalid pattern";
+  }
+}

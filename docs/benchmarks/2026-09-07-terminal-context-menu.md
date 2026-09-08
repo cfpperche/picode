@@ -73,6 +73,15 @@ guest TUI redraw for nothing. Highlights are VS Code's terminal find colours,
 painted through xterm's decoration API — proposed API, so `xtermOptions()`
 now sets `allowProposedApi`.
 
+**Match case** and **regular expression** are two toggles in the field (VS
+Code's `Aa` / `.*`), remembered for the life of the page but never persisted —
+a mode that outlives a reload turns the next plain search into a mystery. A
+half-typed pattern is named ("Invalid pattern") instead of reaching the addon,
+which throws on it. One upstream quirk earns a line: the addon caches its
+match list per term and does not re-scan when only the options change
+(0.16.0), so toggling either mode drops the decorations first — that cache
+goes with them.
+
 The chord is **Ctrl+Shift+F**, not VS Code's Ctrl+F: this terminal's own
 family already reserves the shifted forms (Ctrl+Shift+C/V, termKeys.js) so
 the plain chord stays with the guest — `less`, `vim` and readline all use

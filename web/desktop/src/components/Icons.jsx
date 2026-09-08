@@ -8,6 +8,7 @@ import {
   Bot,
   CircleCheck,
   Code,
+  CaseSensitive,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -59,6 +60,7 @@ import {
   Plus,
   QrCode,
   Quote,
+  Regex,
   RotateCw,
   Search,
   Settings,
@@ -156,6 +158,8 @@ export const IconScrollEnd = lucide(ArrowDownToLine, 13);
 export const IconTextSize = lucide(Type, 13);
 export const IconClear = lucide(Eraser, 13);
 export const IconSearch = lucide(Search, 13);
+export const IconCase = lucide(CaseSensitive, 15);
+export const IconRegex = lucide(Regex, 15);
 export const IconBold = lucide(Bold, 14);
 export const IconItalic = lucide(Italic, 14);
 export const IconHeading = lucide(Heading2, 14);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { IconChevronDown, IconChevronUp, IconX } from "./Icons.jsx";
+import { IconCase, IconChevronDown, IconChevronUp, IconRegex, IconX } from "./Icons.jsx";
 import { terms } from "../lib/terms.js";
-import { findKey, findLabel, FIND_DECORATIONS } from "../lib/termFind.js";
+import { findKey, findLabel, findMode, findProblem, setFindMode, FIND_DECORATIONS } from "../lib/termFind.js";
 
 const DEBOUNCE_MS = 120;
 
@@ -13,6 +13,9 @@ export default function TermFindBar({ termId, onClose }) {
   const [query, setQuery] = useState("");
   const [res, setRes] = useState({ index: -1, count: 0 });
   const [broken, setBroken] = useState(false);
+  const [mode, setMode] = useState(findMode);
+  const ranWith = useRef(findMode());
+  const problem = findProblem(query, mode.regex);
 
   const addon = () => {
     const entry = terms.get("sh:" + termId);
@@ -39,14 +42,24 @@ export default function TermFindBar({ termId, onClose }) {
   useEffect(() => {
     const search = addon();
     if (!search) return undefined;
-    if (!query) {
+    if (!query || problem) {
       search.clearDecorations();
       setRes({ index: -1, count: 0 });
       return undefined;
     }
-    const t = setTimeout(() => run(search, "next", { incremental: true }), DEBOUNCE_MS);
+    const t = setTimeout(() => {
+      // The addon caches its match list per term and does not re-scan when
+      // only the options change (@xterm/addon-search 0.16.0): toggling case
+      // or regex on the same query keeps the old count and highlights.
+      // Dropping the decorations drops that cache with them.
+      if (ranWith.current.caseSensitive !== mode.caseSensitive || ranWith.current.regex !== mode.regex) {
+        search.clearDecorations();
+        ranWith.current = mode;
+      }
+      run(search, "next", { incremental: true });
+    }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query, termId]);
+  }, [query, termId, mode.caseSensitive, mode.regex, problem]);
 
   // The addon reaches xterm's proposed decoration API and throws when a
   // terminal was built without it (termTheme.js). Say so in the counter
@@ -54,7 +67,7 @@ export default function TermFindBar({ termId, onClose }) {
   function run(search, dir, extra) {
     try {
       const go = dir === "prev" ? search.findPrevious : search.findNext;
-      go.call(search, query, { ...extra, decorations: FIND_DECORATIONS });
+      go.call(search, query, { ...extra, ...mode, decorations: FIND_DECORATIONS });
       return true;
     } catch {
       setBroken(true);
@@ -62,9 +75,14 @@ export default function TermFindBar({ termId, onClose }) {
     }
   }
 
+  function toggle(flag) {
+    setMode(setFindMode({ [flag]: !mode[flag] }));
+    if (inputRef.current) inputRef.current.focus();
+  }
+
   function step(dir) {
     const search = addon();
-    if (!search || !query) return;
+    if (!search || !query || problem) return;
     run(search, dir);
     if (inputRef.current) inputRef.current.focus();
   }
@@ -78,8 +96,8 @@ export default function TermFindBar({ termId, onClose }) {
     else step(action);
   }
 
-  const label = broken ? "Unavailable" : findLabel(query, res.count, res.index);
-  const empty = broken || !query || !res.count;
+  const label = broken ? "Unavailable" : problem || findLabel(query, res.count, res.index);
+  const empty = broken || !!problem || !query || !res.count;
 
   return (
     <div className="term-find" role="search" data-align-row onKeyDown={onKeyDown}>
@@ -94,6 +112,12 @@ export default function TermFindBar({ termId, onClose }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+      <button type="button" className="icon-btn" title="Match case" aria-label="Match case" aria-pressed={mode.caseSensitive} onClick={() => toggle("caseSensitive")}>
+        <IconCase />
+      </button>
+      <button type="button" className="icon-btn" title="Use a regular expression" aria-label="Use a regular expression" aria-pressed={mode.regex} onClick={() => toggle("regex")}>
+        <IconRegex />
+      </button>
       <span className="term-find-count" aria-live="polite">{label}</span>
       <button type="button" className="icon-btn" title="Previous match (Shift+Enter)" aria-label="Previous match" disabled={empty} onClick={() => step("prev")}>
         <IconChevronUp size={14} />
