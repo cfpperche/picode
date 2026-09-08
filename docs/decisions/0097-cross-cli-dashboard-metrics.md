@@ -140,6 +140,25 @@ alone still re-read its 437 MB tree every poll. The fix moved pi's parse
 into `session.ParseFile` and drove it through the same cache as the guests,
 which is also how the two parsers became one.
 
+## What the surface had to be taught
+
+Every one of these was found by loading the real page, not by reading the
+payload — the JSON was correct in each case and the screen still lied.
+
+| Rendered | Meant | Now |
+|---|---|---|
+| `$0.00` spend on a day whose 260 messages were all live Claude Code sessions | nobody had priced anything yet | `—` plus "not priced by any CLI that ran" |
+| `$0.00` for OpenCode | $0.0014, real money | `<$0.01` |
+| `$0.00` for Hermes | `cost_status: included` — a plan covers it, so it is never priced | `not priced`, and Hermes' own `billing_mode` sets its badge |
+| Six `$0.00` rows when a scope matched nothing | nothing ran | the ranking drops inactive CLIs, so the panel's own empty state speaks |
+| "No session activity in this period" under a chart while the tile read 299 msgs | no *spend*; the days were real | the empty line names the metric |
+| "+10,724 lines" on a scope with no matching sessions | a proration bug: in-window was counted without asking in-scope | fixed, with a regression test |
+| "Spend covers OpenCode and Pi only" under a card whose one row was Claude Code | the note named CLIs that could report, not ones that ran | intersected with the active set |
+
+The pattern is worth naming because it will recur: a contract that
+distinguishes unmeasured from zero only helps if every renderer honours the
+distinction, and `formatMoney(0)` does not.
+
 ## Reopened refusals
 
 ADR-0042 refused three things *for lack of data*, and AGENTS.md requires

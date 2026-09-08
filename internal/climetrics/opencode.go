@@ -69,7 +69,7 @@ func opencodeCoverage(m OpenCodeMeter, b Billing) CoverageRow {
 			SigErrors: StateReported, SigImpact: StateReported,
 			SigTiming: StateNotReported, SigLimits: StateNotReported,
 		},
-		Note: "Tool calls live in OpenCode's part rows, which this window does not read; it records no request duration or quota window.",
+		Note: "Tool calls live in its part rows, which this window does not read; it records no request duration or quota window.",
 	}
 }
 

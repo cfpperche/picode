@@ -1,6 +1,6 @@
 # Dashboard — the cross-CLI generation
 
-> **Status: direction approved by the owner (2026-09-07). Phases 1-2 built.**
+> **Status: direction approved by the owner (2026-09-07). Phases 1-4 built.**
 > The owner chose one combined spend total (not two columns), Codex's quota
 > window in place of a price, all four new metric families, and "ingest
 > everything, filter in the view".
@@ -317,8 +317,8 @@ Each ends green and shippable on its own.
 |---|---|---|
 | **1** | `internal/climetrics` contract + coverage; pi and claude-code adapters; §4.5 fidelity fixes. New payload fields present, UI untouched. | `/api/sessions/stats` returns `byCli` + `coverage` for two CLIs; privacy test extended; `make ci-scoped` green. |
 | **2** | codex, opencode, hermes, grok adapters + the incremental cache. | **Done.** Warm poll: 31 ms (today) / 46 ms (7d) / 112 ms (all), against 2.37 s before the cache. Cold: 1.78 / 3.76 / 4.76 s — the 3 s target for cold `all` was **missed and accepted**; it is a once-per-process cost behind a skeleton. Fingerprint 14 ms. |
-| **3** | UI cross-CLI: BY CLI card, billing badges, scope control, COVERAGE panel, CLI marks, TopSessions routing fix. | Every v2 card reads cross-CLI; no surface renders a silent zero; desktop **and** mobile exercised. |
-| **4** | IMPACT, TIME, LIMITS, EFFICIENCY panels. | Four panels render real numbers with honest `—` where a CLI is silent. |
+| **3** | UI cross-CLI: BY CLI card, billing badges, scope control, COVERAGE panel, CLI marks. | **Done.** Desktop and mobile exercised on a scratch instance against the real stores. Seven rendering lies found and fixed (see ADR §"What the surface had to be taught"). TopSessions carries a CLI mark rather than routing per CLI: `#/clis/sessions/<wsId>` is ADR-0079's shape and widening it is that ADR's call. |
+| **4** | IMPACT, TIME, LIMITS, EFFICIENCY panels. | **Done.** Code impact (+10,724/−998), Agent time (17h waiting, 9h tools, 144h sessions open — labelled agent time, not elapsed), Limits (Codex weekly at 81%, resets in 6d), Efficiency (91% cache hit, cost per turn/line). |
 | **5** | Close: ADR + benchmark study + screenshots + CHANGELOG + handoff note. | `make close` green on the branch. |
 
 ---

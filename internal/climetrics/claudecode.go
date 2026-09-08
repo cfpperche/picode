@@ -109,7 +109,7 @@ func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced int) CoverageRow 
 	case unpriced > 0:
 		cost = StatePartial
 		note = "Priced from " + itoa(priced) + " of " + itoa(priced+unpriced) +
-			" sessions — Claude Code writes cost only on a session snapshot, and a live session has none."
+			" sessions — cost is written only on a session snapshot, and a live session has none."
 	}
 	return CoverageRow{
 		CLI:     m.CLI(),

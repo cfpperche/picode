@@ -105,7 +105,7 @@ func codexCoverage(m CodexMeter, b Billing, sawLimits bool) CoverageRow {
 			SigTiming:   StateNotReported,
 			SigLimits:   limits,
 		},
-		Note: "Codex never prices a token, so it is not counted in spend — its quota windows stand in for cost. It records no per-turn error state or edit counts.",
+		Note: "Never prices a token, so it is not counted in spend — its quota windows stand in for cost instead. It records no per-turn error state or edit counts.",
 	}
 }
 

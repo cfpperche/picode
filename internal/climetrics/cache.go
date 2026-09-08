@@ -144,10 +144,14 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 	if p == nil {
 		return false
 	}
+	// inWindow must respect the scope as well as the window. Counting by
+	// time alone let a file the scope excluded still contribute its lines
+	// and durations: on a picode-scoped window with no matching sessions
+	// the impact panel still read "+10,724 lines".
 	var inWindow int64
 	for i := range p.ents {
 		e := &p.ents[i]
-		if inCurrentWindow(req, e.at) {
+		if inCurrentWindow(req, e.at) && req.InScope(e.cwd) {
 			inWindow += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
 		}
 		before := acc.current.Messages

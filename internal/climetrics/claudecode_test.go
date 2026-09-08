@@ -370,3 +370,33 @@ func TestClaudeCodeStaysOutOfTheCredentialRoster(t *testing.T) {
 		t.Fatalf("cost = %v, want 25.00", w.Stats.Current.Cost)
 	}
 }
+
+// TestClaudeCodeScopeAlsoGatesImpact pins a bug the scope toggle found in
+// the browser: proration counted a file's in-*window* tokens without asking
+// whether the scope wanted that folder, so a picode-scoped window with no
+// matching sessions still reported "+10,724 lines".
+func TestClaudeCodeScopeAlsoGatesImpact(t *testing.T) {
+	root := withClaudeRoot(t)
+	writeTranscript(t, root, "-elsewhere", "s1.jsonl", []map[string]any{
+		{"type": "assistant", "timestamp": day(1), "cwd": "/elsewhere",
+			"message": map[string]any{"role": "assistant", "model": "opus",
+				"usage": map[string]any{"input_tokens": 1000}}},
+		costState("opus", 1000, 0, 0, 5.00, 900, 40, 1000, 500, 2000),
+	})
+
+	r := req(ScopePiCode, 7)
+	r.Claimed = []string{"/repo"} // nothing here claims /elsewhere
+	w, err := ClaudeCodeMeter{}.Meter(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Impact != nil {
+		t.Fatalf("impact = %+v, want none: the scope excluded the only session", w.Impact)
+	}
+	if w.Timing != nil {
+		t.Fatalf("timing = %+v, want none", w.Timing)
+	}
+	if w.Stats.Current.Cost != 0 {
+		t.Fatalf("cost = %v, want 0", w.Stats.Current.Cost)
+	}
+}

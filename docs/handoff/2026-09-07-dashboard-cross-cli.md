@@ -33,10 +33,27 @@ three tests wrote fixtures into the developer's real `~/.pi/agent/sessions`,
 leaving 535 of 593 session directories behind. Those 535 are still on this
 machine — cleanup is the owner's call, not a code change.
 
-Debt: the UI still renders the v1 cards, so `byCli`, `coverage`, `impact`,
-`timing` and `limits` ship in the payload unread (plan phases 3–4). Billing
-mode is `unknown` for every CLI but Hermes until the operator setting lands.
+Shipped (surface): a **By CLI** card with billing badges, a **This machine /
+PiCode** scope control beside the range, a **What each CLI reports** matrix,
+CLI marks on the model/tool/session rows, and four new panels — Code impact,
+Agent time, Limits, Efficiency.
 
-Next: `docs/plans/dashboard-cross-cli.md` phase 3 (BY CLI card, billing badges,
-scope control, COVERAGE panel, CLI marks, TopSessions routing fix).
+The visual pass earned its keep: seven rendering lies survived a correct
+payload, every one of them a `$0.00` or an empty state saying the wrong
+thing. The worst was a day whose 260 messages were all live Claude Code
+sessions — no snapshot written yet, so the true cost was *unknown* and both
+desktop and mobile printed `$0.00`. They now read `—` with the reason. The
+scope toggle also exposed a real proration bug: impact counted a file's
+in-window tokens without asking whether the scope wanted that folder, so a
+picode-scoped window with no matching sessions still reported "+10,724
+lines". Fixed with a regression test. Full list in ADR-0097.
+
+Debt: billing mode is `api` for Pi (a fact — PiCode holds its credentials)
+and whatever Hermes states for itself; every other CLI stays `unknown` until
+an operator setting lands, so those rows carry no badge. Top Sessions marks
+its CLI rather than routing to that CLI's list: `#/clis/sessions/<wsId>` is
+ADR-0079's shape and widening it belongs to that ADR.
+
+Next: the operator-set billing mode (ADR-0097 §4.4), and the intercept-hook
+turn/duration source in ADR-0097's alternatives, which needs its own ADR.
 Merge: `git merge --ff-only feat/dashboard-cross-cli && make ci` from main.

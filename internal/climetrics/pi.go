@@ -71,7 +71,7 @@ func (m PiMeter) Meter(req Request) (Window, error) {
 		}
 	}
 
-	billing := req.BillingFor(m.CLI())
+	billing := m.billing(req)
 	st := acc.result()
 	// pi is the one CLI whose credentials PiCode holds, so it is the one
 	// that belongs in the Providers view's per-key spend.
@@ -81,6 +81,19 @@ func (m PiMeter) Meter(req Request) (Window, error) {
 		Stats:    st,
 		Coverage: piCoverage(m, billing),
 	}, nil
+}
+
+// billing is api unless the operator says otherwise, and that is a fact
+// rather than a default: pi runs on the credentials PiCode itself holds
+// (the same roster ByProvider feeds) and its cost comes from a metered
+// per-message usage.cost. Guest CLIs stay unknown until they state their
+// own mode or the operator sets one — a badge PiCode cannot back is worse
+// than no badge.
+func (m PiMeter) billing(req Request) Billing {
+	if b, ok := req.Billing[m.CLI()]; ok && b != "" {
+		return b
+	}
+	return BillingAPI
 }
 
 // piParse adapts session.ParseFile to the shared cache shape.
@@ -141,7 +154,7 @@ func piCoverage(m PiMeter, b Billing) CoverageRow {
 			SigTiming:   StateNotReported,
 			SigLimits:   StateNotReported,
 		},
-		Note: "pi records no edit counts, request durations or quota windows.",
+		Note: "Records no edit counts, request durations or quota windows.",
 	}
 }
 

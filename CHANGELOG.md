@@ -29,6 +29,21 @@ to the `[Unreleased]` section. The repository's official language is English
   46 ms rather than the 2.4 s a full re-read would. A new
   `?scope=machine|picode` narrows the window to folders a PiCode workspace
   claims; the default counts everything, as before. (ADR-0097)
+- **The dashboard shows which CLI the money went to.** A **By CLI** card
+  ranks spend per agent CLI with a billing badge (`api` / `sub`), and four
+  new panels read what the guest CLIs record and Pi never did: **Code
+  impact** (lines added/removed, cost per line), **Agent time** (waiting on
+  models vs. running tools — agent time, not elapsed, since sessions run at
+  once), **Limits** (a quota window's headroom and reset), and
+  **Efficiency** (cache hit, cost per turn). A **What each CLI reports**
+  matrix shows the blind spots as data. A **This machine / PiCode** control
+  narrows the window to claimed workspaces.
+- **The dashboard never prints `$0.00` for spend it could not measure.** A
+  day whose sessions are all still running has no price on disk yet; it now
+  reads `—` with "not priced by any CLI that ran" instead of a zero that
+  looked like "free". Sub-cent spend reads `<$0.01`, a plan-covered CLI
+  reads "not priced", and a period with no activity says so instead of
+  ranking six CLIs at zero.
 - **Spend now lands on the day it was earned.** A compaction marker is
   counted on its own timestamp instead of the session file's modification
   time, so a long-running session no longer dumps its whole compaction

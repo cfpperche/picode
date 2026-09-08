@@ -35,6 +35,7 @@ type hermesSession struct {
 	cwd, model, title string
 	billing           Billing
 	cost              float64
+	included          bool // Hermes marked it covered by a plan, not costed
 	toks              session.TokenTotals
 }
 
@@ -66,22 +67,43 @@ func (m HermesMeter) Meter(req Request) (Window, error) {
 	if stated != "" {
 		billing = stated
 	}
+	// Hermes distinguishes "this cost nothing" from "this is not costed": a
+	// plan-covered session carries cost_status "included" and a zero. Read
+	// as a price, that zero would tell the operator Hermes was free.
+	costed, included := 0, 0
+	for _, s := range sessions {
+		if s.included {
+			included++
+		} else {
+			costed++
+		}
+	}
 	return Window{
 		CLI:      m.CLI(),
 		Stats:    acc.result(),
-		Coverage: hermesCoverage(m, billing, stated != ""),
+		Coverage: hermesCoverage(m, billing, stated != "", costed, included),
 	}, nil
 }
 
-func hermesCoverage(m HermesMeter, b Billing, stated bool) CoverageRow {
+func hermesCoverage(m HermesMeter, b Billing, stated bool, costed, included int) CoverageRow {
 	note := "Totals are per session; cost and tokens are spread over that session's messages by token share."
 	if stated {
-		note += " Billing mode comes from Hermes' own record, not the operator's setting."
+		note += " Billing mode comes from its own record, not the operator's setting."
+	}
+	cost := StateReported
+	switch {
+	case included > 0 && costed == 0:
+		cost = StateNotReported
+		note = "Marks every session in this window plan-included and prices none of them, so its spend is unmeasured rather than zero. " + note
+	case included > 0:
+		cost = StatePartial
+		note = "Priced from " + itoa(costed) + " of " + itoa(costed+included) +
+			" sessions — Hermes marks the rest plan-included and does not price them. " + note
 	}
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: map[Signal]State{
-			SigCost: StateReported, SigTokens: StateReported, SigModel: StateReported,
+			SigCost: cost, SigTokens: StateReported, SigModel: StateReported,
 			SigMessages: StateReported, SigTurns: StateReported, SigTools: StateReported,
 			SigErrors: StateReported, SigImpact: StateNotReported,
 			SigTiming: StateNotReported, SigLimits: StateNotReported,
@@ -129,8 +151,9 @@ func hermesSessions(db *sql.DB, req Request) (map[string]*hermesSession, error) 
 		}
 		out[row["id"]] = &hermesSession{
 			cwd: row["cwd"], model: row["model"], title: row["title"],
-			billing: hermesBilling(row["billing_mode"]),
-			cost:    cost,
+			billing:  hermesBilling(row["billing_mode"]),
+			cost:     cost,
+			included: cost == 0 && strings.EqualFold(strings.TrimSpace(row["cost_status"]), "included"),
 			toks: session.TokenTotals{
 				Input:      atoi64(row["input_tokens"]),
 				Output:     atoi64(row["output_tokens"]),
@@ -143,14 +166,19 @@ func hermesSessions(db *sql.DB, req Request) (map[string]*hermesSession, error) 
 	return out, rows.Err()
 }
 
-// hermesBilling maps Hermes' own vocabulary onto ours. An unrecognised word
-// yields "" so the operator's setting stands, rather than a wrong guess.
+// hermesBilling maps Hermes' own vocabulary onto ours. It matches on a
+// prefix because the real values are compound — this machine writes
+// "subscription_included", not "subscription". An unrecognised word yields
+// "" so the operator's setting stands, rather than a wrong guess.
 func hermesBilling(mode string) Billing {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "api", "api_key", "metered", "usage":
-		return BillingAPI
-	case "subscription", "plan", "included":
+	m := strings.ToLower(strings.TrimSpace(mode))
+	switch {
+	case m == "":
+		return ""
+	case strings.HasPrefix(m, "subscription"), strings.HasPrefix(m, "plan"), strings.HasPrefix(m, "included"):
 		return BillingSubscription
+	case strings.HasPrefix(m, "api"), strings.HasPrefix(m, "metered"), strings.HasPrefix(m, "usage"):
+		return BillingAPI
 	default:
 		return ""
 	}

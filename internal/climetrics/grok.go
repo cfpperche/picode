@@ -85,7 +85,7 @@ func grokCoverage(m GrokMeter, b Billing) CoverageRow {
 			SigErrors: StateNotReported, SigImpact: StateNotReported,
 			SigTiming: StateNotReported, SigLimits: StateNotReported,
 		},
-		Note: "Grok records prompt history only — no cost, tokens, model or tool calls reach disk. Prompt counts are real; everything else is unmeasured, not zero.",
+		Note: "Records prompt history only — no cost, tokens, model or tool calls reach disk. Prompt counts are real; everything else is unmeasured, not zero.",
 	}
 }
 
