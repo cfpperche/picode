@@ -477,6 +477,11 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
       ...(elsewhere ? openAgentItems(wt, occupants) : []),
       copyItem("copy-branch", "Copy branch name", ref.name),
       ...branchWriteActions(ref, graph, catalog, { checkedOut: !!wt, isCurrent: !!(wt && wt.self) }),
+      // A clean checkout draws no row of its own — its branch pill is the
+      // only thing on screen that names it — so the pill carries the
+      // worktree's rows too. Removing the worktree is what frees the
+      // branch for deletion, and it has to be reachable from here.
+      ...(elsewhere ? worktreeWriteActions(wt, graph, catalog) : []),
     ],
   };
 }

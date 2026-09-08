@@ -601,3 +601,23 @@ test("every menu's occupants carry their kind, so the ask door can route", () =>
   const menu = graphActions({ kind: "commit", commit: { hash: "z".repeat(40) } }, g, { ...wctx, terminals: [{ id: "t1", name: "Pi" }] });
   assert.deepEqual(menu.occupants.map((o) => [o.id, o.kind]), [["t1", "terminal"], ["a1", "agent"]]);
 });
+
+
+// A clean sibling checkout has no row of its own, so its branch pill is the
+// one place its worktree can be removed from — which is what frees the
+// branch for deletion.
+test("a branch checked out in a sibling worktree offers that worktree's removal", () => {
+  const g = graph();
+  const menu = graphActions({ kind: "ref", ref: g.refs[1] }, g, wctx);
+  const actions = menu.items.filter((i) => i.kind === "action");
+  const remove = actions.find((i) => i.action === "worktree-remove");
+  assert.ok(remove, "no worktree-remove on the pill");
+  assert.equal(remove.name, "x", "the row carries the worktree folder");
+  assert.ok(actions.some((i) => i.action === "worktree-remove-force"));
+  assert.ok(actions.some((i) => i.action === "prune-worktrees"));
+  // The reader's own branch, and an unchecked-out one, carry none of it.
+  for (const ref of [g.refs[0], g.refs[2]]) {
+    const own = graphActions({ kind: "ref", ref }, g, wctx).items.filter((i) => i.kind === "action").map((i) => i.action);
+    assert.ok(!own.includes("worktree-remove"), `${ref.name} must not offer a removal`);
+  }
+});

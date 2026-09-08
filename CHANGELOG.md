@@ -102,6 +102,10 @@ to the `[Unreleased]` section. The repository's official language is English
   longer describes a bar that stands under the pane on desktop; it opens
   from the menu now.
   [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
+- **A clean sibling worktree can be removed from its branch pill.** A checkout
+  with nothing uncommitted draws no row of its own, so the graph had no place
+  to offer *Remove this worktree* for it; the branch pill of a branch checked
+  out elsewhere now carries the worktree's rows.
 - **"Ask Pi" reaches pi running as a terminal.** A pi launched from Agent
   CLIs now carries the same receiver an interactive agent does, so the git
   graph lists it beside the agents of its worktree, offers **Open Pi** into
