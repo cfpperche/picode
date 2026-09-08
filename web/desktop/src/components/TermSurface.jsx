@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ShellTerm from "./ShellTerm.jsx";
 import TermAttachBar from "./TermAttachBar.jsx";
+import TermFindBar from "./TermFindBar.jsx";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { terms } from "../lib/terms.js";
@@ -8,7 +9,7 @@ import { api } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, attach, onAttachClose }) {
+export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, attach, onAttachClose, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   // The message bar takes height from the pane; tmux hears about it in the
@@ -61,6 +62,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, 
         <>
           <div className="term-body">
             <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+            {find ? <TermFindBar termId={term.id} onClose={onFindClose} /> : null}
           </div>
           {term.launchCli && term.running && attach ? (
             <TermAttachBar term={term} seed={attach} onClose={onAttachClose} />

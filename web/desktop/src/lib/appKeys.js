@@ -7,6 +7,12 @@ export const CATALOG = [
   { id: "app.palette.toggle", group: "Global", label: "Command palette", defaults: ["ctrl+k", "super+k"] },
   { id: "app.terminal.new", group: "Global", label: "New terminal", defaults: ["ctrl+`", "super+`"] },
   { id: "app.inspector.toggle", group: "Global", label: "Toggle inspector", defaults: ["ctrl+.", "super+."] },
+  // Ctrl+Shift+F, not Ctrl+F: the terminal's own family (Ctrl+Shift+C/V,
+  // termKeys.js) keeps the plain chord for the guest — `less`, `vim` and
+  // readline all use Ctrl+F — and Ctrl+F still opens the browser's find
+  // everywhere outside a pane. Windows Terminal and GNOME Terminal use the
+  // same chord for find.
+  { id: "app.terminal.find", group: "Global", label: "Find in terminal", defaults: ["ctrl+shift+f", "super+shift+f"] },
   // Browsers reserve Ctrl+Tab, Ctrl+PgUp/PgDn and Ctrl+W, so tabs cycle on
   // Alt+bracket (docs/benchmarks/2026-09-06-tab-strip-overflow.md, owner
   // decision 2026-09-06).

@@ -140,6 +140,10 @@ export function xtermOptions() {
     theme: xtermTheme(p.theme),
     scrollback: p.scrollback,
     rightClickSelectsWord: true,
+    // @xterm/addon-search paints its match decorations through xterm's
+    // proposed decoration API and throws without this. Nothing else here
+    // uses a proposed API, and the flag changes no behaviour on its own.
+    allowProposedApi: true,
     // FitAddon reserves 14px for an overview ruler we never render (no
     // decorations use it) — shrink it so the right edge isn't a dead gutter.
     overviewRuler: { width: 1 },

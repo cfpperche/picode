@@ -2,6 +2,7 @@ import { createSticky } from "@picode/shared/domain/termSticky.js";
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
 import { terms, parkTerm, closeTerm } from "../lib/terms.js";
 import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
 import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
@@ -87,8 +88,12 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     const term = new Terminal(xtermOptions());
     const fit = new FitAddon();
     term.loadAddon(fit);
+    // Find lives on the instance, not on the bar: the query and its
+    // decorations survive closing and reopening the find field.
+    const search = new SearchAddon();
+    term.loadAddon(search);
     term.open(paneEl);
-    const entry = { term, fit, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
+    const entry = { term, fit, search, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
     const sendBytes = (bytes) => {
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };

@@ -13,6 +13,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Find inside a terminal** (`Ctrl+Shift+F`, or **Find…** in the pane's
+  right-click menu): a field floats over the terminal — searching never
+  resizes the pane — highlights every match, counts them (`3/14`), and walks
+  them with Enter and Shift+Enter; Escape closes it and gives the keyboard
+  back to the terminal. The plain `Ctrl+F` still belongs to whatever runs in
+  the pane (`less`, `vim`, readline), and the chord is rebindable in
+  Settings → Shortcuts.
+
 - **Right-click inside a terminal now opens PiCode's own menu**, built from
   what that pane can actually do: copy, paste and select all; on a running
   Agent CLI, **Ask <CLI> about this** and **Attach files…**; **Open** for the

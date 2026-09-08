@@ -32,6 +32,14 @@ test("the prompt door only exists while the CLI runs", () => {
   assert.equal(stopped.includes("attach"), false);
 });
 
+test("find is offered on every pane, with the chord the app really answers", () => {
+  for (const ctx of [{ kind: "term" }, { kind: "term", cli: "Pi", running: true }, { kind: "agent" }]) {
+    assert.ok(ids(buildTermMenu(ctx)).includes("find"), JSON.stringify(ctx));
+  }
+  assert.equal(row(buildTermMenu({ kind: "term" }), "find").key, "Ctrl+Shift+F");
+  assert.equal(row(buildTermMenu({ kind: "term", findKey: "Alt+F" }), "find").key, "Alt+F");
+});
+
 test("only a bare shell prompt gets clear", () => {
   assert.ok(ids(buildTermMenu({ kind: "term", shell: true })).includes("clear"));
   // A launched CLI, a TUI someone started by hand, and an agent's own TUI

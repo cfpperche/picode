@@ -9,6 +9,7 @@ import {
   CircleCheck,
   Code,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -59,6 +60,7 @@ import {
   QrCode,
   Quote,
   RotateCw,
+  Search,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -85,6 +87,7 @@ function lucide(Icon, fallback) {
 export const IconQR = lucide(QrCode, 15);
 export const IconUser = lucide(User, 13);
 export const IconChevronUp = lucide(ChevronUp, 14);
+export const IconChevronDown = lucide(ChevronDown, 14);
 export const IconSun = lucide(Sun, 13);
 export const IconMonitor = lucide(Monitor, 13);
 export const IconPhone = lucide(Smartphone, 13);
@@ -152,6 +155,7 @@ export const IconSelectAll = lucide(TextSelect, 13);
 export const IconScrollEnd = lucide(ArrowDownToLine, 13);
 export const IconTextSize = lucide(Type, 13);
 export const IconClear = lucide(Eraser, 13);
+export const IconSearch = lucide(Search, 13);
 export const IconBold = lucide(Bold, 14);
 export const IconItalic = lucide(Italic, 14);
 export const IconHeading = lucide(Heading2, 14);

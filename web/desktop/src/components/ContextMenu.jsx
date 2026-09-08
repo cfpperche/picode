@@ -4,11 +4,12 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
   IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
-  IconSettings, IconSun, IconTextSize, IconTrash, IconX,
+  IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
 import { buildTermMenu } from "../lib/termMenu.js";
 import { runTermCommand, focusPane } from "../lib/termActions.js";
+import { formatChord, primaryChord } from "../lib/appKeys.js";
 import { toast } from "../lib/toast.js";
 
 const THEME_ORDER = ["light", "system", "dark"];
@@ -17,7 +18,7 @@ const THEME_ICON = { light: IconSun, system: IconMonitor, dark: IconMoon };
 const TERM_ICONS = {
   copy: IconCopy, paste: IconPaste, select: IconSelectAll, ask: IconChat, clip: IconClip,
   file: IconFile, external: IconExternal, end: IconScrollEnd, text: IconTextSize,
-  clear: IconClear, pencil: IconPencil, settings: IconSettings, folders: IconFolders,
+  clear: IconClear, search: IconSearch, pencil: IconPencil, settings: IconSettings, folders: IconFolders,
   x: IconX, trash: IconTrash,
 };
 
@@ -87,7 +88,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
         >
           <Tooltip.Provider delayDuration={300}>
             {term ? (
-              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link })
+              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")) })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
                   : <TermRow key={row.id} row={row} onRun={runTerm} />))

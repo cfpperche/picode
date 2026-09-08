@@ -60,12 +60,31 @@ browser. That press is also where the selection is read: a guest with mouse
 reporting on (every agent TUI) makes xterm drop it before any
 `contextmenu` listener runs.
 
+## Phase 2 — Find in the pane (shipped 2026-09-07)
+
+`@xterm/addon-search@0.16.0`, the release published in the same minute as the
+`@xterm/xterm@6.0.0` and `addon-fit@0.11.0` we already run (0.17 betas want
+xterm 6.1). It is the only search that reads xterm's own buffer; a home-made
+one would re-implement wrapped-line reconstruction and highlighting.
+
+The field **floats over the pane** rather than joining the layout: a search
+must not resize the terminal, which would send tmux a SIGWINCH and make the
+guest TUI redraw for nothing. Highlights are VS Code's terminal find colours,
+painted through xterm's decoration API — proposed API, so `xtermOptions()`
+now sets `allowProposedApi`.
+
+The chord is **Ctrl+Shift+F**, not VS Code's Ctrl+F: this terminal's own
+family already reserves the shifted forms (Ctrl+Shift+C/V, termKeys.js) so
+the plain chord stays with the guest — `less`, `vim` and readline all use
+Ctrl+F — and Ctrl+F still opens the browser's find everywhere outside a pane.
+Windows Terminal and GNOME Terminal use the same chord. It is rebindable
+(Settings → Shortcuts), which is VS Code's own escape hatch in reverse.
+
 ## Refuse
 
 | Temptation | Why not |
 |---|---|
 | Split pane | We have no panes; the tab is the unit (tab strip, ADR-0030) |
 | "Copy last output" | Needs shell integration to know where a command started; a guess would be a lie |
-| Find in the pane | Wants `@xterm/addon-search` — a dependency and a search overlay. Phase 2, priced separately |
 | `tmux clear-history` | A server route for a courtesy; Ctrl-L is what the user would type |
 | Reset terminal | The tmux pane owns the screen; a local reset only desynchronises the view |

@@ -19,6 +19,7 @@ const SEP = { sep: true };
 // that shows none.
 export const TERM_MENU_KEYS = {
   copy: "Ctrl+Shift+C",
+  find: "Ctrl+Shift+F",
   paste: "Ctrl+Shift+V",
   "text-bigger": "Ctrl+=",
   "text-smaller": "Ctrl+-",
@@ -35,6 +36,8 @@ export const TERM_MENU_KEYS = {
 //   running    the CLI is up — the door only exists then
 //   shell      the pane is a bare shell prompt: no CLI launch, no TUI seen
 //   link       { kind: "file" | "http", label } under the cursor, or null
+//   findKey    the chord Find really answers to, when the caller read the
+//              user's own bindings; the default stands in otherwise
 export function buildTermMenu(ctx = {}) {
   const selection = (ctx.selection || "").trim();
   const cli = ctx.cli || "";
@@ -59,6 +62,7 @@ export function buildTermMenu(ctx = {}) {
   if (send.length) rows.push(SEP, ...send);
 
   const view = [
+    { id: "find", label: "Find…", icon: "search", key: ctx.findKey || TERM_MENU_KEYS.find },
     { id: "scroll-end", label: "Go to the end", icon: "end" },
     {
       id: "text-size",

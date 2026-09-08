@@ -37,7 +37,7 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
-import { paneAt, paneSelection, paneLink } from "./lib/termActions.js";
+import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
@@ -227,6 +227,7 @@ export default function App() {
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
   const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
+  const [termFind, setTermFind] = useState(""); // the pane whose find field is open (one at a time)
   // Apps host (ADR-0036): manifests + badges from GET /api/apps.
   const [apps, setApps] = useState([]);
   const [appsLoaded, setAppsLoaded] = useState(false);
@@ -371,6 +372,20 @@ export default function App() {
       if (matchAction("app.inspector.toggle", e)) {
         e.preventDefault();
         toggleInspector();
+      }
+      // Find is the pane's, not the app's: with the caret anywhere else the
+      // chord is left alone, and the browser's own find still works there.
+      if (matchAction("app.terminal.find", e)) {
+        const pane = paneAt(document.activeElement);
+        const field = document.querySelector(".term-find-input");
+        if (pane) {
+          e.preventDefault();
+          setTermFind(pane.id);
+          if (field) field.select();
+        } else if (field && field.contains && document.activeElement === field) {
+          e.preventDefault();
+          field.select();
+        }
       }
     };
     document.addEventListener("keydown", onKey);
@@ -1671,6 +1686,7 @@ export default function App() {
   const termMenuHandlers = {
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
+    find: (ctx) => setTermFind(ctx.id),
     "open-link": (ctx) => {
       if (!ctx.link) return;
       if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
@@ -2494,6 +2510,8 @@ export default function App() {
                 onOpenFile={(p) => openFileTab("term", tid, p)}
                 attach={termAttach && termAttach.id === tid ? termAttach : null}
                 onAttachClose={() => setTermAttach(null)}
+                find={termFind === tid}
+                onFindClose={() => { setTermFind(""); focusPane(tid); }}
               />
             );
           })}
@@ -2764,6 +2782,8 @@ export default function App() {
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+                  find={termFind === agent.id}
+                  onFindClose={() => { setTermFind(""); focusPane(agent.id); }}
                 />
               </>
             ) : (
