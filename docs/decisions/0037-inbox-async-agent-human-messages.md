@@ -187,3 +187,40 @@ research (claude-squad's experimental autoyes + per-CLI content
 sniffing; herdr's bottom-buffer detection) shows the pattern is
 workable but fragile, and PiCode owns a real channel the multiplexers
 lack.
+
+## Amendment — 2026-09-09: the terminal identity (the silent swallow)
+
+Found live: `ask_human` filed from pi running as an Agent CLI terminal
+carried `sourceKind: "system", sourceId: "pi (unmanaged)"` — the reply
+path only delivers to agent-sourced items, so a reply marked the item
+done, toasted "Reply sent", and delivered nothing. The reply was
+swallowed in silence, the exact failure this ADR's consequences line
+promises never to produce.
+
+The fix keeps one principle — a reply must reach the conversation that
+asked, or fail visibly:
+
+1. **Terminal identity on items.** pi-inbox stamps
+   `sourceKind: "terminal", sourceId: <PICODE_TERM_ID>` when neither an
+   agent id nor nothing else applies; the unaddressed raw pi stays
+   `system`.
+2. **The reply rides the ADR-0089 ask door in reverse.**
+   `DeliverTerminalReply` (internal/server) preflights the terminal (is
+   pi, live, receiver fresh, the item's exact session still the one
+   shown — ADR-0059's rule), then hands the reply to the receiver with
+   the JSONL row as proof. ADR-0060's contract is unchanged: park done
+   on send, reopen with the response preserved on every failure.
+3. **No task row.** The task queue belongs to agents (ADR-0089), so
+   reopen goes through `store.ReopenInboxItem`. A daemon death between
+   park and the JSONL row is the same accepted gap the terminal ask
+   already carries: the receiver may still consume the file across a
+   restart; if it does not, the item stays done with an unproven reply.
+4. **The visible-failure rule is now enforced, not aspirational.**
+   `RespondAndForward` refuses (`ErrNoReplyChannel`) any blocking
+   question it cannot forward — replying to a channelless source can no
+   longer close an item while nothing was sent.
+
+Deploying the fix has two halves: the Go binary delivers nothing for
+items filed as `system` (they are answered by hand, honestly refused by
+the UI), and the updated pi-inbox package (0.2.0) must reach each pi
+install before new questions carry the terminal identity.

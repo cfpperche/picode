@@ -33,10 +33,29 @@ about.
 
 | | What you get |
 |---|---|
-| **Pi TUI** (terminal, inside PiCode's machine) | Both tools file into the Inbox; items carry the agent's name |
+| **Pi TUI** (terminal, inside PiCode's machine) | Both tools file into the Inbox; items carry the agent's name — or, for pi launched as a PiCode Agent CLI terminal, the terminal's identity so the Inbox reply reaches that terminal (see below) |
 | **PiCode chat agents** | The same tools on every managed agent |
 | **A `pi` elsewhere** (no reachable PiCode) | The tools return a soft explanatory result; nothing breaks |
 | **PiCode core** | The Inbox app itself — the package only POSTs into it |
+
+## Replying to a question from a terminal pi (since 0.2.0)
+
+A `pi` launched as an Agent CLI terminal stamps its questions with the
+terminal's identity (`sourceKind: "terminal"`). Replying in the Inbox
+delivers the answer through that terminal's receiver straight into the
+session that asked — the same door PiCode's own "Ask" uses, reversed.
+The item only closes when the terminal takes the answer; if the terminal
+moved on, restarted, or never processed it, the item reopens with your
+reply kept for a retry.
+
+Items filed by pi-inbox **0.1.x** from a terminal carry no terminal
+identity (`pi (unmanaged)`); PiCode refuses to answer those silently and
+tells you to reply in the terminal. Update the package to get the
+delivery:
+
+```sh
+pi install -l /path/to/picode/packages/pi-inbox
+```
 
 ## How it reaches PiCode
 

@@ -182,6 +182,12 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.AnnotateInboxItem(it.ID, "n")
 		}, []string{"inbox.updated"}},
+		{"ReopenInboxItem", func(s *Store) {
+			it, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromTerminal, Reason: "r", Title: "t", Body: "b"})
+			_, _ = s.RespondInboxItem(it.ID, VerbRespond, "yes")
+			s.OnEvent = recorder(s)
+			_, _ = s.ReopenInboxItem(it.ID, "not delivered")
+		}, []string{"inbox.updated"}},
 		{"FileAgentResult supersede", func(s *Store) {
 			_, _ = s.FileAgentResult("ag", "", "t", "b", "r")
 			s.OnEvent = recorder(s)
