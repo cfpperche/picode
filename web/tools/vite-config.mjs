@@ -19,12 +19,32 @@ function applicationBoundary(application) {
   };
 }
 
+// Brand files (favicon, Apple touch icon, PWA manifest) are site-root files
+// served by the launcher build — ADR-0072 keeps the root PWA files. Vite
+// prefixes the application base to root-absolute hrefs in index.html, so
+// undo exactly that for these links after the built-in rewrite, or the
+// browser tab loses its icon and the manifest 404s.
+function rootBrandLinks(application) {
+  const rootBrandFiles = ["manifest.json", "favicon.svg", "apple-touch-icon.png"];
+  const rootBrand = new RegExp(
+    `(href="/)${application}/(${rootBrandFiles.join("|")})"`,
+    "g",
+  );
+  return {
+    name: `picode-root-brand-links-${application}`,
+    transformIndexHtml: {
+      order: "post",
+      handler: (html) => html.replace(rootBrand, '$1$2"'),
+    },
+  };
+}
+
 export function applicationConfig(application, port) {
   return defineConfig({
     root: fileURLToPath(new URL(`../${application}/`, import.meta.url)),
     base: `/${application}/`,
     publicDir: fileURLToPath(new URL("../public/", import.meta.url)),
-    plugins: [react(), tailwindcss(), applicationBoundary(application)],
+    plugins: [react(), tailwindcss(), applicationBoundary(application), rootBrandLinks(application)],
     build: {
       outDir: `../../internal/web/public/${application}`,
       emptyOutDir: true,

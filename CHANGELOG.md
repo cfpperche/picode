@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Browser-tab icon is back on `/desktop/` and `/mobile/`.** Since the
+  desktop/mobile split (2026-09-05) the app pages linked the favicon, Apple
+  touch icon and PWA manifest under the application path (`/desktop/favicon.svg`),
+  where nothing is served — tabs fell back to the browser's placeholder icon
+  and the manifest 404'd. The three brand links now keep pointing at the
+  site-root files (as ADR-0072 intends), and the build enforces it.
+
 ### Added
 
 - **Find inside a terminal** (`Ctrl+Shift+F`, or **Find…** in the pane's
